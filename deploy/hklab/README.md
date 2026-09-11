@@ -168,6 +168,22 @@ docker compose -f ~/airates-app/deploy/hklab/compose.yml restart collector
 docker exec timescaledb_container sh -c 'psql -U "$POSTGRES_USER" -d vaultdeck -c "\dt+"'
 ```
 
+## Public site (Cloudflare Worker)
+
+The Worker `airates` (https://airates.jobhesk.workers.dev) deploys from `main` through Workers Builds.
+
+- **How it reads data:** through Hyperdrive config `airates-vaultdeck`, binding `HYPERDRIVE` in `wrangler.jsonc`.
+- **What it reads:** only the read models the collector maintains: `market_latest`, `market_funding_stats` and `screener_pairs()`.
+- **If the collector stops:** markets go stale after five minutes. Pages then show empty states, and `/v1/health` returns 503.
+
+Run it locally against the real database through the SSH tunnel:
+
+```sh
+ssh -f -N -L 55437:127.0.0.1:5437 -p $AIRATES_DEPLOY_SSH_PORT $AIRATES_DEPLOY_USER@$AIRATES_DEPLOY_HOST
+set -a && . ./.env.test.local && set +a
+CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$DATABASE_URL" npx wrangler dev
+```
+
 ## Integration tests
 
 `apps/collector/src/store.int.test.ts` runs in its own schema, `airates_it`, inside `vaultdeck`, through an SSH tunnel:

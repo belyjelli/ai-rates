@@ -169,6 +169,26 @@ ai-rates/
 > - **Background jobs (fixed 2026-09-12):** the shared instance had 16 TimescaleDB workers for 17 databases, so `vaultdeck`'s compression and retention policies had never run. Raised to 24 workers / 48 worker processes (3-second restart); the policies now run successfully. **Phase 1 complete.**
 
 ### Phase 2 — API + screener + exchange/asset index (weeks 3–6)
+> **Status 2026-09-12: live** at https://airates.jobhesk.workers.dev (noindex until launch).
+> - **As built:**
+>   - The collector maintains `market_latest`, `market_funding_stats` (24h/7d time-weighted settled APR) and `screener_pairs()` in `vaultdeck` (migration 002).
+>   - The Worker reads them through Hyperdrive `airates-vaultdeck` with Postgres.js.
+>   - Pages are server-rendered HTML strings plus a small ticking script, instead of React Router: Workers Free allows 10 ms CPU per request, and the deploy has no build step.
+>   - The edge cache (Cache API) answers repeat requests in ~50 ms; uncached responses take 0.2–1.6 s.
+> - **Shipped:**
+>   - Pages: `/`, `/screener`, `/markets`, `/markets/exchange/:venue`, `/markets/asset/:asset`.
+>   - JSON: `/v1/health`, `/v1/screener`, `/v1/exchanges[/:venue]`, `/v1/assets/:asset`, `/v1/venues`.
+>   - Design: green-bar sheet with the "spread rail" (signed log scale in multi-asset tables).
+>   - Footer with source, not-financial-advice and not-affiliated notices; `robots.txt` disallows all; the probe moved to `/probe`.
+> - **Deferred from this phase:**
+>   - `/trade` referral hub: waits on referral approvals and written data consent.
+>   - SEO work (sitemap, canonicals, per-asset copy): not useful while noindex.
+>   - Rate-limiting binding and Turnstile: add before launch.
+>   - Per-row "source · updated" stamps: currently in the footer only.
+> - **Known data issues to fix next:**
+>   - Extreme funding on distressed coins dominates the top of the list; needs an outlier flag or filter.
+>   - The same ticker isn't always the same asset across venues (TradFi symbols like `CL`, `BZ`, `NG`); needs an asset-identity map.
+>   - Aster reports no open interest, so OI filters drop it; needs rotating per-symbol OI.
 - `/v1/screener`, `/v1/assets/:sym`, `/v1/exchanges/:venue`, `/v1/health`. Cache headers: screener `s-maxage=15, swr=60`, pages `s-maxage=60`, ETags. Rate-limiting binding on the API.
 - Pages: `/screener`, `/markets`, `/markets/exchange/$venue`, `/markets/asset/$sym`, `/trade`. Dark terminal theme, venue logos, long/short chips, "Backtest" CTA.
 - Every row/page shows "Source: {venue} public API · updated {ts}". Disclaimer text ("not financial advice / not affiliated").
