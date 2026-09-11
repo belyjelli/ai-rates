@@ -8,7 +8,16 @@ describe("loadConfig", () => {
       intervalMs: 60_000,
       healthPort: 8080,
       venues: null,
+      alertWebhookUrl: null,
     });
+  });
+
+  test("takes an alert webhook, and insists it is a URL", () => {
+    const url = (ALERT_WEBHOOK_URL: string) =>
+      loadConfig({ DATABASE_URL: "postgres://x", ALERT_WEBHOOK_URL }).alertWebhookUrl;
+    expect(url(" https://hooks.example/abc ")).toBe("https://hooks.example/abc");
+    expect(url("")).toBeNull();
+    expect(() => url("hooks.example/abc")).toThrow("http(s) URL");
   });
 
   test("parses overrides and the venue list", () => {

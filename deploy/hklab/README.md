@@ -145,7 +145,14 @@ SQL
 ```sh
 DATABASE_URL=postgres://$AIRATES_PG_ROLE:<password>@timescaledb_container:5432/vaultdeck
 COLLECT_INTERVAL_MS=60000
+# Optional: Slack- or Discord-style incoming webhook for stale-venue alerts. Without it the
+# collector logs "stale venue alerts disabled" and never posts anywhere.
+ALERT_WEBHOOK_URL=https://hooks.slack.com/services/...
 ```
+
+A venue is stale once it hasn't collected successfully for three intervals. The alerter posts when
+venues newly go stale and again when every venue is healthy, not on every check, so a partial outage
+is a couple of messages rather than one a minute.
 
 ## Deploy
 

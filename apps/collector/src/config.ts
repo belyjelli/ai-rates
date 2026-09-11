@@ -4,6 +4,8 @@ export interface CollectorConfig {
   healthPort: number;
   /** Venue ids to collect; null means every venue with an adapter. */
   venues: string[] | null;
+  /** Slack- or Discord-style incoming webhook for stale-venue alerts; null disables them. */
+  alertWebhookUrl: string | null;
 }
 
 export function loadConfig(env: Record<string, string | undefined>): CollectorConfig {
@@ -17,11 +19,16 @@ export function loadConfig(env: Record<string, string | undefined>): CollectorCo
     .map((v) => v.trim())
     .filter(Boolean);
 
+  const alertWebhookUrl = env.ALERT_WEBHOOK_URL?.trim() || null;
+  if (alertWebhookUrl && !/^https?:\/\//.test(alertWebhookUrl))
+    throw new Error("ALERT_WEBHOOK_URL must be an http(s) URL");
+
   return {
     databaseUrl,
     intervalMs,
     healthPort: int(env.HEALTH_PORT, 8080, "HEALTH_PORT"),
     venues: venues && venues.length > 0 ? venues : null,
+    alertWebhookUrl,
   };
 }
 

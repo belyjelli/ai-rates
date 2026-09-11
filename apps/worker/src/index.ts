@@ -2,7 +2,7 @@ import postgres from "postgres";
 import { handleApp } from "./app/app";
 import { createDataSource } from "./app/data";
 import { ProbeDO } from "./probe/probe-do";
-import { handleProbe, scheduleAllProbes } from "./probe/routes";
+import { handleProbe } from "./probe/routes";
 
 export { ProbeDO };
 
@@ -38,9 +38,5 @@ export default {
       const open = sql as postgres.Sql | null;
       if (open) ctx.waitUntil(open.end());
     }
-  },
-
-  async scheduled(_controller, env): Promise<void> {
-    await scheduleAllProbes(env);
   },
 } satisfies ExportedHandler<Env>;

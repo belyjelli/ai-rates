@@ -7,6 +7,7 @@ import {
 import { migrate } from "@ai-rates/db";
 import { VENUES } from "@ai-rates/venues";
 import { SQL } from "bun";
+import { StaleVenueAlerter, webhookSink } from "./alerts";
 import { loadConfig } from "./config";
 import { CollectorStatus } from "./health";
 import { HistoryLoop } from "./history";
@@ -16,6 +17,7 @@ import { PgStore } from "./store";
 
 const HISTORY_PAUSE_MS = 5 * 60_000;
 const STATS_REFRESH_MS = 10 * 60_000;
+const ALERT_CHECK_MS = 60_000;
 const SHUTDOWN_GRACE_MS = 15_000;
 
 const log = (message: string) => console.log(`${new Date().toISOString()} ${message}`);
@@ -111,6 +113,22 @@ const stats = new PeriodicTask(
 );
 stats.start(3 * config.intervalMs);
 loops.push(stats);
+
+// Venues stop collecting quietly: the site keeps serving the last good rows until they age out.
+if (config.alertWebhookUrl) {
+  const alerter = new StaleVenueAlerter(webhookSink(config.alertWebhookUrl), log);
+  const alerts = new PeriodicTask(
+    "stale venue alerts",
+    ALERT_CHECK_MS,
+    () => alerter.check(status.snapshot(Date.now())),
+    log,
+  );
+  alerts.start(ALERT_CHECK_MS);
+  loops.push(alerts);
+  log("stale venue alerts enabled");
+} else {
+  log("stale venue alerts disabled (set ALERT_WEBHOOK_URL)");
+}
 
 const server = Bun.serve({
   port: config.healthPort,
