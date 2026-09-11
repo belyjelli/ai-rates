@@ -7,8 +7,8 @@ container on the `postgres_postgres` network. It writes to database **`vaultdeck
 Credentials never go in the repo: locally in `plans/access.md` (gitignored), on the server in
 `~/airates-app/deploy/hklab/.env` (mode 600).
 
-> **`$AIRATES_DEPLOY_HOST:$AIRATES_PG_PORT` exposes this Postgres instance without TLS** (`ssl = off`). Don't connect over that port
-> from outside hklab until TLS is enabled (planned for Phase 2, so Cloudflare Hyperdrive can reach it).
+> **`$AIRATES_DEPLOY_HOST:$AIRATES_PG_PORT` exposes this Postgres instance to the internet.** TLS is enabled but not enforced (see
+> [TLS](#tls)), so outside clients must connect with `sslmode=verify-full` and `deploy/hklab/postgres-ca.crt`.
 
 ## Current state (2026-09-12)
 
@@ -73,6 +73,46 @@ SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'vaultdec
 ALTER DATABASE vaultdeck SET TABLESPACE airates_nvme;
 SQL
 docker compose -f ~/airates-app/deploy/hklab/compose.yml start collector
+```
+
+## TLS
+
+Enabled 2026-09-12 so Cloudflare Hyperdrive (Phase 2) can reach the database over `$AIRATES_DEPLOY_HOST:$AIRATES_PG_PORT`.
+
+- **Server:** `ssl = on` via `ALTER SYSTEM` (persisted in `postgresql.auto.conf`), applied with a reload, no restart.
+  Certificate and key are at `/data/postgrestimesc/server.crt` and `server.key` inside `timescaledb_container`.
+- **Server certificate:** SANs `$AIRATES_DEPLOY_HOST`, `timescaledb_container`, `localhost`, `127.0.0.1`. **Expires 2028-12-14.**
+- **Private CA:**
+  - Key and cert live on hklab in `~/.airates-pki/` (mode 700). Never copy `ca.key` off the server.
+  - The public CA certificate is committed as `deploy/hklab/postgres-ca.crt`: SHA-256
+    `70:85:FC:6C:EB:F4:FF:8C:DA:3D:DB:3C:ED:70:B0:9F:DA:22:DF:C4:F3:E6:20:81:9B:06:C5:EB:E8:09:D0:5B`, valid to 2036-09-08.
+  - Uploaded to Cloudflare as `airates-hklab-postgres-ca` (ID `b5d9c603-1b6f-44f8-a6e7-0104680c3959`).
+- **Hyperdrive:** config `airates-vaultdeck`, ID `7c04838b33a6423d8a195fafab6d101f`. It connects to
+  `$AIRATES_DEPLOY_HOST:$AIRATES_PG_PORT/vaultdeck` as `$AIRATES_PG_ROLE` with `sslmode=verify-full` and the CA above, with an origin connection
+  limit of 5. It isn't bound to a Worker yet (Phase 2).
+- **Not enforced yet:**
+  - `pg_hba.conf` still has `host all all all scram-sha-256`, so the other databases' clients keep working
+    unencrypted.
+  - To require TLS for outside connections, replace it with `hostssl all all all scram-sha-256`, keeping a `host`
+    line for the Docker networks the collector uses. Agree it with the owners of the other databases first.
+
+Check from any machine:
+
+```sh
+openssl s_client -starttls postgres -connect $AIRATES_DEPLOY_HOST:$AIRATES_PG_PORT -servername $AIRATES_DEPLOY_HOST \
+  -CAfile deploy/hklab/postgres-ca.crt -verify_hostname $AIRATES_DEPLOY_HOST -verify_return_error </dev/null | grep "Verify return code"
+```
+
+Renew the server certificate before 2028-12-14 (on hklab). The CA stays the same, so Hyperdrive needs no change:
+
+```sh
+cd ~/.airates-pki
+openssl req -new -newkey rsa:2048 -nodes -keyout server.key -out server.csr -subj "/CN=$AIRATES_DEPLOY_HOST"
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 825 -sha256 -extfile server.ext
+docker exec -i timescaledb_container sh -c 'cat > /data/postgrestimesc/server.crt' < server.crt
+docker exec -i timescaledb_container sh -c 'umask 077 && cat > /data/postgrestimesc/server.key' < server.key
+docker exec timescaledb_container sh -c 'chown postgres:postgres /data/postgrestimesc/server.crt /data/postgrestimesc/server.key && chmod 600 /data/postgrestimesc/server.key'
+docker exec timescaledb_container sh -c 'psql -U "$POSTGRES_USER" -d postgres -c "SELECT pg_reload_conf()"'
 ```
 
 ## Server environment

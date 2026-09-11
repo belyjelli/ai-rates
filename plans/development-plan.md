@@ -160,7 +160,11 @@ ai-rates/
 >   - MEXC coin-settled contracts need USD contract sizing.
 >   - dYdX BTC funding is often exactly 0 (within the clamp band).
 > - **Production:** live on hklab since 2026-09-12 (`airates-collector`). The first check showed all 20 venues fresh, 0 failed runs, ~4.2k markets, 70 MB RAM. The same day the collector moved from `airates` to the owner-provided database `vaultdeck`/`$AIRATES_PG_ROLE`, with row counts verified identical.
-> - **Phase 2 access decision:** Cloudflare will reach Postgres directly through Hyperdrive once TLS is enabled on the instance. The public port `$AIRATES_DEPLOY_HOST:$AIRATES_PG_PORT` currently has `ssl = off`, and Hyperdrive requires TLS.
+> - **Phase 2 access (ready 2026-09-12):** Cloudflare reaches Postgres directly through Hyperdrive config `airates-vaultdeck` (ID `7c04838b33a6423d8a195fafab6d101f`).
+>   - TLS was enabled on the instance (reload only).
+>   - A private CA was created and uploaded to Cloudflare.
+>   - Connections use `sslmode=verify-full`, checked from the internet (TLSv1.3).
+>   - Not yet enforced for other clients. Details in `deploy/hklab/README.md`.
 > - **Remaining for Phase 1:** the DB currently sits on the root disk (~12 GB free). Mount the NVMe at `/srv/airates-data`, add its compose volume (both need sudo), then move the DB with `ALTER DATABASE ... SET TABLESPACE`. See the runbook.
 
 ### Phase 2 — API + screener + exchange/asset index (weeks 3–6)
