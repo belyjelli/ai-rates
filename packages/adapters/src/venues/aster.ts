@@ -1,6 +1,6 @@
 import { type FundingEvent, type FundingSnapshot, inferIntervalHours } from "@ai-rates/core";
-import type { HttpClient } from "../http";
-import { marketRef, num } from "../parse";
+import { CircuitOpenError, type HttpClient } from "../http";
+import { marketRef, mul, num, selectRefreshBatch } from "../parse";
 import type { VenueAdapter } from "../types";
 
 // Aster's futures API is Binance-compatible, so the parsing lives in Binance-style helpers that a
@@ -13,6 +13,14 @@ const BASE = "https://fapi.asterdex.com/fapi/v1";
 export const EXCHANGE_INFO_MAX_AGE_MS = 60 * 60_000;
 const HISTORY_LIMIT = 1000;
 const HISTORY_MAX_PAGES = 20;
+/**
+ * Binance-style APIs expose open interest one symbol at a time (`openInterest` rejects a missing
+ * symbol and `ticker/24hr` carries none), so a full sweep of Aster's ~570 perps cannot fit in one
+ * cycle. Each cycle refreshes a slice; at this budget every symbol is re-read about every 5 minutes,
+ * which open interest changes far more slowly than. Each call costs request weight 1 of ~2400/min.
+ */
+export const OPEN_INTEREST_BUDGET = 120;
+export const OPEN_INTEREST_MAX_AGE_MS = 5 * 60_000;
 
 export interface BinanceStylePremiumIndex {
   symbol: string;
@@ -46,6 +54,34 @@ export interface BinanceStyleFundingRate {
 
 export interface TradableSymbol {
   quoteAsset: string | null;
+}
+
+export interface BinanceStyleOpenInterest {
+  symbol: string;
+  /** Open interest in contracts. */
+  openInterest: string;
+  time: number;
+}
+
+export interface OpenInterestEntry {
+  contracts: number;
+  fetchedAt: number;
+}
+
+/**
+ * Fills in open interest from the rotating cache. A contract covers `multiplier` units of the base
+ * asset and the venue quotes its price per contract, so contracts x that price is USD either way.
+ * This runs before the collector rescales prices per base unit, so `markPrice` is still the venue's.
+ */
+export function attachOpenInterest(
+  snapshots: readonly FundingSnapshot[],
+  cache: ReadonlyMap<string, OpenInterestEntry>,
+): FundingSnapshot[] {
+  return snapshots.map((snapshot) => {
+    const entry = cache.get(snapshot.venueSymbol);
+    const openInterestUsd = entry ? mul(entry.contracts, snapshot.markPrice) : null;
+    return openInterestUsd === null ? snapshot : { ...snapshot, openInterestUsd };
+  });
 }
 
 /** Perpetual symbols currently TRADING, by symbol. */
@@ -180,9 +216,15 @@ function expectArray<T>(value: unknown, what: string): T[] {
   return value as T[];
 }
 
-export function createAsterAdapter(): VenueAdapter {
+export interface AsterAdapterOptions {
+  openInterestBudget?: number;
+}
+
+export function createAsterAdapter(options: AsterAdapterOptions = {}): VenueAdapter {
+  const openInterestBudget = options.openInterestBudget ?? OPEN_INTEREST_BUDGET;
   let exchangeInfo: { fetchedAt: number; tradable: Map<string, TradableSymbol> } | null = null;
   let intervals = new Map<string, number>();
+  const openInterest = new Map<string, OpenInterestEntry>();
 
   return {
     venueId: VENUE,
@@ -224,7 +266,31 @@ export function createAsterAdapter(): VenueAdapter {
         },
         now,
       );
-      return { snapshots, settled: [] };
+
+      for (const symbol of openInterest.keys()) {
+        if (!exchangeInfo.tradable.has(symbol)) openInterest.delete(symbol);
+      }
+      const symbols = snapshots.map((s) => s.venueSymbol);
+      for (const symbol of selectRefreshBatch(
+        symbols,
+        openInterest,
+        now,
+        openInterestBudget,
+        OPEN_INTEREST_MAX_AGE_MS,
+      )) {
+        try {
+          const data = await client.getJson<BinanceStyleOpenInterest>(
+            `${BASE}/openInterest?symbol=${encodeURIComponent(symbol)}`,
+          );
+          const contracts = num(data?.openInterest);
+          if (contracts !== null) openInterest.set(symbol, { contracts, fetchedAt: now });
+        } catch (error) {
+          if (error instanceof CircuitOpenError) break;
+          // Leave this symbol for a later cycle; one bad symbol shouldn't fail the batch.
+        }
+      }
+
+      return { snapshots: attachOpenInterest(snapshots, openInterest), settled: [] };
     },
 
     fetchFundingHistory: (client, venueSymbol, fromMs, toMs) =>

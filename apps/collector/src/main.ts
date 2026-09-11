@@ -33,6 +33,15 @@ const adapters = createAdapters(VENUES).filter(
 );
 if (adapters.length === 0) throw new Error("no adapters match COLLECT_VENUES");
 
+// Markets seen this recently seed adapter caches, so a restart doesn't hide them for many cycles.
+const WARM_UP_MAX_AGE_MS = 24 * 60 * 60_000;
+for (const adapter of adapters) {
+  if (!adapter.warmUp) continue;
+  const known = await store.activeMarkets(adapter.venueId, Date.now() - WARM_UP_MAX_AGE_MS);
+  adapter.warmUp(known);
+  log(`${adapter.venueId}: warmed ${known.length} known markets`);
+}
+
 const status = new CollectorStatus(
   adapters.map((adapter) => adapter.venueId),
   config.intervalMs,
