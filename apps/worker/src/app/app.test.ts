@@ -157,6 +157,40 @@ describe("pages", () => {
     expect(html).toContain("&lt;script&gt;");
   });
 
+  test("pair page runs the backtest and states what it excludes", async () => {
+    const { data } = fakeData({
+      settlements: async () => [
+        ...settled("gate", "BTC_USDT", -0.0001),
+        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+      ],
+    });
+    const res = await get("/pair/BTC?long=gate&short=okx&size=10k&days=7", data);
+    const html = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/html");
+    // Both legs are paid $3, so the headline is exact to the cent.
+    expect(html).toContain('<p class="headline up">$6.00</p>');
+    expect(html).toContain("Long Gate");
+    expect(html).toContain("Short OKX");
+    // Sizes the reader picked from a menu carry no cents.
+    expect(html).toContain("capital <b>$20,000</b> across both legs");
+    expect(html).toContain("kept at $10,000 per leg");
+    // Three 8-hourly settlements do not fill a 7-day window, and the page says so.
+    expect(html).toContain("of the 7 days asked for have stored settlements");
+    expect(html).toContain("Trading fees are excluded");
+  });
+
+  test("pair page without legs offers the picker instead of a result", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/pair/BTC", data)).text();
+
+    expect(html).toContain("Pick two exchanges to hold against each other.");
+    expect(html).toContain('<form class="filters" method="get" action="/pair/BTC">');
+    expect(html).not.toContain('class="headline');
+    expect((await get("/pair/NOPE", data)).status).toBe(404);
+  });
+
   test("database failures render a 503 page, not an exception", async () => {
     const logs: string[] = [];
     const { data } = fakeData({
