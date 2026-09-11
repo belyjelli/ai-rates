@@ -1,0 +1,11 @@
+{
+  "name": "@ai-rates/db",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "migrate": "bun src/migrate-cli.ts"
+  }
+}

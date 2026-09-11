@@ -11,6 +11,15 @@
         "wrangler": "4.131.1",
       },
     },
+    "apps/collector": {
+      "name": "@ai-rates/collector",
+      "dependencies": {
+        "@ai-rates/adapters": "workspace:*",
+        "@ai-rates/core": "workspace:*",
+        "@ai-rates/db": "workspace:*",
+        "@ai-rates/venues": "workspace:*",
+      },
+    },
     "apps/worker": {
       "name": "@ai-rates/worker",
       "dependencies": {
@@ -18,15 +27,30 @@
         "@ai-rates/venues": "workspace:*",
       },
     },
+    "packages/adapters": {
+      "name": "@ai-rates/adapters",
+      "dependencies": {
+        "@ai-rates/core": "workspace:*",
+      },
+    },
     "packages/core": {
       "name": "@ai-rates/core",
+    },
+    "packages/db": {
+      "name": "@ai-rates/db",
     },
     "packages/venues": {
       "name": "@ai-rates/venues",
     },
   },
   "packages": {
+    "@ai-rates/adapters": ["@ai-rates/adapters@workspace:packages/adapters"],
+
+    "@ai-rates/collector": ["@ai-rates/collector@workspace:apps/collector"],
+
     "@ai-rates/core": ["@ai-rates/core@workspace:packages/core"],
+
+    "@ai-rates/db": ["@ai-rates/db@workspace:packages/db"],
 
     "@ai-rates/venues": ["@ai-rates/venues@workspace:packages/venues"],
 

@@ -1,0 +1,10 @@
+**/node_modules
+.git
+.wrangler
+.github
+py
+plans
+scripts
+**/*.test.ts
+.env*
+deploy/hklab/.env

@@ -1,0 +1,11 @@
+{
+  "name": "@ai-rates/adapters",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ai-rates/core": "workspace:*"
+  }
+}

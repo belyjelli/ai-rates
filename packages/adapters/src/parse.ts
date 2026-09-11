@@ -1,0 +1,44 @@
+import { type MarketRef, parseVenueSymbol } from "@ai-rates/core";
+
+const MS_PER_HOUR = 3_600_000;
+
+/** Parses a venue number given as a number or string; null for missing, empty or non-finite values. */
+export function num(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** Product of nullable factors; null if any factor is null. */
+export function mul(...factors: (number | null)[]): number | null {
+  let product = 1;
+  for (const factor of factors) {
+    if (factor === null) return null;
+    product *= factor;
+  }
+  return product;
+}
+
+/** Whole-ish hours between two epoch-ms instants, or null if the span isn't positive. */
+export function hoursBetween(fromMs: number | null, toMs: number | null): number | null {
+  if (fromMs === null || toMs === null || toMs <= fromMs) return null;
+  return Math.round(((toMs - fromMs) / MS_PER_HOUR) * 1e6) / 1e6;
+}
+
+/** Builds a MarketRef from a venue symbol, letting adapters override fields the venue reports explicitly. */
+export function marketRef(
+  venueId: string,
+  venueSymbol: string,
+  overrides: Partial<Omit<MarketRef, "venueId" | "venueSymbol">> = {},
+): MarketRef {
+  const parsed = parseVenueSymbol(venueSymbol);
+  return {
+    venueId,
+    venueSymbol,
+    base: parsed.base,
+    quote: parsed.quote,
+    multiplier: parsed.multiplier,
+    dex: parsed.dex,
+    ...overrides,
+  };
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "symbol": "BTCUSDT",
+    "lastPrice": "77822.5",
+    "volume": "13681.748",
+    "quoteVolume": "1059790811.37",
+    "openTime": 1789061280000,
+    "closeTime": 1789147681850
+  },
+  {
+    "symbol": "SUSHIUSDT",
+    "lastPrice": "0.217400",
+    "volume": "57254.0",
+    "quoteVolume": "12455.670000",
+    "openTime": 1789062060000,
+    "closeTime": 1789146485200
+  },
+  {
+    "symbol": "ETHUSDT",
+    "lastPrice": "2575.89",
+    "volume": "361474.966",
+    "quoteVolume": "914660373.81",
+    "openTime": 1789061280000,
+    "closeTime": 1789147682650
+  }
+]
