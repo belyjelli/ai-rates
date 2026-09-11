@@ -1,8 +1,14 @@
+import { backtestPair } from "@ai-rates/core";
 import { VENUES } from "@ai-rates/venues";
 import * as pages from "../web/pages";
 import { VENUE_BY_ID } from "../web/venues";
-import type { DataSource } from "./data";
-import { DEFAULT_FILTERS, filtersToQuery, parseScreenerFilters } from "./params";
+import type { DataSource, MarketRow } from "./data";
+import {
+  DEFAULT_FILTERS,
+  filtersToQuery,
+  parseBacktestParams,
+  parseScreenerFilters,
+} from "./params";
 
 export interface AppDeps {
   data: DataSource;
@@ -112,6 +118,63 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return json({ asset, markets });
     }
 
+    if (
+      segments[0] === "v1" &&
+      segments[1] === "pairs" &&
+      segments[3] === "backtest" &&
+      segments.length === 4
+    ) {
+      const asset = (segments[2] as string).toUpperCase();
+      const params = parseBacktestParams(url.searchParams);
+      if (!params) {
+        return json(
+          { error: "bad_request", detail: "long and short must name two different exchanges" },
+          400,
+          0,
+        );
+      }
+      const markets = ASSET_PATTERN.test(asset) ? await deps.data.asset(asset) : [];
+      const long = pickMarket(markets, params.longVenueId);
+      const short = pickMarket(markets, params.shortVenueId);
+      if (!long || !short) {
+        return json(
+          {
+            error: "no_live_market",
+            asset,
+            missing: [long ? null : params.longVenueId, short ? null : params.shortVenueId].filter(
+              Boolean,
+            ),
+          },
+          404,
+        );
+      }
+
+      const toMs = now;
+      const fromMs = now - params.days * 86_400_000;
+      const rows = await deps.data.settlements([long, short], fromMs, toMs);
+      const leg = (market: MarketRow) => ({
+        venueId: market.venue_id,
+        venueSymbol: market.venue_symbol,
+        settlements: rows
+          .filter((r) => r.venue_id === market.venue_id && r.venue_symbol === market.venue_symbol)
+          .map((r) => ({
+            settledAt: r.settled_at.getTime(),
+            rate: r.rate,
+            basisHours: r.basis_hours,
+          })),
+      });
+
+      const result = backtestPair({
+        long: leg(long),
+        short: leg(short),
+        sizeUsd: params.sizeUsd,
+        fromMs,
+        toMs,
+      });
+      // Funding settles hourly at most, so an hour-old answer is still the same answer.
+      return json({ asset, request: params, ...result }, 200, 3600);
+    }
+
     if (path === "/robots.txt") {
       // Pre-launch: keep the site out of search engines until the legal checklist is done.
       return new Response("User-agent: *\nDisallow: /\n", {
@@ -130,6 +193,16 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       ? json({ error: "data_unavailable" }, 503, 0)
       : page(pages.unavailable(path, now), 503);
   }
+}
+
+/**
+ * One venue can list the same asset more than once (MEXC carries BTC_USDT and BTC_USDC), so pick
+ * the deepest market rather than whichever happened to sort first.
+ */
+function pickMarket(markets: readonly MarketRow[], venueId: string): MarketRow | undefined {
+  return markets
+    .filter((market) => market.venue_id === venueId)
+    .sort((a, b) => (b.open_interest_usd ?? 0) - (a.open_interest_usd ?? 0))[0];
 }
 
 function page(html: string, status = 200): Response {

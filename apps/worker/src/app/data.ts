@@ -69,12 +69,30 @@ export interface ExchangeSummary {
   updated_at: Date;
 }
 
+/** Identifies one venue's market, as stored. */
+export interface MarketKey {
+  venue_id: string;
+  venue_symbol: string;
+}
+
+export interface SettlementRow extends MarketKey {
+  settled_at: Date;
+  rate: number;
+  basis_hours: number;
+}
+
 export interface DataSource {
   overview(): Promise<Overview>;
   screener(filters: ScreenerFilters): Promise<ScreenerPair[]>;
   asset(base: string): Promise<MarketRow[]>;
   exchanges(): Promise<ExchangeSummary[]>;
   exchange(venueId: string): Promise<MarketRow[]>;
+  /** Settled funding for the given markets within a window, oldest first. */
+  settlements(
+    markets: readonly MarketKey[],
+    fromMs: number,
+    toMs: number,
+  ): Promise<SettlementRow[]>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -139,6 +157,22 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         JOIN market_latest m ON m.venue_id = v.id AND m.observed_at > now() - ${FRESH_INTERVAL}::interval
         GROUP BY v.id, v.name, v.type
         ORDER BY open_interest_usd DESC`;
+      return [...rows];
+    },
+
+    async settlements(markets, fromMs, toMs) {
+      if (markets.length === 0) return [];
+      // unnest pairs the two arrays row-wise, so the markets stay bound parameters rather than
+      // an interpolated IN list.
+      const venueIds = markets.map((m) => m.venue_id);
+      const symbols = markets.map((m) => m.venue_symbol);
+      const rows = await connect()<SettlementRow[]>`
+        SELECT e.venue_id, e.venue_symbol, e.settled_at, e.rate, e.basis_hours
+        FROM funding_events e
+        JOIN unnest(${venueIds}::text[], ${symbols}::text[]) AS m(venue_id, venue_symbol)
+          ON m.venue_id = e.venue_id AND m.venue_symbol = e.venue_symbol
+        WHERE e.settled_at >= ${new Date(fromMs)} AND e.settled_at <= ${new Date(toMs)}
+        ORDER BY e.settled_at`;
       return [...rows];
     },
 

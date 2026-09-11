@@ -77,10 +77,21 @@ function fakeData(overrides: Partial<DataSource> = {}) {
       },
     ],
     exchange: async (venueId) => (venueId === "okx" ? [market({})] : []),
+    settlements: async () => [],
     ...overrides,
   };
   return { data, calls };
 }
+
+/** `count` settlements at `everyHours`, ending just before NOW. */
+const settled = (venue_id: string, venue_symbol: string, rate: number, count = 3) =>
+  Array.from({ length: count }, (_, i) => ({
+    venue_id,
+    venue_symbol,
+    settled_at: new Date(NOW - (count - i) * 8 * 3_600_000),
+    rate,
+    basis_hours: 8,
+  }));
 
 const get = (path: string, data: DataSource) =>
   handleApp(new Request(`https://airates.test${path}`), { data, now: () => NOW });
@@ -196,6 +207,51 @@ describe("api", () => {
       { data, now: () => NOW },
     );
     expect(post.status).toBe(405);
+  });
+
+  test("pair backtest replays both legs over the window", async () => {
+    const { data } = fakeData({
+      settlements: async () => [
+        // Both legs are paid: a negative rate pays the long, a positive one pays the short.
+        ...settled("gate", "BTC_USDT", -0.0001),
+        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+      ],
+    });
+
+    const res = await get("/v1/pairs/BTC/backtest?long=gate&short=okx&size=10k&days=7", data);
+    expect(res.status).toBe(200);
+    // Funding settles hourly at most, so the answer keeps for an hour.
+    expect(res.headers.get("cache-control")).toBe("public, max-age=3600");
+
+    const body = (await res.json()) as {
+      asset: string;
+      netFundingUsd: number;
+      long: { venueId: string; venueSymbol: string; fundingUsd: number; settlements: number };
+      short: { venueId: string; fundingUsd: number };
+      request: { sizeUsd: number; days: number };
+      costsUsd: number | null;
+    };
+
+    expect(body.asset).toBe("BTC");
+    expect(body.long).toMatchObject({ venueId: "gate", venueSymbol: "BTC_USDT", settlements: 3 });
+    expect(body.short.venueId).toBe("okx");
+    // 3 settlements x $10,000 x 0.01% on each leg.
+    expect(body.long.fundingUsd).toBeCloseTo(3, 9);
+    expect(body.short.fundingUsd).toBeCloseTo(3, 9);
+    expect(body.netFundingUsd).toBeCloseTo(6, 9);
+    expect(body.request).toMatchObject({ sizeUsd: 10_000, days: 7 });
+    // No fees were given, so costs stay absent rather than invented.
+    expect(body.costsUsd).toBeNull();
+  });
+
+  test("pair backtest needs two different exchanges that both list the asset", async () => {
+    const { data } = fakeData();
+    expect((await get("/v1/pairs/BTC/backtest", data)).status).toBe(400);
+    expect((await get("/v1/pairs/BTC/backtest?long=gate&short=gate", data)).status).toBe(400);
+    expect((await get("/v1/pairs/BTC/backtest?long=gate&short=nope", data)).status).toBe(400);
+    // bybit is a real venue, but the fake has no bybit market for BTC.
+    expect((await get("/v1/pairs/BTC/backtest?long=gate&short=bybit", data)).status).toBe(404);
+    expect((await get("/v1/pairs/NOPE/backtest?long=gate&short=okx", data)).status).toBe(404);
   });
 
   test("robots.txt blocks crawlers before launch", async () => {

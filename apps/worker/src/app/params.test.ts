@@ -1,5 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_FILTERS, filtersToQuery, parseScreenerFilters, parseUsd } from "./params";
+import {
+  DEFAULT_BACKTEST_DAYS,
+  DEFAULT_BACKTEST_SIZE_USD,
+  DEFAULT_FILTERS,
+  filtersToQuery,
+  MAX_BACKTEST_DAYS,
+  MAX_BACKTEST_SIZE_USD,
+  parseBacktestParams,
+  parseScreenerFilters,
+  parseUsd,
+} from "./params";
 
 describe("parseUsd", () => {
   test("accepts plain numbers and k/m/b suffixes", () => {
@@ -57,6 +67,33 @@ describe("parseScreenerFilters", () => {
         DEFAULT_FILTERS.maxAbsApr,
       );
     }
+  });
+});
+
+describe("parseBacktestParams", () => {
+  const parse = (query: string) => parseBacktestParams(new URLSearchParams(query));
+
+  test("defaults and clamps size and days", () => {
+    expect(parse("long=gate&short=okx")).toEqual({
+      longVenueId: "gate",
+      shortVenueId: "okx",
+      sizeUsd: DEFAULT_BACKTEST_SIZE_USD,
+      days: DEFAULT_BACKTEST_DAYS,
+    });
+    expect(parse("long=gate&short=okx&size=1b")?.sizeUsd).toBe(MAX_BACKTEST_SIZE_USD);
+    expect(parse("long=gate&short=okx&size=25k")?.sizeUsd).toBe(25_000);
+    // History only reaches 90 days, so a longer window would quietly return less.
+    expect(parse("long=gate&short=okx&days=999")?.days).toBe(MAX_BACKTEST_DAYS);
+    expect(parse("long=gate&short=okx&days=0")?.days).toBe(1);
+    expect(parse("long=gate&short=okx&days=zero")?.days).toBe(DEFAULT_BACKTEST_DAYS);
+    expect(parse("long=GATE&short=OKX")?.longVenueId).toBe("gate");
+  });
+
+  test("insists on two different known exchanges", () => {
+    expect(parse("")).toBeNull();
+    expect(parse("long=gate")).toBeNull();
+    expect(parse("long=gate&short=gate")).toBeNull();
+    expect(parse("long=gate&short=nope")).toBeNull();
   });
 });
 
