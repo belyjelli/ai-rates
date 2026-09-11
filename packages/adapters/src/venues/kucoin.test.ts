@@ -64,6 +64,13 @@ describe("parseKucoinSnapshots", () => {
       "429000",
     );
   });
+
+  test("reads a null payload as no contracts", () => {
+    expect(parseKucoinSnapshots({ code: "200000", data: null }, NOW)).toEqual({
+      snapshots: [],
+      settled: [],
+    });
+  });
 });
 
 describe("parseKucoinFundingHistory", () => {
@@ -75,6 +82,10 @@ describe("parseKucoinFundingHistory", () => {
       [1_789_142_400_000, 0.000044, 8],
     ]);
     expect(events[0]).toMatchObject({ venueSymbol: "XBTUSDTM", base: "BTC" });
+  });
+
+  test("reads a null payload as no settlements", () => {
+    expect(parseKucoinFundingHistory({ code: "200000", data: null }, 8)).toEqual([]);
   });
 });
 
@@ -93,5 +104,31 @@ describe("kucoinAdapter", () => {
     const result = await kucoinAdapter.fetchSnapshots(client, NOW);
     expect(result.snapshots).toHaveLength(4);
     expect(urls).toEqual(["https://api-futures.kucoin.com/api/v1/contracts/active"]);
+  });
+
+  test("fetchFundingHistory survives the null payload the backfill keeps hitting", async () => {
+    const urls: string[] = [];
+    const client = {
+      venueId: "kucoin",
+      getJson: async (url: string) => {
+        urls.push(url);
+        // KuCoin returns data: null for a window predating the listing, which is most symbols when
+        // the backfill reaches 90 days back.
+        return url.includes("/funding-rates")
+          ? { code: "200000", data: null }
+          : { code: "200000", data: { symbol: "NEWUSDTM", fundingRateGranularity: 28_800_000 } };
+      },
+    } as unknown as HttpClient;
+
+    // This threw "Spread syntax requires ...iterable" in production, so the market errored every
+    // sweep instead of being marked exhausted and left alone.
+    const events = await kucoinAdapter.fetchFundingHistory?.(
+      client,
+      "NEWUSDTM",
+      NOW - 90 * 86_400_000,
+      NOW,
+    );
+    expect(events).toEqual([]);
+    expect(urls.some((url) => url.includes("/funding-rates"))).toBe(true);
   });
 });
