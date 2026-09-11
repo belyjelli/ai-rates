@@ -4,6 +4,7 @@ import * as pages from "../web/pages";
 import { VENUE_BY_ID } from "../web/venues";
 import type { DataSource, MarketRow } from "./data";
 import {
+  type BacktestParams,
   DEFAULT_FILTERS,
   filtersToQuery,
   parseBacktestParams,
@@ -149,30 +150,26 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         );
       }
 
-      const toMs = now;
-      const fromMs = now - params.days * 86_400_000;
-      const rows = await deps.data.settlements([long, short], fromMs, toMs);
-      const leg = (market: MarketRow) => ({
-        venueId: market.venue_id,
-        venueSymbol: market.venue_symbol,
-        settlements: rows
-          .filter((r) => r.venue_id === market.venue_id && r.venue_symbol === market.venue_symbol)
-          .map((r) => ({
-            settledAt: r.settled_at.getTime(),
-            rate: r.rate,
-            basisHours: r.basis_hours,
-          })),
-      });
-
-      const result = backtestPair({
-        long: leg(long),
-        short: leg(short),
-        sizeUsd: params.sizeUsd,
-        fromMs,
-        toMs,
-      });
+      const result = await runBacktest(deps, long, short, params, now);
       // Funding settles hourly at most, so an hour-old answer is still the same answer.
       return json({ asset, request: params, ...result }, 200, 3600);
+    }
+
+    if (segments[0] === "pair" && segments.length === 2) {
+      const asset = (segments[1] as string).toUpperCase();
+      const markets = ASSET_PATTERN.test(asset) ? await deps.data.asset(asset) : [];
+      if (markets.length === 0) {
+        return page(
+          pages.notFound(path, now, `No exchange has a live ${asset} perpetual right now.`),
+          404,
+        );
+      }
+      const params = parseBacktestParams(url.searchParams);
+      const long = params ? pickMarket(markets, params.longVenueId) : undefined;
+      const short = params ? pickMarket(markets, params.shortVenueId) : undefined;
+      const result =
+        params && long && short ? await runBacktest(deps, long, short, params, now) : null;
+      return page(pages.pair({ asset, markets, params, result, now }));
     }
 
     if (path === "/robots.txt") {
@@ -193,6 +190,37 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       ? json({ error: "data_unavailable" }, 503, 0)
       : page(pages.unavailable(path, now), 503);
   }
+}
+
+/** Shared by the JSON endpoint and the page, so the two can't drift apart. */
+async function runBacktest(
+  deps: AppDeps,
+  long: MarketRow,
+  short: MarketRow,
+  params: BacktestParams,
+  now: number,
+) {
+  const toMs = now;
+  const fromMs = now - params.days * 86_400_000;
+  const rows = await deps.data.settlements([long, short], fromMs, toMs);
+  const leg = (market: MarketRow) => ({
+    venueId: market.venue_id,
+    venueSymbol: market.venue_symbol,
+    settlements: rows
+      .filter((r) => r.venue_id === market.venue_id && r.venue_symbol === market.venue_symbol)
+      .map((r) => ({
+        settledAt: r.settled_at.getTime(),
+        rate: r.rate,
+        basisHours: r.basis_hours,
+      })),
+  });
+  return backtestPair({
+    long: leg(long),
+    short: leg(short),
+    sizeUsd: params.sizeUsd,
+    fromMs,
+    toMs,
+  });
 }
 
 /**

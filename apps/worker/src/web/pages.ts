@@ -1,3 +1,4 @@
+import type { BacktestResult } from "@ai-rates/core";
 import { VENUES, type Venue } from "@ai-rates/venues";
 import type {
   ExchangeSummary,
@@ -6,6 +7,7 @@ import type {
   ScreenerFilters,
   ScreenerPair,
 } from "../app/data";
+import type { BacktestParams } from "../app/params";
 import { DEFAULT_FILTERS, VENUE_TYPES } from "../app/params";
 import {
   aprTone,
@@ -326,9 +328,138 @@ export function asset(data: { asset: string; markets: MarketRow[]; now: number }
     now,
     body: `<p class="eyebrow">Funding by exchange</p>
 <h1>${esc(data.asset)}</h1>
-<p class="lede">${markets.length} live markets on ${venues} exchanges. ${summary}</p>
+<p class="lede">${markets.length} live markets on ${venues} exchanges. ${summary}${pair ? ` <a href="${pairHref(data.asset)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}">Backtest this pair</a>.` : ""}</p>
 ${renderRail({ scale, marks, bar: pair ? [pair.long.apr, pair.short.apr] : undefined, size: "big" })}
 <div class="sheet-wrap"><table class="sheet"><thead><tr><th>Exchange</th><th class="num">Funding APR</th><th class="num">24h settled</th><th class="num">7d settled</th><th class="num">Interval</th><th class="num">Next funding</th><th class="num">Mark price</th><th class="num">Open interest</th><th class="num">24h volume</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+  });
+}
+
+/** Backtest amounts are small and exact, unlike the millions formatUsd is shaped for. */
+const money = (value: number) =>
+  `${value < 0 ? "−" : ""}$${Math.abs(value).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+const pairHref = (asset: string) => `/pair/${encodeURIComponent(asset)}`;
+
+/**
+ * Cumulative funding by day. Rendered server-side: the site has no chart library, and the Free plan
+ * allows 10 ms of CPU per request.
+ */
+function equityCurve(result: BacktestResult, sizeUsd: number): string {
+  if (result.perDay.length === 0) return "";
+  let running = 0;
+  const points = result.perDay.map((day) => (running += day.netUsd));
+  const top = Math.max(0, ...points);
+  const bottom = Math.min(0, ...points);
+  const span = top - bottom || 1;
+  const width = 720;
+  const height = 130;
+  const pad = 8;
+  const x = (i: number) =>
+    points.length === 1 ? width / 2 : pad + (i / (points.length - 1)) * (width - 2 * pad);
+  const y = (value: number) => height - pad - ((value - bottom) / span) * (height - 2 * pad);
+
+  const line = points.map((value, i) => `${x(i).toFixed(1)},${y(value).toFixed(1)}`).join(" ");
+  const zero = y(0).toFixed(1);
+  const area = `${x(0).toFixed(1)},${zero} ${line} ${x(points.length - 1).toFixed(1)},${zero}`;
+  const end = points.at(-1) ?? 0;
+  const first = result.perDay[0]?.date ?? "";
+  const last = result.perDay.at(-1)?.date ?? "";
+
+  return `<figure class="curve ${end >= 0 ? "up" : "down"}">
+<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Cumulative funding reaches ${money(end)} after ${points.length} days">
+<polygon class="curve-area" points="${area}"></polygon>
+<line class="curve-zero" x1="${pad}" x2="${width - pad}" y1="${zero}" y2="${zero}"></line>
+<polyline class="curve-line" points="${line}"></polyline>
+</svg>
+<figcaption>Cumulative funding on ${money(sizeUsd)} per leg · ${esc(first)} to ${esc(last)}</figcaption>
+</figure>`;
+}
+
+function backtestForm(asset: string, markets: MarketRow[], params: BacktestParams | null): string {
+  const venues = [...new Set(markets.map((m) => m.venue_id))].sort((a, b) =>
+    venueName(a).localeCompare(venueName(b)),
+  );
+  const venueField = (name: "long" | "short", current: string | undefined) =>
+    `<label class="field">${name === "long" ? "Long on" : "Short on"}<select name="${name}">${venues
+      .map(
+        (id) =>
+          `<option value="${esc(id)}"${id === current ? " selected" : ""}>${esc(venueName(id))}</option>`,
+      )
+      .join("")}</select></label>`;
+  const numberField = (name: string, label: string, current: number, options: [number, string][]) =>
+    `<label class="field">${label}<select name="${name}">${options
+      .map(
+        ([value, text]) =>
+          `<option value="${value}"${value === current ? " selected" : ""}>${text}</option>`,
+      )
+      .join("")}</select></label>`;
+
+  return `<form class="filters" method="get" action="${pairHref(asset)}">
+${venueField("long", params?.longVenueId)}
+${venueField("short", params?.shortVenueId)}
+${numberField("size", "Size per leg", params?.sizeUsd ?? 10_000, [
+  [1_000, "$1k"],
+  [10_000, "$10k"],
+  [25_000, "$25k"],
+  [100_000, "$100k"],
+  [1_000_000, "$1M"],
+])}
+${numberField("days", "Window", params?.days ?? 30, [
+  [7, "7 days"],
+  [14, "14 days"],
+  [30, "30 days"],
+  [60, "60 days"],
+  [90, "90 days"],
+])}
+<div class="actions"><button type="submit">Run backtest</button><a href="${assetHref(asset)}">Back to ${esc(asset)}</a></div>
+</form>`;
+}
+
+export function pair(data: {
+  asset: string;
+  markets: MarketRow[];
+  params: BacktestParams | null;
+  result: BacktestResult | null;
+  now: number;
+}): string {
+  const { asset, markets, params, result, now } = data;
+  const venues = new Set(markets.map((m) => m.venue_id)).size;
+
+  const body =
+    result && params
+      ? `<p class="headline ${result.netFundingUsd >= 0 ? "up" : "down"}">${money(result.netFundingUsd)}</p>
+<p class="eyebrow">net funding over ${Math.round(result.days)} days · ${formatApr(result.netFundingAprPercent)} annualized</p>
+<div class="pair-legs">
+<span class="long"><b>Long ${esc(venueName(result.long.venueId))}</b> ${esc(result.long.venueSymbol)} · ${result.long.settlements} settlements · ${money(result.long.fundingUsd)}</span>
+<span class="short"><b>Short ${esc(venueName(result.short.venueId))}</b> ${esc(result.short.venueSymbol)} · ${result.short.settlements} settlements · ${money(result.short.fundingUsd)}</span>
+</div>
+${equityCurve(result, params.sizeUsd)}
+<div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span><span>capital <b>${money(params.sizeUsd * 2)}</b> across both legs</span></div>
+${
+  result.long.missedSettlements > 0 || result.short.missedSettlements > 0
+    ? `<p class="notes">Missed settlements: ${result.long.missedSettlements} on ${esc(venueName(result.long.venueId))}, ${result.short.missedSettlements} on ${esc(venueName(result.short.venueId))}. A gap is reported rather than counted as zero, so this total covers only the settlements actually recorded.</p>`
+    : ""
+}
+<p class="notes">Funding only, on a position kept at ${money(params.sizeUsd)} per leg. Trading fees are excluded: exchange taker fees aren't published consistently enough to assume one. Price moves between settlements aren't modelled either, because venue funding history gives a rate and a time, and almost never a mark price.</p>`
+      : `<p class="lede">${
+          venues < 2
+            ? `Only one exchange lists ${esc(asset)} right now, so there's no pair to hold.`
+            : "Pick two exchanges to hold against each other."
+        }</p>`;
+
+  return layout({
+    title: `${asset} funding carry backtest`,
+    description: `What holding ${asset} long on one exchange and short on another would have paid in funding.`,
+    path: pairHref(asset),
+    now,
+    body: `<p class="eyebrow"><a href="${assetHref(asset)}">${esc(asset)}</a> / backtest</p>
+<h1>${esc(asset)} carry</h1>
+<p class="lede">What the funding on both legs actually settled to, summed at each venue's own settlement times over the window.</p>
+${backtestForm(asset, markets, params)}
+${body}`,
   });
 }
 

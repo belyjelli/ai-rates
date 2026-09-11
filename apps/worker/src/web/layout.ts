@@ -88,6 +88,20 @@ fieldset.field legend{padding:0;margin-bottom:5px}
 button{font:600 14px var(--body);color:var(--paper);background:var(--ink);border:1px solid var(--ink);border-radius:3px;padding:7px 16px;cursor:pointer}
 input[type=checkbox]{accent-color:var(--ink)}
 .actions a{font:400 13px var(--data);color:var(--muted)}
+.headline{font:700 clamp(30px,5vw,52px)/1 var(--display);font-stretch:87.5%;letter-spacing:-.03em;margin:0}
+.headline.up{color:var(--long)}.headline.down{color:var(--short)}
+.headline+.eyebrow{margin-top:8px}
+.pair-legs{display:flex;flex-wrap:wrap;gap:10px 32px;font:400 13px var(--data);margin:0 0 20px}
+.pair-legs b{font:600 13px var(--body)}
+.pair-legs .long b{color:var(--long)}.pair-legs .short b{color:var(--short)}
+.curve{margin:0 0 22px;padding:12px 14px 8px;border:1px solid var(--rule);border-radius:3px;background:#fff}
+.curve svg{display:block;width:100%;height:136px}
+.curve-area{fill:var(--long);opacity:.12}
+.curve.down .curve-area{fill:var(--short)}
+.curve-line{fill:none;stroke:var(--long);stroke-width:2;vector-effect:non-scaling-stroke}
+.curve.down .curve-line{stroke:var(--short)}
+.curve-zero{stroke:var(--zero);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+.curve figcaption{font:400 12px var(--data);color:var(--muted);padding-top:8px}
 .facts{display:flex;flex-wrap:wrap;gap:6px 28px;font:400 13px var(--data);color:var(--muted);margin:0 0 22px}
 .facts b{font-weight:500;color:var(--ink)}
 .notes{margin-top:28px;font:400 13px/1.6 var(--body);color:var(--muted);max-width:80ch}
