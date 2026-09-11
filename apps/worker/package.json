@@ -1,0 +1,9 @@
+{
+  "name": "@ai-rates/worker",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@ai-rates/core": "workspace:*",
+    "@ai-rates/venues": "workspace:*"
+  }
+}
