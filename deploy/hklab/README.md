@@ -14,8 +14,9 @@ Credentials never go in the repo: locally in `plans/access.md` (gitignored), on 
 
 - **Database:** live on `vaultdeck`. On 2026-09-12 it was migrated from the earlier `airates` database, with identical
   row counts in all five tables.
-- **Disk:** `vaultdeck` is on the default tablespace, i.e. the root filesystem (~12 GB free). Watch `df -h /` until
-  steps 1–3 below are done.
+- **Disk:** since 2026-09-12 `vaultdeck` lives in tablespace `airates_nvme` on the 466 GB NVMe
+  (`/srv/airates-data/timescale-airates`, `/data/airates` inside the container). Steps 1–3 below are done; they stay
+  here as a record and for rebuilding the server.
 
 ## Moving the data onto the NVMe
 
@@ -113,6 +114,28 @@ docker exec -i timescaledb_container sh -c 'cat > /data/postgrestimesc/server.cr
 docker exec -i timescaledb_container sh -c 'umask 077 && cat > /data/postgrestimesc/server.key' < server.key
 docker exec timescaledb_container sh -c 'chown postgres:postgres /data/postgrestimesc/server.crt /data/postgrestimesc/server.key && chmod 600 /data/postgrestimesc/server.key'
 docker exec timescaledb_container sh -c 'psql -U "$POSTGRES_USER" -d postgres -c "SELECT pg_reload_conf()"'
+```
+
+## TimescaleDB background jobs
+
+Compression and retention policies only run if TimescaleDB has a scheduler worker for the database. Each database
+with the extension needs one, plus one launcher for the whole instance.
+
+- **The problem:** until 2026-09-12 the instance allowed 16 workers for 17 TimescaleDB databases, so `vaultdeck` never
+  got a scheduler and its policies had never run.
+- **The fix:** raised to `timescaledb.max_background_workers = 24` and `max_worker_processes = 48` (`ALTER SYSTEM`,
+  container restart).
+- **Keep it in step:** if more databases on this instance install TimescaleDB, raise the limit again.
+
+Check that `vaultdeck`'s jobs are actually scheduled and running:
+
+```sh
+docker exec -i timescaledb_container sh -c 'psql -U "$POSTGRES_USER" -d vaultdeck' <<'SQL'
+SELECT count(*) AS schedulers FROM pg_stat_activity WHERE backend_type = 'TimescaleDB Background Worker Scheduler';
+SELECT j.job_id, j.proc_name, j.hypertable_name, s.last_run_status, s.next_start
+FROM timescaledb_information.jobs j JOIN timescaledb_information.job_stats s USING (job_id)
+WHERE j.hypertable_schema = 'public';
+SQL
 ```
 
 ## Server environment

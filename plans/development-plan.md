@@ -165,7 +165,8 @@ ai-rates/
 >   - A private CA was created and uploaded to Cloudflare.
 >   - Connections use `sslmode=verify-full`, checked from the internet (TLSv1.3).
 >   - Not yet enforced for other clients. Details in `deploy/hklab/README.md`.
-> - **Remaining for Phase 1:** the DB currently sits on the root disk (~12 GB free). Mount the NVMe at `/srv/airates-data`, add its compose volume (both need sudo), then move the DB with `ALTER DATABASE ... SET TABLESPACE`. See the runbook.
+> - **Storage (done 2026-09-12):** the NVMe is mounted at `/srv/airates-data`, and `vaultdeck` was moved into tablespace `airates_nvme` (143 MB at move time; 434 GB free).
+> - **Background jobs (fixed 2026-09-12):** the shared instance had 16 TimescaleDB workers for 17 databases, so `vaultdeck`'s compression and retention policies had never run. Raised to 24 workers / 48 worker processes (3-second restart); the policies now run successfully. **Phase 1 complete.**
 
 ### Phase 2 — API + screener + exchange/asset index (weeks 3–6)
 - `/v1/screener`, `/v1/assets/:sym`, `/v1/exchanges/:venue`, `/v1/health`. Cache headers: screener `s-maxage=15, swr=60`, pages `s-maxage=60`, ETags. Rate-limiting binding on the API.
