@@ -5,7 +5,9 @@ import { SQL } from "bun";
 import { PgStore } from "./store";
 
 // Runs only with a database, e.g. `bun --env-file=.env.test.local test apps/collector`.
+// Tables go in their own schema so the test can share a database with production data.
 const url = process.env.DATABASE_URL;
+const TEST_SCHEMA = "airates_it";
 
 describe.skipIf(!url)("PgStore (integration)", () => {
   const venueId = `it-${crypto.randomUUID().slice(0, 8)}`;
@@ -51,7 +53,13 @@ describe.skipIf(!url)("PgStore (integration)", () => {
   });
 
   beforeAll(async () => {
-    sql = new SQL(url as string);
+    // A single connection, so the search_path set below applies to every query in this file.
+    sql = new SQL({ url: url as string, max: 1 });
+    await sql.unsafe(`CREATE SCHEMA IF NOT EXISTS ${TEST_SCHEMA}`);
+    await sql.unsafe(`SET search_path TO ${TEST_SCHEMA}, public`);
+    const [{ schema }] = await sql`SELECT current_schema() AS schema`;
+    if (schema !== TEST_SCHEMA)
+      throw new Error(`refusing to run outside ${TEST_SCHEMA} (got ${schema})`);
     await migrate(sql);
     store = new PgStore(sql);
     await store.upsertVenues([{ id: venueId, name: "Integration test", type: "cex" }]);

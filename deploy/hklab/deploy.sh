@@ -36,7 +36,7 @@ $SSH "cp $REMOTE_DIR/deploy/hklab/.env $STAGE_DIR/deploy/hklab/.env && chmod 600
 echo "==> building and restarting"
 $SSH "cd $REMOTE_DIR && docker compose -f deploy/hklab/compose.yml up -d --build"
 
-echo "==> health"
-sleep 5
-$SSH "curl -fsS http://127.0.0.1:20090/health" || { echo "deploy: health check failed; see 'docker logs airates-collector'" >&2; exit 1; }
+echo "==> health (waiting up to 60s for the collector to start)"
+$SSH 'for i in $(seq 1 30); do curl -fsS http://127.0.0.1:20090/health && exit 0; sleep 2; done; exit 1' \
+  || { echo "deploy: health check failed; see 'docker logs airates-collector'" >&2; exit 1; }
 echo

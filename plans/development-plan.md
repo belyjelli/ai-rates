@@ -146,7 +146,7 @@ ai-rates/
   - One `HistoryLoop` per venue that pulls settled funding for markets due a settlement (**settled events recorded from day 1**).
   - `CollectorStatus` health endpoint on `127.0.0.1:20090`.
 - **`packages/db`:** SQL migrations (TimescaleDB hypertables `funding_snapshots` with 1-day compression and 30-day retention, `funding_events` kept indefinitely, `markets`, `venues`, `collector_runs`) and a migration runner.
-- **Storage:** database `airates` on the existing `timescaledb_container`, with its tablespace on the 466 GB NVMe mounted at `/srv/filegator/data/database`. The mount and the compose volume need sudo on hklab. `airates_test` runs integration tests over an SSH tunnel.
+- **Storage:** database `vaultdeck` (role `$AIRATES_PG_ROLE`) on the existing `timescaledb_container`, to be moved onto the 466 GB NVMe mounted at `/srv/airates-data` via a tablespace. The mount and the compose volume need sudo on hklab. Integration tests use their own schema, `airates_it`, in `vaultdeck` over an SSH tunnel.
 - **Adapters:** Bybit, OKX, Gate, MEXC, **KuCoin**, **Aster**, Hyperliquid (core + HIP-3 dexes via `perpDexs` / `metaAndAssetCtxs{dex}`), dYdX v4 indexer, Paradex, Lighter. KuCoin and Aster replace Binance and Bitget; Binance, BloFin, Pionex and Bitget are deferred by decision.
 - **Deploy:** `deploy/hklab/deploy.sh` streams the repo allowlist, builds on the server, and runs `docker compose` on the `postgres_postgres` network. Runbook: `deploy/hklab/README.md`.
 
@@ -159,7 +159,8 @@ ai-rates/
 >   - The HIP-3 dexes cash, flx, hyna, vntl, km and abcd currently list only delisted assets, so they return 0 markets.
 >   - MEXC coin-settled contracts need USD contract sizing.
 >   - dYdX BTC funding is often exactly 0 (within the clamp band).
-> - **Production:** live on hklab since 2026-09-12 (`airates-collector`, database `airates` on `timescaledb_container`). The first check showed all 20 venues fresh, 0 failed runs, ~4.2k markets, 70 MB RAM, 13 MB database.
+> - **Production:** live on hklab since 2026-09-12 (`airates-collector`). The first check showed all 20 venues fresh, 0 failed runs, ~4.2k markets, 70 MB RAM. The same day the collector moved from `airates` to the owner-provided database `vaultdeck`/`$AIRATES_PG_ROLE`, with row counts verified identical.
+> - **Phase 2 access decision:** Cloudflare will reach Postgres directly through Hyperdrive once TLS is enabled on the instance. The public port `$AIRATES_DEPLOY_HOST:$AIRATES_PG_PORT` currently has `ssl = off`, and Hyperdrive requires TLS.
 > - **Remaining for Phase 1:** the DB currently sits on the root disk (~12 GB free). Mount the NVMe at `/srv/airates-data`, add its compose volume (both need sudo), then move the DB with `ALTER DATABASE ... SET TABLESPACE`. See the runbook.
 
 ### Phase 2 — API + screener + exchange/asset index (weeks 3–6)
