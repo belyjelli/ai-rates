@@ -334,12 +334,15 @@ ${renderRail({ scale, marks, bar: pair ? [pair.long.apr, pair.short.apr] : undef
   });
 }
 
-/** Backtest amounts are small and exact, unlike the millions formatUsd is shaped for. */
+/** Backtest results are small and exact, unlike the millions formatUsd is shaped for. */
 const money = (value: number) =>
   `${value < 0 ? "−" : ""}$${Math.abs(value).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
+/** Sizes the reader chose from a menu: cents on "$10,000.00" are noise. */
+const wholeMoney = (value: number) => `$${Math.round(value).toLocaleString("en-US")}`;
 
 const pairHref = (asset: string) => `/pair/${encodeURIComponent(asset)}`;
 
@@ -374,7 +377,7 @@ function equityCurve(result: BacktestResult, sizeUsd: number): string {
 <line class="curve-zero" x1="${pad}" x2="${width - pad}" y1="${zero}" y2="${zero}"></line>
 <polyline class="curve-line" points="${line}"></polyline>
 </svg>
-<figcaption>Cumulative funding on ${money(sizeUsd)} per leg · ${esc(first)} to ${esc(last)}</figcaption>
+<figcaption>Cumulative funding on ${wholeMoney(sizeUsd)} per leg · ${esc(first)} to ${esc(last)}</figcaption>
 </figure>`;
 }
 
@@ -437,13 +440,18 @@ export function pair(data: {
 <span class="short"><b>Short ${esc(venueName(result.short.venueId))}</b> ${esc(result.short.venueSymbol)} · ${result.short.settlements} settlements · ${money(result.short.fundingUsd)}</span>
 </div>
 ${equityCurve(result, params.sizeUsd)}
-<div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span><span>capital <b>${money(params.sizeUsd * 2)}</b> across both legs</span></div>
+<div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span><span>capital <b>${wholeMoney(params.sizeUsd * 2)}</b> across both legs</span></div>
 ${
   result.long.missedSettlements > 0 || result.short.missedSettlements > 0
     ? `<p class="notes">Missed settlements: ${result.long.missedSettlements} on ${esc(venueName(result.long.venueId))}, ${result.short.missedSettlements} on ${esc(venueName(result.short.venueId))}. A gap is reported rather than counted as zero, so this total covers only the settlements actually recorded.</p>`
     : ""
 }
-<p class="notes">Funding only, on a position kept at ${money(params.sizeUsd)} per leg. Trading fees are excluded: exchange taker fees aren't published consistently enough to assume one. Price moves between settlements aren't modelled either, because venue funding history gives a rate and a time, and almost never a mark price.</p>`
+${
+  result.perDay.length > 0 && result.perDay.length < Math.round(result.days) - 1
+    ? `<p class="notes">Only ${result.perDay.length} of the ${Math.round(result.days)} days asked for have stored settlements. The annualized figure still divides by the whole window, so it reads low. History reaches 90 days on most venues and is still filling on the rest.</p>`
+    : ""
+}
+<p class="notes">Funding only, on a position kept at ${wholeMoney(params.sizeUsd)} per leg. Trading fees are excluded: exchange taker fees aren't published consistently enough to assume one. Price moves between settlements aren't modelled either, because venue funding history gives a rate and a time, and almost never a mark price.</p>`
       : `<p class="lede">${
           venues < 2
             ? `Only one exchange lists ${esc(asset)} right now, so there's no pair to hold.`
