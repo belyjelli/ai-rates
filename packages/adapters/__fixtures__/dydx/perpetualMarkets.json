@@ -1,0 +1,44 @@
+{
+  "markets": {
+    "BTC-USD": {
+      "clobPairId": "0",
+      "ticker": "BTC-USD",
+      "status": "ACTIVE",
+      "oraclePrice": "77862.55687",
+      "volume24H": "3889329.2462",
+      "nextFundingRate": "0",
+      "openInterest": "194.2390",
+      "marketType": "CROSS"
+    },
+    "ETH-USD": {
+      "clobPairId": "1",
+      "ticker": "ETH-USD",
+      "status": "ACTIVE",
+      "oraclePrice": "2577.379583",
+      "volume24H": "7656688.5006",
+      "nextFundingRate": "-0.00000022767857142857",
+      "openInterest": "3976.853",
+      "marketType": "CROSS"
+    },
+    "LINK-USD": {
+      "clobPairId": "2",
+      "ticker": "LINK-USD",
+      "status": "ACTIVE",
+      "oraclePrice": "11.775911208",
+      "volume24H": "26888.834",
+      "nextFundingRate": "0.00001665625",
+      "openInterest": "28956",
+      "marketType": "CROSS"
+    },
+    "MATIC-USD": {
+      "clobPairId": "3",
+      "ticker": "MATIC-USD",
+      "status": "FINAL_SETTLEMENT",
+      "oraclePrice": "0.3932407381",
+      "volume24H": "0",
+      "nextFundingRate": "0",
+      "openInterest": "0",
+      "marketType": "CROSS"
+    }
+  }
+}

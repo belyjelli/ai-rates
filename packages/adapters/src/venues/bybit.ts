@@ -1,0 +1,194 @@
+import {
+  type FundingEvent,
+  type FundingSnapshot,
+  inferIntervalHours,
+  parseVenueSymbol,
+} from "@ai-rates/core";
+import type { HttpClient } from "../http";
+import { marketRef, num } from "../parse";
+import type { SnapshotBatch, VenueAdapter } from "../types";
+
+const VENUE_ID = "bybit";
+const BASE_URL = "https://api.bybit.com";
+const HISTORY_PAGE = 200;
+const MAX_PAGES = 50;
+
+export interface BybitEnvelope<T> {
+  retCode: number;
+  retMsg: string;
+  result: { list: T[]; nextPageCursor?: string };
+}
+
+export interface BybitTicker {
+  symbol: string;
+  fundingRate: string;
+  nextFundingTime: string;
+  markPrice: string;
+  indexPrice: string;
+  openInterestValue: string;
+  turnover24h: string;
+}
+
+export interface BybitInstrument {
+  symbol: string;
+  contractType: string;
+  status: string;
+  baseCoin: string;
+  quoteCoin: string;
+  /** Minutes; 0 for dated futures. */
+  fundingInterval: number;
+}
+
+export interface BybitFundingHistoryItem {
+  symbol: string;
+  fundingRate: string;
+  fundingRateTimestamp: string;
+}
+
+function unwrap<T>(json: BybitEnvelope<T>, what: string): BybitEnvelope<T>["result"] {
+  if (json.retCode !== 0) throw new Error(`bybit ${what}: ${json.retCode} ${json.retMsg}`);
+  return json.result;
+}
+
+function positiveMs(value: unknown): number | null {
+  const ms = num(value);
+  return ms !== null && ms > 0 ? ms : null;
+}
+
+/** Joins tickers with perpetual instrument metadata; `fundingRate` is the rate for the current interval. */
+export function parseBybitSnapshots(
+  tickers: BybitEnvelope<BybitTicker>,
+  instruments: readonly BybitInstrument[],
+  now: number,
+): SnapshotBatch {
+  const perps = new Map(
+    instruments
+      .filter(
+        (i) =>
+          i.contractType === "LinearPerpetual" && i.status === "Trading" && i.fundingInterval > 0,
+      )
+      .map((i) => [i.symbol, i]),
+  );
+
+  const snapshots: FundingSnapshot[] = [];
+  for (const ticker of unwrap(tickers, "tickers").list) {
+    const instrument = perps.get(ticker.symbol);
+    const rate = num(ticker.fundingRate);
+    if (!instrument || rate === null) continue;
+
+    // Symbols like "1000BONKPERP" don't parse cleanly; baseCoin/quoteCoin do.
+    const coin = parseVenueSymbol(`${instrument.baseCoin}-${instrument.quoteCoin}`);
+    const hours = instrument.fundingInterval / 60;
+    snapshots.push({
+      ...marketRef(VENUE_ID, ticker.symbol, {
+        base: coin.base,
+        quote: coin.quote,
+        multiplier: coin.multiplier,
+      }),
+      observedAt: now,
+      rate,
+      basisHours: hours,
+      intervalHours: hours,
+      nextFundingAt: positiveMs(ticker.nextFundingTime),
+      kind: "predicted",
+      markPrice: num(ticker.markPrice),
+      indexPrice: num(ticker.indexPrice),
+      openInterestUsd: num(ticker.openInterestValue),
+      volume24hUsd: num(ticker.turnover24h),
+    });
+  }
+  return { snapshots, settled: [] };
+}
+
+/**
+ * Settled funding events, oldest first. Each rate is per settlement interval, which is inferred
+ * from the spacing of the events (falling back to `fallbackHours` when there are fewer than two).
+ */
+export function parseBybitFundingHistory(
+  json: BybitEnvelope<BybitFundingHistoryItem>,
+  fallbackHours: number,
+): FundingEvent[] {
+  const points = unwrap(json, "funding history")
+    .list.map((item) => ({
+      symbol: item.symbol,
+      settledAt: num(item.fundingRateTimestamp),
+      rate: num(item.fundingRate),
+    }))
+    .filter(
+      (p): p is { symbol: string; settledAt: number; rate: number } =>
+        p.settledAt !== null && p.rate !== null,
+    )
+    .sort((a, b) => a.settledAt - b.settledAt);
+
+  const basisHours = inferIntervalHours(points.map((p) => p.settledAt)) ?? fallbackHours;
+  return points.map((p) => ({
+    ...marketRef(VENUE_ID, p.symbol),
+    settledAt: p.settledAt,
+    rate: p.rate,
+    basisHours,
+    markPrice: null,
+  }));
+}
+
+async function fetchInstruments(client: HttpClient): Promise<BybitInstrument[]> {
+  const all: BybitInstrument[] = [];
+  let cursor = "";
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const query = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+    const result = unwrap(
+      await client.getJson<BybitEnvelope<BybitInstrument>>(
+        `${BASE_URL}/v5/market/instruments-info?category=linear&limit=1000${query}`,
+      ),
+      "instruments",
+    );
+    all.push(...result.list);
+    cursor = result.nextPageCursor ?? "";
+    if (!cursor) break;
+  }
+  return all;
+}
+
+export const bybitAdapter: VenueAdapter = {
+  venueId: VENUE_ID,
+  minIntervalMs: 100,
+
+  async fetchSnapshots(client, now) {
+    const [tickers, instruments] = await Promise.all([
+      client.getJson<BybitEnvelope<BybitTicker>>(`${BASE_URL}/v5/market/tickers?category=linear`),
+      fetchInstruments(client),
+    ]);
+    return parseBybitSnapshots(tickers, instruments, now);
+  },
+
+  async fetchFundingHistory(client, venueSymbol, fromMs, toMs) {
+    const items: BybitFundingHistoryItem[] = [];
+    let endTime = toMs;
+    for (let page = 0; page < MAX_PAGES && endTime >= fromMs; page++) {
+      const json = await client.getJson<BybitEnvelope<BybitFundingHistoryItem>>(
+        `${BASE_URL}/v5/market/funding/history?category=linear&symbol=${encodeURIComponent(venueSymbol)}&startTime=${fromMs}&endTime=${endTime}&limit=${HISTORY_PAGE}`,
+      );
+      const list = unwrap(json, "funding history").list;
+      items.push(...list);
+      if (list.length < HISTORY_PAGE) break;
+      const oldest = Math.min(...list.map((i) => Number(i.fundingRateTimestamp)));
+      endTime = oldest - 1;
+    }
+
+    let fallbackHours = 8;
+    if (items.length < 2) {
+      const info = unwrap(
+        await client.getJson<BybitEnvelope<BybitInstrument>>(
+          `${BASE_URL}/v5/market/instruments-info?category=linear&symbol=${encodeURIComponent(venueSymbol)}`,
+        ),
+        "instrument",
+      ).list[0];
+      if (info && info.fundingInterval > 0) fallbackHours = info.fundingInterval / 60;
+    }
+
+    const unique = [...new Map(items.map((i) => [i.fundingRateTimestamp, i])).values()];
+    return parseBybitFundingHistory(
+      { retCode: 0, retMsg: "OK", result: { list: unique } },
+      fallbackHours,
+    );
+  },
+};

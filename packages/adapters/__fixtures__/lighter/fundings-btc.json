@@ -1,0 +1,30 @@
+{
+  "code": 200,
+  "resolution": "1h",
+  "fundings": [
+    {
+      "timestamp": 1789135200,
+      "value": "0.79227600",
+      "rate": "0.0010",
+      "direction": "long"
+    },
+    {
+      "timestamp": 1789138800,
+      "value": "0.07879940",
+      "rate": "0.0001",
+      "direction": "long"
+    },
+    {
+      "timestamp": 1789142400,
+      "value": "0.07773270",
+      "rate": "0.0001",
+      "direction": "long"
+    },
+    {
+      "timestamp": 1789146000,
+      "value": "0.77916500",
+      "rate": "0.0010",
+      "direction": "long"
+    }
+  ]
+}

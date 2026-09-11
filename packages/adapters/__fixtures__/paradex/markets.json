@@ -1,0 +1,37 @@
+{
+  "results": [
+    {
+      "symbol": "BTC-USD-PERP",
+      "base_currency": "BTC",
+      "quote_currency": "USD",
+      "settlement_currency": "USDC",
+      "asset_kind": "PERP",
+      "expiry_at": 0,
+      "funding_period_hours": 8,
+      "funding_multiplier": 1,
+      "max_funding_rate": "0.02"
+    },
+    {
+      "symbol": "ETH-USD-PERP",
+      "base_currency": "ETH",
+      "quote_currency": "USD",
+      "settlement_currency": "USDC",
+      "asset_kind": "PERP",
+      "expiry_at": 0,
+      "funding_period_hours": 8,
+      "funding_multiplier": 1,
+      "max_funding_rate": "0.02"
+    },
+    {
+      "symbol": "SOL-USD-25DEC26-96-C",
+      "base_currency": "SOL",
+      "quote_currency": "USD",
+      "settlement_currency": "USDC",
+      "asset_kind": "OPTION",
+      "expiry_at": 1798185600000,
+      "funding_period_hours": 0,
+      "funding_multiplier": 1,
+      "max_funding_rate": "0"
+    }
+  ]
+}

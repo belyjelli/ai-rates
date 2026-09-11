@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "code": 0,
+  "data": {
+    "symbol": "XAU_USDT",
+    "fundingRate": 0.000147,
+    "maxFundingRate": 0.03,
+    "minFundingRate": -0.03,
+    "collectCycle": 4,
+    "nextSettleTime": 1789156800000,
+    "timestamp": 1789147685070,
+    "idxPrice": 4369.55,
+    "fairPrice": 4372.35
+  }
+}

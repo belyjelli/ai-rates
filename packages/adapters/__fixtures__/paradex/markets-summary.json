@@ -1,0 +1,82 @@
+{
+  "results": [
+    {
+      "symbol": "BTC-USD-PERP",
+      "mark_price": "77804.85141726",
+      "delta": "1.00021352",
+      "greeks": {
+        "delta": "1.00021352144713",
+        "gamma": "0",
+        "vega": "0"
+      },
+      "last_traded_price": "77799.4",
+      "bid": "77804.3",
+      "bid_size": "2.58196",
+      "ask": "77814",
+      "ask_size": "0.02581",
+      "volume_24h": "4273947.632803999",
+      "total_volume": "133780320848.057831",
+      "created_at": 1789147120003,
+      "underlying_price": "77788.24195927",
+      "open_interest": "50.4599",
+      "funding_rate": "0.00007688102642",
+      "price_change_rate_24h": "0.008582",
+      "external_fair_price": "77752.74554506",
+      "risk_free_rate": "0"
+    },
+    {
+      "symbol": "ETH-USD-PERP",
+      "mark_price": "2575.96185222",
+      "delta": "1.00016583",
+      "greeks": {
+        "delta": "1.0001658254994",
+        "gamma": "0",
+        "vega": "0"
+      },
+      "last_traded_price": "2574.69",
+      "bid": "2576.12",
+      "bid_size": "58.5718",
+      "ask": "2576.8",
+      "ask_size": "58.5563",
+      "volume_24h": "5621600.612198004",
+      "total_volume": "50953613837.5497632",
+      "created_at": 1789147120003,
+      "underlying_price": "2575.53476288",
+      "open_interest": "1252.1354",
+      "funding_rate": "0.00008019490495",
+      "price_change_rate_24h": "0.050246",
+      "external_fair_price": "2574.25486872",
+      "risk_free_rate": "0"
+    },
+    {
+      "symbol": "BTC-USD-25JUN27-86000-C",
+      "mark_price": "9531.8571999",
+      "mark_iv": "0.40740974",
+      "delta": "0.52294067",
+      "greeks": {
+        "delta": "0.5229406727811445",
+        "gamma": "0.000014758329631479825",
+        "vega": "285.6961320392709",
+        "theta": "-25.727644977433595",
+        "rho": "-74.84780841808124",
+        "vanna": "-0.0031790714479191374",
+        "volga": "-0.02069950342168105"
+      },
+      "last_traded_price": "",
+      "bid": "",
+      "bid_size": "",
+      "ask": "",
+      "ask_size": "",
+      "volume_24h": "0",
+      "total_volume": "0",
+      "created_at": 1789147120003,
+      "underlying_price": "77788.24195927",
+      "open_interest": "0",
+      "funding_rate": "",
+      "price_change_rate_24h": "0.023701",
+      "future_funding_rate": "0.00007688",
+      "forward_rate": "0.04865229",
+      "risk_free_rate": "0"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@ai-rates/collector",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun src/main.ts"
+  },
+  "dependencies": {
+    "@ai-rates/adapters": "workspace:*",
+    "@ai-rates/core": "workspace:*",
+    "@ai-rates/db": "workspace:*",
+    "@ai-rates/venues": "workspace:*"
+  }
+}

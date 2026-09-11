@@ -137,9 +137,29 @@ ai-rates/
 4. **Start referral/affiliate applications** for all venues (approval takes weeks). Legal checklist: exchange ToS on redistributing market data (top 15), affiliate disclosure, geo-gating referral CTAs by `request.cf.country`.
 
 ### Phase 1 — Ingestion core + first 10 adapters (weeks 2–4)
-- Shared HTTP client: retry with jitter, honors `Retry-After`, identifying User-Agent, per-venue circuit breaker, token bucket in DO storage.
-- VenueCollectorDO alarm loop → VenueHistoryDO (settled events **recorded from day 1**) → MarketHubDO → Pipelines. Watchdog cron. Analytics Engine health metrics + stale-venue alert.
-- Adapters: Binance, Bybit, OKX, Bitget, Gate, MEXC, Hyperliquid (core + HIP-3 via `allPerpMetas` / `metaAndAssetCtxs{dex}`), dYdX v4 indexer, Paradex, Lighter. Each ships with recorded fixtures + a zod contract test.
+> **Architecture change (2026-09-12, decided after Phase 0):** Workers Free can't hold Phase 1 (Durable Objects there cap at 100k rows written/day and 5 GB; bulk responses blow the 10ms CPU limit). So **collection and storage run on the team's hklab server** (Hong Kong egress, 16 cores / 28 GB): a Bun collector container plus the existing TimescaleDB instance. The Cloudflare Worker stays as the public edge for Phase 2+. From Hong Kong every Phase 1 venue is reachable, and so are Binance/Bybit/Bitget (BloFin still 403), which removes the Cloudflare geo-block problem for the collector. The DO-based ingest design above is superseded for ingestion.
+
+- **`packages/adapters`:** one `VenueAdapter` per venue with pure, fixture-tested parsers; `fetchSnapshots` (bulk current funding + mark/index/OI/volume) and `fetchFundingHistory` (settled payments).
+  - Shared JSON client: request spacing, jittered exponential backoff honoring `Retry-After`, per-venue circuit breaker.
+- **`apps/collector`** (Bun, Docker on hklab):
+  - One `VenueLoop` per venue on a 60s wall-clock cadence (no overlapping cycles, per-cycle timeout).
+  - One `HistoryLoop` per venue that pulls settled funding for markets due a settlement (**settled events recorded from day 1**).
+  - `CollectorStatus` health endpoint on `127.0.0.1:20090`.
+- **`packages/db`:** SQL migrations (TimescaleDB hypertables `funding_snapshots` with 1-day compression and 30-day retention, `funding_events` kept indefinitely, `markets`, `venues`, `collector_runs`) and a migration runner.
+- **Storage:** database `airates` on the existing `timescaledb_container`, with its tablespace on the 466 GB NVMe mounted at `/srv/filegator/data/database`. The mount and the compose volume need sudo on hklab. `airates_test` runs integration tests over an SSH tunnel.
+- **Adapters:** Bybit, OKX, Gate, MEXC, **KuCoin**, **Aster**, Hyperliquid (core + HIP-3 dexes via `perpDexs` / `metaAndAssetCtxs{dex}`), dYdX v4 indexer, Paradex, Lighter. KuCoin and Aster replace Binance and Bitget; Binance, BloFin, Pionex and Bitget are deferred by decision.
+- **Deploy:** `deploy/hklab/deploy.sh` streams the repo allowlist, builds on the server, and runs `docker compose` on the `postgres_postgres` network. Runbook: `deploy/hklab/README.md`.
+
+> **Status 2026-09-12:** built and verified end to end from a dev machine against `airates_test`.
+> - **Coverage:** 20 venues and ~4.8k markets per cycle (Bybit 829, OKX 478, Gate 970, KuCoin 682, Aster 571, MEXC filling toward ~1.2k, Hyperliquid 178, Lighter 217, dYdX 78, Paradex 63, HIP-3 xyz 104 / para 26 / io 6 / mkts 4).
+> - **History:** settled-funding sweeps running (e.g. Aster 27k and Bybit 13.6k events on the first sweep).
+> - **Verified:** zero 429s after putting Hyperliquid core and HIP-3 on one shared rate-limit group; clean SIGTERM shutdown in ~4s.
+> - **Tests:** 179 passing.
+> - **Findings:**
+>   - The HIP-3 dexes cash, flx, hyna, vntl, km and abcd currently list only delisted assets, so they return 0 markets.
+>   - MEXC coin-settled contracts need USD contract sizing.
+>   - dYdX BTC funding is often exactly 0 (within the clamp band).
+> - **Remaining for Phase 1:** production deploy on hklab, blocked on mounting the NVMe and adding its compose volume (both need sudo on hklab; see the runbook).
 
 ### Phase 2 — API + screener + exchange/asset index (weeks 3–6)
 - `/v1/screener`, `/v1/assets/:sym`, `/v1/exchanges/:venue`, `/v1/health`. Cache headers: screener `s-maxage=15, swr=60`, pages `s-maxage=60`, ETags. Rate-limiting binding on the API.

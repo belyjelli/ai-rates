@@ -1,0 +1,33 @@
+# airates collector on hklab. Deploy with deploy/hklab/deploy.sh from the repository root.
+# Secrets (DATABASE_URL, ...) live in deploy/hklab/.env on the server only.
+name: airates
+
+services:
+  collector:
+    build:
+      context: ../..
+      dockerfile: apps/collector/Dockerfile
+    image: airates-collector:latest
+    container_name: airates-collector
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HEALTH_PORT: "8080"
+    ports:
+      # Health/debug API reachable from the server only.
+      - "127.0.0.1:20090:8080"
+    networks:
+      - postgres
+    mem_limit: 512m
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  # Existing network shared with timescaledb_container (/srv/postgres/db_compose.yml).
+  postgres:
+    name: postgres_postgres
+    external: true
