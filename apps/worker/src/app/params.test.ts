@@ -31,6 +31,7 @@ describe("parseScreenerFilters", () => {
       minVolume24hUsd: 100_000,
       venueIds: ["bybit", "okx"],
       venueTypes: ["cex", "hip3"],
+      maxAbsApr: DEFAULT_FILTERS.maxAbsApr,
       limit: 500,
     });
   });
@@ -46,9 +47,26 @@ describe("parseScreenerFilters", () => {
     expect(filters.minOpenInterestUsd).toBe(DEFAULT_FILTERS.minOpenInterestUsd);
     expect(filters.limit).toBe(DEFAULT_FILTERS.limit);
   });
+
+  test("only an explicit extremes flag lifts the funding cap", () => {
+    for (const query of ["extremes=1", "extremes=on", "extremes=yes"]) {
+      expect(parseScreenerFilters(new URLSearchParams(query)).maxAbsApr).toBeNull();
+    }
+    for (const query of ["", "extremes=0", "extremes=false", "extremes="]) {
+      expect(parseScreenerFilters(new URLSearchParams(query)).maxAbsApr).toBe(
+        DEFAULT_FILTERS.maxAbsApr,
+      );
+    }
+  });
 });
 
 describe("filtersToQuery", () => {
+  test("round-trips the extremes flag", () => {
+    const filters = parseScreenerFilters(new URLSearchParams("extremes=1"));
+    expect(filtersToQuery(filters)).toBe("?extremes=1");
+    expect(parseScreenerFilters(new URLSearchParams(filtersToQuery(filters)))).toEqual(filters);
+  });
+
   test("is empty for defaults and stable for equivalent filters", () => {
     expect(filtersToQuery(DEFAULT_FILTERS)).toBe("");
     const a = parseScreenerFilters(new URLSearchParams("types=hip3,cex&min_oi=0"));

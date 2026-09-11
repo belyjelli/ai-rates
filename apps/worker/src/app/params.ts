@@ -10,6 +10,8 @@ export const DEFAULT_FILTERS: ScreenerFilters = {
   minVolume24hUsd: 0,
   venueIds: null,
   venueTypes: null,
+  // Distressed listings run to ±2700% APR and swamp the ranking; ?extremes=1 puts them back.
+  maxAbsApr: 1000,
   limit: 100,
 };
 
@@ -32,6 +34,7 @@ export function parseScreenerFilters(params: URLSearchParams): ScreenerFilters {
     minOpenInterestUsd: parseUsd(params.get("min_oi")) ?? DEFAULT_FILTERS.minOpenInterestUsd,
     minVolume24hUsd: parseUsd(params.get("min_vol")) ?? DEFAULT_FILTERS.minVolume24hUsd,
     venueIds: listParam(params, "venues", KNOWN_VENUES),
+    maxAbsApr: isTruthyParam(params.get("extremes")) ? null : DEFAULT_FILTERS.maxAbsApr,
     // Selecting every type is the same as not filtering by type.
     venueTypes: types && types.length === VENUE_TYPES.length ? null : types,
     limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), MAX_LIMIT) : DEFAULT_FILTERS.limit,
@@ -47,11 +50,17 @@ export function filtersToQuery(filters: ScreenerFilters): string {
   if (filters.minVolume24hUsd !== DEFAULT_FILTERS.minVolume24hUsd) {
     params.set("min_vol", String(filters.minVolume24hUsd));
   }
+  if (filters.maxAbsApr !== DEFAULT_FILTERS.maxAbsApr) params.set("extremes", "1");
   if (filters.venueTypes) params.set("types", filters.venueTypes.join(","));
   if (filters.venueIds) params.set("venues", filters.venueIds.join(","));
   if (filters.limit !== DEFAULT_FILTERS.limit) params.set("limit", String(filters.limit));
   const query = params.toString();
   return query ? `?${query}` : "";
+}
+
+/** A present checkbox param counts as on unless it explicitly says otherwise. */
+function isTruthyParam(value: string | null): boolean {
+  return value !== null && value !== "" && value !== "0" && value.toLowerCase() !== "false";
 }
 
 /** Accepts both `?types=cex,dex` and repeated `?types=cex&types=dex` (what an HTML form submits). */

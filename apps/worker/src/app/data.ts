@@ -8,6 +8,8 @@ export interface ScreenerFilters {
   minVolume24hUsd: number;
   venueIds: string[] | null;
   venueTypes: string[] | null;
+  /** Drops legs beyond this absolute APR; null keeps distressed markets in. */
+  maxAbsApr: number | null;
   limit: number;
 }
 
@@ -108,7 +110,8 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           ${f.minVolume24hUsd}::float8,
           string_to_array(${f.venueIds?.join(",") ?? null}::text, ','),
           string_to_array(${f.venueTypes?.join(",") ?? null}::text, ','),
-          ${FRESH_INTERVAL}::interval)
+          ${FRESH_INTERVAL}::interval,
+          ${f.maxAbsApr}::float8)
         ORDER BY spread_apr DESC
         LIMIT ${f.limit}`;
       return [...rows];

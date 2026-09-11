@@ -138,6 +138,15 @@ describe.skipIf(!url)("screener read models (integration)", () => {
     expect(row).toEqual({ observed_at: before, rate: 0.0002 });
   });
 
+  test("caps absolute APR per leg", async () => {
+    // Live legs: v1 at -10.95% and +32.85% APR, v2 at +21.9%.
+    const age = "interval '5 minutes'";
+    expect(await pairsFor(`0, 0, NULL, NULL, ${age}, 100`)).toHaveLength(1);
+    // Only v1's -10.95% leg survives a 15% cap, and one venue can't make a pair.
+    expect(await pairsFor(`0, 0, NULL, NULL, ${age}, 15`)).toEqual([]);
+    expect(await pairsFor(`0, 0, NULL, NULL, ${age}, NULL`)).toHaveLength(1);
+  });
+
   test("refreshFundingStats computes time-weighted settled APR windows", async () => {
     const hour = 3_600_000;
     const settledNow = Math.floor(Date.now() / hour) * hour;

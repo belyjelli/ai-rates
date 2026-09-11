@@ -124,6 +124,7 @@ ${select("min_vol", "Min 24h volume, each leg", f.minVolume24hUsd, [
   [10_000_000, "$10M"],
 ])}
 <fieldset class="field"><legend>Exchange types</legend><div class="checks">${types}</div></fieldset>
+<fieldset class="field"><legend>Distressed markets</legend><div class="checks"><label title="Delisting and distressed listings can pay beyond ±2000% APR and crowd out tradeable spreads"><input type="checkbox" name="extremes" value="1"${f.maxAbsApr === null ? " checked" : ""}> Include beyond ±1000% APR</label></div></fieldset>
 ${select("limit", "Rows", f.limit, [
   [50, "50"],
   [100, "100"],
