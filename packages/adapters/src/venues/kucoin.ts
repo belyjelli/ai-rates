@@ -51,19 +51,28 @@ function unwrap<T>(json: KucoinEnvelope<T>, what: string): T {
   return json.data;
 }
 
+/**
+ * KuCoin answers `data: null` rather than `[]` when a window holds no rows, which the backfill hits
+ * constantly: a symbol listed last week has nothing 90 days back. That is an empty result, not a
+ * failure, and returning [] lets the caller mark the market exhausted instead of retrying forever.
+ */
+function unwrapList<T>(json: KucoinEnvelope<T[] | null>, what: string): T[] {
+  return unwrap(json, what) ?? [];
+}
+
 function granularityMs(contract: KucoinContract): number | null {
   const ms = contract.currentFundingRateGranularity ?? contract.fundingRateGranularity;
   return ms !== null && ms > 0 ? ms : null;
 }
 
 export function parseKucoinSnapshots(
-  json: KucoinEnvelope<KucoinContract[]>,
+  json: KucoinEnvelope<KucoinContract[] | null>,
   now: number,
 ): SnapshotBatch {
   const snapshots: FundingSnapshot[] = [];
   const settled: FundingEvent[] = [];
 
-  for (const contract of unwrap(json, "contracts")) {
+  for (const contract of unwrapList(json, "contracts")) {
     if (contract.type !== PERPETUAL || contract.isInverse || contract.status !== "Open") continue;
     const intervalMs = granularityMs(contract);
     const rate = num(contract.fundingFeeRate);
@@ -103,10 +112,10 @@ export function parseKucoinSnapshots(
 
 /** Settled funding events for one symbol, oldest first. */
 export function parseKucoinFundingHistory(
-  json: KucoinEnvelope<KucoinFundingHistoryItem[]>,
+  json: KucoinEnvelope<KucoinFundingHistoryItem[] | null>,
   fallbackHours: number,
 ): FundingEvent[] {
-  const points = unwrap(json, "funding history")
+  const points = unwrapList(json, "funding history")
     .map((item) => ({
       symbol: item.symbol,
       settledAt: num(item.timepoint),
@@ -143,8 +152,8 @@ export const kucoinAdapter: VenueAdapter = {
     const items: KucoinFundingHistoryItem[] = [];
     let to = toMs;
     for (let page = 0; page < MAX_PAGES && to >= fromMs; page++) {
-      const data = unwrap(
-        await client.getJson<KucoinEnvelope<KucoinFundingHistoryItem[]>>(
+      const data = unwrapList(
+        await client.getJson<KucoinEnvelope<KucoinFundingHistoryItem[] | null>>(
           `${BASE_URL}/api/v1/contract/funding-rates?symbol=${encodeURIComponent(venueSymbol)}&from=${fromMs}&to=${to}`,
         ),
         "funding history",
