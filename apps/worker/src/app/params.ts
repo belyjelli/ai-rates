@@ -58,6 +58,40 @@ export function filtersToQuery(filters: ScreenerFilters): string {
   return query ? `?${query}` : "";
 }
 
+export const DEFAULT_BACKTEST_DAYS = 30;
+/** Backfilled history reaches 90 days, so asking for more would quietly return less. */
+export const MAX_BACKTEST_DAYS = 90;
+export const DEFAULT_BACKTEST_SIZE_USD = 10_000;
+export const MAX_BACKTEST_SIZE_USD = 10_000_000;
+
+export interface BacktestParams {
+  longVenueId: string;
+  shortVenueId: string;
+  /** Notional per leg; capital committed is twice this before leverage. */
+  sizeUsd: number;
+  days: number;
+}
+
+/** Backtest inputs from query params. Null when the two legs don't name two different exchanges. */
+export function parseBacktestParams(params: URLSearchParams): BacktestParams | null {
+  const longVenueId = (params.get("long") ?? "").trim().toLowerCase();
+  const shortVenueId = (params.get("short") ?? "").trim().toLowerCase();
+  if (!KNOWN_VENUES.has(longVenueId) || !KNOWN_VENUES.has(shortVenueId)) return null;
+  // A spread needs two venues: the same market against itself is always zero.
+  if (longVenueId === shortVenueId) return null;
+
+  const size = parseUsd(params.get("size")) ?? DEFAULT_BACKTEST_SIZE_USD;
+  const days = Number.parseInt(params.get("days") ?? "", 10);
+  return {
+    longVenueId,
+    shortVenueId,
+    sizeUsd: Math.min(Math.max(size, 1), MAX_BACKTEST_SIZE_USD),
+    days: Number.isFinite(days)
+      ? Math.min(Math.max(days, 1), MAX_BACKTEST_DAYS)
+      : DEFAULT_BACKTEST_DAYS,
+  };
+}
+
 /** A present checkbox param counts as on unless it explicitly says otherwise. */
 function isTruthyParam(value: string | null): boolean {
   return value !== null && value !== "" && value !== "0" && value.toLowerCase() !== "false";
