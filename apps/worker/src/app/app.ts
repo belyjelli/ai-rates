@@ -1,0 +1,154 @@
+import { VENUES } from "@ai-rates/venues";
+import * as pages from "../web/pages";
+import { VENUE_BY_ID } from "../web/venues";
+import type { DataSource } from "./data";
+import { DEFAULT_FILTERS, filtersToQuery, parseScreenerFilters } from "./params";
+
+export interface AppDeps {
+  data: DataSource;
+  now: () => number;
+  log?: (message: string) => void;
+}
+
+/** Health reports stale when the newest market update is older than this. */
+const STALE_MS = 5 * 60_000;
+const PAGE_MAX_AGE = 30;
+const API_MAX_AGE = 15;
+const ASSET_PATTERN = /^[A-Za-z0-9._-]{1,40}$/;
+
+/** Public site and JSON API. Probe routes are handled before this in index.ts. */
+export async function handleApp(request: Request, deps: AppDeps): Promise<Response> {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    return json({ error: "method_not_allowed" }, 405, 0);
+  }
+  const url = new URL(request.url);
+  const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : "/";
+  const now = deps.now();
+  const segments = path.split("/").filter(Boolean).map(decodeURIComponent);
+
+  try {
+    if (path === "/") {
+      const [overview, pairs] = await Promise.all([
+        deps.data.overview(),
+        deps.data.screener({ ...DEFAULT_FILTERS, limit: 12 }),
+      ]);
+      return page(pages.home({ overview, pairs, now }));
+    }
+
+    if (path === "/screener") {
+      const filters = parseScreenerFilters(url.searchParams);
+      const [overview, pairs] = await Promise.all([
+        deps.data.overview(),
+        deps.data.screener(filters),
+      ]);
+      return page(pages.screener({ overview, pairs, filters, now }));
+    }
+
+    if (path === "/markets") {
+      const [overview, exchanges] = await Promise.all([
+        deps.data.overview(),
+        deps.data.exchanges(),
+      ]);
+      return page(pages.exchanges({ overview, exchanges, now }));
+    }
+
+    if (segments[0] === "markets" && segments[1] === "exchange" && segments.length === 3) {
+      const venue = VENUE_BY_ID.get((segments[2] as string).toLowerCase());
+      if (!venue)
+        return page(pages.notFound(path, now, "There's no exchange with that name."), 404);
+      return page(pages.exchange({ venue, markets: await deps.data.exchange(venue.id), now }));
+    }
+
+    if (segments[0] === "markets" && segments[1] === "asset" && segments.length === 3) {
+      const asset = (segments[2] as string).toUpperCase();
+      const markets = ASSET_PATTERN.test(asset) ? await deps.data.asset(asset) : [];
+      if (markets.length === 0) {
+        return page(
+          pages.notFound(path, now, `No exchange has a live ${asset} perpetual right now.`),
+          404,
+        );
+      }
+      return page(pages.asset({ asset, markets, now }));
+    }
+
+    if (path === "/v1/health") {
+      const overview = await deps.data.overview();
+      const updatedAt = overview.updated_at?.getTime() ?? null;
+      const ok = updatedAt !== null && now - updatedAt < STALE_MS;
+      return json(
+        {
+          ok,
+          service: "airates",
+          time: new Date(now).toISOString(),
+          markets: overview.markets,
+          updatedAt: overview.updated_at,
+        },
+        ok ? 200 : 503,
+        0,
+      );
+    }
+
+    if (path === "/v1/venues") return json(VENUES);
+
+    if (path === "/v1/screener") {
+      const filters = parseScreenerFilters(url.searchParams);
+      const pairs = await deps.data.screener(filters);
+      return json({ filters, query: filtersToQuery(filters), count: pairs.length, pairs });
+    }
+
+    if (path === "/v1/exchanges") return json({ exchanges: await deps.data.exchanges() });
+
+    if (segments[0] === "v1" && segments[1] === "exchanges" && segments.length === 3) {
+      const venue = VENUE_BY_ID.get((segments[2] as string).toLowerCase());
+      if (!venue) return json({ error: "unknown_exchange" }, 404);
+      const markets = await deps.data.exchange(venue.id);
+      return json({ exchange: { id: venue.id, name: venue.name, type: venue.type }, markets });
+    }
+
+    if (segments[0] === "v1" && segments[1] === "assets" && segments.length === 3) {
+      const asset = (segments[2] as string).toUpperCase();
+      const markets = ASSET_PATTERN.test(asset) ? await deps.data.asset(asset) : [];
+      if (markets.length === 0) return json({ error: "no_live_markets", asset }, 404);
+      return json({ asset, markets });
+    }
+
+    if (path === "/robots.txt") {
+      // Pre-launch: keep the site out of search engines until the legal checklist is done.
+      return new Response("User-agent: *\nDisallow: /\n", {
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          "cache-control": "public, max-age=3600",
+        },
+      });
+    }
+
+    if (segments[0] === "v1") return json({ error: "not_found" }, 404);
+    return page(pages.notFound(path, now), 404);
+  } catch (error) {
+    deps.log?.(`${path}: ${error instanceof Error ? error.message : String(error)}`);
+    return segments[0] === "v1"
+      ? json({ error: "data_unavailable" }, 503, 0)
+      : page(pages.unavailable(path, now), 503);
+  }
+}
+
+function page(html: string, status = 200): Response {
+  return new Response(html, {
+    status,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": status === 200 ? `public, max-age=${PAGE_MAX_AGE}` : "no-store",
+      "x-robots-tag": "noindex, nofollow",
+    },
+  });
+}
+
+function json(body: unknown, status = 200, maxAge = API_MAX_AGE): Response {
+  return Response.json(body, {
+    status,
+    headers: {
+      "cache-control": status === 200 && maxAge > 0 ? `public, max-age=${maxAge}` : "no-store",
+      "x-robots-tag": "noindex, nofollow",
+    },
+  });
+}
