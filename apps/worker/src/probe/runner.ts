@@ -9,6 +9,12 @@ export interface ProbeTarget {
   endpoints: readonly VenueProbe[];
 }
 
+/** One fetch to make, or a placeholder row for a venue without endpoints. */
+export interface ProbeJob {
+  venueId: string;
+  endpoint: VenueProbe | null;
+}
+
 export interface ProbeResult {
   venueId: string;
   label: string;
@@ -36,6 +42,12 @@ export interface EgressTrace {
 
 export const USER_AGENT = "ai-rates-probe/0.1";
 
+/** Bodies up to this size are fully decoded and JSON-parsed; larger ones only have their head decoded. */
+export const FULL_PARSE_BYTES = 16 * 1024;
+const HEAD_BYTES = 4096;
+
+const decoder = new TextDecoder();
+
 export async function probeEndpoint(
   venueId: string,
   endpoint: VenueProbe,
@@ -61,19 +73,21 @@ export async function probeEndpoint(
       body,
       signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
     });
-    const buffer = await response.arrayBuffer();
-    const text = new TextDecoder().decode(buffer);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const truncated = bytes.byteLength > FULL_PARSE_BYTES;
     const { verdict, detail } = classify({
       status: response.status,
       headers: response.headers,
-      body: text,
+      body: decoder.decode(truncated ? bytes.subarray(0, HEAD_BYTES) : bytes),
+      truncated,
+      lastChar: lastNonWhitespace(bytes),
     });
     return {
       ...base,
       verdict,
       status: response.status,
       latencyMs: Date.now() - started,
-      bytes: buffer.byteLength,
+      bytes: bytes.byteLength,
       detail,
     };
   } catch (error) {
@@ -89,16 +103,16 @@ export async function probeEndpoint(
   }
 }
 
-/** Probes every endpoint of every target; targets without endpoints yield one "unconfigured" row. */
-export async function runProbe(
-  targets: readonly ProbeTarget[],
-  options: ProbeOptions,
-): Promise<ProbeResult[]> {
-  const jobs = targets.flatMap<{ venueId: string; endpoint: VenueProbe | null }>((target) =>
+/** Flattens targets into one job per endpoint; targets without endpoints get one placeholder job. */
+export function planJobs(targets: readonly ProbeTarget[]): ProbeJob[] {
+  return targets.flatMap<ProbeJob>((target) =>
     target.endpoints.length === 0
       ? [{ venueId: target.venueId, endpoint: null }]
       : target.endpoints.map((endpoint) => ({ venueId: target.venueId, endpoint })),
   );
+}
+
+export function runJobs(jobs: readonly ProbeJob[], options: ProbeOptions): Promise<ProbeResult[]> {
   return mapPool(
     jobs,
     options.concurrency ?? 5,
@@ -116,6 +130,13 @@ export async function runProbe(
             detail: null,
           },
   );
+}
+
+export function runProbe(
+  targets: readonly ProbeTarget[],
+  options: ProbeOptions,
+): Promise<ProbeResult[]> {
+  return runJobs(planJobs(targets), options);
 }
 
 /** Parses Cloudflare's /cdn-cgi/trace output, which reports where a request egressed from. */
@@ -142,4 +163,14 @@ export async function fetchEgressTrace(fetch: FetchLike, timeoutMs = 5_000): Pro
   } catch {
     return { colo: null, ip: null, loc: null };
   }
+}
+
+function lastNonWhitespace(bytes: Uint8Array): string | null {
+  for (let i = bytes.byteLength - 1; i >= 0; i--) {
+    const byte = bytes[i] as number;
+    if (byte !== 0x20 && byte !== 0x0a && byte !== 0x0d && byte !== 0x09) {
+      return String.fromCharCode(byte);
+    }
+  }
+  return null;
 }

@@ -17,9 +17,11 @@ export interface Venue {
   ccxt?: string;
   /** Hyperliquid HIP-3 dex id (`metaAndAssetCtxs` `dex` param). */
   hip3Dex?: string;
-  /** True when the probe URLs were checked against the venue's docs during research. */
+  /** Set when the venue has no markets of its own and trades on another catalog venue. */
+  aliasOf?: string;
+  /** True when the probe URLs were checked live (2xx JSON) during research. */
   verified: boolean;
-  /** Public endpoints hit by the Phase 0 geo-probe. Empty means "not researched yet". */
+  /** Public endpoints hit by the Phase 0 geo-probe. Empty means no public REST endpoint found yet. */
   probes: VenueProbe[];
   notes?: string;
 }
@@ -35,7 +37,14 @@ const hip3 = (dex: string, name: string, notes?: string): Venue => ({
   type: "hip3",
   hip3Dex: dex,
   verified: true,
-  probes: [{ label: "metaAndAssetCtxs", url: HL_INFO, body: { type: "metaAndAssetCtxs", dex } }],
+  probes: [
+    {
+      label: "metaAndAssetCtxs",
+      url: HL_INFO,
+      method: "POST",
+      body: { type: "metaAndAssetCtxs", dex },
+    },
+  ],
   ...(notes ? { notes } : {}),
 });
 
@@ -149,9 +158,10 @@ const cex: Venue[] = [
     name: "BitMart",
     type: "cex",
     ccxt: "bitmart",
-    verified: false,
+    verified: true,
     probes: [get("details", "https://api-cloud-v2.bitmart.com/contract/public/details")],
-    notes: "Host unverified.",
+    notes:
+      "Bulk: data.symbols[] funding_rate, expected_funding_rate, funding_interval_hours, open_interest, volume_24h.",
   },
   {
     id: "toobit",
@@ -168,28 +178,19 @@ const cex: Venue[] = [
     id: "hotcoin",
     name: "Hotcoin",
     type: "cex",
-    verified: false,
-    probes: [
-      get(
-        "premiumIndex",
-        "https://api-ct.hotcoin.fit/api/v1/perpetual/public/btcusdt/premiumIndex",
-      ),
-    ],
-    notes: "Per-symbol calls; contract code format unverified.",
+    verified: true,
+    probes: [get("perpetual/public", "https://api-ct.hotcoin.fit/api/v1/perpetual/public")],
+    notes: "Bulk (~750KB): data[] fund (rate), markPrice, indexPrice, amount24.",
   },
   {
     id: "weex",
     name: "WEEX",
     type: "cex",
     ccxt: "weex",
-    verified: false,
-    probes: [
-      get(
-        "premiumIndex",
-        "https://api-contract.weex.com/capi/v3/market/premiumIndex?symbol=BTCUSDT",
-      ),
-    ],
-    notes: "Binance-like API shape.",
+    verified: true,
+    probes: [get("premiumIndex", "https://api-contract.weex.com/capi/v3/market/premiumIndex")],
+    notes:
+      "Bulk without ?symbol=: lastFundingRate, forecastFundingRate, markPrice. collectCycle looks like minutes (unconfirmed).",
   },
   {
     id: "coinw",
@@ -204,14 +205,15 @@ const cex: Venue[] = [
     name: "LBank",
     type: "cex",
     ccxt: "lbank",
-    verified: false,
+    verified: true,
     probes: [
       get(
         "marketData",
         "https://lbkperp.lbank.com/cfd/openApi/v1/pub/marketData?productGroup=SwapU",
       ),
     ],
-    notes: "No funding history API; record settlements ourselves.",
+    notes:
+      "Bulk: fundingRate, positionFeeTime (interval in seconds), markedPrice, volume. No funding history API.",
   },
   {
     id: "pionex",
@@ -230,9 +232,19 @@ const dex: Venue[] = [
     ccxt: "hyperliquid",
     verified: true,
     probes: [
-      { label: "metaAndAssetCtxs", url: HL_INFO, body: { type: "metaAndAssetCtxs" } },
-      { label: "perpDexs", url: HL_INFO, body: { type: "perpDexs" } },
-      { label: "predictedFundings", url: HL_INFO, body: { type: "predictedFundings" } },
+      {
+        label: "metaAndAssetCtxs",
+        url: HL_INFO,
+        method: "POST",
+        body: { type: "metaAndAssetCtxs" },
+      },
+      { label: "perpDexs", url: HL_INFO, method: "POST", body: { type: "perpDexs" } },
+      {
+        label: "predictedFundings",
+        url: HL_INFO,
+        method: "POST",
+        body: { type: "predictedFundings" },
+      },
     ],
     notes: "Hourly funding. predictedFundings also relays Binance/Bybit rates (fallback rung 3).",
   },
@@ -240,9 +252,11 @@ const dex: Venue[] = [
     id: "bullpen",
     name: "Bullpen",
     type: "dex",
+    aliasOf: "hyperliquid",
     verified: false,
     probes: [],
-    notes: "Not researched; possibly a Hyperliquid front-end.",
+    notes:
+      "Hyperliquid front-end (builder codes); orders execute on Hyperliquid and it has no HIP-3 dex.",
   },
   hip3("xyz", "trade[XYZ]"),
   {
@@ -258,10 +272,12 @@ const dex: Venue[] = [
     id: "edgex-v2",
     name: "edgeX V2",
     type: "dex",
-    verified: false,
-    probes: [],
+    verified: true,
+    probes: [
+      get("getMetaData", "https://edgex-prod-v2.edgex.exchange/api/v2/public/meta/getMetaData"),
+    ],
     notes:
-      "V2 path /api/v2/public/funding/getLatestFundingRate returned 404 on pro.edgex.exchange (the V1 path works); find the V2 host.",
+      "Funding: /api/v2/public/funding/getLatestFundingRate?contractId=<ids comma-joined> (returns [] without ids; ids from getMetaData contractList).",
   },
   {
     id: "lighter",
@@ -276,16 +292,19 @@ const dex: Venue[] = [
     id: "pacifica",
     name: "Pacifica",
     type: "dex",
-    verified: false,
+    verified: true,
     probes: [get("prices", "https://api.pacifica.fi/api/v1/info/prices")],
+    notes: "Bulk: data[] funding, next_funding, mark, oracle, open_interest, volume_24h.",
   },
   {
     id: "apex",
     name: "ApeX",
     type: "dex",
     ccxt: "apex",
-    verified: false,
+    verified: true,
     probes: [get("ticker", "https://omni.apex.exchange/api/v3/ticker?symbol=BTCUSDT")],
+    notes:
+      "Per-symbol only (no symbol returns []): fundingRate, predictedFundingRate, openInterest.",
   },
   {
     id: "variational",
@@ -314,30 +333,76 @@ const dex: Venue[] = [
     name: "GRVT",
     type: "dex",
     ccxt: "grvt",
-    verified: false,
+    verified: true,
     probes: [
       {
         label: "ticker",
         url: "https://market-data.grvt.io/full/v1/ticker",
+        method: "POST",
         body: { instrument: "BTC_USDT_Perp" },
       },
     ],
-    notes: "funding_rate_8h_curr is 8h-normalized.",
+    notes:
+      "Per instrument. funding_rate_8h_curr is 8h-normalized and looks like percent (unconfirmed).",
   },
-  { id: "standx", name: "StandX", type: "dex", verified: false, probes: [] },
-  { id: "lighter-rh", name: "Lighter Robinhood", type: "dex", verified: false, probes: [] },
-  { id: "sodex", name: "SoDEX", type: "dex", verified: false, probes: [] },
+  {
+    id: "standx",
+    name: "StandX",
+    type: "dex",
+    verified: true,
+    probes: [get("query_market_overview", "https://perps.standx.com/api/query_market_overview")],
+    notes:
+      "symbols[] funding_rate, mark_price, open_interest_notional, volume_quote_24h. Interval unconfirmed.",
+  },
+  {
+    id: "lighter-rh",
+    name: "Lighter Robinhood",
+    type: "dex",
+    verified: true,
+    probes: [
+      get("funding-rates", "https://api.rh.lighter.xyz/api/v1/funding-rates"),
+      get("orderBookDetails", "https://api.rh.lighter.xyz/api/v1/orderBookDetails"),
+    ],
+    notes:
+      "Lighter API on another instance; funding-rates relays other venues, keep exchange=lighter.",
+  },
+  {
+    id: "sodex",
+    name: "SoDEX",
+    type: "dex",
+    verified: true,
+    probes: [
+      get("perps/markets/tickers", "https://mainnet-gw.sodex.dev/api/v1/perps/markets/tickers"),
+    ],
+    notes: "data[] fundingRate, nextFundingTime, markPrice, openInterest, quoteVolume.",
+  },
   {
     id: "nado",
     name: "Nado",
     type: "dex",
-    verified: false,
-    probes: [],
+    verified: true,
+    probes: [get("archive/v2/contracts", "https://archive.prod.nado.xyz/v2/contracts")],
     notes:
-      "Vertex successor on Ink; archive indexer at archive.prod.nado.xyz/v2 (funding_rate_x18).",
+      "Vertex successor on Ink. funding_rate is a 24h rate settled hourly (1/24). Gateway returns 403 without Accept-Encoding.",
   },
-  { id: "ondo", name: "Ondo", type: "dex", verified: false, probes: [] },
-  { id: "risex", name: "RiseX", type: "dex", verified: false, probes: [] },
+  {
+    id: "ondo",
+    name: "Ondo",
+    type: "dex",
+    verified: true,
+    probes: [get("perps/contracts", "https://api.ondoperps.xyz/v1/perps/contracts")],
+    notes:
+      "result[] fundingRate, nextFundingRate, openInterestUsd, usdVolume. /v1/markets has fundingIntervalDivisions.",
+  },
+  {
+    id: "risex",
+    name: "RiseX",
+    type: "dex",
+    verified: true,
+    probes: [get("markets", "https://api.rise.trade/v1/markets")],
+    notes:
+      "Hourly current_funding_rate plus funding_rate_8h; timestamps and funding_interval in ns.",
+  },
   {
     id: "reya",
     name: "Reya",
@@ -346,8 +411,23 @@ const dex: Venue[] = [
     probes: [get("perpMarkets/summary", "https://api.reya.xyz/v2/perpMarkets/summary")],
     notes: "Hourly rate; separate long/short funding values; no history API.",
   },
-  { id: "arcus", name: "Arcus", type: "dex", verified: false, probes: [] },
-  { id: "txflow", name: "TxFlow", type: "dex", verified: false, probes: [] },
+  {
+    id: "arcus",
+    name: "Arcus",
+    type: "dex",
+    verified: true,
+    probes: [get("markets", "https://api.arcus.xyz/v1/markets")],
+    notes: "Hourly: fundingRate, nextFundingRate, markPrice, openInterest, volume24hNotional.",
+  },
+  {
+    id: "txflow",
+    name: "TxFlow",
+    type: "dex",
+    verified: false,
+    probes: [],
+    notes:
+      "Platform API 'coming soon'; api.txflow.com/info (Hyperliquid-style) returns 403 to public POSTs. Possibly WS-only.",
+  },
   {
     id: "orderly",
     name: "WOOFi Pro",
@@ -363,9 +443,10 @@ const dex: Venue[] = [
     id: "perpl",
     name: "Perpl",
     type: "dex",
-    verified: false,
+    verified: true,
     probes: [get("pub/context", "https://app.perpl.xyz/api/v1/pub/context")],
-    notes: "WS limits: 10 req/min, 16 subscriptions.",
+    notes:
+      "funding.rate in micros (1e-6) per funding_interval_sec; state values are scaled ints. WS: 10 req/min.",
   },
   hip3("mkts", "Kinetiq"),
   {
@@ -381,8 +462,10 @@ const dex: Venue[] = [
     id: "hibachi",
     name: "Hibachi",
     type: "dex",
-    verified: false,
-    probes: [get("exchange-info", "https://data-api.hibachi.xyz/market/exchange-info")],
+    verified: true,
+    probes: [get("prices", "https://data-api.hibachi.xyz/market/data/prices?symbol=BTC/USDT-P")],
+    notes:
+      "Per symbol: fundingRateEstimation.estimatedFundingRate, markPrice; volume via /market/data/stats.",
   },
   {
     id: "paradex",
@@ -400,51 +483,59 @@ const dex: Venue[] = [
     id: "zero1",
     name: "N1 (01)",
     type: "dex",
-    verified: false,
-    probes: [get("info", "https://zo-mainnet.n1.xyz/info")],
+    verified: true,
+    probes: [
+      get("info", "https://zo-mainnet.n1.xyz/info"),
+      get("market/0/stats", "https://zo-mainnet.n1.xyz/market/0/stats"),
+    ],
+    notes: "Per market: perpStats.funding_rate, mark_price, open_interest; market ids from /info.",
   },
   {
     id: "bullet",
     name: "Bullet",
     type: "dex",
-    verified: false,
+    verified: true,
     probes: [get("premiumIndex", "https://tradingapi.bullet.xyz/fapi/v1/premiumIndex")],
-    notes: "Binance FAPI-compatible per docs; base URL unverified.",
+    notes: "Binance FAPI-compatible bulk premiumIndex.",
   },
   {
     id: "polymarket",
     name: "Polymarket",
     type: "dex",
-    verified: false,
-    probes: [],
-    notes: "Listed by ORBIT; confirm it exposes perp funding.",
+    verified: true,
+    probes: [
+      get("info/tickers", "https://api.perpetuals.polymarket.com/v1/info/tickers"),
+      get("info/instruments", "https://api.perpetuals.polymarket.com/v1/info/instruments"),
+    ],
+    notes:
+      "Polymarket perpetuals: hourly funding_rate, mark_price, open_interest; no volume field.",
   },
   {
     id: "phoenix",
     name: "Phoenix",
     type: "dex",
-    verified: false,
-    probes: [],
+    verified: true,
+    probes: [get("exchange/markets", "https://perp-api.phoenix.trade/v1/view/exchange/markets")],
     notes:
-      "WebSocket-first (wss://perp-api.phoenix.trade/v1/ws); rate quoted per 24h, paid hourly.",
+      "No current rate in markets; hourly rates via /v1/funding/overview (~1.7MB, supports startTime/endTime). Quoted per 24h, paid hourly.",
   },
   hip3("cash", "dreamcash"),
   hip3("flx", "Felix Exchange"),
   hip3("hyna", "HyENA", "USDe collateral."),
   hip3("vntl", "Ventuals"),
   hip3("km", "Kinetiq (legacy)"),
+  hip3("abcd", "HIP-3 abcd", "Listed by perpDexs but not by ORBIT; identify the operator."),
   {
     id: "edgex",
     name: "edgeX V1",
     type: "dex",
-    verified: false,
+    verified: true,
     probes: [
       get(
         "getLatestFundingRate",
         "https://pro.edgex.exchange/api/v1/public/funding/getLatestFundingRate",
       ),
     ],
-    notes: "Host unverified.",
   },
   {
     id: "ethereal",

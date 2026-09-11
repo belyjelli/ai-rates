@@ -1,8 +1,7 @@
 import { VENUES } from "@ai-rates/venues";
-import { executeProbe } from "./probe/execute";
 import { ProbeDO } from "./probe/probe-do";
 import { renderProbePage } from "./probe/render";
-import { ALL_RUNNERS, CRON_RUNNER, HINTED_RUNNERS, runnerStub } from "./probe/runners";
+import { ALL_RUNNERS, DEFAULT_RUNNER, runnerStub } from "./probe/runners";
 
 export { ProbeDO };
 
@@ -16,34 +15,35 @@ export default {
       case "GET /":
         return html(renderProbePage(VENUES, await latestSnapshots(env), Date.now()));
       case "GET /v1/health":
-        return json({ ok: true, service: "ai-rates", time: new Date().toISOString() });
+        return json({ ok: true, service: "airates", time: new Date().toISOString() });
       case "GET /v1/venues":
         return json(VENUES);
       case "GET /v1/probe":
         return json(await latestSnapshots(env));
       case "POST /v1/probe/run": {
-        const allowed = await runnerStub(env, CRON_RUNNER).claimCooldown(
+        const allowed = await runnerStub(env, DEFAULT_RUNNER).claimCooldown(
           "manual-run",
           MANUAL_RUN_COOLDOWN_MS,
         );
         if (!allowed) return json({ error: "cooldown" }, 429);
-        await scheduleHintedRuns(env);
-        return json({ scheduled: HINTED_RUNNERS.map((r) => r.name) }, 202);
+        return json({ scheduled: await scheduleAll(env) }, 202);
       }
       default:
         return json({ error: "not_found" }, 404);
     }
   },
 
-  async scheduled(_controller, env, ctx): Promise<void> {
-    ctx.waitUntil(scheduleHintedRuns(env));
-    const run = await executeProbe(CRON_RUNNER.name);
-    await runnerStub(env, CRON_RUNNER).recordRun(run);
+  async scheduled(_controller, env): Promise<void> {
+    await scheduleAll(env);
   },
 } satisfies ExportedHandler<Env>;
 
-async function scheduleHintedRuns(env: Env): Promise<void> {
-  await Promise.all(HINTED_RUNNERS.map((runner) => runnerStub(env, runner).schedule(runner.name)));
+/** Starts a run on every runner that isn't already mid-run; returns the names that started. */
+async function scheduleAll(env: Env): Promise<string[]> {
+  const started = await Promise.all(
+    ALL_RUNNERS.map((runner) => runnerStub(env, runner).schedule(runner.name)),
+  );
+  return ALL_RUNNERS.filter((_, i) => started[i]).map((runner) => runner.name);
 }
 
 async function latestSnapshots(env: Env) {

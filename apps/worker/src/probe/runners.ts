@@ -5,10 +5,10 @@ export interface RunnerDef {
   description: string;
 }
 
-export const CRON_RUNNER: RunnerDef = {
-  name: "cron",
+export const DEFAULT_RUNNER: RunnerDef = {
+  name: "do@default",
   locationHint: null,
-  description: "Inline in the scheduled handler (location not controllable)",
+  description: "Durable Object without a hint (placed near whichever invocation first created it)",
 };
 
 export const HINTED_RUNNERS: readonly RunnerDef[] = [
@@ -36,7 +36,7 @@ export const HINTED_RUNNERS: readonly RunnerDef[] = [
   },
 ];
 
-export const ALL_RUNNERS: readonly RunnerDef[] = [CRON_RUNNER, ...HINTED_RUNNERS];
+export const ALL_RUNNERS: readonly RunnerDef[] = [DEFAULT_RUNNER, ...HINTED_RUNNERS];
 
 export function runnerStub(env: Env, runner: RunnerDef) {
   const id = env.PROBE.idFromName(runner.name);

@@ -32,4 +32,18 @@ describe("venue catalog", () => {
       expect(venue.probes.length).toBeGreaterThan(0);
     }
   });
+
+  test("aliases point at a real venue and have no probes of their own", () => {
+    const ids = new Set(VENUES.map((v) => v.id));
+    for (const venue of VENUES.filter((v) => v.aliasOf)) {
+      expect(ids.has(venue.aliasOf as string)).toBe(true);
+      expect(venue.probes).toEqual([]);
+    }
+  });
+
+  test("probes with a JSON body are explicit POSTs", () => {
+    for (const probe of VENUES.flatMap((v) => v.probes).filter((p) => p.body !== undefined)) {
+      expect(probe.method).toBe("POST");
+    }
+  });
 });

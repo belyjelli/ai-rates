@@ -1,0 +1,40 @@
+lock-version = "1.0"
+created-by = "uv"
+requires-python = ">=3.14.2"
+
+[[packages]]
+name = "numpy"
+version = "2.4.6"
+wheels = [{ url = "https://cdn.jsdelivr.net/pyodide/v314.0.6/full/numpy-2.4.6-cp314-cp314-pyemscripten_2026_0_wasm32.whl", hashes = { sha256 = "32959d4137cec8143d75016d029281df3d2e80a232896ed903c2b59e1c44ee9f" } }]
+
+[[packages]]
+name = "pandas"
+version = "3.0.2"
+wheels = [{ url = "https://cdn.jsdelivr.net/pyodide/v314.0.6/full/pandas-3.0.2-cp314-cp314-pyemscripten_2026_0_wasm32.whl", hashes = { sha256 = "99cef063109bb03956af3987b2351c4d6615060732597e224e9fc49ecd345392" } }]
+
+[[packages]]
+name = "python-dateutil"
+version = "2.9.0.post0"
+wheels = [
+    { url = "https://cdn.jsdelivr.net/pyodide/v314.0.6/full/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hashes = { sha256 = "9c1d350424840e15c16450ac0b0d6007e908d266746b61d64760dd77263085af" } },
+    { url = "https://files.pythonhosted.org/packages/ec/57/56b9bcc3c9c6a792fcbaf139543cee77261f3651ca9da0c93f5c1221264b/python_dateutil-2.9.0.post0-py2.py3-none-any.whl", hashes = { sha256 = "a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427" } },
+]
+
+[[packages]]
+name = "six"
+version = "1.17.0"
+wheels = [
+    { url = "https://cdn.jsdelivr.net/pyodide/v314.0.6/full/six-1.17.0-py2.py3-none-any.whl", hashes = { sha256 = "29edb1e328c61cad6ac21a2ff92c7d274a2b662eb7c12b2d147f04917b765ad6" } },
+    { url = "https://files.pythonhosted.org/packages/b7/ce/149a00dd41f10bc29e5921b496af8b574d8413afcd5e30dfa0ed46c2cc5e/six-1.17.0-py2.py3-none-any.whl", hashes = { sha256 = "4721f391ed90541fddacab5acf947aa0d3dc7d27b2e1e8eda2be8970586c3274" } },
+]
+
+[[packages]]
+name = "tzdata"
+version = "2026.3"
+marker = "sys_platform == 'emscripten'"
+wheels = [{ url = "https://files.pythonhosted.org/packages/e5/6d/b53b99a9f2766d095985947a5782f1702cabb129a34f7a802d7197af832f/tzdata-2026.3-py2.py3-none-any.whl", upload-time = 2026-07-10T08:50:36Z, size = 348168, hashes = { sha256 = "dc096730c87af6cab1b171c9d532be840741ff5d459015e7f6947bd7d7e54931" } }]
+
+[[packages]]
+name = "workers-runtime-sdk"
+version = "1.8.4"
+wheels = [{ url = "https://files.pythonhosted.org/packages/d2/9f/545247f39e9b11ec71438a34e4d37e8c214c717acd883559a71ed79b7c9f/workers_runtime_sdk-1.8.4-py3-none-any.whl", upload-time = 2026-09-08T05:59:10Z, size = 35892, hashes = { sha256 = "d4dce17c041c052f3da46938511ede264c5aa28b9033f32adcb26b429bab1936" } }]

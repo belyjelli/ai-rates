@@ -1,0 +1,10 @@
+{
+  // Separate Worker: a Worker is either JS or Python, so this can't live in the root airates Worker.
+  "name": "airates-py-spike",
+  "main": "src/entry.py",
+  "compatibility_date": "2026-09-08",
+  "compatibility_flags": ["python_workers"],
+  "observability": {
+    "enabled": true
+  }
+}
