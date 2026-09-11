@@ -56,6 +56,19 @@ export function aprFromRate(value: number, unit: RateUnit, basisHours: number): 
 }
 
 /**
+ * Converts a venue-quoted contract price into a price per unit of the base asset.
+ *
+ * Venues list scaled contracts (1000PEPE, kPEPE, 10000CAT) whose quoted price covers `multiplier`
+ * units, while `base` is canonicalized to the unscaled asset. Without this, the same asset appears at
+ * two scales across venues and cross-venue price comparison is meaningless. Funding rates are
+ * fractions and need no such conversion.
+ */
+export function perUnitPrice(price: number | null, multiplier: number): number | null {
+  if (price === null || !(multiplier > 0)) return price;
+  return multiplier === 1 ? price : price / multiplier;
+}
+
+/**
  * Infers the settlement interval in hours from settlement timestamps (ms) using the median gap,
  * so a single missed settlement or an interval change early in the window doesn't skew it.
  * Returns null when there are fewer than two distinct timestamps.

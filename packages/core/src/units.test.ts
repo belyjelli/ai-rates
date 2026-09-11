@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test";
-import { aprFromRate, durationToHours, inferIntervalHours, ratePerHour, toFraction } from "./units";
+import {
+  aprFromRate,
+  durationToHours,
+  inferIntervalHours,
+  perUnitPrice,
+  ratePerHour,
+  toFraction,
+} from "./units";
 
 const HOUR = 3_600_000;
 
@@ -40,6 +47,21 @@ describe("APR", () => {
   test("rejects a non-positive basis", () => {
     expect(() => ratePerHour(0.0001, 0)).toThrow(RangeError);
     expect(() => ratePerHour(0.0001, Number.NaN)).toThrow(RangeError);
+  });
+});
+
+describe("perUnitPrice", () => {
+  test("rescales scaled contracts onto one price per base unit", () => {
+    // Observed 2026-09-12: PEPE marked 0.00327 on 1000x venues and 0.00000327 elsewhere.
+    expect(perUnitPrice(0.0032709, 1000)).toBeCloseTo(0.0000032709, 12);
+    expect(perUnitPrice(0.01982, 10_000)).toBeCloseTo(0.000001982, 12);
+    expect(perUnitPrice(0.00000327, 1)).toBe(0.00000327);
+  });
+
+  test("passes through missing prices and unusable multipliers", () => {
+    expect(perUnitPrice(null, 1000)).toBeNull();
+    expect(perUnitPrice(42, 0)).toBe(42);
+    expect(perUnitPrice(42, Number.NaN)).toBe(42);
   });
 });
 
