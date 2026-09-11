@@ -122,6 +122,15 @@ export class PgStore implements CollectorStore, HistoryStore {
     return new Map(rows.map((r) => [r.venue_symbol, r.at.getTime()]));
   }
 
+  /** Oldest stored settlement per market, the anchor the backfill reaches back from. */
+  async oldestSettledByMarket(venueId: string): Promise<Map<string, number>> {
+    const rows: { venue_symbol: string; at: Date }[] = await this.sql`
+      SELECT venue_symbol, min(settled_at) AS at FROM funding_events
+      WHERE venue_id = ${venueId}
+      GROUP BY venue_symbol`;
+    return new Map(rows.map((r) => [r.venue_symbol, r.at.getTime()]));
+  }
+
   /**
    * Recomputes 24h and 7d time-weighted settled APR per market and drops markets not seen for a day
    * from market_latest. Returns the number of markets with stats.

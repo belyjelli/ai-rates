@@ -10,7 +10,7 @@ import { SQL } from "bun";
 import { StaleVenueAlerter, webhookSink } from "./alerts";
 import { loadConfig } from "./config";
 import { CollectorStatus } from "./health";
-import { HistoryLoop } from "./history";
+import { backfillVenueHistory, HistoryLoop } from "./history";
 import { PeriodicTask } from "./periodic";
 import { VenueLoop } from "./scheduler";
 import { PgStore } from "./store";
@@ -18,6 +18,8 @@ import { PgStore } from "./store";
 const HISTORY_PAUSE_MS = 5 * 60_000;
 const STATS_REFRESH_MS = 10 * 60_000;
 const ALERT_CHECK_MS = 60_000;
+const BACKFILL_PAUSE_MS = 5 * 60_000;
+const BACKFILL_BUDGET = 20;
 const SHUTDOWN_GRACE_MS = 15_000;
 
 const log = (message: string) => console.log(`${new Date().toISOString()} ${message}`);
@@ -98,7 +100,29 @@ adapters.forEach((adapter, index) => {
   // Start once the snapshot loop has populated the venue's markets.
   history.start(2 * config.intervalMs + offsetMs);
 
-  loops.push(snapshots, history);
+  // Deepening history competes with live collection for the same rate limit, so it goes slowly:
+  // a few markets every few minutes, converging on the target over hours.
+  const exhausted = new Set<string>();
+  const backfill = new PeriodicTask(
+    `${adapter.venueId} history backfill`,
+    BACKFILL_PAUSE_MS,
+    async () => {
+      const result = await backfillVenueHistory(adapter, client, store, {
+        budget: BACKFILL_BUDGET,
+        exhausted,
+        log,
+      });
+      if (result.fetched > 0 || result.errors > 0) {
+        log(
+          `${adapter.venueId}: backfill ${result.events} events, ${result.pending} markets short, ${result.exhausted} exhausted, ${result.errors} errors`,
+        );
+      }
+    },
+    log,
+  );
+  backfill.start(BACKFILL_PAUSE_MS + offsetMs);
+
+  loops.push(snapshots, history, backfill);
 });
 
 // Settled 24h/7d averages for the screener; the first run waits for history sweeps to start landing.

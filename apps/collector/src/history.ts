@@ -12,7 +12,33 @@ export interface HistoryStore {
   ): Promise<{ venueSymbol: string; intervalHours: number | null }[]>;
   /** Latest stored settlement per market (recent window only). */
   latestSettledByMarket(venueId: string): Promise<Map<string, number>>;
+  /** Oldest stored settlement per market, the anchor the backfill reaches back from. */
+  oldestSettledByMarket(venueId: string): Promise<Map<string, number>>;
   recordHistory(venueId: string, events: readonly FundingEvent[]): Promise<void>;
+}
+
+export interface HistoryBackfillOptions {
+  now?: () => number;
+  /** How far back history should eventually reach. */
+  targetLookbackMs?: number;
+  /** Markets per sweep, so filling the past never crowds out the present. */
+  budget?: number;
+  /**
+   * Markets already known to have nothing older, so they aren't asked again. Mutated as they are
+   * discovered; process-lifetime only, which is the right scope for "this venue has no more".
+   */
+  exhausted?: Set<string>;
+  shouldStop?: () => boolean;
+  log?: (message: string) => void;
+}
+
+export interface HistoryBackfillResult {
+  /** Markets still short of the target after this sweep. */
+  pending: number;
+  fetched: number;
+  events: number;
+  errors: number;
+  exhausted: number;
 }
 
 export interface HistorySweepOptions {
@@ -73,6 +99,79 @@ export async function sweepVenueHistory(
     } catch (error) {
       result.errors++;
       options.log?.(`${venueId} ${market.venueSymbol}: history failed: ${describeError(error)}`);
+    }
+  }
+  return result;
+}
+
+/**
+ * Extends stored history backwards, a slice of markets at a time.
+ *
+ * The forward sweep only ever resumes from the newest stored settlement, so history starts where
+ * collection started and never deepens. A backtest needs more than that. Each pass asks the venue
+ * for the span between the target and the oldest settlement already stored, which every adapter
+ * supports: they all page within a [from, to] window.
+ *
+ * A market that returns nothing older has reached the venue's limit, and is remembered so the next
+ * pass spends its budget elsewhere.
+ */
+export async function backfillVenueHistory(
+  adapter: VenueAdapter,
+  client: HttpClient,
+  store: HistoryStore,
+  options: HistoryBackfillOptions = {},
+): Promise<HistoryBackfillResult> {
+  const result: HistoryBackfillResult = {
+    pending: 0,
+    fetched: 0,
+    events: 0,
+    errors: 0,
+    exhausted: 0,
+  };
+  if (!adapter.fetchFundingHistory) return result;
+
+  const now = options.now ?? Date.now;
+  const target = now() - (options.targetLookbackMs ?? 90 * 24 * HOUR_MS);
+  const budget = options.budget ?? 20;
+  const exhausted = options.exhausted ?? new Set<string>();
+  const venueId = adapter.venueId;
+
+  const markets = await store.activeMarkets(venueId, now() - 2 * HOUR_MS);
+  const oldest = await store.oldestSettledByMarket(venueId);
+
+  // Markets with nothing stored yet are left to the forward sweep, which anchors them first.
+  const pending = markets.filter((market) => {
+    if (exhausted.has(market.venueSymbol)) return false;
+    const anchor = oldest.get(market.venueSymbol);
+    if (anchor === undefined) return false;
+    return anchor - target > (market.intervalHours ?? 1) * HOUR_MS;
+  });
+  result.pending = pending.length;
+  result.exhausted = exhausted.size;
+
+  for (const market of pending.slice(0, Math.max(0, budget))) {
+    if (options.shouldStop?.() || client.circuit().open) break;
+    const anchor = oldest.get(market.venueSymbol) as number;
+
+    try {
+      const events = await adapter.fetchFundingHistory(
+        client,
+        market.venueSymbol,
+        target,
+        anchor - 1,
+      );
+      result.fetched++;
+      if (events.length === 0) {
+        exhausted.add(market.venueSymbol);
+        result.exhausted = exhausted.size;
+        continue;
+      }
+      await store.recordHistory(venueId, events);
+      result.events += events.length;
+      result.pending--;
+    } catch (error) {
+      result.errors++;
+      options.log?.(`${venueId} ${market.venueSymbol}: backfill failed: ${describeError(error)}`);
     }
   }
   return result;
