@@ -4,6 +4,7 @@
   "type": "module",
   "dependencies": {
     "@ai-rates/core": "workspace:*",
-    "@ai-rates/venues": "workspace:*"
+    "@ai-rates/venues": "workspace:*",
+    "postgres": "^3.4.7"
   }
 }

@@ -4,6 +4,13 @@
   "name": "airates",
   "main": "apps/worker/src/index.ts",
   "compatibility_date": "2026-09-01",
+  // Postgres.js needs Node's net/tls shims to reach Hyperdrive.
+  "compatibility_flags": ["nodejs_compat"],
+  "hyperdrive": [
+    // airates-vaultdeck: $AIRATES_DEPLOY_HOST:$AIRATES_PG_PORT/vaultdeck as $AIRATES_PG_ROLE, sslmode=verify-full with the hklab CA.
+    // Local dev: set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE (see deploy/hklab/README.md).
+    { "binding": "HYPERDRIVE", "id": "7c04838b33a6423d8a195fafab6d101f" }
+  ],
   "observability": {
     "enabled": true
   },
