@@ -147,6 +147,27 @@ describe.skipIf(!url)("screener read models (integration)", () => {
     expect(await pairsFor(`0, 0, NULL, NULL, ${age}, NULL`)).toHaveLength(1);
   });
 
+  test("drops legs whose mark price disagrees with the rest of the asset", async () => {
+    const now = Date.now();
+    const odd = `${asset}-ODD`;
+    // Same asset, but priced like something else entirely (gate's CAT vs the CAT memecoin).
+    await store.recordBatch(
+      v3,
+      { snapshots: [{ ...snap(v3, odd, 0.002, now), markPrice: 10_000 }], settled: [] },
+      now,
+    );
+    const age = "interval '5 minutes'";
+
+    // Without the guard the mispriced leg wins, because its rate is the richest on offer.
+    const unguarded = await pairsFor(`0, 0, NULL, NULL, ${age}, NULL, NULL`);
+    expect(unguarded[0]).toMatchObject({ short_venue_id: v3, short_symbol: odd });
+
+    // Every other leg marks 10, so a 5% band excludes it and the honest pair returns.
+    const guarded = await pairsFor(`0, 0, NULL, NULL, ${age}, NULL, 0.05`);
+    expect(guarded[0]?.short_symbol).not.toBe(odd);
+    expect(guarded[0]).toMatchObject({ long_venue_id: v1, short_venue_id: v2 });
+  });
+
   test("refreshFundingStats computes time-weighted settled APR windows", async () => {
     const hour = 3_600_000;
     const settledNow = Math.floor(Date.now() / hour) * hour;
