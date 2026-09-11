@@ -1,9 +1,10 @@
 [project]
 name = "airates-py-spike"
 version = "0.1.0"
-description = "Phase 0 spike: numpy/pandas cold start and backtest compute on Cloudflare Python Workers"
+description = "Phase 0 spike: numpy cold start and backtest compute on Cloudflare Python Workers (Free plan)"
 requires-python = ">=3.12"
-dependencies = ["numpy", "pandas"]
+# numpy only: bundling pandas makes the Worker fail every request on Workers Free (plans/phase0-report.md).
+dependencies = ["numpy"]
 
 [dependency-groups]
 dev = ["workers-py", "workers-runtime-sdk", "pytest"]

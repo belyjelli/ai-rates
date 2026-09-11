@@ -123,7 +123,7 @@ ai-rates/
 ## Phased delivery (2–3 devs)
 
 ### Phase 0 — Foundations and risk spikes (week 1)
-> **Status 2026-09-11:** done except the geo-block decision gate and the deployed Python cold-start number. Both wait on account access. Container and Pipelines spikes were skipped because the account is on Workers Free. Results and the plan changes Free forces are in [`phase0-report.md`](phase0-report.md); referral and legal research is in [`phase0-referrals-legal.md`](phase0-referrals-legal.md).
+> **Status 2026-09-11:** done. Deployed probe: Binance, BloFin, Pionex and Bitget are blocked from every Cloudflare location, so their egress route is an open decision. Bybit, MEXC, Orderly and Extended work when pinned to `apac-ne`. Python Workers on Free run numpy but not pandas. Container and Pipelines spikes were skipped because the account is on Workers Free. Results and the plan changes Free forces are in [`phase0-report.md`](phase0-report.md); referral and legal research is in [`phase0-referrals-legal.md`](phase0-referrals-legal.md).
 
 1. Scaffold the Bun monorepo: biome, tsconfig, CI (lint, typecheck, `bun test`, `uv run pytest`, `wrangler deploy --dry-run` per app).
 2. **57-venue catalog + geo-probe:** a throwaway worker hits every venue's public funding/ticker endpoints four ways: from a cron, from DOs hinted `apac-ne`/`weur`/`enam`, and from Containers pinned to APAC/WEUR. For each, record status, `cf-ray` colo, WAF/CloudFront challenges, bulk-endpoint availability, history lookback and rate-limit weights.

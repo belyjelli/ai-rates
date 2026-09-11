@@ -10,9 +10,9 @@ Date: 2026-09-11. Scope: plan §"Phase 0 — Foundations and risk spikes". Accou
 | CI (lint, typecheck, `bun test`, dry-run bundle, `uv run pytest`) | ✅ Done | `.github/workflows/ci.yml` |
 | Venue catalog (61 venues, 68 probe endpoints) | ✅ Done, live-checked | `packages/venues/src/catalog.ts` |
 | Geo-probe Worker (7 Durable Object runners) | ✅ Built, sized for Free-plan limits, local E2E passes | `apps/worker/src/probe/*` |
-| **Geo-block decision gate** | ⏳ Needs the deployed probe results | see "Decision gate" |
+| **Geo-block decision gate** | ✅ Measured (2 deployed runs); **a choice is needed for 4 venues** | see "Decision gate", `packages/venues/src/geo.ts` |
 | Size estimate for VenueHistoryDO | ✅ Done | `scripts/estimate-history-size.ts` |
-| Python Worker cold-start spike | ⚠️ Works locally; real cold start needs a deploy (needs `wrangler login`) | `py/spike` |
+| Python Worker cold-start spike | ✅ Deployed: numpy works (~1.0–1.3s cold, ~60–75ms warm); **pandas fails on Free** | `py/spike`, https://airates-py-spike.jobhesk.workers.dev |
 | Container probe runners | ⛔ Skipped: Containers need Workers Paid | — |
 | Pipelines → R2 Iceberg → R2 SQL spike | ⛔ Skipped: Pipelines needs Workers Paid | — |
 | Referral programs + legal checklist | ✅ Research done; applications are on the team | `plans/phase0-referrals-legal.md` |
@@ -57,7 +57,20 @@ Measured with SQLite `WITHOUT ROWID` tables matching the plan's schema:
 That totals **1.3 MiB per market**. A venue with 600 markets is 0.76 GiB, 8% of the 10 GiB Durable Object limit, so one history DO per venue is comfortable.
 
 ### Python Worker spike (`py/spike`)
-- **Stack:** numpy 2.4.6 and pandas 3.0.2 load on Pyodide (Python 3.14) under `pywrangler dev`.
+**Deployed on Workers Free (2026-09-11):**
+
+| Variant | Upload (gzip) | First request (cold) | Warm |
+|---|---|---|---|
+| No packages (throwaway, deleted) | 27 KB | 0.93s | 66ms |
+| numpy only (throwaway, deleted) | 2.7 MB | 0.85s | 59ms |
+| **`py/spike`, numpy only** | 2.8 MB | 1.0–1.3s | 60–75ms |
+| `py/spike` with pandas | 7.0 MB | **HTTP 503 / error 1105 on every request**, no logs in `wrangler tail` | — |
+
+- **pandas doesn't run on Free:** it fails before any Python code executes (most likely the 128 MB memory limit or snapshot size). numpy alone is fine. The spike was rewritten numpy-only (UTC-day bucketing via `np.unique` + `np.bincount`), and Python analytics on Free must avoid pandas. Whether pandas works on Workers Paid is unverified.
+- **`compute_ms` reads 0 in production** because Workers clocks only advance on I/O; use external latency instead.
+
+**Local findings (`pywrangler dev`):**
+- **Stack:** numpy 2.4.6 and pandas 3.0.2 load on Pyodide (Python 3.14) under `pywrangler dev`. Local dev does not enforce the Free memory limit, which is why pandas worked there.
 - **Local timings:** the first request took 20.5s (local package load, not representative of production snapshots). Later requests took about 14ms, and the 30-day two-leg backtest computed in about 7ms.
 - **Real bug found:**
   - Python Workers are **wasm32**, so numpy's default integer is 32-bit, and `np.arange(n) * 3_600_000` overflows on epoch-ms timestamps.
@@ -68,7 +81,7 @@ That totals **1.3 MiB per market**. A venue with 600 markets is 0.76 GiB, 8% of 
   ```
   uvx --from 'uv==0.12.13' uv run pywrangler dev
   ```
-- **Pending:** deploy and measure the real cold start with `curl -w %{time_total}` on a fresh isolate, plus Workers Observability startup time. Needs `wrangler login`.
+- Deploy with `uvx --from 'uv==0.12.13' uv run pywrangler deploy` from `py/spike`.
 
 ## What Workers Free changes in the plan
 
@@ -80,22 +93,37 @@ That totals **1.3 MiB per market**. A venue with 600 markets is 0.76 GiB, 8% of 
 3. **Pipelines is gone,** which removes the raw firehose. Replacement: the ingest DOs write hourly NDJSON.gz batches straight to R2 (Free includes 10 GB). Batch analytics then read R2 from the Python side or from DuckDB offline. R2 SQL availability on Free is unverified.
 4. **The Python backfill Container is gone.** Run historical backfills from GitHub Actions or a dev machine (full CPython and ccxt), then load results through an authenticated admin endpoint on the Worker.
 
-## Decision gate (open)
-Once the build is deployed:
-1. Open `/`, click **Run probes now**, and reload after ~2 minutes.
-2. Or `GET /v1/probe` for JSON.
-3. For each of **Binance, Bybit, OKX, dYdX**, note which runners return `ok` vs `geo_blocked` / `waf_challenge`, and the colo each runner actually landed in (column header).
+## Decision gate
+**Probe:** https://airates.jobhesk.workers.dev (matrix at `/`, JSON at `/v1/probe`). Two runs on 2026-09-11 (16:22 and 16:33 UTC) returned the same results. The hints placed the runners as follows:
 
-**Decision:**
-- If every blocked venue works from at least one hinted runner, pin that venue's collector DO to that hint and move on.
-- If a venue is blocked everywhere, choose between: rung 3 (relayed rates), rung 4 (non-Cloudflare proxy), or upgrading to Paid and adding a Container rung.
+| Runner | default | wnam | enam | weur | eeur | apac-ne | apac-se |
+|---|---|---|---|---|---|---|---|
+| Colo | SIN | LAX | ORD | MRS | PRG | NRT | SIN |
+
+Every runner's `/cdn-cgi/trace` reports the same internal IPv6 and `loc=US`. Requests to Cloudflare's own zone don't show the IP an exchange sees, so trust the verdicts, not the `loc` field.
+
+| Venue | Result | Outcome (`packages/venues/src/geo.ts`) |
+|---|---|---|
+| **Binance** | 403 CloudFront "Request blocked" from **all 7** runners | ❌ undecided |
+| **BloFin** | 403 HTML page from **all 7** | ❌ undecided |
+| **Pionex** | 429 on the first request from **all 7** (shared Cloudflare egress) | ❌ undecided |
+| **Bitget** | 403 `{"cloudflare":"block"}` from all 6 hinted runners (only the un-hinted SIN runner passed) | ❌ undecided |
+| Bybit | CloudFront country block from US runners only | ✅ direct via `apac-ne` |
+| MEXC | Akamai 403 from LAX only | ✅ direct via `apac-ne` |
+| WOOFi Pro (Orderly) | 403 from SIN (un-hinted) and LAX | ✅ direct via `apac-ne` |
+| Extended | timeouts from MRS in both runs | ✅ direct via `apac-ne` |
+| The other 51 probed venues (incl. dYdX, OKX, Hyperliquid + HIP-3) | ok from every runner (one-off 429s from OKX and Phoenix, one Velocity timeout) | ✅ direct, any hint |
+
+**Decision needed for Binance, BloFin, Pionex and Bitget:**
+- **Rung 3, relayed:** Binance rates only, via Hyperliquid `predictedFundings` / Lighter `funding-rates`. No OI, volume or book. No relay exists for BloFin, Pionex or Bitget.
+- **Rung 4, non-Cloudflare proxy:** a small VPS (Tokyo or Singapore) that the collector DOs call for these venues. It breaks "100% Cloudflare" for egress only.
+- **Workers Paid + Container rung:** Container egress IPs may be treated differently, but that's unverified; it would need a Paid-plan probe first.
+- **Defer:** launch without these four venues (or Binance relayed only) and revisit.
+
+Binance, together with OKX, MEXC and KuCoin, also needs written data consent before monetized display (see the legal doc). A proxy that solves the IP block doesn't solve that.
 
 ## Blockers and actions for you
-1. **`wrangler login` in this session** (your system Node is v12):
-   ```
-   ! PATH="$HOME/.nvm/versions/node/v25.8.2/bin:$PATH" npx wrangler login
-   ```
-   With it I can deploy `py/spike`, find the `airates` workers.dev URL, and fill in the decision gate. Alternatively, paste the URL.
+1. **Choose the egress route for Binance, BloFin, Pionex and Bitget** (see "Decision gate").
 2. **Workers Paid before Phase 1** (see above).
 3. **Market-data consent.** The terms of Binance, OKX, MEXC and KuCoin (plus Aster, and possibly Paradex) appear to forbid profiting from their market data, "including through advertising or referral fees", without written consent. Email them during affiliate onboarding; counsel should review. Details: `plans/phase0-referrals-legal.md`.
 4. **Referral applications and KYC'd entity accounts:** see the ordered action list in the legal doc.
