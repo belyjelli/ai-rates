@@ -1,15 +1,18 @@
-"""Funding-only backtest math for the Python Worker spike.
+"""Funding-only backtest math for the Python Worker spike, numpy only.
 
 Follows the rules in plans/development-plan.md: each leg's cashflows are summed at its own
 settlement times (no resampling or forward-fill), then bucketed by UTC day.
+
+pandas is deliberately not used: on Workers Free a Worker that bundles pandas fails every request
+before any code runs (see plans/phase0-report.md), while numpy alone starts in under a second.
 """
 
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 
 HOUR_MS = 3_600_000
+DAY_MS = 24 * HOUR_MS
 
 
 def settlement_times(start_ms: int, count: int, step_hours: float) -> np.ndarray:
@@ -27,21 +30,26 @@ def leg_cashflows(
     marks: np.ndarray,
     qty: float,
     side: str,
-) -> pd.Series:
-    """Per-settlement funding cashflow in quote currency. A positive rate means longs pay."""
+) -> tuple[np.ndarray, np.ndarray]:
+    """Per-settlement funding cashflows in quote currency. A positive rate means longs pay."""
     if side not in ("long", "short"):
         raise ValueError(f"side must be 'long' or 'short', got {side!r}")
     sign = -1.0 if side == "long" else 1.0
-    index = pd.to_datetime(settled_at_ms, unit="ms", utc=True)
-    return pd.Series(sign * qty * marks * rates, index=index)
+    return np.asarray(settled_at_ms, dtype=np.int64), sign * qty * marks * rates
 
 
-def daily_net(long_cashflows: pd.Series, short_cashflows: pd.Series) -> pd.Series:
-    combined = pd.concat([long_cashflows, short_cashflows])
-    return combined.groupby(combined.index.floor("D")).sum().sort_index()
+def daily_net(
+    long_cashflows: tuple[np.ndarray, np.ndarray],
+    short_cashflows: tuple[np.ndarray, np.ndarray],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Sums both legs' cashflows per UTC day. Returns (day start epoch-ms, net cashflow)."""
+    ts = np.concatenate([long_cashflows[0], short_cashflows[0]])
+    values = np.concatenate([long_cashflows[1], short_cashflows[1]])
+    days, index = np.unique(ts // DAY_MS, return_inverse=True)
+    return days * DAY_MS, np.bincount(index, weights=values, minlength=days.size)
 
 
-def summarize(daily: pd.Series, one_time_costs: float) -> dict:
+def summarize(daily: np.ndarray, one_time_costs: float) -> dict:
     days = int(daily.size)
     funding = float(daily.sum())
     avg_daily = funding / days if days else 0.0
@@ -71,4 +79,5 @@ def synthetic_run(days: int = 30, seed: int = 7, size: float = 10_000.0) -> dict
         short_ts, rng.normal(0.0002, 0.0001, short_ts.size), np.full(short_ts.size, mark), qty, "short"
     )
     taker_fees = 4 * size * 0.0005  # entry + exit on both legs
-    return summarize(daily_net(long_cf, short_cf), taker_fees)
+    _, daily = daily_net(long_cf, short_cf)
+    return summarize(daily, taker_fees)
