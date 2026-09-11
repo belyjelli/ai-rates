@@ -86,7 +86,7 @@ export function renderProbePage(
 <header>
   <h1>Venue geo-probe</h1>
   <p>Which Cloudflare locations can reach each venue's public API. Hover a cell for per-endpoint detail.</p>
-  <button id="run" type="button">Run hinted probes now</button>
+  <button id="run" type="button">Run probes now</button>
   <span id="msg" class="sub"></span>
 </header>
 <div class="wrap">

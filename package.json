@@ -14,7 +14,8 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "test": "bun test"
+    "test": "bun test",
+    "probe:local": "bun apps/worker/scripts/live-probe.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",

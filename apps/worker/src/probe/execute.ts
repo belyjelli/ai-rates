@@ -2,9 +2,9 @@ import { VENUES } from "@ai-rates/venues";
 import {
   type EgressTrace,
   type FetchLike,
-  fetchEgressTrace,
+  type ProbeJob,
   type ProbeResult,
-  runProbe,
+  planJobs,
 } from "./runner";
 
 export interface StoredRun {
@@ -16,15 +16,9 @@ export interface StoredRun {
 }
 
 // Workers throw "Illegal invocation" if the global fetch is called detached from globalThis.
-const workerFetch: FetchLike = (input, init) => fetch(input, init);
+export const workerFetch: FetchLike = (input, init) => fetch(input, init);
 
-/** Probes every catalog venue from wherever the current invocation is running. */
-export async function executeProbe(runner: string): Promise<StoredRun> {
-  const startedAt = Date.now();
-  const targets = VENUES.map((venue) => ({ venueId: venue.id, endpoints: venue.probes }));
-  const [trace, results] = await Promise.all([
-    fetchEgressTrace(workerFetch),
-    runProbe(targets, { fetch: workerFetch }),
-  ]);
-  return { runner, startedAt, finishedAt: Date.now(), trace, results };
+/** Every probe job for the venue catalog, in a stable order so runs can resume by index. */
+export function catalogJobs(): ProbeJob[] {
+  return planJobs(VENUES.map((venue) => ({ venueId: venue.id, endpoints: venue.probes })));
 }

@@ -123,6 +123,8 @@ ai-rates/
 ## Phased delivery (2–3 devs)
 
 ### Phase 0 — Foundations and risk spikes (week 1)
+> **Status 2026-09-11:** done except the geo-block decision gate and the deployed Python cold-start number. Both wait on account access. Container and Pipelines spikes were skipped because the account is on Workers Free. Results and the plan changes Free forces are in [`phase0-report.md`](phase0-report.md); referral and legal research is in [`phase0-referrals-legal.md`](phase0-referrals-legal.md).
+
 1. Scaffold the Bun monorepo: biome, tsconfig, CI (lint, typecheck, `bun test`, `uv run pytest`, `wrangler deploy --dry-run` per app).
 2. **57-venue catalog + geo-probe:** a throwaway worker hits every venue's public funding/ticker endpoints four ways: from a cron, from DOs hinted `apac-ne`/`weur`/`enam`, and from Containers pinned to APAC/WEUR. For each, record status, `cf-ray` colo, WAF/CloudFront challenges, bulk-endpoint availability, history lookback and rate-limit weights.
    - Output: `data/venues.json` with a fallback-ladder rung per venue.
@@ -158,7 +160,7 @@ ai-rates/
 - For each venue: adapter + fixtures + contract test + `venues.json` entry (logo, referral, fees, hint). Simple CEX adapters ~0.5 day; unusual DEXs 1–3 days. Taker fees aren't published consistently, so `venues.json` holds them, verified by hand.
 - **Adapter families (build the base once, then configure each venue):**
   - `binance-fapi` base: Binance, Aster, WEEX, Bullet (Binance-compatible APIs).
-  - `hyperliquid` base: HL core + every HIP-3 dex via `perpDexs`/`metaAndAssetCtxs{dex}`. Dex ids: `xyz`, `flx` (Felix), `hyna` (HyENA), `km`/`mkts` (Kinetiq), `vntl`, `cash`, `io` (Entropy). Coins are prefixed, e.g. `xyz:XYZ100`.
+  - `hyperliquid` base: HL core + every HIP-3 dex via `perpDexs`/`metaAndAssetCtxs{dex}`. Dex ids from `perpDexs` (2026-09-11): `xyz`, `flx` (Felix), `hyna` (HyENA), `km`/`mkts` (Kinetiq), `vntl` (Ventuals), `cash` (dreamcash), `para` (Paragon), `io` (Entropy), `abcd` (unidentified). Coins are prefixed, e.g. `xyz:XYZ100`. Bullpen is a Hyperliquid front-end, an alias with no markets of its own.
   - `orderly` base: WOOFi Pro + other Orderly brokers, deduped.
 - **Bulk "all markets" endpoints (cheap):**
   - CEX: Binance `premiumIndex`, Bybit `tickers`, Bitget `current-fund-rate`, Gate `contracts`, KuCoin `contracts/active`, HTX `swap_batch_funding_rate`, BingX `premiumIndex`, BitMart `details`, Pionex `indexes`.
@@ -175,6 +177,8 @@ ai-rates/
 - Airdrop calendar, points calculator, blog/glossary (MDX), en/ru with hreflang, Telegram spread alerts, public read API.
 
 **Rough monthly cost:** ~$30–120. Workers Paid $5; DO alarms ~$5–15; Pipelines/R2/R2 SQL <$20; D1 ~$5; Python Container on demand <$10; relay (if needed) ~$10–40.
+
+> **Workers Free (current account):** Containers and Pipelines are unavailable. Free's limits (10ms CPU and 50 subrequests per invocation, 100k requests/day) don't fit Phase 1's 60s polling of ~57 venues with 1–2 MB bulk responses. Phase 0 recommends upgrading to Paid before Phase 1; see [`phase0-report.md`](phase0-report.md) for the Free-plan substitutes (R2 NDJSON archive, backfills from CI, fallback rungs 3/4 only).
 
 ---
 

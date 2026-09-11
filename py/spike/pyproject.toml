@@ -1,0 +1,13 @@
+[project]
+name = "airates-py-spike"
+version = "0.1.0"
+description = "Phase 0 spike: numpy/pandas cold start and backtest compute on Cloudflare Python Workers"
+requires-python = ">=3.12"
+dependencies = ["numpy", "pandas"]
+
+[dependency-groups]
+dev = ["workers-py", "workers-runtime-sdk", "pytest"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
