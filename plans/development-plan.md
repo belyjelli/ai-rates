@@ -51,7 +51,7 @@ Later: blog/glossary, airdrop calendar, en/ru, Telegram alerts.
 ### Key decisions
 | Concern | Decision | Why |
 |---|---|---|
-| Deployables | **4 services**: `ingest` (TS: all DOs + watchdog cron), `web` (TS: API + SSR), `py-analytics` (Python Worker), `py-backfill` (Python Container). Optional `relay` container. | A small team can own this. No scheduler/queue hops. |
+| Deployables | **One JS Worker `airates` at the repo root** (`wrangler.jsonc`, `main: apps/worker/src/index.ts`). It merges the planned `ingest` (DOs + watchdog cron) and `web` (API + SSR) services and deploys through Cloudflare Workers Builds (root `/`, deploy command `npx wrangler deploy`, runs on every push to `main`). Python lives in separate Workers Builds projects: `py/analytics` (Python Worker) and `py/backfill` (Container). A Worker is either JS or Python, so Python can't share the root Worker. The optional `relay` container is declared in the root `wrangler.jsonc` if needed. | Matches the existing deploy pipeline. One Worker keeps DO RPC local with no service bindings. |
 | Polling fan-out | One DO per venue using self-rescheduling alarms. Each alarm has its own 6-connection limit and 15-min wall clock. Tiers: bulk funding+tickers 60s; per-symbol-only endpoints (e.g. OI) rotate through symbols; orderbooks every 10 min for pairable markets only. | Fits Worker limits (6 outbound connections, CPU) and venue rate limits. |
 | Geo-blocking (Binance 451 for US IPs, Bybit CloudFront 403 on cloud IP ranges, dYdX indexer GEOBLOCKED; one CF community report of scheduled Workers getting 403s from Binance/Bybit/Kraken) | **Fallback ladder per venue, chosen by the Phase 0 probe:** (1) direct call from a DO with a location hint in its name (`binance@apac-ne`); (2) the same call through a Container pinned to `regions:["APAC"]` or `["WEUR"]`; (3) **CF-only relayed rates**: Hyperliquid `predictedFundings` and Lighter `/api/v1/funding-rates` both republish Binance/Bybit funding (rates only, no OI/book, marked "relayed" in the UI); (4) a tiny non-CF egress proxy (Tokyo/Frankfurt VPS), the only exception to CF-only, used only if you approve it after the probe. | Hints and placement pick a data center, not IP reputation. Blocks are IP-based. |
 | Hot data | MarketHubDO holds the latest matrix. The screener JSON uses Cache API `s-maxage=15, stale-while-revalidate=60`. Clients poll every 15s (no WebSockets in MVP). | KV's 60s minimum TTL is too slow. Funding moves slowly. |
@@ -68,11 +68,10 @@ Later: blog/glossary, airdrop calendar, en/ru, Telegram alerts.
 ## Repo layout
 ```
 ai-rates/
-  package.json (bun workspaces) · bunfig.toml · biome.json · tsconfig.base.json · .github/workflows/ci.yml
+  wrangler.jsonc (the single root Worker, deployed by Workers Builds) · package.json (bun workspaces) · biome.json · tsconfig*.json
   apps/
-    ingest/         wrangler.jsonc · src/{index.ts (watchdog cron), collector-do.ts, history-do.ts, hub-do.ts, pipeline.ts}
-    web/            wrangler.jsonc · app/ (RR7 routes: screener, arbitrage, markets/*, pair/$sym, price-pair/$sym, trade) · server/api.ts (Hono /v1)
-    relay/          (only if needed) Dockerfile + Container class
+    worker/         src/index.ts (fetch + scheduled) · probe/ (Phase 0 geo-probe) · ingest/{collector-do,history-do,hub-do,pipeline}.ts · api/ (Hono /v1) · web/ (SSR pages)
+    relay/          (only if needed) Dockerfile + Container class, declared in the root wrangler.jsonc
   py/
     analytics/      pyproject.toml · src/entry.py (WorkerEntrypoint.scheduled) · stability.py · momentum.py · verified_backtests.py
     backfill/       Dockerfile · jobs/{funding_history.py, klines.py} (ccxt, duckdb, pyarrow)

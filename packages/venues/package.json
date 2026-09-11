@@ -1,0 +1,8 @@
+{
+  "name": "@ai-rates/venues",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

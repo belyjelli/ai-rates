@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Must match the Worker name in the Cloudflare dashboard (Workers Builds deploys by this name).
+  "name": "airates",
+  "main": "apps/worker/src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "observability": {
+    "enabled": true
+  },
+  "triggers": {
+    // Hourly: sub-hourly crons get only 30s CPU; hourly ones get 15 min.
+    "crons": ["7 * * * *"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "PROBE", "class_name": "ProbeDO" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ProbeDO"] }]
+}
