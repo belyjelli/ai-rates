@@ -134,4 +134,51 @@ describe.skipIf(!url)("PgStore (integration)", () => {
       new Map([[`${base}USDT`, settledAt]]),
     );
   });
+
+  test("stores prices per unit of the base asset, leaving open interest alone", async () => {
+    const t1 = Date.now() - 20_000;
+    const settledAt = Math.floor((t1 - 60_000) / 3_600_000) * 3_600_000;
+    const symbol = `1000${base}USDT`;
+    // A 1000x contract, as Aster/Bybit/Hyperliquid list one: the venue quotes the price of 1000 units.
+    const scaled: FundingSnapshot = {
+      ...snap(symbol, 0.0001, 8, t1),
+      multiplier: 1000,
+      markPrice: 0.0032709,
+      indexPrice: 0.0032808,
+    };
+
+    await store.recordBatch(
+      venueId,
+      {
+        snapshots: [scaled],
+        settled: [
+          {
+            ...event(0.0001, settledAt),
+            venueSymbol: symbol,
+            multiplier: 1000,
+            markPrice: 0.0032709,
+          },
+        ],
+      },
+      t1,
+    );
+
+    const [snapshot] = await sql`
+      SELECT mark_price, index_price, open_interest_usd FROM funding_snapshots
+      WHERE venue_id = ${venueId} AND venue_symbol = ${symbol}`;
+    expect(snapshot?.mark_price).toBeCloseTo(0.0000032709, 12);
+    expect(snapshot?.index_price).toBeCloseTo(0.0000032808, 12);
+    // Adapters derive open interest from the venue's own contract price, so it must not be rescaled.
+    expect(snapshot?.open_interest_usd).toBe(1_000_000);
+
+    const [settled] = await sql`
+      SELECT mark_price FROM funding_events WHERE venue_id = ${venueId} AND venue_symbol = ${symbol}`;
+    expect(settled?.mark_price).toBeCloseTo(0.0000032709, 12);
+
+    const [latest] = await sql`
+      SELECT mark_price, open_interest_usd FROM market_latest
+      WHERE venue_id = ${venueId} AND venue_symbol = ${symbol}`;
+    expect(latest?.mark_price).toBeCloseTo(0.0000032709, 12);
+    expect(latest?.open_interest_usd).toBe(1_000_000);
+  });
 });

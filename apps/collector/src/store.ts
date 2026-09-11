@@ -1,5 +1,11 @@
 import type { SnapshotBatch } from "@ai-rates/adapters";
-import { aprPercent, type FundingEvent, type FundingSnapshot, ratePerHour } from "@ai-rates/core";
+import {
+  aprPercent,
+  type FundingEvent,
+  type FundingSnapshot,
+  perUnitPrice,
+  ratePerHour,
+} from "@ai-rates/core";
 import type { SQL } from "bun";
 import type { HistoryStore } from "./history";
 import type { CollectorRun, CollectorStore } from "./scheduler";
@@ -194,8 +200,10 @@ function snapshotRow(s: FundingSnapshot) {
     interval_hours: s.intervalHours,
     next_funding_at: s.nextFundingAt === null ? null : new Date(s.nextFundingAt),
     kind: s.kind,
-    mark_price: s.markPrice,
-    index_price: s.indexPrice,
+    // Per unit of `base`, not per contract: adapters have already derived open_interest_usd from the
+    // venue's own contract price, so only the stored prices are rescaled.
+    mark_price: perUnitPrice(s.markPrice, s.multiplier),
+    index_price: perUnitPrice(s.indexPrice, s.multiplier),
     open_interest_usd: s.openInterestUsd,
     volume_24h_usd: s.volume24hUsd,
   };
@@ -217,7 +225,7 @@ function eventRow(e: FundingEvent, source: "history" | "observed") {
     venue_symbol: e.venueSymbol,
     rate: e.rate,
     basis_hours: e.basisHours,
-    mark_price: e.markPrice,
+    mark_price: perUnitPrice(e.markPrice, e.multiplier),
     source,
   };
 }

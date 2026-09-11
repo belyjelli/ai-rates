@@ -11,7 +11,23 @@ export interface ParsedSymbol {
 /** Longest first so "FDUSD" and "BUSD" win over "USD". */
 const QUOTES = ["FDUSD", "USDT", "USDC", "USDE", "BUSD", "USD"];
 const CONTRACT_TOKENS = new Set(["SWAP", "PERP", "PERPETUAL", "FUTURES", "FUT"]);
-const ALIASES: Record<string, string> = { XBT: "BTC" };
+/**
+ * Tickers different venues use for the same underlying, mapped to the spelling most venues use.
+ * The commodity entries were confirmed on 2026-09-12 by mark price: NG marked 2.937–2.944 against
+ * NATGAS at 2.942–2.946, WTI 96.122–96.125 against CL 96.146–96.409, GOLD 4353.30 against XAU
+ * 4355.79–4359.35, and SILVER 64.39–64.55 against XAG 64.52–64.58. Without these, the same asset
+ * splits into two pools and never pairs.
+ *
+ * Deliberately absent: SPX is the SPX6900 token at ~$0.486, not the S&P 500 index that venues list
+ * as US500 at ~$7,650. Aliasing them would merge unrelated markets.
+ */
+const ALIASES: Record<string, string> = {
+  XBT: "BTC",
+  NG: "NATGAS",
+  WTI: "CL",
+  GOLD: "XAU",
+  SILVER: "XAG",
+};
 
 /**
  * Parses a venue-native perp symbol into its canonical parts. Handles the common shapes:

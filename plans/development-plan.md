@@ -185,10 +185,14 @@ ai-rates/
 >   - SEO work (sitemap, canonicals, per-asset copy): not useful while noindex.
 >   - Rate-limiting binding and Turnstile: add before launch.
 >   - Per-row "source · updated" stamps: currently in the footer only.
-> - **Known data issues to fix next:**
->   - Extreme funding on distressed coins dominates the top of the list; needs an outlier flag or filter.
->   - The same ticker isn't always the same asset across venues (TradFi symbols like `CL`, `BZ`, `NG`); needs an asset-identity map.
->   - Aster reports no open interest, so OI filters drop it; needs rotating per-symbol OI.
+> - **Data quality (2026-09-12, measured against live rows):**
+>   - **Fixed — extreme funding.** `screener_pairs` takes `p_max_abs_apr`, defaulting to 1000% APR; `?extremes=1` lifts it and the screener form exposes it. 121 of 5397 live markets sat beyond ±200% APR and 10 beyond ±1000%, led by Gate and MEXC microcaps; open interest alone didn't filter them (STORJ_USDT held $1.5M OI at -1595%). Top spread at the default filters fell from 1356% to 521%. Migration 003.
+>   - **Fixed — contract scale.** Prices were stored exactly as venues quoted them, so `1000PEPE` / `kPEPE` / `10000CAT` markets sat 1000–10000× above the unscaled venues for the same asset: PEPE marked 0.00000327 on eight venues and 0.00327 on six. 55 markets, ~12k snapshot rows. `perUnitPrice` divides by the multiplier at record time; migration 004 backfills. Funding rates are fractions and were never affected, and `open_interest_usd` was always correct because adapters derive it from the venue's own contract price.
+>   - **Fixed — one asset split across two tickers.** `NG`/`NATGAS`, `WTI`/`CL`, `GOLD`/`XAU` and `SILVER`/`XAG` are the same underlying on different venues — confirmed by mark price agreeing to ~0.3% — so they never paired with each other. Now aliased in `parseVenueSymbol`.
+>   - **The "ticker collision" premise was wrong.** `CL` ($96.15–96.41 across 7 venues), `BZ` (~$100.4 across 6) and `NG` (~2.94) agree on mark price everywhere, so those spreads are real, not identity errors. Real collisions are rarer and look different: `gate:CAT_USDT` at $817.80 is not the CAT memecoin, `hl-para:STX` at $830.42 is not Stacks, `JPY` is quoted both ways (0.0065 vs 153.45), and `KR200` disagrees by 1371×. `SPX` (~$0.486, the SPX6900 token) must never be merged with `US500` (~$7,650, the index).
+>   - **Open — collision guard.** Prefer a mark-agreement check inside `screener_pairs` (legs of one asset must price within a tolerance) over a curated identity map: it is data-driven and catches CAT, STX, JPY and KR200 at once. Only workable now that marks share one scale.
+>   - **Open — Aster open interest.** 571 markets, none with OI, so OI filters drop the venue. `/fapi/v1/openInterest` requires a symbol and Aster exposes no bulk equivalent (`ticker/24hr` carries none), so it needs per-symbol rotation spread across cycles.
+>   - **Open — monitoring.** No stale-data alert; the hourly geo-probe is no longer needed and should be retired.
 - `/v1/screener`, `/v1/assets/:sym`, `/v1/exchanges/:venue`, `/v1/health`. Cache headers: screener `s-maxage=15, swr=60`, pages `s-maxage=60`, ETags. Rate-limiting binding on the API.
 - Pages: `/screener`, `/markets`, `/markets/exchange/$venue`, `/markets/asset/$sym`, `/trade`. Dark terminal theme, venue logos, long/short chips, "Backtest" CTA.
 - Every row/page shows "Source: {venue} public API · updated {ts}". Disclaimer text ("not financial advice / not affiliated").
