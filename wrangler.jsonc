@@ -14,9 +14,12 @@
   "observability": {
     "enabled": true
   },
+  // The geo-probe answered its Phase 0 question -- which venues Cloudflare can reach -- and the
+  // collector now runs from hklab, so nothing needs it on a schedule. An empty list is what
+  // deregisters the cron; dropping the block can leave the old trigger registered. The routes and
+  // ProbeDO stay, so `POST /v1/probe/run` still works if egress ever needs rechecking.
   "triggers": {
-    // Hourly: sub-hourly crons get only 30s CPU; hourly ones get 15 min.
-    "crons": ["7 * * * *"]
+    "crons": []
   },
   "durable_objects": {
     "bindings": [{ "name": "PROBE", "class_name": "ProbeDO" }]
