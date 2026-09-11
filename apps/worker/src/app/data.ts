@@ -162,16 +162,19 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
     async settlements(markets, fromMs, toMs) {
       if (markets.length === 0) return [];
-      // unnest pairs the two arrays row-wise, so the markets stay bound parameters rather than
-      // an interpolated IN list.
-      const venueIds = markets.map((m) => m.venue_id);
-      const symbols = markets.map((m) => m.venue_symbol);
-      const rows = await connect()<SettlementRow[]>`
+      const sql = connect();
+      // One bound (venue_id, venue_symbol) tuple per market. Array parameters are not an option
+      // here: Hyperdrive needs fetch_types: false, and with type introspection off postgres.js
+      // sends a text[] as the bare string "a,b", which Postgres rejects as a malformed array
+      // literal. string_to_array would work but splits any symbol that contains a comma.
+      const keys = markets
+        .map((market) => sql`(${market.venue_id}, ${market.venue_symbol})`)
+        .reduce((all, one) => sql`${all}, ${one}`);
+      const rows = await sql<SettlementRow[]>`
         SELECT e.venue_id, e.venue_symbol, e.settled_at, e.rate, e.basis_hours
         FROM funding_events e
-        JOIN unnest(${venueIds}::text[], ${symbols}::text[]) AS m(venue_id, venue_symbol)
-          ON m.venue_id = e.venue_id AND m.venue_symbol = e.venue_symbol
-        WHERE e.settled_at >= ${new Date(fromMs)} AND e.settled_at <= ${new Date(toMs)}
+        WHERE (e.venue_id, e.venue_symbol) IN (${keys})
+          AND e.settled_at >= ${new Date(fromMs)} AND e.settled_at <= ${new Date(toMs)}
         ORDER BY e.settled_at`;
       return [...rows];
     },

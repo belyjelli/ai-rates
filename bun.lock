@@ -27,6 +27,9 @@
         "@ai-rates/venues": "workspace:*",
         "postgres": "^3.4.7",
       },
+      "devDependencies": {
+        "@ai-rates/db": "workspace:*",
+      },
     },
     "packages/adapters": {
       "name": "@ai-rates/adapters",
