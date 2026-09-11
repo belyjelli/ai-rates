@@ -201,6 +201,13 @@ ai-rates/
 - SEO: SSR tables, text summary per asset page, sitemap index, canonical tags (noindex query-param variants of `/pair`).
 
 ### Phase 3 — Backtester (weeks 6–7)
+> **Status 2026-09-12: history deepened, engine not started.**
+> - **The blocker was history depth, not the maths.** `sweepVenueHistory` only ever resumes from the newest stored settlement, so every venue held exactly the 7.1 days since collection began on 2026-09-04. A 30-day backtest was arithmetically impossible.
+> - **`backfillVenueHistory` reaches the other way**, asking each venue for the span between a 90-day target and the oldest settlement already stored. Confirmed against live APIs first: aster serves back to 2026-06-14, bybit gives bounded windows 90 days back, okx pages 100 at a time, gate returns 60-day windows despite capping an unbounded call at 90 rows. Paradex publishes continuous accrual samples rather than settlements and excludes itself.
+> - **Result:** history went from 7.1 to **89.9 days** within minutes of deploying; 253,610 → 271,907 events on the first round of sweeps, bybit's first sweep alone pulling 8,204 events with no errors.
+> - **It runs slowly on purpose:** 20 markets per venue every 5 minutes, because deepening the past shares one rate limit with live collection. Markets that return nothing older are remembered as exhausted so later sweeps spend the budget where it still moves.
+> - **Next:** the engine itself — `packages/core` backtest maths against the plan's cashflow rules (per-leg settlement times, no resampling, gaps flagged rather than zeroed), then `/v1/pairs/:sym/backtest` and the `/pair/$sym` page.
+> - **Note:** the original plan's Phase 3 text below predates the hklab architecture. There is no `py-backfill` Container, no VenueHistoryDO and no R2: history lives in `funding_events` in vaultdeck, and the backfill is part of the collector.
 - `py-backfill` Container pulls the maximum funding-history lookback + klines (for `mark_px`) across all markets on the 10 venues. Idempotent upserts into VenueHistoryDO + R2. Progress tracked in D1.
 - `packages/core/math/backtest.ts` + `/v1/pairs/:sym/backtest` (cache key: sym, long, short, size, days, UTC hour; 1h TTL; Turnstile when the result isn't cached) + `/pair/$sym` UI with equity curve.
 - `py-analytics` hourly job computes stability, 7d/30d settled averages and momentum. Its nightly run produces the homepage's "verified 7-day backtests" top 10.
