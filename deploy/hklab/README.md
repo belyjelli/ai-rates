@@ -4,7 +4,7 @@ Target: **hklab** (`ssh -p $AIRATES_DEPLOY_SSH_PORT $AIRATES_DEPLOY_USER@$AIRATE
 container on the `postgres_postgres` network, writing to the database `airates` in the existing
 `timescaledb_container` (TimescaleDB 2.20.3 / PostgreSQL 17.5).
 
-Its data lives on the 466 GB NVMe (`/dev/nvme0n1p1`), mounted at `/srv/filegator/data/database`, through a
+Its data lives on the 466 GB NVMe (`/dev/nvme0n1p1`), mounted at `/srv/airates-data`, through a
 Postgres tablespace. The root filesystem (~12 GB free) is too small for a year of funding data.
 
 ## One-time setup
@@ -21,20 +21,19 @@ sudo mkdir -p /mnt/nvme-inspect && sudo mount -o ro /dev/nvme0n1p1 /mnt/nvme-ins
 sudo ls -la /mnt/nvme-inspect && df -h /mnt/nvme-inspect
 sudo umount /mnt/nvme-inspect
 
-sudo mkdir -p /srv/filegator/data/database
-echo 'UUID=36be1152-0714-4bf4-aec3-c20b639b09c5 /srv/filegator/data/database ext4 defaults,nofail 0 2' | sudo tee -a /etc/fstab
-sudo systemctl daemon-reload && sudo mount /srv/filegator/data/database
-df -h /srv/filegator/data/database
+sudo mkdir -p /srv/airates-data
+echo 'UUID=36be1152-0714-4bf4-aec3-c20b639b09c5 /srv/airates-data ext4 defaults,nofail 0 2' | sudo tee -a /etc/fstab
+sudo systemctl daemon-reload && sudo mount /srv/airates-data
+df -h /srv/airates-data
 
 # Tablespace directory, owned by the container's postgres user (uid/gid 1000).
-sudo mkdir -p /srv/filegator/data/database/timescale-airates
-sudo chown 1000:1000 /srv/filegator/data/database/timescale-airates
-sudo chmod 700 /srv/filegator/data/database/timescale-airates
+sudo mkdir -p /srv/airates-data/timescale-airates
+sudo chown 1000:1000 /srv/airates-data/timescale-airates
+sudo chmod 700 /srv/airates-data/timescale-airates
 ```
 
-`nofail` keeps the server booting if the disk is missing. `/srv/filegator/data` is also served by the FileGator
-container, so after FileGator's next restart the database files would be visible in its file browser. To avoid
-that, mount somewhere outside `/srv/filegator/data` (e.g. `/srv/airates-data`) and adjust the paths below.
+`nofail` keeps the server booting if the disk is missing. The mount point is deliberately outside
+`/srv/filegator/data`, which the FileGator container serves, so database files never show up in its file browser.
 
 ### 2. Expose the directory to TimescaleDB
 
@@ -43,7 +42,7 @@ Add one volume to the `timescaledb` service in `/srv/postgres/db_compose.yml`:
 ```yaml
     volumes:
       - /srv/postgres/timesc_data:/data/postgrestimesc   # existing
-      - /srv/filegator/data/database/timescale-airates:/data/airates   # new
+      - /srv/airates-data/timescale-airates:/data/airates   # new
 ```
 
 Then recreate the container. This briefly interrupts the **16 other databases** on this instance, so pick a
@@ -76,6 +75,25 @@ DATABASE_URL=postgres://airates:<password>@timescaledb_container:5432/airates
 COLLECT_INTERVAL_MS=60000
 ENV
 chmod 600 ~/airates-app/deploy/hklab/.env
+```
+
+### Current state: running on the root disk
+
+On 2026-09-12 the collector went live before the NVMe was mounted, so settled funding starts recording
+immediately. `airates` was created on the default tablespace (root filesystem, ~12 GB free), so steps 1–2
+are still to do. Keep an eye on `df -h /` until the move below is done.
+
+Once steps 1–2 are done, move the database onto the NVMe. The collector is stopped for as long as the copy
+takes, which is short while the database is small:
+
+```sh
+docker compose -f ~/airates-app/deploy/hklab/compose.yml stop collector
+docker exec -i timescaledb_container sh -c 'psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1' <<'SQL'
+CREATE TABLESPACE airates_nvme OWNER airates LOCATION '/data/airates';
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'airates';
+ALTER DATABASE airates SET TABLESPACE airates_nvme;
+SQL
+docker compose -f ~/airates-app/deploy/hklab/compose.yml start collector
 ```
 
 ## Deploy

@@ -159,7 +159,8 @@ ai-rates/
 >   - The HIP-3 dexes cash, flx, hyna, vntl, km and abcd currently list only delisted assets, so they return 0 markets.
 >   - MEXC coin-settled contracts need USD contract sizing.
 >   - dYdX BTC funding is often exactly 0 (within the clamp band).
-> - **Remaining for Phase 1:** production deploy on hklab, blocked on mounting the NVMe and adding its compose volume (both need sudo on hklab; see the runbook).
+> - **Production:** live on hklab since 2026-09-12 (`airates-collector`, database `airates` on `timescaledb_container`). The first check showed all 20 venues fresh, 0 failed runs, ~4.2k markets, 70 MB RAM, 13 MB database.
+> - **Remaining for Phase 1:** the DB currently sits on the root disk (~12 GB free). Mount the NVMe at `/srv/airates-data`, add its compose volume (both need sudo), then move the DB with `ALTER DATABASE ... SET TABLESPACE`. See the runbook.
 
 ### Phase 2 — API + screener + exchange/asset index (weeks 3–6)
 - `/v1/screener`, `/v1/assets/:sym`, `/v1/exchanges/:venue`, `/v1/health`. Cache headers: screener `s-maxage=15, swr=60`, pages `s-maxage=60`, ETags. Rate-limiting binding on the API.
