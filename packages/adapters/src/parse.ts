@@ -25,6 +25,28 @@ export function hoursBetween(fromMs: number | null, toMs: number | null): number
   return Math.round(((toMs - fromMs) / MS_PER_HOUR) * 1e6) / 1e6;
 }
 
+/**
+ * Which symbols to refresh this cycle when a venue exposes something only per symbol: never-fetched
+ * symbols first (in the given order), then entries older than `maxAgeMs`, oldest first, capped at
+ * `budget`. Spreads an expensive sweep across cycles instead of stalling one on hundreds of calls.
+ */
+export function selectRefreshBatch(
+  symbols: readonly string[],
+  cache: ReadonlyMap<string, { fetchedAt: number }>,
+  now: number,
+  budget: number,
+  maxAgeMs: number,
+): string[] {
+  const missing = symbols.filter((s) => !cache.has(s));
+  const stale = symbols
+    .filter((s) => {
+      const entry = cache.get(s);
+      return entry !== undefined && now - entry.fetchedAt >= maxAgeMs;
+    })
+    .sort((a, b) => (cache.get(a)?.fetchedAt ?? 0) - (cache.get(b)?.fetchedAt ?? 0));
+  return [...missing, ...stale].slice(0, Math.max(0, budget));
+}
+
 /** Builds a MarketRef from a venue symbol, letting adapters override fields the venue reports explicitly. */
 export function marketRef(
   venueId: string,

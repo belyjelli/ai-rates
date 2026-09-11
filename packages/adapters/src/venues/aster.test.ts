@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { FundingSnapshot } from "@ai-rates/core";
 import exchangeInfoFixture from "../../__fixtures__/aster/exchangeInfo.json";
 import fundingInfoFixture from "../../__fixtures__/aster/fundingInfo.json";
 import historyFixture from "../../__fixtures__/aster/fundingRate_BTCUSDT.json";
@@ -6,8 +7,10 @@ import premiumFixture from "../../__fixtures__/aster/premiumIndex.json";
 import tickerFixture from "../../__fixtures__/aster/ticker24hr.json";
 import type { HttpClient } from "../http";
 import {
+  attachOpenInterest,
   basisHoursFromGaps,
   createAsterAdapter,
+  type OpenInterestEntry,
   parseBinanceStyleFundingHistory,
   parseBinanceStyleSnapshots,
   tradablePerpetuals,
@@ -125,6 +128,23 @@ describe("funding history", () => {
   });
 });
 
+describe("attachOpenInterest", () => {
+  const snapshots = parseBinanceStyleSnapshots("aster", input, NOW);
+
+  test("prices contracts with the venue's own per-contract mark", () => {
+    const cache = new Map<string, OpenInterestEntry>([
+      ["BTCUSDT", { contracts: 6052.531, fetchedAt: NOW }],
+    ]);
+    const attached = attachOpenInterest(snapshots, cache);
+    expect(attached.find((s) => s.venueSymbol === "BTCUSDT")?.openInterestUsd).toBeCloseTo(
+      6052.531 * 77852.06061232,
+      4,
+    );
+    // Symbols not yet in the rotation keep a null rather than a wrong number.
+    expect(attached.find((s) => s.venueSymbol === "ETHUSDT")?.openInterestUsd).toBeNull();
+  });
+});
+
 describe("createAsterAdapter", () => {
   test("fetches bulk endpoints and caches exchangeInfo for an hour", async () => {
     const urls: string[] = [];
@@ -140,6 +160,10 @@ describe("createAsterAdapter", () => {
         urls.push(url);
         const key = url.split("/fapi/v1/")[1]?.split("?")[0] as string;
         if (key === "fundingRate") return historyFixture as T;
+        if (key === "openInterest") {
+          const symbol = new URL(url).searchParams.get("symbol") as string;
+          return { symbol, openInterest: "1000", time: NOW } as T;
+        }
         if (!(key in bodies)) throw new Error(`unexpected ${url}`);
         return bodies[key] as T;
       },
@@ -165,5 +189,59 @@ describe("createAsterAdapter", () => {
       1_789_142_400_000,
     );
     expect(events?.map((e) => e.settledAt)).toEqual(historyFixture.map((r) => r.fundingTime));
+  });
+
+  test("fills open interest a slice at a time and reuses it between refreshes", async () => {
+    const urls: string[] = [];
+    const client: HttpClient = {
+      venueId: "aster",
+      async getJson<T>(url: string): Promise<T> {
+        urls.push(url);
+        const key = url.split("/fapi/v1/")[1]?.split("?")[0] as string;
+        if (key === "openInterest") {
+          const symbol = new URL(url).searchParams.get("symbol") as string;
+          return { symbol, openInterest: "1000", time: NOW } as T;
+        }
+        const bodies: Record<string, unknown> = {
+          exchangeInfo: exchangeInfoFixture,
+          premiumIndex: premiumFixture,
+          fundingInfo: fundingInfoFixture,
+          "ticker/24hr": tickerFixture,
+        };
+        return bodies[key] as T;
+      },
+      postJson: async () => {
+        throw new Error("unused");
+      },
+      circuit: () => ({ open: false, consecutiveFailures: 0, retryAt: null }),
+      requestCount: () => urls.length,
+    };
+    const adapter = createAsterAdapter({ openInterestBudget: 1 });
+
+    const oiCalls = () => urls.filter((u) => u.includes("/openInterest"));
+    const symbolOf = (url: string) => new URL(url).searchParams.get("symbol") as string;
+    const withOi = (batch: { snapshots: FundingSnapshot[] }) =>
+      batch.snapshots.filter((s) => s.openInterestUsd !== null);
+
+    // One symbol per cycle, in the order the venue lists them.
+    const first = await adapter.fetchSnapshots(client, NOW);
+    expect(oiCalls()).toHaveLength(1);
+    const firstSymbol = symbolOf(oiCalls()[0] as string);
+    const filled = withOi(first);
+    expect(filled.map((s) => s.venueSymbol)).toEqual([firstSymbol]);
+    expect(filled[0]?.openInterestUsd).toBeCloseTo(1000 * (filled[0]?.markPrice as number), 4);
+
+    // Later cycles take the next never-fetched symbol and keep what is already known.
+    expect(withOi(await adapter.fetchSnapshots(client, NOW + 60_000))).toHaveLength(2);
+    expect(withOi(await adapter.fetchSnapshots(client, NOW + 2 * 60_000))).toHaveLength(3);
+    expect(oiCalls()).toHaveLength(3);
+
+    // Nothing is re-read inside the max age; past it the stalest symbol goes first.
+    urls.length = 0;
+    await adapter.fetchSnapshots(client, NOW + 3 * 60_000);
+    expect(oiCalls()).toHaveLength(0);
+    urls.length = 0;
+    await adapter.fetchSnapshots(client, NOW + 6 * 60_000);
+    expect(oiCalls().map(symbolOf)).toEqual([firstSymbol]);
   });
 });

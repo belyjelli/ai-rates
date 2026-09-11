@@ -1,6 +1,6 @@
 import type { FundingEvent, FundingSnapshot } from "@ai-rates/core";
 import { CircuitOpenError, type HttpClient } from "../http";
-import { marketRef, mul, num } from "../parse";
+import { marketRef, mul, num, selectRefreshBatch } from "../parse";
 import type { VenueAdapter } from "../types";
 
 const VENUE = "mexc";
@@ -96,14 +96,7 @@ export function selectIntervalRefreshes(
   budget = INTERVAL_REFRESH_BUDGET,
   maxAgeMs = INTERVAL_MAX_AGE_MS,
 ): string[] {
-  const missing = symbols.filter((s) => !cache.has(s));
-  const stale = symbols
-    .filter((s) => {
-      const entry = cache.get(s);
-      return entry !== undefined && now - entry.fetchedAt >= maxAgeMs;
-    })
-    .sort((a, b) => (cache.get(a)?.fetchedAt ?? 0) - (cache.get(b)?.fetchedAt ?? 0));
-  return [...missing, ...stale].slice(0, Math.max(0, budget));
+  return selectRefreshBatch(symbols, cache, now, budget, maxAgeMs);
 }
 
 /** A cached next settlement time rolled forward past `now` by whole intervals. */
@@ -195,6 +188,21 @@ export function createMexcAdapter(options: MexcAdapterOptions = {}): VenueAdapte
   return {
     venueId: VENUE,
     minIntervalMs: 110,
+
+    /**
+     * Intervals are the gate on emitting a market at all, and refilling ~1200 of them at
+     * INTERVAL_REFRESH_BUDGET per cycle takes about half an hour, during which most of MEXC is
+     * missing from the screener. The stored interval is the same number the API would return, so a
+     * restart can start from it. fetchedAt 0 keeps every warmed entry due for a real refresh.
+     */
+    warmUp(markets) {
+      for (const market of markets) {
+        const hours = market.intervalHours;
+        if (hours !== null && hours > 0 && !intervals.has(market.venueSymbol)) {
+          intervals.set(market.venueSymbol, { hours, nextSettleTime: null, fetchedAt: 0 });
+        }
+      }
+    },
 
     async fetchSnapshots(client: HttpClient, now: number) {
       if (!contracts || now - contracts.fetchedAt >= CONTRACTS_MAX_AGE_MS) {

@@ -197,6 +197,32 @@ describe("createMexcAdapter", () => {
     expect(urls.filter((u) => u.includes("/funding_rate/"))).toHaveLength(2); // two stalest intervals refreshed
   });
 
+  test("warmUp emits known markets on the first cycle, without spending the budget", async () => {
+    const adapter = createMexcAdapter({ intervalRefreshBudget: 0 });
+    const { client, urls } = fakeClient();
+    adapter.warmUp?.([
+      { venueSymbol: "BTC_USDT", intervalHours: 8 },
+      { venueSymbol: "ETH_USDT", intervalHours: 8 },
+      { venueSymbol: "XAU_USDT", intervalHours: 4 },
+      { venueSymbol: "DELISTED_USDT", intervalHours: 8 },
+      { venueSymbol: "NO_INTERVAL_USDT", intervalHours: null },
+    ]);
+
+    const batch = await adapter.fetchSnapshots(client, NOW);
+
+    // All three live markets appear immediately, with no per-symbol funding_rate calls at all.
+    expect(batch.snapshots.map((s) => s.venueSymbol).sort()).toEqual([
+      "BTC_USDT",
+      "ETH_USDT",
+      "XAU_USDT",
+    ]);
+    expect(urls.filter((u) => u.includes("/funding_rate/"))).toHaveLength(0);
+    // The warmed interval is used, not a guess.
+    expect(batch.snapshots.find((s) => s.venueSymbol === "XAU_USDT")?.basisHours).toBe(4);
+    // A market MEXC no longer lists is dropped rather than kept alive by the warm-up.
+    expect(batch.snapshots.map((s) => s.venueSymbol)).not.toContain("DELISTED_USDT");
+  });
+
   test("fetchFundingHistory returns settlements oldest first", async () => {
     const { client } = fakeClient();
     const events = await createMexcAdapter().fetchFundingHistory?.(
