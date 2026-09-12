@@ -57,6 +57,8 @@ export interface MarketRow {
   open_interest_usd: number | null;
   volume_24h_usd: number | null;
   observed_at: Date;
+  /** Headline max leverage, null where the venue doesn't publish one. Holds only at small size. */
+  max_leverage: number | null;
 }
 
 export interface ExchangeSummary {
@@ -87,7 +89,7 @@ export interface DataSource {
   asset(base: string): Promise<MarketRow[]>;
   exchanges(): Promise<ExchangeSummary[]>;
   exchange(venueId: string): Promise<MarketRow[]>;
-  /** Settled funding for the given markets within a window, oldest first. */
+  /** Settled funding for the given markets within a window, oldest first, ties broken by market. */
   settlements(
     markets: readonly MarketKey[],
     fromMs: number,
@@ -138,9 +140,11 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
     async asset(base) {
       const rows = await connect()<MarketRow[]>`
         SELECT m.venue_id, m.venue_symbol, m.base, m.quote, m.apr, s.apr_24h, s.apr_7d, m.interval_hours,
-               m.next_funding_at, m.mark_price, m.open_interest_usd, m.volume_24h_usd, m.observed_at
+               m.next_funding_at, m.mark_price, m.open_interest_usd, m.volume_24h_usd, m.observed_at,
+               k.max_leverage
         FROM market_latest m
         LEFT JOIN market_funding_stats s ON s.venue_id = m.venue_id AND s.venue_symbol = m.venue_symbol
+        LEFT JOIN markets k ON k.venue_id = m.venue_id AND k.venue_symbol = m.venue_symbol
         WHERE m.base = ${base} AND m.observed_at > now() - ${FRESH_INTERVAL}::interval
         ORDER BY m.apr`;
       return [...rows];
@@ -175,16 +179,20 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         FROM funding_events e
         WHERE (e.venue_id, e.venue_symbol) IN (${keys})
           AND e.settled_at >= ${new Date(fromMs)} AND e.settled_at <= ${new Date(toMs)}
-        ORDER BY e.settled_at`;
+        -- Markets settling on the same tick tie on settled_at alone, and the planner is then free to
+        -- return them in any order. The market breaks the tie so the sequence is reproducible.
+        ORDER BY e.settled_at, e.venue_id, e.venue_symbol`;
       return [...rows];
     },
 
     async exchange(venueId) {
       const rows = await connect()<MarketRow[]>`
         SELECT m.venue_id, m.venue_symbol, m.base, m.quote, m.apr, s.apr_24h, s.apr_7d, m.interval_hours,
-               m.next_funding_at, m.mark_price, m.open_interest_usd, m.volume_24h_usd, m.observed_at
+               m.next_funding_at, m.mark_price, m.open_interest_usd, m.volume_24h_usd, m.observed_at,
+               k.max_leverage
         FROM market_latest m
         LEFT JOIN market_funding_stats s ON s.venue_id = m.venue_id AND s.venue_symbol = m.venue_symbol
+        LEFT JOIN markets k ON k.venue_id = m.venue_id AND k.venue_symbol = m.venue_symbol
         WHERE m.venue_id = ${venueId} AND m.observed_at > now() - ${FRESH_INTERVAL}::interval
         ORDER BY m.open_interest_usd DESC NULLS LAST
         LIMIT 2000`;

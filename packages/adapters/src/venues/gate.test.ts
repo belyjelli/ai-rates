@@ -32,6 +32,7 @@ describe("parseGateSnapshots", () => {
       indexPrice: 77790.63,
       openInterestUsd: 640887002 * 0.0001 * 77762.8,
       volume24hUsd: 7031702789,
+      maxLeverage: 200,
     });
   });
 

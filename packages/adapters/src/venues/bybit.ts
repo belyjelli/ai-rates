@@ -37,6 +37,8 @@ export interface BybitInstrument {
   quoteCoin: string;
   /** Minutes; 0 for dated futures. */
   fundingInterval: number;
+  /** Headline leverage; the tiered ladder in /v5/market/risk-limit is the precise source. */
+  leverageFilter?: { maxLeverage?: string };
 }
 
 export interface BybitFundingHistoryItem {
@@ -95,6 +97,7 @@ export function parseBybitSnapshots(
       indexPrice: num(ticker.indexPrice),
       openInterestUsd: num(ticker.openInterestValue),
       volume24hUsd: num(ticker.turnover24h),
+      maxLeverage: num(instrument.leverageFilter?.maxLeverage),
     });
   }
   return { snapshots, settled: [] };

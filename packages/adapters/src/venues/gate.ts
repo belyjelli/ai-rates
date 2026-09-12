@@ -20,6 +20,8 @@ export interface GateContract {
   index_price: string;
   /** Base units per contract. */
   quanto_multiplier: string;
+  /** Headline leverage; /risk_limit_tiers is the precise, size-aware source. */
+  leverage_max?: string;
   in_delisting: boolean;
   status?: string;
   is_pre_market?: boolean;
@@ -69,6 +71,7 @@ export function parseGateSnapshots(
         ? mul(num(ticker.total_size), num(contract.quanto_multiplier), markPrice)
         : null,
       volume24hUsd: ticker ? num(ticker.volume_24h_quote) : null,
+      maxLeverage: num(contract.leverage_max),
     });
   }
   return { snapshots, settled: [] };
