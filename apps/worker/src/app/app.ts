@@ -54,6 +54,19 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(pages.screener({ overview, pairs, filters, now }));
     }
 
+    if (path === "/heatmap") {
+      const params = parseHeatmapParams(url.searchParams);
+      const [overview, cells] = await Promise.all([
+        deps.data.overview(),
+        deps.data.heatmap({
+          limit: params.limit,
+          offset: params.offset,
+          minVenues: HEATMAP_MIN_VENUES,
+        }),
+      ]);
+      return page(pages.heatmap({ overview, cells, params, now }));
+    }
+
     if (path === "/markets") {
       const [overview, exchanges] = await Promise.all([
         deps.data.overview(),

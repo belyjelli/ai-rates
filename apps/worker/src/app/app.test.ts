@@ -274,6 +274,85 @@ describe("pages", () => {
     );
   });
 
+  test("heatmap renders the matrix, dashes absent markets and escapes asset names", async () => {
+    const hcell = (
+      base: string,
+      venue_id: string,
+      apr: number,
+      apr_60d: number | null,
+      openInterest: number,
+      assetOi: number,
+    ): HeatmapCell => ({
+      base,
+      venue_id,
+      venue_symbol: `${base}-${venue_id}`,
+      apr,
+      apr_7d: null,
+      apr_30d: null,
+      apr_60d,
+      open_interest_usd: openInterest,
+      asset_oi_usd: assetOi,
+    });
+
+    const { data } = fakeData({
+      heatmap: async () => [
+        hcell("BTC", "gate", 12, 3, 5_000, 9_000),
+        hcell("BTC", "bybit", -4, -1, 4_000, 9_000),
+        // Only on gate, so its bybit column has to render as absent, not as zero.
+        hcell("<script>", "gate", 1, null, 1_000, 1_000),
+      ],
+    });
+
+    const html = await (await get("/heatmap", data)).text();
+    expect(html).toContain('<table class="heat">');
+    expect(html).toContain('<td class="none">–</td>');
+
+    // The row's own spread: cheapest to hold long (bybit at -4) against richest to hold short
+    // (gate at +12), so 16 points apart. Swapping the legs would be invisible on the page.
+    expect(html).toContain("long=bybit&short=gate");
+    expect(html).toContain("+16.0%");
+
+    // Asset names reach the page from the database and are escaped like everything else.
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>alert");
+
+    // Nothing to page to, so "next" is inert rather than a link into an empty page.
+    expect(html).toContain('<span class="dim">next →</span>');
+  });
+
+  test("heatmap timeframe switches which stored column the cells read", async () => {
+    const hcell = (base: string, venue_id: string, apr: number, apr_60d: number | null) => ({
+      base,
+      venue_id,
+      venue_symbol: `${base}-${venue_id}`,
+      apr,
+      apr_7d: null,
+      apr_30d: null,
+      apr_60d,
+      open_interest_usd: 1_000,
+      asset_oi_usd: 2_000,
+    });
+    const { data } = fakeData({
+      heatmap: async () => [hcell("BTC", "gate", 12, 3), hcell("BTC", "bybit", -4, -1)],
+    });
+
+    const live = await (await get("/heatmap", data)).text();
+    expect(live).toContain("+12.0%");
+
+    const long = await (await get("/heatmap?tf=60d", data)).text();
+    expect(long).toContain("<b>60d</b>");
+    expect(long).toContain("+3.00%");
+    // The live column must not leak into the 60d view.
+    expect(long).not.toContain("+12.0%");
+  });
+
+  test("heatmap says so when no asset spans two venues", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/heatmap", data)).text();
+    expect(html).toContain("No asset has live markets on two or more venues");
+    expect(html).not.toContain('<table class="heat">');
+  });
+
   test("pair page without legs offers the picker instead of a result", async () => {
     const { data } = fakeData();
     const html = await (await get("/pair/BTC", data)).text();
