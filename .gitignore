@@ -1,5 +1,8 @@
 node_modules/
 .wrangler/
+# Agent session state, including git worktrees checked out under .claude/worktrees. Those hold
+# other branches, so without this a `git add -A` would try to commit a second branch into this one.
+.claude/
 dist/
 .dev.vars*
 !.dev.vars.example
