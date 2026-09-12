@@ -7,6 +7,9 @@ dist/
 .dev.vars*
 !.dev.vars.example
 .env*
+# The deploy target (host, user, ports) lives in deploy/hklab/.env.deploy, which `.env*` above
+# already ignores. This negation keeps the placeholder template committable, as .dev.vars.example is.
+!.env.deploy.example
 # Local credentials; never commit.
 plans/access.md
 *.log
