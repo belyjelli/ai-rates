@@ -33,6 +33,8 @@ const pair: ScreenerPair = {
   long_interval_hours: 8,
   long_open_interest_usd: 4.97e9,
   long_volume_24h_usd: 7e9,
+  long_stability: 0.82,
+  long_stability_days: 30,
   short_venue_id: "lighter",
   short_symbol: "BTC",
   short_apr: 10.95,
@@ -40,6 +42,11 @@ const pair: ScreenerPair = {
   short_interval_hours: 1,
   short_open_interest_usd: 1.62e8,
   short_volume_24h_usd: 8.5e8,
+  short_stability: 0.64,
+  short_stability_days: 24,
+  // The weaker leg, not an average of the two: a pair is only as persistent as the leg that keeps
+  // handing back what the steady one earns.
+  pair_stability: 0.64,
   oldest_observed_at: new Date(NOW - 30_000),
 };
 
@@ -147,6 +154,21 @@ describe("pages", () => {
     // Linking back to the default sort leaves the query clean rather than pinning ?sort=spread,
     // so the canonical URL and the edge cache key stay the same as an unsorted visit.
     expect(html).toContain('href="/screener"');
+  });
+
+  test("stability renders the weaker leg, with the day count as its title", async () => {
+    const { data, calls } = fakeData();
+    const html = await (await get("/screener?sort=stability", data)).text();
+
+    expect(calls.screener[0]?.sort).toBe("stability");
+    // 0.64 is the short (weaker) leg. Only pair_stability is rendered today, so the two negatives
+    // guard against a later change that starts printing per-leg scores or an average of them.
+    expect(html).toContain(">0.64<");
+    expect(html).not.toContain(">0.82<");
+    expect(html).not.toContain(">0.73<");
+    // Not a percentage: the scale tops out at 0.88, so a "%" would invite reading it as a rate.
+    expect(html).not.toContain("0.64%");
+    expect(html).toContain("24 of its charging days");
   });
 
   test("the homepage teaser keeps plain headers rather than sort links", async () => {

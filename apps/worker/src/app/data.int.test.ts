@@ -179,21 +179,37 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
 
     // spread_apr_7d is richest-leg minus cheapest-leg 7d APR, so these give base a 100-point 7d
     // spread against base2's 5.
-    const stat = (venue_id: string, venue_symbol: string, apr7d: number) => ({
+    const stat = (
+      venue_id: string,
+      venue_symbol: string,
+      apr7d: number,
+      stability: number | null = null,
+      stabilityDays: number | null = null,
+    ) => ({
       venue_id,
       venue_symbol,
       apr_24h: apr7d,
       apr_7d: apr7d,
       settlements_24h: 3,
       settlements_7d: 21,
+      stability_30d: stability,
+      stability_days: stabilityDays,
+      momentum_30d: null,
       updated_at: now,
     });
+    // base is scored on BOTH legs, so it gets a pair figure: the weaker leg, 0.60, not 0.80.
+    //
+    // base2 is scored on ONE leg only, at 0.87 -- higher than anything base has. That asymmetry is
+    // the point: least() skips nulls rather than propagating them (verified: least(0.7, NULL) =
+    // 0.7), so a bare least() would hand base2 a 0.87 and rank it FIRST, flattering the pair whose
+    // data is incomplete. screener_pairs uses a CASE instead, so base2's pair figure is null and
+    // NULLS LAST puts it behind base. 127 live assets have exactly this shape.
     await admin`
       INSERT INTO market_funding_stats ${admin([
-        stat(venueA, symbolA, 50),
-        stat(venueB, symbolB, -50),
-        stat(venueA, symbolA2, 5),
-        stat(venueB, symbolB2, 0),
+        stat(venueA, symbolA, 50, 0.8, 30),
+        stat(venueB, symbolB, -50, 0.6, 12),
+        stat(venueA, symbolA2, 5, 0.87, 31),
+        stat(venueB, symbolB2, 0, null, null),
       ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
 
     // base3 deliberately gets markets but no stats, so a heatmap cell for it has null windows.
@@ -354,6 +370,38 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     expect(await mine("settled_7d")).toEqual([base, base2]);
     // Both assets sit on two venues, so `venues` falls through to its spread secondary key.
     expect(await mine("venues")).toEqual([base2, base]);
+    // base2's single scored leg (0.87) beats both of base's, but one leg is unscored, so its pair
+    // figure is null and it sorts last. A bare least() would have ranked it first.
+    expect(await mine("stability")).toEqual([base, base2]);
+  });
+
+  test("pair stability is the weaker leg, and null when either leg is unscored", async () => {
+    const rows = await data.screener({
+      minOpenInterestUsd: 0,
+      minVolume24hUsd: 0,
+      venueIds: null,
+      venueTypes: null,
+      maxAbsApr: null,
+      sort: "stability",
+      limit: 200,
+    });
+    const scored = rows.find((p) => p.asset === base);
+    // 0.60 is venueB's leg; 0.80 is venueA's and 0.70 their mean. Neither may appear.
+    expect(scored?.pair_stability).toBeCloseTo(0.6, 6);
+    expect(scored?.long_stability_days).not.toBe(scored?.short_stability_days);
+
+    // One leg scored at 0.87, the other not scored at all: the pair figure must be null rather
+    // than inheriting the scored leg, which is what least() alone would have produced.
+    const mixed = rows.find((p) => p.asset === base2);
+    expect(mixed).toBeDefined();
+    expect(mixed?.pair_stability).toBeNull();
+    expect([mixed?.long_stability, mixed?.short_stability]).toContain(null);
+
+    // base3 has no stats row at all, so both legs are unscored.
+    const none = rows.find((p) => p.asset === base3);
+    expect(none?.pair_stability).toBeNull();
+    expect(none?.long_stability).toBeNull();
+    expect(none?.short_stability).toBeNull();
   });
 
   test("overview and screener run against the real schema", async () => {
