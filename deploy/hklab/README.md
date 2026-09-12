@@ -126,6 +126,14 @@ with the extension needs one, plus one launcher for the whole instance.
 - **The fix:** raised to `timescaledb.max_background_workers = 24` and `max_worker_processes = 48` (`ALTER SYSTEM`,
   container restart).
 - **Keep it in step:** if more databases on this instance install TimescaleDB, raise the limit again.
+- **The integration tests add jobs too.** `migrate()` runs against schema `airates_it`, so that schema carries its own 3 hypertables and 4 policy jobs — compression on `funding_snapshots` and `funding_events`, retention on `funding_snapshots` and `collector_runs` — duplicating every production policy while holding no rows. They consume scheduler slots on an instance shared with 16 other databases, which is part of what exhausted the worker limit. They are safe to drop (`SELECT delete_job(<id>)` for the `airates_it` rows below) and the next test run will recreate them.
+
+```sh
+docker exec -i timescaledb_container sh -c 'psql -U "$POSTGRES_USER" -d vaultdeck' <<'SQL'
+SELECT job_id, hypertable_schema, hypertable_name, proc_name
+FROM timescaledb_information.jobs WHERE hypertable_schema = 'airates_it';
+SQL
+```
 
 Check that `vaultdeck`'s jobs are actually scheduled and running:
 
