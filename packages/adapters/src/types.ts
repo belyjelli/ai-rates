@@ -7,6 +7,18 @@ export interface SnapshotBatch {
   settled: FundingEvent[];
 }
 
+/**
+ * One venue's ladders, and whether the sweep actually covered the whole venue.
+ *
+ * `complete` exists because a venue fetched in many calls can lose some of them to a transient
+ * error. The collector upserts whatever arrived but only prunes on a complete sweep, so a rate
+ * limit can never delete ladders the sweep merely failed to see.
+ */
+export interface VenueLeverageTiers {
+  tiers: LeverageTier[];
+  complete: boolean;
+}
+
 /** A market the collector already knows about, for warming an adapter's caches after a restart. */
 export interface KnownMarket {
   venueSymbol: string;
@@ -37,7 +49,7 @@ export interface VenueAdapter {
    * answers per-symbol can page internally here and stay within its own budget. Tiers change
    * rarely, so the collector calls this daily, not per cycle.
    */
-  fetchLeverageTiers?(client: HttpClient): Promise<LeverageTier[]>;
+  fetchLeverageTiers?(client: HttpClient): Promise<VenueLeverageTiers>;
   /** Settled funding payments for one market in [fromMs, toMs], oldest first. */
   fetchFundingHistory?(
     client: HttpClient,

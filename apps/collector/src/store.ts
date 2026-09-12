@@ -181,6 +181,7 @@ export class PgStore implements CollectorStore, HistoryStore {
     venueId: string,
     tiers: readonly LeverageTier[],
     fetchedAt = new Date(),
+    prune = true,
   ): Promise<number> {
     // An empty sweep is a failed sweep, not a venue that dropped every ladder. Pruning on it would
     // erase good data because one request timed out.
@@ -198,9 +199,13 @@ export class PgStore implements CollectorStore, HistoryStore {
             max_leverage = EXCLUDED.max_leverage,
             fetched_at = EXCLUDED.fetched_at`;
       }
-      await tx`
-        DELETE FROM market_leverage_tiers
-        WHERE venue_id = ${venueId} AND fetched_at < ${fetchedAt}`;
+      // Skipped when the sweep was partial: those rows may belong to markets this run never
+      // reached, and deleting them would turn a transient error into lost data.
+      if (prune) {
+        await tx`
+          DELETE FROM market_leverage_tiers
+          WHERE venue_id = ${venueId} AND fetched_at < ${fetchedAt}`;
+      }
     });
     return tiers.length;
   }

@@ -6,12 +6,15 @@ export interface LeverageTierStore {
     venueId: string,
     tiers: readonly LeverageTier[],
     fetchedAt?: Date,
+    prune?: boolean,
   ): Promise<number>;
 }
 
 export interface LeverageTierSweep {
   markets: number;
   tiers: number;
+  /** False when part of the venue was missed, in which case nothing was pruned. */
+  complete: boolean;
 }
 
 /**
@@ -29,11 +32,22 @@ export async function refreshVenueLeverageTiers(
   store: LeverageTierStore,
   options: { now?: () => number } = {},
 ): Promise<LeverageTierSweep> {
-  if (!adapter.fetchLeverageTiers) return { markets: 0, tiers: 0 };
+  if (!adapter.fetchLeverageTiers) return { markets: 0, tiers: 0, complete: true };
 
-  const tiers = await adapter.fetchLeverageTiers(client);
-  if (tiers.length === 0) return { markets: 0, tiers: 0 };
+  const { tiers, complete } = await adapter.fetchLeverageTiers(client);
+  if (tiers.length === 0) return { markets: 0, tiers: 0, complete };
 
-  await store.replaceLeverageTiers(adapter.venueId, tiers, new Date(options.now?.() ?? Date.now()));
-  return { markets: new Set(tiers.map((tier) => tier.venueSymbol)).size, tiers: tiers.length };
+  // Prune only when the sweep saw the whole venue. Otherwise a rate-limited batch would delete
+  // the ladders of markets it never asked about, which is worse than letting them go a day stale.
+  await store.replaceLeverageTiers(
+    adapter.venueId,
+    tiers,
+    new Date(options.now?.() ?? Date.now()),
+    complete,
+  );
+  return {
+    markets: new Set(tiers.map((tier) => tier.venueSymbol)).size,
+    tiers: tiers.length,
+    complete,
+  };
 }

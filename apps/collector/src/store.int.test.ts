@@ -180,6 +180,15 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     // An empty sweep is a failed request, not a venue that withdrew every ladder.
     await store.replaceLeverageTiers(venueId, [], new Date(second.getTime() + 1_000));
     expect(await read()).toHaveLength(1);
+
+    // A partial sweep upserts what it got but prunes nothing: the markets it never reached keep
+    // their ladders. Pruning here would delete data because one batch was rate-limited.
+    const third = new Date(second.getTime() + 2_000);
+    await store.replaceLeverageTiers(venueId, [tier(`${base}OTHER`, 1, 7_000)], third, false);
+    expect(await read()).toEqual([
+      { venue_symbol: `${base}OTHER`, tier: 1, upper_notional_usd: 7_000, imr: 0.02 },
+      { venue_symbol: `${base}USDT`, tier: 1, upper_notional_usd: 20_000, imr: 0.02 },
+    ]);
   });
 
   test("stores prices per unit of the base asset, leaving open interest alone", async () => {

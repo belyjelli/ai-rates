@@ -25,10 +25,10 @@ const adapter = (fetchLeverageTiers?: VenueAdapter["fetchLeverageTiers"]): Venue
 });
 
 function fakeStore() {
-  const calls: { venueId: string; tiers: readonly LeverageTier[] }[] = [];
+  const calls: { venueId: string; tiers: readonly LeverageTier[]; prune?: boolean }[] = [];
   const store: LeverageTierStore = {
-    async replaceLeverageTiers(venueId, tiers) {
-      calls.push({ venueId, tiers });
+    async replaceLeverageTiers(venueId, tiers, _fetchedAt, prune) {
+      calls.push({ venueId, tiers, prune });
       return tiers.length;
     },
   };
@@ -36,18 +36,36 @@ function fakeStore() {
 }
 
 describe("refreshVenueLeverageTiers", () => {
-  test("stores the sweep and reports the markets it covered", async () => {
+  test("stores a complete sweep and reports the markets it covered", async () => {
     const { store, calls } = fakeStore();
     const sweep = await refreshVenueLeverageTiers(
-      adapter(async () => [tier("BTCUSDT", 1), tier("BTCUSDT", 2), tier("ETHUSDT", 1)]),
+      adapter(async () => ({
+        tiers: [tier("BTCUSDT", 1), tier("BTCUSDT", 2), tier("ETHUSDT", 1)],
+        complete: true,
+      })),
       client,
       store,
     );
 
     // Three tiers, but two markets: the count the log line reports is distinct symbols.
-    expect(sweep).toEqual({ markets: 2, tiers: 3 });
+    expect(sweep).toEqual({ markets: 2, tiers: 3, complete: true });
     expect(calls).toHaveLength(1);
     expect(calls[0]?.venueId).toBe("bybit");
+    expect(calls[0]?.prune).toBe(true);
+  });
+
+  test("a partial sweep is stored but never prunes", async () => {
+    const { store, calls } = fakeStore();
+    const sweep = await refreshVenueLeverageTiers(
+      adapter(async () => ({ tiers: [tier("BTCUSDT", 1)], complete: false })),
+      client,
+      store,
+    );
+
+    // The markets a rate-limited batch never reached still hold ladders. Pruning on their
+    // absence would turn one failed request into deleted data.
+    expect(sweep).toEqual({ markets: 1, tiers: 1, complete: false });
+    expect(calls[0]?.prune).toBe(false);
   });
 
   test("a venue that publishes no ladder is skipped without a write", async () => {
@@ -55,6 +73,7 @@ describe("refreshVenueLeverageTiers", () => {
     expect(await refreshVenueLeverageTiers(adapter(undefined), client, store)).toEqual({
       markets: 0,
       tiers: 0,
+      complete: true,
     });
     expect(calls).toEqual([]);
   });
@@ -63,11 +82,11 @@ describe("refreshVenueLeverageTiers", () => {
     const { store, calls } = fakeStore();
     expect(
       await refreshVenueLeverageTiers(
-        adapter(async () => []),
+        adapter(async () => ({ tiers: [], complete: true })),
         client,
         store,
       ),
-    ).toEqual({ markets: 0, tiers: 0 });
+    ).toEqual({ markets: 0, tiers: 0, complete: true });
     expect(calls).toEqual([]);
   });
 });

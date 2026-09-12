@@ -134,8 +134,11 @@ adapters.forEach((adapter, index) => {
       TIERS_REFRESH_MS,
       async () => {
         const sweep = await refreshVenueLeverageTiers(adapter, client, store);
-        if (sweep.tiers > 0) {
-          log(`${adapter.venueId}: ${sweep.tiers} leverage tiers across ${sweep.markets} markets`);
+        if (sweep.tiers > 0 || !sweep.complete) {
+          log(
+            `${adapter.venueId}: ${sweep.tiers} leverage tiers across ${sweep.markets} markets` +
+              (sweep.complete ? "" : " (partial sweep, nothing pruned)"),
+          );
         }
       },
       log,
