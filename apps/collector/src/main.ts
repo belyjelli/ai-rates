@@ -11,6 +11,7 @@ import { StaleVenueAlerter, webhookSink } from "./alerts";
 import { loadConfig } from "./config";
 import { CollectorStatus } from "./health";
 import { backfillVenueHistory, HistoryLoop } from "./history";
+import { refreshVenueLiquidations } from "./liquidations";
 import { PeriodicTask } from "./periodic";
 import { VenueLoop } from "./scheduler";
 import { PgStore } from "./store";
@@ -24,6 +25,12 @@ const BACKFILL_BUDGET = 20;
 const TIERS_REFRESH_MS = 24 * 60 * 60_000;
 const LONG_WINDOWS_REFRESH_MS = 60 * 60_000;
 const PAIR_BACKTESTS_REFRESH_MS = 24 * 60 * 60_000;
+/**
+ * Five minutes, with a measured 12x margin: Gate's deepest page covers ~58 minutes of forced
+ * closes at ~3 records/min, so a poll this often cannot overflow it even if activity rises an order
+ * of magnitude. Costs 24 requests an hour including the contracts call for the multipliers.
+ */
+const LIQUIDATIONS_REFRESH_MS = 5 * 60_000;
 const SHUTDOWN_GRACE_MS = 15_000;
 
 const log = (message: string) => console.log(`${new Date().toISOString()} ${message}`);
@@ -154,6 +161,30 @@ adapters.forEach((adapter, index) => {
     tiers.start(4 * config.intervalMs + offsetMs);
     loops.push(tiers);
   }
+
+  // Forced closes, for the Phase 4 study. Venues without the hook add no loop, the same way the
+  // tier sweep works — measured 2026-09-13, only Gate answers for its whole book in one call.
+  if (adapter.fetchLiquidations) {
+    const liquidations = new PeriodicTask(
+      `${adapter.venueId} liquidations`,
+      LIQUIDATIONS_REFRESH_MS,
+      async () => {
+        const sweep = await refreshVenueLiquidations(adapter, client, store);
+        // `stored` far below `fetched` is the steady state, not a fault: the endpoint has no
+        // resumable window, so most of each page is a repeat the primary key absorbs. Logged only
+        // when something new arrived or coverage was lost, to keep the log readable.
+        if (sweep.stored > 0 || !sweep.complete) {
+          log(
+            `${adapter.venueId}: ${sweep.stored} new liquidations of ${sweep.fetched} across ${sweep.markets} markets` +
+              (sweep.complete ? "" : " (partial sweep, coverage lost)"),
+          );
+        }
+      },
+      log,
+    );
+    liquidations.start(3 * config.intervalMs + offsetMs);
+    loops.push(liquidations);
+  }
 });
 
 // Settled 24h/7d averages for the screener; the first run waits for history sweeps to start landing.
@@ -255,3 +286,37 @@ async function shutdown(signal: string): Promise<void> {
 
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 process.on("SIGINT", () => void shutdown("SIGINT"));
+
+/**
+ * A dropped database connection must not kill the collector.
+ *
+ * On 2026-09-12 the process EXITED with `PostgresError: Connection closed
+ * (ERR_POSTGRES_CONNECTION_CLOSED)` mid-backfill when the database restarted. Every loop already
+ * catches around its own calls -- PeriodicTask, VenueLoop and the history sweeps all do -- but the
+ * pooled client surfaces a connection fault asynchronously, outside any call site, so it arrived as
+ * an unhandled rejection and Bun exits on those. `restart: unless-stopped` brought it back, which
+ * is why the incident self-healed, but a restart drops every warmed cache and re-runs migrations.
+ *
+ * Deliberately narrow: only connection-level faults are swallowed, because those are transient and
+ * the next cycle simply reconnects. Anything else is still fatal, so a real bug keeps crashing
+ * loudly instead of hiding behind a handler that logs forever.
+ */
+const TRANSIENT_DB_ERRORS = ["ERR_POSTGRES_CONNECTION_CLOSED", "CONNECTION_CLOSED", "ECONNRESET"];
+const isTransientDbError = (error: unknown): boolean => {
+  const code = (error as { code?: unknown })?.code;
+  const text = `${typeof code === "string" ? code : ""} ${error instanceof Error ? error.message : String(error)}`;
+  return TRANSIENT_DB_ERRORS.some((needle) => text.includes(needle));
+};
+
+process.on("unhandledRejection", (reason) => {
+  if (isTransientDbError(reason)) {
+    log(
+      `transient database fault, continuing: ${reason instanceof Error ? reason.message : String(reason)}`,
+    );
+    return;
+  }
+  log(
+    `unhandled rejection: ${reason instanceof Error ? (reason.stack ?? reason.message) : String(reason)}`,
+  );
+  process.exit(1);
+});

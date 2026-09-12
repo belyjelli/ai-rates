@@ -72,6 +72,7 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     await sql`DELETE FROM funding_events WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM collector_runs WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_leverage_tiers WHERE venue_id = ${venueId}`;
+    await sql`DELETE FROM liquidations WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_funding_daily WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_funding_stats WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM markets WHERE venue_id = ${venueId}`;
@@ -309,6 +310,61 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     const sparseScore = by.get(sparse)?.stability_30d as number;
     expect(sparseScore).toBeCloseTo(8 / 13, 6);
     expect(sparseScore).toBeLessThan(by.get(steady)?.stability_30d as number);
+  });
+
+  test("recordLiquidations is insert-only and absorbs a re-read page", async () => {
+    // The load-bearing behaviour of the whole design: Gate ignores from/to, so every poll returns
+    // the same page and the composite primary key is what stops the regressor being inflated.
+    const at = Date.UTC(2026, 8, 13, 12, 0, 0);
+    const rows = [
+      {
+        venueId,
+        venueSymbol: `${base}_USDT`,
+        base,
+        quote: "USDT",
+        multiplier: 1,
+        dex: null,
+        liquidatedAt: at,
+        side: "long" as const,
+        sizeContracts: 76,
+        fillPrice: 0.0812,
+        notionalUsd: 6.17,
+      },
+      {
+        venueId,
+        venueSymbol: `${base}_USDT`,
+        base,
+        quote: "USDT",
+        multiplier: 1,
+        dex: null,
+        liquidatedAt: at + 1000,
+        side: "short" as const,
+        sizeContracts: 95,
+        fillPrice: 0.2544,
+        notionalUsd: 24.168,
+      },
+    ];
+
+    expect(await store.recordLiquidations(venueId, rows)).toBe(2);
+    // The same page again: nothing new, rather than four rows.
+    expect(await store.recordLiquidations(venueId, rows)).toBe(0);
+    // And a duplicate within a single call cannot break the statement either.
+    expect(await store.recordLiquidations(venueId, [...rows, ...rows])).toBe(0);
+
+    const stored: { side: string; size_contracts: number; notional_usd: number | null }[] =
+      await sql`
+        SELECT side, size_contracts, notional_usd FROM liquidations
+        WHERE venue_id = ${venueId} ORDER BY liquidated_at`;
+    expect(stored).toHaveLength(2);
+    // The sign lives in `side`; the stored size is absolute for both directions.
+    expect(stored.map((r) => r.side)).toEqual(["long", "short"]);
+    expect(stored.every((r) => r.size_contracts > 0)).toBe(true);
+    expect(stored[1]?.notional_usd).toBeCloseTo(24.168, 6);
+
+    // A row for another venue is ignored, as recordBatch does.
+    expect(await store.recordLiquidations(venueId, [{ ...rows[0], venueId: "someone-else" }])).toBe(
+      0,
+    );
   });
 
   test("uses the catalog's curated leverage only where the venue reports none", async () => {

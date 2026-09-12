@@ -60,6 +60,29 @@ export interface LeverageTier {
   maxLeverage: number;
 }
 
+/**
+ * One forced close, as a venue reported it.
+ *
+ * `sizeContracts` is kept alongside `notionalUsd` on purpose. Venues quote liquidation size in
+ * CONTRACTS, and the multiplier that converts it differs per market — Gate's BTC_USDT is 0.0001
+ * BTC per contract, so a size of 8 is $62 and not 8 BTC. Storing the raw figure means a conversion
+ * mistake stays recoverable instead of being baked irreversibly into the only column we kept.
+ *
+ * `side` is the side of the POSITION that was closed, not the side of the order that closed it: a
+ * liquidated long is sold. Venues report one or the other and the adapters normalise to the
+ * position, because "longs were liquidated" is the claim an analysis actually makes.
+ */
+export interface Liquidation extends MarketRef {
+  /** Epoch ms of the forced close. */
+  liquidatedAt: number;
+  side: "long" | "short";
+  sizeContracts: number;
+  /** Price the forced close filled at. */
+  fillPrice: number;
+  /** sizeContracts x contract multiplier x fillPrice, or null when the multiplier is unknown. */
+  notionalUsd: number | null;
+}
+
 /** A settled funding payment for one market. */
 export interface FundingEvent extends MarketRef {
   settledAt: number;

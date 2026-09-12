@@ -5,6 +5,7 @@ import {
   type FundingEvent,
   type FundingSnapshot,
   type LeverageTier,
+  type Liquidation,
   perUnitPrice,
   ratePerHour,
 } from "@ai-rates/core";
@@ -112,6 +113,54 @@ export class PgStore implements CollectorStore, HistoryStore {
           source = EXCLUDED.source
         WHERE funding_events.source = 'observed'`;
     }
+  }
+
+  /**
+   * Stores forced closes. Insert-only: a liquidation is immutable once reported, so there is
+   * nothing to merge on conflict — unlike funding history, where a fetched value replaces an
+   * observed one.
+   *
+   * The conflict is expected on almost every poll rather than exceptional. Gate ignores `from`/`to`
+   * so each sweep re-reads the same page, and the primary key
+   * (venue_id, venue_symbol, liquidated_at, size_contracts, fill_price) is what absorbs the
+   * repeats; see migration 012 for why the key has to be the event's own content and what that
+   * costs.
+   */
+  async recordLiquidations(venueId: string, liquidations: readonly Liquidation[]): Promise<number> {
+    const rows = liquidations
+      .filter((l) => l.venueId === venueId)
+      .map((l) => ({
+        venue_id: l.venueId,
+        venue_symbol: l.venueSymbol,
+        liquidated_at: new Date(l.liquidatedAt),
+        side: l.side,
+        size_contracts: l.sizeContracts,
+        fill_price: l.fillPrice,
+        notional_usd: l.notionalUsd,
+      }));
+    // One row per key within a single INSERT: a statement cannot touch the same conflict key twice.
+    const unique = [
+      ...new Map(
+        rows.map((r) => [
+          `${r.venue_symbol} ${r.liquidated_at.getTime()} ${r.size_contracts} ${r.fill_price}`,
+          r,
+        ]),
+      ).values(),
+    ];
+    if (unique.length === 0) return 0;
+
+    let stored = 0;
+    for (const chunk of chunks(unique)) {
+      const [{ inserted }] = await this.sql`
+        WITH new_rows AS (
+          INSERT INTO liquidations ${this.sql(chunk)}
+          ON CONFLICT DO NOTHING
+          RETURNING 1
+        )
+        SELECT count(*)::integer AS inserted FROM new_rows`;
+      stored += inserted;
+    }
+    return stored;
   }
 
   async activeMarkets(

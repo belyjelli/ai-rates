@@ -3,6 +3,7 @@ import type { HttpClient } from "../http";
 import {
   gateAdapter,
   parseGateFundingHistory,
+  parseGateLiquidations,
   parseGateRiskLimitTiers,
   parseGateSnapshots,
 } from "./gate";
@@ -146,6 +147,107 @@ describe("parseGateFundingHistory", () => {
     expect(
       parseGateFundingHistory("2Z_USDT", [{ t: 1789142402, r: "0.00005" }], 4)[0]?.basisHours,
     ).toBe(4);
+  });
+});
+
+describe("parseGateLiquidations", () => {
+  const multipliers = new Map([
+    ["H_USDT", 1],
+    ["LSK_USDT", 1],
+  ]);
+
+  test("takes the side from `size`, not `order_size`", async () => {
+    // The two fields are always opposite in sign -- 167 of 167 live records on 2026-09-13 -- so
+    // reading the side off `order_size` would invert every long and short in the study.
+    const rows = await fixture("liq-orders");
+    const parsed = parseGateLiquidations(rows, multipliers);
+
+    const long = parsed.find((l) => l.venueSymbol === "H_USDT");
+    expect(long?.side).toBe("long"); // fixture has size:"76", order_size:"-76"
+    const short = parsed.find((l) => l.venueSymbol === "LSK_USDT");
+    expect(short?.side).toBe("short"); // fixture has size:"-95", order_size:"95"
+
+    // The sign is consumed into `side`, so the stored size is absolute for both.
+    expect(long?.sizeContracts).toBe(76);
+    expect(short?.sizeContracts).toBe(95);
+    expect(parsed.every((l) => l.sizeContracts > 0)).toBe(true);
+  });
+
+  test("converts contracts to a notional, and stores null rather than a guess", async () => {
+    const rows = await fixture("liq-orders");
+    // 95 contracts x 1 base unit x 0.2544 = 24.168.
+    const known = parseGateLiquidations(rows, multipliers).find(
+      (l) => l.venueSymbol === "LSK_USDT",
+    );
+    expect(known?.notionalUsd).toBeCloseTo(95 * 1 * 0.2544, 9);
+
+    // A contract with no multiplier gets no invented notional -- the B2 unit trap, one layer down.
+    const unknown = parseGateLiquidations(rows, new Map()).find(
+      (l) => l.venueSymbol === "LSK_USDT",
+    );
+    expect(unknown?.notionalUsd).toBeNull();
+    expect(unknown?.sizeContracts).toBe(95); // the raw figure survives either way
+  });
+
+  test("seconds become milliseconds, and degenerate rows are dropped", async () => {
+    const parsed = parseGateLiquidations(
+      [
+        {
+          contract: "A_USDT",
+          size: "10",
+          order_size: "-10",
+          fill_price: "2",
+          order_price: "2",
+          time: 1_789_242_803,
+          left: "0",
+        },
+        // Dropped: no size, no price, no timestamp.
+        {
+          contract: "B_USDT",
+          size: "0",
+          order_size: "0",
+          fill_price: "2",
+          order_price: "2",
+          time: 1_789_242_803,
+          left: "0",
+        },
+        {
+          contract: "C_USDT",
+          size: "10",
+          order_size: "-10",
+          fill_price: "0",
+          order_price: "2",
+          time: 1_789_242_803,
+          left: "0",
+        },
+        {
+          contract: "D_USDT",
+          size: "10",
+          order_size: "-10",
+          fill_price: "2",
+          order_price: "2",
+          time: 0,
+          left: "0",
+        },
+      ],
+      new Map([["A_USDT", 1]]),
+    );
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]?.liquidatedAt).toBe(1_789_242_803_000);
+  });
+
+  test("a non-ASCII contract name survives", async () => {
+    const rows = await fixture("liq-orders");
+    const parsed = parseGateLiquidations(rows, new Map());
+    // The fixture holds 龙虾_USDT; the screener already carries such names, so the parser must not
+    // assume ASCII symbols.
+    // Asserted by NAME and by code point, with no character class. Earlier attempts wrote
+    // \x20-\x7E escapes that landed as raw NUL and DEL bytes in the file -- the same hazard as
+    // the NUL that once made grep blind to store.ts -- and Biome rejected the result.
+    expect(parsed.map((l) => l.venueSymbol)).toContain("龙虾_USDT");
+    expect(
+      parsed.some((l) => [...l.venueSymbol].some((ch) => (ch.codePointAt(0) ?? 0) > 127)),
+    ).toBe(true);
   });
 });
 
