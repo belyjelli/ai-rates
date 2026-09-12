@@ -175,9 +175,14 @@ const longWindows = new PeriodicTask(
   "long funding windows",
   LONG_WINDOWS_REFRESH_MS,
   async () => {
+    // One fold feeds both: the 30d/60d windows and the stability/momentum scores all read the
+    // same daily rollup, so they share a pass rather than scanning it twice.
     const days = await store.refreshDailyFunding();
     const markets = await store.refreshLongWindows();
-    log(`long funding windows: ${days} day-rows folded, ${markets} markets updated`);
+    const scored = await store.refreshStability();
+    log(
+      `long funding windows: ${days} day-rows folded, ${markets} markets updated, ${scored} scored`,
+    );
   },
   log,
 );

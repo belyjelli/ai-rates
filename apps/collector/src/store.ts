@@ -219,21 +219,23 @@ export class PgStore implements CollectorStore, HistoryStore {
   }
 
   /**
-   * Folds settled funding into one row per market per UTC day.
+   * Folds settled funding into one row per market per UTC day, over the whole lookback every time.
    *
-   * The start is derived from the rollup itself: the newest stored day may be partial so it is
-   * rebuilt, and everything after it is new. An empty rollup therefore builds the whole lookback
-   * and an outage heals itself on the next run, with no separate backfill path to remember.
+   * It deliberately does NOT resume from the newest stored day, which is what it did first. That
+   * only ever rebuilds *forward*, and `backfillVenueHistory` reaches history *backwards* -- that is
+   * its whole purpose, and it took coverage from 7.1 days to 89.9. Once `max(day)` has advanced,
+   * every day the backfill later fills in would be skipped for good, so the 30d/60d windows and
+   * the stability scores would quietly rest on a rollup that had stopped absorbing history.
+   *
+   * The full fold is affordable: the first one wrote 344,596 day-rows and finished inside a single
+   * scheduling tick, so resuming saved little and cost correctness.
    *
    * Returns the number of day-rows written.
    */
   async refreshDailyFunding(maxLookbackDays = 70): Promise<number> {
     const [{ rows }] = await this.sql`
       WITH from_day AS (
-        SELECT GREATEST(
-                 COALESCE((SELECT max(day) FROM market_funding_daily), '-infinity'::date),
-                 (now() - make_interval(days => ${maxLookbackDays}))::date
-               ) AS d
+        SELECT (now() - make_interval(days => ${maxLookbackDays}))::date AS d
       ), folded AS (
         INSERT INTO market_funding_daily
           (venue_id, venue_symbol, day, rate_sum, basis_hours_sum, settlements)
@@ -290,6 +292,68 @@ export class PgStore implements CollectorStore, HistoryStore {
           apr_30d = EXCLUDED.apr_30d,
           apr_60d = EXCLUDED.apr_60d,
           long_windows_at = EXCLUDED.long_windows_at
+        RETURNING 1
+      )
+      SELECT count(*)::integer AS markets FROM upserted`;
+    return markets;
+  }
+
+  /**
+   * Recomputes funding stability and momentum from the daily rollup.
+   *
+   * The definition and the reasoning behind every clause live in migration 009; the short version
+   * is the fraction of *charging* days whose APR carries the sign of the 30-day mean, shrunk toward
+   * 0.5 by sample size so a market that charged six times cannot outrank one with a month of
+   * evidence.
+   *
+   * Only the three stability columns are touched on conflict: `apr_24h`, `apr_7d` and `updated_at`
+   * belong to refreshFundingStats, whose staleness sweep has to keep owning when stats expire.
+   */
+  async refreshStability(): Promise<number> {
+    const [{ markets }] = await this.sql`
+      WITH daily AS (
+        SELECT venue_id, venue_symbol, day, rate_sum,
+               rate_sum / nullif(basis_hours_sum, 0) * 876000 AS apr
+        FROM market_funding_daily
+        WHERE day >= (now() - interval '30 days')::date
+      ),
+      -- A day that charged nothing carries no information about persistence, so it is excluded
+      -- from the numerator and the denominator alike. Every remaining day has a strictly non-zero
+      -- APR, so positive and negative days partition the window exactly.
+      charging AS (SELECT * FROM daily WHERE rate_sum <> 0),
+      scored AS (
+        SELECT venue_id,
+               venue_symbol,
+               count(*) AS charge_days,
+               -- Days in the market's DOMINANT direction, not days agreeing with the sign of the
+               -- mean. The latter has a knife-edge: a perfectly balanced market has a mean of
+               -- exactly 0, sign(0) matches neither direction, and it scores the floor -- while the
+               -- same market with a mean of +epsilon would score 0.5.
+               greatest(
+                 count(*) FILTER (WHERE apr > 0),
+                 count(*) FILTER (WHERE apr < 0)
+               ) AS dominant,
+               avg(apr) FILTER (WHERE day >= (now() - interval '7 days')::date) AS recent,
+               avg(apr) FILTER (WHERE day < (now() - interval '7 days')::date) AS prior
+        FROM charging
+        GROUP BY venue_id, venue_symbol
+      ),
+      upserted AS (
+        INSERT INTO market_funding_stats
+          (venue_id, venue_symbol, stability_30d, stability_days, momentum_30d,
+           settlements_24h, settlements_7d, updated_at)
+        SELECT venue_id,
+               venue_symbol,
+               -- k = 10, shrinking toward 0.5; see migration 009 for why a hard day floor is worse.
+               (dominant + 5)::double precision / (charge_days + 10),
+               charge_days,
+               recent - prior,
+               0, 0, now()
+        FROM scored
+        ON CONFLICT (venue_id, venue_symbol) DO UPDATE SET
+          stability_30d = EXCLUDED.stability_30d,
+          stability_days = EXCLUDED.stability_days,
+          momentum_30d = EXCLUDED.momentum_30d
         RETURNING 1
       )
       SELECT count(*)::integer AS markets FROM upserted`;

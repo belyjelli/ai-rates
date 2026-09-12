@@ -1,0 +1,55 @@
+-- Phase 3: funding stability and momentum, summed from the daily rollup migration 008 added.
+--
+-- These were specced as a `py-analytics` Pyodide Worker computing scores from R2 Iceberg and
+-- writing to D1. None of that substrate exists -- wrangler.jsonc has no d1_databases and no
+-- r2_buckets, and py/ contains only `spike` -- so this follows the same correction the plan already
+-- records for py-backfill and VenueHistoryDO: the collector computes it in SQL from
+-- market_funding_daily, which is a sum over at most ~30 small rows per market.
+--
+-- THE DEFINITION, PRE-REGISTERED (the plan warns against fitting a metric before saying what it
+-- means, and this metric had three wrong versions before this one):
+--
+--   stability_30d = (dominant_days + k/2) / (charge_days + k),  k = 10
+--
+-- where a "charging day" is one whose rate_sum is non-zero, and dominant_days is the larger of the
+-- positive-day and negative-day counts. Measured over 30 days. Because every charging day has a
+-- strictly non-zero APR, positive and negative days partition the window exactly, so the score
+-- runs from 0.5 (no direction at all) to 1.0 (never flips).
+--
+-- Why each part, since the obvious alternatives are all worse:
+--
+--   * Sign consistency, not dispersion. A carry trader is asking "will this leg keep paying me",
+--     not "how wide is the daily swing". Coefficient of variation put bybit BTCUSDT (held its sign
+--     97% of days) only 2.4x apart from 1000BONKPERP (flipped two days in three), and it explodes
+--     toward infinity whenever the mean sits near zero, which is common.
+--   * The DOMINANT sign, not agreement with the sign of the mean. Agreement-with-the-mean was
+--     tried and rejected because it has a knife-edge at zero: a perfectly balanced market has a
+--     mean of exactly 0, sign(0) equals neither direction, so no day agrees and it scores the
+--     floor -- while the same market with a mean of +epsilon scores 0.5. Dominant-sign has no such
+--     discontinuity and needs no zero-mean special case.
+--   * Direction-agnostic, so it is symmetric. 1000BONKPERP funds persistently NEGATIVE; it is
+--     scored for that consistency rather than punished for its sign.
+--   * Charging days only, in both the numerator and the denominator. 22,988 of 158,909 day-rows
+--     charge nothing, across 1,320 markets, and 85 markets charge nothing for all 31 days -- the
+--     tokenised-equity perps (bybit IBMUSDT, aster MSFTUSDT, okx HIMS-USDT-SWAP). Their mean is 0,
+--     so sign(0) = sign(0) and a naive test scores them a PERFECT 1.00: dead instruments ranked top.
+--   * Gated on activity, never on the size of the mean. An |mean| >= 0.5% floor was tried and
+--     rejected: it scored only 75% of the book and discarded bybit AAVEPERP, which charges on all
+--     31 days at 0.341%. Small but relentless carry is exactly what this metric should reward.
+--   * Shrunk toward 0.5 by sample size rather than gated by a hard day count. dydx AAVE-USD charges
+--     on 6 of 30 days and agrees with itself on all 6, so a raw score gives it 1.00 -- ranked ABOVE
+--     BTC's month of 0.97. With k = 10 it becomes 0.688 against BTC's 0.854, and the sparse market
+--     keeps a usable figure instead of being thrown away.
+--
+--   momentum_30d = mean APR of the last 7 charging days - mean APR of the charging days before them
+--
+-- In APR points, so positive means funding is widening in the direction it already had. NULL when
+-- every charging day falls inside the last 7, since there is then nothing to compare against.
+--
+-- Both are NULL where a market has no charging days at all, exactly as apr_30d is NULL where there
+-- is no history: the screener renders a dash rather than a flattering number.
+
+ALTER TABLE market_funding_stats
+  ADD COLUMN IF NOT EXISTS stability_30d double precision,
+  ADD COLUMN IF NOT EXISTS stability_days integer,
+  ADD COLUMN IF NOT EXISTS momentum_30d double precision;

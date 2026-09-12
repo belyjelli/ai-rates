@@ -238,6 +238,79 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     expect(days[0]).toMatchObject({ rate_sum: 0.0008, basis_hours_sum: 8, settlements: 1 });
   });
 
+  test("scores stability on charging days, shrunk by sample size", async () => {
+    const DAY = 86_400_000;
+    const now = Date.now();
+    const day = (n: number) => now - n * DAY;
+
+    // Four markets chosen to pin the three definitions that were tried and rejected.
+    const ev = (venueSymbol: string, rate: number, settledAt: number): FundingEvent => ({
+      venueId,
+      venueSymbol,
+      base,
+      quote: "USDT",
+      multiplier: 1,
+      dex: null,
+      settledAt,
+      rate,
+      basisHours: 8,
+      markPrice: null,
+    });
+
+    const steady = `${base}STEADY`; // 20 charging days, always positive
+    const flippy = `${base}FLIPPY`; // 20 charging days, sign alternates
+    const sparse = `${base}SPARSE`; // 3 charging days, perfectly consistent
+    const negative = `${base}NEG`; // 20 charging days, always negative
+    const dead = `${base}DEAD`; // 20 days that charge exactly nothing
+
+    const events: FundingEvent[] = [];
+    for (let i = 1; i <= 20; i++) {
+      events.push(ev(steady, 0.0001, day(i)));
+      events.push(ev(flippy, i % 2 === 0 ? 0.0001 : -0.0001, day(i)));
+      events.push(ev(negative, -0.0002, day(i)));
+      events.push(ev(dead, 0, day(i)));
+    }
+    for (let i = 1; i <= 3; i++) events.push(ev(sparse, 0.0005, day(i)));
+
+    await store.recordHistory(venueId, events);
+    expect(await store.refreshDailyFunding()).toBeGreaterThanOrEqual(83);
+    expect(await store.refreshStability()).toBeGreaterThanOrEqual(4);
+
+    type StabilityRow = {
+      venue_symbol: string;
+      stability_30d: number | null;
+      stability_days: number | null;
+      momentum_30d: number | null;
+    };
+    const rows: StabilityRow[] = await sql`
+      SELECT venue_symbol, stability_30d, stability_days, momentum_30d
+      FROM market_funding_stats
+      WHERE venue_id = ${venueId}
+        AND venue_symbol IN (${steady}, ${flippy}, ${sparse}, ${negative}, ${dead})`;
+    const by = new Map(rows.map((r) => [r.venue_symbol, r]));
+
+    // A market that charges nothing has no persistence to measure. Under a naive sign test its
+    // mean is 0, every day "agrees", and it scores a perfect 1.00 -- a dead instrument ranked top.
+    expect(by.get(dead)).toBeUndefined();
+
+    // Always-positive: 20 of 20 agree, shrunk to (20+5)/(20+10).
+    expect(by.get(steady)?.stability_30d).toBeCloseTo(25 / 30, 6);
+    expect(by.get(steady)?.stability_days).toBe(20);
+
+    // Persistently negative funding is just as persistent. Symmetry against the window mean is
+    // why this scores like `steady` rather than being punished for its sign.
+    expect(by.get(negative)?.stability_30d).toBeCloseTo(25 / 30, 6);
+
+    // Alternating signs: half agree, which shrinks to almost exactly 0.5.
+    expect(by.get(flippy)?.stability_30d).toBeCloseTo(15 / 30, 6);
+
+    // Three charging days, all agreeing: a raw ratio would be a perfect 1.00 and outrank `steady`.
+    // Shrinkage gives (3 + 5) / (3 + 10), putting it below, which is the whole reason k exists.
+    const sparseScore = by.get(sparse)?.stability_30d as number;
+    expect(sparseScore).toBeCloseTo(8 / 13, 6);
+    expect(sparseScore).toBeLessThan(by.get(steady)?.stability_30d as number);
+  });
+
   test("uses the catalog's curated leverage only where the venue reports none", async () => {
     // Aster, Paradex and Lighter publish no leverage, so the catalog carries a conservative
     // figure for them. It must never override a venue that does publish one.
