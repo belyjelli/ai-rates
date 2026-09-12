@@ -218,6 +218,84 @@ export class PgStore implements CollectorStore, HistoryStore {
     return tiers.length;
   }
 
+  /**
+   * Folds settled funding into one row per market per UTC day.
+   *
+   * The start is derived from the rollup itself: the newest stored day may be partial so it is
+   * rebuilt, and everything after it is new. An empty rollup therefore builds the whole lookback
+   * and an outage heals itself on the next run, with no separate backfill path to remember.
+   *
+   * Returns the number of day-rows written.
+   */
+  async refreshDailyFunding(maxLookbackDays = 70): Promise<number> {
+    const [{ rows }] = await this.sql`
+      WITH from_day AS (
+        SELECT GREATEST(
+                 COALESCE((SELECT max(day) FROM market_funding_daily), '-infinity'::date),
+                 (now() - make_interval(days => ${maxLookbackDays}))::date
+               ) AS d
+      ), folded AS (
+        INSERT INTO market_funding_daily
+          (venue_id, venue_symbol, day, rate_sum, basis_hours_sum, settlements)
+        SELECT e.venue_id,
+               e.venue_symbol,
+               (e.settled_at AT TIME ZONE 'UTC')::date,
+               sum(e.rate),
+               sum(e.basis_hours),
+               count(*)::integer
+        FROM funding_events e
+        WHERE e.settled_at >= (SELECT d FROM from_day)
+        GROUP BY 1, 2, 3
+        ON CONFLICT (venue_id, venue_symbol, day) DO UPDATE SET
+          rate_sum = EXCLUDED.rate_sum,
+          basis_hours_sum = EXCLUDED.basis_hours_sum,
+          settlements = EXCLUDED.settlements
+        RETURNING 1
+      )
+      SELECT count(*)::integer AS rows FROM folded`;
+
+    // 60 days is the longest window read, so keep a little beyond it and no more.
+    await this.sql`
+      DELETE FROM market_funding_daily WHERE day < (now() - interval '70 days')::date`;
+    return rows;
+  }
+
+  /**
+   * Recomputes the 30d and 60d time-weighted APRs from the daily rollup.
+   *
+   * Each window is a sum over at most 60 small rows per market, so this reads a few hundred
+   * thousand rows rather than rescanning millions of settlements. Only the long-window columns are
+   * touched on conflict: `apr_24h`, `apr_7d` and `updated_at` belong to refreshFundingStats, whose
+   * staleness sweep must keep deciding when a market's stats expire.
+   */
+  async refreshLongWindows(): Promise<number> {
+    const [{ markets }] = await this.sql`
+      WITH windows AS (
+        SELECT venue_id,
+               venue_symbol,
+               sum(rate_sum) FILTER (WHERE day >= (now() - interval '30 days')::date)
+                 / nullif(
+                     sum(basis_hours_sum) FILTER (WHERE day >= (now() - interval '30 days')::date),
+                     0) * 876000 AS apr_30d,
+               sum(rate_sum) / nullif(sum(basis_hours_sum), 0) * 876000 AS apr_60d
+        FROM market_funding_daily
+        WHERE day >= (now() - interval '60 days')::date
+        GROUP BY venue_id, venue_symbol
+      ), upserted AS (
+        INSERT INTO market_funding_stats
+          (venue_id, venue_symbol, apr_30d, apr_60d,
+           settlements_24h, settlements_7d, updated_at, long_windows_at)
+        SELECT venue_id, venue_symbol, apr_30d, apr_60d, 0, 0, now(), now() FROM windows
+        ON CONFLICT (venue_id, venue_symbol) DO UPDATE SET
+          apr_30d = EXCLUDED.apr_30d,
+          apr_60d = EXCLUDED.apr_60d,
+          long_windows_at = EXCLUDED.long_windows_at
+        RETURNING 1
+      )
+      SELECT count(*)::integer AS markets FROM upserted`;
+    return markets;
+  }
+
   async recordRun(run: CollectorRun): Promise<void> {
     await this.sql`
       INSERT INTO collector_runs (started_at, venue_id, duration_ms, markets, requests, error)

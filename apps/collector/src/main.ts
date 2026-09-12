@@ -22,6 +22,7 @@ const ALERT_CHECK_MS = 60_000;
 const BACKFILL_PAUSE_MS = 5 * 60_000;
 const BACKFILL_BUDGET = 20;
 const TIERS_REFRESH_MS = 24 * 60 * 60_000;
+const LONG_WINDOWS_REFRESH_MS = 60 * 60_000;
 const SHUTDOWN_GRACE_MS = 15_000;
 
 const log = (message: string) => console.log(`${new Date().toISOString()} ${message}`);
@@ -166,6 +167,22 @@ const stats = new PeriodicTask(
 );
 stats.start(3 * config.intervalMs);
 loops.push(stats);
+
+// 30d and 60d windows for the heatmap. Hourly is ample for month-long averages, and they are summed
+// from the daily rollup rather than rescanning ~3.5M settlements, so the cost is a day or two of
+// events per run. Offset from the 10-minute stats task so the two never contend.
+const longWindows = new PeriodicTask(
+  "long funding windows",
+  LONG_WINDOWS_REFRESH_MS,
+  async () => {
+    const days = await store.refreshDailyFunding();
+    const markets = await store.refreshLongWindows();
+    log(`long funding windows: ${days} day-rows folded, ${markets} markets updated`);
+  },
+  log,
+);
+longWindows.start(5 * config.intervalMs);
+loops.push(longWindows);
 
 // Venues stop collecting quietly: the site keeps serving the last good rows until they age out.
 if (config.alertWebhookUrl) {

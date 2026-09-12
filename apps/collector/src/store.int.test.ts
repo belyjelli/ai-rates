@@ -72,6 +72,8 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     await sql`DELETE FROM funding_events WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM collector_runs WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_leverage_tiers WHERE venue_id = ${venueId}`;
+    await sql`DELETE FROM market_funding_daily WHERE venue_id = ${venueId}`;
+    await sql`DELETE FROM market_funding_stats WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM markets WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM venues WHERE id = ${venueId}`;
     await sql.close();
@@ -189,6 +191,51 @@ describe.skipIf(!url)("PgStore (integration)", () => {
       { venue_symbol: `${base}OTHER`, tier: 1, upper_notional_usd: 7_000, imr: 0.02 },
       { venue_symbol: `${base}USDT`, tier: 1, upper_notional_usd: 20_000, imr: 0.02 },
     ]);
+  });
+
+  test("folds funding into daily rows and sums them into the 30d and 60d windows", async () => {
+    const DAY = 86_400_000;
+    const symbol = `${base}DAILY`;
+    // Its own symbol, so the other tests' events cannot drift into these sums.
+    const daily = (rate: number, settledAt: number): FundingEvent => ({
+      venueId,
+      venueSymbol: symbol,
+      base,
+      quote: "USDT",
+      multiplier: 1,
+      dex: null,
+      settledAt,
+      rate,
+      basisHours: 8,
+      markPrice: null,
+    });
+
+    const now = Date.now();
+    await store.recordHistory(venueId, [
+      daily(0.0003, now - 5 * DAY),
+      daily(0.0001, now - 20 * DAY),
+      // Inside 60 days but outside 30, so it must move only one of the two windows.
+      daily(0.0008, now - 45 * DAY),
+    ]);
+
+    expect(await store.refreshDailyFunding()).toBeGreaterThanOrEqual(3);
+    expect(await store.refreshLongWindows()).toBeGreaterThanOrEqual(1);
+
+    const [row] = await sql`
+      SELECT apr_30d, apr_60d, long_windows_at FROM market_funding_stats
+      WHERE venue_id = ${venueId} AND venue_symbol = ${symbol}`;
+
+    // Time-weighted: sum(rate) / sum(basis_hours) x 876000. Averaging the three daily APRs instead
+    // would weight a single settlement the same as a day full of them.
+    expect(row.apr_30d).toBeCloseTo(((0.0003 + 0.0001) / 16) * 876_000, 6);
+    expect(row.apr_60d).toBeCloseTo(((0.0003 + 0.0001 + 0.0008) / 24) * 876_000, 6);
+    expect(row.long_windows_at).toBeInstanceOf(Date);
+
+    const days = await sql`
+      SELECT day, rate_sum, basis_hours_sum, settlements FROM market_funding_daily
+      WHERE venue_id = ${venueId} AND venue_symbol = ${symbol} ORDER BY day`;
+    expect(days).toHaveLength(3);
+    expect(days[0]).toMatchObject({ rate_sum: 0.0008, basis_hours_sum: 8, settlements: 1 });
   });
 
   test("uses the catalog's curated leverage only where the venue reports none", async () => {
