@@ -180,6 +180,42 @@ describe("pages", () => {
     expect(html).not.toContain("replayed 20");
   });
 
+  test("the homepage survives the verified ranking being unavailable", async () => {
+    // The worker can ship before the collector has applied migration 011, so the table may not
+    // exist yet. An optional section must not take down a page whose substance is the spreads
+    // table -- but the failure is logged rather than swallowed.
+    const logged: string[] = [];
+    const { data } = fakeData({
+      verifiedPairs: async () => {
+        throw new Error('relation "market_pair_backtests" does not exist');
+      },
+    });
+    const res = await handleApp(new Request("https://airates.test/"), {
+      data,
+      now: () => NOW,
+      log: (message: string) => logged.push(message),
+    });
+
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Widest spreads");
+    expect(html).toContain("No replay yet");
+    expect(logged.join("\n")).toContain("verified ranking unavailable");
+    expect(logged.join("\n")).toContain("market_pair_backtests");
+  });
+
+  test("the homepage still fails loudly when its own data is missing", async () => {
+    // The counterpart to the test above: fail-soft is scoped to the optional section, so a broken
+    // screener query must still surface rather than rendering a page that looks fine and is empty.
+    const { data } = fakeData({
+      screener: async () => {
+        throw new Error("connection terminated");
+      },
+    });
+    const res = await handleApp(new Request("https://airates.test/"), { data, now: () => NOW });
+    expect(res.status).toBe(503);
+  });
+
   test("screener passes parsed filters through and reflects them in the form", async () => {
     const { data, calls } = fakeData();
     const html = await (await get("/screener?min_oi=1m&types=cex&limit=50", data)).text();

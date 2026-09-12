@@ -51,7 +51,18 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         deps.data.overview(),
         deps.data.screener({ ...DEFAULT_FILTERS, limit: 12 }),
         // Precomputed nightly, so this is one indexed read rather than ~650 replays per request.
-        deps.data.verifiedPairs(VERIFIED_LIMIT),
+        //
+        // Fail-soft, and ONLY here. The ranking is an extra section; the overview and the spreads
+        // table are the page itself, so those still fail loudly. Without this catch a missing
+        // market_pair_backtests -- the state of any deployment where the worker ships before the
+        // collector has applied migration 011 -- would 503 the whole homepage over an optional
+        // block, and would make the deploy order a correctness requirement rather than a preference.
+        deps.data.verifiedPairs(VERIFIED_LIMIT).catch((error) => {
+          deps.log?.(
+            `verified ranking unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return [];
+        }),
       ]);
       return page(pages.home({ overview, pairs, verified, now }));
     }
