@@ -118,6 +118,13 @@ export const DEFAULT_BACKTEST_DAYS = 30;
 export const MAX_BACKTEST_DAYS = 90;
 export const DEFAULT_BACKTEST_SIZE_USD = 10_000;
 export const MAX_BACKTEST_SIZE_USD = 10_000_000;
+/**
+ * Taker fees are per account, not per venue: CEX VIP levels key off 30-day volume, Hyperliquid
+ * tiers off 14-day volume, and staking or referral discounts move them again. So the reader supplies
+ * them and nothing is assumed. 100 bps is far above any real taker fee and exists only to stop a
+ * typo producing a nonsense figure.
+ */
+export const MAX_TAKER_FEE_BPS = 100;
 
 export interface BacktestParams {
   longVenueId: string;
@@ -125,6 +132,13 @@ export interface BacktestParams {
   /** Notional per leg; capital committed is twice this before leverage. */
   sizeUsd: number;
   days: number;
+  /**
+   * Taker fee in basis points for each leg, or null when the reader gave none. Null is not zero:
+   * zero asserts trading is free, while null keeps the engine's "costs unknown" path, which reports
+   * no net-of-costs figure at all rather than a flattering one.
+   */
+  longTakerBps: number | null;
+  shortTakerBps: number | null;
 }
 
 /** Backtest inputs from query params. Null when the two legs don't name two different exchanges. */
@@ -144,7 +158,21 @@ export function parseBacktestParams(params: URLSearchParams): BacktestParams | n
     days: Number.isFinite(days)
       ? Math.min(Math.max(days, 1), MAX_BACKTEST_DAYS)
       : DEFAULT_BACKTEST_DAYS,
+    longTakerBps: parseTakerBps(params.get("fee_long")),
+    shortTakerBps: parseTakerBps(params.get("fee_short")),
   };
+}
+
+/**
+ * A taker fee in basis points, clamped to a sane band. Null for anything missing or unparseable,
+ * so a malformed fee reads as "not supplied" rather than as free trading. An explicit 0 is kept:
+ * some venues genuinely rebate takers, and that is the reader's claim to make.
+ */
+export function parseTakerBps(value: string | null): number | null {
+  if (value === null || value.trim() === "") return null;
+  const bps = Number(value.trim());
+  if (!Number.isFinite(bps) || bps < 0) return null;
+  return Math.min(bps, MAX_TAKER_FEE_BPS);
 }
 
 /** A present checkbox param counts as on unless it explicitly says otherwise. */

@@ -9,6 +9,7 @@ import {
   MAX_BACKTEST_DAYS,
   MAX_BACKTEST_SIZE_USD,
   MAX_HEATMAP_LIMIT,
+  MAX_TAKER_FEE_BPS,
   parseBacktestParams,
   parseHeatmapParams,
   parseScreenerFilters,
@@ -75,15 +76,50 @@ describe("parseScreenerFilters", () => {
   });
 });
 
+describe("taker fees", () => {
+  const parse = (query: string) => parseBacktestParams(new URLSearchParams(query));
+
+  test("are absent unless given, and absent is not zero", () => {
+    // Null keeps the engine's "costs unknown" path; zero would assert that trading is free.
+    expect(parse("long=gate&short=okx")).toMatchObject({
+      longTakerBps: null,
+      shortTakerBps: null,
+    });
+    expect(parse("long=gate&short=okx&fee_long=&fee_short=")).toMatchObject({
+      longTakerBps: null,
+      shortTakerBps: null,
+    });
+    // An explicit zero is the reader's claim to make: some venues rebate takers.
+    expect(parse("long=gate&short=okx&fee_long=0&fee_short=0")).toMatchObject({
+      longTakerBps: 0,
+      shortTakerBps: 0,
+    });
+  });
+
+  test("take fractional bps, clamp absurd ones and refuse nonsense", () => {
+    expect(parse("long=gate&short=okx&fee_long=4.5")).toMatchObject({ longTakerBps: 4.5 });
+    expect(parse("long=gate&short=okx&fee_long=5000")).toMatchObject({
+      longTakerBps: MAX_TAKER_FEE_BPS,
+    });
+    // Malformed or negative reads as "not supplied" rather than as free.
+    expect(parse("long=gate&short=okx&fee_long=-2")).toMatchObject({ longTakerBps: null });
+    expect(parse("long=gate&short=okx&fee_long=free")).toMatchObject({ longTakerBps: null });
+  });
+});
+
 describe("parseBacktestParams", () => {
   const parse = (query: string) => parseBacktestParams(new URLSearchParams(query));
 
   test("defaults and clamps size and days", () => {
+    // toEqual, not toMatchObject: this pins the WHOLE default shape, so a field added later
+    // cannot appear unnoticed. Fees default to null rather than 0 -- see the "taker fees" block.
     expect(parse("long=gate&short=okx")).toEqual({
       longVenueId: "gate",
       shortVenueId: "okx",
       sizeUsd: DEFAULT_BACKTEST_SIZE_USD,
       days: DEFAULT_BACKTEST_DAYS,
+      longTakerBps: null,
+      shortTakerBps: null,
     });
     expect(parse("long=gate&short=okx&size=1b")?.sizeUsd).toBe(MAX_BACKTEST_SIZE_USD);
     expect(parse("long=gate&short=okx&size=25k")?.sizeUsd).toBe(25_000);

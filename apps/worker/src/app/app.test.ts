@@ -232,7 +232,7 @@ describe("pages", () => {
     expect(html).toContain("kept at $10,000 per leg");
     // Three 8-hourly settlements do not fill a 7-day window, and the page says so.
     expect(html).toContain("of the 7 days asked for have stored settlements");
-    expect(html).toContain("Trading fees are excluded");
+    expect(html).toContain("Trading fees are excluded because none were given");
   });
 
   test("pair capital is margined at the lower of the two venues' leverage", async () => {
@@ -508,6 +508,65 @@ describe("api", () => {
     expect(body.request).toMatchObject({ sizeUsd: 10_000, days: 7 });
     // No fees were given, so costs stay absent rather than invented.
     expect(body.costsUsd).toBeNull();
+  });
+
+  test("supplied fees are charged on four fills, and one leg alone charges nothing", async () => {
+    const { data } = fakeData({
+      settlements: async () => [
+        ...settled("gate", "BTC_USDT", -0.0001),
+        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+      ],
+    });
+
+    const res = await get(
+      "/v1/pairs/BTC/backtest?long=gate&short=okx&size=10k&days=7&fee_long=5&fee_short=5",
+      data,
+    );
+    const body = (await res.json()) as {
+      costsUsd: number | null;
+      netAfterCostsUsd: number | null;
+      paybackDays: number | null;
+      request: { longTakerBps: number | null; shortTakerBps: number | null };
+    };
+
+    // $10,000 x (5 + 5) bps x 2 fills per leg = $20, against $6 of funding.
+    expect(body.costsUsd).toBeCloseTo(20, 9);
+    expect(body.netAfterCostsUsd).toBeCloseTo(-14, 9);
+    // $6 over 7 days is ~$0.857 a day, so $20 of fees takes ~23 days to repay.
+    expect(body.paybackDays).toBeCloseTo(20 / (6 / 7), 6);
+    expect(body.request).toMatchObject({ longTakerBps: 5, shortTakerBps: 5 });
+
+    // One leg priced and the other blank would understate a round trip by half, so nothing is
+    // charged at all rather than half of it.
+    const half = await get(
+      "/v1/pairs/BTC/backtest?long=gate&short=okx&size=10k&days=7&fee_long=5",
+      data,
+    );
+    expect(((await half.json()) as { costsUsd: number | null }).costsUsd).toBeNull();
+  });
+
+  test("the pair page reports costs, payback and what it assumes", async () => {
+    const { data } = fakeData({
+      settlements: async () => [
+        ...settled("gate", "BTC_USDT", -0.0001),
+        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+      ],
+    });
+    const html = await (
+      await get("/pair/BTC?long=gate&short=okx&size=10k&days=7&fee_long=4.5&fee_short=5", data)
+    ).text();
+
+    // $10,000 x (4.5 + 5) bps x 2 = $19, so $6 of funding nets -$13. Matched against the real
+    // markup: the </b> closes the net figure, not the fee total, and money() renders a Unicode
+    // minus (U+2212) rather than an ASCII hyphen.
+    expect(html).toContain("on $19.00 of fees");
+    expect(html).toContain("−$13.00");
+    // The typed fees are echoed back without trailing zeros, and the four-fill rule is stated.
+    expect(html).toContain("4.5 bps long and 5 bps short");
+    expect(html).toContain("four fills");
+    expect(html).not.toContain("Trading fees are excluded");
+    // The inputs keep what was typed, so the form round-trips.
+    expect(html).toContain('name="fee_long" value="4.5"');
   });
 
   test("pair backtest needs two different exchanges that both list the asset", async () => {

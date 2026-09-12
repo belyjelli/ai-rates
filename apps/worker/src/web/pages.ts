@@ -16,6 +16,7 @@ import {
   filtersToQuery,
   HEATMAP_TIMEFRAMES,
   heatmapToQuery,
+  MAX_TAKER_FEE_BPS,
   VENUE_TYPES,
 } from "../app/params";
 import {
@@ -711,6 +712,17 @@ function equityCurve(result: BacktestResult, sizeUsd: number): string {
 </figure>`;
 }
 
+/**
+ * Fees are the one input no catalog can hold: they depend on the account's 30-day volume, its VIP or
+ * staking tier and any referral discount, so the reader is the only one who knows them. A free-text
+ * number rather than a menu, because 1.5, 4.5 and 2.3 bps are all ordinary and a menu would force a
+ * rounded lie. Left blank, the backtest reports funding only and says so.
+ */
+function feeField(name: string, label: string, current: number | null): string {
+  const value = current === null ? "" : String(current);
+  return `<label class="field" title="Taker fee in basis points, per fill. Both legs must be filled in before costs are charged.">${label} (bps)<input type="number" name="${name}" value="${esc(value)}" min="0" max="${MAX_TAKER_FEE_BPS}" step="0.1" placeholder="blank = ignore" inputmode="decimal"></label>`;
+}
+
 function backtestForm(asset: string, markets: MarketRow[], params: BacktestParams | null): string {
   const venues = [...new Set(markets.map((m) => m.venue_id))].sort((a, b) =>
     venueName(a).localeCompare(venueName(b)),
@@ -747,8 +759,30 @@ ${numberField("days", "Window", params?.days ?? 30, [
   [60, "60 days"],
   [90, "90 days"],
 ])}
+${feeField("fee_long", "Long taker fee", params?.longTakerBps ?? null)}
+${feeField("fee_short", "Short taker fee", params?.shortTakerBps ?? null)}
 <div class="actions"><button type="submit">Run backtest</button><a href="${assetHref(asset)}">Back to ${esc(asset)}</a></div>
 </form>`;
+}
+
+/** Trims a bps figure for prose: "4.5" stays, "5.0" reads as "5". */
+const formatBps = (bps: number | null): string => (bps === null ? "–" : String(Number(bps)));
+
+/**
+ * Costs and what they do to the result. Absent fees render nothing at all rather than a dash: the
+ * note under the result already explains why, and an empty fact would read as a missing number.
+ *
+ * Payback is the figure that decides a carry trade. Funding that takes 40 days to repay its own
+ * entry cost is not a 30-day trade, however good the gross APR looks.
+ */
+function costsFact(result: BacktestResult): string {
+  if (result.costsUsd === null || result.netAfterCostsUsd === null) return "";
+  const net = `<span>after costs <b class="${result.netAfterCostsUsd >= 0 ? "up" : "down"}">${money(result.netAfterCostsUsd)}</b> on ${money(result.costsUsd)} of fees</span>`;
+  const payback =
+    result.paybackDays === null
+      ? `<span class="dim">never repays the fees at this rate</span>`
+      : `<span>fees repay in <b>${result.paybackDays < 1 ? "under a day" : `${Math.round(result.paybackDays)} days`}</b></span>`;
+  return `${net}${payback}`;
 }
 
 export function pair(data: {
@@ -783,7 +817,7 @@ export function pair(data: {
 <span class="short"><b>Short ${esc(venueName(result.short.venueId))}</b> ${esc(result.short.venueSymbol)} · ${result.short.settlements} settlements · ${money(result.short.fundingUsd)}</span>
 </div>
 ${equityCurve(result, params.sizeUsd)}
-<div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span><span>${capitalFact(capital ?? pairCapital(params.sizeUsd, undefined, undefined, tiers))}</span></div>
+<div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span><span>${capitalFact(capital ?? pairCapital(params.sizeUsd, undefined, undefined, tiers))}</span>${costsFact(result)}</div>
 ${
   result.long.missedSettlements > 0 || result.short.missedSettlements > 0
     ? `<p class="notes">Missed settlements: ${result.long.missedSettlements} on ${esc(venueName(result.long.venueId))}, ${result.short.missedSettlements} on ${esc(venueName(result.short.venueId))}. A gap is reported rather than counted as zero, so this total covers only the settlements actually recorded.</p>`
@@ -794,7 +828,11 @@ ${
     ? `<p class="notes">Only ${result.perDay.length} of the ${Math.round(result.days)} days asked for have stored settlements. The annualized figure still divides by the whole window, so it reads low. History reaches 90 days on most venues and is still filling on the rest.</p>`
     : ""
 }
-<p class="notes">Funding only, on a position kept at ${wholeMoney(params.sizeUsd)} per leg. Trading fees are excluded: exchange taker fees aren't published consistently enough to assume one. Price moves between settlements aren't modelled either, because venue funding history gives a rate and a time, and almost never a mark price.</p>`
+${
+  result.costsUsd === null
+    ? `<p class="notes">Funding only, on a position kept at ${wholeMoney(params.sizeUsd)} per leg. Trading fees are excluded because none were given: taker fees depend on your own volume tier and discounts, so fill in both legs' fees above to see this net of costs. Price moves between settlements aren't modelled either, because venue funding history gives a rate and a time, and almost never a mark price.</p>`
+    : `<p class="notes">Net of the fees you entered, on a position kept at ${wholeMoney(params.sizeUsd)} per leg: ${formatBps(params.longTakerBps)} bps long and ${formatBps(params.shortTakerBps)} bps short, charged on four fills — entry and exit on both legs. Opening and closing once is assumed; rolling the position would cost this again each time. Price moves between settlements still aren't modelled, because venue funding history gives a rate and a time, and almost never a mark price.</p>`
+}`
       : `<p class="lede">${
           venues < 2
             ? `Only one exchange lists ${esc(asset)} right now, so there's no pair to hold.`

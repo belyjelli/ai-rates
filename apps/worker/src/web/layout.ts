@@ -129,6 +129,9 @@ table.heat{border-collapse:collapse;width:auto;min-width:100%}
 form.filters{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-end;margin:0 0 10px;padding:8px 10px;border:1px solid var(--rule)}
 .field{display:grid;gap:3px;color:var(--muted);text-transform:lowercase}
 .field select{font:12px var(--mono);color:var(--ink);background:var(--band);border:1px solid var(--rule);padding:2px 4px;min-width:110px}
+/* Fees are typed, not picked: same box as a select so the row still reads as one control strip. */
+.field input[type=number]{font:12px var(--mono);color:var(--ink);background:var(--band);border:1px solid var(--rule);padding:2px 4px;width:110px}
+.field input[type=number]::placeholder{color:var(--dim)}
 fieldset.field{border:0;margin:0;padding:0;display:grid}
 fieldset.field legend{padding:0;margin-bottom:3px}
 .checks{display:flex;gap:12px}
