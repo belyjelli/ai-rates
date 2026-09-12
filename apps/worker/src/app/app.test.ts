@@ -647,6 +647,98 @@ describe("api", () => {
     expect(html).toContain('name="fee_long" value="4.5"');
   });
 
+  test("an uncached backtest is challenged, and the rejection is never cached", async () => {
+    const { data } = fakeData({
+      settlements: async () => [
+        ...settled("gate", "BTC_USDT", -0.0001),
+        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+      ],
+    });
+    const seen: { token: string | null; remoteip: string | null }[] = [];
+    const deps = {
+      data,
+      now: () => NOW,
+      verifyToken: async (token: string | null, remoteip: string | null) => {
+        seen.push({ token, remoteip });
+        return token === "good" ? { ok: true } : { ok: false, reason: "missing_token" as const };
+      },
+    };
+    const url = "https://airates.test/v1/pairs/BTC/backtest?long=gate&short=okx&size=10k&days=7";
+
+    const refused = await handleApp(new Request(url), deps);
+    expect(refused.status).toBe(403);
+    // A cached 403 would lock out a legitimate caller for the whole TTL.
+    expect(refused.headers.get("cache-control")).toBe("no-store");
+    const body = (await refused.json()) as { error: string; reason: string; detail: string };
+    expect(body.error).toBe("challenge_required");
+    expect(body.reason).toBe("missing_token");
+    // The body says how to satisfy the gate, naming the header rather than a query parameter.
+    expect(body.detail).toContain("cf-turnstile-response");
+
+    // The token comes from the header: a query parameter would miss cache on every request and
+    // bake a 300-second credential into a shareable link.
+    const solved = await handleApp(
+      new Request(url, {
+        headers: { "cf-turnstile-response": "good", "cf-connecting-ip": "203.0.113.9" },
+      }),
+      deps,
+    );
+    expect(solved.status).toBe(200);
+    expect(seen).toEqual([
+      { token: null, remoteip: null },
+      { token: "good", remoteip: "203.0.113.9" },
+    ]);
+
+    // A token in the query string is not read, precisely so the cache key stays clean.
+    const viaQuery = await handleApp(new Request(`${url}&cf-turnstile-response=good`), deps);
+    expect(viaQuery.status).toBe(403);
+  });
+
+  test("the challenge is skipped entirely when no secret is configured", async () => {
+    // What makes `wrangler dev` and these tests work -- and why production must set the secret.
+    const { data } = fakeData({
+      settlements: async () => [
+        ...settled("gate", "BTC_USDT", -0.0001),
+        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+      ],
+    });
+    const res = await get("/v1/pairs/BTC/backtest?long=gate&short=okx&size=10k&days=7", data);
+    expect(res.status).toBe(200);
+  });
+
+  test("a request that cannot be answered is not challenged, so no token is spent", async () => {
+    // Tokens are single-use and last 300 seconds; burning one on a 400 or a 404 would be rude.
+    const { data } = fakeData();
+    const calls: string[] = [];
+    const deps = {
+      data,
+      now: () => NOW,
+      verifyToken: async () => {
+        calls.push("verified");
+        return { ok: false as const, reason: "missing_token" as const };
+      },
+    };
+    // Same venue twice: rejected as a bad request before the gate.
+    expect(
+      (
+        await handleApp(
+          new Request("https://airates.test/v1/pairs/BTC/backtest?long=gate&short=gate"),
+          deps,
+        )
+      ).status,
+    ).toBe(400);
+    // A venue with no live market for the asset: 404, also before the gate.
+    expect(
+      (
+        await handleApp(
+          new Request("https://airates.test/v1/pairs/BTC/backtest?long=gate&short=bybit"),
+          deps,
+        )
+      ).status,
+    ).toBe(404);
+    expect(calls).toEqual([]);
+  });
+
   test("pair backtest needs two different exchanges that both list the asset", async () => {
     const { data } = fakeData();
     expect((await get("/v1/pairs/BTC/backtest", data)).status).toBe(400);

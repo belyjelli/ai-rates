@@ -1,0 +1,10 @@
+# Copy to `.dev.vars` for `wrangler dev`. `.dev.vars` itself is gitignored -- only this example is
+# committed (see .gitignore: `.dev.vars*` with a `!.dev.vars.example` exception).
+
+# Turnstile secret for the widget whose sitekey is in wrangler.jsonc (TURNSTILE_SITEKEY).
+# In production this is a Worker secret: `wrangler secret put TURNSTILE_SECRET`.
+#
+# Leave it empty to run without the challenge: the backtest gate is skipped when no secret is
+# configured, which is what makes local development possible. That also means production is
+# UNGATED until the secret is set, so set it before launch.
+TURNSTILE_SECRET=
