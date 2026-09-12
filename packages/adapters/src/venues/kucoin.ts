@@ -1,4 +1,10 @@
-import { type FundingEvent, type FundingSnapshot, inferIntervalHours } from "@ai-rates/core";
+import {
+  type FundingEvent,
+  type FundingSnapshot,
+  inferIntervalHours,
+  type LeverageTier,
+} from "@ai-rates/core";
+import { CircuitOpenError } from "../http";
 import { marketRef, mul, num } from "../parse";
 import type { SnapshotBatch, VenueAdapter } from "../types";
 
@@ -7,6 +13,8 @@ const BASE_URL = "https://api-futures.kucoin.com";
 const MS_PER_HOUR = 3_600_000;
 const HISTORY_PAGE = 100;
 const MAX_PAGES = 50;
+const RISK_LIMIT_RETRIES = 1;
+const RISK_LIMIT_BACKOFF_MS = 300;
 const OK = "200000";
 
 /** KuCoin's type code for perpetual swaps; "FFICSX" is dated futures. */
@@ -40,6 +48,18 @@ export interface KucoinContract {
   /** Headline leverage; /contracts/risk-limit/{symbol} is the precise, size-aware source. */
   maxLeverage?: number | null;
   turnoverOf24h: number | null;
+}
+
+export interface KucoinRiskLimit {
+  symbol: string;
+  level: number;
+  /** Quote notional, inclusive upper bound of the band. */
+  maxRiskLimit: number;
+  /** Quote notional; equals the previous level's `maxRiskLimit`, so bands are already contiguous. */
+  minRiskLimit: number;
+  maxLeverage: number;
+  initialMargin: number;
+  maintainMargin: number;
 }
 
 export interface KucoinFundingHistoryItem {
@@ -113,6 +133,60 @@ export function parseKucoinSnapshots(
   return { snapshots, settled };
 }
 
+/**
+ * KuCoin's risk ladders, one per symbol.
+ *
+ * It publishes both bounds, and level n's `minRiskLimit` equals level n-1's `maxRiskLimit`, so no
+ * floor has to be inferred the way Bybit's and Gate's do. Bounds are quote notional, not lots:
+ * `initialMargin` 0.008 is exactly 1/125 matching `maxLeverage`, and read as lots XBTUSDTM's first
+ * band would be a $19m position at 125x, which no venue offers.
+ */
+export function parseKucoinRiskLimits(rows: readonly KucoinRiskLimit[]): LeverageTier[] {
+  const bySymbol = new Map<string, KucoinRiskLimit[]>();
+  for (const row of rows) {
+    const existing = bySymbol.get(row.symbol);
+    if (existing) existing.push(row);
+    else bySymbol.set(row.symbol, [row]);
+  }
+
+  const ladders: LeverageTier[] = [];
+  for (const [symbol, symbolRows] of bySymbol) {
+    const ladder: LeverageTier[] = [];
+    let usable = true;
+
+    for (const row of [...symbolRows].sort((a, b) => a.level - b.level)) {
+      const lower = num(row.minRiskLimit);
+      const upper = num(row.maxRiskLimit);
+      const imr = num(row.initialMargin);
+      const maxLeverage = num(row.maxLeverage);
+      if (
+        lower === null ||
+        upper === null ||
+        upper <= lower ||
+        imr === null ||
+        imr <= 0 ||
+        maxLeverage === null ||
+        maxLeverage <= 0
+      ) {
+        usable = false;
+        break;
+      }
+      ladder.push({
+        venueId: VENUE_ID,
+        venueSymbol: symbol,
+        tier: row.level,
+        lowerNotionalUsd: lower,
+        upperNotionalUsd: upper,
+        imr,
+        mmr: num(row.maintainMargin),
+        maxLeverage,
+      });
+    }
+    if (usable) ladders.push(...ladder);
+  }
+  return ladders;
+}
+
 /** Settled funding events for one symbol, oldest first. */
 export function parseKucoinFundingHistory(
   json: KucoinEnvelope<KucoinFundingHistoryItem[] | null>,
@@ -149,6 +223,51 @@ export const kucoinAdapter: VenueAdapter = {
       `${BASE_URL}/api/v1/contracts/active`,
     );
     return parseKucoinSnapshots(json, now);
+  },
+
+  /**
+   * The only venue here with no bulk form — asking without a symbol answers 404000 — so this is
+   * one call per market: ~680 requests at 150ms spacing, about 100 seconds once a day. That holds
+   * KuCoin's shared client long enough to delay a snapshot cycle or two, which is the price of
+   * having ladders at all for this venue.
+   */
+  async fetchLeverageTiers(client) {
+    const contracts = unwrapList(
+      await client.getJson<KucoinEnvelope<KucoinContract[] | null>>(
+        `${BASE_URL}/api/v1/contracts/active`,
+      ),
+      "contracts",
+    );
+    const symbols = contracts
+      .filter((c) => c.type === PERPETUAL && !c.isInverse && c.status === "Open")
+      .map((c) => c.symbol);
+
+    const rows: KucoinRiskLimit[] = [];
+    let complete = true;
+
+    for (const symbol of symbols) {
+      let fetched: KucoinRiskLimit[] | null = null;
+      for (let attempt = 0; fetched === null && attempt <= RISK_LIMIT_RETRIES; attempt++) {
+        try {
+          fetched = unwrapList(
+            await client.getJson<KucoinEnvelope<KucoinRiskLimit[] | null>>(
+              `${BASE_URL}/api/v1/contracts/risk-limit/${encodeURIComponent(symbol)}`,
+            ),
+            "risk limit",
+          );
+        } catch (error) {
+          if (error instanceof CircuitOpenError) {
+            return { tiers: parseKucoinRiskLimits(rows), complete: false };
+          }
+          if (attempt < RISK_LIMIT_RETRIES) {
+            await new Promise((resolve) => setTimeout(resolve, RISK_LIMIT_BACKOFF_MS << attempt));
+          }
+        }
+      }
+      if (fetched === null) complete = false;
+      else rows.push(...fetched);
+    }
+    return { tiers: parseKucoinRiskLimits(rows), complete };
   },
 
   async fetchFundingHistory(client, venueSymbol, fromMs, toMs) {

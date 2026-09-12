@@ -1,4 +1,4 @@
-import type { FundingEvent, FundingSnapshot } from "@ai-rates/core";
+import type { FundingEvent, FundingSnapshot, LeverageTier } from "@ai-rates/core";
 import { CircuitOpenError, type HttpClient } from "../http";
 import { marketRef, mul, num, selectRefreshBatch } from "../parse";
 import type { VenueAdapter } from "../types";
@@ -43,6 +43,18 @@ export interface MexcContractDetail {
   /** Base units per contract; USD per contract for coin-settled (inverse) contracts. */
   contractSize: number;
   state: number;
+  /**
+   * The risk ladder, enumerated. Despite `riskLimitType: "BY_VOLUME"`, `maxVol` is quote notional,
+   * not contracts: read as contracts, BTC_USDT's first band would be ~$386k at 500x, and its top
+   * band a $147m position cap, neither of which any venue offers.
+   */
+  riskLimitCustom?: {
+    level: number;
+    maxVol: number;
+    mmr: number;
+    imr: number;
+    maxLeverage: number;
+  }[];
 }
 
 export interface MexcFundingRate {
@@ -77,6 +89,56 @@ export function parseMexcContracts(
   details: readonly MexcContractDetail[],
 ): Map<string, MexcContractDetail> {
   return new Map(details.filter((d) => d.state === LIVE_STATE).map((d) => [d.symbol, d]));
+}
+
+/**
+ * Risk ladders from the bulk contract detail, which the snapshot loop already fetches hourly.
+ *
+ * `maxVol` is a cumulative upper bound in quote notional, so each band starts where the last
+ * ended, and the top band's bound is a real cap — it equals the contract's `riskBaseVol`, the
+ * largest position MEXC will carry.
+ */
+export function parseMexcLeverageTiers(details: readonly MexcContractDetail[]): LeverageTier[] {
+  const ladders: LeverageTier[] = [];
+
+  for (const detail of details) {
+    const levels = detail.riskLimitCustom;
+    if (detail.state !== LIVE_STATE || !levels || levels.length === 0) continue;
+
+    const ladder: LeverageTier[] = [];
+    let lowerNotionalUsd = 0;
+    let usable = true;
+
+    for (const level of [...levels].sort((a, b) => a.level - b.level)) {
+      const upper = num(level.maxVol);
+      const imr = num(level.imr);
+      const maxLeverage = num(level.maxLeverage);
+      if (
+        upper === null ||
+        upper <= lowerNotionalUsd ||
+        imr === null ||
+        imr <= 0 ||
+        maxLeverage === null ||
+        maxLeverage <= 0
+      ) {
+        usable = false;
+        break;
+      }
+      ladder.push({
+        venueId: VENUE,
+        venueSymbol: detail.symbol,
+        tier: level.level,
+        lowerNotionalUsd,
+        upperNotionalUsd: upper,
+        imr,
+        mmr: num(level.mmr),
+        maxLeverage,
+      });
+      lowerNotionalUsd = upper;
+    }
+    if (usable) ladders.push(...ladder);
+  }
+  return ladders;
 }
 
 export function parseMexcFundingRate(data: MexcFundingRate, now: number): IntervalEntry | null {
@@ -239,6 +301,15 @@ export function createMexcAdapter(options: MexcAdapterOptions = {}): VenueAdapte
       }
 
       return { snapshots: parseMexcSnapshots(tickers, live, intervals, now), settled: [] };
+    },
+
+    /** One bulk call: the ladders sit in the same contract detail the snapshot loop uses. */
+    async fetchLeverageTiers(client: HttpClient) {
+      const details = unwrap(
+        await client.getJson<MexcEnvelope<MexcContractDetail[]>>(`${BASE}/detail`),
+        "contract detail",
+      );
+      return { tiers: parseMexcLeverageTiers(details), complete: true };
     },
 
     async fetchFundingHistory(

@@ -19,6 +19,16 @@ export interface Venue {
   hip3Dex?: string;
   /** Set when the venue has no markets of its own and trades on another catalog venue. */
   aliasOf?: string;
+  /**
+   * Hand-curated maximum leverage, for the venues that publish none at all (B4).
+   *
+   * This is a judgement call, not measured data, so it lands in `markets.max_leverage` — where the
+   * pair page labels it "(small size)" — and never in `market_leverage_tiers`, which is reserved
+   * for ladders a venue actually publishes. Erring low is the safe direction: capital is
+   * `2 × size / L`, so too small a figure overstates what a pair must post rather than flattering
+   * it. Every venue here really offers more than the value set.
+   */
+  maxLeverage?: number;
   /** True when the probe URLs were checked live (2xx JSON) during research. */
   verified: boolean;
   /** Public endpoints hit by the Phase 0 geo-probe. Empty means no public REST endpoint found yet. */
@@ -265,6 +275,7 @@ const dex: Venue[] = [
     type: "dex",
     ccxt: "aster",
     verified: true,
+    maxLeverage: 10,
     probes: [get("premiumIndex", "https://fapi.asterdex.com/fapi/v1/premiumIndex")],
     notes: "Binance-compatible API.",
   },
@@ -285,6 +296,7 @@ const dex: Venue[] = [
     type: "dex",
     ccxt: "lighter",
     verified: true,
+    maxLeverage: 10,
     probes: [get("funding-rates", "https://mainnet.zklighter.elliot.ai/api/v1/funding-rates")],
     notes: "60 req/min unauthenticated; response also relays other venues' rates.",
   },
@@ -473,6 +485,7 @@ const dex: Venue[] = [
     type: "dex",
     ccxt: "paradex",
     verified: true,
+    maxLeverage: 10,
     probes: [
       get("markets/summary", "https://api.prod.paradex.trade/v1/markets/summary?market=ALL"),
     ],

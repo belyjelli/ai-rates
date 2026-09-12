@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 import historyFixture from "../../__fixtures__/dydx/historicalFunding_LINK-USD.json";
 import marketsFixture from "../../__fixtures__/dydx/perpetualMarkets.json";
 import type { HttpClient } from "../http";
-import { dydxAdapter, parseDydxHistoricalFunding, parseDydxMarkets } from "./dydx";
+import {
+  dydxAdapter,
+  parseDydxHistoricalFunding,
+  parseDydxLeverageTiers,
+  parseDydxMarkets,
+} from "./dydx";
 
 const NOW = 1_789_147_709_400; // 2026-09-11T17:28:29.400Z
 const NEXT_HOUR = Date.parse("2026-09-11T18:00:00Z");
@@ -49,6 +54,35 @@ describe("parseDydxMarkets", () => {
     expect(parseDydxMarkets(marketsFixture, NEXT_HOUR)[0]?.nextFundingAt).toBe(
       NEXT_HOUR + 3_600_000,
     );
+  });
+});
+
+describe("parseDydxLeverageTiers", () => {
+  const tiers = parseDydxLeverageTiers(marketsFixture);
+
+  test("one unbounded tier per active market", () => {
+    // MATIC-USD is in FINAL_SETTLEMENT and drops out, exactly as it does for snapshots.
+    expect(tiers.map((t) => t.venueSymbol)).toEqual(["BTC-USD", "ETH-USD", "LINK-USD"]);
+    expect(tiers[0]).toEqual({
+      venueId: "dydx",
+      venueSymbol: "BTC-USD",
+      tier: 1,
+      lowerNotionalUsd: 0,
+      upperNotionalUsd: null,
+      imr: 0.02,
+      mmr: 0.012,
+      maxLeverage: 50,
+    });
+  });
+
+  test("the margin fraction is read per market, not assumed venue-wide", () => {
+    // The majors run at 0.02 (50x), but LINK margins at 0.1, which is 10x. Treating dYdX as a
+    // flat 50x venue would overstate its leverage fivefold on every smaller market.
+    expect(tiers.find((t) => t.venueSymbol === "LINK-USD")).toMatchObject({
+      imr: 0.1,
+      mmr: 0.05,
+      maxLeverage: 10,
+    });
   });
 });
 

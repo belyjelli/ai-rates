@@ -8,7 +8,9 @@
       "volume24H": "3889329.2462",
       "nextFundingRate": "0",
       "openInterest": "194.2390",
-      "marketType": "CROSS"
+      "marketType": "CROSS",
+      "initialMarginFraction": "0.02",
+      "maintenanceMarginFraction": "0.012"
     },
     "ETH-USD": {
       "clobPairId": "1",
@@ -18,7 +20,9 @@
       "volume24H": "7656688.5006",
       "nextFundingRate": "-0.00000022767857142857",
       "openInterest": "3976.853",
-      "marketType": "CROSS"
+      "marketType": "CROSS",
+      "initialMarginFraction": "0.02",
+      "maintenanceMarginFraction": "0.012"
     },
     "LINK-USD": {
       "clobPairId": "2",
@@ -28,7 +32,9 @@
       "volume24H": "26888.834",
       "nextFundingRate": "0.00001665625",
       "openInterest": "28956",
-      "marketType": "CROSS"
+      "marketType": "CROSS",
+      "initialMarginFraction": "0.1",
+      "maintenanceMarginFraction": "0.05"
     },
     "MATIC-USD": {
       "clobPairId": "3",
@@ -38,7 +44,9 @@
       "volume24H": "0",
       "nextFundingRate": "0",
       "openInterest": "0",
-      "marketType": "CROSS"
+      "marketType": "CROSS",
+      "initialMarginFraction": "0.1",
+      "maintenanceMarginFraction": "0.05"
     }
   }
 }

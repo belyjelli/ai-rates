@@ -1,4 +1,4 @@
-import type { FundingEvent, FundingSnapshot } from "@ai-rates/core";
+import type { FundingEvent, FundingSnapshot, LeverageTier } from "@ai-rates/core";
 import type { HttpClient } from "../http";
 import { marketRef, mul, num } from "../parse";
 import type { VenueAdapter } from "../types";
@@ -21,6 +21,9 @@ export interface DydxPerpetualMarket {
   openInterest: string;
   /** 24h volume in USD. */
   volume24H: string;
+  /** Initial margin as a fraction of notional: 0.02 is 50x. Flat per market, not tiered. */
+  initialMarginFraction?: string;
+  maintenanceMarginFraction?: string;
 }
 
 export interface DydxHistoricalFunding {
@@ -59,6 +62,33 @@ export function parseDydxMarkets(
   return snapshots;
 }
 
+/**
+ * dYdX margins flat: one rate for a market at any size, so each market gets a single unbounded
+ * tier rather than a ladder. The rate is not uniform across markets though — majors run at 0.02
+ * (50x) while smaller markets sit at 0.1 (10x), so it is read per market, never assumed.
+ */
+export function parseDydxLeverageTiers(body: {
+  markets: Record<string, DydxPerpetualMarket>;
+}): LeverageTier[] {
+  const tiers: LeverageTier[] = [];
+  for (const market of Object.values(body.markets)) {
+    const imr = num(market.initialMarginFraction);
+    if (market.status !== "ACTIVE" || imr === null || imr <= 0 || imr > 1) continue;
+    tiers.push({
+      venueId: VENUE,
+      venueSymbol: market.ticker,
+      tier: 1,
+      lowerNotionalUsd: 0,
+      // dYdX publishes no maximum position size.
+      upperNotionalUsd: null,
+      imr,
+      mmr: num(market.maintenanceMarginFraction),
+      maxLeverage: 1 / imr,
+    });
+  }
+  return tiers;
+}
+
 /** Settled hourly payments within [fromMs, toMs], oldest first. */
 export function parseDydxHistoricalFunding(
   items: readonly DydxHistoricalFunding[],
@@ -95,6 +125,17 @@ export const dydxAdapter: VenueAdapter = {
       throw new Error(`${VENUE}: unexpected perpetualMarkets response`);
     }
     return { snapshots: parseDydxMarkets(body, now), settled: [] };
+  },
+
+  /** The margin fractions ride along in `perpetualMarkets`, so this is one request for the venue. */
+  async fetchLeverageTiers(client: HttpClient) {
+    const body = await client.getJson<{ markets: Record<string, DydxPerpetualMarket> }>(
+      `${BASE}/perpetualMarkets`,
+    );
+    if (!body?.markets || typeof body.markets !== "object") {
+      throw new Error(`${VENUE}: unexpected perpetualMarkets response`);
+    }
+    return { tiers: parseDydxLeverageTiers(body), complete: true };
   },
 
   async fetchFundingHistory(client: HttpClient, venueSymbol: string, fromMs: number, toMs: number) {

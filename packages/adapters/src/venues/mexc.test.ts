@@ -15,6 +15,7 @@ import {
   parseMexcContracts,
   parseMexcFundingHistory,
   parseMexcFundingRate,
+  parseMexcLeverageTiers,
   parseMexcSnapshots,
   selectIntervalRefreshes,
 } from "./mexc";
@@ -119,6 +120,44 @@ describe("parseMexcSnapshots", () => {
     );
     expect(inverse?.openInterestUsd).toBe(972359 * 100);
     expect(inverse?.volume24hUsd).toBeCloseTo(226.0459835749633 * 77736.9, 6);
+  });
+});
+
+describe("parseMexcLeverageTiers", () => {
+  const tiers = parseMexcLeverageTiers(detailFixture.data as MexcContractDetail[]);
+
+  test("reads riskLimitCustom as cumulative quote notional", () => {
+    const btc = tiers.filter((t) => t.venueSymbol === "BTC_USDT");
+    expect(btc).toHaveLength(6);
+
+    // "BY_VOLUME" names the field, not the unit: read as contracts this first band would be
+    // ~$386k at 500x, and the top one a $147m position cap, neither of which MEXC offers.
+    expect(btc[0]).toEqual({
+      venueId: "mexc",
+      venueSymbol: "BTC_USDT",
+      tier: 1,
+      lowerNotionalUsd: 0,
+      upperNotionalUsd: 50_000,
+      imr: 0.002,
+      mmr: 0.001,
+      maxLeverage: 500,
+    });
+    expect(btc[1]).toMatchObject({
+      tier: 2,
+      lowerNotionalUsd: 50_000,
+      upperNotionalUsd: 310_000,
+      imr: 0.005,
+      maxLeverage: 200,
+    });
+    // The last band's ceiling is the contract's riskBaseVol: the largest position MEXC carries.
+    expect(btc.at(-1)).toMatchObject({ tier: 6, upperNotionalUsd: 19_000_000, maxLeverage: 10 });
+  });
+
+  test("each contract keeps its own ladder, of its own length", () => {
+    expect(tiers.filter((t) => t.venueSymbol === "ETH_USDT")).toHaveLength(6);
+    const xau = tiers.filter((t) => t.venueSymbol === "XAU_USDT");
+    expect(xau).toHaveLength(5);
+    expect(xau[0]).toMatchObject({ upperNotionalUsd: 80_000, imr: 0.001, maxLeverage: 1000 });
   });
 });
 

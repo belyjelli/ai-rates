@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { HttpClient } from "../http";
-import { gateAdapter, parseGateFundingHistory, parseGateSnapshots } from "./gate";
+import {
+  gateAdapter,
+  parseGateFundingHistory,
+  parseGateRiskLimitTiers,
+  parseGateSnapshots,
+} from "./gate";
 
 const fixture = (name: string) =>
   Bun.file(new URL(`../../__fixtures__/gate/${name}.json`, import.meta.url)).json();
@@ -67,6 +72,62 @@ describe("parseGateSnapshots", () => {
       openInterestUsd: null,
       volume24hUsd: null,
     });
+  });
+});
+
+describe("parseGateRiskLimitTiers", () => {
+  test("builds a cumulative ladder per contract from the bulk shape", async () => {
+    const tiers = parseGateRiskLimitTiers(await fixture("risk-limit-tiers"));
+    const btc = tiers.filter((t) => t.venueSymbol === "BTC_USDT");
+    expect(btc).toHaveLength(19);
+
+    // risk_limit is quote notional, so unlike OKX there is no contract conversion to get wrong.
+    expect(btc[0]).toEqual({
+      venueId: "gate",
+      venueSymbol: "BTC_USDT",
+      tier: 1,
+      lowerNotionalUsd: 0,
+      upperNotionalUsd: 500_000,
+      imr: 0.005,
+      mmr: 0.003,
+      maxLeverage: 200,
+    });
+    // Gate publishes only the ceiling, so each band inherits its floor from the one below.
+    expect(btc[1]).toMatchObject({
+      tier: 2,
+      lowerNotionalUsd: 500_000,
+      upperNotionalUsd: 1_000_000,
+      imr: 0.006666,
+      maxLeverage: 150.01,
+    });
+    // The top band's bound is a real cap on position size, as on Bybit.
+    expect(btc.at(-1)).toMatchObject({
+      tier: 19,
+      upperNotionalUsd: 1_500_000_000,
+      maxLeverage: 1.05,
+    });
+
+    // Every contract keeps its own ladder: ETH's first band ends lower than BTC's.
+    const eth = tiers.filter((t) => t.venueSymbol === "ETH_USDT");
+    expect(eth).toHaveLength(19);
+    expect(eth[0]).toMatchObject({ tier: 1, upperNotionalUsd: 300_000 });
+  });
+
+  test("ignores rows with no contract, which the per-contract endpoint returns", () => {
+    // Asking Gate for one contract returns the same rows without the `contract` field, leaving
+    // every ladder unattributable; those rows are dropped rather than merged under one key.
+    expect(
+      parseGateRiskLimitTiers([
+        {
+          contract: "",
+          tier: 1,
+          risk_limit: "500000",
+          initial_rate: "0.005",
+          maintenance_rate: "0.003",
+          leverage_max: "200",
+        },
+      ]),
+    ).toEqual([]);
   });
 });
 
