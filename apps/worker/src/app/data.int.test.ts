@@ -116,6 +116,24 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         latest(venueB, symbolB, null, -0.0001),
       ])}`;
 
+    // One venue has a ladder and the other none, which is the realistic case for a pair.
+    const ladder = (tier: number, lower: number, upper: number | null, imr: number) => ({
+      venue_id: venueA,
+      venue_symbol: symbolA,
+      tier,
+      lower_notional_usd: lower,
+      upper_notional_usd: upper,
+      imr,
+      mmr: imr / 2,
+      max_leverage: 1 / imr,
+      fetched_at: now,
+    });
+    await admin`
+      INSERT INTO market_leverage_tiers ${admin([
+        ladder(1, 0, 300_000, 0.0066),
+        ladder(2, 300_000, null, 0.01),
+      ])}`;
+
     // Production options: no type introspection, exactly as the Worker runs behind Hyperdrive.
     client = postgres(url as string, {
       max: 1,
@@ -129,6 +147,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
   afterAll(async () => {
     await admin`DELETE FROM funding_events WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_latest WHERE venue_id IN (${venueA}, ${venueB})`;
+    await admin`DELETE FROM market_leverage_tiers WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM markets WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM venues WHERE id IN (${venueA}, ${venueB})`;
     await admin.close();
@@ -178,6 +197,19 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     expect((await data.exchange(venueA)).map((r) => [r.venue_symbol, r.max_leverage])).toEqual([
       [symbolA, 25],
     ]);
+  });
+
+  test("leverageTiers reads ladders for the markets asked for", async () => {
+    const rows = await data.leverageTiers([
+      { venue_id: venueA, venue_symbol: symbolA },
+      { venue_id: venueB, venue_symbol: symbolB },
+    ]);
+    // venueB publishes no ladder, so it contributes no rows rather than an empty placeholder.
+    expect(rows.map((r) => [r.tier, r.lower_notional_usd, r.upper_notional_usd, r.imr])).toEqual([
+      [1, 0, 300_000, 0.0066],
+      [2, 300_000, null, 0.01],
+    ]);
+    expect(await data.leverageTiers([])).toEqual([]);
   });
 
   test("overview and screener run against the real schema", async () => {

@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { HttpClient } from "../http";
-import { bybitAdapter, parseBybitFundingHistory, parseBybitSnapshots } from "./bybit";
+import {
+  bybitAdapter,
+  parseBybitFundingHistory,
+  parseBybitRiskLimit,
+  parseBybitSnapshots,
+} from "./bybit";
 
 const fixture = (name: string) =>
   Bun.file(new URL(`../../__fixtures__/bybit/${name}.json`, import.meta.url)).json();
@@ -68,6 +73,65 @@ describe("parseBybitSnapshots", () => {
     expect(() =>
       parseBybitSnapshots({ retCode: 10001, retMsg: "bad", result: { list: [] } }, [], NOW),
     ).toThrow("10001");
+  });
+});
+
+describe("parseBybitRiskLimit", () => {
+  test("builds one ladder per symbol, each tier starting where the one below ends", async () => {
+    const tiers = parseBybitRiskLimit((await fixture("risk-limit")).result.list);
+
+    expect(tiers).toHaveLength(60);
+    expect(new Set(tiers.map((t) => t.venueSymbol))).toEqual(
+      new Set(["0GUSDT", "1000000BABYDOGEUSDT"]),
+    );
+
+    const ladder = tiers.filter((t) => t.venueSymbol === "0GUSDT");
+    expect(ladder[0]).toEqual({
+      venueId: "bybit",
+      venueSymbol: "0GUSDT",
+      tier: 1,
+      lowerNotionalUsd: 0,
+      upperNotionalUsd: 10_000,
+      imr: 0.02,
+      mmr: 0.015,
+      maxLeverage: 50,
+    });
+    // Bybit publishes only an upper bound, so tier 2 has to inherit its floor from tier 1.
+    expect(ladder[1]).toMatchObject({
+      tier: 2,
+      lowerNotionalUsd: 10_000,
+      upperNotionalUsd: 25_000,
+      imr: 0.04,
+      maxLeverage: 25,
+    });
+    // The top bound is a real cap, not infinity: Bybit will not open 0GUSDT above $5M at all.
+    expect(ladder.at(-1)).toMatchObject({
+      tier: 30,
+      upperNotionalUsd: 5_000_000,
+      imr: 1,
+      maxLeverage: 1,
+    });
+  });
+
+  test("drops a ladder whole when one of its tiers is unreadable", () => {
+    const tier = (id: number, symbol: string, riskLimitValue: string) => ({
+      id,
+      symbol,
+      riskLimitValue,
+      maintenanceMargin: "0.02",
+      initialMargin: "0.04",
+      isLowestRisk: id === 1 ? 1 : 0,
+      maxLeverage: "25",
+    });
+    // Keeping AAA's tier 1 would silently stretch it across the band tier 2 should have covered,
+    // quoting confident margin for a range nothing verified.
+    expect(
+      parseBybitRiskLimit([
+        tier(1, "AAA", "10000"),
+        tier(2, "AAA", ""),
+        tier(1, "BBB", "25000"),
+      ]).map((t) => t.venueSymbol),
+    ).toEqual(["BBB"]);
   });
 });
 

@@ -78,6 +78,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
       },
     ],
     exchange: async (venueId) => (venueId === "okx" ? [market({})] : []),
+    leverageTiers: async () => [],
     settlements: async () => [],
     ...overrides,
   };
@@ -213,6 +214,55 @@ describe("pages", () => {
     // quoting $100,000 flat would understate what the position actually needs.
     expect(await capital(50, 20, "1m")).toBe(
       "capital at least <b>$100,000</b> across both legs — 20× is the small-size maximum",
+    );
+  });
+
+  test("pair capital comes from the venues' own ladders when both legs have one", async () => {
+    const band = (
+      venue_id: string,
+      venue_symbol: string,
+      tier: number,
+      lower: number,
+      upper: number | null,
+      imr: number,
+    ) => ({
+      venue_id,
+      venue_symbol,
+      tier,
+      lower_notional_usd: lower,
+      upper_notional_usd: upper,
+      imr,
+      mmr: imr / 2,
+      max_leverage: 1 / imr,
+    });
+    const ladders = [
+      band("gate", "BTC_USDT", 1, 0, 300_000, 0.01),
+      band("gate", "BTC_USDT", 2, 300_000, 1_000_000, 0.02),
+      band("okx", "BTC-USDT-SWAP", 1, 0, 300_000, 0.01),
+      band("okx", "BTC-USDT-SWAP", 2, 300_000, 1_000_000, 0.05),
+    ];
+    const line = async (size: string) => {
+      const { data } = fakeData({
+        leverageTiers: async () => ladders,
+        settlements: async () => [
+          ...settled("gate", "BTC_USDT", -0.0001),
+          ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+        ],
+      });
+      const res = await get(`/pair/BTC?long=gate&short=okx&size=${size}&days=7`, data);
+      return (await res.text()).match(/capital [^<]*<b>[^<]*<\/b>[^<]*/)?.[0];
+    };
+
+    // $10k a leg sits in tier 1 on both sides: 10,000 x (0.01 + 0.01) = $200. No "(small size)"
+    // caveat, because this came from the venues' own bands for exactly this size.
+    expect(await line("10k")).toBe("capital <b>$200</b> across both legs at 100×");
+    // $500k a leg lands in tier 2 on both, where the ladders diverge: gate wants 2% and okx 5%,
+    // so 500,000 x 0.07 = $35,000. Neither venue's headline number would have produced this.
+    expect(await line("500k")).toBe("capital <b>$35,000</b> across both legs at 28.6×");
+    // $1M a leg is past the top of both ladders, so the position cannot be opened at all. Rounding
+    // down into the top band would quote capital for a trade the venue would refuse.
+    expect(await line("1m")).toBe(
+      "capital <b>–</b> — Gate will not open a position above $1,000,000 on BTC_USDT",
     );
   });
 
