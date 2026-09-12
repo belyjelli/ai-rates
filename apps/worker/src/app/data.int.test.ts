@@ -21,6 +21,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
   // Deliberately contains a comma: splitting a delimited list would match the wrong rows.
   const symbolA = `IT,${tag.toUpperCase()}-USDT`;
   const symbolB = `IT-${tag.toUpperCase()}-PERP`;
+  const base = `IT${tag.toUpperCase()}`;
   const settledAt = Math.floor(Date.now() / HOUR) * HOUR;
 
   let admin: SQL;
@@ -59,6 +60,62 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         event(venueB, "OTHER-PERP", 8, 0.005), // same venue, market not asked for
       ])}`;
 
+    // max_leverage lives on `markets`, but asset()/exchange() read `market_latest` and join across
+    // for it. Seed both so the join is exercised, with one venue publishing a figure and one silent.
+    const now = new Date();
+    await admin`
+      INSERT INTO markets ${admin([
+        {
+          venue_id: venueA,
+          venue_symbol: symbolA,
+          base,
+          quote: "USDT",
+          multiplier: 1,
+          dex: null,
+          interval_hours: 8,
+          max_leverage: 25,
+          last_seen: now,
+        },
+        {
+          venue_id: venueB,
+          venue_symbol: symbolB,
+          base,
+          quote: null,
+          multiplier: 1,
+          dex: null,
+          interval_hours: 8,
+          max_leverage: null,
+          last_seen: now,
+        },
+      ])}`;
+    const latest = (
+      venue_id: string,
+      venue_symbol: string,
+      quote: string | null,
+      rate: number,
+    ) => ({
+      venue_id,
+      venue_symbol,
+      base,
+      quote,
+      observed_at: now,
+      rate,
+      basis_hours: 8,
+      apr: (rate / 8) * 876000,
+      interval_hours: 8,
+      next_funding_at: new Date(settledAt + HOUR),
+      kind: "predicted",
+      mark_price: 100,
+      index_price: 100,
+      open_interest_usd: 1_000_000,
+      volume_24h_usd: 2_000_000,
+    });
+    await admin`
+      INSERT INTO market_latest ${admin([
+        latest(venueA, symbolA, "USDT", 0.0001),
+        latest(venueB, symbolB, null, -0.0001),
+      ])}`;
+
     // Production options: no type introspection, exactly as the Worker runs behind Hyperdrive.
     client = postgres(url as string, {
       max: 1,
@@ -71,6 +128,8 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
 
   afterAll(async () => {
     await admin`DELETE FROM funding_events WHERE venue_id IN (${venueA}, ${venueB})`;
+    await admin`DELETE FROM market_latest WHERE venue_id IN (${venueA}, ${venueB})`;
+    await admin`DELETE FROM markets WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM venues WHERE id IN (${venueA}, ${venueB})`;
     await admin.close();
     await client.end();
@@ -107,6 +166,18 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
 
   test("asking for no markets queries nothing", async () => {
     expect(await data.settlements([], settledAt - HOUR, settledAt)).toEqual([]);
+  });
+
+  test("asset and exchange carry max_leverage across from markets", async () => {
+    const rows = await data.asset(base);
+    expect(rows.map((r) => [r.venue_id, r.max_leverage])).toEqual([
+      [venueB, null],
+      [venueA, 25],
+    ]);
+    // Same join on the other read path, and a symbol with a comma still matches exactly.
+    expect((await data.exchange(venueA)).map((r) => [r.venue_symbol, r.max_leverage])).toEqual([
+      [symbolA, 25],
+    ]);
   });
 
   test("overview and screener run against the real schema", async () => {

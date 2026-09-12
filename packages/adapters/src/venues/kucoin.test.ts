@@ -27,6 +27,7 @@ describe("parseKucoinSnapshots", () => {
       indexPrice: 77783.14,
       openInterestUsd: 11784994 * 0.001 * 77754.7,
       volume24hUsd: 511004312.1306,
+      maxLeverage: 125,
     });
   });
 

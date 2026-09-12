@@ -60,6 +60,7 @@ describe("parseHyperliquidSnapshots (core)", () => {
       kind: "predicted",
       markPrice: 77748,
       indexPrice: 77783.3,
+      maxLeverage: 40,
     });
     expect(btc?.openInterestUsd).toBeCloseTo(35818.6831799999 * 77748, 2);
     expect(btc?.volume24hUsd).toBeCloseTo(3571973656.4438381, 4);

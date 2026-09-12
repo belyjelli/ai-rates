@@ -28,6 +28,14 @@ export interface FundingSnapshot extends MarketRef {
   indexPrice: number | null;
   openInterestUsd: number | null;
   volume24hUsd: number | null;
+  /**
+   * Headline max leverage for this market, when the venue publishes it in a call we already make.
+   * A property of the market rather than the tick, carried here only as transport to `markets`.
+   * Optional because six of ten venues never report it, and a required null would touch every
+   * adapter and fixture for a field they cannot fill. It is the headline figure, so it holds only
+   * at small size: the tiered ladder is the precise source.
+   */
+  maxLeverage?: number | null;
 }
 
 /** A settled funding payment for one market. */

@@ -37,6 +37,8 @@ export interface KucoinContract {
   openInterest: string;
   /** Base units per lot for linear contracts. */
   multiplier: number;
+  /** Headline leverage; /contracts/risk-limit/{symbol} is the precise, size-aware source. */
+  maxLeverage?: number | null;
   turnoverOf24h: number | null;
 }
 
@@ -94,6 +96,7 @@ export function parseKucoinSnapshots(
       indexPrice: num(contract.indexPrice),
       openInterestUsd: mul(num(contract.openInterest), num(contract.multiplier), markPrice),
       volume24hUsd: num(contract.turnoverOf24h),
+      maxLeverage: num(contract.maxLeverage),
     });
 
     const lastRate = num(contract.lastTimeFundingRate);

@@ -56,6 +56,8 @@ export class PgStore implements CollectorStore, HistoryStore {
             multiplier = EXCLUDED.multiplier,
             dex = EXCLUDED.dex,
             interval_hours = COALESCE(EXCLUDED.interval_hours, markets.interval_hours),
+            -- Keep the last known figure if a response transiently omits it, as with interval_hours.
+            max_leverage = COALESCE(EXCLUDED.max_leverage, markets.max_leverage),
             last_seen = EXCLUDED.last_seen`;
       }
       for (const chunk of chunks(snapshots.map(snapshotRow))) {
@@ -195,6 +197,7 @@ function marketRow(s: FundingSnapshot, lastSeen: Date) {
     multiplier: s.multiplier,
     dex: s.dex,
     interval_hours: s.intervalHours,
+    max_leverage: s.maxLeverage ?? null,
     last_seen: lastSeen,
   };
 }

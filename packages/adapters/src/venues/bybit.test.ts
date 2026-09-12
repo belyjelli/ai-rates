@@ -33,6 +33,7 @@ describe("parseBybitSnapshots", () => {
       indexPrice: 77797.59,
       openInterestUsd: 4142076932.53,
       volume24hUsd: 6285417277.3039,
+      maxLeverage: 150,
     });
   });
 

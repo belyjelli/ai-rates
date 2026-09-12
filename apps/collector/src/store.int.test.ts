@@ -20,7 +20,9 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     rate: number,
     intervalHours: number | null,
     observedAt: number,
+    maxLeverage?: number | null,
   ): FundingSnapshot => ({
+    maxLeverage,
     venueId,
     venueSymbol: symbol,
     base,
@@ -81,12 +83,16 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     await store.recordBatch(
       venueId,
       {
-        snapshots: [snap(`${base}USDT`, 0.0001, 8, t0), snap(`${base}USDC`, -0.0002, 4, t0)],
+        snapshots: [
+          snap(`${base}USDT`, 0.0001, 8, t0, 50),
+          // The venue publishes no leverage for this one; it must stay null, not inherit 50.
+          snap(`${base}USDC`, -0.0002, 4, t0),
+        ],
         settled: [event(0.00009, settledAt)],
       },
       t0,
     );
-    // Second cycle: interval missing this time (must keep the known one), rate changed.
+    // Second cycle: interval and leverage missing this time (must keep the known ones), rate changed.
     await store.recordBatch(
       venueId,
       { snapshots: [snap(`${base}USDT`, 0.0002, null, t0 + 30_000)], settled: [] },
@@ -103,10 +109,10 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     });
 
     const markets =
-      await sql`SELECT venue_symbol, interval_hours FROM markets WHERE venue_id = ${venueId} ORDER BY venue_symbol`;
+      await sql`SELECT venue_symbol, interval_hours, max_leverage FROM markets WHERE venue_id = ${venueId} ORDER BY venue_symbol`;
     expect(markets).toEqual([
-      { venue_symbol: `${base}USDC`, interval_hours: 4 },
-      { venue_symbol: `${base}USDT`, interval_hours: 8 },
+      { venue_symbol: `${base}USDC`, interval_hours: 4, max_leverage: null },
+      { venue_symbol: `${base}USDT`, interval_hours: 8, max_leverage: 50 },
     ]);
 
     const [{ count }] =

@@ -10,6 +10,8 @@ const HISTORY_PAGE_SIZE = 500;
 interface HlUniverseAsset {
   name: string;
   isDelisted?: boolean;
+  /** Headline leverage. `meta.marginTables` carries the full ladder in this same response (B1). */
+  maxLeverage?: number | null;
 }
 
 interface HlAssetCtx {
@@ -66,6 +68,7 @@ export function parseHyperliquidSnapshots(
       indexPrice: num(ctx.oraclePx),
       openInterestUsd: mul(num(ctx.openInterest), markPrice),
       volume24hUsd: num(ctx.dayNtlVlm),
+      maxLeverage: num(asset.maxLeverage),
     });
   }
   return snapshots;

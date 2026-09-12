@@ -50,6 +50,7 @@ const market = (overrides: Partial<MarketRow>): MarketRow => ({
   open_interest_usd: 2.1e9,
   volume_24h_usd: 8.5e9,
   observed_at: new Date(NOW - 20_000),
+  max_leverage: null,
   ...overrides,
 });
 
@@ -173,12 +174,39 @@ describe("pages", () => {
     expect(html).toContain('<p class="headline up">$6.00</p>');
     expect(html).toContain("Long Gate");
     expect(html).toContain("Short OKX");
-    // Sizes the reader picked from a menu carry no cents.
-    expect(html).toContain("capital <b>$20,000</b> across both legs");
+    // Sizes the reader picked from a menu carry no cents. Neither venue publishes a leverage here,
+    // so the pair is priced unleveraged rather than borrowing a figure from somewhere else.
+    expect(html).toContain("capital <b>$20,000</b> across both legs, unleveraged");
     expect(html).toContain("kept at $10,000 per leg");
     // Three 8-hourly settlements do not fill a 7-day window, and the page says so.
     expect(html).toContain("of the 7 days asked for have stored settlements");
     expect(html).toContain("Trading fees are excluded");
+  });
+
+  test("pair capital is margined at the lower of the two venues' leverage", async () => {
+    const legs = (long: number | null, short: number | null) => ({
+      asset: async () => [
+        market({ venue_id: "gate", venue_symbol: "BTC_USDT", apr: -0.55, max_leverage: long }),
+        market({ max_leverage: short }),
+      ],
+      settlements: async () => [
+        ...settled("gate", "BTC_USDT", -0.0001),
+        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+      ],
+    });
+    const capital = async (long: number | null, short: number | null) => {
+      const res = await get(
+        "/pair/BTC?long=gate&short=okx&size=10k&days=7",
+        fakeData(legs(long, short)).data,
+      );
+      return (await res.text()).match(/capital <b>(.*?)<\/b> across both legs([^<]*)/)?.slice(1);
+    };
+
+    // 50x and 20x: the pair can only run at 20x, so $20,000 of notional needs $1,000 of margin.
+    expect(await capital(50, 20)).toEqual(["$1,000", " at 20×"]);
+    // A venue that publishes nothing drops the whole pair to unleveraged, rather than assuming the
+    // partner's 50x applies to a leg we know nothing about.
+    expect(await capital(50, null)).toEqual(["$20,000", ", unleveraged"]);
   });
 
   test("pair page without legs offers the picker instead of a result", async () => {
