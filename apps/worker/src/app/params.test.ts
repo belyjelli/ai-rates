@@ -3,10 +3,14 @@ import {
   DEFAULT_BACKTEST_DAYS,
   DEFAULT_BACKTEST_SIZE_USD,
   DEFAULT_FILTERS,
+  DEFAULT_HEATMAP_LIMIT,
   filtersToQuery,
+  heatmapToQuery,
   MAX_BACKTEST_DAYS,
   MAX_BACKTEST_SIZE_USD,
+  MAX_HEATMAP_LIMIT,
   parseBacktestParams,
+  parseHeatmapParams,
   parseScreenerFilters,
   parseUsd,
 } from "./params";
@@ -94,6 +98,48 @@ describe("parseBacktestParams", () => {
     expect(parse("long=gate")).toBeNull();
     expect(parse("long=gate&short=gate")).toBeNull();
     expect(parse("long=gate&short=nope")).toBeNull();
+  });
+});
+
+describe("parseHeatmapParams", () => {
+  const parse = (query: string) => parseHeatmapParams(new URLSearchParams(query));
+
+  test("defaults to the live timeframe and the first page", () => {
+    expect(parse("")).toEqual({ tf: "now", limit: DEFAULT_HEATMAP_LIMIT, offset: 0 });
+  });
+
+  test("accepts only the four known timeframes", () => {
+    expect(parse("tf=60d").tf).toBe("60d");
+    expect(parse("tf=30D").tf).toBe("30d");
+    // The timeframe chooses which column is read, so anything unrecognised falls back here rather
+    // than travelling any further.
+    expect(parse("tf=90d").tf).toBe("now");
+    expect(parse("tf=apr_60d, x").tf).toBe("now");
+  });
+
+  test("clamps the page size and never pages backwards", () => {
+    expect(parse("limit=10").limit).toBe(10);
+    // The cap equals the default on purpose: fewer rows can be asked for, more cannot.
+    expect(parse(`limit=${MAX_HEATMAP_LIMIT + 500}`).limit).toBe(MAX_HEATMAP_LIMIT);
+    expect(parse("limit=0").limit).toBe(1);
+    expect(parse("limit=nonsense").limit).toBe(DEFAULT_HEATMAP_LIMIT);
+    expect(parse("offset=-5").offset).toBe(0);
+    expect(parse("offset=300").offset).toBe(300);
+  });
+});
+
+describe("heatmapToQuery", () => {
+  test("omits defaults and round-trips through parseHeatmapParams", () => {
+    expect(heatmapToQuery({ tf: "now", limit: DEFAULT_HEATMAP_LIMIT, offset: 0 })).toBe("");
+
+    const query = heatmapToQuery({ tf: "60d", limit: 50, offset: 150 });
+    expect(query).toBe("?tf=60d&limit=50&offset=150");
+    // Round-tripping is what keeps paging links and the edge cache key in agreement.
+    expect(parseHeatmapParams(new URLSearchParams(query))).toEqual({
+      tf: "60d",
+      limit: 50,
+      offset: 150,
+    });
   });
 });
 

@@ -58,6 +58,49 @@ export function filtersToQuery(filters: ScreenerFilters): string {
   return query ? `?${query}` : "";
 }
 
+export const HEATMAP_TIMEFRAMES = ["now", "7d", "30d", "60d"] as const;
+export type HeatmapTimeframe = (typeof HEATMAP_TIMEFRAMES)[number];
+export const DEFAULT_HEATMAP_LIMIT = 150;
+/**
+ * Equal to the default on purpose. 150 assets x ~14 venues is ~2,100 cells, and the cost is linear
+ * in rows, so the plan treats 150 as a ceiling until it has been measured — a limit a caller could
+ * raise would quietly step past it. Asking for fewer is always allowed.
+ */
+export const MAX_HEATMAP_LIMIT = DEFAULT_HEATMAP_LIMIT;
+/** A grid of one-venue assets would be a column of single cells. */
+export const HEATMAP_MIN_VENUES = 2;
+
+export interface HeatmapParams {
+  tf: HeatmapTimeframe;
+  limit: number;
+  offset: number;
+}
+
+export function parseHeatmapParams(params: URLSearchParams): HeatmapParams {
+  const tf = (params.get("tf") ?? "").trim().toLowerCase();
+  const limit = Number.parseInt(params.get("limit") ?? "", 10);
+  const offset = Number.parseInt(params.get("offset") ?? "", 10);
+  return {
+    // Exact match against the allowlist. The timeframe selects which column is read, so it is
+    // never interpolated from what arrived in the query string.
+    tf: (HEATMAP_TIMEFRAMES as readonly string[]).includes(tf) ? (tf as HeatmapTimeframe) : "now",
+    limit: Number.isFinite(limit)
+      ? Math.min(Math.max(limit, 1), MAX_HEATMAP_LIMIT)
+      : DEFAULT_HEATMAP_LIMIT,
+    offset: Number.isFinite(offset) ? Math.max(offset, 0) : 0,
+  };
+}
+
+/** Canonical query string, so timeframe and paging links round-trip and stay cache-keyed. */
+export function heatmapToQuery(params: HeatmapParams): string {
+  const query = new URLSearchParams();
+  if (params.tf !== "now") query.set("tf", params.tf);
+  if (params.limit !== DEFAULT_HEATMAP_LIMIT) query.set("limit", String(params.limit));
+  if (params.offset !== 0) query.set("offset", String(params.offset));
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : "";
+}
+
 export const DEFAULT_BACKTEST_DAYS = 30;
 /** Backfilled history reaches 90 days, so asking for more would quietly return less. */
 export const MAX_BACKTEST_DAYS = 90;

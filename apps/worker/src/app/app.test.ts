@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { bestPair } from "../web/pages";
+import { bestPair, pivot } from "../web/pages";
 import { handleApp } from "./app";
-import type { DataSource, MarketRow, Overview, ScreenerFilters, ScreenerPair } from "./data";
+import type {
+  DataSource,
+  HeatmapCell,
+  MarketRow,
+  Overview,
+  ScreenerFilters,
+  ScreenerPair,
+} from "./data";
 import { DEFAULT_FILTERS } from "./params";
 
 const NOW = Date.parse("2026-09-12T12:00:00Z");
@@ -78,6 +85,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
       },
     ],
     exchange: async (venueId) => (venueId === "okx" ? [market({})] : []),
+    heatmap: async () => [],
     leverageTiers: async () => [],
     settlements: async () => [],
     ...overrides,
@@ -376,6 +384,48 @@ describe("api", () => {
   test("robots.txt blocks crawlers before launch", async () => {
     const res = await get("/robots.txt", fakeData().data);
     expect(await res.text()).toBe("User-agent: *\nDisallow: /\n");
+  });
+});
+
+describe("pivot", () => {
+  const cell = (
+    base: string,
+    venue_id: string,
+    apr: number,
+    openInterest: number | null,
+    assetOi: number,
+  ): HeatmapCell => ({
+    base,
+    venue_id,
+    venue_symbol: `${base}-${venue_id}`,
+    apr,
+    apr_7d: null,
+    apr_30d: null,
+    apr_60d: null,
+    open_interest_usd: openInterest,
+    asset_oi_usd: assetOi,
+  });
+
+  test("groups by asset, keeps the query's row order, and orders columns by depth", () => {
+    const { rows, venueIds } = pivot([
+      cell("BTC", "gate", 10, 5_000, 9_000),
+      cell("BTC", "bybit", -2, 4_000, 9_000),
+      cell("ETH", "bybit", 3, 8_000, 8_000),
+    ]);
+
+    // The query already ranks assets by depth, so the pivot must not re-order them.
+    expect(rows.map((r) => r.base)).toEqual(["BTC", "ETH"]);
+    expect(rows[0]?.assetOiUsd).toBe(9_000);
+    // bybit totals 12,000 across the grid against gate's 5,000, so it takes the first column.
+    expect(venueIds).toEqual(["bybit", "gate"]);
+    expect(rows[0]?.byVenue.get("gate")?.apr).toBe(10);
+  });
+
+  test("a combination that does not exist stays absent rather than becoming zero", () => {
+    const { rows } = pivot([cell("BTC", "gate", 10, 1, 1), cell("ETH", "bybit", 3, 1, 1)]);
+    // ~62% of the grid is empty, so "no market here" must never be readable as "0% funding".
+    expect(rows[0]?.byVenue.has("bybit")).toBe(false);
+    expect(rows[0]?.byVenue.get("bybit")).toBeUndefined();
   });
 });
 

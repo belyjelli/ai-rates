@@ -43,6 +43,28 @@ export interface Overview {
   updated_at: Date | null;
 }
 
+export interface HeatmapOptions {
+  /** Assets per page. The grid is rendered as HTML strings under a 10ms CPU budget, so it pages. */
+  limit: number;
+  offset: number;
+  /** An asset on a single venue has no cross-venue story, so the grid needs at least this many. */
+  minVenues: number;
+}
+
+/** One asset-on-one-venue cell. Absent combinations simply have no row; they are never zero. */
+export interface HeatmapCell {
+  base: string;
+  venue_id: string;
+  venue_symbol: string;
+  apr: number;
+  apr_7d: number | null;
+  apr_30d: number | null;
+  apr_60d: number | null;
+  open_interest_usd: number | null;
+  /** Summed open interest for the whole asset, carried so row order survives the pivot. */
+  asset_oi_usd: number | null;
+}
+
 export interface MarketRow {
   venue_id: string;
   venue_symbol: string;
@@ -99,6 +121,8 @@ export interface DataSource {
   asset(base: string): Promise<MarketRow[]>;
   exchanges(): Promise<ExchangeSummary[]>;
   exchange(venueId: string): Promise<MarketRow[]>;
+  /** Every venue's funding for the top assets by open interest, one row per populated cell. */
+  heatmap(options: HeatmapOptions): Promise<HeatmapCell[]>;
   /** Risk-limit ladders for the given markets, ascending by tier; empty where a venue publishes none. */
   leverageTiers(markets: readonly MarketKey[]): Promise<LeverageTierRow[]>;
   /** Settled funding for the given markets within a window, oldest first, ties broken by market. */
@@ -173,6 +197,32 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         JOIN market_latest m ON m.venue_id = v.id AND m.observed_at > now() - ${FRESH_INTERVAL}::interval
         GROUP BY v.id, v.name, v.type
         ORDER BY open_interest_usd DESC`;
+      return [...rows];
+    },
+
+    async heatmap({ limit, offset, minVenues }) {
+      // Rank assets by depth first, then fetch every cell for just that page of assets. The order
+      // is total (depth, then base, then venue) because LIMIT/OFFSET over a partial order silently
+      // drops and repeats rows between pages -- the same trap as the settled_at tie below.
+      const rows = await connect()<HeatmapCell[]>`
+        WITH ranked AS (
+          SELECT base, sum(open_interest_usd) AS asset_oi_usd
+          FROM market_latest
+          WHERE observed_at > now() - ${FRESH_INTERVAL}::interval
+          GROUP BY base
+          HAVING count(DISTINCT venue_id) >= ${minVenues}
+          ORDER BY sum(open_interest_usd) DESC NULLS LAST, base
+          LIMIT ${limit} OFFSET ${offset}
+        )
+        SELECT m.base, m.venue_id, m.venue_symbol, m.apr,
+               s.apr_7d, s.apr_30d, s.apr_60d,
+               m.open_interest_usd, r.asset_oi_usd
+        FROM ranked r
+        JOIN market_latest m ON m.base = r.base
+        LEFT JOIN market_funding_stats s
+          ON s.venue_id = m.venue_id AND s.venue_symbol = m.venue_symbol
+        WHERE m.observed_at > now() - ${FRESH_INTERVAL}::interval
+        ORDER BY r.asset_oi_usd DESC NULLS LAST, m.base, m.venue_id`;
       return [...rows];
     },
 
