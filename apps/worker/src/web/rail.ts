@@ -17,6 +17,11 @@ export interface RailMark {
   apr: number;
   tone: "long" | "short" | "venue";
   label: string;
+  /**
+   * What the live refresh follows this mark by, so it slides rather than jumps. Defaults to the
+   * label; a leg passes its role instead, so the long mark still slides when the leg changes venue.
+   */
+  key?: string;
 }
 
 const LOG_KNEE = 10;
@@ -81,7 +86,7 @@ export function renderRail(options: {
   }
   for (const mark of marks) {
     const { pct, clipped } = railPosition(mark.apr, scale);
-    html += `<i class="rail-mark ${mark.tone}${clipped ? " clipped" : ""}" style="left:${pct.toFixed(2)}%" title="${esc(`${mark.label} ${formatApr(mark.apr)}`)}"></i>`;
+    html += `<i class="rail-mark ${mark.tone}${clipped ? " clipped" : ""}" style="left:${pct.toFixed(2)}%" data-m="${esc(mark.key ?? mark.label)}" title="${esc(`${mark.label} ${formatApr(mark.apr)}`)}"></i>`;
   }
   return `${html}</span>`;
 }

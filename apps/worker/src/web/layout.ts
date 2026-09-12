@@ -1,5 +1,6 @@
 import type { Overview } from "../app/data";
 import { esc, since } from "./format";
+import { LIVE_SCRIPT } from "./live";
 
 const NAV = [
   { href: "/", label: "spreads", match: (p: string) => p === "/" },
@@ -47,6 +48,7 @@ a:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .mast nav a[aria-current=page]{background:var(--ink);color:var(--bg)}
 .mast nav a:hover{color:var(--accent)}
 .status{margin-left:auto;color:var(--muted)}
+.status.stale{color:var(--warn)}
 .clock{color:var(--ink)}
 .keys{margin-left:auto;display:flex;gap:12px;color:var(--dim)}
 .keys b{margin-right:5px;padding:0 4px;background:var(--dim);color:var(--bg);font-weight:700}
@@ -65,6 +67,8 @@ p{margin:0}
 .hero-spread{font:700 clamp(20px,4vw,36px)/1 var(--mono);color:var(--short)}
 .hero-spread span{display:block;color:var(--muted);font-size:12px;font-weight:400;text-align:right;margin-top:4px}
 .hero .rail-big{margin:18px 0 8px}
+/* On the asset page the table follows the rail directly, so leave room for the "0%" label to clear it. */
+.asset-rail .rail-big{margin:14px 0 30px}
 .legs{display:flex;justify-content:space-between;gap:4px 24px;flex-wrap:wrap;margin-bottom:10px}
 .legs .long b{color:var(--long)}.legs .short b{color:var(--short)}.legs .short{text-align:right}
 .rail{position:relative;display:block;height:14px;min-width:150px}
@@ -94,6 +98,11 @@ table.sheet{border-collapse:collapse;width:100%}
 .sheet th[aria-sort] a{color:var(--ink)}
 .sheet th[aria-sort] a::after{content:" ↓"}
 .sheet .rail-cell{width:20%;min-width:170px}
+/* A long sheet scrolls inside its own box so its header row can stick. Sticky against the page would
+   not work: overflow-x:auto already makes .sheet-wrap a scroll container, the same trap .heat-wrap
+   notes below. The inset shadow stands in for the border, which a collapsed table scrolls away. */
+.sheet-wrap.stick{overflow:auto;max-height:calc(100vh - 170px)}
+.sheet-wrap.stick th{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:0;box-shadow:inset 0 -1px 0 var(--rule)}
 /* The heatmap is a wide matrix, so it sizes to its content rather than the 100% table.sheet uses.
    It scrolls on both axes inside its own box: overflow-x alone would coerce overflow-y to auto and
    anchor the sticky header to that box while the page scrolled past it. */
@@ -162,6 +171,8 @@ input[type=checkbox]{accent-color:var(--accent)}
 .notes{margin-top:14px;color:var(--muted);max-width:100ch;line-height:1.5}
 footer{border-top:1px solid var(--rule);margin-top:24px;padding:8px 0 24px;color:var(--dim);line-height:1.6}
 footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+/* Reduced motion: a still outline in place of the live-refresh fade, cleared on the next refresh. */
+.chg{outline:1px solid var(--muted);outline-offset:-1px}.chg-up{outline-color:#00ff88}.chg-down{outline-color:#ff4757}
 @media (max-width:860px){.keys{display:none}.status{font-size:11px}.legs .short{text-align:left}}
 `;
 
@@ -197,9 +208,9 @@ export function layout(options: {
 <meta name="description" content="${esc(description)}">
 <style>${CSS}</style>
 </head>
-<body>
+<body data-rendered="${now}">
 <header class="mast">
-<div class="wrap bar"><a class="brand" href="/">airrates<small>funding carry sheet</small></a><span class="status">${status}</span><time class="clock" id="clock">--:--:-- UTC</time></div>
+<div class="wrap bar"><a class="brand" href="/">airrates<small>funding carry sheet</small></a><span class="status" data-live="status">${status}</span><time class="clock" id="clock">--:--:-- UTC</time></div>
 <div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><span class="keys">${keys}<span><b>/</b>filter</span></span></div>
 </header>
 <main class="wrap">${body}</main>
@@ -209,6 +220,7 @@ export function layout(options: {
 <p>Not financial advice. Not affiliated with any exchange.</p>
 </div></footer>
 <script>${SCRIPT}</script>
+<script>${LIVE_SCRIPT}</script>
 </body>
 </html>`;
 }
