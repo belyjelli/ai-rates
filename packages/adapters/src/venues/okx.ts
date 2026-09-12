@@ -3,6 +3,7 @@ import {
   type FundingSnapshot,
   inferIntervalHours,
   type LeverageTier,
+  type Liquidation,
 } from "@ai-rates/core";
 import { CircuitOpenError } from "../http";
 import { hoursBetween, marketRef, mul, num } from "../parse";
@@ -14,6 +15,16 @@ const HISTORY_PAGE = 100;
 const MAX_PAGES = 50;
 /** OKX rejects more than this per call: "Parameter instFamily count exceeds the limit 5". */
 const POSITION_TIERS_PER_CALL = 5;
+/**
+ * Families visited per liquidations run. 479 families at 40 a run, every five minutes, revisits
+ * each about hourly -- well inside the ~21.8-hour page each family answers with.
+ */
+const LIQUIDATION_FAMILIES_PER_RUN = 40;
+const LIQUIDATION_PAGE = 100;
+const LIQUIDATION_RETRIES = 2;
+const LIQUIDATION_BACKOFF_MS = 400;
+/** Where the next rotation resumes. Module state: a restart simply starts the cycle again. */
+let liquidationCursor = 0;
 const POSITION_TIERS_RETRIES = 2;
 const POSITION_TIERS_BACKOFF_MS = 400;
 
@@ -92,6 +103,72 @@ function unwrap<T>(json: OkxEnvelope<T>, what: string): T[] {
 
 function byInstId<T extends { instId: string }>(rows: readonly T[]): Map<string, T> {
   return new Map(rows.map((row) => [row.instId, row]));
+}
+
+export interface OkxLiquidationDetail {
+  /** The side of the POSITION that was closed. OKX states it directly, unlike Gate. */
+  posSide: "long" | "short" | string;
+  /** The closing order's side; "sell" closes a long. Not used -- posSide is authoritative. */
+  side: string;
+  /** Size in CONTRACTS, as everywhere else in this API. */
+  sz: string;
+  /** Bankruptcy price: the price the forced close filled at. */
+  bkPx: string;
+  bkLoss: string;
+  ccy: string;
+  /** Epoch MILLISECONDS -- unlike Gate's seconds. */
+  ts: string;
+  time: number;
+}
+
+export interface OkxLiquidationRow {
+  instId: string;
+  instType: string;
+  instFamily?: string;
+  details: OkxLiquidationDetail[];
+}
+
+/**
+ * OKX's forced closes, normalised.
+ *
+ * Three differences from Gate, each of which would be a bug if carried across:
+ *   - `posSide` names the liquidated position outright, so there is no sign to interpret.
+ *   - `ts` is already epoch MILLISECONDS; multiplying by 1000 would place every record in the year
+ *     58,000 and silently drop it from every window the study asks for.
+ *   - `sz` is contracts, converted with the instrument's own `ctVal` -- and for inverse swaps
+ *     (`ctValCcy === "USD"`) the contract is already dollars, so the mark must NOT be applied.
+ *     Inverse families do produce liquidations (ETH-USD returns records), so that branch is live.
+ */
+export function parseOkxLiquidations(
+  rows: readonly OkxLiquidationRow[],
+  instrumentById: ReadonlyMap<string, OkxInstrument>,
+  markById: ReadonlyMap<string, OkxMarkPrice>,
+): Liquidation[] {
+  const out: Liquidation[] = [];
+  for (const row of rows) {
+    const instrument = instrumentById.get(row.instId);
+    const contractUsd = instrument ? contractNotionalUsd(instrument, markById) : null;
+
+    for (const detail of row.details ?? []) {
+      const size = num(detail.sz);
+      const fillPrice = num(detail.bkPx);
+      const at = num(detail.ts);
+      if (size === null || size <= 0 || fillPrice === null || fillPrice <= 0) continue;
+      if (at === null || at <= 0) continue;
+      if (detail.posSide !== "long" && detail.posSide !== "short") continue;
+
+      out.push({
+        ...marketRef(VENUE_ID, row.instId),
+        liquidatedAt: at,
+        side: detail.posSide,
+        sizeContracts: size,
+        fillPrice,
+        // contractUsd already folds in ctVal, ctMult and the inverse/linear distinction.
+        notionalUsd: contractUsd === null ? null : size * contractUsd,
+      });
+    }
+  }
+  return out;
 }
 
 export function parseOkxSnapshots(
@@ -357,6 +434,85 @@ export const okxAdapter: VenueAdapter = {
       tiers: parseOkxPositionTiers(instruments, { code: "0", data: rows }, markPrices),
       complete,
     };
+  },
+
+  /**
+   * Forced closes, as a ROTATION rather than a full sweep.
+   *
+   * OKX answers per `instFamily` and every one of its 479 perps is its own family, so a whole-venue
+   * pass costs 479 calls -- against Gate's one. What makes a rotation safe rather than lossy is the
+   * page depth: measured 2026-09-13, a 100-record page on BTC-USDT spans **21.8 hours** at 0.03
+   * records/min, with the newest record ~92 minutes old. A slice of 40 families every five minutes
+   * therefore revisits each family about hourly and still reads far inside its own page.
+   *
+   * Worth collecting despite the cost: a sampled census of 29 families found 8 active with 252
+   * records, which extrapolates to ~132 active families and ~4,200 records per full rotation.
+   *
+   * The cursor lives in module state so successive calls continue where the last stopped; a restart
+   * simply begins again at zero, which costs nothing because the pages are so deep.
+   */
+  async fetchLiquidations(client) {
+    const [instruments, markPrices] = await Promise.all([
+      client.getJson<OkxEnvelope<OkxInstrument>>(
+        `${BASE_URL}/api/v5/public/instruments?instType=SWAP`,
+      ),
+      client.getJson<OkxEnvelope<OkxMarkPrice>>(
+        `${BASE_URL}/api/v5/public/mark-price?instType=SWAP`,
+      ),
+    ]);
+
+    const perps = unwrap(instruments, "instruments").filter(
+      (instrument) => PERP_INST_ID.test(instrument.instId) && instrument.instFamily,
+    );
+    const instrumentById = byInstId(perps);
+    const markById = byInstId(unwrap(markPrices, "mark price"));
+    const families = [...new Set(perps.map((instrument) => instrument.instFamily))];
+    if (families.length === 0) return { liquidations: [], complete: true };
+
+    const rows: OkxLiquidationRow[] = [];
+    let complete = true;
+    const start = liquidationCursor % families.length;
+
+    // Clamped, so a book smaller than the budget is not re-read on a loop. In production 479
+    // families makes this a no-op; without it a 5-family venue would fetch each page eight times
+    // in one run, burning a rate-limited venue's budget on pages it already has.
+    const visits = Math.min(LIQUIDATION_FAMILIES_PER_RUN, families.length);
+    for (let i = 0; i < visits; i++) {
+      const family = families[(start + i) % families.length] as string;
+      let fetched: OkxLiquidationRow[] | null = null;
+
+      // As with position tiers: a rate limit arrives as code 50011 inside an HTTP 200, so the
+      // transport's retry never sees it and the adapter backs off itself.
+      for (let attempt = 0; fetched === null && attempt <= LIQUIDATION_RETRIES; attempt++) {
+        try {
+          fetched = unwrap(
+            await client.getJson<OkxEnvelope<OkxLiquidationRow>>(
+              `${BASE_URL}/api/v5/public/liquidation-orders?instType=SWAP&state=filled&limit=${LIQUIDATION_PAGE}&instFamily=${encodeURIComponent(family)}`,
+            ),
+            "liquidations",
+          );
+        } catch (error) {
+          if (error instanceof CircuitOpenError) {
+            // The venue is down; the rest of the rotation would fail too. Nothing is pruned, so
+            // this is lost coverage rather than lost data -- but it is still reported.
+            liquidationCursor = (start + i) % families.length;
+            return {
+              liquidations: parseOkxLiquidations(rows, instrumentById, markById),
+              complete: false,
+            };
+          }
+          if (attempt < LIQUIDATION_RETRIES) {
+            await new Promise((resolve) => setTimeout(resolve, LIQUIDATION_BACKOFF_MS << attempt));
+          }
+        }
+      }
+
+      if (fetched === null) complete = false;
+      else rows.push(...fetched);
+    }
+
+    liquidationCursor = (start + visits) % families.length;
+    return { liquidations: parseOkxLiquidations(rows, instrumentById, markById), complete };
   },
 
   async fetchFundingHistory(client, venueSymbol, fromMs, toMs) {
