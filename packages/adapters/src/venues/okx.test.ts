@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { HttpClient } from "../http";
-import { okxAdapter, parseOkxFundingHistory, parseOkxSnapshots } from "./okx";
+import {
+  okxAdapter,
+  parseOkxFundingHistory,
+  parseOkxPositionTiers,
+  parseOkxSnapshots,
+} from "./okx";
 
 const fixture = (name: string) =>
   Bun.file(new URL(`../../__fixtures__/okx/${name}.json`, import.meta.url)).json();
@@ -75,6 +80,60 @@ describe("parseOkxSnapshots", () => {
     expect(() =>
       parseOkxSnapshots({ code: "50011", msg: "rate limited", data: [] }, ok, ok, ok, NOW),
     ).toThrow("50011");
+  });
+});
+
+describe("parseOkxPositionTiers", () => {
+  const ladders = async () =>
+    parseOkxPositionTiers(
+      await fixture("instruments"),
+      await fixture("position-tiers"),
+      await fixture("mark-price"),
+    );
+
+  // BTC-USDT-SWAP is 0.01 BTC a contract, marked at 77,760.9 in the fixture.
+  const btcContractUsd = 0.01 * 1 * 77760.9;
+
+  test("converts contract bounds to USD using the contract value", async () => {
+    const btc = (await ladders()).filter((t) => t.venueSymbol === "BTC-USDT-SWAP");
+    expect(btc).toHaveLength(99);
+
+    const first = btc[0];
+    expect(first?.lowerNotionalUsd).toBe(0);
+    expect(first?.upperNotionalUsd).toBe(1000.01 * btcContractUsd);
+    expect(first?.imr).toBe(0.01);
+    expect(first?.mmr).toBe(0.004);
+    expect(first?.maxLeverage).toBe(100);
+
+    // The whole point of this slice: tier 1 ends near $780k. Reading OKX's maxSz of 1000 as
+    // dollars would have put the first leverage step at $1,000, off by the contract value.
+    expect(first?.upperNotionalUsd).toBeGreaterThan(770_000);
+    expect(first?.upperNotionalUsd).toBeLessThan(790_000);
+
+    // Bands are contiguous. OKX publishes inclusive [0,1000] then [1000.01,5000]; carrying that
+    // gap through would leave a ~$7.78 hole that resolves to no tier at all.
+    expect(btc[1]?.lowerNotionalUsd).toBe(1000.01 * btcContractUsd);
+    expect(btc[1]?.upperNotionalUsd).toBe(5000.01 * btcContractUsd);
+
+    // The top band keeps OKX's own maxSz, which is a real cap on position size, as on Bybit.
+    expect(btc.at(-1)?.upperNotionalUsd).toBe(1_940_000 * btcContractUsd);
+  });
+
+  test("inverse contracts are already priced in USD, so the mark is not applied", async () => {
+    const inverse = (await ladders()).filter((t) => t.venueSymbol === "BTC-USD-SWAP");
+    expect(inverse).toHaveLength(99);
+    // ctVal is 100 USD a contract, so tier 1 ends at 2000.1 contracts = $200,010. Multiplying by
+    // the ~$77.7k mark, as a linear market needs, would overstate the band ~77,000-fold.
+    expect(inverse[0]?.upperNotionalUsd).toBe(2000.1 * 100);
+    expect(inverse[0]?.maxLeverage).toBe(100);
+  });
+
+  test("a linear ladder with no mark price is dropped rather than converted against nothing", async () => {
+    // DOGE-USDT-SWAP has both tiers and an instrument in the fixtures, but no mark price.
+    const all = await ladders();
+    expect(new Set(all.map((t) => t.venueSymbol))).toEqual(
+      new Set(["BTC-USDT-SWAP", "BTC-USD-SWAP"]),
+    );
   });
 });
 
