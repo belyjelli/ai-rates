@@ -57,29 +57,48 @@ export function renderProbePage(
 <meta name="robots" content="noindex">
 <title>ai-rates · venue geo-probe</title>
 <style>
-  :root { color-scheme: dark; --bg:#0b0d10; --panel:#12161b; --line:#232a33; --text:#d8dee6; --dim:#7b8794; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
-  header { padding:20px 24px 12px; display:flex; gap:16px; align-items:baseline; flex-wrap:wrap; }
-  h1 { font-size:16px; margin:0; font-weight:600; }
-  p { margin:0; color:var(--dim); }
-  button { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 10px; font:inherit; cursor:pointer; }
-  .wrap { overflow-x:auto; padding:0 24px 24px; }
-  table { border-collapse:collapse; min-width:100%; }
-  th, td { border-bottom:1px solid var(--line); padding:6px 10px; text-align:left; white-space:nowrap; }
-  th { position:sticky; top:0; background:var(--bg); font-weight:600; vertical-align:bottom; }
-  .sub { color:var(--dim); font-weight:400; font-size:11px; }
-  .type { display:inline-block; width:38px; color:var(--dim); text-transform:uppercase; font-size:10px; }
-  .unverified { color:#d7a54a; }
+  /* Same terminal as the public pages: black ground, one monospace stack, no radius, tight rows.
+     Verdicts borrow the site tokens rather than a palette of their own, so green reads healthy
+     here exactly as it does everywhere else. */
+  :root { color-scheme: dark;
+    --bg:#000; --band:#0e0e0e; --ink:#d8d8d8; --muted:#7a7a7a; --dim:#494949; --rule:#242424;
+    --long:#5f87ff; --short:#ff5f5f; --accent:#c8f5a8; --warn:#e5e500;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace; }
+  * { box-sizing:border-box; border-radius:0; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:12px/1.35 var(--mono);
+    font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased; }
+  header { padding:12px 10px 10px; display:flex; gap:0 16px; align-items:baseline; flex-wrap:wrap; }
+  h1 { font:700 15px/1.2 var(--mono); text-transform:uppercase; letter-spacing:.04em; margin:0; }
+  p { margin:0; color:var(--muted); max-width:96ch; }
+  button { font:700 12px var(--mono); text-transform:uppercase; letter-spacing:.04em;
+    color:var(--bg); background:var(--ink); border:1px solid var(--ink); padding:2px 10px; cursor:pointer; }
+  button:hover { background:var(--accent); border-color:var(--accent); }
+  :focus-visible { outline:1px solid var(--accent); outline-offset:1px; }
+  .wrap { overflow:auto; max-height:calc(100vh - 110px); margin:0 10px 24px; border:1px solid var(--rule); }
+  table { border-collapse:collapse; width:auto; min-width:100%; }
+  th, td { padding:2px 8px; text-align:left; white-space:nowrap; }
+  th { position:sticky; top:0; z-index:2; background:var(--bg); font-weight:400;
+    text-transform:lowercase; letter-spacing:0; color:var(--muted);
+    border-bottom:1px solid var(--rule); vertical-align:bottom; }
+  td.venue, th:first-child { position:sticky; left:0; z-index:3; background:var(--bg); }
+  thead th:first-child { z-index:4; }
+  tbody tr:nth-child(4n+3), tbody tr:nth-child(4n+4) { background:var(--band); }
+  tbody tr:nth-child(4n+3) td.venue, tbody tr:nth-child(4n+4) td.venue { background:var(--band); }
+  tbody tr:hover td, tbody tr:hover td.venue { background:#161616; }
+  th > div:first-child { color:var(--ink); }
+  .sub { color:var(--dim); }
+  #msg { color:var(--muted); }
+  .type { display:inline-block; width:38px; color:var(--dim); text-transform:uppercase; }
+  .unverified { color:var(--warn); }
   .cell { cursor:help; }
-  .n { color:var(--dim); font-size:11px; }
-  .v-ok { color:#4cc38a; }
-  .v-geo_blocked { color:#ff6369; font-weight:600; }
-  .v-waf_challenge { color:#ff9f43; font-weight:600; }
-  .v-rate_limited { color:#f5d90a; }
-  .v-timeout, .v-network_error { color:#a8b3bf; }
-  .v-http_error, .v-not_found, .v-bad_body { color:#b69cff; }
-  .v-unconfigured, .none { color:#4a5563; }
+  .n { color:var(--dim); }
+  .v-ok { color:var(--accent); }
+  .v-geo_blocked { color:var(--short); font-weight:700; }
+  .v-waf_challenge { color:var(--warn); font-weight:700; }
+  .v-rate_limited { color:var(--warn); }
+  .v-timeout, .v-network_error { color:var(--muted); }
+  .v-http_error, .v-not_found, .v-bad_body { color:var(--long); }
+  .v-unconfigured, .none { color:var(--dim); }
 </style>
 </head>
 <body>
