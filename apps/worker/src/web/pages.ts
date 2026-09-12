@@ -82,7 +82,7 @@ function verifiedTable(verified: VerifiedPair[]): string {
   const rows = verified
     .map((v) => {
       const href = `${pairHref(v.asset)}?long=${encodeURIComponent(v.long_venue_id)}&short=${encodeURIComponent(v.short_venue_id)}`;
-      return `<tr>
+      return `<tr data-k="${esc(`${v.asset}|${v.long_venue_id}|${v.short_venue_id}`)}">
 <td class="asset"><a href="${href}">${esc(v.asset)}</a></td>
 <td class="num ${v.net_funding_usd >= 0 ? "longs-paid" : "shorts-paid"}">${money(v.net_funding_usd)}</td>
 <td class="num">${formatApr(v.net_funding_apr_percent)}</td>
@@ -98,7 +98,7 @@ function verifiedTable(verified: VerifiedPair[]): string {
 
   return `<div class="sheet-wrap"><table class="sheet">
 <thead><tr><th>Asset</th><th class="num" title="Funding both legs actually settled over the last 7 days, per $10,000 of notional on each leg">7d settled</th><th class="num">Annualized</th><th>Long leg</th><th>Short leg</th><th class="num" title="Days the pair was net positive, as a share of days that settled at all">Win rate</th><th class="num">Thinner leg OI</th><th class="num">Worst leg APR</th><th class="num" title="How often the weaker leg held its funding direction over 30 days">Stability</th></tr></thead>
-<tbody>${rows}</tbody>
+<tbody data-live="verified">${rows}</tbody>
 </table></div>`;
 }
 
@@ -111,7 +111,7 @@ export function home(data: {
   const [top] = data.pairs;
   const hero = top
     ? heroPair(top)
-    : `<section class="hero"><p class="eyebrow">Widest funding spread right now</p><p class="lede">No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.</p></section>`;
+    : `<section class="hero" data-live="hero"><p class="eyebrow">Widest funding spread right now</p><p class="lede">No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.</p></section>`;
   const runDay = data.verified[0]?.run_day;
 
   return layout({
@@ -137,24 +137,24 @@ ${verifiedTable(data.verified)}
 function heroPair(p: ScreenerPair): string {
   const long = venueName(p.long_venue_id);
   const short = venueName(p.short_venue_id);
-  return `<section class="hero">
+  return `<section class="hero" data-live="hero">
 <p class="eyebrow">Widest funding spread right now</p>
 <div class="hero-head">
 <a class="hero-asset" href="${assetHref(p.asset)}">${esc(p.asset)}</a>
-<p class="hero-spread">${formatApr(p.spread_apr)}<span>funding spread, per year</span></p>
+<p class="hero-spread"><b data-u="spread">${formatApr(p.spread_apr)}</b><span>funding spread, per year</span></p>
 </div>
 ${renderRail({
   scale: railScale([p.long_apr, p.short_apr]),
   marks: [
-    { apr: p.long_apr, tone: "long", label: `Long on ${long}` },
-    { apr: p.short_apr, tone: "short", label: `Short on ${short}` },
+    { apr: p.long_apr, tone: "long", label: `Long on ${long}`, key: "long" },
+    { apr: p.short_apr, tone: "short", label: `Short on ${short}`, key: "short" },
   ],
   bar: [p.long_apr, p.short_apr],
   size: "big",
 })}
 <div class="legs">
-<p class="long"><b>Long on <a href="${exchangeHref(p.long_venue_id)}">${esc(long)}</a></b> ${esc(p.long_symbol)} at ${formatApr(p.long_apr)}</p>
-<p class="short"><b>Short on <a href="${exchangeHref(p.short_venue_id)}">${esc(short)}</a></b> ${esc(p.short_symbol)} at ${formatApr(p.short_apr)}</p>
+<p class="long" data-u="long"><b>Long on <a href="${exchangeHref(p.long_venue_id)}">${esc(long)}</a></b> ${esc(p.long_symbol)} at <span data-u="long-apr">${formatApr(p.long_apr)}</span></p>
+<p class="short" data-u="short"><b>Short on <a href="${exchangeHref(p.short_venue_id)}">${esc(short)}</a></b> ${esc(p.short_symbol)} at <span data-u="short-apr">${formatApr(p.short_apr)}</span></p>
 </div>
 <p class="lede">Holding equal size on both legs cancels the price exposure; the gap between the two funding rates is what the pair collects over a year, before trading fees and before either rate moves.</p>
 </section>`;
@@ -300,18 +300,28 @@ function pairsTable(
     interval: number | null,
     oi: number | null,
   ) =>
-    `<td><div class="leg ${side}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)} · ${formatInterval(interval)} · OI ${formatUsd(oi)}</span></div></td>`;
+    `<td><div class="leg ${side}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)} · ${formatInterval(interval)} · OI <span data-u="${side}-oi">${formatUsd(oi)}</span></span></div></td>`;
 
   const rows = pairs
     .map(
-      (p) => `<tr>
+      (p) => `<tr data-k="${esc(p.asset)}">
 <td class="asset"><a href="${assetHref(p.asset)}">${esc(p.asset)}</a></td>
 <td class="num spread">${formatApr(p.spread_apr)}</td>
 <td class="rail-cell">${renderRail({
         scale,
         marks: [
-          { apr: p.long_apr, tone: "long", label: `Long on ${venueName(p.long_venue_id)}` },
-          { apr: p.short_apr, tone: "short", label: `Short on ${venueName(p.short_venue_id)}` },
+          {
+            apr: p.long_apr,
+            tone: "long",
+            label: `Long on ${venueName(p.long_venue_id)}`,
+            key: "long",
+          },
+          {
+            apr: p.short_apr,
+            tone: "short",
+            label: `Short on ${venueName(p.short_venue_id)}`,
+            key: "short",
+          },
         ],
         bar: [p.long_apr, p.short_apr],
       })}</td>
@@ -328,7 +338,7 @@ ${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short
 
   return `<div class="sheet-wrap"><table class="sheet">
 <thead><tr><th>Asset</th>${sortableTh("spread", "Widest funding gap between two exchanges", filters)}<th title="Signed log scale, so ordinary rates keep room next to extreme ones">Long − short, log scale</th><th>Long leg</th><th class="num">Long APR</th><th>Short leg</th><th class="num">Short APR</th>${sortableTh("settled_7d", "Same two markets, averaged over the settlements of the last 7 days", filters)}${sortableTh("venues", "Exchanges with a live market for this asset", filters)}${sortableTh("stability", "How often the weaker leg held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score", filters)}</tr></thead>
-<tbody>${rows}</tbody>
+<tbody data-live="pairs">${rows}</tbody>
 </table></div>`;
 }
 
@@ -341,7 +351,7 @@ export function exchanges(data: {
   const notCollected = VENUES.filter((v) => !live.has(v.id) && !v.aliasOf).map((v) => v.name);
   const rows = data.exchanges
     .map(
-      (e) => `<tr>
+      (e) => `<tr data-k="${esc(e.id)}">
 <td><a href="${exchangeHref(e.id)}">${esc(e.name)}</a></td>
 <td class="dim">${VENUE_TYPE_SHORT[e.type] ?? esc(e.type)}</td>
 <td class="num">${e.markets.toLocaleString("en-US")}</td>
@@ -364,7 +374,7 @@ export function exchanges(data: {
 ${
   data.exchanges.length === 0
     ? `<div class="sheet-wrap"><p class="empty">No exchange has reported in the last five minutes.</p></div>`
-    : `<div class="sheet-wrap"><table class="sheet"><thead><tr><th>Exchange</th><th>Type</th><th class="num">Live markets</th><th class="num">Open interest</th><th class="num">24h volume</th><th class="num">Updated</th></tr></thead><tbody>${rows}</tbody></table></div>`
+    : `<div class="sheet-wrap"><table class="sheet"><thead><tr><th>Exchange</th><th>Type</th><th class="num">Live markets</th><th class="num">Open interest</th><th class="num">24h volume</th><th class="num">Updated</th></tr></thead><tbody data-live="exchanges">${rows}</tbody></table></div>`
 }
 <p class="notes">Not collected yet: ${esc(notCollected.join(", "))}. Some block access from our data location or don't publish a usable funding API.</p>`,
   });
@@ -379,7 +389,7 @@ export function exchange(data: { venue: Venue; markets: MarketRow[]; now: number
   );
   const rows = markets
     .map(
-      (m) => `<tr>
+      (m) => `<tr data-k="${esc(m.venue_symbol)}">
 <td>${esc(m.venue_symbol)}</td>
 <td class="asset"><a href="${assetHref(m.base)}">${esc(m.base)}</a></td>
 <td class="num">${apr(m.apr)}</td>
@@ -404,8 +414,8 @@ export function exchange(data: { venue: Venue; markets: MarketRow[]; now: number
 ${
   markets.length === 0
     ? `<p class="lede">No live markets from ${esc(venue.name)}: it isn't collected yet, or its last update is more than five minutes old.</p>`
-    : `<div class="facts"><span><b>${markets.length.toLocaleString("en-US")}</b> live markets</span><span><b>${formatUsd(oi)}</b> open interest</span><span>updated <b>${since(markets[0]?.observed_at ?? null, now)}</b></span></div>
-<div class="sheet-wrap"><table class="sheet"><thead><tr><th>Market</th><th>Asset</th><th class="num">Funding APR</th><th title="Signed log scale, so ordinary rates keep room next to extreme ones">Rate, log scale</th><th class="num">7d settled</th><th class="num">Interval</th><th class="num">Next funding</th><th class="num">Mark price</th><th class="num">Open interest</th><th class="num">24h volume</th></tr></thead><tbody>${rows}</tbody></table></div>`
+    : `<div class="facts" data-live="facts"><span><b data-u="markets">${markets.length.toLocaleString("en-US")}</b> live markets</span><span><b data-u="oi">${formatUsd(oi)}</b> open interest</span><span>updated <b>${since(markets[0]?.observed_at ?? null, now)}</b></span></div>
+<div class="sheet-wrap stick"><table class="sheet"><thead><tr><th>Market</th><th>Asset</th><th class="num">Funding APR</th><th title="Signed log scale, so ordinary rates keep room next to extreme ones">Rate, log scale</th><th class="num">7d settled</th><th class="num">Interval</th><th class="num">Next funding</th><th class="num">Mark price</th><th class="num">Open interest</th><th class="num">24h volume</th></tr></thead><tbody data-live="markets">${rows}</tbody></table></div>`
 }`,
   });
 }
@@ -549,21 +559,23 @@ export function heatmap(data: {
             })()
           : `<span class="dim">–</span>`;
 
+      // Each cell names its venue, so a refresh that reorders the columns still compares like with like.
       const grid = values
-        .map((value) =>
+        .map((value, i) => {
+          const column = esc(venueIds[i] as string);
           // An absent market is a dim dash with no colour: ~62% of the grid is empty, and a tinted
           // zero would read as "funding is flat here" instead of "there is nothing here".
-          value === null
-            ? `<td class="none">–</td>`
-            : `<td class="${heatBucket(value, scale)}">${formatApr(value)}</td>`,
-        )
+          return value === null
+            ? `<td class="none" data-c="${column}">–</td>`
+            : `<td class="${heatBucket(value, scale)}" data-c="${column}">${formatApr(value)}</td>`;
+        })
         .join("");
 
-      return `<tr><td class="asset"><a href="${assetHref(row.base)}">${esc(row.base)}</a></td><td class="dim">${formatUsd(row.assetOiUsd)}</td><td>${spread}</td>${grid}</tr>`;
+      return `<tr data-k="${esc(row.base)}"><td class="asset"><a href="${assetHref(row.base)}">${esc(row.base)}</a></td><td class="dim">${formatUsd(row.assetOiUsd)}</td><td>${spread}</td>${grid}</tr>`;
     })
     .join("");
 
-  const pager = `<div class="pager">${link(
+  const pager = `<div class="pager" data-live="pager">${link(
     { offset: Math.max(0, params.offset - params.limit) },
     "← previous",
     params.offset > 0,
@@ -576,7 +588,7 @@ export function heatmap(data: {
   const grid =
     rows.length === 0
       ? `<div class="sheet-wrap"><p class="empty">No asset has live markets on two or more venues right now.</p></div>`
-      : `<div class="heat-wrap"><table class="heat"><thead>${header}</thead><tbody>${body}</tbody></table></div>${pager}`;
+      : `<div class="heat-wrap"><table class="heat"><thead data-live="rates-head">${header}</thead><tbody data-live="rates">${body}</tbody></table></div>${pager}`;
 
   return layout({
     title: "Rates",
@@ -609,7 +621,7 @@ export function asset(data: { asset: string; markets: MarketRow[]; now: number }
   }));
   const rows = markets
     .map(
-      (m) => `<tr>
+      (m) => `<tr data-k="${esc(`${m.venue_id}|${m.venue_symbol}`)}">
 <td><div class="leg${m === pair?.long ? " long-leg" : m === pair?.short ? " short-leg" : ""}"><a class="venue" href="${exchangeHref(m.venue_id)}">${esc(venueName(m.venue_id))}</a><span class="meta">${esc(m.venue_symbol)}</span></div></td>
 <td class="num">${apr(m.apr)}</td>
 <td class="num">${m.apr_24h === null ? '<span class="dim">–</span>' : apr(m.apr_24h)}</td>
@@ -626,7 +638,7 @@ export function asset(data: { asset: string; markets: MarketRow[]; now: number }
     .join("");
 
   const summary = pair
-    ? `Best pair: long on ${esc(venueName(pair.long.venue_id))} at ${formatApr(pair.long.apr)}, short on ${esc(venueName(pair.short.venue_id))} at ${formatApr(pair.short.apr)}, a ${formatApr(pair.short.apr - pair.long.apr)} spread per year. Only markets with at least ${formatUsd(minOi)} open interest are paired.`
+    ? `Best pair: long on ${esc(venueName(pair.long.venue_id))} at <span data-u="best-long">${formatApr(pair.long.apr)}</span>, short on ${esc(venueName(pair.short.venue_id))} at <span data-u="best-short">${formatApr(pair.short.apr)}</span>, a <span data-u="best-spread">${formatApr(pair.short.apr - pair.long.apr)}</span> spread per year. Only markets with at least ${formatUsd(minOi)} open interest are paired.`
     : venues < 2
       ? "Only one exchange lists it right now, so there's no cross-exchange pair."
       : `No two exchanges have at least ${formatUsd(minOi)} open interest in it, so there's no pair to show.`;
@@ -638,9 +650,9 @@ export function asset(data: { asset: string; markets: MarketRow[]; now: number }
     now,
     body: `<p class="eyebrow">Funding by exchange</p>
 <h1>${esc(data.asset)}</h1>
-<p class="lede">${markets.length} live markets on ${venues} exchanges. ${summary}${pair ? ` <a href="${pairHref(data.asset)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}">Backtest this pair</a>.` : ""}</p>
-${renderRail({ scale, marks, bar: pair ? [pair.long.apr, pair.short.apr] : undefined, size: "big" })}
-<div class="sheet-wrap"><table class="sheet"><thead><tr><th>Exchange</th><th class="num">Funding APR</th><th class="num">24h settled</th><th class="num">7d settled</th><th class="num" title="How often this market held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score">Stability</th><th class="num" title="Last 7 charging days against the days before them, in APR points. Up means funding is widening in the direction it already had">30d trend</th><th class="num">Interval</th><th class="num">Next funding</th><th class="num">Mark price</th><th class="num">Open interest</th><th class="num">24h volume</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+<p class="lede" data-live="asset-lede">${markets.length} live markets on ${venues} exchanges. ${summary}${pair ? ` <a href="${pairHref(data.asset)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}">Backtest this pair</a>.` : ""}</p>
+<div class="asset-rail" data-live="asset-rail">${renderRail({ scale, marks, bar: pair ? [pair.long.apr, pair.short.apr] : undefined, size: "big" })}</div>
+<div class="sheet-wrap"><table class="sheet"><thead><tr><th>Exchange</th><th class="num">Funding APR</th><th class="num">24h settled</th><th class="num">7d settled</th><th class="num" title="How often this market held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score">Stability</th><th class="num" title="Last 7 charging days against the days before them, in APR points. Up means funding is widening in the direction it already had">30d trend</th><th class="num">Interval</th><th class="num">Next funding</th><th class="num">Mark price</th><th class="num">Open interest</th><th class="num">24h volume</th></tr></thead><tbody data-live="asset-markets">${rows}</tbody></table></div>`,
   });
 }
 

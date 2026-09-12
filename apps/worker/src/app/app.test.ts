@@ -463,7 +463,7 @@ describe("pages", () => {
 
     const html = await (await get("/rates", data)).text();
     expect(html).toContain('<table class="heat">');
-    expect(html).toContain('<td class="none">–</td>');
+    expect(html).toContain('<td class="none" data-c="bybit">–</td>');
 
     // The row's own spread: cheapest to hold long (bybit at -4) against richest to hold short
     // (gate at +12), so 16 points apart. Swapping the legs would be invisible on the page.
