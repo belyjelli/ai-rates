@@ -114,7 +114,10 @@ table.heat{border-collapse:collapse;width:auto;min-width:100%}
 .heat td.hm-n1{background:rgba(95,135,255,.08)}.heat td.hm-n2{background:rgba(95,135,255,.16)}
 .heat td.hm-n3{background:rgba(95,135,255,.26)}.heat td.hm-n4{background:rgba(95,135,255,.38)}
 .heat td.hm-n5{background:rgba(95,135,255,.52)}
-.tf{display:flex;gap:12px;margin:0 0 8px;color:var(--muted)}
+.tf{display:flex;gap:2px;margin:0 0 8px;color:var(--muted)}
+.tf a{border:0;color:var(--muted);padding:0 6px}
+.tf a[aria-current]{background:var(--ink);color:var(--bg)}
+.tf a:hover{color:var(--accent)}
 .pager{display:flex;gap:16px;margin-top:10px;color:var(--muted)}
 .sheet .asset a{font-weight:700;border:0}
 .sheet .asset a:hover{color:var(--accent)}
