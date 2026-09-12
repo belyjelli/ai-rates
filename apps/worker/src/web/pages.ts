@@ -37,6 +37,30 @@ const assetHref = (asset: string) => `/markets/asset/${encodeURIComponent(asset)
 const exchangeHref = (venueId: string) => `/markets/exchange/${encodeURIComponent(venueId)}`;
 const apr = (value: number | null) => `<span class="${aprTone(value)}">${formatApr(value)}</span>`;
 
+/**
+ * Momentum in APR points: the last 7 charging days against the days before them. A plain signed
+ * figure rather than the signed-log the rails use, because the distribution is tight where it
+ * matters — 978 markets sit under 1 point and 2,217 between 1 and 10 — so compressing it would
+ * flatten exactly the near-zero distinctions a reader is looking for. The 217 markets beyond 100
+ * points are shown as they are.
+ *
+ * Deliberately uncoloured. `aprTone` means "who pays" everywhere else on the site, and a market
+ * fading from +200% to +150% has negative momentum while still paying shorts — tinting it blue
+ * would invert that meaning. An arrow carries direction instead.
+ */
+const momentum = (points: number | null): string => {
+  if (points === null) return '<span class="dim">–</span>';
+  const rounded = Math.round(points * 10) / 10;
+  if (rounded === 0) return '<span class="dim">flat</span>';
+  return `<span class="dim">${rounded > 0 ? "↑" : "↓"}</span> ${Math.abs(rounded).toFixed(1)}`;
+};
+
+/** A stability score with its evidence: the bare number invites reading 0.69 on 6 days as settled. */
+const stability = (score: number | null, days: number | null): string =>
+  score === null
+    ? '<span class="dim">–</span>'
+    : `<span title="${days ?? 0} charging days in the last 30">${score.toFixed(2)}</span>`;
+
 export function home(data: { overview: Overview; pairs: ScreenerPair[]; now: number }): string {
   const [top] = data.pairs;
   const hero = top
@@ -534,6 +558,8 @@ export function asset(data: { asset: string; markets: MarketRow[]; now: number }
 <td class="num">${apr(m.apr)}</td>
 <td class="num">${m.apr_24h === null ? '<span class="dim">–</span>' : apr(m.apr_24h)}</td>
 <td class="num">${m.apr_7d === null ? '<span class="dim">–</span>' : apr(m.apr_7d)}</td>
+<td class="num">${stability(m.stability_30d, m.stability_days)}</td>
+<td class="num">${momentum(m.momentum_30d)}</td>
 <td class="num">${formatInterval(m.interval_hours)}</td>
 <td class="num">${until(m.next_funding_at, now)}</td>
 <td class="num">${formatPrice(m.mark_price)}</td>
@@ -558,7 +584,7 @@ export function asset(data: { asset: string; markets: MarketRow[]; now: number }
 <h1>${esc(data.asset)}</h1>
 <p class="lede">${markets.length} live markets on ${venues} exchanges. ${summary}${pair ? ` <a href="${pairHref(data.asset)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}">Backtest this pair</a>.` : ""}</p>
 ${renderRail({ scale, marks, bar: pair ? [pair.long.apr, pair.short.apr] : undefined, size: "big" })}
-<div class="sheet-wrap"><table class="sheet"><thead><tr><th>Exchange</th><th class="num">Funding APR</th><th class="num">24h settled</th><th class="num">7d settled</th><th class="num">Interval</th><th class="num">Next funding</th><th class="num">Mark price</th><th class="num">Open interest</th><th class="num">24h volume</th></tr></thead><tbody>${rows}</tbody></table></div>`,
+<div class="sheet-wrap"><table class="sheet"><thead><tr><th>Exchange</th><th class="num">Funding APR</th><th class="num">24h settled</th><th class="num">7d settled</th><th class="num" title="How often this market held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score">Stability</th><th class="num" title="Last 7 charging days against the days before them, in APR points. Up means funding is widening in the direction it already had">30d trend</th><th class="num">Interval</th><th class="num">Next funding</th><th class="num">Mark price</th><th class="num">Open interest</th><th class="num">24h volume</th></tr></thead><tbody>${rows}</tbody></table></div>`,
   });
 }
 

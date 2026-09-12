@@ -105,6 +105,18 @@ export interface MarketRow {
   observed_at: Date;
   /** Headline max leverage, null where the venue doesn't publish one. Holds only at small size. */
   max_leverage: number | null;
+  /**
+   * How often this market held its funding direction over 30 days, 0.5 (a coin flip) to 0.878 (the
+   * most a full month can score). Null where it has no charging days at all.
+   */
+  stability_30d: number | null;
+  /** Charging days behind that score: 0.69 over 6 days is not 0.69 over 30. */
+  stability_days: number | null;
+  /**
+   * Last 7 days' mean APR minus the days before them, in APR points. Positive means funding is
+   * widening in the direction it already had. Null when either side of the split is empty.
+   */
+  momentum_30d: number | null;
 }
 
 export interface ExchangeSummary {
@@ -216,7 +228,9 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       const rows = await connect()<MarketRow[]>`
         SELECT m.venue_id, m.venue_symbol, m.base, m.quote, m.apr, s.apr_24h, s.apr_7d, m.interval_hours,
                m.next_funding_at, m.mark_price, m.open_interest_usd, m.volume_24h_usd, m.observed_at,
-               k.max_leverage
+               k.max_leverage,
+               -- Free: market_funding_stats is already joined for the settled windows.
+               s.stability_30d, s.stability_days, s.momentum_30d
         FROM market_latest m
         LEFT JOIN market_funding_stats s ON s.venue_id = m.venue_id AND s.venue_symbol = m.venue_symbol
         LEFT JOIN markets k ON k.venue_id = m.venue_id AND k.venue_symbol = m.venue_symbol
@@ -306,7 +320,12 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       const rows = await connect()<MarketRow[]>`
         SELECT m.venue_id, m.venue_symbol, m.base, m.quote, m.apr, s.apr_24h, s.apr_7d, m.interval_hours,
                m.next_funding_at, m.mark_price, m.open_interest_usd, m.volume_24h_usd, m.observed_at,
-               k.max_leverage
+               k.max_leverage,
+               -- Selected but not rendered here: the exchange table is already ten columns wide and
+               -- answers "what does this venue list", not "which venue holds its direction". They
+               -- are selected anyway because MarketRow declares them, and a query that returned
+               -- undefined for a field the type promises would typecheck while lying.
+               s.stability_30d, s.stability_days, s.momentum_30d
         FROM market_latest m
         LEFT JOIN market_funding_stats s ON s.venue_id = m.venue_id AND s.venue_symbol = m.venue_symbol
         LEFT JOIN markets k ON k.venue_id = m.venue_id AND k.venue_symbol = m.venue_symbol
