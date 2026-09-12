@@ -262,12 +262,19 @@ async function runBacktest(
         basisHours: r.basis_hours,
       })),
   });
+  // Both legs must carry a fee before costs mean anything: charging one leg and not the other
+  // would understate a round trip by half, which is worse than reporting nothing.
+  const fees =
+    params.longTakerBps !== null && params.shortTakerBps !== null
+      ? { longTakerBps: params.longTakerBps, shortTakerBps: params.shortTakerBps }
+      : undefined;
   return backtestPair({
     long: leg(long),
     short: leg(short),
     sizeUsd: params.sizeUsd,
     fromMs,
     toMs,
+    ...(fees ? { fees } : {}),
   });
 }
 
