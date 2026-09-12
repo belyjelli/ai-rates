@@ -27,7 +27,7 @@ const HOTKEY_TARGETS = JSON.stringify(Object.fromEntries(KEYS.map(([key, , href]
 // Long stays blue and short stays red as they always were, lifted to values legible on black.
 const CSS = `
 :root{--bg:#000;--band:#0e0e0e;--panel:#0a0a0a;--ink:#d8d8d8;--muted:#7a7a7a;--dim:#494949;--rule:#242424;
---long:#5f87ff;--short:#ff5f5f;--zero:#494949;--accent:#5fd7ff;--warn:#e5e500;
+--long:#5f87ff;--short:#ff5f5f;--zero:#494949;--accent:#c8f5a8;--warn:#e5e500;
 --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
 --display:var(--mono);--body:var(--mono);--data:var(--mono)}
 *{box-sizing:border-box;border-radius:0}
