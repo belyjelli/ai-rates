@@ -151,7 +151,19 @@ const SORT_LABELS: Record<ScreenerSort, string> = {
   spread: "Spread",
   settled_7d: "7d settled",
   venues: "Venues",
+  stability: "Stability",
 };
+
+/**
+ * Stability is a bare ratio, not a rate: `formatApr` would render 0.854 as "+0.85%" and invite the
+ * reader to mistake a persistence score for a funding figure. Two decimals, no sign, no unit.
+ *
+ * The scale runs 0.5–0.878 rather than 0–1, so it is deliberately NOT shown as a percentage: 0.5 is
+ * the mathematical floor (dominant-sign cannot fall below half) and shrinkage caps a 31-day window
+ * at 36/41. A reader expecting the best market to approach 1.00 would misread every row.
+ */
+const formatStability = (value: number | null): string =>
+  value === null || !Number.isFinite(value) ? '<span class="dim">–</span>' : value.toFixed(2);
 
 /**
  * A sortable column header. Without filters — the homepage's twelve-row teaser — it stays plain
@@ -167,6 +179,30 @@ function sortableTh(
   const active = filters.sort === sort;
   const href = `/screener${filtersToQuery({ ...filters, sort })}`;
   return `${head}${active ? ' aria-sort="descending"' : ""}><a href="${href}">${SORT_LABELS[sort]}</a></th>`;
+}
+
+/**
+ * The day count travels with the score, because 0.69 over 6 charging days and 0.69 over 30 are not
+ * the same claim and the count is the only thing separating them — the same reason the backtest page
+ * states its own coverage instead of annualizing a hole silently. A pair with an unscored leg says
+ * which leg, rather than leaving a bare dash to look like a rendering fault.
+ */
+function stabilityTitle(p: ScreenerPair): string {
+  if (p.pair_stability === null) {
+    const which =
+      p.long_stability === null && p.short_stability === null
+        ? "Neither leg has"
+        : p.long_stability === null
+          ? "The long leg has no"
+          : "The short leg has no";
+    return ` title="${esc(`${which} settled funding to score yet`)}"`;
+  }
+  const days = Math.min(
+    p.long_stability_days ?? Number.POSITIVE_INFINITY,
+    p.short_stability_days ?? Number.POSITIVE_INFINITY,
+  );
+  if (!Number.isFinite(days)) return "";
+  return ` title="${esc(`Weaker leg held its direction on ${days} of its charging days in the last 30`)}"`;
 }
 
 function pairsTable(
@@ -208,12 +244,13 @@ ${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short
 <td class="num">${apr(p.short_apr)}</td>
 <td class="num">${p.spread_apr_7d === null ? '<span class="dim">–</span>' : formatApr(p.spread_apr_7d)}</td>
 <td class="num dim">${p.venue_count}</td>
+<td class="num"${stabilityTitle(p)}>${formatStability(p.pair_stability)}</td>
 </tr>`,
     )
     .join("");
 
   return `<div class="sheet-wrap"><table class="sheet">
-<thead><tr><th>Asset</th>${sortableTh("spread", "Widest funding gap between two exchanges", filters)}<th title="Signed log scale, so ordinary rates keep room next to extreme ones">Long − short, log scale</th><th>Long leg</th><th class="num">Long APR</th><th>Short leg</th><th class="num">Short APR</th>${sortableTh("settled_7d", "Same two markets, averaged over the settlements of the last 7 days", filters)}${sortableTh("venues", "Exchanges with a live market for this asset", filters)}</tr></thead>
+<thead><tr><th>Asset</th>${sortableTh("spread", "Widest funding gap between two exchanges", filters)}<th title="Signed log scale, so ordinary rates keep room next to extreme ones">Long − short, log scale</th><th>Long leg</th><th class="num">Long APR</th><th>Short leg</th><th class="num">Short APR</th>${sortableTh("settled_7d", "Same two markets, averaged over the settlements of the last 7 days", filters)}${sortableTh("venues", "Exchanges with a live market for this asset", filters)}${sortableTh("stability", "How often the weaker leg held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score", filters)}</tr></thead>
 <tbody>${rows}</tbody>
 </table></div>`;
 }

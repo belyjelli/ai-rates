@@ -4,16 +4,17 @@ import type postgres from "postgres";
 export const FRESH_INTERVAL = "5 minutes";
 
 /**
- * How the screener is ordered. Only these three exist because only these three are backed by a
- * column `screener_pairs` actually returns.
+ * How the screener is ordered. Every key here is backed by a column `screener_pairs` actually
+ * returns; anything else falls back rather than travelling further.
  *
- * The original plan also wanted "stability" and "OI". Stability is a py-analytics deliverable that
- * does not exist yet, and the function returns open interest only per *leg* — summing the two would
- * rank assets by whichever pair happened to win the spread rather than by the asset's depth, which
- * is a number we would be inventing. Both are left out rather than shipped as headers that sort by
- * nothing or by an artefact.
+ * The original plan wanted "stability" and "OI" alongside these. **Stability now exists** —
+ * migration 009 scores each market and 010 projects the pair figure as `pair_stability` — so it is
+ * a real key. **OI is still omitted on purpose:** the function returns open interest only per
+ * *leg*, and summing the winning pair's two legs ranks assets by pair-selection artefact rather
+ * than by depth (龙虾 shows $20.8M across two venues, above FLOCK's $6.8M across six). That
+ * remains a number we would be inventing.
  */
-export const SCREENER_SORTS = ["spread", "settled_7d", "venues"] as const;
+export const SCREENER_SORTS = ["spread", "settled_7d", "venues", "stability"] as const;
 export type ScreenerSort = (typeof SCREENER_SORTS)[number];
 
 export interface ScreenerFilters {
@@ -39,6 +40,8 @@ export interface ScreenerPair {
   long_interval_hours: number | null;
   long_open_interest_usd: number | null;
   long_volume_24h_usd: number | null;
+  long_stability: number | null;
+  long_stability_days: number | null;
   short_venue_id: string;
   short_symbol: string;
   short_apr: number;
@@ -46,6 +49,13 @@ export interface ScreenerPair {
   short_interval_hours: number | null;
   short_open_interest_usd: number | null;
   short_volume_24h_usd: number | null;
+  short_stability: number | null;
+  short_stability_days: number | null;
+  /**
+   * The weaker leg's stability, or null when either leg is unscored. Runs 0.5–0.878, never 0–1:
+   * dominant-sign cannot fall below half, and shrinkage caps a 31-day window at (31+5)/(31+10).
+   */
+  pair_stability: number | null;
   oldest_observed_at: Date;
 }
 
@@ -183,6 +193,10 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         spread: sql`spread_apr DESC NULLS LAST, asset`,
         settled_7d: sql`spread_apr_7d DESC NULLS LAST, asset`,
         venues: sql`venue_count DESC NULLS LAST, spread_apr DESC NULLS LAST, asset`,
+        // pair_stability is already null when either leg is unscored -- the function uses a CASE
+        // rather than least(), which skips nulls instead of propagating them. So NULLS LAST has a
+        // real null to act on here, and a half-scored pair cannot sort by its scored leg alone.
+        stability: sql`pair_stability DESC NULLS LAST, spread_apr DESC NULLS LAST, asset`,
       }[f.sort];
 
       const rows = await sql<ScreenerPair[]>`

@@ -151,9 +151,11 @@ describe("screener sort", () => {
     expect(sortOf("")).toBe("spread");
     expect(sortOf("sort=settled_7d")).toBe("settled_7d");
     expect(sortOf("sort=VENUES")).toBe("venues");
+    // Backed by pair_stability since migration 010; it was refused before that existed.
+    expect(sortOf("sort=stability")).toBe("stability");
     // The key picks an ORDER BY fragment, so anything unrecognised falls back rather than
-    // travelling further. "stability" and "oi" are refused because no column backs them.
-    expect(sortOf("sort=stability")).toBe("spread");
+    // travelling further. "oi" is still refused: open interest is returned per leg only, and
+    // summing the winning pair's legs would rank by pair-selection artefact rather than depth.
     expect(sortOf("sort=oi")).toBe("spread");
     expect(sortOf("sort=spread_apr; drop table")).toBe("spread");
   });
