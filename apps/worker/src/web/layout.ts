@@ -4,7 +4,7 @@ import { esc, since } from "./format";
 const NAV = [
   { href: "/", label: "spreads", match: (p: string) => p === "/" },
   { href: "/screener", label: "screener", match: (p: string) => p === "/screener" },
-  { href: "/heatmap", label: "heatmap", match: (p: string) => p === "/heatmap" },
+  { href: "/rates", label: "rates", match: (p: string) => p === "/rates" },
   { href: "/markets", label: "exchanges", match: (p: string) => p.startsWith("/markets") },
 ];
 
@@ -12,7 +12,7 @@ const NAV = [
 const KEYS: [string, string, string][] = [
   ["h", "spreads", "/"],
   ["s", "screener", "/screener"],
-  ["m", "heatmap", "/heatmap"],
+  ["r", "rates", "/rates"],
   ["e", "exchanges", "/markets"],
 ];
 

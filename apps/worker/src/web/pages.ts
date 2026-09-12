@@ -436,7 +436,7 @@ export function heatmap(data: {
 
   const link = (next: Partial<HeatmapParams>, label: string, enabled = true) =>
     enabled
-      ? `<a href="/heatmap${heatmapToQuery({ ...params, ...next })}">${label}</a>`
+      ? `<a href="/rates${heatmapToQuery({ ...params, ...next })}">${label}</a>`
       : `<span class="dim">${label}</span>`;
 
   const strip = HEATMAP_TIMEFRAMES.map((tf) =>
@@ -498,12 +498,12 @@ export function heatmap(data: {
       : `<div class="heat-wrap"><table class="heat"><thead>${header}</thead><tbody>${body}</tbody></table></div>${pager}`;
 
   return layout({
-    title: "Funding heatmap",
+    title: "Rates",
     description: "Funding APR for every asset across every perpetual exchange, in one grid.",
-    path: "/heatmap",
+    path: "/rates",
     overview,
     now,
-    body: `<h1>Funding heatmap</h1>
+    body: `<h1>Rates</h1>
 <p class="lede">Every exchange's funding for the deepest assets at once. Positive means longs pay, so a short collects; an empty cell means that exchange has no market for the asset, not that funding is flat.</p>
 <div class="tf">${strip}</div>
 ${grid}`,
