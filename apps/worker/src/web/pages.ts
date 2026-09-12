@@ -516,8 +516,12 @@ export function heatmap(data: {
       ? `<a href="/rates${heatmapToQuery({ ...params, ...next })}">${label}</a>`
       : `<span class="dim">${label}</span>`;
 
+  // The chosen timeframe stays a link, marked the way the masthead nav marks its page, so the two
+  // selections share one highlight.
   const strip = HEATMAP_TIMEFRAMES.map((tf) =>
-    tf === params.tf ? `<b>${tf}</b>` : link({ tf }, tf),
+    tf === params.tf
+      ? `<a href="/rates${heatmapToQuery({ ...params, tf })}" aria-current="true">${tf}</a>`
+      : link({ tf }, tf),
   ).join("");
 
   const header = `<tr><th class="asset">asset</th><th>open interest</th><th>spread</th>${venueIds

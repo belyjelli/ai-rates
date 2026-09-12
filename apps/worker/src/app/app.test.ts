@@ -498,7 +498,7 @@ describe("pages", () => {
     expect(live).toContain("+12.0%");
 
     const long = await (await get("/rates?tf=60d", data)).text();
-    expect(long).toContain("<b>60d</b>");
+    expect(long).toContain('aria-current="true">60d</a>');
     expect(long).toContain("+3.00%");
     // The live column must not leak into the 60d view.
     expect(long).not.toContain("+12.0%");
