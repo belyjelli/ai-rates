@@ -23,6 +23,7 @@ const BACKFILL_PAUSE_MS = 5 * 60_000;
 const BACKFILL_BUDGET = 20;
 const TIERS_REFRESH_MS = 24 * 60 * 60_000;
 const LONG_WINDOWS_REFRESH_MS = 60 * 60_000;
+const PAIR_BACKTESTS_REFRESH_MS = 24 * 60 * 60_000;
 const SHUTDOWN_GRACE_MS = 15_000;
 
 const log = (message: string) => console.log(`${new Date().toISOString()} ${message}`);
@@ -188,6 +189,24 @@ const longWindows = new PeriodicTask(
 );
 longWindows.start(5 * config.intervalMs);
 loops.push(longWindows);
+
+// The homepage's verified 7-day ranking: every candidate pair replayed through the same engine the
+// pair page uses. Nightly, because it is a week-long window and the replay is ~650 pairs.
+//
+// It starts AFTER the long-windows task has folded the daily rollup at least once: the 7-of-7
+// charging floor reads market_funding_daily, so on a cold database every pair would fail the floor
+// and the first ranking would be empty rather than wrong-but-visible.
+const pairBacktests = new PeriodicTask(
+  "verified pair backtests",
+  PAIR_BACKTESTS_REFRESH_MS,
+  async () => {
+    const pairs = await store.refreshPairBacktests();
+    log(`verified pair backtests: ${pairs} pairs replayed over 7 days`);
+  },
+  log,
+);
+pairBacktests.start(LONG_WINDOWS_REFRESH_MS + 6 * config.intervalMs);
+loops.push(pairBacktests);
 
 // Venues stop collecting quietly: the site keeps serving the last good rows until they age out.
 if (config.alertWebhookUrl) {

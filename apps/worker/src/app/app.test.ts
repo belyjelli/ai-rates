@@ -98,6 +98,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     heatmap: async () => [],
     leverageTiers: async () => [],
     settlements: async () => [],
+    verifiedPairs: async () => [],
     ...overrides,
   };
   return { data, calls };
@@ -131,6 +132,52 @@ describe("pages", () => {
     expect(html).toContain("Lighter");
     expect(html).toContain("4,286 markets · 20 venues · updated");
     expect(calls.screener).toEqual([{ ...DEFAULT_FILTERS, limit: 12 }]);
+  });
+
+  test("the verified ranking shows each row's risk, and links its own legs", async () => {
+    const verified = {
+      run_day: new Date("2026-09-12T00:00:00Z"),
+      asset: "IOST",
+      long_venue_id: "gate",
+      long_symbol: "IOST_USDT",
+      short_venue_id: "bybit",
+      short_symbol: "IOSTUSDT",
+      size_usd: 10_000,
+      days: 7,
+      net_funding_usd: 835.35,
+      net_funding_apr_percent: 435.6,
+      win_rate_days: 1,
+      avg_daily_usd: 119.34,
+      long_settlements: 21,
+      short_settlements: 21,
+      missed_settlements: 0,
+      // The disclosure that earns the ungated ranking: a huge figure on a shallow, distressed leg.
+      thinner_leg_oi_usd: 680_000,
+      worst_leg_abs_apr: 962.7,
+      pair_stability: 0.732,
+      long_charge_days: 7,
+      short_charge_days: 7,
+    };
+    const { data } = fakeData({ verifiedPairs: async () => [verified] });
+    const html = await (await get("/", data)).text();
+
+    expect(html).toContain("What actually paid, last 7 days");
+    expect(html).toContain("$835.35");
+    // The row must open ITS pair, not whichever pair the asset page picks by spread.
+    expect(html).toContain("/pair/IOST?long=gate&short=bybit");
+    // Both risk figures are rendered, because nothing was filtered out of the ranking.
+    expect(html).toContain("$680k");
+    // formatApr drops decimals past 100, so 962.7 renders as +963% — checked against the
+    // formatter rather than assumed.
+    expect(html).toContain("+963%");
+    expect(html).toContain("replayed 2026-09-12");
+  });
+
+  test("the verified ranking says so before the first nightly run", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/", data)).text();
+    expect(html).toContain("No replay yet");
+    expect(html).not.toContain("replayed 20");
   });
 
   test("screener passes parsed filters through and reflects them in the form", async () => {

@@ -1,6 +1,7 @@
 import type { SnapshotBatch } from "@ai-rates/adapters";
 import {
   aprPercent,
+  backtestPair,
   type FundingEvent,
   type FundingSnapshot,
   type LeverageTier,
@@ -358,6 +359,171 @@ export class PgStore implements CollectorStore, HistoryStore {
       )
       SELECT count(*)::integer AS markets FROM upserted`;
     return markets;
+  }
+
+  /**
+   * Replays the last 7 days of settled funding for every candidate pair and stores the result, so
+   * the homepage can rank "what actually paid" without doing it per request.
+   *
+   * The replay uses `backtestPair`, the same engine the pair page and the API use. That is the
+   * point: it sums each leg at its OWN settlement times (Hyperliquid settles hourly against
+   * Bybit's 8-hourly) and reports gaps as missed settlements rather than as zero funding. Writing
+   * this in SQL would be a second implementation of the one calculation this project treats as
+   * correctness-critical.
+   *
+   * The candidate set mirrors the site's own defaults -- $250k open interest, |APR| <= 1000,
+   * 5-minute freshness, 5% mark agreement -- so the ranking covers the same pairs a reader sees on
+   * the screener. Those are the existing defaults, NOT extra floors: the ranking is deliberately
+   * ungated, and each row instead stores what makes it risky (see migration 011).
+   *
+   * The one floor: both legs must have charged on all 7 days, or a market with a handful of
+   * settlements can top the table.
+   */
+  async refreshPairBacktests(sizeUsd = 10_000, retainDays = 30): Promise<number> {
+    type Candidate = {
+      asset: string;
+      pair_stability: number | null;
+      long_venue_id: string;
+      long_symbol: string;
+      long_apr: number;
+      long_open_interest_usd: number | null;
+      short_venue_id: string;
+      short_symbol: string;
+      short_apr: number;
+      short_open_interest_usd: number | null;
+    };
+    const candidates: Candidate[] = await this.sql`
+      SELECT asset, pair_stability,
+             long_venue_id, long_symbol, long_apr, long_open_interest_usd,
+             short_venue_id, short_symbol, short_apr, short_open_interest_usd
+      FROM screener_pairs(${250_000}::float8, ${0}::float8, NULL, NULL,
+                          ${"5 minutes"}::interval, ${1000}::float8, ${0.05}::float8)`;
+    if (candidates.length === 0) return 0;
+
+    // Charging days per market over the window. market_funding_daily already holds them, so the
+    // 7-of-7 floor costs no extra scan of funding_events.
+    const chargeRows: { venue_id: string; venue_symbol: string; days: number }[] = await this.sql`
+      SELECT venue_id, venue_symbol, count(*)::integer AS days
+      FROM market_funding_daily
+      WHERE day > (now() - interval '7 days')::date AND rate_sum <> 0
+      GROUP BY venue_id, venue_symbol`;
+    const chargeDays = new Map(chargeRows.map((r) => [`${r.venue_id} ${r.venue_symbol}`, r.days]));
+
+    // One read for every leg of every candidate, rather than a query per pair: measured at 74ms
+    // for 1,304 legs against 281,930 settlements, all buffers shared hit.
+    const legKeys = candidates
+      .flatMap((c) => [
+        this.sql`(${c.long_venue_id}, ${c.long_symbol})`,
+        this.sql`(${c.short_venue_id}, ${c.short_symbol})`,
+      ])
+      .reduce((all, one) => this.sql`${all}, ${one}`);
+    const events: {
+      venue_id: string;
+      venue_symbol: string;
+      settled_at: Date;
+      rate: number;
+      basis_hours: number;
+    }[] = await this.sql`
+        SELECT venue_id, venue_symbol, settled_at, rate, basis_hours
+        FROM funding_events
+        WHERE (venue_id, venue_symbol) IN (${legKeys})
+          AND settled_at > now() - interval '7 days'
+        ORDER BY settled_at, venue_id, venue_symbol`;
+
+    const byMarket = new Map<string, { settledAt: number; rate: number; basisHours: number }[]>();
+    for (const e of events) {
+      const key = `${e.venue_id} ${e.venue_symbol}`;
+      const list = byMarket.get(key) ?? [];
+      list.push({ settledAt: e.settled_at.getTime(), rate: e.rate, basisHours: e.basis_hours });
+      byMarket.set(key, list);
+    }
+
+    const toMs = Date.now();
+    const fromMs = toMs - 7 * 86_400_000;
+    const runDay = new Date(toMs).toISOString().slice(0, 10);
+    const rows = [];
+    for (const c of candidates) {
+      const longKey = `${c.long_venue_id} ${c.long_symbol}`;
+      const shortKey = `${c.short_venue_id} ${c.short_symbol}`;
+      const longDays = chargeDays.get(longKey) ?? 0;
+      const shortDays = chargeDays.get(shortKey) ?? 0;
+      if (longDays < 7 || shortDays < 7) continue;
+
+      const result = backtestPair({
+        long: {
+          venueId: c.long_venue_id,
+          venueSymbol: c.long_symbol,
+          settlements: byMarket.get(longKey) ?? [],
+        },
+        short: {
+          venueId: c.short_venue_id,
+          venueSymbol: c.short_symbol,
+          settlements: byMarket.get(shortKey) ?? [],
+        },
+        sizeUsd,
+        fromMs,
+        toMs,
+      });
+
+      rows.push({
+        run_day: runDay,
+        asset: c.asset,
+        long_venue_id: c.long_venue_id,
+        long_symbol: c.long_symbol,
+        short_venue_id: c.short_venue_id,
+        short_symbol: c.short_symbol,
+        size_usd: sizeUsd,
+        days: result.days,
+        net_funding_usd: result.netFundingUsd,
+        net_funding_apr_percent: result.netFundingAprPercent,
+        win_rate_days: result.winRateDays,
+        avg_daily_usd: result.avgDailyUsd,
+        long_settlements: result.long.settlements,
+        short_settlements: result.short.settlements,
+        missed_settlements: result.long.missedSettlements + result.short.missedSettlements,
+        // Risk travels with the row because the ranking does not filter on it.
+        thinner_leg_oi_usd:
+          c.long_open_interest_usd === null || c.short_open_interest_usd === null
+            ? null
+            : Math.min(c.long_open_interest_usd, c.short_open_interest_usd),
+        worst_leg_abs_apr: Math.max(Math.abs(c.long_apr), Math.abs(c.short_apr)),
+        pair_stability: c.pair_stability,
+        long_charge_days: longDays,
+        short_charge_days: shortDays,
+      });
+    }
+    if (rows.length === 0) return 0;
+
+    for (const chunk of chunks(rows)) {
+      await this.sql`
+        INSERT INTO market_pair_backtests ${this.sql(chunk)}
+        ON CONFLICT (run_day, asset) DO UPDATE SET
+          long_venue_id = EXCLUDED.long_venue_id,
+          long_symbol = EXCLUDED.long_symbol,
+          short_venue_id = EXCLUDED.short_venue_id,
+          short_symbol = EXCLUDED.short_symbol,
+          size_usd = EXCLUDED.size_usd,
+          days = EXCLUDED.days,
+          net_funding_usd = EXCLUDED.net_funding_usd,
+          net_funding_apr_percent = EXCLUDED.net_funding_apr_percent,
+          win_rate_days = EXCLUDED.win_rate_days,
+          avg_daily_usd = EXCLUDED.avg_daily_usd,
+          long_settlements = EXCLUDED.long_settlements,
+          short_settlements = EXCLUDED.short_settlements,
+          missed_settlements = EXCLUDED.missed_settlements,
+          thinner_leg_oi_usd = EXCLUDED.thinner_leg_oi_usd,
+          worst_leg_abs_apr = EXCLUDED.worst_leg_abs_apr,
+          pair_stability = EXCLUDED.pair_stability,
+          long_charge_days = EXCLUDED.long_charge_days,
+          short_charge_days = EXCLUDED.short_charge_days`;
+    }
+
+    // A month of nightly rankings is plenty to serve and to look back over; the same shape as the
+    // daily rollup's own retention rule.
+    await this.sql`
+      DELETE FROM market_pair_backtests
+      WHERE run_day < (now() - make_interval(days => ${retainDays}))::date`;
+    return rows.length;
   }
 
   async recordRun(run: CollectorRun): Promise<void> {

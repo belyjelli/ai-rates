@@ -25,6 +25,8 @@ const STALE_MS = 5 * 60_000;
 const PAGE_MAX_AGE = 30;
 const API_MAX_AGE = 15;
 const ASSET_PATTERN = /^[A-Za-z0-9._-]{1,40}$/;
+/** Rows in the homepage's verified ranking, and in /v1/verified. The original plan asked for ten. */
+const VERIFIED_LIMIT = 10;
 
 /** Public site and JSON API. Probe routes are handled before this in index.ts. */
 export async function handleApp(request: Request, deps: AppDeps): Promise<Response> {
@@ -38,11 +40,13 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
 
   try {
     if (path === "/") {
-      const [overview, pairs] = await Promise.all([
+      const [overview, pairs, verified] = await Promise.all([
         deps.data.overview(),
         deps.data.screener({ ...DEFAULT_FILTERS, limit: 12 }),
+        // Precomputed nightly, so this is one indexed read rather than ~650 replays per request.
+        deps.data.verifiedPairs(VERIFIED_LIMIT),
       ]);
-      return page(pages.home({ overview, pairs, now }));
+      return page(pages.home({ overview, pairs, verified, now }));
     }
 
     if (path === "/screener") {
@@ -127,6 +131,11 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     }
 
     if (path === "/v1/exchanges") return json({ exchanges: await deps.data.exchanges() });
+
+    if (path === "/v1/verified") {
+      const pairs = await deps.data.verifiedPairs(VERIFIED_LIMIT);
+      return json({ count: pairs.length, runDay: pairs[0]?.run_day ?? null, pairs });
+    }
 
     if (path === "/v1/rates") {
       const params = parseHeatmapParams(url.searchParams);

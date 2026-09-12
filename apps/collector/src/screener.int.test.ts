@@ -72,10 +72,16 @@ describe.skipIf(!url)("screener read models (integration)", () => {
       "collector_runs",
       "market_latest",
       "market_funding_stats",
+      "market_funding_daily",
       "markets",
     ]) {
       await sql.unsafe(`DELETE FROM ${table} WHERE venue_id IN ('${v1}', '${v2}', '${v3}')`);
     }
+    // market_pair_backtests keys legs as long_venue_id/short_venue_id, so it cannot join the loop
+    // above. Without this its rows outlive the run in the shared airates_it schema.
+    await sql.unsafe(
+      `DELETE FROM market_pair_backtests WHERE long_venue_id IN ('${v1}', '${v2}', '${v3}') OR short_venue_id IN ('${v1}', '${v2}', '${v3}')`,
+    );
     await sql.unsafe(`DELETE FROM venues WHERE id IN ('${v1}', '${v2}', '${v3}')`);
     await sql.close();
   });
@@ -198,5 +204,76 @@ describe.skipIf(!url)("screener read models (integration)", () => {
     expect(stats?.settlements_7d).toBe(3);
     expect(stats?.apr_24h as number).toBeCloseTo(apr(0.0001), 6);
     expect(stats?.apr_7d as number).toBeCloseTo((0.0006 / 24) * 876000, 6);
+  });
+
+  test("refreshPairBacktests replays both legs and stores the risk beside the figure", async () => {
+    const DAY = 24 * 60 * 60_000;
+    const now = Date.now();
+    // Its OWN asset and symbols. An earlier test in this file seeds three extra settlements on
+    // `${asset}USDT`, which summed into the long leg and made this read $36 rather than $42 -- the
+    // fixture coupling the plan already records as debt in data.int.test.ts. A separate asset is
+    // the fix; changing the expected figure would have been fitting the assertion to the output.
+    const base = `${asset}B`;
+    const longSymbol = `${base}USDT`;
+    const shortSymbol = `${base}-PERP`;
+
+    // Fresh market_latest rows, or screener_pairs has no candidate to replay. $5M against $0.5M so
+    // the thinner leg is unambiguous, and both are above the $250k candidate floor.
+    await store.recordBatch(
+      v1,
+      { snapshots: [{ ...snap(v1, longSymbol, -0.0001, now, 5_000_000), base }], settled: [] },
+      now,
+    );
+    await store.recordBatch(
+      v2,
+      { snapshots: [{ ...snap(v2, shortSymbol, 0.0001, now, 500_000), base }], settled: [] },
+      now,
+    );
+
+    // Both legs must have charged on all 7 days or the floor rejects the pair and this test would
+    // pass vacuously on zero rows. Three settlements a day on each leg, for 7 days.
+    const leg = (venueId: string, venueSymbol: string, rate: number): FundingEvent[] =>
+      Array.from({ length: 21 }, (_, i) => ({
+        venueId,
+        venueSymbol,
+        base,
+        quote: "USDT",
+        multiplier: 1,
+        dex: null,
+        // Spread across the last 7 days, newest first, staying inside the window.
+        settledAt: now - Math.floor(i / 3) * DAY - (i % 3) * 8 * 60 * 60_000 - 60_000,
+        rate,
+        basisHours: 8,
+        markPrice: null,
+      }));
+
+    // The long leg is paid by a negative rate and the short leg by a positive one, so the pair
+    // earns on both sides.
+    await store.recordHistory(v1, leg(v1, longSymbol, -0.0001));
+    await store.recordHistory(v2, leg(v2, shortSymbol, 0.0001));
+    // The charging-day floor reads the daily rollup, so it has to be folded first.
+    await store.refreshDailyFunding();
+
+    const replayed = await store.refreshPairBacktests();
+    expect(replayed).toBeGreaterThanOrEqual(1);
+
+    const [row] = await sql`
+      SELECT * FROM market_pair_backtests
+      WHERE asset = ${base} AND run_day = (SELECT max(run_day) FROM market_pair_backtests)`;
+    expect(row).toBeDefined();
+    expect(row?.long_venue_id).toBe(v1);
+    expect(row?.short_venue_id).toBe(v2);
+
+    // 21 settlements a leg at 0.01% on $10,000 pays $1 each, both legs, so $42 over the window.
+    expect(row?.net_funding_usd as number).toBeCloseTo(42, 6);
+    expect(row?.long_settlements).toBe(21);
+    expect(row?.short_settlements).toBe(21);
+    // Seven days of charging on both legs is what let it through the floor.
+    expect(row?.long_charge_days).toBeGreaterThanOrEqual(7);
+    expect(row?.short_charge_days).toBeGreaterThanOrEqual(7);
+
+    // The ranking is ungated, so the risk travels with the row: the $0.5M leg is the thinner one.
+    expect(row?.thinner_leg_oi_usd as number).toBeCloseTo(500_000, 6);
+    expect(row?.worst_leg_abs_apr as number).toBeGreaterThan(0);
   });
 });

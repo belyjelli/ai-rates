@@ -151,9 +151,41 @@ export interface SettlementRow extends MarketKey {
   basis_hours: number;
 }
 
+/**
+ * One night's replay of a candidate pair over the last 7 days, as the collector stored it.
+ *
+ * The ranking is deliberately ungated, so every row carries what makes it risky: a $0.28M thinner
+ * leg or a 305% worst leg is exactly what a reader needs to see beside a big net figure.
+ */
+export interface VerifiedPair {
+  run_day: Date;
+  asset: string;
+  long_venue_id: string;
+  long_symbol: string;
+  short_venue_id: string;
+  short_symbol: string;
+  size_usd: number;
+  days: number;
+  net_funding_usd: number;
+  net_funding_apr_percent: number;
+  win_rate_days: number;
+  avg_daily_usd: number;
+  long_settlements: number;
+  short_settlements: number;
+  /** Gaps beyond a 50% cadence tolerance, never counted as zero funding. */
+  missed_settlements: number;
+  thinner_leg_oi_usd: number | null;
+  worst_leg_abs_apr: number | null;
+  pair_stability: number | null;
+  long_charge_days: number;
+  short_charge_days: number;
+}
+
 export interface DataSource {
   overview(): Promise<Overview>;
   screener(filters: ScreenerFilters): Promise<ScreenerPair[]>;
+  /** The newest nightly ranking of pairs by what they actually settled. Empty until a run lands. */
+  verifiedPairs(limit: number): Promise<VerifiedPair[]>;
   asset(base: string): Promise<MarketRow[]>;
   exchanges(): Promise<ExchangeSummary[]>;
   exchange(venueId: string): Promise<MarketRow[]>;
@@ -221,6 +253,18 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           ${f.maxAbsApr}::float8)
         ORDER BY ${order}
         LIMIT ${f.limit}`;
+      return [...rows];
+    },
+
+    async verifiedPairs(limit) {
+      // Only the newest run: mixing nights would rank a pair's Tuesday against another's Friday.
+      // A failed run therefore leaves last night's ranking standing rather than emptying the page.
+      const rows = await connect()<VerifiedPair[]>`
+        SELECT * FROM market_pair_backtests
+        WHERE run_day = (SELECT max(run_day) FROM market_pair_backtests)
+        -- Total order: LIMIT over a partial one drops and repeats rows between requests.
+        ORDER BY net_funding_usd DESC, asset
+        LIMIT ${limit}`;
       return [...rows];
     },
 
