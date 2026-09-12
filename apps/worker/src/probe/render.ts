@@ -55,7 +55,7 @@ export function renderProbePage(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>ai-rates · venue geo-probe</title>
+<title>airrates · venue geo-probe</title>
 <style>
   /* Same terminal as the public pages: black ground, one monospace stack, no radius, tight rows.
      Verdicts borrow the site tokens rather than a palette of their own, so green reads healthy

@@ -193,18 +193,18 @@ export function layout(options: {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>${esc(title)} · airates</title>
+<title>${esc(title)} · airrates</title>
 <meta name="description" content="${esc(description)}">
 <style>${CSS}</style>
 </head>
 <body>
 <header class="mast">
-<div class="wrap bar"><a class="brand" href="/">airates<small>funding carry sheet</small></a><span class="status">${status}</span><time class="clock" id="clock">--:--:-- UTC</time></div>
+<div class="wrap bar"><a class="brand" href="/">airrates<small>funding carry sheet</small></a><span class="status">${status}</span><time class="clock" id="clock">--:--:-- UTC</time></div>
 <div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><span class="keys">${keys}<span><b>/</b>filter</span></span></div>
 </header>
 <main class="wrap">${body}</main>
 <footer><div class="wrap">
-<p class="sig"><span>read only · public venue APIs</span><span>airates</span></p>
+<p class="sig"><span>read only · public venue APIs</span><span>airrates</span></p>
 <p>Funding rates come from each venue's public API and refresh every minute. They are estimates for each venue's next settlement and change before it. Spreads are before trading fees, slippage and price moves.</p>
 <p>Not financial advice. Not affiliated with any exchange.</p>
 </div></footer>

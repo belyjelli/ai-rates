@@ -355,7 +355,7 @@ export function exchanges(data: {
   return layout({
     title: "Exchanges",
     description:
-      "Perpetual futures exchanges tracked by airates, with live market counts, open interest and volume.",
+      "Perpetual futures exchanges tracked by airrates, with live market counts, open interest and volume.",
     path: "/markets",
     overview: data.overview,
     now: data.now,
