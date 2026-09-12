@@ -1,5 +1,5 @@
 import { VENUES } from "@ai-rates/venues";
-import type { ScreenerFilters } from "./data";
+import { SCREENER_SORTS, type ScreenerFilters, type ScreenerSort } from "./data";
 
 export const VENUE_TYPES = ["cex", "dex", "hip3"] as const;
 export const MAX_LIMIT = 500;
@@ -12,6 +12,8 @@ export const DEFAULT_FILTERS: ScreenerFilters = {
   venueTypes: null,
   // Distressed listings run to ±2700% APR and swamp the ranking; ?extremes=1 puts them back.
   maxAbsApr: 1000,
+  // The widest spread first, which is what the page is for. The homepage relies on this default.
+  sort: "spread",
   limit: 100,
 };
 
@@ -37,8 +39,17 @@ export function parseScreenerFilters(params: URLSearchParams): ScreenerFilters {
     maxAbsApr: isTruthyParam(params.get("extremes")) ? null : DEFAULT_FILTERS.maxAbsApr,
     // Selecting every type is the same as not filtering by type.
     venueTypes: types && types.length === VENUE_TYPES.length ? null : types,
+    sort: parseScreenerSort(params.get("sort")),
     limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), MAX_LIMIT) : DEFAULT_FILTERS.limit,
   };
+}
+
+/** Exact match against the allowlist: the sort key chooses an ORDER BY fragment. */
+function parseScreenerSort(value: string | null): ScreenerSort {
+  const sort = (value ?? "").trim().toLowerCase();
+  return (SCREENER_SORTS as readonly string[]).includes(sort)
+    ? (sort as ScreenerSort)
+    : DEFAULT_FILTERS.sort;
 }
 
 /** Canonical query string (non-default values only, stable order) for links and cache keys. */
@@ -53,6 +64,7 @@ export function filtersToQuery(filters: ScreenerFilters): string {
   if (filters.maxAbsApr !== DEFAULT_FILTERS.maxAbsApr) params.set("extremes", "1");
   if (filters.venueTypes) params.set("types", filters.venueTypes.join(","));
   if (filters.venueIds) params.set("venues", filters.venueIds.join(","));
+  if (filters.sort !== DEFAULT_FILTERS.sort) params.set("sort", filters.sort);
   if (filters.limit !== DEFAULT_FILTERS.limit) params.set("limit", String(filters.limit));
   const query = params.toString();
   return query ? `?${query}` : "";
