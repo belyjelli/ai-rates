@@ -277,12 +277,19 @@ describe("pages", () => {
     expect((await get("/markets", data)).status).toBe(200);
     const okx = await get("/markets/exchange/okx", data);
     expect(okx.status).toBe(200);
-    expect(await okx.text()).toContain("<h1>OKX</h1>");
+    const okxHtml = await okx.text();
+    expect(okxHtml).toContain("<h1>OKX</h1>");
+    // Both pages once rendered without the overview, so their status line said nothing had reported.
+    expect(okxHtml).toContain("4,286 markets");
+    expect(okxHtml).not.toContain("no venue has reported");
     expect((await get("/markets/exchange/nope", data)).status).toBe(404);
 
     const btc = await get("/markets/asset/btc", data);
     expect(btc.status).toBe(200);
-    expect(await btc.text()).toContain("Best pair: long on Gate");
+    const btcHtml = await btc.text();
+    expect(btcHtml).toContain("Best pair: long on Gate");
+    expect(btcHtml).toContain("4,286 markets");
+    expect(btcHtml).not.toContain("no venue has reported");
 
     // Stability and momentum are per market, which is this page's grain. Momentum carries an
     // arrow rather than a colour: aprTone means "who pays" everywhere else, and a market fading

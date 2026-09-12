@@ -170,19 +170,27 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const venue = VENUE_BY_ID.get((segments[2] as string).toLowerCase());
       if (!venue)
         return page(pages.notFound(path, now, "There's no exchange with that name."), 404);
-      return page(pages.exchange({ venue, markets: await deps.data.exchange(venue.id), now }));
+      // The status line reads the overview; without it the page claimed no venue had reported.
+      const [overview, markets] = await Promise.all([
+        deps.data.overview(),
+        deps.data.exchange(venue.id),
+      ]);
+      return page(pages.exchange({ venue, markets, overview, now }));
     }
 
     if (segments[0] === "markets" && segments[1] === "asset" && segments.length === 3) {
       const asset = (segments[2] as string).toUpperCase();
-      const markets = ASSET_PATTERN.test(asset) ? await deps.data.asset(asset) : [];
+      const [overview, markets] = await Promise.all([
+        deps.data.overview(),
+        ASSET_PATTERN.test(asset) ? deps.data.asset(asset) : [],
+      ]);
       if (markets.length === 0) {
         return page(
           pages.notFound(path, now, `No exchange has a live ${asset} perpetual right now.`),
           404,
         );
       }
-      return page(pages.asset({ asset, markets, now }));
+      return page(pages.asset({ asset, markets, overview, now }));
     }
 
     if (path === "/v1/health") {
