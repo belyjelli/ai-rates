@@ -212,6 +212,25 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     expect(await data.leverageTiers([])).toEqual([]);
   });
 
+  test("heatmap returns one row per populated cell, with the asset total on each", async () => {
+    const cells = await data.heatmap({ limit: 50, offset: 0, minVenues: 2 });
+    const mine = cells.filter((c) => c.base === base);
+
+    // Both venues list this asset, so both appear; a missing combination has no row at all.
+    expect(mine.map((c) => c.venue_id).sort()).toEqual([venueA, venueB].sort());
+    // The asset's summed open interest rides on every cell, so the pivot can order rows without a
+    // second query.
+    expect(new Set(mine.map((c) => c.asset_oi_usd))).toEqual(new Set([2_000_000]));
+    // No stats row exists for these markets, so the trailing windows are null rather than zero.
+    expect(mine[0]?.apr_7d).toBeNull();
+    expect(mine[0]?.apr_30d).toBeNull();
+    expect(mine[0]?.apr_60d).toBeNull();
+
+    // minVenues excludes an asset that cannot show a cross-venue comparison.
+    const strict = await data.heatmap({ limit: 50, offset: 0, minVenues: 3 });
+    expect(strict.some((c) => c.base === base)).toBe(false);
+  });
+
   test("overview and screener run against the real schema", async () => {
     // They take no market arguments, so this is purely that the SQL is valid under fetch_types: false.
     await expect(data.overview()).resolves.toBeDefined();

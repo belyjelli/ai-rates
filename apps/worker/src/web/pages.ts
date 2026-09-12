@@ -2,6 +2,7 @@ import { type BacktestResult, pairCapitalUsd, tierForSize } from "@ai-rates/core
 import { VENUES, type Venue } from "@ai-rates/venues";
 import type {
   ExchangeSummary,
+  HeatmapCell,
   LeverageTierRow,
   MarketRow,
   Overview,
@@ -282,6 +283,50 @@ export function bestPair(
     }
   }
   return best;
+}
+
+/** Venues trading on another venue's book. `exchanges` already hides them, and so must the grid. */
+const ALIASED_VENUES = new Set(VENUES.filter((v) => v.aliasOf).map((v) => v.id));
+
+export interface HeatmapRow {
+  base: string;
+  assetOiUsd: number | null;
+  /** Keyed by venue id. A venue with no market for this asset is absent, never zero. */
+  byVenue: Map<string, HeatmapCell>;
+}
+
+/**
+ * Turns the flat cell list into rows by asset plus the ordered column list.
+ *
+ * Row order is the order the query returned, which is already ranked by asset depth; re-sorting
+ * here would make the ranking answerable in two places. Columns are the venues actually present,
+ * deepest first, so the leftmost ones are those most rows can fill — the grid is only ~38% full, so
+ * column order is what stops it reading as scattered holes.
+ */
+export function pivot(cells: readonly HeatmapCell[]): {
+  rows: HeatmapRow[];
+  venueIds: string[];
+} {
+  const rows: HeatmapRow[] = [];
+  const byBase = new Map<string, HeatmapRow>();
+  const depth = new Map<string, number>();
+
+  for (const cell of cells) {
+    if (ALIASED_VENUES.has(cell.venue_id)) continue;
+    let row = byBase.get(cell.base);
+    if (!row) {
+      row = { base: cell.base, assetOiUsd: cell.asset_oi_usd, byVenue: new Map() };
+      byBase.set(cell.base, row);
+      rows.push(row);
+    }
+    row.byVenue.set(cell.venue_id, cell);
+    depth.set(cell.venue_id, (depth.get(cell.venue_id) ?? 0) + (cell.open_interest_usd ?? 0));
+  }
+
+  const venueIds = [...depth.entries()]
+    .sort(([aId, aDepth], [bId, bDepth]) => bDepth - aDepth || aId.localeCompare(bId))
+    .map(([id]) => id);
+  return { rows, venueIds };
 }
 
 export function asset(data: { asset: string; markets: MarketRow[]; now: number }): string {

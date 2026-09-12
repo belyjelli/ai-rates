@@ -4,6 +4,7 @@ import { esc, since } from "./format";
 const NAV = [
   { href: "/", label: "spreads", match: (p: string) => p === "/" },
   { href: "/screener", label: "screener", match: (p: string) => p === "/screener" },
+  { href: "/heatmap", label: "heatmap", match: (p: string) => p === "/heatmap" },
   { href: "/markets", label: "exchanges", match: (p: string) => p.startsWith("/markets") },
 ];
 
@@ -11,8 +12,16 @@ const NAV = [
 const KEYS: [string, string, string][] = [
   ["h", "spreads", "/"],
   ["s", "screener", "/screener"],
+  ["m", "heatmap", "/heatmap"],
   ["e", "exchanges", "/markets"],
 ];
+
+/**
+ * The key-to-destination map the inline script jumps with, built from KEYS rather than repeated.
+ * It used to be written out a second time inside SCRIPT, so a key could be advertised in the
+ * status bar and do nothing, or work without being advertised.
+ */
+const HOTKEY_TARGETS = JSON.stringify(Object.fromEntries(KEYS.map(([key, , href]) => [key, href])));
 
 // A terminal, not a printout: black ground, one monospace stack, no radius anywhere, 12px rows.
 // Long stays blue and short stays red as they always were, lifted to values legible on black.
@@ -123,7 +132,7 @@ footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim)
 `;
 
 // Live "… ago" and countdowns, a UTC clock, and the hotkeys advertised in the status bar.
-const SCRIPT = `(()=>{const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?s+"s":s<3600?Math.floor(s/60)+"m":Math.floor(s/3600)+"h "+p(Math.floor(s%3600/60))+"m"};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=f((n-e.dataset.since)/1e3)+" ago";for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):"settling"}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const n=e.target&&e.target.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA")return;if(e.key==="/"){const q=document.querySelector("form.filters select,form.filters input");if(q){e.preventDefault();q.focus()}return}const g={h:"/",s:"/screener",e:"/markets"}[e.key];if(g){e.preventDefault();location.href=g}})})();`;
+const SCRIPT = `(()=>{const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?s+"s":s<3600?Math.floor(s/60)+"m":Math.floor(s/3600)+"h "+p(Math.floor(s%3600/60))+"m"};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=f((n-e.dataset.since)/1e3)+" ago";for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):"settling"}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const n=e.target&&e.target.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA")return;if(e.key==="/"){const q=document.querySelector("form.filters select,form.filters input");if(q){e.preventDefault();q.focus()}return}const g=${HOTKEY_TARGETS}[e.key];if(g){e.preventDefault();location.href=g}})})();`;
 
 export function layout(options: {
   title: string;

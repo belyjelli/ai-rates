@@ -7,7 +7,10 @@ import {
   type BacktestParams,
   DEFAULT_FILTERS,
   filtersToQuery,
+  HEATMAP_MIN_VENUES,
+  heatmapToQuery,
   parseBacktestParams,
+  parseHeatmapParams,
   parseScreenerFilters,
 } from "./params";
 
@@ -104,6 +107,16 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     }
 
     if (path === "/v1/exchanges") return json({ exchanges: await deps.data.exchanges() });
+
+    if (path === "/v1/heatmap") {
+      const params = parseHeatmapParams(url.searchParams);
+      const cells = await deps.data.heatmap({
+        limit: params.limit,
+        offset: params.offset,
+        minVenues: HEATMAP_MIN_VENUES,
+      });
+      return json({ params, query: heatmapToQuery(params), count: cells.length, cells });
+    }
 
     if (segments[0] === "v1" && segments[1] === "exchanges" && segments.length === 3) {
       const venue = VENUE_BY_ID.get((segments[2] as string).toLowerCase());
