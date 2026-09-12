@@ -189,4 +189,51 @@ describe("okxAdapter", () => {
     expect(urls).toHaveLength(4);
     expect(urls.some((u) => u.includes("instId=ANY"))).toBe(true);
   });
+
+  /** A client whose position-tiers call fails `failures` times before answering properly. */
+  async function tierClient(failures: number) {
+    const instruments = await fixture("instruments");
+    const marks = await fixture("mark-price");
+    const tiers = await fixture("position-tiers");
+    let attempts = 0;
+    const client = {
+      venueId: "okx",
+      getJson: async (url: string) => {
+        if (url.includes("/instruments?")) return instruments;
+        if (url.includes("/mark-price?")) return marks;
+        if (url.includes("/position-tiers?")) {
+          attempts++;
+          // OKX reports a rate limit as code 50011 inside an HTTP 200, so the transport's own
+          // retry and circuit breaker never see it.
+          return attempts <= failures
+            ? { code: "50011", msg: "Too Many Requests", data: [] }
+            : tiers;
+        }
+        return { code: "0", data: [] };
+      },
+    } as unknown as HttpClient;
+    return { client, attempts: () => attempts };
+  }
+
+  test("retries a rate-limited tier batch rather than losing its five families", async () => {
+    const { client, attempts } = await tierClient(2);
+    const sweep = await okxAdapter.fetchLeverageTiers?.(client);
+
+    expect(attempts()).toBe(3);
+    expect(sweep?.complete).toBe(true);
+    expect(new Set(sweep?.tiers.map((t) => t.venueSymbol))).toEqual(
+      new Set(["BTC-USDT-SWAP", "BTC-USD-SWAP"]),
+    );
+  });
+
+  test("reports an incomplete sweep when a batch keeps failing, so nothing is pruned", async () => {
+    const { client, attempts } = await tierClient(Number.POSITIVE_INFINITY);
+    const sweep = await okxAdapter.fetchLeverageTiers?.(client);
+
+    // Given up on after the retries, and said so. Claiming a complete sweep here would let the
+    // collector prune ladders for every market this run never managed to read.
+    expect(attempts()).toBe(3);
+    expect(sweep?.complete).toBe(false);
+    expect(sweep?.tiers).toEqual([]);
+  });
 });

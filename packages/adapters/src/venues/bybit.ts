@@ -248,7 +248,9 @@ export const bybitAdapter: VenueAdapter = {
       cursor = result.nextPageCursor ?? "";
       if (!cursor) break;
     }
-    return parseBybitRiskLimit(rows);
+    // A failed page throws out of this loop rather than being skipped, so reaching here means the
+    // whole book was read and pruning stale ladders is safe.
+    return { tiers: parseBybitRiskLimit(rows), complete: true };
   },
 
   async fetchFundingHistory(client, venueSymbol, fromMs, toMs) {

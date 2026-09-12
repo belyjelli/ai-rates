@@ -14,6 +14,8 @@ const HISTORY_PAGE = 100;
 const MAX_PAGES = 50;
 /** OKX rejects more than this per call: "Parameter instFamily count exceeds the limit 5". */
 const POSITION_TIERS_PER_CALL = 5;
+const POSITION_TIERS_RETRIES = 2;
+const POSITION_TIERS_BACKOFF_MS = 400;
 
 /** Perpetual swaps margined in USDT, USDC or coin (USD). Excludes e.g. "XAU-USD_UM_XPERP-310502". */
 const PERP_INST_ID = /^[A-Z0-9]+-(USDT|USDC|USD)-SWAP$/;
@@ -313,24 +315,48 @@ export const okxAdapter: VenueAdapter = {
     ];
 
     const rows: OkxPositionTier[] = [];
+    let complete = true;
+
     for (let i = 0; i < families.length; i += POSITION_TIERS_PER_CALL) {
       const batch = families.slice(i, i + POSITION_TIERS_PER_CALL).join(",");
-      try {
-        rows.push(
-          ...unwrap(
+      let fetched: OkxPositionTier[] | null = null;
+
+      // OKX signals a rate limit as code 50011 inside an HTTP 200, so the transport's retry and
+      // circuit breaker never see it and the adapter has to back off itself.
+      for (let attempt = 0; fetched === null && attempt <= POSITION_TIERS_RETRIES; attempt++) {
+        try {
+          fetched = unwrap(
             await client.getJson<OkxEnvelope<OkxPositionTier>>(
               `${BASE_URL}/api/v5/public/position-tiers?instType=SWAP&tdMode=cross&instFamily=${encodeURIComponent(batch)}`,
             ),
             "position tiers",
-          ),
-        );
-      } catch (error) {
-        if (error instanceof CircuitOpenError) break;
-        // One rejected batch shouldn't cost the venue's other 94; those families keep their
-        // stored ladders, since the store only prunes markets this sweep did report.
+          );
+        } catch (error) {
+          if (error instanceof CircuitOpenError) {
+            // The venue is down; the rest of the sweep would fail too.
+            return {
+              tiers: parseOkxPositionTiers(instruments, { code: "0", data: rows }, markPrices),
+              complete: false,
+            };
+          }
+          if (attempt < POSITION_TIERS_RETRIES) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, POSITION_TIERS_BACKOFF_MS << attempt),
+            );
+          }
+        }
       }
+
+      // Five families ride on every call, so a batch given up on costs five ladders. Saying so
+      // keeps the sweep from pruning them, and makes the loss visible in the collector log.
+      if (fetched === null) complete = false;
+      else rows.push(...fetched);
     }
-    return parseOkxPositionTiers(instruments, { code: "0", data: rows }, markPrices);
+
+    return {
+      tiers: parseOkxPositionTiers(instruments, { code: "0", data: rows }, markPrices),
+      complete,
+    };
   },
 
   async fetchFundingHistory(client, venueSymbol, fromMs, toMs) {
