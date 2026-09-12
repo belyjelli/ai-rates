@@ -54,7 +54,14 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(pages.screener({ overview, pairs, filters, now }));
     }
 
-    if (path === "/heatmap") {
+    // Renamed from /heatmap: every other nav item is a plain noun naming its contents, and
+    // "heatmap" in perp trading means a liquidation heatmap, which Phase 4 may yet build. The old
+    // paths redirect rather than 404, and the internal identifiers keep the heatmap spelling
+    // because the rendering genuinely is one.
+    if (path === "/heatmap") return redirect(`/rates${url.search}`);
+    if (path === "/v1/heatmap") return redirect(`/v1/rates${url.search}`);
+
+    if (path === "/rates") {
       const params = parseHeatmapParams(url.searchParams);
       const [overview, cells] = await Promise.all([
         deps.data.overview(),
@@ -121,7 +128,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
 
     if (path === "/v1/exchanges") return json({ exchanges: await deps.data.exchanges() });
 
-    if (path === "/v1/heatmap") {
+    if (path === "/v1/rates") {
       const params = parseHeatmapParams(url.searchParams);
       const cells = await deps.data.heatmap({
         limit: params.limit,
@@ -219,6 +226,18 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       ? json({ error: "data_unavailable" }, 503, 0)
       : page(pages.unavailable(path, now), 503);
   }
+}
+
+/**
+ * A permanent move, cached like a page: the rename is settled, so there is no reason to ask the
+ * edge or a browser to re-check it. Query strings are carried through so a shared
+ * /heatmap?tf=60d link lands on the same view it named.
+ */
+function redirect(location: string): Response {
+  return new Response(null, {
+    status: 301,
+    headers: { location, "cache-control": `public, max-age=${PAGE_MAX_AGE}` },
+  });
 }
 
 /** Shared by the JSON endpoint and the page, so the two can't drift apart. */

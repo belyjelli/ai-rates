@@ -317,7 +317,7 @@ describe("pages", () => {
     );
   });
 
-  test("heatmap renders the matrix, dashes absent markets and escapes asset names", async () => {
+  test("rates renders the matrix, dashes absent markets and escapes asset names", async () => {
     const hcell = (
       base: string,
       venue_id: string,
@@ -346,7 +346,7 @@ describe("pages", () => {
       ],
     });
 
-    const html = await (await get("/heatmap", data)).text();
+    const html = await (await get("/rates", data)).text();
     expect(html).toContain('<table class="heat">');
     expect(html).toContain('<td class="none">–</td>');
 
@@ -363,7 +363,7 @@ describe("pages", () => {
     expect(html).toContain('<span class="dim">next →</span>');
   });
 
-  test("heatmap timeframe switches which stored column the cells read", async () => {
+  test("rates timeframe switches which stored column the cells read", async () => {
     const hcell = (base: string, venue_id: string, apr: number, apr_60d: number | null) => ({
       base,
       venue_id,
@@ -379,21 +379,38 @@ describe("pages", () => {
       heatmap: async () => [hcell("BTC", "gate", 12, 3), hcell("BTC", "bybit", -4, -1)],
     });
 
-    const live = await (await get("/heatmap", data)).text();
+    const live = await (await get("/rates", data)).text();
     expect(live).toContain("+12.0%");
 
-    const long = await (await get("/heatmap?tf=60d", data)).text();
+    const long = await (await get("/rates?tf=60d", data)).text();
     expect(long).toContain("<b>60d</b>");
     expect(long).toContain("+3.00%");
     // The live column must not leak into the 60d view.
     expect(long).not.toContain("+12.0%");
   });
 
-  test("heatmap says so when no asset spans two venues", async () => {
+  test("rates says so when no asset spans two venues", async () => {
     const { data } = fakeData();
-    const html = await (await get("/heatmap", data)).text();
+    const html = await (await get("/rates", data)).text();
     expect(html).toContain("No asset has live markets on two or more venues");
     expect(html).not.toContain('<table class="heat">');
+  });
+
+  test("the old /heatmap paths redirect permanently, carrying the query", async () => {
+    const { data } = fakeData();
+
+    // A shared /heatmap?tf=60d link must land on the view it named, not the default one.
+    const moved = await get("/heatmap?tf=60d&limit=50", data);
+    expect(moved.status).toBe(301);
+    expect(moved.headers.get("location")).toBe("/rates?tf=60d&limit=50");
+
+    // The JSON endpoint moved too, so a script pinned to the old path keeps working.
+    const api = await get("/v1/heatmap?tf=30d", data);
+    expect(api.status).toBe(301);
+    expect(api.headers.get("location")).toBe("/v1/rates?tf=30d");
+
+    // No query means no trailing "?", so the canonical URL stays one cache key.
+    expect((await get("/heatmap", data)).headers.get("location")).toBe("/rates");
   });
 
   test("pair page without legs offers the picker instead of a result", async () => {
