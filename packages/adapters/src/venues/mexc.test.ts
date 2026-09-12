@@ -153,6 +153,38 @@ describe("parseMexcLeverageTiers", () => {
     expect(btc.at(-1)).toMatchObject({ tier: 6, upperNotionalUsd: 19_000_000, maxLeverage: 10 });
   });
 
+  test("an INCREASE contract becomes a single band up to its cap", () => {
+    // 1035 of MEXC's 1192 live contracts use this form: no enumerated ladder, just a base rate
+    // and riskBaseVol, with riskLevelLimit 1 confirming there is only one band. riskBaseVol is
+    // quote notional because on every CUSTOM contract it equals the top maxVol.
+    const [tier, ...rest] = parseMexcLeverageTiers([
+      {
+        symbol: "ZEC_USDT",
+        baseCoin: "ZEC",
+        quoteCoin: "USDT",
+        settleCoin: "USDT",
+        contractSize: 0.01,
+        state: 0,
+        riskLimitMode: "INCREASE",
+        riskBaseVol: 75_000,
+        initialMarginRate: 0.01,
+        maintenanceMarginRate: 0.005,
+        maxLeverage: 100,
+      },
+    ]);
+    expect(rest).toEqual([]);
+    expect(tier).toEqual({
+      venueId: "mexc",
+      venueSymbol: "ZEC_USDT",
+      tier: 1,
+      lowerNotionalUsd: 0,
+      upperNotionalUsd: 75_000,
+      imr: 0.01,
+      mmr: 0.005,
+      maxLeverage: 100,
+    });
+  });
+
   test("each contract keeps its own ladder, of its own length", () => {
     expect(tiers.filter((t) => t.venueSymbol === "ETH_USDT")).toHaveLength(6);
     const xau = tiers.filter((t) => t.venueSymbol === "XAU_USDT");
