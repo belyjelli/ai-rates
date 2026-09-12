@@ -29,7 +29,16 @@ export class CollectorStatus {
     if (run.error === null) this.lastSuccess.set(run.venueId, run);
   }
 
-  snapshot(now: number): { ok: boolean; venues: VenueHealth[] } {
+  /**
+   * `ok` stays true through the startup grace period on purpose: a venue that has never succeeded
+   * is measured from `startedAt`, so a restart does not page anyone.
+   *
+   * But that window is indistinguishable from a collector that will NEVER collect — the state the
+   * 2026-09-13 deploy showed, where every venue read `markets: 0, lastRunAt: null` and `/health`
+   * still answered 200. `starting` says which of the two it is, so a monitor can treat "not yet"
+   * differently from "healthy" without a restart being reported as an outage.
+   */
+  snapshot(now: number): { ok: boolean; starting: boolean; venues: VenueHealth[] } {
     const staleAfterMs = this.intervalMs * this.staleAfterIntervals;
     const venues = this.venueIds.map((venueId): VenueHealth => {
       const last = this.last.get(venueId) ?? null;
@@ -44,6 +53,9 @@ export class CollectorStatus {
         stale: now - reference > staleAfterMs,
       };
     });
-    return { ok: venues.every((v) => !v.stale), venues };
+    // Starting means no venue has ever reported a successful cycle. Once any has, the fleet is
+    // past startup and a silent venue is a real problem rather than a slow boot.
+    const starting = this.lastSuccess.size === 0;
+    return { ok: venues.every((v) => !v.stale), starting, venues };
   }
 }

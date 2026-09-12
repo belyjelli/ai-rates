@@ -18,6 +18,28 @@ describe("CollectorStatus", () => {
     expect(status.snapshot(2 * MIN)).toMatchObject({ ok: true });
   });
 
+  test("a fleet that has never collected says so, rather than only reading ok", () => {
+    // The 2026-09-13 deploy returned ok:true with every venue at markets:0 and lastRunAt:null.
+    // That is correct -- nothing is stale yet -- but it is indistinguishable from a collector that
+    // will never collect, so the snapshot now states which it is.
+    const status = new CollectorStatus(["a", "b"], MIN, 0);
+    const boot = status.snapshot(2 * MIN);
+    expect(boot.starting).toBe(true);
+    expect(boot.ok).toBe(true);
+    expect(boot.venues.every((v) => v.lastSuccessAt === null && v.markets === 0)).toBe(true);
+
+    // One success anywhere means the fleet is past startup, even while the other venue is silent.
+    status.record(run("a", MIN));
+    const running = status.snapshot(2 * MIN);
+    expect(running.starting).toBe(false);
+    expect(running.ok).toBe(true);
+
+    // And a venue going quiet later is still a real failure, not a boot state.
+    const stale = status.snapshot(5 * MIN);
+    expect(stale.starting).toBe(false);
+    expect(stale.ok).toBe(false);
+  });
+
   test("a venue without a success for 3 intervals is stale, and the last error is surfaced", () => {
     const status = new CollectorStatus(["a", "b"], MIN, 0);
     status.record(run("a", 3 * MIN));
