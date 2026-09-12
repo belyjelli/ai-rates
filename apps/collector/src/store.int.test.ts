@@ -191,6 +191,34 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     ]);
   });
 
+  test("uses the catalog's curated leverage only where the venue reports none", async () => {
+    // Aster, Paradex and Lighter publish no leverage, so the catalog carries a conservative
+    // figure for them. It must never override a venue that does publish one.
+    const curated = new PgStore(sql, new Map([[venueId, 10]]));
+    const t = Date.now() - 10_000;
+    await curated.recordBatch(
+      venueId,
+      {
+        snapshots: [
+          snap(`${base}CURATED`, 0.0001, 8, t),
+          snap(`${base}REPORTED`, 0.0001, 8, t, 50),
+        ],
+        settled: [],
+      },
+      t,
+    );
+
+    const rows = await sql`
+      SELECT venue_symbol, max_leverage FROM markets
+      WHERE venue_id = ${venueId}
+        AND venue_symbol IN (${`${base}CURATED`}, ${`${base}REPORTED`})
+      ORDER BY venue_symbol`;
+    expect(rows).toEqual([
+      { venue_symbol: `${base}CURATED`, max_leverage: 10 },
+      { venue_symbol: `${base}REPORTED`, max_leverage: 50 },
+    ]);
+  });
+
   test("stores prices per unit of the base asset, leaving open interest alone", async () => {
     const t1 = Date.now() - 20_000;
     const settledAt = Math.floor((t1 - 60_000) / 3_600_000) * 3_600_000;

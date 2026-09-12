@@ -1,4 +1,4 @@
-import type { FundingEvent, FundingSnapshot } from "@ai-rates/core";
+import type { FundingEvent, FundingSnapshot, LeverageTier } from "@ai-rates/core";
 import { marketRef, mul, num } from "../parse";
 import type { SnapshotBatch, VenueAdapter } from "../types";
 
@@ -12,6 +12,22 @@ interface HlUniverseAsset {
   isDelisted?: boolean;
   /** Headline leverage. `meta.marginTables` carries the full ladder in this same response (B1). */
   maxLeverage?: number | null;
+  /** Which entry of `marginTables` this asset uses; tables are shared across many assets. */
+  marginTableId?: number;
+}
+
+export interface HlMarginTier {
+  /** Position notional in USD at which this step begins. */
+  lowerBound: string;
+  maxLeverage: number;
+}
+
+/** `[id, table]`, as Hyperliquid serialises its shared margin tables. */
+export type HlMarginTable = [number, { description?: string; marginTiers: HlMarginTier[] }];
+
+export interface HlMeta {
+  universe: HlUniverseAsset[];
+  marginTables?: HlMarginTable[];
 }
 
 interface HlAssetCtx {
@@ -22,7 +38,64 @@ interface HlAssetCtx {
   dayNtlVlm?: string | null;
 }
 
-export type HlMetaAndAssetCtxs = [{ universe: HlUniverseAsset[] }, HlAssetCtx[]];
+export type HlMetaAndAssetCtxs = [HlMeta, HlAssetCtx[]];
+
+/**
+ * Risk ladders from `meta.marginTables`, which arrives in a call the collector already makes.
+ *
+ * Hyperliquid shares a handful of tables across every asset (seven cover 234 coins), so an asset
+ * points at one by `marginTableId`. A tier gives only a `lowerBound` in USD notional and a max
+ * leverage, so each band ends where the next begins and the top one is genuinely unbounded —
+ * Hyperliquid publishes no maximum position size, unlike Bybit and OKX.
+ *
+ * There is no published margin rate, so `imr` is the reciprocal of the leverage cap.
+ */
+export function parseHyperliquidMarginTables(venueId: string, meta: HlMeta): LeverageTier[] {
+  const tables = new Map(meta.marginTables ?? []);
+  const ladders: LeverageTier[] = [];
+
+  for (const asset of meta.universe) {
+    if (asset.isDelisted || asset.marginTableId === undefined) continue;
+    const table = tables.get(asset.marginTableId);
+    // An asset can name a table the response didn't carry; it gets no ladder rather than a guess.
+    if (!table || table.marginTiers.length === 0) continue;
+
+    const sorted = [...table.marginTiers].sort(
+      (a, b) => Number(a.lowerBound) - Number(b.lowerBound),
+    );
+    const ladder: LeverageTier[] = [];
+    let usable = true;
+
+    for (let i = 0; i < sorted.length; i++) {
+      const step = sorted[i] as HlMarginTier;
+      const lower = num(step.lowerBound);
+      const maxLeverage = num(step.maxLeverage);
+      const upper = i + 1 < sorted.length ? num(sorted[i + 1]?.lowerBound) : null;
+
+      if (
+        lower === null ||
+        maxLeverage === null ||
+        maxLeverage <= 0 ||
+        (upper !== null && upper <= lower)
+      ) {
+        usable = false;
+        break;
+      }
+      ladder.push({
+        venueId,
+        venueSymbol: asset.name,
+        tier: i + 1,
+        lowerNotionalUsd: lower,
+        upperNotionalUsd: upper,
+        imr: 1 / maxLeverage,
+        mmr: null,
+        maxLeverage,
+      });
+    }
+    if (usable) ladders.push(...ladder);
+  }
+  return ladders;
+}
 
 export interface HlFundingHistoryRow {
   coin: string;
@@ -114,6 +187,14 @@ function createAdapter(venueId: string, dex: string | null, quote: string | null
       const body = dex ? { type: "metaAndAssetCtxs", dex } : { type: "metaAndAssetCtxs" };
       const payload = await client.postJson<HlMetaAndAssetCtxs>(HYPERLIQUID_INFO_URL, body);
       return { snapshots: parseHyperliquidSnapshots(venueId, payload, now, quote), settled: [] };
+    },
+
+    async fetchLeverageTiers(client) {
+      // `meta` is the same payload as the first half of metaAndAssetCtxs, so one request covers
+      // the whole dex and nothing here is per-symbol.
+      const body = dex ? { type: "meta", dex } : { type: "meta" };
+      const meta = await client.postJson<HlMeta>(HYPERLIQUID_INFO_URL, body);
+      return { tiers: parseHyperliquidMarginTables(venueId, meta), complete: true };
     },
 
     async fetchFundingHistory(client, venueSymbol, fromMs, toMs) {

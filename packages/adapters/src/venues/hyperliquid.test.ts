@@ -9,6 +9,7 @@ import {
   HYPERLIQUID_INFO_URL,
   hyperliquidAdapter,
   parseHyperliquidFundingHistory,
+  parseHyperliquidMarginTables,
   parseHyperliquidSnapshots,
   parsePerpDexs,
 } from "./hyperliquid";
@@ -86,6 +87,56 @@ describe("parseHyperliquidSnapshots (HIP-3)", () => {
     });
     expect(snapshots[0]?.openInterestUsd).toBeCloseTo(8837.92 * 29432, 2);
     expect(snapshots[1]?.rate).toBe(-0.0000178177);
+  });
+});
+
+describe("parseHyperliquidMarginTables", () => {
+  test("expands each asset's shared table into a ladder", async () => {
+    const [meta] = await fixture<HlMetaAndAssetCtxs>("meta-and-asset-ctxs.json");
+    const tiers = parseHyperliquidMarginTables("hyperliquid", meta);
+
+    expect(tiers.map((t) => `${t.venueSymbol}:${t.tier}`)).toEqual([
+      "BTC:1",
+      "BTC:2",
+      "ETH:1",
+      "ETH:2",
+    ]);
+    // No margin rate is published, so it is the reciprocal of the leverage cap.
+    expect(tiers[0]).toEqual({
+      venueId: "hyperliquid",
+      venueSymbol: "BTC",
+      tier: 1,
+      lowerNotionalUsd: 0,
+      upperNotionalUsd: 150_000_000,
+      imr: 1 / 40,
+      mmr: null,
+      maxLeverage: 40,
+    });
+    // The top step is genuinely unbounded: Hyperliquid publishes no maximum position size, so a
+    // null here means "no cap", not "cap unknown".
+    expect(tiers[1]).toMatchObject({
+      tier: 2,
+      lowerNotionalUsd: 150_000_000,
+      upperNotionalUsd: null,
+      imr: 1 / 20,
+      maxLeverage: 20,
+    });
+    // Tables are shared, so ETH reads a different one: 25x stepping to 15x at $100m.
+    expect(tiers[2]).toMatchObject({
+      venueSymbol: "ETH",
+      tier: 1,
+      upperNotionalUsd: 100_000_000,
+      maxLeverage: 25,
+    });
+  });
+
+  test("an asset whose table the response omits gets no ladder rather than a guess", async () => {
+    const [meta] = await fixture<HlMetaAndAssetCtxs>("meta-and-asset-ctxs.json");
+    // MATIC names table 20, which this payload does not carry (and is delisted besides).
+    expect(meta.universe.some((u) => u.marginTableId === 20)).toBe(true);
+    expect(
+      parseHyperliquidMarginTables("hyperliquid", meta).some((t) => t.venueSymbol === "MATIC"),
+    ).toBe(false);
   });
 });
 

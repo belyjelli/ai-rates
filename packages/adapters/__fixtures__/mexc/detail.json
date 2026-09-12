@@ -11,7 +11,51 @@
       "state": 0,
       "isHidden": false,
       "apiAllowed": true,
-      "futureType": 1
+      "futureType": 1,
+      "riskLimitCustom": [
+        {
+          "level": 1,
+          "maxVol": 50000,
+          "mmr": 0.001,
+          "imr": 0.002,
+          "maxLeverage": 500
+        },
+        {
+          "level": 2,
+          "maxVol": 310000,
+          "mmr": 0.004,
+          "imr": 0.005,
+          "maxLeverage": 200
+        },
+        {
+          "level": 3,
+          "maxVol": 480000,
+          "mmr": 0.005,
+          "imr": 0.01,
+          "maxLeverage": 100
+        },
+        {
+          "level": 4,
+          "maxVol": 2800000,
+          "mmr": 0.01,
+          "imr": 0.02,
+          "maxLeverage": 50
+        },
+        {
+          "level": 5,
+          "maxVol": 17500000,
+          "mmr": 0.02,
+          "imr": 0.05,
+          "maxLeverage": 20
+        },
+        {
+          "level": 6,
+          "maxVol": 19000000,
+          "mmr": 0.05,
+          "imr": 0.1,
+          "maxLeverage": 10
+        }
+      ]
     },
     {
       "symbol": "ETH_USDT",
@@ -22,7 +66,51 @@
       "state": 0,
       "isHidden": false,
       "apiAllowed": true,
-      "futureType": 1
+      "futureType": 1,
+      "riskLimitCustom": [
+        {
+          "level": 1,
+          "maxVol": 19000,
+          "mmr": 0.001,
+          "imr": 0.002,
+          "maxLeverage": 500
+        },
+        {
+          "level": 2,
+          "maxVol": 107000,
+          "mmr": 0.004,
+          "imr": 0.005,
+          "maxLeverage": 200
+        },
+        {
+          "level": 3,
+          "maxVol": 150000,
+          "mmr": 0.005,
+          "imr": 0.01,
+          "maxLeverage": 100
+        },
+        {
+          "level": 4,
+          "maxVol": 860000,
+          "mmr": 0.01,
+          "imr": 0.02,
+          "maxLeverage": 50
+        },
+        {
+          "level": 5,
+          "maxVol": 4500000,
+          "mmr": 0.02,
+          "imr": 0.05,
+          "maxLeverage": 20
+        },
+        {
+          "level": 6,
+          "maxVol": 4800000,
+          "mmr": 0.05,
+          "imr": 0.1,
+          "maxLeverage": 10
+        }
+      ]
     },
     {
       "symbol": "XAU_USDT",
@@ -33,7 +121,44 @@
       "state": 0,
       "isHidden": false,
       "apiAllowed": true,
-      "futureType": 1
+      "futureType": 1,
+      "riskLimitCustom": [
+        {
+          "level": 1,
+          "maxVol": 80000,
+          "mmr": 0.0004,
+          "imr": 0.001,
+          "maxLeverage": 1000
+        },
+        {
+          "level": 2,
+          "maxVol": 1000000,
+          "mmr": 0.001,
+          "imr": 0.002,
+          "maxLeverage": 500
+        },
+        {
+          "level": 3,
+          "maxVol": 2000000,
+          "mmr": 0.002,
+          "imr": 0.005,
+          "maxLeverage": 200
+        },
+        {
+          "level": 4,
+          "maxVol": 4000000,
+          "mmr": 0.01,
+          "imr": 0.02,
+          "maxLeverage": 50
+        },
+        {
+          "level": 5,
+          "maxVol": 11000000,
+          "mmr": 0.02,
+          "imr": 0.05,
+          "maxLeverage": 20
+        }
+      ]
     }
   ]
 }

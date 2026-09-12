@@ -28,7 +28,12 @@ const log = (message: string) => console.log(`${new Date().toISOString()} ${mess
 
 const config = loadConfig(process.env);
 const sql = new SQL({ url: config.databaseUrl, max: 10 });
-const store = new PgStore(sql);
+// Aster, Paradex and Lighter publish no leverage at all, so the catalog carries a conservative
+// hand-curated figure for them. It is a fallback only: anything a venue reports itself wins.
+const curatedMaxLeverage = new Map(
+  VENUES.flatMap((venue) => (venue.maxLeverage ? [[venue.id, venue.maxLeverage] as const] : [])),
+);
+const store = new PgStore(sql, curatedMaxLeverage);
 
 const migration = await migrate(sql);
 log(`migrations applied: ${migration.applied.join(", ") || "none"}`);

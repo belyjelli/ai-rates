@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { HttpClient } from "../http";
-import { kucoinAdapter, parseKucoinFundingHistory, parseKucoinSnapshots } from "./kucoin";
+import {
+  kucoinAdapter,
+  parseKucoinFundingHistory,
+  parseKucoinRiskLimits,
+  parseKucoinSnapshots,
+} from "./kucoin";
 
 const fixture = (name: string) =>
   Bun.file(new URL(`../../__fixtures__/kucoin/${name}.json`, import.meta.url)).json();
@@ -71,6 +76,39 @@ describe("parseKucoinSnapshots", () => {
       snapshots: [],
       settled: [],
     });
+  });
+});
+
+describe("parseKucoinRiskLimits", () => {
+  test("uses the published floor and ceiling, which are already contiguous", async () => {
+    const tiers = parseKucoinRiskLimits((await fixture("risk-limit")).data);
+    const btc = tiers.filter((t) => t.venueSymbol === "XBTUSDTM");
+    expect(btc).toHaveLength(12);
+
+    // initialMargin 0.008 is exactly 1/125, which is how the bounds are known to be quote
+    // notional rather than lots: as lots this first band would be a $19m position at 125x.
+    expect(btc[0]).toEqual({
+      venueId: "kucoin",
+      venueSymbol: "XBTUSDTM",
+      tier: 1,
+      lowerNotionalUsd: 0,
+      upperNotionalUsd: 250_000,
+      imr: 0.008,
+      mmr: 0.004,
+      maxLeverage: 125,
+    });
+    // Unlike Bybit and Gate, KuCoin gives minRiskLimit, so no floor is ever inferred.
+    expect(btc[1]).toMatchObject({
+      tier: 2,
+      lowerNotionalUsd: 250_000,
+      upperNotionalUsd: 600_000,
+      imr: 0.01,
+      maxLeverage: 100,
+    });
+
+    const doge = tiers.filter((t) => t.venueSymbol === "DOGEUSDTM");
+    expect(doge).toHaveLength(8);
+    expect(doge[0]).toMatchObject({ tier: 1, upperNotionalUsd: 60_000, maxLeverage: 75 });
   });
 });
 

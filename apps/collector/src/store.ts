@@ -31,7 +31,14 @@ export interface LatestFunding {
 }
 
 export class PgStore implements CollectorStore, HistoryStore {
-  constructor(private readonly sql: SQL) {}
+  constructor(
+    private readonly sql: SQL,
+    /**
+     * Headline leverage for venues that publish none, hand-curated in the venue catalog (B4).
+     * Only ever a fallback: a figure the venue reports itself always wins.
+     */
+    private readonly curatedMaxLeverage: ReadonlyMap<string, number> = new Map(),
+  ) {}
 
   async upsertVenues(venues: readonly { id: string; name: string; type: string }[]): Promise<void> {
     const rows = venues.map(({ id, name, type }) => ({ id, name, type }));
@@ -48,7 +55,8 @@ export class PgStore implements CollectorStore, HistoryStore {
     const lastSeen = new Date(observedAt);
 
     await this.sql.begin(async (tx) => {
-      for (const chunk of chunks(markets.map((s) => marketRow(s, lastSeen)))) {
+      const curated = this.curatedMaxLeverage.get(venueId) ?? null;
+      for (const chunk of chunks(markets.map((s) => marketRow(s, lastSeen, curated)))) {
         await tx`
           INSERT INTO markets ${tx(chunk)}
           ON CONFLICT (venue_id, venue_symbol) DO UPDATE SET
@@ -230,7 +238,7 @@ export class PgStore implements CollectorStore, HistoryStore {
   }
 }
 
-function marketRow(s: FundingSnapshot, lastSeen: Date) {
+function marketRow(s: FundingSnapshot, lastSeen: Date, curatedMaxLeverage: number | null = null) {
   return {
     venue_id: s.venueId,
     venue_symbol: s.venueSymbol,
@@ -239,7 +247,7 @@ function marketRow(s: FundingSnapshot, lastSeen: Date) {
     multiplier: s.multiplier,
     dex: s.dex,
     interval_hours: s.intervalHours,
-    max_leverage: s.maxLeverage ?? null,
+    max_leverage: s.maxLeverage ?? curatedMaxLeverage,
     last_seen: lastSeen,
   };
 }
