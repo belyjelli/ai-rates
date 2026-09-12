@@ -380,7 +380,13 @@ ${
   });
 }
 
-export function exchange(data: { venue: Venue; markets: MarketRow[]; now: number }): string {
+export function exchange(data: {
+  venue: Venue;
+  markets: MarketRow[];
+  /** Required: the status line reads it, and leaving it out reported every venue as silent. */
+  overview: Overview;
+  now: number;
+}): string {
   const { venue, markets, now } = data;
   const oi = markets.reduce((sum, m) => sum + (m.open_interest_usd ?? 0), 0);
   const scale = railScale(
@@ -408,6 +414,7 @@ export function exchange(data: { venue: Venue; markets: MarketRow[]; now: number
     title: `${venue.name} funding rates`,
     description: `Live funding rates, open interest and volume for every ${venue.name} perpetual market.`,
     path: exchangeHref(venue.id),
+    overview: data.overview,
     now,
     body: `<p class="eyebrow"><a href="/markets">Exchanges</a> / ${esc(VENUE_TYPE_LABEL[venue.type] ?? venue.type)}</p>
 <h1>${esc(venue.name)}</h1>
@@ -603,7 +610,13 @@ ${grid}`,
   });
 }
 
-export function asset(data: { asset: string; markets: MarketRow[]; now: number }): string {
+export function asset(data: {
+  asset: string;
+  markets: MarketRow[];
+  /** Required for the same reason as on the exchange page. */
+  overview: Overview;
+  now: number;
+}): string {
   const { markets, now } = data;
   const minOi = DEFAULT_FILTERS.minOpenInterestUsd;
   const pair = bestPair(markets, minOi);
@@ -647,6 +660,7 @@ export function asset(data: { asset: string; markets: MarketRow[]; now: number }
     title: `${data.asset} funding rates by exchange`,
     description: `${data.asset} perpetual funding rates across ${venues} exchanges, with the widest long/short spread.`,
     path: assetHref(data.asset),
+    overview: data.overview,
     now,
     body: `<p class="eyebrow">Funding by exchange</p>
 <h1>${esc(data.asset)}</h1>
