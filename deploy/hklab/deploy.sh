@@ -34,8 +34,20 @@ for f in $SRC; do
   [ -e "$f" ] || { echo "deploy: missing '$f'" >&2; exit 1; }
 done
 
+# Reachability first, and separately, because these are different failures with different fixes.
+# Previously one `test -f` over ssh covered both: when ssh itself could not start -- a broken
+# ~/.ssh/config aborts every connection before any network call -- the script reported a missing
+# .env on the server and sent the reader to fix the wrong machine.
+$SSH true 2>/dev/null || {
+  echo "deploy: cannot open an ssh session to the target." >&2
+  echo "  This is a LOCAL failure, not a missing file on the server. Check ~/.ssh/config parses" >&2
+  echo "  (\`ssh -G <host> >/dev/null\` reports the offending line), then that the host is reachable." >&2
+  exit 1
+}
+
 $SSH "test -f $REMOTE_DIR/deploy/hklab/.env" || {
-  echo "deploy: create $REMOTE_DIR/deploy/hklab/.env on the server first (DATABASE_URL=...)" >&2
+  echo "deploy: ssh works, but $REMOTE_DIR/deploy/hklab/.env is missing on the server." >&2
+  echo "  Create it with DATABASE_URL=... (mode 600); see deploy/hklab/README.md." >&2
   exit 1
 }
 
