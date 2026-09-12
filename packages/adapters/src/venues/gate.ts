@@ -3,6 +3,7 @@ import {
   type FundingSnapshot,
   inferIntervalHours,
   type LeverageTier,
+  type Liquidation,
 } from "@ai-rates/core";
 import { CircuitOpenError } from "../http";
 import { marketRef, mul, num } from "../parse";
@@ -19,6 +20,8 @@ const RISK_TIERS_PER_PAGE = 100;
 const RISK_TIERS_MAX_PAGES = 40;
 const RISK_TIERS_RETRIES = 2;
 const RISK_TIERS_BACKOFF_MS = 400;
+/** A page this deep covers ~58 minutes of forced closes, so a 5-minute poll cannot overflow it. */
+const LIQUIDATION_PAGE = 1000;
 
 export interface GateContract {
   name: string;
@@ -179,6 +182,58 @@ export function parseGateRiskLimitTiers(rows: readonly GateRiskLimitTier[]): Lev
   return ladders;
 }
 
+export interface GateLiquidation {
+  contract: string;
+  /** The LIQUIDATED POSITION, signed: positive is a long, negative a short. */
+  size: string;
+  /** The closing order, always the opposite sign to `size`. Not the position's side. */
+  order_size: string;
+  fill_price: string;
+  order_price: string;
+  /** Epoch SECONDS. */
+  time: number;
+  left: string;
+}
+
+/**
+ * Gate's forced closes, normalised to the side of the position that was liquidated.
+ *
+ * THE SIDE COMES FROM `size`, NOT `order_size`, and getting this backwards would invert every
+ * long/short figure in the study. Measured across 167 live records on 2026-09-13: the two fields
+ * are opposite in sign in 167 of 167 cases. `size:"76", order_size:"-76"` is a liquidated LONG
+ * closed by a sell; `size:"-95", order_size:"95"` is a liquidated SHORT closed by a buy. The sign
+ * is consumed into `side` and the stored size is absolute, or every short's notional would be
+ * negative.
+ *
+ * The notional needs the per-contract multiplier, which is why the hook fetches `/contracts`
+ * alongside: Gate quotes size in CONTRACTS, and BTC_USDT is 0.0001 BTC apiece, so a size of 8 is
+ * about $62 rather than 8 BTC. A contract we have no multiplier for stores a null notional instead
+ * of a guessed one.
+ */
+export function parseGateLiquidations(
+  rows: readonly GateLiquidation[],
+  multipliers: ReadonlyMap<string, number>,
+): Liquidation[] {
+  const out: Liquidation[] = [];
+  for (const row of rows) {
+    const size = num(row.size);
+    const fillPrice = num(row.fill_price);
+    if (size === null || size === 0 || fillPrice === null || fillPrice <= 0) continue;
+    if (!Number.isFinite(row.time) || row.time <= 0) continue;
+
+    const multiplier = multipliers.get(row.contract) ?? null;
+    out.push({
+      ...marketRef(VENUE_ID, row.contract),
+      liquidatedAt: row.time * 1000,
+      side: size > 0 ? "long" : "short",
+      sizeContracts: Math.abs(size),
+      fillPrice,
+      notionalUsd: mul(Math.abs(size), multiplier, fillPrice),
+    });
+  }
+  return out;
+}
+
 export const gateAdapter: VenueAdapter = {
   venueId: VENUE_ID,
   minIntervalMs: 150,
@@ -225,6 +280,30 @@ export const gateAdapter: VenueAdapter = {
       rows.push(...fetched);
     }
     return { tiers: parseGateRiskLimitTiers(rows), complete };
+  },
+
+  /**
+   * The whole venue's recent forced closes in one call, plus `/contracts` for the multipliers.
+   *
+   * Two requests for ~981 contracts, against OKX needing one per instFamily (479). Measured
+   * 2026-09-13: a 1000-row request returns ~173 records spanning 58 minutes at 3 records/min, with
+   * the newest 0.1 min old — so the collector's 5-minute poll has a 12x margin against overflowing
+   * the page. `from`/`to` are accepted and SILENTLY IGNORED (a bogus-parameter control returned the
+   * identical first record), so there is no resumable window: every poll re-reads the page and the
+   * store's composite key absorbs the repeats.
+   */
+  async fetchLiquidations(client) {
+    const [rows, contracts] = await Promise.all([
+      client.getJson<GateLiquidation[]>(`${BASE_URL}/liq_orders?limit=${LIQUIDATION_PAGE}`),
+      client.getJson<GateContract[]>(`${BASE_URL}/contracts`),
+    ]);
+    const multipliers = new Map<string, number>();
+    for (const contract of contracts) {
+      const multiplier = num(contract.quanto_multiplier);
+      if (multiplier !== null && multiplier > 0) multipliers.set(contract.name, multiplier);
+    }
+    // One call covers the venue, so a response that arrived at all is complete by construction.
+    return { liquidations: parseGateLiquidations(rows, multipliers), complete: true };
   },
 
   async fetchFundingHistory(client, venueSymbol, fromMs, toMs) {

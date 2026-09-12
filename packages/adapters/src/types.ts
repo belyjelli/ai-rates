@@ -1,4 +1,4 @@
-import type { FundingEvent, FundingSnapshot, LeverageTier } from "@ai-rates/core";
+import type { FundingEvent, FundingSnapshot, LeverageTier, Liquidation } from "@ai-rates/core";
 import type { HttpClient } from "./http";
 
 export interface SnapshotBatch {
@@ -16,6 +16,19 @@ export interface SnapshotBatch {
  */
 export interface VenueLeverageTiers {
   tiers: LeverageTier[];
+  complete: boolean;
+}
+
+/**
+ * One venue's recent forced closes, and whether the sweep covered everything it meant to.
+ *
+ * `complete` carries the same meaning as on `VenueLeverageTiers`, but the consequence is different:
+ * liquidations are only ever INSERTed, never pruned, so an incomplete sweep loses coverage rather
+ * than deleting data. It is still reported, because a silent gap in a regressor is worse than a
+ * loud one — a missing hour reads as "no liquidations happened" to any later analysis.
+ */
+export interface VenueLiquidations {
+  liquidations: Liquidation[];
   complete: boolean;
 }
 
@@ -50,6 +63,16 @@ export interface VenueAdapter {
    * rarely, so the collector calls this daily, not per cycle.
    */
   fetchLeverageTiers?(client: HttpClient): Promise<VenueLeverageTiers>;
+  /**
+   * Recent forced closes across the venue.
+   *
+   * Optional because most venues publish nothing usable: measured 2026-09-13, Gate answers for
+   * every contract in ONE call, OKX needs one call per instFamily (479 of them) and runs ~69
+   * minutes stale, Bybit's `liq-records` is 404, MEXC returns 403 even from the collector's own
+   * host, and Binance's `allForceOrders` is gone. So this is deliberately not a per-market hook:
+   * a venue that answers for its whole book should do so in as few requests as it allows.
+   */
+  fetchLiquidations?(client: HttpClient): Promise<VenueLiquidations>;
   /** Settled funding payments for one market in [fromMs, toMs], oldest first. */
   fetchFundingHistory?(
     client: HttpClient,
