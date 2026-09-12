@@ -9,6 +9,7 @@ import type {
   ScreenerFilters,
   ScreenerPair,
   ScreenerSort,
+  VerifiedPair,
 } from "../app/data";
 import type { BacktestParams, HeatmapParams, HeatmapTimeframe } from "../app/params";
 import {
@@ -61,11 +62,56 @@ const stability = (score: number | null, days: number | null): string =>
     ? '<span class="dim">–</span>'
     : `<span title="${days ?? 0} charging days in the last 30">${score.toFixed(2)}</span>`;
 
-export function home(data: { overview: Overview; pairs: ScreenerPair[]; now: number }): string {
+/**
+ * Last night's replay of what each pair actually settled, ranked by realised funding.
+ *
+ * The ranking is UNGATED on purpose, so the disclosure is doing real work rather than decorating:
+ * the leader can be a distressed listing whose thinner leg holds $0.28M and whose worse leg funds
+ * at 305% APR. Every row therefore shows the thinner leg's depth, the worse leg's absolute APR and
+ * the pair's stability, so a reader can see the danger beside the number instead of discovering it
+ * after opening a position.
+ *
+ * Each row links to its OWN legs. `pairHref(asset)` alone would open whichever pair the asset page
+ * picks by spread, which is often not the pair that earned this row.
+ */
+function verifiedTable(verified: VerifiedPair[]): string {
+  if (verified.length === 0) {
+    return `<div class="sheet-wrap"><p class="empty">No replay yet: the nightly run needs a week of settled funding on both legs of a pair.</p></div>`;
+  }
+  const rows = verified
+    .map((v) => {
+      const href = `${pairHref(v.asset)}?long=${encodeURIComponent(v.long_venue_id)}&short=${encodeURIComponent(v.short_venue_id)}`;
+      return `<tr>
+<td class="asset"><a href="${href}">${esc(v.asset)}</a></td>
+<td class="num ${v.net_funding_usd >= 0 ? "longs-paid" : "shorts-paid"}">${money(v.net_funding_usd)}</td>
+<td class="num">${formatApr(v.net_funding_apr_percent)}</td>
+<td><div class="leg long-leg"><a class="venue" href="${exchangeHref(v.long_venue_id)}">${esc(venueName(v.long_venue_id))}</a><span class="meta">${esc(v.long_symbol)}</span></div></td>
+<td><div class="leg short-leg"><a class="venue" href="${exchangeHref(v.short_venue_id)}">${esc(venueName(v.short_venue_id))}</a><span class="meta">${esc(v.short_symbol)}</span></div></td>
+<td class="num">${Math.round(v.win_rate_days * 100)}%</td>
+<td class="num" title="Open interest on the thinner of the two legs. A big figure earned on a shallow market is not a trade you can size into">${formatUsd(v.thinner_leg_oi_usd)}</td>
+<td class="num" title="The more extreme leg's funding, absolute. Rates past a few hundred percent usually mean a delisting or a distressed listing rather than carry">${v.worst_leg_abs_apr === null ? '<span class="dim">–</span>' : formatApr(v.worst_leg_abs_apr)}</td>
+<td class="num">${stability(v.pair_stability, Math.min(v.long_charge_days, v.short_charge_days))}</td>
+</tr>`;
+    })
+    .join("");
+
+  return `<div class="sheet-wrap"><table class="sheet">
+<thead><tr><th>Asset</th><th class="num" title="Funding both legs actually settled over the last 7 days, per $10,000 of notional on each leg">7d settled</th><th class="num">Annualized</th><th>Long leg</th><th>Short leg</th><th class="num" title="Days the pair was net positive, as a share of days that settled at all">Win rate</th><th class="num">Thinner leg OI</th><th class="num">Worst leg APR</th><th class="num" title="How often the weaker leg held its funding direction over 30 days">Stability</th></tr></thead>
+<tbody>${rows}</tbody>
+</table></div>`;
+}
+
+export function home(data: {
+  overview: Overview;
+  pairs: ScreenerPair[];
+  verified: VerifiedPair[];
+  now: number;
+}): string {
   const [top] = data.pairs;
   const hero = top
     ? heroPair(top)
     : `<section class="hero"><p class="eyebrow">Widest funding spread right now</p><p class="lede">No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.</p></section>`;
+  const runDay = data.verified[0]?.run_day;
 
   return layout({
     title: "Funding spreads across perp exchanges",
@@ -78,6 +124,11 @@ export function home(data: { overview: Overview; pairs: ScreenerPair[]; now: num
 <section>
 <div class="section-head"><h2>Widest spreads</h2><a href="/screener">Open the screener</a></div>
 ${pairsTable(data.pairs, "No pairs yet: an asset needs live markets on at least two venues.")}
+</section>
+<section>
+<div class="section-head"><h2>What actually paid, last 7 days</h2>${runDay ? `<span class="dim">replayed ${esc(runDay.toISOString().slice(0, 10))}</span>` : ""}</div>
+<p class="lede">Not a forecast: both legs replayed at their own settlement times from stored funding, on $10,000 per leg. Ranked by what settled, with nothing filtered out — so check the thinner leg's depth and the worse leg's rate before reading a big number as a trade.</p>
+${verifiedTable(data.verified)}
 </section>`,
   });
 }

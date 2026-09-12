@@ -258,6 +258,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     await admin`DELETE FROM funding_events WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_latest WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_leverage_tiers WHERE venue_id IN (${venueA}, ${venueB})`;
+    await admin`DELETE FROM market_pair_backtests WHERE long_venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_funding_stats WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM markets WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM venues WHERE id IN (${venueA}, ${venueB})`;
@@ -296,6 +297,51 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
 
   test("asking for no markets queries nothing", async () => {
     expect(await data.settlements([], settledAt - HOUR, settledAt)).toEqual([]);
+  });
+
+  test("verifiedPairs reads the newest run only, against the real schema", async () => {
+    // The unit tests fake the DataSource, so this is the only place the query actually runs with
+    // production client options — the header above explains why that matters.
+    const row = (runDay: string, asset: string, net: number) => ({
+      run_day: runDay,
+      asset,
+      long_venue_id: venueA,
+      long_symbol: symbolA,
+      short_venue_id: venueB,
+      short_symbol: symbolB,
+      size_usd: 10_000,
+      days: 7,
+      net_funding_usd: net,
+      net_funding_apr_percent: net / 10,
+      win_rate_days: 1,
+      avg_daily_usd: net / 7,
+      long_settlements: 21,
+      short_settlements: 21,
+      missed_settlements: 0,
+      thinner_leg_oi_usd: 500_000,
+      worst_leg_abs_apr: 120,
+      pair_stability: 0.8,
+      long_charge_days: 7,
+      short_charge_days: 7,
+    });
+    await admin`
+      INSERT INTO market_pair_backtests ${admin([
+        // Yesterday's run must not be mixed into today's ranking, even though it pays more.
+        row("2026-09-11", `${base}OLD`, 999),
+        row("2026-09-12", `${base}HI`, 500),
+        row("2026-09-12", `${base}LO`, 100),
+      ])} ON CONFLICT (run_day, asset) DO NOTHING`;
+
+    const pairs = await data.verifiedPairs(10);
+    const mine = pairs.filter((p) => p.asset.startsWith(base));
+    // Newest run only, ordered by what settled.
+    expect(mine.map((p) => p.asset)).toEqual([`${base}HI`, `${base}LO`]);
+    expect(mine[0]?.net_funding_usd).toBeCloseTo(500, 6);
+    // The risk columns survive the round trip rather than arriving undefined.
+    expect(mine[0]?.thinner_leg_oi_usd).toBeCloseTo(500_000, 6);
+    expect(mine[0]?.pair_stability).toBeCloseTo(0.8, 6);
+    expect(mine[0]?.run_day).toBeInstanceOf(Date);
+    expect(await data.verifiedPairs(1)).toHaveLength(1);
   });
 
   test("asset and exchange carry max_leverage across from markets", async () => {
