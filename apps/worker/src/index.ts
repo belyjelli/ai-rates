@@ -1,5 +1,6 @@
 import postgres from "postgres";
 import { handleApp } from "./app/app";
+import { createClearance } from "./app/clearance";
 import { createDataSource } from "./app/data";
 import { verifyTurnstile } from "./app/turnstile";
 import { ProbeDO } from "./probe/probe-do";
@@ -38,12 +39,17 @@ export default {
         data,
         now: Date.now,
         log: console.error,
+        sitekey: env.TURNSTILE_SITEKEY,
+        // Per-colo, so a blunt first filter rather than a real bound; Turnstile carries the load.
+        rateLimit: async (key: string) => (await env.BACKTEST_LIMITER.limit({ key })).success,
         // No secret configured means no challenge, which is what lets `wrangler dev` work. It also
-        // means production is ungated until the secret is set.
+        // means production is ungated until the secret is set. The clearance cookie is keyed on the
+        // same secret, so both halves of the gate appear and disappear together.
         ...(secret
           ? {
               verifyToken: (token: string | null, remoteip: string | null) =>
                 verifyTurnstile(token, { secret, remoteip }),
+              clearance: createClearance(secret),
             }
           : {}),
       });

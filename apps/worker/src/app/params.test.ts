@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+  type BacktestParams,
+  backtestToQuery,
   DEFAULT_BACKTEST_DAYS,
   DEFAULT_BACKTEST_SIZE_USD,
   DEFAULT_FILTERS,
@@ -73,6 +75,30 @@ describe("parseScreenerFilters", () => {
         DEFAULT_FILTERS.maxAbsApr,
       );
     }
+  });
+});
+
+describe("backtestToQuery", () => {
+  test("round-trips through parseBacktestParams and omits defaults", () => {
+    const parsed = parseBacktestParams(
+      new URLSearchParams("long=gate&short=okx&size=25k&days=14&fee_long=4.5&fee_short=5"),
+    );
+    const query = backtestToQuery(parsed as BacktestParams);
+    expect(query).toBe("?long=gate&short=okx&size=25000&days=14&fee_long=4.5&fee_short=5");
+    expect(parseBacktestParams(new URLSearchParams(query))).toEqual(parsed);
+  });
+
+  test("defaults stay invisible, so the canonical URL is one cache key", () => {
+    const parsed = parseBacktestParams(new URLSearchParams("long=gate&short=okx"));
+    expect(backtestToQuery(parsed as BacktestParams)).toBe("?long=gate&short=okx");
+  });
+
+  test("an explicit zero fee survives, because it is a claim the reader made", () => {
+    const parsed = parseBacktestParams(
+      new URLSearchParams("long=gate&short=okx&fee_long=0&fee_short=0"),
+    );
+    expect(backtestToQuery(parsed as BacktestParams)).toContain("fee_long=0");
+    expect(backtestToQuery(parsed as BacktestParams)).toContain("fee_short=0");
   });
 });
 

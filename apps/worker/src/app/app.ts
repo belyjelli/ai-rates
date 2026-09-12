@@ -2,9 +2,11 @@ import { backtestPair } from "@ai-rates/core";
 import { VENUES } from "@ai-rates/venues";
 import * as pages from "../web/pages";
 import { VENUE_BY_ID } from "../web/venues";
+import type { Clearance } from "./clearance";
 import type { DataSource, MarketRow } from "./data";
 import {
   type BacktestParams,
+  backtestToQuery,
   DEFAULT_FILTERS,
   filtersToQuery,
   HEATMAP_MIN_VENUES,
@@ -25,6 +27,19 @@ export interface AppDeps {
    * expensive path is open.
    */
   verifyToken?: (token: string | null, remoteip: string | null) => Promise<TurnstileVerdict>;
+  /**
+   * Issues and checks the short-lived clearance cookie the PAGE gate uses. Absent means the page
+   * gate is off, the same as `verifyToken`. A cookie rather than a query parameter because the edge
+   * cache keys on the URL — see clearance.ts.
+   */
+  clearance?: Clearance;
+  /** The public Turnstile sitekey, rendered into the widget. */
+  sitekey?: string;
+  /**
+   * Per-colo rate limit: resolves true when the request may proceed. Absent means no limit, which
+   * is the case in tests and in local dev.
+   */
+  rateLimit?: (key: string) => Promise<boolean>;
 }
 
 /** Health reports stale when the newest market update is older than this. */
@@ -37,15 +52,62 @@ const VERIFIED_LIMIT = 10;
 
 /** Public site and JSON API. Probe routes are handled before this in index.ts. */
 export async function handleApp(request: Request, deps: AppDeps): Promise<Response> {
-  if (request.method !== "GET" && request.method !== "HEAD") {
-    return json({ error: "method_not_allowed" }, 405, 0);
-  }
   const url = new URL(request.url);
   const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : "/";
   const now = deps.now();
   const segments = path.split("/").filter(Boolean).map(decodeURIComponent);
 
+  // Exactly one POST is accepted: a solved challenge on /pair/:asset/verify. Everything else stays
+  // read-only, so the 405 below still guards the whole remaining surface.
+  const isVerifyPost =
+    request.method === "POST" &&
+    segments[0] === "pair" &&
+    segments[2] === "verify" &&
+    segments.length === 3;
+  if (!isVerifyPost && request.method !== "GET" && request.method !== "HEAD") {
+    return json({ error: "method_not_allowed" }, 405, 0);
+  }
+
   try {
+    if (isVerifyPost) {
+      const asset = (segments[1] as string).toUpperCase();
+      // Without a configured challenge there is nothing to verify, so the route does not exist.
+      if (!deps.verifyToken || !deps.clearance) return page(pages.notFound(path, now), 404);
+
+      const form = await request.formData();
+      // FormData entries are string | File; a file could never be a backtest parameter, and
+      // filtering here keeps one out of the parser entirely.
+      const fields = new URLSearchParams(
+        [...form].filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+      );
+      const params = parseBacktestParams(fields);
+      if (!params) {
+        return page(
+          pages.notFound(path, now, "That is not a pair of two different exchanges."),
+          400,
+        );
+      }
+
+      const verdict = await deps.verifyToken(
+        fields.get(TURNSTILE_FIELD),
+        request.headers.get("cf-connecting-ip"),
+      );
+      if (!verdict.ok) {
+        deps.log?.(`turnstile refused ${asset} (page): ${verdict.reason}`);
+        // Back to the challenge rather than a dead end: the widget mints a fresh token, since the
+        // refused one is single-use and already spent.
+        return page(pages.challenge({ asset, params, sitekey: deps.sitekey ?? "", now }), 403);
+      }
+
+      // The destination is rebuilt from the posted fields, never taken from the request. A
+      // client-supplied redirect target would be an open redirect, and re-emitting the canonical
+      // query also lands on the same cache key a shared link produces.
+      return seeOther(
+        `/pair/${encodeURIComponent(asset)}${backtestToQuery(params)}`,
+        await deps.clearance.issue(now),
+      );
+    }
+
     if (path === "/") {
       const [overview, pairs, verified] = await Promise.all([
         deps.data.overview(),
@@ -186,6 +248,15 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       segments.length === 4
     ) {
       const asset = (segments[2] as string).toUpperCase();
+      // Ahead of everything, including validation: the point is to bound volume, and the limiter
+      // costs far less than the database read below.
+      if (!(await withinRate(deps, request, "backtest"))) {
+        return json(
+          { error: "rate_limited", detail: "Too many uncached backtests from this address." },
+          429,
+          0,
+        );
+      }
       const params = parseBacktestParams(url.searchParams);
       if (!params) {
         return json(
@@ -246,6 +317,23 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
 
     if (segments[0] === "pair" && segments.length === 2) {
       const asset = (segments[1] as string).toUpperCase();
+      const requested = parseBacktestParams(url.searchParams);
+      // Only a request that would actually replay something is limited or challenged; browsing
+      // /pair/:asset to pick two legs stays free.
+      if (requested && !(await withinRate(deps, request, "pair"))) {
+        return page(pages.tooMany(path, now), 429);
+      }
+      if (requested && deps.verifyToken && deps.clearance) {
+        const cleared = await deps.clearance.check(request.headers.get("cookie"), now);
+        if (!cleared) {
+          // 403, not 200: index.ts caches only 200s, so the challenge can never be stored in place
+          // of the result at this URL, and page() stamps no-store on non-200 as a second guard.
+          return page(
+            pages.challenge({ asset, params: requested, sitekey: deps.sitekey ?? "", now }),
+            403,
+          );
+        }
+      }
       const markets = ASSET_PATTERN.test(asset) ? await deps.data.asset(asset) : [];
       if (markets.length === 0) {
         return page(
@@ -253,7 +341,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           404,
         );
       }
-      const params = parseBacktestParams(url.searchParams);
+      const params = requested;
       const long = params ? pickMarket(markets, params.longVenueId) : undefined;
       const short = params ? pickMarket(markets, params.shortVenueId) : undefined;
       // Only the two chosen legs need ladders, and only when there is a pair to price at all.
@@ -282,6 +370,30 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       ? json({ error: "data_unavailable" }, 503, 0)
       : page(pages.unavailable(path, now), 503);
   }
+}
+
+/**
+ * Per-colo rate limit, when a binding is present.
+ *
+ * Cloudflare's limiter is per-location, so this bounds one client hammering one colo — which is
+ * what a scraper looks like — and leaves a distributed caller to Turnstile. Keyed on the connecting
+ * IP within a named bucket, so the page and the API do not share an allowance.
+ */
+async function withinRate(deps: AppDeps, request: Request, bucket: string): Promise<boolean> {
+  if (!deps.rateLimit) return true;
+  const ip = request.headers.get("cf-connecting-ip") ?? "anonymous";
+  return deps.rateLimit(`${bucket}:${ip}`);
+}
+
+/**
+ * 303 after a solved challenge, so the browser re-requests with GET and lands on the shareable,
+ * cacheable URL rather than leaving a POST in its history. Never cached: it carries a Set-Cookie.
+ */
+function seeOther(location: string, setCookie: string): Response {
+  return new Response(null, {
+    status: 303,
+    headers: { location, "set-cookie": setCookie, "cache-control": "no-store" },
+  });
 }
 
 /**
