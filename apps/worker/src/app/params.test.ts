@@ -195,12 +195,12 @@ describe("heatmapToQuery", () => {
   test("omits defaults and round-trips through parseHeatmapParams", () => {
     expect(heatmapToQuery({ tf: "now", limit: DEFAULT_HEATMAP_LIMIT, offset: 0 })).toBe("");
 
-    const query = heatmapToQuery({ tf: "60d", limit: 50, offset: 150 });
-    expect(query).toBe("?tf=60d&limit=50&offset=150");
+    const query = heatmapToQuery({ tf: "60d", limit: 20, offset: 150 });
+    expect(query).toBe("?tf=60d&limit=20&offset=150");
     // Round-tripping is what keeps paging links and the edge cache key in agreement.
     expect(parseHeatmapParams(new URLSearchParams(query))).toEqual({
       tf: "60d",
-      limit: 50,
+      limit: 20,
       offset: 150,
     });
   });

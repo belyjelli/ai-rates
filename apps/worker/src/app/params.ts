@@ -72,11 +72,12 @@ export function filtersToQuery(filters: ScreenerFilters): string {
 
 export const HEATMAP_TIMEFRAMES = ["now", "7d", "30d", "60d"] as const;
 export type HeatmapTimeframe = (typeof HEATMAP_TIMEFRAMES)[number];
-export const DEFAULT_HEATMAP_LIMIT = 150;
+/** Fifty assets a page: a screenful to scan, and a light page for the live refresh to re-poll. */
+export const DEFAULT_HEATMAP_LIMIT = 50;
 /**
- * Equal to the default on purpose. 150 assets x ~14 venues is ~2,100 cells, and the cost is linear
- * in rows, so the plan treats 150 as a ceiling until it has been measured — a limit a caller could
- * raise would quietly step past it. Asking for fewer is always allowed.
+ * Equal to the default on purpose, so a page is always at most fifty rows. The cost is linear in
+ * rows, and a limit a caller could raise would quietly undo the page size. Asking for fewer is
+ * always allowed.
  */
 export const MAX_HEATMAP_LIMIT = DEFAULT_HEATMAP_LIMIT;
 /** A grid of one-venue assets would be a column of single cells. */
