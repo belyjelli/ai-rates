@@ -1,7 +1,8 @@
-import type { BacktestResult } from "@ai-rates/core";
+import { type BacktestResult, pairCapitalUsd, tierForSize } from "@ai-rates/core";
 import { VENUES, type Venue } from "@ai-rates/venues";
 import type {
   ExchangeSummary,
+  LeverageTierRow,
   MarketRow,
   Overview,
   ScreenerFilters,
@@ -354,36 +355,77 @@ const formatLeverage = (value: number) => `${value % 1 === 0 ? value : value.toF
  */
 const HEADLINE_LEVERAGE_MAX_SIZE_USD = 250_000;
 
-interface PairCapital {
-  capitalUsd: number;
-  leverage: number | null;
-  /** The size asked for is past where the headline leverage holds, so capital is a lower bound. */
-  beyondHeadline: boolean;
+type PairCapital =
+  /** Priced from both venues' risk-limit tiers at this size: exact, no caveat needed. */
+  | { kind: "tiered"; capitalUsd: number; leverage: number }
+  /** Priced from the headline maximum, which holds only at small size. */
+  | { kind: "headline"; capitalUsd: number; leverage: number | null; beyondHeadline: boolean }
+  /** A leg's size is past the largest position the venue will open on that market. */
+  | { kind: "unopenable"; venueId: string; venueSymbol: string; maxNotionalUsd: number };
+
+/** The bands stored for one leg, in the shape `tierForSize` matches on. */
+function bandsFor(market: MarketRow | undefined, tiers: readonly LeverageTierRow[]) {
+  if (!market) return [];
+  return tiers
+    .filter((t) => t.venue_id === market.venue_id && t.venue_symbol === market.venue_symbol)
+    .map((t) => ({
+      lowerNotionalUsd: t.lower_notional_usd,
+      upperNotionalUsd: t.upper_notional_usd,
+      imr: t.imr,
+    }));
 }
 
 /**
  * What a pair actually ties up. Both legs are open at once on different exchanges and margin
  * independently, so capital is the sum of the two margins — at 1x that is twice the size.
  *
- * Symmetric leverage is the lower of the two venues' maxima: you cannot run the pair at 100x on one
- * side if the other caps at 10x. That is conservative, since independent margining would let you
- * post less on the permissive leg. A venue that publishes no figure drops the pair to unleveraged
- * rather than borrowing its partner's number.
+ * The venue's own ladder is used whenever both legs have one, because the margin rate a position
+ * actually pays depends on its size. Failing that we fall back to the headline maximum, which
+ * holds only at small size, and say so rather than quoting a figure we cannot back.
  *
- * The venues publish one headline number that holds only at small size, so past that the real
- * requirement is higher than this and the page says so rather than quoting a figure it cannot back.
+ * On the headline path, symmetric leverage is the lower of the two venues' maxima: you cannot run
+ * the pair at 100x on one side if the other caps at 10x. That is conservative, since independent
+ * margining would let you post less on the permissive leg. A venue that publishes no figure at all
+ * drops the pair to unleveraged rather than borrowing its partner's number.
  */
 function pairCapital(
   sizeUsd: number,
   longMarket: MarketRow | undefined,
   shortMarket: MarketRow | undefined,
+  tiers: readonly LeverageTierRow[] = [],
 ): PairCapital {
+  const legs = [
+    { market: longMarket, bands: bandsFor(longMarket, tiers) },
+    { market: shortMarket, bands: bandsFor(shortMarket, tiers) },
+  ];
+
+  if (legs.every((leg) => leg.bands.length > 0)) {
+    const priced = legs.map((leg) => ({ ...leg, tier: tierForSize(leg.bands, sizeUsd) }));
+    const over = priced.find((leg) => leg.tier === null);
+    if (over?.market) {
+      return {
+        kind: "unopenable",
+        venueId: over.market.venue_id,
+        venueSymbol: over.market.venue_symbol,
+        // Every band is bounded on this path, since an unbounded top tier always matches.
+        maxNotionalUsd: Math.max(...over.bands.map((band) => band.upperNotionalUsd ?? 0)),
+      };
+    }
+    const [long, short] = priced;
+    if (long?.tier && short?.tier) {
+      const capitalUsd = pairCapitalUsd(sizeUsd, long.tier.imr, short.tier.imr);
+      // What the pair is actually running at, which is not either venue's headline number.
+      return { kind: "tiered", capitalUsd, leverage: (sizeUsd * 2) / capitalUsd };
+    }
+  }
+
   const usable = (market: MarketRow | undefined) =>
     market?.max_leverage && market.max_leverage > 0 ? market.max_leverage : null;
   const long = usable(longMarket);
   const short = usable(shortMarket);
   const leverage = long !== null && short !== null ? Math.min(long, short) : null;
   return {
+    kind: "headline",
     capitalUsd: (sizeUsd * 2) / (leverage ?? 1),
     leverage,
     beyondHeadline: leverage !== null && sizeUsd > HEADLINE_LEVERAGE_MAX_SIZE_USD,
@@ -392,7 +434,13 @@ function pairCapital(
 
 /** The capital line, phrased so it never claims more precision than the tier data supports. */
 function capitalFact(capital: PairCapital): string {
+  if (capital.kind === "unopenable") {
+    return `capital <b>–</b> — ${esc(venueName(capital.venueId))} will not open a position above ${wholeMoney(capital.maxNotionalUsd)} on ${esc(capital.venueSymbol)}`;
+  }
   const amount = wholeMoney(capital.capitalUsd);
+  if (capital.kind === "tiered") {
+    return `capital <b>${amount}</b> across both legs at ${formatLeverage(capital.leverage)}`;
+  }
   if (capital.leverage === null) return `capital <b>${amount}</b> across both legs, unleveraged`;
   const leverage = formatLeverage(capital.leverage);
   return capital.beyondHeadline
@@ -482,9 +530,11 @@ export function pair(data: {
   markets: MarketRow[];
   params: BacktestParams | null;
   result: BacktestResult | null;
+  /** Risk-limit ladders for the two legs. Required so a caller cannot silently price without them. */
+  tiers: LeverageTierRow[];
   now: number;
 }): string {
-  const { asset, markets, params, result, now } = data;
+  const { asset, markets, params, result, tiers, now } = data;
   const venues = new Set(markets.map((m) => m.venue_id)).size;
   const legMarket = (venueId: string, venueSymbol: string) =>
     markets.find((m) => m.venue_id === venueId && m.venue_symbol === venueSymbol);
@@ -494,6 +544,7 @@ export function pair(data: {
           params.sizeUsd,
           legMarket(result.long.venueId, result.long.venueSymbol),
           legMarket(result.short.venueId, result.short.venueSymbol),
+          tiers,
         )
       : null;
 
@@ -506,7 +557,7 @@ export function pair(data: {
 <span class="short"><b>Short ${esc(venueName(result.short.venueId))}</b> ${esc(result.short.venueSymbol)} · ${result.short.settlements} settlements · ${money(result.short.fundingUsd)}</span>
 </div>
 ${equityCurve(result, params.sizeUsd)}
-<div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span><span>${capitalFact(capital ?? pairCapital(params.sizeUsd, undefined, undefined))}</span></div>
+<div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span><span>${capitalFact(capital ?? pairCapital(params.sizeUsd, undefined, undefined, tiers))}</span></div>
 ${
   result.long.missedSettlements > 0 || result.short.missedSettlements > 0
     ? `<p class="notes">Missed settlements: ${result.long.missedSettlements} on ${esc(venueName(result.long.venueId))}, ${result.short.missedSettlements} on ${esc(venueName(result.short.venueId))}. A gap is reported rather than counted as zero, so this total covers only the settlements actually recorded.</p>`

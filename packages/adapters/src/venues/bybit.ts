@@ -2,6 +2,7 @@ import {
   type FundingEvent,
   type FundingSnapshot,
   inferIntervalHours,
+  type LeverageTier,
   parseVenueSymbol,
 } from "@ai-rates/core";
 import type { HttpClient } from "../http";
@@ -12,6 +13,9 @@ const VENUE_ID = "bybit";
 const BASE_URL = "https://api.bybit.com";
 const HISTORY_PAGE = 200;
 const MAX_PAGES = 50;
+// The risk-limit endpoint ignores `limit` and returns ~15 symbols a page whatever you ask for, so
+// the whole linear book (~830 symbols) needs far more pages than any other sweep here.
+const RISK_LIMIT_MAX_PAGES = 200;
 
 export interface BybitEnvelope<T> {
   retCode: number;
@@ -39,6 +43,18 @@ export interface BybitInstrument {
   fundingInterval: number;
   /** Headline leverage; the tiered ladder in /v5/market/risk-limit is the precise source. */
   leverageFilter?: { maxLeverage?: string };
+}
+
+export interface BybitRiskLimit {
+  /** Tier number, 1-based and ascending with position value. */
+  id: number;
+  symbol: string;
+  /** Upper bound of this tier's position value, in the quote currency. */
+  riskLimitValue: string;
+  maintenanceMargin: string;
+  initialMargin: string;
+  isLowestRisk: number;
+  maxLeverage: string;
 }
 
 export interface BybitFundingHistoryItem {
@@ -133,6 +149,60 @@ export function parseBybitFundingHistory(
   }));
 }
 
+/**
+ * Normalizes `/v5/market/risk-limit` rows into one ladder per symbol.
+ *
+ * Bybit gives each tier an upper bound (`riskLimitValue`) in the quote currency and numbers them
+ * from 1, so a tier's lower bound is the previous tier's upper bound. Linear perps quote in USDT,
+ * which is treated as USD throughout, as open interest already is.
+ *
+ * A ladder with an unreadable row is dropped whole rather than in part: skipping one tier would
+ * silently stretch its neighbour across the gap and quote confident margin for a band nobody
+ * verified.
+ */
+export function parseBybitRiskLimit(rows: readonly BybitRiskLimit[]): LeverageTier[] {
+  const bySymbol = new Map<string, BybitRiskLimit[]>();
+  for (const row of rows) {
+    const existing = bySymbol.get(row.symbol);
+    if (existing) existing.push(row);
+    else bySymbol.set(row.symbol, [row]);
+  }
+
+  const tiers: LeverageTier[] = [];
+  for (const [symbol, symbolRows] of bySymbol) {
+    const ladder: LeverageTier[] = [];
+    let lowerNotionalUsd = 0;
+    let usable = true;
+
+    for (const row of [...symbolRows].sort((a, b) => a.id - b.id)) {
+      const upper = num(row.riskLimitValue);
+      const imr = num(row.initialMargin);
+      const maxLeverage = num(row.maxLeverage);
+      if (upper === null || upper <= lowerNotionalUsd || imr === null || imr <= 0) {
+        usable = false;
+        break;
+      }
+      if (maxLeverage === null || maxLeverage <= 0) {
+        usable = false;
+        break;
+      }
+      ladder.push({
+        venueId: VENUE_ID,
+        venueSymbol: symbol,
+        tier: row.id,
+        lowerNotionalUsd,
+        upperNotionalUsd: upper,
+        imr,
+        mmr: num(row.maintenanceMargin),
+        maxLeverage,
+      });
+      lowerNotionalUsd = upper;
+    }
+    if (usable) tiers.push(...ladder);
+  }
+  return tiers;
+}
+
 async function fetchInstruments(client: HttpClient): Promise<BybitInstrument[]> {
   const all: BybitInstrument[] = [];
   let cursor = "";
@@ -161,6 +231,24 @@ export const bybitAdapter: VenueAdapter = {
       fetchInstruments(client),
     ]);
     return parseBybitSnapshots(tickers, instruments, now);
+  },
+
+  async fetchLeverageTiers(client) {
+    const rows: BybitRiskLimit[] = [];
+    let cursor = "";
+    for (let page = 0; page < RISK_LIMIT_MAX_PAGES; page++) {
+      const query = cursor ? `&cursor=${encodeURIComponent(cursor)}` : "";
+      const result = unwrap(
+        await client.getJson<BybitEnvelope<BybitRiskLimit>>(
+          `${BASE_URL}/v5/market/risk-limit?category=linear${query}`,
+        ),
+        "risk limit",
+      );
+      rows.push(...result.list);
+      cursor = result.nextPageCursor ?? "";
+      if (!cursor) break;
+    }
+    return parseBybitRiskLimit(rows);
   },
 
   async fetchFundingHistory(client, venueSymbol, fromMs, toMs) {

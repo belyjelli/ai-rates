@@ -167,9 +167,12 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const params = parseBacktestParams(url.searchParams);
       const long = params ? pickMarket(markets, params.longVenueId) : undefined;
       const short = params ? pickMarket(markets, params.shortVenueId) : undefined;
-      const result =
-        params && long && short ? await runBacktest(deps, long, short, params, now) : null;
-      return page(pages.pair({ asset, markets, params, result, now }));
+      // Only the two chosen legs need ladders, and only when there is a pair to price at all.
+      const [result, tiers] = await Promise.all([
+        params && long && short ? runBacktest(deps, long, short, params, now) : null,
+        long && short ? deps.data.leverageTiers([long, short]) : [],
+      ]);
+      return page(pages.pair({ asset, markets, params, result, tiers, now }));
     }
 
     if (path === "/robots.txt") {

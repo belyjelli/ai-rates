@@ -38,6 +38,28 @@ export interface FundingSnapshot extends MarketRef {
   maxLeverage?: number | null;
 }
 
+/**
+ * One step of a venue's risk-limit ladder: the larger the position, the less leverage it may use.
+ *
+ * Bounds are USD notional for a position on that market, half-open `[lower, upper)`, so the tier a
+ * size falls into is unambiguous at a boundary. A null upper bound means the venue publishes no
+ * cap; where it publishes one (Bybit caps BTCUSDT at $1.2bn) that bound is real, and a size above
+ * every tier has no tier at all because the venue would not open the position.
+ */
+export interface LeverageTier {
+  venueId: string;
+  venueSymbol: string;
+  /** 1-based, ascending with notional, numbered as the venue numbers it. */
+  tier: number;
+  lowerNotionalUsd: number;
+  upperNotionalUsd: number | null;
+  /** Initial margin rate as a fraction: 0.0066 is 150x. */
+  imr: number;
+  /** Maintenance margin rate, null where the venue doesn't publish one. */
+  mmr: number | null;
+  maxLeverage: number;
+}
+
 /** A settled funding payment for one market. */
 export interface FundingEvent extends MarketRef {
   settledAt: number;

@@ -77,6 +77,16 @@ export interface MarketKey {
   venue_symbol: string;
 }
 
+/** One step of a venue's risk-limit ladder, as stored. Bounds are half-open [lower, upper). */
+export interface LeverageTierRow extends MarketKey {
+  tier: number;
+  lower_notional_usd: number;
+  upper_notional_usd: number | null;
+  imr: number;
+  mmr: number | null;
+  max_leverage: number;
+}
+
 export interface SettlementRow extends MarketKey {
   settled_at: Date;
   rate: number;
@@ -89,6 +99,8 @@ export interface DataSource {
   asset(base: string): Promise<MarketRow[]>;
   exchanges(): Promise<ExchangeSummary[]>;
   exchange(venueId: string): Promise<MarketRow[]>;
+  /** Risk-limit ladders for the given markets, ascending by tier; empty where a venue publishes none. */
+  leverageTiers(markets: readonly MarketKey[]): Promise<LeverageTierRow[]>;
   /** Settled funding for the given markets within a window, oldest first, ties broken by market. */
   settlements(
     markets: readonly MarketKey[],
@@ -161,6 +173,22 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         JOIN market_latest m ON m.venue_id = v.id AND m.observed_at > now() - ${FRESH_INTERVAL}::interval
         GROUP BY v.id, v.name, v.type
         ORDER BY open_interest_usd DESC`;
+      return [...rows];
+    },
+
+    async leverageTiers(markets) {
+      if (markets.length === 0) return [];
+      const sql = connect();
+      // Row-value tuples for the same reason as settlements() below: a text[] parameter is not
+      // usable with fetch_types: false, and string_to_array splits symbols containing a comma.
+      const keys = markets
+        .map((market) => sql`(${market.venue_id}, ${market.venue_symbol})`)
+        .reduce((all, one) => sql`${all}, ${one}`);
+      const rows = await sql<LeverageTierRow[]>`
+        SELECT venue_id, venue_symbol, tier, lower_notional_usd, upper_notional_usd, imr, mmr, max_leverage
+        FROM market_leverage_tiers
+        WHERE (venue_id, venue_symbol) IN (${keys})
+        ORDER BY venue_id, venue_symbol, tier`;
       return [...rows];
     },
 

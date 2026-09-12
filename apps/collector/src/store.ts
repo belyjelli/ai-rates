@@ -3,6 +3,7 @@ import {
   aprPercent,
   type FundingEvent,
   type FundingSnapshot,
+  type LeverageTier,
   perUnitPrice,
   ratePerHour,
 } from "@ai-rates/core";
@@ -168,6 +169,42 @@ export class PgStore implements CollectorStore, HistoryStore {
     return markets;
   }
 
+  /**
+   * Replaces a venue's risk-limit ladders with the sweep just fetched.
+   *
+   * Upsert then prune, rather than delete then insert: the worker reads this table continuously,
+   * and a delete-first transaction would leave a window with no ladder at all. Rows this venue
+   * kept last time but did not report now are stale -- a market delisted, or a ladder that lost
+   * its top tier -- so they go once the new rows are in.
+   */
+  async replaceLeverageTiers(
+    venueId: string,
+    tiers: readonly LeverageTier[],
+    fetchedAt = new Date(),
+  ): Promise<number> {
+    // An empty sweep is a failed sweep, not a venue that dropped every ladder. Pruning on it would
+    // erase good data because one request timed out.
+    if (tiers.length === 0) return 0;
+
+    await this.sql.begin(async (tx) => {
+      for (const chunk of chunks(tiers.map((tier) => tierRow(tier, fetchedAt)))) {
+        await tx`
+          INSERT INTO market_leverage_tiers ${tx(chunk)}
+          ON CONFLICT (venue_id, venue_symbol, tier) DO UPDATE SET
+            lower_notional_usd = EXCLUDED.lower_notional_usd,
+            upper_notional_usd = EXCLUDED.upper_notional_usd,
+            imr = EXCLUDED.imr,
+            mmr = EXCLUDED.mmr,
+            max_leverage = EXCLUDED.max_leverage,
+            fetched_at = EXCLUDED.fetched_at`;
+      }
+      await tx`
+        DELETE FROM market_leverage_tiers
+        WHERE venue_id = ${venueId} AND fetched_at < ${fetchedAt}`;
+    });
+    return tiers.length;
+  }
+
   async recordRun(run: CollectorRun): Promise<void> {
     await this.sql`
       INSERT INTO collector_runs (started_at, venue_id, duration_ms, markets, requests, error)
@@ -199,6 +236,20 @@ function marketRow(s: FundingSnapshot, lastSeen: Date) {
     interval_hours: s.intervalHours,
     max_leverage: s.maxLeverage ?? null,
     last_seen: lastSeen,
+  };
+}
+
+function tierRow(tier: LeverageTier, fetchedAt: Date) {
+  return {
+    venue_id: tier.venueId,
+    venue_symbol: tier.venueSymbol,
+    tier: tier.tier,
+    lower_notional_usd: tier.lowerNotionalUsd,
+    upper_notional_usd: tier.upperNotionalUsd,
+    imr: tier.imr,
+    mmr: tier.mmr,
+    max_leverage: tier.maxLeverage,
+    fetched_at: fetchedAt,
   };
 }
 

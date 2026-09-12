@@ -71,6 +71,7 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     await sql`DELETE FROM funding_snapshots WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM funding_events WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM collector_runs WHERE venue_id = ${venueId}`;
+    await sql`DELETE FROM market_leverage_tiers WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM markets WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM venues WHERE id = ${venueId}`;
     await sql.close();
@@ -139,6 +140,46 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     expect(await store.latestSettledByMarket(venueId)).toEqual(
       new Map([[`${base}USDT`, settledAt]]),
     );
+  });
+
+  test("replaces leverage tiers, pruning ladders the venue stopped reporting", async () => {
+    const tier = (venueSymbol: string, index: number, upper: number | null) => ({
+      venueId,
+      venueSymbol,
+      tier: index,
+      lowerNotionalUsd: index === 1 ? 0 : 10_000,
+      upperNotionalUsd: upper,
+      imr: 0.02 * index,
+      mmr: 0.01 * index,
+      maxLeverage: 50 / index,
+    });
+    const read = () =>
+      sql`SELECT venue_symbol, tier, upper_notional_usd, imr FROM market_leverage_tiers
+          WHERE venue_id = ${venueId} ORDER BY venue_symbol, tier`;
+
+    const first = new Date();
+    await store.replaceLeverageTiers(
+      venueId,
+      [tier(`${base}USDT`, 1, 10_000), tier(`${base}USDT`, 2, null), tier(`${base}GONE`, 1, 5_000)],
+      first,
+    );
+    expect(await read()).toEqual([
+      { venue_symbol: `${base}GONE`, tier: 1, upper_notional_usd: 5_000, imr: 0.02 },
+      { venue_symbol: `${base}USDT`, tier: 1, upper_notional_usd: 10_000, imr: 0.02 },
+      { venue_symbol: `${base}USDT`, tier: 2, upper_notional_usd: null, imr: 0.04 },
+    ]);
+
+    // A later sweep rewrites what it reports and drops what it no longer does: the delisted market
+    // and the tier that vanished from the ladder both go, so no stale band can be read back.
+    const second = new Date(first.getTime() + 1_000);
+    await store.replaceLeverageTiers(venueId, [tier(`${base}USDT`, 1, 20_000)], second);
+    expect(await read()).toEqual([
+      { venue_symbol: `${base}USDT`, tier: 1, upper_notional_usd: 20_000, imr: 0.02 },
+    ]);
+
+    // An empty sweep is a failed request, not a venue that withdrew every ladder.
+    await store.replaceLeverageTiers(venueId, [], new Date(second.getTime() + 1_000));
+    expect(await read()).toHaveLength(1);
   });
 
   test("stores prices per unit of the base asset, leaving open interest alone", async () => {

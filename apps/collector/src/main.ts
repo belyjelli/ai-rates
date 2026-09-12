@@ -14,12 +14,14 @@ import { backfillVenueHistory, HistoryLoop } from "./history";
 import { PeriodicTask } from "./periodic";
 import { VenueLoop } from "./scheduler";
 import { PgStore } from "./store";
+import { refreshVenueLeverageTiers } from "./tiers";
 
 const HISTORY_PAUSE_MS = 5 * 60_000;
 const STATS_REFRESH_MS = 10 * 60_000;
 const ALERT_CHECK_MS = 60_000;
 const BACKFILL_PAUSE_MS = 5 * 60_000;
 const BACKFILL_BUDGET = 20;
+const TIERS_REFRESH_MS = 24 * 60 * 60_000;
 const SHUTDOWN_GRACE_MS = 15_000;
 
 const log = (message: string) => console.log(`${new Date().toISOString()} ${message}`);
@@ -123,6 +125,25 @@ adapters.forEach((adapter, index) => {
   backfill.start(BACKFILL_PAUSE_MS + offsetMs);
 
   loops.push(snapshots, history, backfill);
+
+  // Risk-limit ladders move only when a venue relists or rebalances risk, so this is daily and
+  // whole-venue rather than a budgeted per-symbol rotation. Venues without the hook add no loop.
+  if (adapter.fetchLeverageTiers) {
+    const tiers = new PeriodicTask(
+      `${adapter.venueId} leverage tiers`,
+      TIERS_REFRESH_MS,
+      async () => {
+        const sweep = await refreshVenueLeverageTiers(adapter, client, store);
+        if (sweep.tiers > 0) {
+          log(`${adapter.venueId}: ${sweep.tiers} leverage tiers across ${sweep.markets} markets`);
+        }
+      },
+      log,
+    );
+    // Once the snapshot loop has markets, and offset so venues never sweep on the same second.
+    tiers.start(4 * config.intervalMs + offsetMs);
+    loops.push(tiers);
+  }
 });
 
 // Settled 24h/7d averages for the screener; the first run waits for history sweeps to start landing.
