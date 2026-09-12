@@ -7,6 +7,16 @@ container on the `postgres_postgres` network. It writes to database **`vaultdeck
 Credentials never go in the repo: locally in `plans/access.md` (gitignored), on the server in
 `~/airates-app/deploy/hklab/.env` (mode 600).
 
+**The deploy target is not in this repository.** It is public, so the host, SSH user, SSH port,
+Postgres port and database role live in `deploy/hklab/.env.deploy` (gitignored; copy
+`.env.deploy.example` and fill it in). `deploy.sh` sources that file and refuses to run without it,
+rather than falling back to a stale default. Every snippet below uses those variable names, so
+source the file once per shell:
+
+```sh
+set -a && . ./deploy/hklab/.env.deploy && set +a
+```
+
 > **`$AIRATES_DEPLOY_HOST:$AIRATES_PG_PORT` exposes this Postgres instance to the internet.** TLS is enabled but not enforced (see
 > [TLS](#tls)), so outside clients must connect with `sslmode=verify-full` and `deploy/hklab/postgres-ca.crt`.
 

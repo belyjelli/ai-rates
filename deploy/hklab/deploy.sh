@@ -1,22 +1,35 @@
 #!/bin/sh
-# Deploys the airates collector to hklab ($AIRATES_DEPLOY_HOST:$AIRATES_DEPLOY_SSH_PORT, host epos).
+# Deploys the airates collector to hklab.
 #   - streams an allowlist of the repo to the server (no registry)
 #   - swaps the remote tree atomically, keeping the server-only deploy/hklab/.env
 #   - builds the image on the server and restarts it with docker compose
 # Usage (from the repository root): ./deploy/hklab/deploy.sh
+#
+# THE TARGET IS NOT IN THIS FILE. This repository is public, and a hostname plus an SSH user and
+# port is most of what someone needs to start knocking. Those three values live in
+# deploy/hklab/.env.deploy (gitignored; copy .env.deploy.example), or in the environment.
 set -eu
 (set -o pipefail 2>/dev/null) && set -o pipefail
 
-HOST="$AIRATES_DEPLOY_USER@$AIRATES_DEPLOY_HOST"
-SSHPORT=$AIRATES_DEPLOY_SSH_PORT
-SSH="ssh -o BatchMode=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=15 -p $SSHPORT $HOST"
+cd "$(dirname "$0")/../.."
+
+ENV_FILE="deploy/hklab/.env.deploy"
+# shellcheck source=/dev/null
+[ -f "$ENV_FILE" ] && . "./$ENV_FILE"
+
+# Refuse rather than fall back. A default here would mean a typo or a missing file silently
+# deploying to whatever host was hardcoded last, which is worse than not deploying at all.
+: "${AIRATES_DEPLOY_HOST:?not set -- copy deploy/hklab/.env.deploy.example to .env.deploy and fill it in}"
+: "${AIRATES_DEPLOY_USER:?not set -- copy deploy/hklab/.env.deploy.example to .env.deploy and fill it in}"
+: "${AIRATES_DEPLOY_SSH_PORT:?not set -- copy deploy/hklab/.env.deploy.example to .env.deploy and fill it in}"
+
+SSH="ssh -o BatchMode=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=15 -p $AIRATES_DEPLOY_SSH_PORT $AIRATES_DEPLOY_USER@$AIRATES_DEPLOY_HOST"
 REMOTE_DIR="\$HOME/airates-app"
 STAGE_DIR="$REMOTE_DIR.staging"
 
 # Everything the Dockerfile copies, plus the compose file. Keep in sync with apps/collector/Dockerfile.
 SRC="package.json bun.lock apps/collector apps/worker/package.json packages deploy/hklab/compose.yml"
 
-cd "$(dirname "$0")/../.."
 for f in $SRC; do
   [ -e "$f" ] || { echo "deploy: missing '$f'" >&2; exit 1; }
 done
