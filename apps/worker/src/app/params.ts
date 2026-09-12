@@ -164,6 +164,25 @@ export function parseBacktestParams(params: URLSearchParams): BacktestParams | n
 }
 
 /**
+ * Canonical query for a backtest, mirroring `filtersToQuery` and `heatmapToQuery`.
+ *
+ * Used to rebuild the destination after a challenge is solved. The rebuild is deliberate: the POST
+ * carries the reader's own fields, and redirecting to a client-supplied URL would be an open
+ * redirect. Re-parsing and re-emitting means the target can only ever be a `/pair/:asset` URL with
+ * canonical parameters — which is also the same cache key a shared link would produce.
+ */
+export function backtestToQuery(params: BacktestParams): string {
+  const query = new URLSearchParams();
+  query.set("long", params.longVenueId);
+  query.set("short", params.shortVenueId);
+  if (params.sizeUsd !== DEFAULT_BACKTEST_SIZE_USD) query.set("size", String(params.sizeUsd));
+  if (params.days !== DEFAULT_BACKTEST_DAYS) query.set("days", String(params.days));
+  if (params.longTakerBps !== null) query.set("fee_long", String(params.longTakerBps));
+  if (params.shortTakerBps !== null) query.set("fee_short", String(params.shortTakerBps));
+  return `?${query.toString()}`;
+}
+
+/**
  * A taker fee in basis points, clamped to a sane band. Null for anything missing or unparseable,
  * so a malformed fee reads as "not supplied" rather than as free trading. An explicit 0 is kept:
  * some venues genuinely rebate takers, and that is the reader's claim to make.

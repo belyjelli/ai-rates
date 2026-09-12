@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { bestPair, pivot } from "../web/pages";
 import { handleApp } from "./app";
+import { CLEARANCE_COOKIE, createClearance } from "./clearance";
 import type {
   DataSource,
   HeatmapCell,
@@ -773,6 +774,146 @@ describe("api", () => {
       ).status,
     ).toBe(404);
     expect(calls).toEqual([]);
+  });
+
+  test("the pair page challenges an uncached replay, and a cleared cookie runs it", async () => {
+    // The real clearance module, not a stub: it is pure crypto, so this exercises the actual
+    // cookie end to end rather than a fake that could agree with a broken implementation.
+    const clearance = createClearance("test-secret");
+    const { data } = fakeData({
+      settlements: async () => [
+        ...settled("gate", "BTC_USDT", -0.0001),
+        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+      ],
+    });
+    const deps = {
+      data,
+      now: () => NOW,
+      sitekey: "0xTESTSITEKEY",
+      clearance,
+      verifyToken: async (token: string | null) =>
+        token === "good" ? { ok: true } : { ok: false, reason: "invalid_token" as const },
+    };
+    const url = "https://airates.test/pair/BTC?long=gate&short=okx&size=10k&days=7";
+
+    // No clearance: the challenge page, and crucially NOT a 200 -- index.ts caches 200s by URL, so
+    // a 200 here would serve the challenge to everyone in place of the result.
+    const challenged = await handleApp(new Request(url), deps);
+    expect(challenged.status).toBe(403);
+    expect(challenged.headers.get("cache-control")).toBe("no-store");
+    const form = await challenged.text();
+    expect(form).toContain('data-sitekey="0xTESTSITEKEY"');
+    expect(form).toContain('data-action="backtest"');
+    expect(form).toContain('action="/pair/BTC/verify"');
+    expect(form).toContain("challenges.cloudflare.com/turnstile/v0/api.js");
+    // The parameters survive the round trip as hidden fields.
+    expect(form).toContain('name="long" value="gate"');
+    expect(form).toContain('name="days" value="7"');
+    // No result leaked into the challenge page.
+    expect(form).not.toContain("net funding over");
+
+    // Solving it: a 303 back to the canonical URL, with the cookie.
+    const body = new FormData();
+    for (const [k, v] of [
+      ["long", "gate"],
+      ["short", "okx"],
+      ["size", "10000"],
+      ["days", "7"],
+      ["cf-turnstile-response", "good"],
+    ])
+      body.set(k as string, v as string);
+    const solved = await handleApp(
+      new Request("https://airates.test/pair/BTC/verify", { method: "POST", body }),
+      deps,
+    );
+    expect(solved.status).toBe(303);
+    expect(solved.headers.get("location")).toBe("/pair/BTC?long=gate&short=okx&days=7");
+    const setCookie = solved.headers.get("set-cookie") ?? "";
+    expect(setCookie).toContain(CLEARANCE_COOKIE);
+    expect(setCookie).toContain("HttpOnly");
+
+    // The cookie then buys the real result at the shareable URL.
+    const cookie = setCookie.slice(0, setCookie.indexOf(";"));
+    const ran = await handleApp(new Request(url, { headers: { cookie } }), deps);
+    expect(ran.status).toBe(200);
+    expect(await ran.text()).toContain("net funding over");
+  });
+
+  test("a refused token returns to the challenge rather than a dead end", async () => {
+    const clearance = createClearance("test-secret");
+    const { data } = fakeData();
+    const body = new FormData();
+    body.set("long", "gate");
+    body.set("short", "okx");
+    body.set("cf-turnstile-response", "stale");
+    const res = await handleApp(
+      new Request("https://airates.test/pair/BTC/verify", { method: "POST", body }),
+      {
+        data,
+        now: () => NOW,
+        sitekey: "0xTESTSITEKEY",
+        clearance,
+        verifyToken: async () => ({ ok: false, reason: "already_used" as const }),
+      },
+    );
+    expect(res.status).toBe(403);
+    // A fresh widget, because the refused token is single-use and already spent.
+    expect(await res.text()).toContain("challenges.cloudflare.com/turnstile/v0/api.js");
+  });
+
+  test("browsing the pair page without a backtest is never challenged", async () => {
+    const { data } = fakeData();
+    const res = await handleApp(new Request("https://airates.test/pair/BTC"), {
+      data,
+      now: () => NOW,
+      sitekey: "0xTESTSITEKEY",
+      clearance: createClearance("test-secret"),
+      verifyToken: async () => ({ ok: false, reason: "missing_token" as const }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("Pick two exchanges");
+  });
+
+  test("the rate limiter refuses before any database read, on both the page and the API", async () => {
+    const reads: string[] = [];
+    const keys: string[] = [];
+    const { data } = fakeData({
+      asset: async (base) => {
+        reads.push(base);
+        return [];
+      },
+    });
+    const deps = {
+      data,
+      now: () => NOW,
+      rateLimit: async (key: string) => {
+        keys.push(key);
+        return false;
+      },
+    };
+
+    const api = await handleApp(
+      new Request("https://airates.test/v1/pairs/BTC/backtest?long=gate&short=okx", {
+        headers: { "cf-connecting-ip": "203.0.113.5" },
+      }),
+      deps,
+    );
+    expect(api.status).toBe(429);
+    expect((await api.json()) as { error: string }).toMatchObject({ error: "rate_limited" });
+
+    const html = await handleApp(
+      new Request("https://airates.test/pair/BTC?long=gate&short=okx", {
+        headers: { "cf-connecting-ip": "203.0.113.5" },
+      }),
+      deps,
+    );
+    expect(html.status).toBe(429);
+    expect(await html.text()).toContain("Too many requests");
+
+    // Nothing touched the database, and the page and API use separate buckets so one cannot
+    // exhaust the other's allowance.
+    expect(reads).toEqual([]);
+    expect(keys).toEqual(["backtest:203.0.113.5", "pair:203.0.113.5"]);
   });
 
   test("pair backtest needs two different exchanges that both list the asset", async () => {

@@ -20,6 +20,7 @@ import {
   MAX_TAKER_FEE_BPS,
   VENUE_TYPES,
 } from "../app/params";
+import { TURNSTILE_ACTION } from "../app/turnstile";
 import {
   aprTone,
   esc,
@@ -926,6 +927,56 @@ ${
 <p class="lede">What the funding on both legs actually settled to, summed at each venue's own settlement times over the window.</p>
 ${backtestForm(asset, markets, params)}
 ${body}`,
+  });
+}
+
+/**
+ * Shown when a backtest nobody has run yet is asked for and the visitor has no clearance.
+ *
+ * It exists because the token cannot ride in a GET query string: the edge cache keys on the URL, so
+ * a token there would miss cache every time and would put a single-use 300-second credential into a
+ * shareable link. The form POSTs instead, and a solved challenge buys a short-lived cookie.
+ *
+ * Returned with status 403 by the caller, which is what keeps this page out of the edge cache — a
+ * cached challenge would otherwise replace the result at this URL for everyone.
+ */
+export function challenge(data: {
+  asset: string;
+  params: BacktestParams;
+  sitekey: string;
+  now: number;
+}): string {
+  const { asset, params, sitekey, now } = data;
+  const hidden = (name: string, value: string | number | null) =>
+    value === null ? "" : `<input type="hidden" name="${name}" value="${esc(String(value))}">`;
+
+  return layout({
+    title: `${asset} carry — one check first`,
+    description: `A quick check before replaying ${asset} funding across both legs.`,
+    path: pairHref(asset),
+    now,
+    body: `<p class="eyebrow"><a href="${assetHref(asset)}">${esc(asset)}</a> / backtest</p>
+<h1>One check before the replay</h1>
+<p class="lede">This replays every stored settlement on both legs, which is real work against the database. A combination someone has already run is served straight from the cache with no check at all — this only appears for one nobody has asked for yet.</p>
+<form class="filters" method="post" action="${pairHref(asset)}/verify">
+${hidden("long", params.longVenueId)}${hidden("short", params.shortVenueId)}${hidden("size", params.sizeUsd)}${hidden("days", params.days)}${hidden("fee_long", params.longTakerBps)}${hidden("fee_short", params.shortTakerBps)}
+<div class="cf-turnstile" data-sitekey="${esc(sitekey)}" data-action="${TURNSTILE_ACTION}"></div>
+<div class="actions"><button type="submit">Run the backtest</button><a href="${assetHref(asset)}">Back to ${esc(asset)}</a></div>
+</form>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>`,
+  });
+}
+
+/** Rate limited. Says plainly that cached results are never limited, so the advice is actionable. */
+export function tooMany(path: string, now: number): string {
+  return layout({
+    title: "Too many requests",
+    description: "Too many uncached backtests from this address.",
+    path,
+    now,
+    body: `<h1>Too many requests</h1>
+<p class="lede">That is more new backtests than one address may run in a minute. Wait a moment and try again. Results that have already been computed are served from the cache and are never limited, so a combination someone has run before will load immediately.</p>
+<p><a href="/screener">Back to the screener</a></p>`,
   });
 }
 
