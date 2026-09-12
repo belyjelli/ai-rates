@@ -47,6 +47,8 @@ export interface MexcContractDetail {
    * The risk ladder, enumerated. Despite `riskLimitType: "BY_VOLUME"`, `maxVol` is quote notional,
    * not contracts: read as contracts, BTC_USDT's first band would be ~$386k at 500x, and its top
    * band a $147m position cap, neither of which any venue offers.
+   *
+   * Only "CUSTOM" contracts carry this — 157 of 1192 — and the rest are "INCREASE".
    */
   riskLimitCustom?: {
     level: number;
@@ -55,6 +57,16 @@ export interface MexcContractDetail {
     imr: number;
     maxLeverage: number;
   }[];
+  /** "CUSTOM" enumerates `riskLimitCustom`; "INCREASE" gives only the base rates below. */
+  riskLimitMode?: string;
+  /**
+   * The largest position the contract carries, in quote notional. Same unit as `maxVol`: on every
+   * CUSTOM contract the two are equal (BTC 19,000,000, ETH 4,800,000, DOGE 530,000).
+   */
+  riskBaseVol?: number;
+  initialMarginRate?: number;
+  maintenanceMarginRate?: number;
+  maxLeverage?: number;
 }
 
 export interface MexcFundingRate {
@@ -102,8 +114,37 @@ export function parseMexcLeverageTiers(details: readonly MexcContractDetail[]): 
   const ladders: LeverageTier[] = [];
 
   for (const detail of details) {
+    if (detail.state !== LIVE_STATE) continue;
     const levels = detail.riskLimitCustom;
-    if (detail.state !== LIVE_STATE || !levels || levels.length === 0) continue;
+
+    // "INCREASE" contracts — 1035 of 1192 — enumerate nothing. They give a base margin rate and a
+    // cap, and `riskLevelLimit: 1` says there is only ever one band, so that is what they become.
+    if (!levels || levels.length === 0) {
+      const cap = num(detail.riskBaseVol);
+      const imr = num(detail.initialMarginRate);
+      const maxLeverage = num(detail.maxLeverage);
+      if (
+        cap === null ||
+        cap <= 0 ||
+        imr === null ||
+        imr <= 0 ||
+        maxLeverage === null ||
+        maxLeverage <= 0
+      ) {
+        continue;
+      }
+      ladders.push({
+        venueId: VENUE,
+        venueSymbol: detail.symbol,
+        tier: 1,
+        lowerNotionalUsd: 0,
+        upperNotionalUsd: cap,
+        imr,
+        mmr: num(detail.maintenanceMarginRate),
+        maxLeverage,
+      });
+      continue;
+    }
 
     const ladder: LeverageTier[] = [];
     let lowerNotionalUsd = 0;
