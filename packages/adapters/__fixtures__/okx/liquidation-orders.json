@@ -1,0 +1,215 @@
+{
+  "code": "0",
+  "data": [
+    {
+      "details": [
+        {
+          "bkLoss": "0",
+          "bkPx": "77032.6",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "3.56",
+          "time": 1789241986046,
+          "ts": "1789241986046"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "77032.6",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "0.62",
+          "time": 1789241986016,
+          "ts": "1789241986016"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "77098.6",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "0.82",
+          "time": 1789238196521,
+          "ts": "1789238196521"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "77337.1",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "0.01",
+          "time": 1789232556604,
+          "ts": "1789232556604"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "77322",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "3.65",
+          "time": 1789232111225,
+          "ts": "1789232111225"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "77364.2",
+          "ccy": "",
+          "posSide": "short",
+          "side": "buy",
+          "sz": "2.2",
+          "time": 1789230795467,
+          "ts": "1789230795467"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "77482.2",
+          "ccy": "",
+          "posSide": "short",
+          "side": "buy",
+          "sz": "2.35",
+          "time": 1789224805946,
+          "ts": "1789224805946"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "77482.2",
+          "ccy": "",
+          "posSide": "short",
+          "side": "buy",
+          "sz": "807.69",
+          "time": 1789224805884,
+          "ts": "1789224805884"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "77345.2",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "27.59",
+          "time": 1789218520968,
+          "ts": "1789218520968"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "77305.2",
+          "ccy": "",
+          "posSide": "short",
+          "side": "buy",
+          "sz": "0.6",
+          "time": 1789196939066,
+          "ts": "1789196939066"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "77219.9",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "0.46",
+          "time": 1789183630310,
+          "ts": "1789183630310"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "76959.4",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "11.85",
+          "time": 1789167149223,
+          "ts": "1789167149223"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "77061.2",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "11.15",
+          "time": 1789164542382,
+          "ts": "1789164542382"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "76937.1",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "56.85",
+          "time": 1789164100231,
+          "ts": "1789164100231"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "76937.1",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "0.75",
+          "time": 1789164100181,
+          "ts": "1789164100181"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "76941.3",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "36.29",
+          "time": 1789164099118,
+          "ts": "1789164099118"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "76941.3",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "0.45",
+          "time": 1789164099109,
+          "ts": "1789164099109"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "76944.2",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "0.99",
+          "time": 1789164099000,
+          "ts": "1789164099000"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "76944.2",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "1.77",
+          "time": 1789164098977,
+          "ts": "1789164098977"
+        },
+        {
+          "bkLoss": "0",
+          "bkPx": "76944.2",
+          "ccy": "",
+          "posSide": "long",
+          "side": "sell",
+          "sz": "0.38",
+          "time": 1789164098953,
+          "ts": "1789164098953"
+        }
+      ],
+      "instFamily": "BTC-USDT",
+      "instId": "BTC-USDT-SWAP",
+      "instType": "SWAP",
+      "totalLoss": "0",
+      "uly": "BTC-USDT"
+    }
+  ],
+  "msg": ""
+}

@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { HttpClient } from "../http";
 import {
+  type OkxInstrument,
+  type OkxMarkPrice,
   okxAdapter,
   parseOkxFundingHistory,
+  parseOkxLiquidations,
   parseOkxPositionTiers,
   parseOkxSnapshots,
 } from "./okx";
@@ -235,5 +238,216 @@ describe("okxAdapter", () => {
     expect(attempts()).toBe(3);
     expect(sweep?.complete).toBe(false);
     expect(sweep?.tiers).toEqual([]);
+  });
+});
+
+describe("parseOkxLiquidations", () => {
+  // Typed rather than cast: `as never` would silence a field rename between the parser and the
+  // API instead of surfacing it, which is the whole value of having these interfaces.
+  const instruments = new Map<string, OkxInstrument>([
+    [
+      "BTC-USDT-SWAP",
+      {
+        instId: "BTC-USDT-SWAP",
+        instFamily: "BTC-USDT",
+        ctVal: "0.01",
+        ctValCcy: "BTC",
+        ctMult: "1",
+      },
+    ],
+    [
+      "BTC-USD-SWAP",
+      { instId: "BTC-USD-SWAP", instFamily: "BTC-USD", ctVal: "100", ctValCcy: "USD", ctMult: "1" },
+    ],
+  ]);
+  const marks = new Map<string, OkxMarkPrice>([
+    ["BTC-USDT-SWAP", { instId: "BTC-USDT-SWAP", markPx: "77760.9" }],
+    ["BTC-USD-SWAP", { instId: "BTC-USD-SWAP", markPx: "77741.7" }],
+  ]);
+
+  test("takes posSide directly and leaves the millisecond timestamp alone", async () => {
+    const liq = await fixture("liquidation-orders");
+    const parsed = parseOkxLiquidations(liq.data, instruments, marks);
+
+    // OKX names the closed position outright, unlike Gate where the side is a sign on `size`.
+    expect(parsed[0]?.side).toBe("long");
+    expect(parsed.filter((l) => l.side === "long")).toHaveLength(16);
+    expect(parsed.filter((l) => l.side === "short")).toHaveLength(4);
+
+    // `ts` is ALREADY epoch milliseconds here. Copying Gate's x1000 would land every record in the
+    // year 58,000 and drop it silently from every window the study asks for.
+    expect(parsed[0]?.liquidatedAt).toBe(1_789_241_986_046);
+  });
+
+  test("converts linear contracts with the mark, and inverse ones without it", () => {
+    const linear = parseOkxLiquidations(
+      [
+        {
+          instId: "BTC-USDT-SWAP",
+          instType: "SWAP",
+          details: [
+            {
+              posSide: "long",
+              side: "sell",
+              sz: "3.56",
+              bkPx: "77032.6",
+              bkLoss: "0",
+              ccy: "",
+              ts: "1789241986046",
+              time: 1_789_241_986_046,
+            },
+          ],
+        },
+      ],
+      instruments,
+      marks,
+    );
+    // 3.56 contracts x 0.01 BTC x 77760.9 mark.
+    expect(linear[0]?.notionalUsd).toBeCloseTo(2768.28804, 6);
+
+    const inverse = parseOkxLiquidations(
+      [
+        {
+          instId: "BTC-USD-SWAP",
+          instType: "SWAP",
+          details: [
+            {
+              posSide: "short",
+              side: "buy",
+              sz: "1",
+              bkPx: "77032.6",
+              bkLoss: "0",
+              ccy: "",
+              ts: "1789241986046",
+              time: 1_789_241_986_046,
+            },
+          ],
+        },
+      ],
+      instruments,
+      marks,
+    );
+    // ctValCcy is USD, so the contract is already dollars: 1 x 100. Applying the mark as well
+    // would read $7,774,170 -- 77,742x too big. Inverse families do liquidate, so this is live.
+    expect(inverse[0]?.notionalUsd).toBeCloseTo(100, 9);
+  });
+
+  test("drops rows it cannot trust rather than guessing", () => {
+    const parsed = parseOkxLiquidations(
+      [
+        {
+          instId: "BTC-USDT-SWAP",
+          instType: "SWAP",
+          details: [
+            {
+              posSide: "long",
+              side: "sell",
+              sz: "0",
+              bkPx: "77032.6",
+              bkLoss: "0",
+              ccy: "",
+              ts: "1789241986046",
+              time: 1,
+            },
+            {
+              posSide: "long",
+              side: "sell",
+              sz: "1",
+              bkPx: "0",
+              bkLoss: "0",
+              ccy: "",
+              ts: "1789241986046",
+              time: 1,
+            },
+            {
+              posSide: "long",
+              side: "sell",
+              sz: "1",
+              bkPx: "77032.6",
+              bkLoss: "0",
+              ccy: "",
+              ts: "0",
+              time: 0,
+            },
+            {
+              posSide: "net",
+              side: "sell",
+              sz: "1",
+              bkPx: "77032.6",
+              bkLoss: "0",
+              ccy: "",
+              ts: "1789241986046",
+              time: 1,
+            },
+          ],
+        },
+      ],
+      instruments,
+      marks,
+    );
+    // Zero size, zero price, no timestamp, and a posSide that is neither long nor short.
+    expect(parsed).toEqual([]);
+  });
+
+  test("the rotation is clamped to the book, and resumes where it stopped", async () => {
+    // The instruments fixture holds 5 perp families against a budget of 40. Without the clamp one
+    // run would make 40 calls, re-reading each family eight times -- wasted requests against a
+    // rate-limited venue that already signals 50011 inside an HTTP 200.
+    const instrumentsFixture = await fixture("instruments");
+    const marksFixture = await fixture("mark-price");
+    const asked: string[] = [];
+    const client = {
+      venueId: "okx",
+      getJson: async (url: string) => {
+        if (url.includes("/instruments?")) return instrumentsFixture;
+        if (url.includes("/mark-price?")) return marksFixture;
+        if (url.includes("/liquidation-orders?")) {
+          asked.push(new URL(url).searchParams.get("instFamily") ?? "");
+          return { code: "0", data: [] };
+        }
+        return { code: "0", data: [] };
+      },
+    } as unknown as HttpClient;
+
+    const first = await okxAdapter.fetchLiquidations?.(client);
+    expect(first?.complete).toBe(true);
+    // Five families, five calls -- not the budget of 40.
+    expect(asked).toHaveLength(5);
+    expect(new Set(asked).size).toBe(5);
+
+    // A second run continues the cycle rather than restarting at the same family. With a book
+    // smaller than the budget the cursor wraps fully, so the same five are revisited -- the point
+    // is that the cursor advanced rather than being pinned at zero.
+    const before = asked.length;
+    const second = await okxAdapter.fetchLiquidations?.(client);
+    expect(second?.complete).toBe(true);
+    expect(asked.length - before).toBe(5);
+  });
+
+  test("an unknown instrument keeps the raw size but reports no notional", () => {
+    const parsed = parseOkxLiquidations(
+      [
+        {
+          instId: "MYSTERY-USDT-SWAP",
+          instType: "SWAP",
+          details: [
+            {
+              posSide: "long",
+              side: "sell",
+              sz: "7",
+              bkPx: "1.5",
+              bkLoss: "0",
+              ccy: "",
+              ts: "1789241986046",
+              time: 1,
+            },
+          ],
+        },
+      ],
+      instruments,
+      marks,
+    );
+    expect(parsed[0]?.sizeContracts).toBe(7);
+    expect(parsed[0]?.notionalUsd).toBeNull();
   });
 });
