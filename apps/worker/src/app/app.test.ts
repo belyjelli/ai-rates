@@ -65,6 +65,9 @@ const market = (overrides: Partial<MarketRow>): MarketRow => ({
   volume_24h_usd: 8.5e9,
   observed_at: new Date(NOW - 20_000),
   max_leverage: null,
+  stability_30d: 0.82,
+  stability_days: 30,
+  momentum_30d: -2.8,
   ...overrides,
 });
 
@@ -196,6 +199,17 @@ describe("pages", () => {
     const btc = await get("/markets/asset/btc", data);
     expect(btc.status).toBe(200);
     expect(await btc.text()).toContain("Best pair: long on Gate");
+
+    // Stability and momentum are per market, which is this page's grain. Momentum carries an
+    // arrow rather than a colour: aprTone means "who pays" everywhere else, and a market fading
+    // from +200% to +150% has negative momentum while still paying shorts.
+    const withStats = await (await get("/markets/asset/BTC", data)).text();
+    expect(withStats).toContain("0.82");
+    expect(withStats).toContain("30 charging days in the last 30");
+    expect(withStats).toContain("↓</span> 2.8");
+    expect(withStats).toContain(">30d trend</th>");
+    // Not tinted long/short, which would invert the site's colour meaning.
+    expect(withStats).not.toContain('class="longs-paid">↓');
     expect((await get("/markets/asset/DOGEX", data)).status).toBe(404);
     expect((await get("/no/such/page", data)).status).toBe(404);
   });
@@ -315,6 +329,23 @@ describe("pages", () => {
     expect(await line("1m")).toBe(
       "capital <b>–</b> — Gate will not open a position above $1,000,000 on BTC_USDT",
     );
+  });
+
+  test("an unscored market shows a dash rather than a flattering number", async () => {
+    const { data } = fakeData({
+      asset: async () => [
+        market({ venue_id: "gate", stability_30d: null, stability_days: null, momentum_30d: null }),
+        market({ venue_id: "okx", stability_30d: 0.5, stability_days: 3, momentum_30d: 0 }),
+      ],
+    });
+    const html = await (await get("/markets/asset/BTC", data)).text();
+
+    // 85 markets genuinely charge nothing; a naive sign test would score them a perfect 1.00.
+    expect(html).toContain('<span class="dim">–</span>');
+    // Exactly zero momentum is "flat", not an arrow pointing nowhere.
+    expect(html).toContain('<span class="dim">flat</span>');
+    // A thin window still says how thin it is.
+    expect(html).toContain("3 charging days in the last 30");
   });
 
   test("rates renders the matrix, dashes absent markets and escapes asset names", async () => {
