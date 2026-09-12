@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import { handleApp } from "./app/app";
 import { createDataSource } from "./app/data";
+import { verifyTurnstile } from "./app/turnstile";
 import { ProbeDO } from "./probe/probe-do";
 import { handleProbe } from "./probe/routes";
 
@@ -29,7 +30,23 @@ export default {
     });
 
     try {
-      const response = await handleApp(request, { data, now: Date.now, log: console.error });
+      // A narrow cast at the one boundary that needs it. Worker secrets are not in wrangler.jsonc,
+      // so `wrangler types` cannot know about them, and declaring TURNSTILE_SECRET as a var to get
+      // the type would overwrite the real secret with that value on deploy.
+      const secret = (env as { TURNSTILE_SECRET?: string }).TURNSTILE_SECRET?.trim();
+      const response = await handleApp(request, {
+        data,
+        now: Date.now,
+        log: console.error,
+        // No secret configured means no challenge, which is what lets `wrangler dev` work. It also
+        // means production is ungated until the secret is set.
+        ...(secret
+          ? {
+              verifyToken: (token: string | null, remoteip: string | null) =>
+                verifyTurnstile(token, { secret, remoteip }),
+            }
+          : {}),
+      });
       if (request.method === "GET" && response.status === 200) {
         ctx.waitUntil(cache.put(request, response.clone()));
       }

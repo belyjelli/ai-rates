@@ -6,6 +6,13 @@
   "compatibility_date": "2026-09-01",
   // Postgres.js needs Node's net/tls shims to reach Hyperdrive.
   "compatibility_flags": ["nodejs_compat"],
+  // The Turnstile sitekey is public by design: it ships in the widget markup on the page, so it
+  // belongs in config rather than in a secret. The matching SECRET is a Worker secret
+  // (`wrangler secret put TURNSTILE_SECRET`) and must never appear here -- a var of that name would
+  // overwrite the real secret with this file's value on the next deploy.
+  "vars": {
+    "TURNSTILE_SITEKEY": "0x4AAAAAAExm6URFATT9sOXm"
+  },
   "hyperdrive": [
     // airates-vaultdeck: $AIRATES_DEPLOY_HOST:$AIRATES_PG_PORT/vaultdeck as $AIRATES_PG_ROLE, sslmode=verify-full with the hklab CA.
     // Local dev: set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE (see deploy/hklab/README.md).

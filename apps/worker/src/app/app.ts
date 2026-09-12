@@ -13,11 +13,18 @@ import {
   parseHeatmapParams,
   parseScreenerFilters,
 } from "./params";
+import { TURNSTILE_FIELD, type TurnstileVerdict } from "./turnstile";
 
 export interface AppDeps {
   data: DataSource;
   now: () => number;
   log?: (message: string) => void;
+  /**
+   * Verifies a Turnstile token. Absent means the challenge is not configured -- local development,
+   * and the tests -- and the gate is skipped. Production must set TURNSTILE_SECRET, or the
+   * expensive path is open.
+   */
+  verifyToken?: (token: string | null, remoteip: string | null) => Promise<TurnstileVerdict>;
 }
 
 /** Health reports stale when the newest market update is older than this. */
@@ -190,6 +197,35 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           },
           404,
         );
+      }
+
+      // The challenge goes here: after the request is known to be answerable, and before the only
+      // expensive call. Challenging a request that was about to 400 or 404 would burn a
+      // single-use token on an error. Anything reaching this line is already a cache miss, because
+      // index.ts answers from the edge cache before handleApp runs.
+      if (deps.verifyToken) {
+        // A header, never a query parameter: the cache keys on the full URL, so a token in the
+        // query string would miss cache on every request and would bake a 300-second credential
+        // into a shareable link.
+        const verdict = await deps.verifyToken(
+          request.headers.get(TURNSTILE_FIELD),
+          request.headers.get("cf-connecting-ip"),
+        );
+        if (!verdict.ok) {
+          deps.log?.(
+            `turnstile refused ${asset}: ${verdict.reason}${verdict.errorCodes?.length ? ` (${verdict.errorCodes.join(", ")})` : ""}`,
+          );
+          // Never cached: a cached rejection would lock out a legitimate caller for the whole TTL.
+          return json(
+            {
+              error: "challenge_required",
+              reason: verdict.reason,
+              detail: `Solve the Turnstile challenge and send the token in the ${TURNSTILE_FIELD} header. Results already cached are served without one.`,
+            },
+            403,
+            0,
+          );
+        }
       }
 
       const result = await runBacktest(deps, long, short, params, now);
