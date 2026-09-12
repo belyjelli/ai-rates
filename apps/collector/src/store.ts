@@ -388,7 +388,7 @@ function eventRow(e: FundingEvent, source: "history" | "observed") {
 function uniqueEvents(events: readonly FundingEvent[], venueId: string): FundingEvent[] {
   const byKey = new Map<string, FundingEvent>();
   for (const e of events) {
-    if (e.venueId === venueId) byKey.set(`${e.venueSymbol} ${e.settledAt}`, e);
+    if (e.venueId === venueId) byKey.set(`${e.venueSymbol} ${e.settledAt}`, e);
   }
   return [...byKey.values()];
 }
