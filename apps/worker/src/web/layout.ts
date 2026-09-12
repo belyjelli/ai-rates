@@ -88,6 +88,28 @@ table.sheet{border-collapse:collapse;width:100%}
 .sheet tbody tr:hover{background:#161616}
 .sheet .num{text-align:right}
 .sheet .rail-cell{width:20%;min-width:170px}
+/* The heatmap is a wide matrix, so it sizes to its content rather than the 100% table.sheet uses.
+   It scrolls on both axes inside its own box: overflow-x alone would coerce overflow-y to auto and
+   anchor the sticky header to that box while the page scrolled past it. */
+.heat-wrap{overflow:auto;max-height:calc(100vh - 170px);border:1px solid var(--rule)}
+table.heat{border-collapse:collapse;width:auto;min-width:100%}
+.heat th{font-weight:400;text-transform:lowercase;letter-spacing:0;color:var(--muted);text-align:right;padding:3px 6px;border-bottom:1px solid var(--rule);white-space:nowrap;position:sticky;top:0;background:var(--bg);z-index:2}
+.heat td{padding:2px 6px;text-align:right;white-space:nowrap;color:var(--ink)}
+.heat th.asset,.heat td.asset{text-align:left;position:sticky;left:0;background:var(--bg);z-index:3}
+.heat thead th.asset{z-index:4}
+.heat tbody tr:hover td{background:#161616}
+.heat td.none{color:var(--dim)}
+.heat td.hm-z{color:var(--muted)}
+/* Positive funding red, negative blue, matching aprTone on every other page: longs paying is a
+   short's gain. Text stays --ink so the darkest tints remain readable. */
+.heat td.hm-p1{background:rgba(255,95,95,.08)}.heat td.hm-p2{background:rgba(255,95,95,.16)}
+.heat td.hm-p3{background:rgba(255,95,95,.26)}.heat td.hm-p4{background:rgba(255,95,95,.38)}
+.heat td.hm-p5{background:rgba(255,95,95,.52)}
+.heat td.hm-n1{background:rgba(95,135,255,.08)}.heat td.hm-n2{background:rgba(95,135,255,.16)}
+.heat td.hm-n3{background:rgba(95,135,255,.26)}.heat td.hm-n4{background:rgba(95,135,255,.38)}
+.heat td.hm-n5{background:rgba(95,135,255,.52)}
+.tf{display:flex;gap:12px;margin:0 0 8px;color:var(--muted)}
+.pager{display:flex;gap:16px;margin-top:10px;color:var(--muted)}
 .sheet .asset a{font-weight:700;border:0}
 .sheet .asset a:hover{color:var(--accent)}
 .sheet .spread{font-weight:700}

@@ -9,8 +9,8 @@ import type {
   ScreenerFilters,
   ScreenerPair,
 } from "../app/data";
-import type { BacktestParams } from "../app/params";
-import { DEFAULT_FILTERS, VENUE_TYPES } from "../app/params";
+import type { BacktestParams, HeatmapParams, HeatmapTimeframe } from "../app/params";
+import { DEFAULT_FILTERS, HEATMAP_TIMEFRAMES, heatmapToQuery, VENUE_TYPES } from "../app/params";
 import {
   aprTone,
   esc,
@@ -22,7 +22,7 @@ import {
   until,
 } from "./format";
 import { layout } from "./layout";
-import { railScale, renderRail } from "./rail";
+import { type RailScale, railPosition, railScale, renderRail } from "./rail";
 import { VENUE_TYPE_LABEL, VENUE_TYPE_SHORT, venueName } from "./venues";
 
 const assetHref = (asset: string) => `/markets/asset/${encodeURIComponent(asset)}`;
@@ -327,6 +327,117 @@ export function pivot(cells: readonly HeatmapCell[]): {
     .sort(([aId, aDepth], [bId, bDepth]) => bDepth - aDepth || aId.localeCompare(bId))
     .map(([id]) => id);
   return { rows, venueIds };
+}
+
+/** Which stored column each timeframe reads. A lookup, so no user string ever names a field. */
+const HEATMAP_VALUE: Record<HeatmapTimeframe, (cell: HeatmapCell) => number | null> = {
+  now: (cell) => cell.apr,
+  "7d": (cell) => cell.apr_7d,
+  "30d": (cell) => cell.apr_30d,
+  "60d": (cell) => cell.apr_60d,
+};
+
+/**
+ * Five steps either side of zero, taken from the same signed-log scale the spread rails use, so a
+ * grid holding both +1200% and +4% stays readable instead of collapsing into one shade.
+ */
+function heatBucket(value: number, scale: RailScale): string {
+  if (value === 0) return "hm-z";
+  const distance = Math.abs(railPosition(value, scale).pct - 50) / 50;
+  const step = Math.min(5, Math.max(1, Math.ceil(distance * 5)));
+  return `${value > 0 ? "hm-p" : "hm-n"}${step}`;
+}
+
+export function heatmap(data: {
+  overview: Overview;
+  cells: HeatmapCell[];
+  params: HeatmapParams;
+  now: number;
+}): string {
+  const { overview, cells, params, now } = data;
+  const { rows, venueIds } = pivot(cells);
+  const cellValue = HEATMAP_VALUE[params.tf];
+
+  // One scale for the whole grid, so a colour means the same thing in every column.
+  const scale = railScale(
+    rows.flatMap((row) => [...row.byVenue.values()].map(cellValue)),
+    "log",
+  );
+
+  const link = (next: Partial<HeatmapParams>, label: string, enabled = true) =>
+    enabled
+      ? `<a href="/heatmap${heatmapToQuery({ ...params, ...next })}">${label}</a>`
+      : `<span class="dim">${label}</span>`;
+
+  const strip = HEATMAP_TIMEFRAMES.map((tf) =>
+    tf === params.tf ? `<b>${tf}</b>` : link({ tf }, tf),
+  ).join("");
+
+  const header = `<tr><th class="asset">asset</th><th>open interest</th><th>spread</th>${venueIds
+    .map((id) => `<th>${esc(venueName(id))}</th>`)
+    .join("")}</tr>`;
+
+  const body = rows
+    .map((row) => {
+      const values = venueIds.map((id) => {
+        const cell = row.byVenue.get(id);
+        return cell ? cellValue(cell) : null;
+      });
+      const present = values.filter((value): value is number => value !== null);
+
+      // The row's own spread, free of a second query: cheapest venue to hold long against the
+      // richest to hold short. It needs two venues to mean anything.
+      const spread =
+        present.length > 1
+          ? (() => {
+              const low = Math.min(...present);
+              const high = Math.max(...present);
+              const longId = venueIds[values.indexOf(low)] as string;
+              const shortId = venueIds[values.indexOf(high)] as string;
+              return `<a href="${pairHref(row.base)}?long=${encodeURIComponent(longId)}&short=${encodeURIComponent(shortId)}">${formatApr(high - low)}</a>`;
+            })()
+          : `<span class="dim">–</span>`;
+
+      const grid = values
+        .map((value) =>
+          // An absent market is a dim dash with no colour: ~62% of the grid is empty, and a tinted
+          // zero would read as "funding is flat here" instead of "there is nothing here".
+          value === null
+            ? `<td class="none">–</td>`
+            : `<td class="${heatBucket(value, scale)}">${formatApr(value)}</td>`,
+        )
+        .join("");
+
+      return `<tr><td class="asset"><a href="${assetHref(row.base)}">${esc(row.base)}</a></td><td class="dim">${formatUsd(row.assetOiUsd)}</td><td>${spread}</td>${grid}</tr>`;
+    })
+    .join("");
+
+  const pager = `<div class="pager">${link(
+    { offset: Math.max(0, params.offset - params.limit) },
+    "← previous",
+    params.offset > 0,
+  )}<span class="dim">assets ${params.offset + 1}–${params.offset + rows.length}</span>${link(
+    { offset: params.offset + params.limit },
+    "next →",
+    rows.length >= params.limit,
+  )}</div>`;
+
+  const grid =
+    rows.length === 0
+      ? `<div class="sheet-wrap"><p class="empty">No asset has live markets on two or more venues right now.</p></div>`
+      : `<div class="heat-wrap"><table class="heat"><thead>${header}</thead><tbody>${body}</tbody></table></div>${pager}`;
+
+  return layout({
+    title: "Funding heatmap",
+    description: "Funding APR for every asset across every perpetual exchange, in one grid.",
+    path: "/heatmap",
+    overview,
+    now,
+    body: `<h1>Funding heatmap</h1>
+<p class="lede">Every exchange's funding for the deepest assets at once. Positive means longs pay, so a short collects; an empty cell means that exchange has no market for the asset, not that funding is flat.</p>
+<div class="tf">${strip}</div>
+${grid}`,
+  });
 }
 
 export function asset(data: { asset: string; markets: MarketRow[]; now: number }): string {
