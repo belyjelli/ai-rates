@@ -239,8 +239,6 @@ describe("parseGateLiquidations", () => {
   test("a non-ASCII contract name survives", async () => {
     const rows = await fixture("liq-orders");
     const parsed = parseGateLiquidations(rows, new Map());
-    // The fixture holds 龙虾_USDT; the screener already carries such names, so the parser must not
-    // assume ASCII symbols.
     // Asserted by NAME and by code point, with no character class. Earlier attempts wrote
     // \x20-\x7E escapes that landed as raw NUL and DEL bytes in the file -- the same hazard as
     // the NUL that once made grep blind to store.ts -- and Biome rejected the result.
