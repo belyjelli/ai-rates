@@ -46,6 +46,7 @@ describe("parseScreenerFilters", () => {
       venueIds: ["bybit", "okx"],
       venueTypes: ["cex", "hip3"],
       maxAbsApr: DEFAULT_FILTERS.maxAbsApr,
+      sort: DEFAULT_FILTERS.sort,
       limit: 500,
     });
   });
@@ -140,6 +141,28 @@ describe("heatmapToQuery", () => {
       limit: 50,
       offset: 150,
     });
+  });
+});
+
+describe("screener sort", () => {
+  const sortOf = (query: string) => parseScreenerFilters(new URLSearchParams(query)).sort;
+
+  test("defaults to spread and accepts only the backed keys", () => {
+    expect(sortOf("")).toBe("spread");
+    expect(sortOf("sort=settled_7d")).toBe("settled_7d");
+    expect(sortOf("sort=VENUES")).toBe("venues");
+    // The key picks an ORDER BY fragment, so anything unrecognised falls back rather than
+    // travelling further. "stability" and "oi" are refused because no column backs them.
+    expect(sortOf("sort=stability")).toBe("spread");
+    expect(sortOf("sort=oi")).toBe("spread");
+    expect(sortOf("sort=spread_apr; drop table")).toBe("spread");
+  });
+
+  test("round-trips through the canonical query, and the default stays invisible", () => {
+    expect(filtersToQuery(DEFAULT_FILTERS)).toBe("");
+    const filters = parseScreenerFilters(new URLSearchParams("sort=venues"));
+    expect(filtersToQuery(filters)).toBe("?sort=venues");
+    expect(parseScreenerFilters(new URLSearchParams(filtersToQuery(filters)))).toEqual(filters);
   });
 });
 

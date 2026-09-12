@@ -70,7 +70,9 @@ p{margin:0}
 .rail{position:relative;display:block;height:14px;min-width:150px}
 .rail::before{content:"";position:absolute;left:0;right:0;top:50%;border-top:1px solid var(--rule)}
 .rail-zero{position:absolute;top:2px;bottom:2px;width:1px;background:var(--zero)}
-.rail-bar{position:absolute;top:50%;height:3px;transform:translateY(-50%);background:var(--dim)}
+/* Long-to-short gradient, as the hero rail already uses, so the bar reads directionally in the
+   table too rather than as one flat block. */
+.rail-bar{position:absolute;top:50%;height:3px;transform:translateY(-50%);background:linear-gradient(90deg,var(--long),var(--short))}
 .rail-mark{position:absolute;top:50%;width:7px;height:7px;transform:translate(-50%,-50%);background:var(--bg);border:1px solid var(--muted)}
 .rail-mark.long{background:var(--long);border-color:var(--long)}
 .rail-mark.short{background:var(--short);border-color:var(--short)}
@@ -87,6 +89,10 @@ table.sheet{border-collapse:collapse;width:100%}
 .sheet tbody tr:nth-child(4n+3),.sheet tbody tr:nth-child(4n+4){background:var(--band)}
 .sheet tbody tr:hover{background:#161616}
 .sheet .num{text-align:right}
+.sheet th a{border:0;color:inherit}
+.sheet th a:hover{color:var(--accent)}
+.sheet th[aria-sort] a{color:var(--ink)}
+.sheet th[aria-sort] a::after{content:" ↓"}
 .sheet .rail-cell{width:20%;min-width:170px}
 /* The heatmap is a wide matrix, so it sizes to its content rather than the 100% table.sheet uses.
    It scrolls on both axes inside its own box: overflow-x alone would coerce overflow-y to auto and

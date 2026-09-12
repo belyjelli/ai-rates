@@ -8,9 +8,16 @@ import type {
   Overview,
   ScreenerFilters,
   ScreenerPair,
+  ScreenerSort,
 } from "../app/data";
 import type { BacktestParams, HeatmapParams, HeatmapTimeframe } from "../app/params";
-import { DEFAULT_FILTERS, HEATMAP_TIMEFRAMES, heatmapToQuery, VENUE_TYPES } from "../app/params";
+import {
+  DEFAULT_FILTERS,
+  filtersToQuery,
+  HEATMAP_TIMEFRAMES,
+  heatmapToQuery,
+  VENUE_TYPES,
+} from "../app/params";
 import {
   aprTone,
   esc,
@@ -92,7 +99,7 @@ export function screener(data: {
     body: `<h1>Funding spread screener</h1>
 <p class="lede">For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.</p>
 ${filtersForm(data.filters)}
-${pairsTable(data.pairs, "No pairs match these filters. Lower the minimum open interest or include more exchange types.")}`,
+${pairsTable(data.pairs, "No pairs match these filters. Lower the minimum open interest or include more exchange types.", data.filters)}`,
   });
 }
 
@@ -140,7 +147,33 @@ ${venues}
 </form>`;
 }
 
-function pairsTable(pairs: ScreenerPair[], emptyMessage: string): string {
+const SORT_LABELS: Record<ScreenerSort, string> = {
+  spread: "Spread",
+  settled_7d: "7d settled",
+  venues: "Venues",
+};
+
+/**
+ * A sortable column header. Without filters — the homepage's twelve-row teaser — it stays plain
+ * text: re-sorting a fixed top-twelve means nothing, and a link would navigate away from the page.
+ */
+function sortableTh(
+  sort: ScreenerSort,
+  title: string,
+  filters: ScreenerFilters | undefined,
+): string {
+  const head = `<th class="num" title="${esc(title)}"`;
+  if (!filters) return `${head}>${SORT_LABELS[sort]}</th>`;
+  const active = filters.sort === sort;
+  const href = `/screener${filtersToQuery({ ...filters, sort })}`;
+  return `${head}${active ? ' aria-sort="descending"' : ""}><a href="${href}">${SORT_LABELS[sort]}</a></th>`;
+}
+
+function pairsTable(
+  pairs: ScreenerPair[],
+  emptyMessage: string,
+  filters?: ScreenerFilters,
+): string {
   if (pairs.length === 0)
     return `<div class="sheet-wrap"><p class="empty">${emptyMessage}</p></div>`;
   const scale = railScale(
@@ -180,7 +213,7 @@ ${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short
     .join("");
 
   return `<div class="sheet-wrap"><table class="sheet">
-<thead><tr><th>Asset</th><th class="num">Spread</th><th title="Signed log scale, so ordinary rates keep room next to extreme ones">Long − short, log scale</th><th>Long leg</th><th class="num">Long APR</th><th>Short leg</th><th class="num">Short APR</th><th class="num" title="Same two markets, averaged over the settlements of the last 7 days">7d settled</th><th class="num" title="Exchanges with a live market for this asset">Venues</th></tr></thead>
+<thead><tr><th>Asset</th>${sortableTh("spread", "Widest funding gap between two exchanges", filters)}<th title="Signed log scale, so ordinary rates keep room next to extreme ones">Long − short, log scale</th><th>Long leg</th><th class="num">Long APR</th><th>Short leg</th><th class="num">Short APR</th>${sortableTh("settled_7d", "Same two markets, averaged over the settlements of the last 7 days", filters)}${sortableTh("venues", "Exchanges with a live market for this asset", filters)}</tr></thead>
 <tbody>${rows}</tbody>
 </table></div>`;
 }

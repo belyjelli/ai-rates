@@ -137,6 +137,27 @@ describe("pages", () => {
     expect(html).not.toContain('value="dex" checked');
   });
 
+  test("screener column headers sort, and the active one says which", async () => {
+    const { data, calls } = fakeData();
+    const html = await (await get("/screener?sort=venues", data)).text();
+
+    expect(calls.screener[0]?.sort).toBe("venues");
+    expect(html).toContain('aria-sort="descending"');
+    expect(html).toContain('href="/screener?sort=settled_7d"');
+    // Linking back to the default sort leaves the query clean rather than pinning ?sort=spread,
+    // so the canonical URL and the edge cache key stay the same as an unsorted visit.
+    expect(html).toContain('href="/screener"');
+  });
+
+  test("the homepage teaser keeps plain headers rather than sort links", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/", data)).text();
+    // Re-sorting a fixed top-twelve means nothing, and a link there would navigate off the page.
+    // Matched on the full attribute: the bare word also appears in the inlined stylesheet.
+    expect(html).not.toContain('aria-sort="descending"');
+    expect(html).toContain('title="Widest funding gap between two exchanges">Spread</th>');
+  });
+
   test("screener shows an empty state", async () => {
     const { data } = fakeData({ screener: async () => [] });
     expect(await (await get("/screener", data)).text()).toContain("No pairs match these filters");

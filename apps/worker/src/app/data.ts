@@ -3,6 +3,19 @@ import type postgres from "postgres";
 /** Markets whose latest snapshot is older than this are treated as not live. */
 export const FRESH_INTERVAL = "5 minutes";
 
+/**
+ * How the screener is ordered. Only these three exist because only these three are backed by a
+ * column `screener_pairs` actually returns.
+ *
+ * The original plan also wanted "stability" and "OI". Stability is a py-analytics deliverable that
+ * does not exist yet, and the function returns open interest only per *leg* — summing the two would
+ * rank assets by whichever pair happened to win the spread rather than by the asset's depth, which
+ * is a number we would be inventing. Both are left out rather than shipped as headers that sort by
+ * nothing or by an artefact.
+ */
+export const SCREENER_SORTS = ["spread", "settled_7d", "venues"] as const;
+export type ScreenerSort = (typeof SCREENER_SORTS)[number];
+
 export interface ScreenerFilters {
   minOpenInterestUsd: number;
   minVolume24hUsd: number;
@@ -10,6 +23,7 @@ export interface ScreenerFilters {
   venueTypes: string[] | null;
   /** Drops legs beyond this absolute APR; null keeps distressed markets in. */
   maxAbsApr: number | null;
+  sort: ScreenerSort;
   limit: number;
 }
 
@@ -160,7 +174,18 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
     },
 
     async screener(f) {
-      const rows = await connect()<ScreenerPair[]>`
+      const sql = connect();
+      // The sort key indexes a fixed set of fragments; it is never interpolated. Every fragment
+      // ends with `asset` because LIMIT over a partial order drops and repeats rows between
+      // requests, and carries NULLS LAST because spread_apr_7d is a difference of two per-leg
+      // stats and goes null the moment either leg has none.
+      const order = {
+        spread: sql`spread_apr DESC NULLS LAST, asset`,
+        settled_7d: sql`spread_apr_7d DESC NULLS LAST, asset`,
+        venues: sql`venue_count DESC NULLS LAST, spread_apr DESC NULLS LAST, asset`,
+      }[f.sort];
+
+      const rows = await sql<ScreenerPair[]>`
         SELECT * FROM screener_pairs(
           ${f.minOpenInterestUsd}::float8,
           ${f.minVolume24hUsd}::float8,
@@ -168,7 +193,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           string_to_array(${f.venueTypes?.join(",") ?? null}::text, ','),
           ${FRESH_INTERVAL}::interval,
           ${f.maxAbsApr}::float8)
-        ORDER BY spread_apr DESC
+        ORDER BY ${order}
         LIMIT ${f.limit}`;
       return [...rows];
     },

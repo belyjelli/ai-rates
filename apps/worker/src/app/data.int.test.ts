@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { migrate } from "@ai-rates/db";
 import { SQL } from "bun";
 import postgres from "postgres";
-import { createDataSource } from "./data";
+import { createDataSource, type ScreenerFilters, type ScreenerSort } from "./data";
 
 // Runs only with a database: `bun --env-file=.env.test.local test apps/worker`.
 //
@@ -22,6 +22,15 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
   const symbolA = `IT,${tag.toUpperCase()}-USDT`;
   const symbolB = `IT-${tag.toUpperCase()}-PERP`;
   const base = `IT${tag.toUpperCase()}`;
+  // A second asset, so the sort tests have something to order against.
+  const base2 = `IT2${tag.toUpperCase()}`;
+  const symbolA2 = `${base2}-A`;
+  const symbolB2 = `${base2}-B`;
+  // A third asset with no stats row at all, so the "windows are null, never zero" assertions own
+  // their own data instead of depending on another fixture not seeding stats.
+  const base3 = `IT3${tag.toUpperCase()}`;
+  const symbolA3 = `${base3}-A`;
+  const symbolB3 = `${base3}-B`;
   const settledAt = Math.floor(Date.now() / HOUR) * HOUR;
 
   let admin: SQL;
@@ -134,6 +143,91 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         ladder(2, 300_000, null, 0.01),
       ])}`;
 
+    // A second asset whose live spread is wider than the first's, but whose 7d settled spread is
+    // narrower. The two sorts must therefore disagree — if they agreed, an ordering test would
+    // pass whichever ORDER BY fragment actually ran.
+    await admin`
+      INSERT INTO markets ${admin([
+        {
+          venue_id: venueA,
+          venue_symbol: symbolA2,
+          base: base2,
+          quote: "USDT",
+          multiplier: 1,
+          dex: null,
+          interval_hours: 8,
+          max_leverage: null,
+          last_seen: now,
+        },
+        {
+          venue_id: venueB,
+          venue_symbol: symbolB2,
+          base: base2,
+          quote: null,
+          multiplier: 1,
+          dex: null,
+          interval_hours: 8,
+          max_leverage: null,
+          last_seen: now,
+        },
+      ])}`;
+    await admin`
+      INSERT INTO market_latest ${admin([
+        { ...latest(venueA, symbolA2, "USDT", 0.0003), base: base2 },
+        { ...latest(venueB, symbolB2, null, -0.0003), base: base2 },
+      ])}`;
+
+    // spread_apr_7d is richest-leg minus cheapest-leg 7d APR, so these give base a 100-point 7d
+    // spread against base2's 5.
+    const stat = (venue_id: string, venue_symbol: string, apr7d: number) => ({
+      venue_id,
+      venue_symbol,
+      apr_24h: apr7d,
+      apr_7d: apr7d,
+      settlements_24h: 3,
+      settlements_7d: 21,
+      updated_at: now,
+    });
+    await admin`
+      INSERT INTO market_funding_stats ${admin([
+        stat(venueA, symbolA, 50),
+        stat(venueB, symbolB, -50),
+        stat(venueA, symbolA2, 5),
+        stat(venueB, symbolB2, 0),
+      ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
+
+    // base3 deliberately gets markets but no stats, so a heatmap cell for it has null windows.
+    await admin`
+      INSERT INTO markets ${admin([
+        {
+          venue_id: venueA,
+          venue_symbol: symbolA3,
+          base: base3,
+          quote: "USDT",
+          multiplier: 1,
+          dex: null,
+          interval_hours: 8,
+          max_leverage: null,
+          last_seen: now,
+        },
+        {
+          venue_id: venueB,
+          venue_symbol: symbolB3,
+          base: base3,
+          quote: null,
+          multiplier: 1,
+          dex: null,
+          interval_hours: 8,
+          max_leverage: null,
+          last_seen: now,
+        },
+      ])}`;
+    await admin`
+      INSERT INTO market_latest ${admin([
+        { ...latest(venueA, symbolA3, "USDT", 0.0002), base: base3 },
+        { ...latest(venueB, symbolB3, null, -0.0002), base: base3 },
+      ])}`;
+
     // Production options: no type introspection, exactly as the Worker runs behind Hyperdrive.
     client = postgres(url as string, {
       max: 1,
@@ -148,6 +242,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     await admin`DELETE FROM funding_events WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_latest WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_leverage_tiers WHERE venue_id IN (${venueA}, ${venueB})`;
+    await admin`DELETE FROM market_funding_stats WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM markets WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM venues WHERE id IN (${venueA}, ${venueB})`;
     await admin.close();
@@ -193,10 +288,13 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       [venueB, null],
       [venueA, 25],
     ]);
-    // Same join on the other read path, and a symbol with a comma still matches exactly.
-    expect((await data.exchange(venueA)).map((r) => [r.venue_symbol, r.max_leverage])).toEqual([
-      [symbolA, 25],
-    ]);
+    // Same join on the other read path, and a symbol with a comma still matches exactly. Scoped to
+    // this symbol because other fixtures in this file also list markets on venueA.
+    expect(
+      (await data.exchange(venueA))
+        .filter((r) => r.venue_symbol === symbolA)
+        .map((r) => [r.venue_symbol, r.max_leverage]),
+    ).toEqual([[symbolA, 25]]);
   });
 
   test("leverageTiers reads ladders for the markets asked for", async () => {
@@ -221,14 +319,41 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     // The asset's summed open interest rides on every cell, so the pivot can order rows without a
     // second query.
     expect(new Set(mine.map((c) => c.asset_oi_usd))).toEqual(new Set([2_000_000]));
-    // No stats row exists for these markets, so the trailing windows are null rather than zero.
-    expect(mine[0]?.apr_7d).toBeNull();
-    expect(mine[0]?.apr_30d).toBeNull();
-    expect(mine[0]?.apr_60d).toBeNull();
+    // base3 has markets but no stats row, so its windows are null rather than zero. A market that
+    // simply has no settled history must never read as "funding was flat".
+    const noStats = cells.filter((c) => c.base === base3);
+    expect(noStats).not.toHaveLength(0);
+    expect(noStats[0]?.apr_7d).toBeNull();
+    expect(noStats[0]?.apr_30d).toBeNull();
+    expect(noStats[0]?.apr_60d).toBeNull();
 
     // minVenues excludes an asset that cannot show a cross-venue comparison.
     const strict = await data.heatmap({ limit: 50, offset: 0, minVenues: 3 });
     expect(strict.some((c) => c.base === base)).toBe(false);
+  });
+
+  test("screener honours each sort key, against the real ORDER BY", async () => {
+    const forSort = (sort: ScreenerSort): ScreenerFilters => ({
+      minOpenInterestUsd: 0,
+      minVolume24hUsd: 0,
+      venueIds: null,
+      venueTypes: null,
+      maxAbsApr: null,
+      sort,
+      limit: 200,
+    });
+    // Other suites share this schema, so only the two assets seeded here are compared.
+    const mine = async (sort: ScreenerSort) =>
+      (await data.screener(forSort(sort)))
+        .map((p) => p.asset)
+        .filter((asset) => asset === base || asset === base2);
+
+    // base2's live spread is the wider one; base's 7d settled spread is. The orders invert, which
+    // is the only way to prove the sort key reached the query rather than being ignored.
+    expect(await mine("spread")).toEqual([base2, base]);
+    expect(await mine("settled_7d")).toEqual([base, base2]);
+    // Both assets sit on two venues, so `venues` falls through to its spread secondary key.
+    expect(await mine("venues")).toEqual([base2, base]);
   });
 
   test("overview and screener run against the real schema", async () => {
@@ -241,6 +366,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         venueIds: null,
         venueTypes: null,
         maxAbsApr: 1000,
+        sort: "spread",
         limit: 1,
       }),
     ).resolves.toBeDefined();
