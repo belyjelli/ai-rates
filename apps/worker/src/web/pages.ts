@@ -347,6 +347,21 @@ const wholeMoney = (value: number) => `$${Math.round(value).toLocaleString("en-U
 const formatLeverage = (value: number) => `${value % 1 === 0 ? value : value.toFixed(1)}×`;
 
 /**
+ * Above this size per leg the venues' headline maximum no longer holds anywhere we have data for:
+ * Bybit's 150x on BTCUSDT stops at roughly $300k notional and is 100x by $2M, and altcoin ladders
+ * step down sooner still. One global figure is a deliberately conservative stand-in, not a real
+ * boundary — B1 replaces it with each venue's own tiers from `market_leverage_tiers`.
+ */
+const HEADLINE_LEVERAGE_MAX_SIZE_USD = 250_000;
+
+interface PairCapital {
+  capitalUsd: number;
+  leverage: number | null;
+  /** The size asked for is past where the headline leverage holds, so capital is a lower bound. */
+  beyondHeadline: boolean;
+}
+
+/**
  * What a pair actually ties up. Both legs are open at once on different exchanges and margin
  * independently, so capital is the sum of the two margins — at 1x that is twice the size.
  *
@@ -354,18 +369,35 @@ const formatLeverage = (value: number) => `${value % 1 === 0 ? value : value.toF
  * side if the other caps at 10x. That is conservative, since independent margining would let you
  * post less on the permissive leg. A venue that publishes no figure drops the pair to unleveraged
  * rather than borrowing its partner's number.
+ *
+ * The venues publish one headline number that holds only at small size, so past that the real
+ * requirement is higher than this and the page says so rather than quoting a figure it cannot back.
  */
 function pairCapital(
   sizeUsd: number,
   longMarket: MarketRow | undefined,
   shortMarket: MarketRow | undefined,
-): { capitalUsd: number; leverage: number | null } {
+): PairCapital {
   const usable = (market: MarketRow | undefined) =>
     market?.max_leverage && market.max_leverage > 0 ? market.max_leverage : null;
   const long = usable(longMarket);
   const short = usable(shortMarket);
   const leverage = long !== null && short !== null ? Math.min(long, short) : null;
-  return { capitalUsd: (sizeUsd * 2) / (leverage ?? 1), leverage };
+  return {
+    capitalUsd: (sizeUsd * 2) / (leverage ?? 1),
+    leverage,
+    beyondHeadline: leverage !== null && sizeUsd > HEADLINE_LEVERAGE_MAX_SIZE_USD,
+  };
+}
+
+/** The capital line, phrased so it never claims more precision than the tier data supports. */
+function capitalFact(capital: PairCapital): string {
+  const amount = wholeMoney(capital.capitalUsd);
+  if (capital.leverage === null) return `capital <b>${amount}</b> across both legs, unleveraged`;
+  const leverage = formatLeverage(capital.leverage);
+  return capital.beyondHeadline
+    ? `capital at least <b>${amount}</b> across both legs — ${leverage} is the small-size maximum`
+    : `capital <b>${amount}</b> across both legs at ${leverage} (small size)`;
 }
 
 const pairHref = (asset: string) => `/pair/${encodeURIComponent(asset)}`;
@@ -474,7 +506,7 @@ export function pair(data: {
 <span class="short"><b>Short ${esc(venueName(result.short.venueId))}</b> ${esc(result.short.venueSymbol)} · ${result.short.settlements} settlements · ${money(result.short.fundingUsd)}</span>
 </div>
 ${equityCurve(result, params.sizeUsd)}
-<div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span><span>capital <b>${wholeMoney(capital?.capitalUsd ?? params.sizeUsd * 2)}</b> across both legs${capital?.leverage ? ` at ${formatLeverage(capital.leverage)}` : ", unleveraged"}</span></div>
+<div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span><span>${capitalFact(capital ?? pairCapital(params.sizeUsd, undefined, undefined))}</span></div>
 ${
   result.long.missedSettlements > 0 || result.short.missedSettlements > 0
     ? `<p class="notes">Missed settlements: ${result.long.missedSettlements} on ${esc(venueName(result.long.venueId))}, ${result.short.missedSettlements} on ${esc(venueName(result.short.venueId))}. A gap is reported rather than counted as zero, so this total covers only the settlements actually recorded.</p>`

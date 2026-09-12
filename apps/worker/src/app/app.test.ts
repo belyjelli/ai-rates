@@ -194,19 +194,26 @@ describe("pages", () => {
         ...settled("okx", "BTC-USDT-SWAP", 0.0001),
       ],
     });
-    const capital = async (long: number | null, short: number | null) => {
+    const capital = async (long: number | null, short: number | null, size = "10k") => {
       const res = await get(
-        "/pair/BTC?long=gate&short=okx&size=10k&days=7",
+        `/pair/BTC?long=gate&short=okx&size=${size}&days=7`,
         fakeData(legs(long, short)).data,
       );
-      return (await res.text()).match(/capital <b>(.*?)<\/b> across both legs([^<]*)/)?.slice(1);
+      return (await res.text()).match(/capital [^<]*<b>[^<]*<\/b>[^<]*/)?.[0];
     };
 
     // 50x and 20x: the pair can only run at 20x, so $20,000 of notional needs $1,000 of margin.
-    expect(await capital(50, 20)).toEqual(["$1,000", " at 20×"]);
+    expect(await capital(50, 20)).toBe(
+      "capital <b>$1,000</b> across both legs at 20× (small size)",
+    );
     // A venue that publishes nothing drops the whole pair to unleveraged, rather than assuming the
     // partner's 50x applies to a leg we know nothing about.
-    expect(await capital(50, null)).toEqual(["$20,000", ", unleveraged"]);
+    expect(await capital(50, null)).toBe("capital <b>$20,000</b> across both legs, unleveraged");
+    // $1M a leg is far past where any venue's headline leverage holds, so the figure is a floor:
+    // quoting $100,000 flat would understate what the position actually needs.
+    expect(await capital(50, 20, "1m")).toBe(
+      "capital at least <b>$100,000</b> across both legs — 20× is the small-size maximum",
+    );
   });
 
   test("pair page without legs offers the picker instead of a result", async () => {
