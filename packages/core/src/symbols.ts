@@ -20,6 +20,16 @@ const CONTRACT_TOKENS = new Set(["SWAP", "PERP", "PERPETUAL", "FUTURES", "FUT"])
  *
  * Deliberately absent: SPX is the SPX6900 token at ~$0.486, not the S&P 500 index that venues list
  * as US500 at ~$7,650. Aliasing them would merge unrelated markets.
+ *
+ * The S&P 500 entries were confirmed on 2026-09-13 by mark price: SPX500 marked 7,616.70–7,630.00
+ * on gate and mexc, SP500 7,616.10 on hl-xyz, against US500 7,620.60–7,630.00 on lighter, okx and
+ * paradex — all inside 0.2%. `US500` is the target because four venues use it against two and one,
+ * which is this map's stated rule. Left unconsolidated, the deepest liquidity could not pair at all:
+ * SP500 alone held $413M of open interest and SPX500 $129M, while US500 held $4.4M.
+ *
+ * NOTE: `hl-mkts:US500` marks ~760 against ~7,620 — a tenth-size contract already sitting inside
+ * this pool, with `multiplier` stored as 1. Consolidation does not cause that and does not fix it;
+ * it needs the scale detector in plans/symbol-identity-refactor.md.
  */
 const ALIASES: Record<string, string> = {
   XBT: "BTC",
@@ -27,7 +37,21 @@ const ALIASES: Record<string, string> = {
   WTI: "CL",
   GOLD: "XAU",
   SILVER: "XAG",
+  SPX500: "US500",
+  SP500: "US500",
 };
+
+/**
+ * The canonical spelling for an already-extracted base.
+ *
+ * Exported because a venue-declared base never passes through `parseVenueSymbol`, so it would miss
+ * the alias map and re-split the very pools this exists to join: MEXC declares the S&P 500 as
+ * `SP500`, which has to reach `US500` the same way gate's `SPX500` does.
+ */
+export function canonicalBase(base: string): string {
+  const upper = base.trim().toUpperCase();
+  return ALIASES[upper] ?? upper;
+}
 
 /**
  * Parses a venue-native perp symbol into its canonical parts. Handles the common shapes:

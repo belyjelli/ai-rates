@@ -158,7 +158,56 @@
           "imr": 0.05,
           "maxLeverage": 20
         }
-      ]
+      ],
+      "baseCoinName": "GOLD(XAU)"
+    },
+    {
+      "symbol": "MUSTOCK_USDT",
+      "baseCoin": "MUSTOCK",
+      "quoteCoin": "USDT",
+      "settleCoin": "USDT",
+      "contractSize": 0.01,
+      "state": 0,
+      "isHidden": false,
+      "apiAllowed": true,
+      "futureType": 1,
+      "baseCoinName": "MU"
+    },
+    {
+      "symbol": "CATSTOCK_USDT",
+      "baseCoin": "CATSTOCK",
+      "quoteCoin": "USDT",
+      "settleCoin": "USDT",
+      "contractSize": 0.001,
+      "state": 0,
+      "isHidden": false,
+      "apiAllowed": true,
+      "futureType": 1,
+      "baseCoinName": "CATSTOCK"
+    },
+    {
+      "symbol": "LONGXIA_USDT",
+      "baseCoin": "LONGXIA",
+      "quoteCoin": "USDT",
+      "settleCoin": "USDT",
+      "contractSize": 100,
+      "state": 0,
+      "isHidden": false,
+      "apiAllowed": true,
+      "futureType": 1,
+      "baseCoinName": "\u9f99\u867e"
+    },
+    {
+      "symbol": "SPX500_USDT",
+      "baseCoin": "SPX500",
+      "quoteCoin": "USDT",
+      "settleCoin": "USDT",
+      "contractSize": 0.0001,
+      "state": 0,
+      "isHidden": false,
+      "apiAllowed": true,
+      "futureType": 1,
+      "baseCoinName": "SP500"
     }
   ]
 }

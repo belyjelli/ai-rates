@@ -1,6 +1,6 @@
 import type { FundingEvent, FundingSnapshot, LeverageTier } from "@ai-rates/core";
 import { CircuitOpenError, type HttpClient } from "../http";
-import { marketRef, mul, num, selectRefreshBatch } from "../parse";
+import { marketRef, mul, num, resolveDeclaredBase, selectRefreshBatch } from "../parse";
 import type { VenueAdapter } from "../types";
 
 const VENUE = "mexc";
@@ -38,6 +38,13 @@ export interface MexcTicker {
 export interface MexcContractDetail {
   symbol: string;
   baseCoin: string;
+  /**
+   * The underlying MEXC displays, where it differs from the contract code: `MUSTOCK` is shown as
+   * `MU`, matching its own UI. 383 of 1192 contracts differ. Absent or equal to `baseCoin` means
+   * the venue is not offering a different name -- which on the 13 colliding `*STOCK` tickers is a
+   * deliberate signal, not a gap. See `resolveDeclaredBase`.
+   */
+  baseCoinName?: string;
   quoteCoin: string;
   settleCoin: string;
   /** Base units per contract; USD per contract for coin-settled (inverse) contracts. */
@@ -232,7 +239,12 @@ export function parseMexcSnapshots(
     // Coin-settled contracts (BTC_USD settles in BTC) are sized in USD and report turnover in the coin.
     const coinSettled = Boolean(contract.settleCoin) && contract.settleCoin === contract.baseCoin;
     snapshots.push({
-      ...marketRef(VENUE, ticker.symbol, { quote: contract.quoteCoin }),
+      ...marketRef(VENUE, ticker.symbol, {
+        quote: contract.quoteCoin,
+        // undefined leaves the parsed base in place, so contracts MEXC says nothing about are
+        // untouched. marketRef canonicalises whatever lands here, so SP500 reaches US500.
+        base: resolveDeclaredBase(contract.baseCoin, contract.baseCoinName),
+      }),
       observedAt: now,
       rate,
       basisHours: interval.hours,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseVenueSymbol } from "./symbols";
+import { canonicalBase, parseVenueSymbol } from "./symbols";
 
 describe("parseVenueSymbol", () => {
   const cases: [string, string, string | null, number, string | null][] = [
@@ -29,9 +29,15 @@ describe("parseVenueSymbol", () => {
     ["CL-USDT-SWAP", "CL", "USDT", 1, null],
     ["xyz:GOLD", "XAU", null, 1, "xyz"],
     ["SILVERUSDTM", "XAG", "USDT", 1, null],
-    // SPX is the SPX6900 token, not the S&P 500 index that venues list as US500.
+    // The S&P 500 is listed under three names; they consolidate onto US500, the spelling four
+    // venues use. SPX is NOT one of them -- it is the SPX6900 token at ~$0.49 on eight venues, and
+    // merging it into a ~$7,620 index would be the worst kind of false pair.
     ["SPXUSDT", "SPX", "USDT", 1, null],
     ["US500-USD-PERP", "US500", "USD", 1, null],
+    ["SPX500_USDT", "US500", "USDT", 1, null],
+    ["xyz:SP500", "US500", null, 1, "xyz"],
+    // One character apart from SPX500, and a different asset entirely.
+    ["SPXLUSDT", "SPXL", "USDT", 1, null],
   ];
 
   for (const [raw, base, quote, multiplier, dex] of cases) {
@@ -39,4 +45,26 @@ describe("parseVenueSymbol", () => {
       expect(parseVenueSymbol(raw)).toEqual({ base, quote, multiplier, dex });
     });
   }
+});
+
+describe("canonicalBase", () => {
+  test("applies the alias map to an already-extracted base", () => {
+    // The reason this is exported: a venue-declared base never passes through parseVenueSymbol, so
+    // without it MEXC would sit on SP500 while gate sat on US500 -- re-splitting the pool.
+    expect(canonicalBase("SP500")).toBe("US500");
+    expect(canonicalBase("SPX500")).toBe("US500");
+    expect(canonicalBase("GOLD")).toBe("XAU");
+    expect(canonicalBase("XBT")).toBe("BTC");
+  });
+
+  test("passes through anything with no alias, and normalises case", () => {
+    expect(canonicalBase("BTC")).toBe("BTC");
+    expect(canonicalBase("mu")).toBe("MU");
+    expect(canonicalBase(" tsla ")).toBe("TSLA");
+  });
+
+  test("never folds the SPX6900 token into the index", () => {
+    expect(canonicalBase("SPX")).toBe("SPX");
+    expect(canonicalBase("SPXL")).toBe("SPXL");
+  });
 });
