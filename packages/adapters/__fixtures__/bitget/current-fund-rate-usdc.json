@@ -1,0 +1,27 @@
+{
+  "code": "00000",
+  "msg": "success",
+  "requestTime": 1789337276316,
+  "data": [
+    {
+      "symbol": "BTCPERP",
+      "fundingRate": "0.00004",
+      "fundingRateInterval": "8",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.003",
+      "maxFundingRate": "0.003",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    },
+    {
+      "symbol": "1000BONKPERP",
+      "fundingRate": "-0.000015",
+      "fundingRateInterval": "4",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.02",
+      "maxFundingRate": "0.02",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    }
+  ]
+}

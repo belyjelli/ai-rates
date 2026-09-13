@@ -1,0 +1,53 @@
+{
+  "code": "00000",
+  "msg": "success",
+  "requestTime": 1789337276086,
+  "data": [
+    {
+      "category": "USDC-FUTURES",
+      "symbol": "BTCPERP",
+      "ts": "1789337275687",
+      "lastPrice": "77015.2",
+      "openPrice24h": "77197.7",
+      "highPrice24h": "77386.9",
+      "lowPrice24h": "76438.6",
+      "ask1Price": "77000.8",
+      "bid1Price": "77000.7",
+      "bid1Size": "0.0044",
+      "ask1Size": "0.001",
+      "price24hPcnt": "-0.00236",
+      "volume24h": "329.7014",
+      "turnover24h": "25408351.88368",
+      "indexPrice": "77058.245",
+      "markPrice": "77015.2",
+      "fundingRate": "0.00004",
+      "openInterest": "1361.4079000000003",
+      "deliveryStartTime": "",
+      "deliveryTime": "",
+      "deliveryStatus": ""
+    },
+    {
+      "category": "USDC-FUTURES",
+      "symbol": "1000BONKPERP",
+      "ts": "1789337275687",
+      "lastPrice": "0.002742",
+      "openPrice24h": "0.002787",
+      "highPrice24h": "0.002811",
+      "lowPrice24h": "0.002725",
+      "ask1Price": "0.002729",
+      "bid1Price": "0.002726",
+      "bid1Size": "1077200",
+      "ask1Size": "1077200",
+      "price24hPcnt": "-0.01615",
+      "volume24h": "6910115",
+      "turnover24h": "19005.395942",
+      "indexPrice": "0.0027327038476873",
+      "markPrice": "0.002733",
+      "fundingRate": "-0.000015",
+      "openInterest": "78963348",
+      "deliveryStartTime": "",
+      "deliveryTime": "",
+      "deliveryStatus": ""
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "code": 0,
+  "msg": "",
+  "data": [
+    {
+      "symbol": "BTC-USDT",
+      "fundingRate": "0.00007800",
+      "fundingTime": 1789315200000,
+      "markPrice": "77100.3"
+    },
+    {
+      "symbol": "BTC-USDT",
+      "fundingRate": "0.00008200",
+      "fundingTime": 1789286400000,
+      "markPrice": "77089.9"
+    },
+    {
+      "symbol": "BTC-USDT",
+      "fundingRate": "0.00009200",
+      "fundingTime": 1789257600000,
+      "markPrice": "77254.3"
+    }
+  ]
+}

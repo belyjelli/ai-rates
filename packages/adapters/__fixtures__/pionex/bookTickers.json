@@ -1,0 +1,72 @@
+{
+  "result": true,
+  "data": {
+    "tickers": [
+      {
+        "symbol": "BTC_USDT_PERP",
+        "bidPrice": "77102.8",
+        "bidSize": "10.4160",
+        "askPrice": "77102.9",
+        "askSize": "10.6274",
+        "timestamp": 1789336953873
+      },
+      {
+        "symbol": "ETH_USDT_PERP",
+        "bidPrice": "2499.16",
+        "bidSize": "420.797",
+        "askPrice": "2499.17",
+        "askSize": "72.417",
+        "timestamp": 1789336953913
+      },
+      {
+        "symbol": "0G_USDT_PERP",
+        "bidPrice": "0.2018",
+        "bidSize": "4124",
+        "askPrice": "0.2019",
+        "askSize": "9788",
+        "timestamp": 1789336953981
+      },
+      {
+        "symbol": "ACT_USDT_PERP",
+        "bidPrice": "0.00959",
+        "bidSize": "141829",
+        "askPrice": "0.00961",
+        "askSize": "155834",
+        "timestamp": 1789336953769
+      },
+      {
+        "symbol": "AAX_USDT_PERP",
+        "bidPrice": "",
+        "bidSize": "",
+        "askPrice": "58.20",
+        "askSize": "0.03",
+        "timestamp": 1789336952681
+      },
+      {
+        "symbol": "AAPLX_USDT_PERP",
+        "bidPrice": "331.14",
+        "bidSize": "341.41",
+        "askPrice": "331.15",
+        "askSize": "348.75",
+        "timestamp": 1789336953998
+      },
+      {
+        "symbol": "XAU_USDT_PERP",
+        "bidPrice": "4341.23",
+        "bidSize": "37.763",
+        "askPrice": "4341.24",
+        "askSize": "53.343",
+        "timestamp": 1789336953992
+      },
+      {
+        "symbol": "BTC_ETH_PERP",
+        "bidPrice": "30.851",
+        "bidSize": "1.04468",
+        "askPrice": "30.852",
+        "askSize": "1.00789",
+        "timestamp": 1789336953895
+      }
+    ]
+  },
+  "timestamp": 1789336954253
+}

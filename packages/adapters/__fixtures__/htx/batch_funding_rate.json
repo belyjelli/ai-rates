@@ -1,0 +1,146 @@
+{
+  "status": "ok",
+  "data": [
+    {
+      "estimated_rate": null,
+      "funding_rate": "0.000043173429077120",
+      "contract_code": "BTC-USDT",
+      "symbol": "BTC",
+      "fee_asset": "USDT",
+      "funding_time": "1789344000000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": "0.000004284823878526",
+      "contract_code": "ETH-USDT",
+      "symbol": "ETH",
+      "fee_asset": "USDT",
+      "funding_time": "1789344000000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": "0.000100000000000000",
+      "contract_code": "PEPE-USDT",
+      "symbol": "PEPE",
+      "fee_asset": "USDT",
+      "funding_time": "1789344000000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": "0.000050000000000000",
+      "contract_code": "BOME-USDT",
+      "symbol": "BOME",
+      "fee_asset": "USDT",
+      "funding_time": "1789344000000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": "0.000183372000496483",
+      "contract_code": "XAU-USDT",
+      "symbol": "XAU",
+      "fee_asset": "USDT",
+      "funding_time": "1789344000000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": "0E-18",
+      "contract_code": "PAXG-USDT",
+      "symbol": "PAXG",
+      "fee_asset": "USDT",
+      "funding_time": "1789344000000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": "0E-18",
+      "contract_code": "USOIL-USDT",
+      "symbol": "USOIL",
+      "fee_asset": "USDT",
+      "funding_time": "1789344000000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": "0E-18",
+      "contract_code": "META-USDT",
+      "symbol": "META",
+      "fee_asset": "USDT",
+      "funding_time": "1789344000000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": "0.000006250000000000",
+      "contract_code": "JP225-USDT",
+      "symbol": "JP225",
+      "fee_asset": "USDT",
+      "funding_time": "1789340400000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": "0E-18",
+      "contract_code": "TQQQ-USDT",
+      "symbol": "TQQQ",
+      "fee_asset": "USDT",
+      "funding_time": "1789344000000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": "0.000006250000000000",
+      "contract_code": "SPX500-USDT",
+      "symbol": "SPX500",
+      "fee_asset": "USDT",
+      "funding_time": "1789340400000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": "0.000100000000000000",
+      "contract_code": "XOM-USDT",
+      "symbol": "XOM",
+      "fee_asset": "USDT",
+      "funding_time": "1789344000000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": "0.000050000000000000",
+      "contract_code": "CYBER-USDT",
+      "symbol": "CYBER",
+      "fee_asset": "USDT",
+      "funding_time": "1767859200000",
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    },
+    {
+      "estimated_rate": null,
+      "funding_rate": null,
+      "contract_code": "BTC-USDT-260918",
+      "symbol": "BTC",
+      "fee_asset": "USDT",
+      "funding_time": null,
+      "next_funding_time": null,
+      "trade_partition": "USDT"
+    }
+  ],
+  "ts": 1789336869034
+}
