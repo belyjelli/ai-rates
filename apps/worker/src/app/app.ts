@@ -171,6 +171,21 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(pages.arbitrage({ overview, rows, params, now }));
     }
 
+    if (segments[0] === "price-pair" && segments.length === 2) {
+      const asset = (segments[1] as string).toUpperCase();
+      const [overview, quotes] = await Promise.all([
+        deps.data.overview(),
+        ASSET_PATTERN.test(asset) ? deps.data.priceQuotes(asset) : [],
+      ]);
+      if (quotes.length === 0) {
+        return page(
+          pages.notFound(path, now, `No exchange is quoting a ${asset} book right now.`),
+          404,
+        );
+      }
+      return page(pages.pricePair({ asset, quotes, overview, now }));
+    }
+
     if (path === "/markets") {
       const [overview, exchanges] = await Promise.all([
         deps.data.overview(),
@@ -252,6 +267,12 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const params = parseArbitrageParams(url.searchParams);
       const rows = await deps.data.arbitrage(params);
       return json({ params, query: arbitrageToQuery(params), count: rows.length, rows });
+    }
+
+    if (segments[0] === "v1" && segments[1] === "price-pair" && segments.length === 3) {
+      const asset = (segments[2] as string).toUpperCase();
+      const quotes = ASSET_PATTERN.test(asset) ? await deps.data.priceQuotes(asset) : [];
+      return json({ asset, count: quotes.length, quotes });
     }
 
     if (segments[0] === "v1" && segments[1] === "exchanges" && segments.length === 3) {

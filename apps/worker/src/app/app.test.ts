@@ -8,6 +8,7 @@ import type {
   HeatmapCell,
   MarketRow,
   Overview,
+  PriceQuote,
   ScreenerFilters,
   ScreenerPair,
 } from "./data";
@@ -99,6 +100,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     exchange: async (venueId) => (venueId === "okx" ? [market({})] : []),
     heatmap: async () => [],
     arbitrage: async () => [],
+    priceQuotes: async () => [],
     leverageTiers: async () => [],
     settlements: async () => [],
     verifiedPairs: async () => [],
@@ -243,6 +245,90 @@ describe("pages", () => {
     const { data } = fakeData({ arbitrage: async () => [] });
     const html = await (await get("/arbitrage", data)).text();
     expect(html).toContain("No asset quotes a gap this wide right now");
+  });
+
+  /** Two venues that agree, plus one marked 1375x out -- the KR200 shape. */
+  const quote = (overrides: Partial<PriceQuote> = {}): PriceQuote => ({
+    venue_id: "gate",
+    venue_symbol: "ONE_USDT",
+    best_bid: 0.01131,
+    best_ask: 0.01133,
+    best_bid_size_usd: 50_000,
+    best_ask_size_usd: 20_000,
+    mark_price: 0.01132,
+    median_mark: 0.01132,
+    mark_agrees: true,
+    observed_at: new Date(NOW - 20_000),
+    ...overrides,
+  });
+
+  test("price-pair marks the best bid and ask and quotes the gap between them", async () => {
+    const { data } = fakeData({
+      priceQuotes: async () => [
+        quote(),
+        quote({
+          venue_id: "bybit",
+          venue_symbol: "ONEUSDT",
+          best_bid: 0.01162,
+          best_ask: 0.01164,
+          best_bid_size_usd: 80_000,
+          best_ask_size_usd: 90_000,
+        }),
+      ],
+    });
+    const html = await (await get("/price-pair/ONE", data)).text();
+
+    expect(html).toContain("Gate");
+    expect(html).toContain("Bybit");
+    // Buy the cheapest ask (Gate, 0.01133), sell the highest bid (Bybit, 0.01162): 256.0 bps.
+    expect(html).toContain("256.0 bps");
+    // Good for the thinner of Gate's ask ($20k) and Bybit's bid ($80k).
+    expect(html).toContain("$20.0k");
+    expect(html).toContain("quote at the size shown");
+  });
+
+  test("a mismatched instrument is shown with its reason, not silently dropped", async () => {
+    const { data } = fakeData({
+      priceQuotes: async () => [
+        quote(),
+        quote({ venue_id: "bybit", venue_symbol: "ONEUSDT", best_bid: 0.01162, best_ask: 0.01164 }),
+        // 1375x out: the KR200 case that would otherwise publish a 13,660,780 bps "gap".
+        quote({
+          venue_id: "okx",
+          venue_symbol: "ONE-USDT-SWAP",
+          best_bid: 15.5,
+          best_ask: 15.6,
+          mark_price: 15.565,
+          mark_agrees: false,
+        }),
+      ],
+    });
+    const html = await (await get("/price-pair/ONE", data)).text();
+
+    // Present, but dimmed and explained -- the list page hides it, the detail page teaches it.
+    expect(html).toContain("OKX");
+    expect(html).toContain("left out of the gap");
+    expect(html).toContain("1375.0×");
+    // The mismatch must NOT set the price: the gap is still the honest 256 bps.
+    expect(html).toContain("256.0 bps");
+  });
+
+  test("price-pair 404s for an asset nobody quotes", async () => {
+    const { data } = fakeData({ priceQuotes: async () => [] });
+    const res = await get("/price-pair/NOSUCH", data);
+    expect(res.status).toBe(404);
+    expect(await res.text()).toContain("No exchange is quoting a NOSUCH book right now");
+  });
+
+  test("/v1/price-pair returns the quotes as JSON", async () => {
+    const { data } = fakeData({ priceQuotes: async () => [quote()] });
+    const body = (await (await get("/v1/price-pair/one", data)).json()) as {
+      asset: string;
+      count: number;
+    };
+    // The path segment is uppercased before it reaches the query, as the asset page does.
+    expect(body.asset).toBe("ONE");
+    expect(body.count).toBe(1);
   });
 
   test("the verified ranking says so before the first nightly run", async () => {

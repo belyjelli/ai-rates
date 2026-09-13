@@ -7,6 +7,7 @@ import type {
   LeverageTierRow,
   MarketRow,
   Overview,
+  PriceQuote,
   ScreenerFilters,
   ScreenerPair,
   ScreenerSort,
@@ -666,7 +667,7 @@ export function arbitrage(data: {
           ? "One side's resting size is unknown, so the size this gap is good for cannot be stated"
           : `Good for about ${formatUsd(r.thinner_depth_usd)} at these quotes, before fees and before either book moves`;
       return `<tr data-k="${esc(r.asset)}">
-<td class="asset"><a href="${assetHref(r.asset)}">${esc(r.asset)}</a></td>
+<td class="asset"><a href="/price-pair/${encodeURIComponent(r.asset)}">${esc(r.asset)}</a></td>
 <td class="num spread" title="${esc(title)}"><span data-u="gap">${formatGapBps(r.gap_bps)}</span></td>
 <td class="num" title="${esc(title)}">${formatUsd(r.thinner_depth_usd)}</td>
 ${side("buy", r.buy_venue_id, r.buy_symbol, r.buy_price, r.buy_depth_usd)}
@@ -733,6 +734,100 @@ function filtersForArbitrage(params: ArbitrageParams): string {
     .join("")}</select></label>
 <div class="actions"><button type="submit">Apply</button><a href="/arbitrage">Reset</a></div>
 </form>`;
+}
+
+/**
+ * One asset's top of book on every venue that quotes it.
+ *
+ * The list page must drop a mismatched instrument, or a 1375× disagreement tops the ranking with a
+ * gap of 13,660,780 bps. This page does the opposite and shows it, dimmed, with how far out it is —
+ * because "why is that exchange missing" is the question a detail page exists to answer, and a
+ * silently shortened list teaches the reader nothing about why the guard exists.
+ *
+ * The best bid and best ask are marked, so the cross-venue gap reads as a relationship between two
+ * rows rather than a number asserted at the top of the page.
+ */
+export function pricePair(data: {
+  asset: string;
+  quotes: PriceQuote[];
+  overview: Overview;
+  now: number;
+}): string {
+  const { asset: name, quotes, now } = data;
+  const agreeing = quotes.filter((q) => q.mark_agrees);
+  const rejected = quotes.filter((q) => !q.mark_agrees);
+
+  // Only among venues that survive the guard: the whole point is that a mismatch must not set the
+  // price. Computed here rather than in SQL because the page already holds every row.
+  const lowestAsk = agreeing.reduce<PriceQuote | null>(
+    (best, q) => (best === null || q.best_ask < best.best_ask ? q : best),
+    null,
+  );
+  const highestBid = agreeing.reduce<PriceQuote | null>(
+    (best, q) => (best === null || q.best_bid > best.best_bid ? q : best),
+    null,
+  );
+  const crossVenue =
+    lowestAsk && highestBid && lowestAsk.venue_id !== highestBid.venue_id
+      ? ((highestBid.best_bid - lowestAsk.best_ask) / lowestAsk.best_ask) * 10000
+      : null;
+  const goodFor =
+    lowestAsk?.best_ask_size_usd == null || highestBid?.best_bid_size_usd == null
+      ? null
+      : Math.min(lowestAsk.best_ask_size_usd, highestBid.best_bid_size_usd);
+
+  const row = (q: PriceQuote) => {
+    const inVenueBps = ((q.best_ask - q.best_bid) / q.best_bid) * 10000;
+    const off =
+      q.mark_agrees || q.median_mark === null || q.mark_price === null || q.median_mark === 0
+        ? null
+        : q.mark_price / q.median_mark;
+    const why =
+      off === null
+        ? "This venue's mark disagrees with the rest, so it is excluded from the gap"
+        : `Marked ${off >= 1 ? off.toFixed(1) : (1 / off).toFixed(1)}× ${off >= 1 ? "above" : "below"} the median for this asset, so it is a different instrument, not a price gap`;
+    return `<tr data-k="${esc(`${q.venue_id}|${q.venue_symbol}`)}"${q.mark_agrees ? "" : ` class="dim" title="${esc(why)}"`}>
+<td><div class="leg${q === lowestAsk ? " buy-leg" : q === highestBid ? " sell-leg" : ""}"><a class="venue" href="${exchangeHref(q.venue_id)}">${esc(venueName(q.venue_id))}</a><span class="meta">${esc(q.venue_symbol)}</span></div></td>
+<td class="num"><span data-u="bid">${formatPrice(q.best_bid)}</span>${q === highestBid ? ' <span class="dim">best</span>' : ""}</td>
+<td class="num">${formatUsd(q.best_bid_size_usd)}</td>
+<td class="num"><span data-u="ask">${formatPrice(q.best_ask)}</span>${q === lowestAsk ? ' <span class="dim">best</span>' : ""}</td>
+<td class="num">${formatUsd(q.best_ask_size_usd)}</td>
+<td class="num" title="This venue's own bid-ask spread, which a taker crosses on entry and again on exit">${formatGapBps(inVenueBps)}</td>
+<td class="num">${formatPrice(q.mark_price)}</td>
+<td class="dim">${since(q.observed_at, now)}</td>
+</tr>`;
+  };
+
+  const headline =
+    crossVenue === null
+      ? `<p class="lede" data-live="pp-lede">No two exchanges quote ${esc(name)} in a way that can be compared right now.</p>`
+      : `<p class="lede" data-live="pp-lede">Buying on <b>${esc(venueName((lowestAsk as PriceQuote).venue_id))}</b> and selling on <b>${esc(venueName((highestBid as PriceQuote).venue_id))}</b> quotes <b data-u="pp-gap">${formatGapBps(crossVenue)} bps</b>${goodFor === null ? ", though one side's resting size is unknown" : `, good for about <b>${formatUsd(goodFor)}</b>`}. That is a quote at the size shown, not a fillable trade: it is before fees, before the book below level 1, and before the transfer between two exchanges.</p>`;
+
+  const excluded =
+    rejected.length === 0
+      ? ""
+      : `<p class="notes">${rejected.length} ${rejected.length === 1 ? "venue is" : "venues are"} shown dimmed and left out of the gap: ${rejected
+          .map((q) => esc(venueName(q.venue_id)))
+          .join(
+            ", ",
+          )}. Their marks disagree with the median for this asset by more than 5%, which means a differently-sized or differently-named instrument rather than a price difference — the check that stops a 1375× mismatch being published as a 13,660,780 bps opportunity.</p>`;
+
+  return layout({
+    title: `${name} price gaps by exchange`,
+    description: `${name} best bid and ask on every exchange that quotes it, with the size resting at each.`,
+    path: `/price-pair/${encodeURIComponent(name)}`,
+    overview: data.overview,
+    now,
+    body: `<p class="eyebrow"><a href="/arbitrage">Price gaps</a></p>
+<h1>${esc(name)}</h1>
+${headline}
+<div class="sheet-wrap"><table class="sheet">
+<thead><tr><th>Exchange</th><th class="num">Best bid</th><th class="num">Bid size</th><th class="num">Best ask</th><th class="num">Ask size</th><th class="num" title="The venue's own bid-ask spread in basis points">Own spread</th><th class="num">Mark</th><th>Quoted</th></tr></thead>
+<tbody data-live="pp-quotes">${quotes.map(row).join("")}</tbody>
+</table></div>
+${excluded}
+<p class="notes">Sizes are the money resting at the very top of each book, converted to USD because the three venues that publish depth count it differently — Gate in contracts, OKX in contracts against <code>ctVal</code>, Bybit in base coin. Reading those raw, side by side, is a 10,000× error.</p>`,
+  });
 }
 
 export function asset(data: {

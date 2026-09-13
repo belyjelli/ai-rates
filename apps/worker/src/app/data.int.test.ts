@@ -412,6 +412,21 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       expect((await mine({ minGapBps: 49 })).length).toBe(1);
       expect((await mine({ minGapBps: 51 })).length).toBe(0);
     });
+
+    test("priceQuotes flags the mismatched instrument instead of dropping it", async () => {
+      const quotes = await data.priceQuotes(base4);
+      // All three, including the 1375x mismatch the list query excludes: the detail page shows it.
+      expect(quotes).toHaveLength(3);
+
+      const bySymbol = new Map(quotes.map((q) => [q.venue_symbol, q]));
+      expect(bySymbol.get(symbolA4)?.mark_agrees).toBe(true);
+      expect(bySymbol.get(symbolB4)?.mark_agrees).toBe(true);
+      expect(bySymbol.get(symbolA4Bad)?.mark_agrees).toBe(false);
+      // The reference the guard measures against travels with every row.
+      expect(bySymbol.get(symbolA4Bad)?.median_mark).toBeCloseTo(100, 6);
+      // Cheapest ask first: the mismatch quotes 0.07, so it leads despite being excluded.
+      expect(quotes[0]?.venue_symbol).toBe(symbolA4Bad);
+    });
   });
 
   test("verifiedPairs reads the newest run only, against the real schema", async () => {

@@ -134,6 +134,29 @@ export interface ArbitrageRow {
   oldest_observed_at: Date;
 }
 
+/**
+ * One venue's top of book for a single asset, including the venues the mark-agreement guard
+ * rejects.
+ *
+ * The list page must drop a mismatched instrument — a 1375× disagreement produces a gap of
+ * 13,660,780 bps and would top every ranking. The detail page should do the opposite and *show*
+ * it: `mark_agrees` is false and `median_mark` is carried alongside, so the page can say how far
+ * out the quote is rather than silently omitting a venue the reader can see listed elsewhere.
+ */
+export interface PriceQuote {
+  venue_id: string;
+  venue_symbol: string;
+  best_bid: number;
+  best_ask: number;
+  best_bid_size_usd: number | null;
+  best_ask_size_usd: number | null;
+  mark_price: number | null;
+  /** The asset's median mark across venues, the reference the guard measures against. */
+  median_mark: number | null;
+  mark_agrees: boolean;
+  observed_at: Date;
+}
+
 export interface MarketRow {
   venue_id: string;
   venue_symbol: string;
@@ -238,6 +261,8 @@ export interface DataSource {
   heatmap(options: HeatmapOptions): Promise<HeatmapCell[]>;
   /** Widest quotable price gap per asset, behind the same mark-agreement guard the screener uses. */
   arbitrage(options: ArbitrageOptions): Promise<ArbitrageRow[]>;
+  /** Every venue's top of book for one asset, mismatched instruments flagged rather than dropped. */
+  priceQuotes(base: string): Promise<PriceQuote[]>;
   /** Risk-limit ladders for the given markets, ascending by tier; empty where a venue publishes none. */
   leverageTiers(markets: readonly MarketKey[]): Promise<LeverageTierRow[]>;
   /** Settled funding for the given markets within a window, oldest first, ties broken by market. */
@@ -436,6 +461,39 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         -- Total order: LIMIT/OFFSET over a partial one drops and repeats rows between pages.
         ORDER BY gap_bps DESC, asset
         LIMIT ${limit} OFFSET ${offset}`;
+      return [...rows];
+    },
+
+    async priceQuotes(base) {
+      // The same median-mark reference the list query uses, but the deviation is reported instead
+      // of applied: a venue that fails the guard still appears, flagged, because "why is this
+      // exchange missing" is exactly the question a detail page exists to answer.
+      const rows = await connect()<PriceQuote[]>`
+        WITH candidates AS (
+          SELECT venue_id, venue_symbol, mark_price, observed_at,
+                 best_bid, best_ask, best_bid_size_usd, best_ask_size_usd
+          FROM market_latest
+          WHERE base = ${base}
+            AND observed_at > now() - ${FRESH_INTERVAL}::interval
+            AND best_bid > 0 AND best_ask > 0
+        ),
+        marks AS (
+          SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY mark_price) AS median_mark
+          FROM candidates WHERE mark_price > 0
+        )
+        SELECT c.venue_id, c.venue_symbol, c.best_bid, c.best_ask,
+               c.best_bid_size_usd, c.best_ask_size_usd, c.mark_price, c.observed_at,
+               m.median_mark,
+               -- Unknown marks agree by default, matching the guard's own null escapes: a missing
+               -- mark is not evidence of a mismatch, and excluding it would punish a venue for a
+               -- field it simply does not publish.
+               CASE
+                 WHEN m.median_mark IS NULL OR c.mark_price IS NULL THEN true
+                 ELSE abs(c.mark_price - m.median_mark) <= ${MARK_DEVIATION}::float8 * m.median_mark
+               END AS mark_agrees
+        FROM candidates c CROSS JOIN marks m
+        -- Cheapest to buy first, which is the order the page reads in.
+        ORDER BY c.best_ask, c.venue_id`;
       return [...rows];
     },
 
