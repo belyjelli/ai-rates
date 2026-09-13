@@ -24,6 +24,14 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-09-13",
+    title: "Hotcoin and LBank",
+    changes: [
+      "LBank is collected, more than 800 perpetual markets with its live predicted funding.",
+      "Hotcoin is collected too. Its public data only gives each market's last settled rate, so Hotcoin's figures are marked as settled rather than presented as a forecast. Its markets appear over the first few minutes as each one's funding interval is learned.",
+    ],
+  },
+  {
+    date: "2026-09-13",
     title: "Bitget, BingX, BitMart, HTX, Pionex and WOOFi Pro",
     changes: [
       "Six more exchanges are collected: Bitget, BingX, BitMart, HTX and Pionex, and WOOFi Pro on the Orderly network. Together they add around 2,600 markets, including stocks, commodities, currencies and indices where the exchange lists them.",
