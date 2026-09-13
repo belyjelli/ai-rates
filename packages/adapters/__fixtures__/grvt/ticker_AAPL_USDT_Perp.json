@@ -1,0 +1,32 @@
+{
+  "result": {
+    "event_time": "1789339168258912290",
+    "instrument": "AAPL_USDT_Perp",
+    "mark_price": "331.690000016",
+    "index_price": "330.982525935",
+    "last_price": "331.6",
+    "last_size": "0.05",
+    "mid_price": "331.735",
+    "best_bid_price": "331.69",
+    "best_bid_size": "7.52",
+    "best_ask_price": "331.78",
+    "best_ask_size": "9.09",
+    "funding_rate_8h_curr": "0.0",
+    "funding_rate_8h_avg": "0.0",
+    "interest_rate": "0.0",
+    "forward_price": "0.0",
+    "buy_volume_24h_b": "298.69",
+    "sell_volume_24h_b": "295.27",
+    "buy_volume_24h_q": "99174.5865",
+    "sell_volume_24h_q": "98121.0288",
+    "high_price": "333.84",
+    "low_price": "330.32",
+    "open_price": "333.53",
+    "open_interest": "60.7",
+    "long_short_ratio": "2.000000",
+    "funding_rate": "0.0",
+    "next_funding_time": "1789344000000000000",
+    "status": "UNSPECIFIED",
+    "session": "REGULAR"
+  }
+}

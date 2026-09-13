@@ -23,6 +23,8 @@ describe("createAdapters", () => {
     // The set rather than a bare count: a count tells you the number changed, not which adapter
     // went missing, and dropping one silently is the failure worth catching.
     expect([...ids].sort()).toEqual([
+      "aevo",
+      "apex",
       "arcus",
       "aster",
       "binance",
@@ -36,6 +38,8 @@ describe("createAdapters", () => {
       "edgex-v2",
       "extended",
       "gate",
+      "grvt",
+      "hibachi",
       "hotcoin",
       "htx",
       "hyperliquid",
@@ -58,6 +62,7 @@ describe("createAdapters", () => {
       "variational",
       "velocity",
       "weex",
+      "zero1",
     ]);
   });
 });
