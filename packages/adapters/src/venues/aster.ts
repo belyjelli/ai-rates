@@ -96,6 +96,8 @@ export interface TradableSymbol {
   quoteAsset: string | null;
   /** As the venue declares it; `marketRef` settles equity against index and tokenised gold. */
   assetClass: AssetClass;
+  /** The venue's declared base where the symbol parser gets it wrong; null keeps the parsed base. */
+  base: string | null;
 }
 
 export interface BinanceStyleOpenInterest {
@@ -117,6 +119,41 @@ export interface OpenInterestEntry {
  */
 export function declaredBase(symbol: BinanceStyleSymbol): string {
   return symbol.baseAsset ? canonicalBase(symbol.baseAsset) : parseVenueSymbol(symbol.symbol).base;
+}
+
+/** Settlement assets worth a US dollar, so a market quoted in one belongs in its base's USD pool. */
+const DOLLAR_QUOTES: ReadonlySet<string> = new Set([
+  "USDT",
+  "USDC",
+  "USD1",
+  "U",
+  "USDE",
+  "FDUSD",
+  "BUSD",
+  "USD",
+]);
+
+/**
+ * The base to override the parsed one with, or null where the parser already agrees with the venue.
+ *
+ * The parser splits a symbol by the quotes it knows and by hyphens, and 20 of these venues' 1,336
+ * TRADING perpetuals on 2026-09-14 defeated it. A quote it does not know left the whole symbol as the
+ * base: `BTCUSD1`, `CLUSD1`, `XAUUSD1`, `MUUSD1` and `BTCU`, so a USD1-margined BTC perpetual sat in
+ * a pool of its own and never paired with BTC. A hyphen inside the base cut `B-MONEYUSDT` down to `B`,
+ * filing a 0.0043 token in the pool of the 0.217 one, a 51× mismatch the gate had to keep excluding.
+ * The venue states both halves in `baseAsset` and `quoteAsset`, so it is read here rather than
+ * guessed, which is the rule migration 017's comment and the MEXC declared base already follow.
+ *
+ * Only for dollar quotes. `ETHBTC` also defeats the parser, but it prices ETH in bitcoin, so joining
+ * the ETH pool would only swap a lonely market for a permanent mark mismatch.
+ */
+export function declaredMarketBase(symbol: BinanceStyleSymbol): string | null {
+  const declared = symbol.baseAsset?.trim();
+  if (!declared || !symbol.quoteAsset || !DOLLAR_QUOTES.has(symbol.quoteAsset)) return null;
+  const parsed = parseVenueSymbol(symbol.symbol);
+  // A contract-size prefix (1000PEPE) is the parser's to read, and it reads it: not a disagreement.
+  if (parsed.multiplier !== 1 || parsed.base === canonicalBase(declared)) return null;
+  return declared;
 }
 
 /**
@@ -179,7 +216,10 @@ export function tradablePerpetuals(
   return new Map(
     info.symbols
       .filter((s) => s.status === "TRADING" && PERPETUAL_CONTRACT_TYPES.has(s.contractType))
-      .map((s) => [s.symbol, { quoteAsset: s.quoteAsset ?? null, assetClass: classify(s) }]),
+      .map((s) => [
+        s.symbol,
+        { quoteAsset: s.quoteAsset ?? null, assetClass: classify(s), base: declaredMarketBase(s) },
+      ]),
   );
 }
 
@@ -212,6 +252,7 @@ export function parseBinanceStyleSnapshots(
       ...marketRef(venueId, p.symbol, {
         assetClass: tradable.assetClass,
         ...(tradable.quoteAsset ? { quote: tradable.quoteAsset } : {}),
+        ...(tradable.base ? { base: tradable.base } : {}),
       }),
       observedAt: now,
       rate,
