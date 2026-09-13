@@ -1,0 +1,25 @@
+{
+  "result": true,
+  "data": {
+    "symbol": "AAX_USDT_PERP",
+    "rates": [
+      {
+        "fundingRate": "0",
+        "fundingTime": 1789336800000
+      },
+      {
+        "fundingRate": "0",
+        "fundingTime": 1789333200000
+      },
+      {
+        "fundingRate": "0",
+        "fundingTime": 1789329600000
+      },
+      {
+        "fundingRate": "0",
+        "fundingTime": 1789326000000
+      }
+    ]
+  },
+  "timestamp": 1789337357778
+}

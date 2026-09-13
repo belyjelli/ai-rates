@@ -21,7 +21,7 @@ describe("collector adapters", () => {
     // replace Binance and Bitget" -- not a policy about Binance itself, and Phase 5's own venue
     // list names it. The remaining three stay deferred until they are actually built.
     const ids = adapters.map((a) => a.venueId);
-    for (const deferred of ["bitget", "blofin", "pionex"]) expect(ids).not.toContain(deferred);
+    for (const deferred of ["blofin", "coinw", "toobit"]) expect(ids).not.toContain(deferred);
     expect(ids).toContain("binance");
     // WEEX and Bullet joined in Phase 5 as binance-fapi family members; their catalog ids must match.
     expect(ids).toContain("weex");
@@ -30,5 +30,11 @@ describe("collector adapters", () => {
     expect(ids).toContain("extended");
     expect(ids).toContain("reya");
     expect(ids).toContain("variational");
+    expect(ids).toContain("bingx");
+    expect(ids).toContain("bitget");
+    expect(ids).toContain("bitmart");
+    expect(ids).toContain("htx");
+    expect(ids).toContain("orderly");
+    expect(ids).toContain("pionex");
   });
 });

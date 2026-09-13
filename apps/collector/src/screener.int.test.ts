@@ -431,4 +431,52 @@ describe.skipIf(!url)("screener read models (integration)", () => {
     )) as Record<string, unknown>[];
     expect(legacy?.long_venue_id).toBe(v1);
   });
+
+  test("a venue that publishes no mark is gated on its index price instead of waved through", async () => {
+    // Migration 020. HTX and BitMart publish no bulk mark price. Under 016's null escape their
+    // markets agreed with any anchor by default, so a same-named token 50x away would have paired.
+    const now = Date.now();
+    const ticker = `${asset}IX`;
+    const leg = (
+      venueId: string,
+      symbol: string,
+      rate: number,
+      markPrice: number | null,
+      indexPrice: number | null,
+    ): FundingSnapshot => ({
+      ...snap(venueId, symbol, rate, now, 90_000_000),
+      base: ticker,
+      markPrice,
+      indexPrice,
+    });
+    await store.recordBatch(
+      v1,
+      { snapshots: [leg(v1, `${ticker}-A`, 0.0001, 10, 10)], settled: [] },
+      now,
+    );
+    // No mark and an index 50x away: a different asset under the same ticker.
+    await store.recordBatch(
+      v2,
+      {
+        snapshots: [{ ...leg(v2, `${ticker}-B`, 0.0009, null, 500), openInterestUsd: 1_000_000 }],
+        settled: [],
+      },
+      now,
+    );
+    // No mark but an index that agrees: the same asset, and it must still pair.
+    await store.recordBatch(
+      v3,
+      {
+        snapshots: [{ ...leg(v3, `${ticker}-C`, 0.0004, null, 10.1), openInterestUsd: 1_000_000 }],
+        settled: [],
+      },
+      now,
+    );
+
+    const rows = (await sql.unsafe(
+      `SELECT long_venue_id, short_venue_id, venue_count FROM screener_pairs(0, 0, NULL, NULL, interval '5 minutes')
+       WHERE asset = '${ticker}'`,
+    )) as Record<string, unknown>[];
+    expect(rows).toEqual([{ long_venue_id: v1, short_venue_id: v3, venue_count: 2 }]);
+  });
 });

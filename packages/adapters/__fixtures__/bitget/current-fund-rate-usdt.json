@@ -1,0 +1,127 @@
+{
+  "code": "00000",
+  "msg": "success",
+  "requestTime": 1789337181940,
+  "data": [
+    {
+      "symbol": "BTCUSDT",
+      "fundingRate": "0.00005",
+      "fundingRateInterval": "8",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.003",
+      "maxFundingRate": "0.003",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    },
+    {
+      "symbol": "ETHUSDT",
+      "fundingRate": "0.0001",
+      "fundingRateInterval": "8",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.003",
+      "maxFundingRate": "0.003",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    },
+    {
+      "symbol": "SHIBUSDT",
+      "fundingRate": "0.0001",
+      "fundingRateInterval": "8",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.00495",
+      "maxFundingRate": "0.00495",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    },
+    {
+      "symbol": "PKXUSDT",
+      "fundingRate": "0",
+      "fundingRateInterval": "8",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.005",
+      "maxFundingRate": "0.005",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    },
+    {
+      "symbol": "TSLAUSDT",
+      "fundingRate": "0",
+      "fundingRateInterval": "8",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.005",
+      "maxFundingRate": "0.005",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    },
+    {
+      "symbol": "SP500USDT",
+      "fundingRate": "0",
+      "fundingRateInterval": "8",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.005",
+      "maxFundingRate": "0.005",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    },
+    {
+      "symbol": "XAUUSDT",
+      "fundingRate": "0",
+      "fundingRateInterval": "4",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.005",
+      "maxFundingRate": "0.005",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    },
+    {
+      "symbol": "PAXGUSDT",
+      "fundingRate": "0.00001",
+      "fundingRateInterval": "4",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.02",
+      "maxFundingRate": "0.02",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    },
+    {
+      "symbol": "CLUSDT",
+      "fundingRate": "0",
+      "fundingRateInterval": "4",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.005",
+      "maxFundingRate": "0.005",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    },
+    {
+      "symbol": "EURUSDUSDT",
+      "fundingRate": "0",
+      "fundingRateInterval": "8",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.01",
+      "maxFundingRate": "0.01",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    },
+    {
+      "symbol": "H100USDT",
+      "fundingRate": "0",
+      "fundingRateInterval": "8",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": "-0.005",
+      "maxFundingRate": "0.005",
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    },
+    {
+      "symbol": "BGTESTMEUSDT",
+      "fundingRate": "0.0001",
+      "fundingRateInterval": "8",
+      "nextUpdate": "1789344000000",
+      "minFundingRate": null,
+      "maxFundingRate": null,
+      "cashDividend": "",
+      "cashDividendNextUpdate": "null"
+    }
+  ]
+}
