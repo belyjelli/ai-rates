@@ -6,18 +6,24 @@ import {
   ANNOTATIONS_RETRY_MS,
   createAnnotationCache,
   createHip3Adapter,
+  createSpotTokenCache,
   type HlFundingHistoryRow,
   type HlMetaAndAssetCtxs,
   type HlPerpConciseAnnotations,
   type HlPerpDexs,
+  type HlSpotMeta,
   HYPERLIQUID_INFO_URL,
   hip3DeclaredClass,
+  hip3Quote,
   hyperliquidAdapter,
   parseHyperliquidFundingHistory,
   parseHyperliquidMarginTables,
   parseHyperliquidSnapshots,
   parsePerpAnnotations,
   parsePerpDexs,
+  parseSpotTokenNames,
+  SPOT_TOKENS_MAX_AGE_MS,
+  SPOT_TOKENS_RETRY_MS,
 } from "./hyperliquid";
 
 const fixture = <T>(name: string): Promise<T> =>
@@ -88,13 +94,20 @@ describe("parseHyperliquidSnapshots (core)", () => {
 describe("parseHyperliquidSnapshots (HIP-3)", () => {
   test("sets the dex, keeps the multiplier-adjusted funding and skips delisted assets", async () => {
     const payload = await fixture<HlMetaAndAssetCtxs>("xyz-meta-and-asset-ctxs.json");
-    const snapshots = parseHyperliquidSnapshots("hl-xyz", payload, NOW);
+    const tokens = parseSpotTokenNames(await fixture<HlSpotMeta>("spot-meta.json"));
+    const snapshots = parseHyperliquidSnapshots(
+      "hl-xyz",
+      payload,
+      NOW,
+      hip3Quote(payload[0], tokens),
+    );
 
     expect(snapshots.map((s) => s.venueSymbol)).toEqual(["xyz:XYZ100", "xyz:AAPL"]);
     expect(snapshots[0]).toMatchObject({
       venueId: "hl-xyz",
       base: "XYZ100",
-      quote: null,
+      // xyz declares collateralToken 0, which spotMeta names USDC.
+      quote: "USDC",
       dex: "xyz",
       // Half the 0.0000125 hourly baseline: xyz's 0.5 funding multiplier is already applied.
       rate: 0.00000625,
@@ -224,6 +237,78 @@ describe("createAnnotationCache", () => {
   });
 });
 
+describe("quote", () => {
+  test("parseSpotTokenNames keys by the declared index, not the array position", async () => {
+    const names = parseSpotTokenNames(await fixture<HlSpotMeta>("spot-meta.json"));
+    // FUNT is third in the list but declares index 478, as spotMeta served it on 2026-09-14.
+    expect(names.get(478)).toBe("FUNT");
+    expect(names.get(2)).toBeUndefined();
+    expect(() => parseSpotTokenNames({} as unknown as HlSpotMeta)).toThrow();
+  });
+
+  test("a dex quotes its collateral token by the venue's own name", async () => {
+    const names = parseSpotTokenNames(await fixture<HlSpotMeta>("spot-meta.json"));
+    // Each dex's collateralToken on 2026-09-14. No stablecoin is folded into another.
+    expect(
+      [
+        ["xyz", 0],
+        ["hyna", 235],
+        ["cash", 268],
+        ["flx", 360],
+      ].map(([dex, collateralToken]) => [
+        dex,
+        hip3Quote({ universe: [], collateralToken: collateralToken as number }, names),
+      ]),
+    ).toEqual([
+      ["xyz", "USDC"],
+      ["hyna", "USDE"],
+      ["cash", "USDT0"],
+      ["flx", "USDH"],
+    ]);
+    // A token spotMeta does not name, or a meta that declares none, is unknown rather than guessed.
+    expect(hip3Quote({ universe: [], collateralToken: 999 }, names)).toBeNull();
+    expect(hip3Quote({ universe: [] }, names)).toBeNull();
+  });
+});
+
+describe("createSpotTokenCache", () => {
+  const spotMeta: HlSpotMeta = { tokens: [{ name: "USDH", index: 360 }] };
+
+  test("one request serves every caller for an hour", async () => {
+    const cache = createSpotTokenCache();
+    const { client, bodies } = fakeClient(() => spotMeta);
+
+    const [first, second] = await Promise.all([cache.names(client, NOW), cache.names(client, NOW)]);
+    expect(bodies).toEqual([{ type: "spotMeta" }]);
+    expect(first.get(360)).toBe("USDH");
+    expect(second).toBe(first);
+
+    await cache.names(client, NOW + SPOT_TOKENS_MAX_AGE_MS - 1);
+    expect(bodies).toHaveLength(1);
+    await cache.names(client, NOW + SPOT_TOKENS_MAX_AGE_MS);
+    expect(bodies).toHaveLength(2);
+  });
+
+  test("a failed or empty refresh keeps the last good copy and retries sooner", async () => {
+    const cache = createSpotTokenCache();
+    let respond: () => unknown = () => spotMeta;
+    const { client, bodies } = fakeClient(() => respond());
+    await cache.names(client, NOW);
+
+    respond = () => {
+      throw new Error("HTTP 500");
+    };
+    const due = NOW + SPOT_TOKENS_MAX_AGE_MS;
+    expect((await cache.names(client, due)).get(360)).toBe("USDH");
+    await cache.names(client, due + SPOT_TOKENS_RETRY_MS - 1);
+    expect(bodies).toHaveLength(2);
+
+    respond = () => ({ tokens: [] });
+    expect((await cache.names(client, due + SPOT_TOKENS_RETRY_MS)).get(360)).toBe("USDH");
+    expect(bodies).toHaveLength(3);
+  });
+});
+
 describe("parseHyperliquidMarginTables", () => {
   test("expands each asset's shared table into a ladder", async () => {
     const [meta] = await fixture<HlMetaAndAssetCtxs>("meta-and-asset-ctxs.json");
@@ -328,40 +413,68 @@ describe("adapters", () => {
   test("HIP-3 adapter passes the dex, uses venue id hl-<dex> and classes from annotations", async () => {
     const payload = await fixture<HlMetaAndAssetCtxs>("xyz-meta-and-asset-ctxs.json");
     const annotations = await fixture<HlPerpConciseAnnotations>("perp-concise-annotations.json");
-    const { client, bodies } = fakeClient((body) =>
-      body.type === "perpConciseAnnotations" ? annotations : payload,
-    );
-    const adapter = createHip3Adapter("xyz", createAnnotationCache());
+    const spotMeta = await fixture<HlSpotMeta>("spot-meta.json");
+    const { client, bodies } = fakeClient((body) => {
+      if (body.type === "perpConciseAnnotations") return annotations;
+      if (body.type === "spotMeta") return spotMeta;
+      return payload;
+    });
+    const adapter = createHip3Adapter("xyz", createAnnotationCache(), createSpotTokenCache());
     const batch = await adapter.fetchSnapshots(client, NOW);
     expect(adapter.venueId).toBe("hl-xyz");
     expect(bodies).toEqual([
       { type: "metaAndAssetCtxs", dex: "xyz" },
       { type: "perpConciseAnnotations" },
+      { type: "spotMeta" },
     ]);
     expect(batch.snapshots.every((s) => s.venueId === "hl-xyz")).toBe(true);
-    expect(batch.snapshots.map((s) => [s.venueSymbol, s.assetClass])).toEqual([
-      ["xyz:XYZ100", "index"],
-      ["xyz:AAPL", "equity"],
+    expect(batch.snapshots.map((s) => [s.venueSymbol, s.assetClass, s.quote])).toEqual([
+      ["xyz:XYZ100", "index", "USDC"],
+      ["xyz:AAPL", "equity", "USDC"],
     ]);
   });
 
-  test("HIP-3 adapters share one annotations request, and its failure never fails a sweep", async () => {
+  test("a HIP-3 dex that settles in another stablecoin quotes it", async () => {
+    const spotMeta = await fixture<HlSpotMeta>("spot-meta.json");
+    const payload = payloadFor(["flx:TSLA"]);
+    payload[0].collateralToken = 360;
+    const { client } = fakeClient((body) => {
+      if (body.type === "perpConciseAnnotations") return [["flx:TSLA", { category: "stocks" }]];
+      if (body.type === "spotMeta") return spotMeta;
+      return payload;
+    });
+    const batch = await createHip3Adapter(
+      "flx",
+      createAnnotationCache(),
+      createSpotTokenCache(),
+    ).fetchSnapshots(client, NOW);
+    expect(batch.snapshots.map((s) => s.quote)).toEqual(["USDH"]);
+  });
+
+  test("HIP-3 adapters share one request per cache, and their failure never fails a sweep", async () => {
     const payload = await fixture<HlMetaAndAssetCtxs>("xyz-meta-and-asset-ctxs.json");
     const { client, bodies } = fakeClient((body) => {
-      if (body.type === "perpConciseAnnotations") throw new Error("HTTP 500");
+      if (body.type === "perpConciseAnnotations" || body.type === "spotMeta") {
+        throw new Error("HTTP 500");
+      }
       return payload;
     });
     const annotations = createAnnotationCache();
+    const spotTokens = createSpotTokenCache();
 
-    const batch = await createHip3Adapter("xyz", annotations).fetchSnapshots(client, NOW);
-    // Nothing loaded yet, so the missing-annotation rule classes both markets.
-    expect(batch.snapshots.map((s) => [s.venueSymbol, s.assetClass])).toEqual([
-      ["xyz:XYZ100", "index"],
-      ["xyz:AAPL", "equity"],
+    const batch = await createHip3Adapter("xyz", annotations, spotTokens).fetchSnapshots(
+      client,
+      NOW,
+    );
+    // Nothing loaded yet: the missing-annotation rule classes both markets, and the quote is unknown.
+    expect(batch.snapshots.map((s) => [s.venueSymbol, s.assetClass, s.quote])).toEqual([
+      ["xyz:XYZ100", "index", null],
+      ["xyz:AAPL", "equity", null],
     ]);
 
-    await createHip3Adapter("flx", annotations).fetchSnapshots(client, NOW + 1_000);
+    await createHip3Adapter("flx", annotations, spotTokens).fetchSnapshots(client, NOW + 1_000);
     expect(bodies.filter((b) => b.type === "perpConciseAnnotations")).toHaveLength(1);
+    expect(bodies.filter((b) => b.type === "spotMeta")).toHaveLength(1);
   });
 
   test("history paginates by the last row's time until a short page", async () => {

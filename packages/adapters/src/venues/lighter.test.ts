@@ -49,7 +49,8 @@ describe("parseLighterSnapshots", () => {
       venueId: "lighter",
       base: "BTC",
       assetClass: "crypto",
-      quote: null,
+      // Declared by the docs for every perp; the API's perp quote_asset_id is 0 (no asset).
+      quote: "USDC",
       dex: null,
       observedAt: NOW,
       rate: 0.00009599999999999999,
@@ -115,9 +116,10 @@ describe("asset class", () => {
       })),
     };
 
-    const classes = new Map(
-      parseLighterSnapshots(rates, details, NOW).map((s) => [s.venueSymbol, s.assetClass]),
-    );
+    const snapshots = parseLighterSnapshots(rates, details, NOW);
+    // Every market settles in USDC, whatever its class, and a symbol like USDHKD lends it no quote.
+    expect(new Set(snapshots.map((s) => s.quote))).toEqual(new Set(["USDC"]));
+    const classes = new Map(snapshots.map((s) => [s.venueSymbol, s.assetClass]));
     expect(Object.fromEntries(classes)).toEqual({
       // Quantinuum stock at 48.79, not the Quant token at 64.3, whatever the app config calls it.
       QNT: "equity",
@@ -163,6 +165,7 @@ describe("parseLighterFundings", () => {
       venueId: "lighter",
       venueSymbol: "BTC",
       base: "BTC",
+      quote: "USDC",
       basisHours: 1,
       markPrice: null,
     });
@@ -180,6 +183,7 @@ describe("lighterAdapter", () => {
     const batch = await createLighterAdapter().fetchSnapshots(client, NOW);
     expect(urls).toEqual([`${LIGHTER_API}/funding-rates`, `${LIGHTER_API}/orderBookDetails`]);
     expect(batch.snapshots).toHaveLength(2);
+    expect(batch.snapshots.map((s) => s.quote)).toEqual(["USDC", "USDC"]);
   });
 
   test("history resolves the market id and paginates in seconds", async () => {
