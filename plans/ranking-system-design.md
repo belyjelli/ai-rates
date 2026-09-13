@@ -287,5 +287,14 @@ applies to the rates grid and to arbitrage. Three concrete pieces:
    017 exists to end, surviving in the one place a reader goes to inspect an asset. `/price-pair/:asset`
    has the same shape.
 
-Whoever lands 017 should own 1 and 2. If 3 goes unclaimed it should come here, since it has no
-obvious fallback and a wrong answer is silently wrong rather than visibly broken.
+**Resolved 2026-09-13: all three are owned by the session landing 017, routing included.** Its
+answer is better than the fallback sketched above. A non-crypto asset carries its class as a path
+segment — `/markets/asset/equity/BB`, `/price-pair/equity/BB` — and the class-less form resolves to
+crypto when the base has a crypto market, otherwise to its deepest class. So `TSLA` bookmarks keep
+working and `/markets/asset/BB` stays on BounceBit, which a query parameter would not have managed
+without breaking the existing `?long=&short=` links. Row keys carry the class as well, so live
+refresh cannot merge two `BB` rows into one.
+
+Nothing here owns any of it. This design **consumes** those URLs and must not grow a second
+`assetHref`: when `/carry` links an asset or a pair it uses the same class-qualified helper, so
+there is one place that knows how an asset is addressed.
