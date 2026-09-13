@@ -85,6 +85,9 @@ export const LIVE_SCRIPT = String.raw`(() => {
   const EDGE = { up: "#00ff88", down: "#ff4757", text: "rgba(216,216,216,.6)", new: "rgba(216,216,216,.4)" };
   const still = matchMedia("(prefers-reduced-motion: reduce)");
   let rendered = document.body.dataset.rendered;
+  // The deployed commit this page was built from. Refreshes only swap regions, never the page's CSS or
+  // this script, so a tab opened before a deploy would keep an old layout for as long as it stays open.
+  const build = document.body.dataset.build || "";
   let pending = null, heldSince = 0, timer = 0, controller = null, lastPoll = 0, failures = 0;
 
   // Clocks tick every second on their own, so their text is never evidence of new data. A nested
@@ -226,6 +229,20 @@ export const LIVE_SCRIPT = String.raw`(() => {
       const html = await res.text();
       failures = 0;
       const stamp = /data-rendered="(\d+)"/.exec(html);
+      const nextBuild = (/data-build="([^"]*)"/.exec(html) || [])[1] || "";
+      // A newer render from a different build means a deploy landed: reload to take its CSS and script
+      // too. Only a NEWER render counts, so an older edge copy mid-rollout cannot bounce the page; once
+      // per build, so a reload that lands on a stale copy cannot loop; never under a pointer or an open
+      // filter, which waits for the next poll instead.
+      if (stamp && build && nextBuild && nextBuild !== build && Number(stamp[1]) > Number(rendered) && !engaged()) {
+        let seen = "";
+        try { seen = sessionStorage.getItem("airates-reloaded-for") || ""; } catch (_) {}
+        if (seen !== nextBuild) {
+          try { sessionStorage.setItem("airates-reloaded-for", nextBuild); } catch (_) {}
+          location.reload();
+          return;
+        }
+      }
       if (stamp && stamp[1] !== rendered) {
         rendered = stamp[1];
         const doc = new DOMParser().parseFromString(html, "text/html");
