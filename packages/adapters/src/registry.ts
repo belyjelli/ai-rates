@@ -10,9 +10,11 @@ import { bybitAdapter } from "./venues/bybit";
 import { dydxAdapter } from "./venues/dydx";
 import { extendedAdapter } from "./venues/extended";
 import { gateAdapter } from "./venues/gate";
+import { hotcoinAdapter } from "./venues/hotcoin";
 import { htxAdapter } from "./venues/htx";
 import { createHip3Adapter, hyperliquidAdapter } from "./venues/hyperliquid";
 import { kucoinAdapter } from "./venues/kucoin";
+import { lbankAdapter } from "./venues/lbank";
 import { lighterAdapter } from "./venues/lighter";
 import { mexcAdapter } from "./venues/mexc";
 import { okxAdapter } from "./venues/okx";
@@ -48,6 +50,8 @@ export const FIXED_ADAPTERS: readonly VenueAdapter[] = [
   htxAdapter,
   pionexAdapter,
   orderlyAdapter,
+  hotcoinAdapter,
+  lbankAdapter,
 ];
 
 /** Structural subset of a catalog venue, so this package doesn't depend on @ai-rates/venues. */

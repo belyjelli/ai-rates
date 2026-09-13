@@ -1,0 +1,69 @@
+{
+  "code": 200,
+  "data": {
+    "rows": [
+      {
+        "amount24": 49959294,
+        "contractCode": "iostusdt",
+        "contractCodeDisplayName": "IOSTUSDT",
+        "contractId": 3642691,
+        "createdDate": 1789336817000,
+        "env": 0,
+        "feeRate": 0.001069475,
+        "id": 1820807,
+        "insuranceSize": 250943659.07547694,
+        "modifyDate": 1789336817000,
+        "size24": 4129599.6118926657,
+        "timeIndex": 1789336817000,
+        "userPositionAmount": 15
+      },
+      {
+        "amount24": 49959294,
+        "contractCode": "iostusdt",
+        "contractCodeDisplayName": "IOSTUSDT",
+        "contractId": 3642381,
+        "createdDate": 1789333337000,
+        "env": 0,
+        "feeRate": 0.000744469,
+        "id": 1820806,
+        "insuranceSize": 250943655.1829377,
+        "modifyDate": 1789333337000,
+        "size24": 4129599.6118926657,
+        "timeIndex": 1789333337000,
+        "userPositionAmount": 15
+      },
+      {
+        "amount24": 49959294,
+        "contractCode": "iostusdt",
+        "contractCodeDisplayName": "IOSTUSDT",
+        "contractId": 3642173,
+        "createdDate": 1789329634000,
+        "env": 0,
+        "feeRate": 0.000478973,
+        "id": 1820651,
+        "insuranceSize": 250943655.1829377,
+        "modifyDate": 1789329634000,
+        "size24": 4129599.6118926657,
+        "timeIndex": 1789329634000,
+        "userPositionAmount": 15
+      },
+      {
+        "amount24": 49959294,
+        "contractCode": "iostusdt",
+        "contractCodeDisplayName": "IOSTUSDT",
+        "contractId": 3642171,
+        "createdDate": 1789326008000,
+        "env": 0,
+        "feeRate": -0.00034399,
+        "id": 1820547,
+        "insuranceSize": 250943653.4490525,
+        "modifyDate": 1789326008000,
+        "size24": 4129599.6118926657,
+        "timeIndex": 1789326008000,
+        "userPositionAmount": 15
+      }
+    ],
+    "total": 5170
+  },
+  "msg": "success"
+}
