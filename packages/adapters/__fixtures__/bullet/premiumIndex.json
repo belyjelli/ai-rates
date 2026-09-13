@@ -1,0 +1,192 @@
+[
+  {
+    "symbol": "SOL-USD",
+    "markPrice": "101.35470685709714596564477720",
+    "indexPrice": "101.41720812304614230336376141",
+    "lastFundingRate": "-0.0000486093254347354442910964",
+    "interestRate": "0.0001",
+    "estimatedFundingRate": "-0.0000034427283994640973109892",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "BTC-USD",
+    "markPrice": "77326.932354034957233172182968",
+    "indexPrice": "77362.805002525947230211329248",
+    "lastFundingRate": "0.0001000000000000000000000000",
+    "interestRate": "0.0001",
+    "estimatedFundingRate": "0.000012500000000000000000000",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "ETH-USD",
+    "markPrice": "2513.6405833721087312189484112",
+    "indexPrice": "2514.8059907865449543578842066",
+    "lastFundingRate": "0.0000746799306824402970551101",
+    "interestRate": "0.0001",
+    "estimatedFundingRate": "0.0000125000000000000000000000",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "HYPE-USD",
+    "markPrice": "78.806951139228482130880868855",
+    "indexPrice": "78.839075623358759534825559585",
+    "lastFundingRate": "0.0001000000000000000000000000",
+    "interestRate": "0.0001",
+    "estimatedFundingRate": "0.0000125000000000000000000000",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "TAO-USD",
+    "markPrice": "236.72",
+    "indexPrice": "236.9488046117293985244466675",
+    "lastFundingRate": "-0.0001057785734683601370760407",
+    "interestRate": "0.0001",
+    "estimatedFundingRate": "-0.0000329053803647945389277162",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "XRP-USD",
+    "markPrice": "1.3602454138219676162075910958",
+    "indexPrice": "1.3609666624984369138426910091",
+    "lastFundingRate": "0.0001000000000000000000000000",
+    "interestRate": "0.0001",
+    "estimatedFundingRate": "0.0000108693381775450716188563",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "ZEC-USD",
+    "markPrice": "1103.7917796952164979883971785",
+    "indexPrice": "1104.2805851994497936726272352",
+    "lastFundingRate": "0.0001000000000000000000000000",
+    "interestRate": "0.0001",
+    "estimatedFundingRate": "0.0000125000000000000000000000",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "LIT-USD",
+    "markPrice": "4.2854",
+    "indexPrice": "4.2886550256346129798674502939",
+    "lastFundingRate": "-0.0001010650409117756037429157",
+    "interestRate": "0.0001",
+    "estimatedFundingRate": "-0.0000122766833238440031464259",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "GOLD-USD",
+    "markPrice": "4348.0623157701149425287356322",
+    "indexPrice": "4342.6",
+    "lastFundingRate": "0.0001920617129499301780793748",
+    "interestRate": "0",
+    "estimatedFundingRate": "0.0000713100835334477752739821",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "SILVER-USD",
+    "markPrice": "64.499641583243724809036347359",
+    "indexPrice": "64.414",
+    "lastFundingRate": "0.0003650297499478570759651154",
+    "interestRate": "0",
+    "estimatedFundingRate": "0.0000554557612898294613640667",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "WTIOIL-USD",
+    "markPrice": "97.458",
+    "indexPrice": "97.336",
+    "lastFundingRate": "0.0004948978740015922350337168",
+    "interestRate": "0",
+    "estimatedFundingRate": "0.0001141934810485189021603746",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "SPCX-USD",
+    "markPrice": "149.34",
+    "indexPrice": "149.13",
+    "lastFundingRate": "0.0002924698070412967738980405",
+    "interestRate": "0",
+    "estimatedFundingRate": "0.0000591902520173107331988991",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "MU-USD",
+    "markPrice": "940.5",
+    "indexPrice": "939.39",
+    "lastFundingRate": "0.0000093079438772037158317322",
+    "interestRate": "0",
+    "estimatedFundingRate": "0.0000673456795344916767929424",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "SNDK-USD",
+    "markPrice": "1576.1",
+    "indexPrice": "1570.1",
+    "lastFundingRate": "0",
+    "interestRate": "0",
+    "estimatedFundingRate": "0.0002474333173348630484408206",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "TSLA-USD",
+    "markPrice": "362.93",
+    "indexPrice": "362.5",
+    "lastFundingRate": "0.0003198708608277386704734221",
+    "interestRate": "0",
+    "estimatedFundingRate": "0.0000301601429360038093351298",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "SKHYNIX-USD",
+    "markPrice": "1293.3701727861771058315334773",
+    "indexPrice": "1291.5",
+    "lastFundingRate": "0",
+    "interestRate": "0",
+    "estimatedFundingRate": "0.0000744419255172326925837022",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "US100-USD",
+    "markPrice": "29088.726723524902015293263693",
+    "indexPrice": "29083.0",
+    "lastFundingRate": "0",
+    "interestRate": "0",
+    "estimatedFundingRate": "0",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "US500-USD",
+    "markPrice": "7614.5739826395891946761116954",
+    "indexPrice": "7612.5",
+    "lastFundingRate": "0",
+    "interestRate": "0",
+    "estimatedFundingRate": "0",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  },
+  {
+    "symbol": "UNITREE-USD",
+    "markPrice": "68.19",
+    "indexPrice": "68.252",
+    "lastFundingRate": "-0.0003564699734207426912796726",
+    "interestRate": "0",
+    "estimatedFundingRate": "0",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334077065
+  }
+]

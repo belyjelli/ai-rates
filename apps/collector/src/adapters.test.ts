@@ -23,5 +23,8 @@ describe("collector adapters", () => {
     const ids = adapters.map((a) => a.venueId);
     for (const deferred of ["bitget", "blofin", "pionex"]) expect(ids).not.toContain(deferred);
     expect(ids).toContain("binance");
+    // WEEX and Bullet joined in Phase 5 as binance-fapi family members; their catalog ids must match.
+    expect(ids).toContain("weex");
+    expect(ids).toContain("bullet");
   });
 });

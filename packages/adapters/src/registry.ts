@@ -1,6 +1,7 @@
 import type { VenueAdapter } from "./types";
 import { asterAdapter } from "./venues/aster";
 import { binanceAdapter } from "./venues/binance";
+import { bulletAdapter } from "./venues/bullet";
 import { bybitAdapter } from "./venues/bybit";
 import { dydxAdapter } from "./venues/dydx";
 import { gateAdapter } from "./venues/gate";
@@ -10,6 +11,7 @@ import { lighterAdapter } from "./venues/lighter";
 import { mexcAdapter } from "./venues/mexc";
 import { okxAdapter } from "./venues/okx";
 import { paradexAdapter } from "./venues/paradex";
+import { weexAdapter } from "./venues/weex";
 
 /** Phase 1 venues with a dedicated adapter. HIP-3 dexes get one adapter each, from the catalog. */
 export const FIXED_ADAPTERS: readonly VenueAdapter[] = [
@@ -20,6 +22,8 @@ export const FIXED_ADAPTERS: readonly VenueAdapter[] = [
   kucoinAdapter,
   asterAdapter,
   binanceAdapter,
+  weexAdapter,
+  bulletAdapter,
   hyperliquidAdapter,
   dydxAdapter,
   paradexAdapter,

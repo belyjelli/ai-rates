@@ -1,0 +1,189 @@
+[
+  {
+    "symbol": "BTCUSDT",
+    "markPrice": "77312.9",
+    "indexPrice": "77343.40525",
+    "forecastFundingRate": "0.00009018",
+    "lastFundingRate": "0.00006450",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 480
+  },
+  {
+    "symbol": "ETHUSDT",
+    "markPrice": "2513.49",
+    "indexPrice": "2514.532",
+    "forecastFundingRate": "0.00005598",
+    "lastFundingRate": "-0.00004585",
+    "interestRate": "0.001",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 480
+  },
+  {
+    "symbol": "1000PEPEUSDT",
+    "markPrice": "0.0034275",
+    "indexPrice": "0.0034261247",
+    "forecastFundingRate": "0.00010000",
+    "lastFundingRate": "0.00010000",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 480
+  },
+  {
+    "symbol": "CATUSDT",
+    "markPrice": "0.000002128",
+    "indexPrice": "0.000002133",
+    "forecastFundingRate": "0.00005",
+    "lastFundingRate": "0.00005",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 240
+  },
+  {
+    "symbol": "ONUSDT",
+    "markPrice": "0.1387",
+    "indexPrice": "0.138491",
+    "forecastFundingRate": "0.00005000",
+    "lastFundingRate": "0.00005000",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 240
+  },
+  {
+    "symbol": "JP225USDT",
+    "markPrice": "64273",
+    "indexPrice": "64273",
+    "forecastFundingRate": "0.00000648991",
+    "lastFundingRate": "0.00000267806",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334076303,
+    "collectCycle": 60
+  },
+  {
+    "symbol": "MTLUSDT",
+    "markPrice": "0.279",
+    "indexPrice": "0.280625",
+    "forecastFundingRate": "-0.00023325",
+    "lastFundingRate": "-0.00024778",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334076303,
+    "collectCycle": 60
+  },
+  {
+    "symbol": "TSLAUSDT",
+    "markPrice": "362.88",
+    "indexPrice": "367.93",
+    "forecastFundingRate": "0.0001092",
+    "lastFundingRate": "0.0000919",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 480
+  },
+  {
+    "symbol": "CATSTOCKUSDT",
+    "markPrice": "819.65",
+    "indexPrice": "819.65",
+    "forecastFundingRate": "0.0002",
+    "lastFundingRate": "0.0002",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 480
+  },
+  {
+    "symbol": "OPENAIUSDT",
+    "markPrice": "1420.46",
+    "indexPrice": "1419.28",
+    "forecastFundingRate": "0.00004900000",
+    "lastFundingRate": "0.00004740000",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 480
+  },
+  {
+    "symbol": "SPYUSDT",
+    "markPrice": "761.42",
+    "indexPrice": "761.41",
+    "forecastFundingRate": "0.00000763560",
+    "lastFundingRate": "0.00004443264",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 480
+  },
+  {
+    "symbol": "SP500USDT",
+    "markPrice": "7614",
+    "indexPrice": "7614",
+    "forecastFundingRate": "0.00000508416",
+    "lastFundingRate": "-0.00001068132",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 480
+  },
+  {
+    "symbol": "KOSPIUSDT",
+    "markPrice": "6879.8",
+    "indexPrice": "6879.8",
+    "forecastFundingRate": "0.0002",
+    "lastFundingRate": "0.0002",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 480
+  },
+  {
+    "symbol": "XAUUSDT",
+    "markPrice": "4348",
+    "indexPrice": "4348.07",
+    "forecastFundingRate": "-0.00000072720",
+    "lastFundingRate": "-0.00000131670",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 240
+  },
+  {
+    "symbol": "PAXGUSDT",
+    "markPrice": "4345.83",
+    "indexPrice": "4347.51",
+    "forecastFundingRate": "0.00001230",
+    "lastFundingRate": "0.00003737",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 240
+  },
+  {
+    "symbol": "CLUSDT",
+    "markPrice": "97.46",
+    "indexPrice": "97.47",
+    "forecastFundingRate": "0.00011311",
+    "lastFundingRate": "0.00010012",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 240
+  },
+  {
+    "symbol": "EURUSDT",
+    "markPrice": "1.1687",
+    "indexPrice": "1.160125",
+    "forecastFundingRate": "0.000125",
+    "lastFundingRate": "0.000125",
+    "interestRate": "0.0003",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334076303,
+    "collectCycle": 240
+  }
+]
