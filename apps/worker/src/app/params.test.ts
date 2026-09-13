@@ -87,9 +87,18 @@ describe("parseScreenerFilters", () => {
       venueIds: ["bybit", "okx"],
       venueTypes: ["cex", "hip3"],
       maxAbsApr: DEFAULT_FILTERS.maxAbsApr,
+      sameQuote: false,
       sort: DEFAULT_FILTERS.sort,
       limit: 500,
     });
+  });
+
+  test("quote=same pairs within one settlement currency, and survives the round trip", () => {
+    const filters = parseScreenerFilters(new URLSearchParams("quote=SAME"));
+    expect(filters.sameQuote).toBe(true);
+    expect(filtersToQuery(filters)).toBe("?quote=same");
+    // Anything else is the default, which pairs across quotes and marks them.
+    expect(parseScreenerFilters(new URLSearchParams("quote=usdt")).sameQuote).toBe(false);
   });
 
   test("selecting every venue type means no type filter", () => {

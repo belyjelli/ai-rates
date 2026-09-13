@@ -27,6 +27,8 @@ const overview: Overview = {
 
 const pair: ScreenerPair = {
   asset_class: "crypto" as const,
+  long_quote: "USDT",
+  short_quote: "USDT",
   asset: "BTC",
   venue_count: 11,
   spread_apr: 11.5,
@@ -157,6 +159,27 @@ describe("pages", () => {
     expect(html).toContain("Lighter");
     expect(html).toContain("4,286 markets · 20 venues · updated");
     expect(calls.screener).toEqual([{ ...DEFAULT_FILTERS, limit: 12 }]);
+  });
+
+  test("same-quote filter reaches the query, and a mixed pair names each leg's currency", async () => {
+    const { data, calls } = fakeData({
+      screener: async (filters) => {
+        calls.screener.push(filters);
+        return [{ ...pair, asset: "ETH", long_quote: "USDT", short_quote: "USDC" }, pair];
+      },
+    });
+
+    const html = await (await get("/screener?quote=same", data)).text();
+    expect(calls.screener.at(-1)?.sameQuote).toBe(true);
+    expect(html).toContain('name="quote" value="same" checked');
+    // Sorting links keep the filter, so a reader never loses it by re-sorting.
+    expect(html).toContain("quote=same&sort=venues");
+
+    // Only the mixed row is marked, on both legs; BTC settles both legs in USDT and stays quiet.
+    expect(html.match(/class="qmix"/g)).toHaveLength(2);
+    expect(html).toContain(">USDC</span>");
+    expect((await get("/screener", data)).status).toBe(200);
+    expect(calls.screener.at(-1)?.sameQuote).toBe(false);
   });
 
   test("one ticker in two asset classes gets two addresses, two labels and two row keys", async () => {

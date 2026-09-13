@@ -12,6 +12,8 @@ export const DEFAULT_FILTERS: ScreenerFilters = {
   venueTypes: null,
   // Distressed listings run to ±2700% APR and swamp the ranking; ?extremes=1 puts them back.
   maxAbsApr: 1000,
+  // Mixed quotes stay in and are marked; ?quote=same pairs only within one settlement currency.
+  sameQuote: false,
   // The widest spread first, which is what the page is for. The homepage relies on this default.
   sort: "spread",
   limit: 100,
@@ -37,6 +39,7 @@ export function parseScreenerFilters(params: URLSearchParams): ScreenerFilters {
     minVolume24hUsd: parseUsd(params.get("min_vol")) ?? DEFAULT_FILTERS.minVolume24hUsd,
     venueIds: listParam(params, "venues", KNOWN_VENUES),
     maxAbsApr: isTruthyParam(params.get("extremes")) ? null : DEFAULT_FILTERS.maxAbsApr,
+    sameQuote: (params.get("quote") ?? "").trim().toLowerCase() === "same",
     // Selecting every type is the same as not filtering by type.
     venueTypes: types && types.length === VENUE_TYPES.length ? null : types,
     sort: parseScreenerSort(params.get("sort")),
@@ -64,6 +67,7 @@ export function filtersToQuery(filters: ScreenerFilters): string {
   if (filters.maxAbsApr !== DEFAULT_FILTERS.maxAbsApr) params.set("extremes", "1");
   if (filters.venueTypes) params.set("types", filters.venueTypes.join(","));
   if (filters.venueIds) params.set("venues", filters.venueIds.join(","));
+  if (filters.sameQuote) params.set("quote", "same");
   if (filters.sort !== DEFAULT_FILTERS.sort) params.set("sort", filters.sort);
   if (filters.limit !== DEFAULT_FILTERS.limit) params.set("limit", String(filters.limit));
   const query = params.toString();

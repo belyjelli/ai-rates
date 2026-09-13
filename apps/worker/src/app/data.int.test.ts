@@ -775,6 +775,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       venueIds: null,
       venueTypes: null,
       maxAbsApr: null,
+      sameQuote: false,
       sort,
       limit: 200,
     });
@@ -802,6 +803,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       venueIds: null,
       venueTypes: null,
       maxAbsApr: null,
+      sameQuote: false,
       sort: "stability",
       limit: 200,
     });
@@ -834,6 +836,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         venueIds: null,
         venueTypes: null,
         maxAbsApr: 1000,
+        sameQuote: false,
         sort: "spread",
         limit: 1,
       }),
