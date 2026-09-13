@@ -75,6 +75,23 @@ export function until(date: Date | null, now: number): string {
   return `<time datetime="${date.toISOString()}" data-until="${ms}">${label}</time>`;
 }
 
+/**
+ * A price gap in basis points, for a column: "269.6", "0.0", "–".
+ *
+ * Unsigned and untinted, unlike `formatApr`. A funding figure says who pays whom, so it carries a
+ * sign and a colour; a quoted price gap is just a distance, and only the positive ones are worth
+ * showing at all. One decimal ALWAYS, because the whole distribution lives near zero — the median
+ * comparable asset is 0.0 bps — so trimming decimals would erase the only distinction that matters
+ * at the bottom of the table, and a bare "0" would read as no quote at all.
+ *
+ * Distinct from `pages.ts`'s own `formatBps`, which trims for prose ("5 bps long" in the backtest
+ * note). Same unit, opposite rounding, because a sentence and a column want different things.
+ */
+export function formatGapBps(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "–";
+  return value.toFixed(1);
+}
+
 /** CSS class for a funding value: who gets paid (positive: shorts receive, negative: longs receive). */
 export function aprTone(apr: number | null): string {
   if (apr === null || apr === 0) return "flat";

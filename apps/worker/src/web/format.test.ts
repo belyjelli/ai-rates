@@ -4,6 +4,7 @@ import {
   esc,
   formatApr,
   formatDuration,
+  formatGapBps,
   formatInterval,
   formatPrice,
   formatUsd,
@@ -29,6 +30,16 @@ describe("formatUsd", () => {
     expect(formatUsd(25_000)).toBe("$25.0k");
     expect(formatUsd(640)).toBe("$640");
     expect(formatUsd(null)).toBe("–");
+  });
+});
+
+describe("formatGapBps", () => {
+  test("keeps one decimal at every magnitude, since the distribution sits at zero", () => {
+    expect(formatGapBps(269.64)).toBe("269.6");
+    // The median comparable asset. It must not render as a bare "0" that reads like no quote.
+    expect(formatGapBps(0)).toBe("0.0");
+    expect(formatGapBps(0.04)).toBe("0.0");
+    expect(formatGapBps(null)).toBe("–");
   });
 });
 

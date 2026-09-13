@@ -5,12 +5,14 @@ import { VENUE_BY_ID } from "../web/venues";
 import type { Clearance } from "./clearance";
 import type { DataSource, MarketRow } from "./data";
 import {
+  arbitrageToQuery,
   type BacktestParams,
   backtestToQuery,
   DEFAULT_FILTERS,
   filtersToQuery,
   HEATMAP_MIN_VENUES,
   heatmapToQuery,
+  parseArbitrageParams,
   parseBacktestParams,
   parseHeatmapParams,
   parseScreenerFilters,
@@ -158,6 +160,17 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(pages.heatmap({ overview, cells, params, now }));
     }
 
+    // The phase's actual title: where one venue's bid sits above another's ask. Only three venues
+    // publish top of book, so this reads far fewer rows than the rates grid.
+    if (path === "/arbitrage") {
+      const params = parseArbitrageParams(url.searchParams);
+      const [overview, rows] = await Promise.all([
+        deps.data.overview(),
+        deps.data.arbitrage(params),
+      ]);
+      return page(pages.arbitrage({ overview, rows, params, now }));
+    }
+
     if (path === "/markets") {
       const [overview, exchanges] = await Promise.all([
         deps.data.overview(),
@@ -233,6 +246,12 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         minVenues: HEATMAP_MIN_VENUES,
       });
       return json({ params, query: heatmapToQuery(params), count: cells.length, cells });
+    }
+
+    if (path === "/v1/arbitrage") {
+      const params = parseArbitrageParams(url.searchParams);
+      const rows = await deps.data.arbitrage(params);
+      return json({ params, query: arbitrageToQuery(params), count: rows.length, rows });
     }
 
     if (segments[0] === "v1" && segments[1] === "exchanges" && segments.length === 3) {

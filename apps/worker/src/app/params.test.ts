@@ -1,22 +1,60 @@
 import { describe, expect, test } from "bun:test";
 import {
+  arbitrageToQuery,
   type BacktestParams,
   backtestToQuery,
+  DEFAULT_ARBITRAGE_LIMIT,
   DEFAULT_BACKTEST_DAYS,
   DEFAULT_BACKTEST_SIZE_USD,
   DEFAULT_FILTERS,
   DEFAULT_HEATMAP_LIMIT,
+  DEFAULT_MIN_GAP_BPS,
   filtersToQuery,
   heatmapToQuery,
+  MAX_ARBITRAGE_LIMIT,
   MAX_BACKTEST_DAYS,
   MAX_BACKTEST_SIZE_USD,
   MAX_HEATMAP_LIMIT,
   MAX_TAKER_FEE_BPS,
+  parseArbitrageParams,
   parseBacktestParams,
   parseHeatmapParams,
   parseScreenerFilters,
   parseUsd,
 } from "./params";
+
+describe("parseArbitrageParams", () => {
+  test("uses defaults for an empty query", () => {
+    expect(parseArbitrageParams(new URLSearchParams())).toEqual({
+      minGapBps: DEFAULT_MIN_GAP_BPS,
+      minDepthUsd: 0,
+      limit: DEFAULT_ARBITRAGE_LIMIT,
+      offset: 0,
+    });
+  });
+
+  test("clamps the limit and keeps an explicit zero floor", () => {
+    expect(parseArbitrageParams(new URLSearchParams("limit=9999")).limit).toBe(MAX_ARBITRAGE_LIMIT);
+    expect(parseArbitrageParams(new URLSearchParams("limit=0")).limit).toBe(1);
+    // Zero is a real choice -- "show me every quote, including the mostly-zero ones" -- and must
+    // survive rather than falling back to the default floor.
+    expect(parseArbitrageParams(new URLSearchParams("min_bps=0")).minGapBps).toBe(0);
+    expect(parseArbitrageParams(new URLSearchParams("min_bps=-5")).minGapBps).toBe(0);
+  });
+
+  test("reads depth with the shared k/m/b suffixes and rejects a negative offset", () => {
+    expect(parseArbitrageParams(new URLSearchParams("min_depth=25k")).minDepthUsd).toBe(25_000);
+    expect(parseArbitrageParams(new URLSearchParams("min_depth=oops")).minDepthUsd).toBe(0);
+    expect(parseArbitrageParams(new URLSearchParams("offset=-3")).offset).toBe(0);
+  });
+
+  test("round-trips through its canonical query", () => {
+    const params = parseArbitrageParams(new URLSearchParams("min_bps=25&min_depth=50k&offset=100"));
+    expect(arbitrageToQuery(params)).toBe("?min_bps=25&min_depth=50000&offset=100");
+    expect(parseArbitrageParams(new URLSearchParams(arbitrageToQuery(params)))).toEqual(params);
+    expect(arbitrageToQuery(parseArbitrageParams(new URLSearchParams()))).toBe("");
+  });
+});
 
 describe("parseUsd", () => {
   test("accepts plain numbers and k/m/b suffixes", () => {

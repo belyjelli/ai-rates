@@ -299,6 +299,121 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     expect(await data.settlements([], settledAt - HOUR, settledAt)).toEqual([]);
   });
 
+  /**
+   * The mark-agreement guard and the depth handling, against the real schema.
+   *
+   * This is the only place either actually executes: the unit tests fake the DataSource, and a
+   * naive symbol join is exactly what produced gaps of 13,660,780 bps on KR200 — a market quoting
+   * 1096.67 on one venue against 0.7973 on another. So the fixture plants that same shape and
+   * asserts it is dropped rather than ranked.
+   */
+  describe("arbitrage", () => {
+    const base4 = `IT4${tag.toUpperCase()}`;
+    const symbolA4 = `${base4}-A`;
+    const symbolB4 = `${base4}-B`;
+    // A mismatched instrument on a venue that also lists the real one. market_latest keys on
+    // (venue_id, venue_symbol), so it needs its own symbol rather than a duplicate row.
+    const symbolA4Bad = `${base4}-MISMATCH`;
+    const quoted = (
+      venue_id: string,
+      venue_symbol: string,
+      mark: number,
+      bid: number,
+      ask: number,
+      bidSize: number | null,
+      askSize: number | null,
+    ) => ({
+      venue_id,
+      venue_symbol,
+      base: base4,
+      quote: "USDT",
+      observed_at: new Date(),
+      rate: 0.0001,
+      basis_hours: 8,
+      apr: 10.95,
+      interval_hours: 8,
+      next_funding_at: new Date(settledAt + HOUR),
+      kind: "predicted",
+      mark_price: mark,
+      index_price: mark,
+      open_interest_usd: 1_000_000,
+      volume_24h_usd: 2_000_000,
+      best_bid: bid,
+      best_ask: ask,
+      best_bid_size_usd: bidSize,
+      best_ask_size_usd: askSize,
+    });
+
+    beforeAll(async () => {
+      await admin`
+        INSERT INTO market_latest ${admin([
+          // The honest pair: buy at 100.00 on A, sell at 100.50 on B — a 50 bps gap.
+          quoted(venueA, symbolA4, 100, 99.9, 100, 50_000, 20_000),
+          quoted(venueB, symbolB4, 100, 100.5, 100.6, 80_000, 90_000),
+          // 1375x out, quoting an ask of 0.07. Ungated, this would be venue A's cheapest ask and
+          // would manufacture a gap of roughly 1.4 million bps.
+          quoted(venueA, symbolA4Bad, 137_550, 0.0697, 0.07, 10_000, 10_000),
+        ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
+    });
+
+    const mine = async (options = {}) =>
+      (
+        await data.arbitrage({ minGapBps: 0, minDepthUsd: 0, limit: 50, offset: 0, ...options })
+      ).filter((r) => r.asset === base4);
+
+    test("drops a mismatched instrument instead of quoting a fictional gap", async () => {
+      const [row] = await mine();
+
+      expect(row?.asset).toBe(base4);
+      // 100.5 against 100.0 — the real pair, not the 1.4M bps the mismatch would have produced.
+      expect(row?.gap_bps).toBeCloseTo(50, 6);
+      expect(row?.buy_venue_id).toBe(venueA);
+      expect(row?.buy_symbol).toBe(symbolA4);
+      expect(row?.sell_venue_id).toBe(venueB);
+      expect(row?.venue_count).toBe(2);
+    });
+
+    test("reports the thinner of the two resting sizes", async () => {
+      const [row] = await mine();
+      // Buying takes A's ask ($20k), selling hits B's bid ($80k). The gap is good for the smaller.
+      expect(row?.buy_depth_usd).toBeCloseTo(20_000, 6);
+      expect(row?.sell_depth_usd).toBeCloseTo(80_000, 6);
+      expect(row?.thinner_depth_usd).toBeCloseTo(20_000, 6);
+    });
+
+    test("a depth floor excludes a quote whose size is unknown", async () => {
+      const base5 = `IT5${tag.toUpperCase()}`;
+      await admin`
+        INSERT INTO market_latest ${admin([
+          { ...quoted(venueA, `${base5}-A`, 100, 99.9, 100, 50_000, null), base: base5 },
+          { ...quoted(venueB, `${base5}-B`, 100, 100.5, 100.6, 80_000, 90_000), base: base5 },
+        ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
+
+      const all = await data.arbitrage({
+        minGapBps: 0,
+        minDepthUsd: 0,
+        limit: 50,
+        offset: 0,
+      });
+      const unknown = all.find((r) => r.asset === base5);
+      // least() would have skipped the null and reported $80k as the size this gap is good for.
+      expect(unknown?.thinner_depth_usd).toBeNull();
+
+      const floored = await data.arbitrage({
+        minGapBps: 0,
+        minDepthUsd: 1_000,
+        limit: 50,
+        offset: 0,
+      });
+      expect(floored.some((r) => r.asset === base5)).toBe(false);
+    });
+
+    test("the gap floor keeps only rows at or above it", async () => {
+      expect((await mine({ minGapBps: 49 })).length).toBe(1);
+      expect((await mine({ minGapBps: 51 })).length).toBe(0);
+    });
+  });
+
   test("verifiedPairs reads the newest run only, against the real schema", async () => {
     // The unit tests fake the DataSource, so this is the only place the query actually runs with
     // production client options — the header above explains why that matters.

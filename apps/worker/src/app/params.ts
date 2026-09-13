@@ -114,6 +114,61 @@ export function heatmapToQuery(params: HeatmapParams): string {
   return encoded ? `?${encoded}` : "";
 }
 
+/** Rows a page of the arbitrage table shows. Same reasoning as the rates grid: one screenful. */
+export const DEFAULT_ARBITRAGE_LIMIT = 50;
+export const MAX_ARBITRAGE_LIMIT = 200;
+/**
+ * Rows below this quoted gap are hidden by default.
+ *
+ * Measured before choosing it: of 432 comparable assets only 177 show any positive gap and the
+ * median is 0.0 bps, so an unfiltered table is mostly zeros. One basis point is the smallest floor
+ * that removes the noise without asserting a tradeable threshold — `?min_bps=0` shows everything.
+ */
+export const DEFAULT_MIN_GAP_BPS = 1;
+export const MAX_MIN_GAP_BPS = 10_000;
+
+export interface ArbitrageParams {
+  minGapBps: number;
+  /** Hides rows whose thinner side rests less than this in USD; 0 keeps every quote. */
+  minDepthUsd: number;
+  limit: number;
+  offset: number;
+}
+
+/**
+ * Arbitrage table inputs. Every value is clamped rather than rejected, matching the other parsers:
+ * a nonsense query yields the default page instead of an error.
+ */
+export function parseArbitrageParams(params: URLSearchParams): ArbitrageParams {
+  // Number("") is 0, not NaN, so an absent parameter would parse as an explicit zero floor and the
+  // default would never apply. parseTakerBps guards the same way, for the same reason.
+  const rawBps = params.get("min_bps");
+  const minBps = rawBps === null || rawBps.trim() === "" ? Number.NaN : Number(rawBps);
+  const limit = Number.parseInt(params.get("limit") ?? "", 10);
+  const offset = Number.parseInt(params.get("offset") ?? "", 10);
+  return {
+    minGapBps: Number.isFinite(minBps)
+      ? Math.min(Math.max(minBps, 0), MAX_MIN_GAP_BPS)
+      : DEFAULT_MIN_GAP_BPS,
+    minDepthUsd: parseUsd(params.get("min_depth")) ?? 0,
+    limit: Number.isFinite(limit)
+      ? Math.min(Math.max(limit, 1), MAX_ARBITRAGE_LIMIT)
+      : DEFAULT_ARBITRAGE_LIMIT,
+    offset: Number.isFinite(offset) ? Math.max(offset, 0) : 0,
+  };
+}
+
+/** Canonical query, so paging and filter links round-trip and stay cache-keyed. */
+export function arbitrageToQuery(params: ArbitrageParams): string {
+  const query = new URLSearchParams();
+  if (params.minGapBps !== DEFAULT_MIN_GAP_BPS) query.set("min_bps", String(params.minGapBps));
+  if (params.minDepthUsd !== 0) query.set("min_depth", String(params.minDepthUsd));
+  if (params.limit !== DEFAULT_ARBITRAGE_LIMIT) query.set("limit", String(params.limit));
+  if (params.offset !== 0) query.set("offset", String(params.offset));
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : "";
+}
+
 export const DEFAULT_BACKTEST_DAYS = 30;
 /** Backfilled history reaches 90 days, so asking for more would quietly return less. */
 export const MAX_BACKTEST_DAYS = 90;

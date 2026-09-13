@@ -1,6 +1,7 @@
 import { type BacktestResult, pairCapitalUsd, tierForSize } from "@ai-rates/core";
 import { VENUES, type Venue } from "@ai-rates/venues";
 import type {
+  ArbitrageRow,
   ExchangeSummary,
   HeatmapCell,
   LeverageTierRow,
@@ -11,8 +12,14 @@ import type {
   ScreenerSort,
   VerifiedPair,
 } from "../app/data";
-import type { BacktestParams, HeatmapParams, HeatmapTimeframe } from "../app/params";
+import type {
+  ArbitrageParams,
+  BacktestParams,
+  HeatmapParams,
+  HeatmapTimeframe,
+} from "../app/params";
 import {
+  arbitrageToQuery,
   DEFAULT_FILTERS,
   filtersToQuery,
   HEATMAP_TIMEFRAMES,
@@ -25,6 +32,7 @@ import {
   aprTone,
   esc,
   formatApr,
+  formatGapBps,
   formatInterval,
   formatPrice,
   formatUsd,
@@ -608,6 +616,123 @@ export function heatmap(data: {
 <div class="tf">${strip}</div>
 ${grid}`,
   });
+}
+
+/**
+ * Buy where the ask is lowest, sell where the bid is highest, on two different venues.
+ *
+ * Three disciplines carried over from what measuring this cost us:
+ *
+ * 1. **Depth sits beside every gap, never behind a click.** `ONE` once showed 269.6 bps against an
+ *    OKX ask of two units and Gate's 220,004 — a quote, not a trade. The thinner side is its own
+ *    column and the row is titled with both.
+ * 2. **No rail, and no `aprTone`.** Those mean "who pays whom" on every other page; a price gap has
+ *    no such polarity, and borrowing the colour would assert a direction that does not exist.
+ * 3. **The widest gap has the thinnest book, and that is the finding.** Measured live across 721
+ *    assets quoted on two or more venues: 395 show a positive gap at a median of 1.6 bps, but the
+ *    leaders rest on almost nothing — 317 bps good for $568, 297 bps for $18, 106 bps for $3. So
+ *    the table is ranked by gap, because that is the question it answers, with the depth beside it
+ *    doing the same work the thinner-leg column does on the ungated verified ranking.
+ */
+export function arbitrage(data: {
+  overview: Overview;
+  rows: ArbitrageRow[];
+  params: ArbitrageParams;
+  now: number;
+}): string {
+  const { overview, rows, params, now } = data;
+
+  const link = (next: Partial<ArbitrageParams>, label: string, enabled = true) =>
+    enabled
+      ? `<a href="/arbitrage${arbitrageToQuery({ ...params, ...next })}">${label}</a>`
+      : `<span class="dim">${label}</span>`;
+
+  const side = (
+    kind: "buy" | "sell",
+    venueId: string,
+    symbol: string,
+    price: number,
+    depth: number | null,
+  ) =>
+    `<td><div class="leg ${kind}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)} · <span data-u="${kind}-price">${formatPrice(price)}</span></span></div></td>
+<td class="num"><span data-u="${kind}-depth">${formatUsd(depth)}</span></td>`;
+
+  const body = rows
+    .map((r) => {
+      // The gap is only good for the smaller of the two sides, so that is what the row is titled
+      // with. A null depth says so plainly instead of rendering as a zero.
+      const title =
+        r.thinner_depth_usd === null
+          ? "One side's resting size is unknown, so the size this gap is good for cannot be stated"
+          : `Good for about ${formatUsd(r.thinner_depth_usd)} at these quotes, before fees and before either book moves`;
+      return `<tr data-k="${esc(r.asset)}">
+<td class="asset"><a href="${assetHref(r.asset)}">${esc(r.asset)}</a></td>
+<td class="num spread" title="${esc(title)}"><span data-u="gap">${formatGapBps(r.gap_bps)}</span></td>
+<td class="num" title="${esc(title)}">${formatUsd(r.thinner_depth_usd)}</td>
+${side("buy", r.buy_venue_id, r.buy_symbol, r.buy_price, r.buy_depth_usd)}
+${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_depth_usd)}
+<td class="num dim">${r.venue_count}</td>
+<td class="dim">${since(r.oldest_observed_at, now)}</td>
+</tr>`;
+    })
+    .join("");
+
+  const pager = `<div class="pager" data-live="arb-pager">${link(
+    { offset: Math.max(0, params.offset - params.limit) },
+    "← previous",
+    params.offset > 0,
+  )}<span class="dim">assets ${params.offset + 1}–${params.offset + rows.length}</span>${link(
+    { offset: params.offset + params.limit },
+    "next →",
+    rows.length >= params.limit,
+  )}</div>`;
+
+  const table =
+    rows.length === 0
+      ? `<div class="sheet-wrap"><p class="empty">No asset quotes a gap this wide right now. The median comparable asset sits near 1.6 bps, so try a lower floor.</p></div>`
+      : `<div class="sheet-wrap"><table class="sheet">
+<thead><tr><th>Asset</th><th class="num" title="Highest bid against lowest ask, across two different exchanges">Gap, bps</th><th class="num" title="The smaller of the two resting sizes: what the gap is actually good for">Good for</th><th>Buy at</th><th class="num">Ask size</th><th>Sell at</th><th class="num">Bid size</th><th class="num" title="Exchanges quoting this asset that survived the mark-agreement check">Venues</th><th>Quoted</th></tr></thead>
+<tbody data-live="arb">${body}</tbody>
+</table></div>${pager}`;
+
+  return layout({
+    title: "Price gaps across exchanges",
+    description:
+      "Where one exchange's bid sits above another's ask, with the size resting at each quote.",
+    path: "/arbitrage",
+    overview,
+    now,
+    body: `<h1>Price gaps</h1>
+<p class="lede">For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps at the size shown</b>, not fillable trades: nothing here reflects the book below level 1, fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size. Read the <b>good for</b> column before the gap.</p>
+${filtersForArbitrage(params)}
+${table}`,
+  });
+}
+
+/** Two floors, both of which default to showing more rather than less. */
+function filtersForArbitrage(params: ArbitrageParams): string {
+  const option = (value: number, label: string, current: number) =>
+    `<option value="${value}"${value === current ? " selected" : ""}>${label}</option>`;
+  return `<form class="filters" method="get" action="/arbitrage">
+<label class="field">Min gap, bps<select name="min_bps">${[
+    [0, "Any, including 0.0"],
+    [1, "1"],
+    [5, "5"],
+    [25, "25"],
+    [100, "100"],
+  ]
+    .map(([value, label]) => option(value as number, label as string, params.minGapBps))
+    .join("")}</select></label>
+<label class="field">Min resting size<select name="min_depth">${[
+    [0, "Any"],
+    [1_000, "$1k"],
+    [10_000, "$10k"],
+    [100_000, "$100k"],
+  ]
+    .map(([value, label]) => option(value as number, label as string, params.minDepthUsd))
+    .join("")}</select></label>
+<div class="actions"><button type="submit">Apply</button><a href="/arbitrage">Reset</a></div>
+</form>`;
 }
 
 export function asset(data: {

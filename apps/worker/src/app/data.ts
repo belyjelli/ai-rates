@@ -89,6 +89,51 @@ export interface HeatmapCell {
   asset_oi_usd: number | null;
 }
 
+/**
+ * How far a market's mark may sit from its asset's median before it is dropped from a price
+ * comparison. The same 0.05 `screener_pairs` defaults to, and for the same reason: joining by
+ * symbol alone produced gaps of 13,660,780 bps on KR200, which quotes 1096.67 on one venue against
+ * 0.7973 on another — a 1375× instrument mismatch, not a trade.
+ */
+export const MARK_DEVIATION = 0.05;
+
+export interface ArbitrageOptions {
+  /** Rows below this quoted gap are dropped; 0 keeps the mostly-zero tail. */
+  minGapBps: number;
+  /** Rows whose thinner side rests less than this are dropped; 0 keeps every quote. */
+  minDepthUsd: number;
+  limit: number;
+  offset: number;
+}
+
+/**
+ * One asset's widest quotable price gap: buy where the ask is lowest, sell where the bid is
+ * highest, on two different venues.
+ *
+ * This is a *quotable* gap at the size shown, not a fillable trade. It says nothing about the book
+ * below level 1, so every row carries the money resting on each side — `ONE` once quoted 269.6 bps
+ * against an ask of two units, and a gap without its depth beside it is a number that invites a
+ * loss.
+ */
+export interface ArbitrageRow {
+  asset: string;
+  venue_count: number;
+  gap_bps: number;
+  buy_venue_id: string;
+  buy_symbol: string;
+  /** The lowest ask: what buying costs. */
+  buy_price: number;
+  buy_depth_usd: number | null;
+  sell_venue_id: string;
+  sell_symbol: string;
+  /** The highest bid: what selling fetches. */
+  sell_price: number;
+  sell_depth_usd: number | null;
+  /** The smaller of the two sides, or null when either is unknown. The size the gap is good for. */
+  thinner_depth_usd: number | null;
+  oldest_observed_at: Date;
+}
+
 export interface MarketRow {
   venue_id: string;
   venue_symbol: string;
@@ -191,6 +236,8 @@ export interface DataSource {
   exchange(venueId: string): Promise<MarketRow[]>;
   /** Every venue's funding for the top assets by open interest, one row per populated cell. */
   heatmap(options: HeatmapOptions): Promise<HeatmapCell[]>;
+  /** Widest quotable price gap per asset, behind the same mark-agreement guard the screener uses. */
+  arbitrage(options: ArbitrageOptions): Promise<ArbitrageRow[]>;
   /** Risk-limit ladders for the given markets, ascending by tier; empty where a venue publishes none. */
   leverageTiers(markets: readonly MarketKey[]): Promise<LeverageTierRow[]>;
   /** Settled funding for the given markets within a window, oldest first, ties broken by market. */
@@ -320,6 +367,75 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           ON s.venue_id = m.venue_id AND s.venue_symbol = m.venue_symbol
         WHERE m.observed_at > now() - ${FRESH_INTERVAL}::interval
         ORDER BY r.asset_oi_usd DESC NULLS LAST, m.base, m.venue_id`;
+      return [...rows];
+    },
+
+    async arbitrage({ minGapBps, minDepthUsd, limit, offset }) {
+      // The shape mirrors screener_pairs deliberately -- median mark, deviation guard, best-per-
+      // venue, then pair across two different venues -- because a price view that skipped the
+      // guard would reprint the mismatched-instrument gaps migration 005 already fixed for funding.
+      // It is inlined rather than a SQL function only because it reads different columns.
+      const rows = await connect()<ArbitrageRow[]>`
+        WITH candidates AS (
+          SELECT venue_id, venue_symbol, base, mark_price, observed_at,
+                 best_bid, best_ask, best_bid_size_usd, best_ask_size_usd
+          FROM market_latest
+          WHERE observed_at > now() - ${FRESH_INTERVAL}::interval
+            AND best_bid > 0 AND best_ask > 0
+        ),
+        -- The median, not the mean: a mismatched leg must not drag the reference toward itself.
+        marks AS (
+          SELECT base, percentile_cont(0.5) WITHIN GROUP (ORDER BY mark_price) AS median_mark
+          FROM candidates WHERE mark_price > 0 GROUP BY base
+        ),
+        legs AS (
+          SELECT c.* FROM candidates c
+          LEFT JOIN marks k ON k.base = c.base
+          WHERE k.median_mark IS NULL
+             OR c.mark_price IS NULL
+             OR abs(c.mark_price - k.median_mark) <= ${MARK_DEVIATION}::float8 * k.median_mark
+        ),
+        counts AS (
+          SELECT base, count(DISTINCT venue_id)::integer AS n
+          FROM legs GROUP BY base HAVING count(DISTINCT venue_id) >= 2
+        ),
+        cheapest AS (
+          SELECT DISTINCT ON (base, venue_id) * FROM legs ORDER BY base, venue_id, best_ask ASC
+        ),
+        richest AS (
+          SELECT DISTINCT ON (base, venue_id) * FROM legs ORDER BY base, venue_id, best_bid DESC
+        ),
+        paired AS (
+          SELECT DISTINCT ON (a.base)
+            a.base AS asset,
+            c.n AS venue_count,
+            (b.best_bid - a.best_ask) / a.best_ask * 10000 AS gap_bps,
+            a.venue_id AS buy_venue_id, a.venue_symbol AS buy_symbol,
+            a.best_ask AS buy_price, a.best_ask_size_usd AS buy_depth_usd,
+            b.venue_id AS sell_venue_id, b.venue_symbol AS sell_symbol,
+            b.best_bid AS sell_price, b.best_bid_size_usd AS sell_depth_usd,
+            -- NOT least(): it SKIPS nulls, so a row with one unknown side would report the known
+            -- side as the size the gap is good for. The same trap migration 010 documents for
+            -- pair_stability, and the same CASE is the fix.
+            CASE
+              WHEN a.best_ask_size_usd IS NULL OR b.best_bid_size_usd IS NULL THEN NULL
+              ELSE least(a.best_ask_size_usd, b.best_bid_size_usd)
+            END AS thinner_depth_usd,
+            least(a.observed_at, b.observed_at) AS oldest_observed_at
+          FROM cheapest a
+          JOIN counts c ON c.base = a.base
+          JOIN richest b ON b.base = a.base AND b.venue_id <> a.venue_id
+          ORDER BY a.base, (b.best_bid - a.best_ask) / a.best_ask DESC
+        )
+        SELECT * FROM paired
+        WHERE gap_bps >= ${minGapBps}::float8
+          -- An unknown depth fails a depth floor rather than passing it: null >= x is null, which
+          -- is not true. A reader who asked for $25k of resting size must not be shown a quote
+          -- whose size we could not determine.
+          AND (${minDepthUsd}::float8 <= 0 OR thinner_depth_usd >= ${minDepthUsd}::float8)
+        -- Total order: LIMIT/OFFSET over a partial one drops and repeats rows between pages.
+        ORDER BY gap_bps DESC, asset
+        LIMIT ${limit} OFFSET ${offset}`;
       return [...rows];
     },
 
