@@ -324,9 +324,22 @@ so they land before any new venue.
 - [ ] Both need the base extension's pluggable tradability, interval source and timestamp scale.
 
 ### 6. Deferred, deliberately
-- [ ] Cross-stablecoin filter + marker (**23.3% of live pairs**, 151 of 647). Needs `quote` on both
-      legs, which `screener_pairs` does not return. Build **after** 1–3, or it filters a pairing
-      that is about to change.
+- [x] **Cross-stablecoin filter and marker, shipped `87f64e9` (migration 019).**
+      - Measured first: 166 of 678 live pairs (24%) mixed quotes. 88 were USDT against an unknown quote
+        and 59 were USDT/USDC.
+      - `screener_pairs` now returns `long_quote`/`short_quote` and takes `p_same_quote`. Quote grouping
+        applies before the widest pair is chosen, so an asset keeps its best same-quote pair.
+      - The screener has a "Same quote currency on both legs" filter (`?quote=same`). A mixed pair names
+        the currency on both legs.
+      - **Production after deploy:** 729 pairs by default, 162 mixed and 101 with an unknown quote.
+        Same-quote gives 718 pairs with 0 mixed, so only 11 assets lose their pair.
+      - The quote is not part of identity. USDT-BTC and USDC-BTC are one asset, and the default still
+        pairs them.
+- [x] **Unknown quotes filled, `6b946cf`.** The Hyperliquid HIP-3 dexes declare `collateralToken`
+      (mapped through `spotMeta` by each token's own index). Lighter's API sends no usable quote, so its
+      documented settlement currency, USDC, is used. Production after deploy: all 535 HIP-3 and Lighter
+      markets carry USDC; screener pairs went to 674 by default, 168 mixed and **0 unknown**, and 661
+      under same-quote pairing.
 - [ ] `USD1`/`U` in `QUOTES` — **not needed** once step 1 lands; declared base makes it moot.
 
 ---

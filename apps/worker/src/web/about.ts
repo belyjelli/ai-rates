@@ -24,6 +24,15 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-09-13",
+    title: "Pairs that settle in two different dollars",
+    changes: [
+      "About a quarter of spreads pair a leg settled in one stablecoin with a leg settled in another, such as USDT against USDC. Those pairs now name the currency on each leg, because holding them means collateral in both and exposure to the gap between the two.",
+      "A new screener filter, Same quote currency on both legs, pairs each asset only within one settlement currency, keeping its best such pair.",
+      "Every Hyperliquid and Lighter market now says what it settles in, so none of their pairs are left unknown.",
+    ],
+  },
+  {
+    date: "2026-09-13",
     title: "Stocks and tokens no longer share a ticker",
     changes: [
       "Every market now carries what it tracks: crypto, a stock, a commodity, a currency or an index, as the exchange itself declares it. BB the BlackBerry stock and BB the BounceBit token are now two separate assets, each with its own page, spreads and pairs, where before one of them had to be hidden.",
