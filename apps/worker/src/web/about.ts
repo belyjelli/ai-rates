@@ -24,6 +24,15 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-09-13",
+    title: "WEEX and Bullet",
+    changes: [
+      "WEEX is collected, more than 1,000 perpetual markets across crypto, stocks, commodities, currencies and indices.",
+      "Bullet is collected too, its crypto and tokenised stock, commodity and index markets, with open interest on every one.",
+      "Both report funding the way the exchange itself settles it: WEEX's forecast rate, and Bullet's hourly rate taken from its eight-hour quote.",
+    ],
+  },
+  {
+    date: "2026-09-13",
     title: "Pairs that settle in two different dollars",
     changes: [
       "About a quarter of spreads pair a leg settled in one stablecoin with a leg settled in another, such as USDT against USDC. Those pairs now name the currency on each leg, because holding them means collateral in both and exposure to the gap between the two.",
