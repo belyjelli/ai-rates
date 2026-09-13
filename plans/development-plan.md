@@ -490,7 +490,27 @@ ai-rates/
 
 Everything below is ordered by what unblocks the most, not by what is easiest.
 
-**1. Asset class first — identity refactor step 2, migration 017.** The gate shipped in 016 is
+**1. Make the ranking reward persistence rather than width — cheapest change here, and it decides
+whether anything else is worth scaling.** Measured 2026-09-13 and written up in
+[`product-market-fit.md`](product-market-fit.md): consecutive nightly runs share six of their seven
+days, yet only **8 of 23** viable pairs survive from one run to the next, the top-20 keeps 10, and
+the chosen venue pair changes for **371 of 524 assets (71%)**. A likely cause sits in our own SQL —
+`screener_pairs` picks each asset's representative pair with `DISTINCT ON (base) ... ORDER BY spread
+DESC`, i.e. the *widest* spread, which selects outliers by construction — and every re-selection is
+a re-entry that pays the ~$20 of fees already erasing the median row.
+  - **Measure before changing.** Isolate whether the churn is leg re-selection or genuine regime
+    change: hold the legs fixed across the two runs and re-score.
+  - **Then try** selecting legs by settled `spread_apr_7d`, or by spread weighted with
+    `pair_stability` — both already returned by the function, so this costs no new scan.
+  - **Pre-registered success criterion:** consecutive-run overlap of the viable set rises from 8/23
+    to **≥15**, and same-legs from 29% to **≥60%**, without the viable set's median net funding
+    falling more than a quarter. Re-measure on two *non-overlapping* windows (from ~2026-09-26);
+    today's figure is a churn floor, not a persistence measurement.
+  - **Ship net-of-fees alongside it.** `packages/core/src/fees.ts` exists and nothing renders it, so
+    every figure on the site is currently gross — and the median row is negative once four fills are
+    charged. This is an integrity fix as much as a product one.
+
+**2. Asset class — identity refactor step 2, migration 017.** The gate shipped in 016 is
 *lossy*, and that is the argument for doing this next. Because `base` still cannot hold two assets
 under one ticker, the gate keeps one cluster and discards the other: `BB` keeps BlackBerry's three
 venues and throws away BounceBit's five ($1.83M of open interest), and `PURR`, `ON`, `AI`, `STX`
@@ -499,23 +519,23 @@ different keys, so **both sides become listable instead of one being discarded**
 land before WEEX (+438 TradFi perps) and Bullet (+11), each of which multiplies exactly this
 collision.
 
-**2. Start the legal and affiliate track now, in parallel — it is the real critical path.** It is
+**3. Start the legal and affiliate track now, in parallel — it is the real critical path.** It is
 also the only track that is not code, and its lead times are external: counsel review, entity
 setup, KYC'd accounts, affiliate applications, and written data-consent from Binance, OKX, MEXC,
 KuCoin, Aster and Paradex. Engineering owes just two of the 25 items — geo-gating the referral CTAs
 in the Worker, and shipping the disclosure/disclaimer text. Adapter work cannot shorten this, so
 starting it late is what would delay launch.
 
-**3. WEEX and Bullet, then the rest of the `binance-fapi` family.** The largest venues still
+**4. WEEX and Bullet, then the rest of the `binance-fapi` family.** The largest venues still
 missing, the base is extractable from the working `asterAdapter` rather than written blind, and it
 buys headroom above the 15-venue floor. Both need the pluggable tradability, interval source and
 timestamp scale noted in refactor step 5.
 
-**4. Work the verification report as a list.** `scale` verdicts are a to-do, not just a finding:
+**5. Work the verification report as a list.** `scale` verdicts are a to-do, not just a finding:
 `hl-mkts:US500` sits at exponent −1 on a correlation of 0.813, and setting that multiplier returns
 a real market to the scan. Re-read `/status` after each large venue lands.
 
-**5. Then the remaining families in cost order** — `orderly`, the bulk "all markets" CEX endpoints,
+**6. Then the remaining families in cost order** — `orderly`, the bulk "all markets" CEX endpoints,
 the one-call-per-symbol venues, and the WebSocket-only venues last. Refactor step 6
 (cross-stablecoin, 23.3% of live pairs) lands after steps 1–3, not before, or it filters a pairing
 that is about to change.
