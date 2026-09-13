@@ -161,6 +161,52 @@ audience for whale dashboards is retail watching whales. Per-address data theref
 *acquisition* funnel rather than to enterprise sales — still a reason to build it, just not the
 reason first proposed.
 
+### Liquidation heat map: the same shape, and the data cannot carry it yet
+
+Asked for on 2026-09-13 as the first panel of a market-conditions overview. It is the same shape as
+whale tracking above and belongs in the same slot — retail-facing and attention-generating, so
+**acquisition rather than enterprise sales**. An earlier argument of mine that it "serves the wrong
+customer" was wrong and contradicted the paragraph directly above it: §5 does not treat serving
+retail as a strike, it treats it as a different funnel.
+
+**It fails §3 instead, on data readiness — and the evidence is worse than thin history.** Two venues
+ingest forced closes, not the one migration 012 records: okx 13,451 events across 298 symbols and
+gate 11,637 across 593, with **88 of the top 100 assets by open interest** carrying events. Coverage
+is genuinely there. History is ~2 days and still ramping — 277 events, then 4,164, then 20,647 —
+which is ingestion coming online rather than a market event.
+
+The ramp is not the disqualifier. The disqualifier is that **the two feeds are not measuring the
+same thing**:
+
+- **Gate** is one call for the whole venue, no page ceiling.
+- **OKX** rotates 40 of 479 instFamilies per run, revisiting each about every 35–40 minutes, capped
+  at 100 records per visit, running about 69 minutes behind real time, with the cursor resetting to
+  family 0 on every collector deploy.
+
+Measured: the ceiling does bite, though rarely — **11 visits at or over 100 records** (max 197) and
+9 more at 80–99, against 2,461 under 40. Far larger is the disagreement between the feeds on assets
+*both* cover, where the okx-to-gate notional ratio spans **0.10× to 16.4×** inside the same 24
+hours: ETH 0.76, BTC 1.15, then SNDK 9.7, FLOCK 14.2, DOGE 16.4, MORPHO 0.10.
+
+Some of that spread is real — venues genuinely differ — and some is rotation and deploy-reset bias.
+**Nothing in the data separates the two.** A heat map exists to rank assets by liquidation
+intensity, so an ordering driven partly by sampling cadence is an ordering we cannot defend.
+Publishing it would be the same species as the 13,660,780 bps KR200 "opportunity" that §3 opens by
+killing, and it would spend the trust asset §6 rests on — the page that says what it does not know.
+
+**The trigger is structural, not temporal.** An earlier draft of this proposed "two weeks of data
+and more than two venues", which is wrong: time cures a warm-up ramp and does nothing about a
+rotation ceiling, a 69-minute lag, or a resetting cursor. Build it when either
+
+1. OKX ingestion is complete — full sweep, pagination past 100, or a websocket feed — **or** the page
+   presents **Gate alone**, which is narrow but internally consistent; and
+2. per-venue figures are **never summed** into a single intensity until (1) holds, because adding a
+   complete feed to a rotating sample manufactures the ranking.
+
+Then it is genuinely differentiated — *observed* forced closes against Coinglass's *modelled*
+liquidation levels — which is the same quality-of-truth claim §6 rests on, pointed at the acquisition
+funnel §5 describes.
+
 ### Pricing
 
 **$1,500/month is defensible for execution** — a self-hosted tenant running `profitlock-worker`.
