@@ -42,9 +42,19 @@ export interface BinanceStylePremiumIndex {
   symbol: string;
   markPrice: string;
   indexPrice: string;
-  /** Current-period funding estimate (not the last settled rate, despite the name). */
+  /**
+   * On Binance and Aster, the current-period funding estimate (not the last settled rate, despite
+   * the name). WEEX and Bullet send the same field as the LAST SETTLED rate, and put the estimate in
+   * `forecastFundingRate` and `estimatedFundingRate`; see `predictedRate`.
+   */
   lastFundingRate: string;
   nextFundingTime: number;
+  /** WEEX only: the estimate for the period in progress. */
+  forecastFundingRate?: string;
+  /** Bullet only: the estimate for the hour in progress, as a 1h rate (its 8h rate ÷ 8). */
+  estimatedFundingRate?: string;
+  /** WEEX only: the settlement interval, in MINUTES. WEEX has no fundingInfo. */
+  collectCycle?: number;
 }
 
 export interface BinanceStyleFundingInfo {
@@ -60,7 +70,9 @@ export interface BinanceStyleTicker24h {
 /** One exchangeInfo row, with only the fields this family reads. */
 export interface BinanceStyleSymbol {
   symbol: string;
-  status: string;
+  /** Absent on every WEEX row, which is why tradability is `isTradable` rather than fixed. */
+  status?: string;
+  /** PERPETUAL on Binance and Aster; Bullet's are `CryptoPerp`, `RwaPerpUsEquity` and so on. */
   contractType: string;
   baseAsset?: string;
   quoteAsset?: string;
@@ -208,14 +220,26 @@ export function attachOpenInterest(
   });
 }
 
-/** Perpetual symbols currently TRADING, by symbol, each with the class its venue declares. */
+/**
+ * Whether an exchangeInfo row is a market this family collects. Pluggable because the members do
+ * not declare it the same way: WEEX sends no `status` at all, and Bullet's contract types are never
+ * PERPETUAL.
+ */
+export type BinanceStyleTradability = (symbol: BinanceStyleSymbol) => boolean;
+
+/** Binance's and Aster's reading: a perpetual contract type, and `status` TRADING. */
+export const isTradingPerpetual: BinanceStyleTradability = (s) =>
+  s.status === "TRADING" && PERPETUAL_CONTRACT_TYPES.has(s.contractType);
+
+/** Collectable perpetual symbols, by symbol, each with the class its venue declares. */
 export function tradablePerpetuals(
   info: BinanceStyleExchangeInfo,
   classify: BinanceStyleClassifier,
+  isTradable: BinanceStyleTradability = isTradingPerpetual,
 ): Map<string, TradableSymbol> {
   return new Map(
     info.symbols
-      .filter((s) => s.status === "TRADING" && PERPETUAL_CONTRACT_TYPES.has(s.contractType))
+      .filter((s) => isTradable(s))
       .map((s) => [
         s.symbol,
         { quoteAsset: s.quoteAsset ?? null, assetClass: classify(s), base: declaredMarketBase(s) },
@@ -230,6 +254,23 @@ export interface BinanceStyleSnapshotInput {
   tradable: ReadonlyMap<string, TradableSymbol>;
   /** Interval for symbols missing from fundingInfo; null skips them. */
   defaultIntervalHours: number | null;
+  /**
+   * Which premiumIndex field holds the estimate for the period in progress, quoted over the
+   * settlement interval. Defaults to `lastFundingRate`, which is that estimate on Binance and Aster.
+   */
+  predictedRate?: (row: BinanceStylePremiumIndex) => unknown;
+  /** Unit of premiumIndex `nextFundingTime`; milliseconds unless given. */
+  nextFundingTimeUnit?: BinanceStyleTimeUnit;
+}
+
+/** A timestamp unit a family member sends. Bullet's history and open interest are microseconds. */
+export type BinanceStyleTimeUnit = "ms" | "us";
+
+/** An epoch timestamp in the given unit, as epoch milliseconds; null where it is not a number. */
+export function epochMs(value: unknown, unit: BinanceStyleTimeUnit = "ms"): number | null {
+  const n = num(value);
+  if (n === null) return null;
+  return unit === "us" ? Math.floor(n / 1000) : n;
 }
 
 export function parseBinanceStyleSnapshots(
@@ -239,15 +280,16 @@ export function parseBinanceStyleSnapshots(
 ): FundingSnapshot[] {
   const intervals = new Map(input.fundingInfo.map((i) => [i.symbol, num(i.fundingIntervalHours)]));
   const volumes = new Map(input.tickers.map((t) => [t.symbol, num(t.quoteVolume)]));
+  const predictedRate = input.predictedRate ?? ((p: BinanceStylePremiumIndex) => p.lastFundingRate);
   const snapshots: FundingSnapshot[] = [];
 
   for (const p of input.premium) {
     const tradable = input.tradable.get(p.symbol);
-    const rate = num(p.lastFundingRate);
+    const rate = num(predictedRate(p));
     const interval = intervals.get(p.symbol) ?? input.defaultIntervalHours;
     if (!tradable || rate === null || interval === null || interval <= 0) continue;
 
-    const next = num(p.nextFundingTime);
+    const next = epochMs(p.nextFundingTime, input.nextFundingTimeUnit);
     snapshots.push({
       ...marketRef(venueId, p.symbol, {
         assetClass: tradable.assetClass,
@@ -289,6 +331,17 @@ export function basisHoursFromGaps(
   });
 }
 
+export interface BinanceStyleHistoryOptions {
+  /** Unit of `fundingTime`; milliseconds unless given. Normalised to milliseconds on parse. */
+  timeUnit?: BinanceStyleTimeUnit;
+  /**
+   * The period every settled rate is quoted over, where the venue fixes it independently of how
+   * often it settles. Bullet settles hourly but quotes each settlement as an 8h rate, so reading
+   * the basis off the 1h gaps would overstate its funding eightfold. Omitted, the basis is the gap.
+   */
+  basisHours?: number;
+}
+
 /** `assetClass` is the venue's declaration for the symbol; omitted, the market is crypto. */
 export function parseBinanceStyleFundingHistory(
   venueId: string,
@@ -298,15 +351,20 @@ export function parseBinanceStyleFundingHistory(
   toMs: number,
   fallbackHours: number | null,
   assetClass?: AssetClass,
+  options: BinanceStyleHistoryOptions = {},
 ): FundingEvent[] {
   const byTime = new Map<number, BinanceStyleFundingRate>();
   for (const row of rows) {
-    const time = num(row.fundingTime);
+    const time = epochMs(row.fundingTime, options.timeUnit);
     if (time !== null && time >= fromMs && time <= toMs && num(row.fundingRate) !== null)
       byTime.set(time, row);
   }
   const times = [...byTime.keys()].sort((a, b) => a - b);
-  const basis = basisHoursFromGaps(times, fallbackHours);
+  const fixedBasis = options.basisHours;
+  const basis =
+    fixedBasis === undefined
+      ? basisHoursFromGaps(times, fallbackHours)
+      : times.map(() => fixedBasis);
   const ref = marketRef(venueId, venueSymbol, assetClass ? { assetClass } : {});
 
   const events: FundingEvent[] = [];
@@ -325,7 +383,18 @@ export function parseBinanceStyleFundingHistory(
   return events;
 }
 
-/** Pages GET {fundingRateUrl}?symbol=&startTime=&endTime=&limit= forward from fromMs. */
+export interface BinanceStyleHistoryFetchOptions extends BinanceStyleHistoryOptions {
+  /**
+   * The longest `endTime - startTime` one request may span. WEEX refuses more than 7 days, so a
+   * longer window is walked in slices of this size. Omitted, the whole window is one request chain.
+   */
+  maxWindowMs?: number;
+}
+
+/**
+ * Pages GET {fundingRateUrl}?symbol=&startTime=&endTime=&limit= forward from fromMs, in slices of at
+ * most `maxWindowMs`. The query always speaks milliseconds; only the rows' `fundingTime` is scaled.
+ */
 export async function fetchBinanceStyleFundingHistory(
   client: HttpClient,
   fundingRateUrl: string,
@@ -335,16 +404,22 @@ export async function fetchBinanceStyleFundingHistory(
   toMs: number,
   fallbackHours: number | null,
   assetClass?: AssetClass,
+  options: BinanceStyleHistoryFetchOptions = {},
 ): Promise<FundingEvent[]> {
   const rows: BinanceStyleFundingRate[] = [];
-  let startTime = fromMs;
-  for (let page = 0; page < HISTORY_MAX_PAGES && startTime <= toMs; page++) {
-    const url = `${fundingRateUrl}?symbol=${encodeURIComponent(venueSymbol)}&startTime=${startTime}&endTime=${toMs}&limit=${HISTORY_LIMIT}`;
-    const batch = await client.getJson<BinanceStyleFundingRate[]>(url);
-    if (!Array.isArray(batch)) throw new Error(`${venueId}: unexpected fundingRate response`);
-    rows.push(...batch);
-    if (batch.length < HISTORY_LIMIT) break;
-    startTime = Math.max(...batch.map((r) => r.fundingTime)) + 1;
+  const windowMs = options.maxWindowMs ?? Number.POSITIVE_INFINITY;
+  for (let windowStart = fromMs; windowStart <= toMs; ) {
+    const windowEnd = Math.min(toMs, windowStart + windowMs);
+    let startTime = windowStart;
+    for (let page = 0; page < HISTORY_MAX_PAGES && startTime <= windowEnd; page++) {
+      const url = `${fundingRateUrl}?symbol=${encodeURIComponent(venueSymbol)}&startTime=${startTime}&endTime=${windowEnd}&limit=${HISTORY_LIMIT}`;
+      const batch = await client.getJson<BinanceStyleFundingRate[]>(url);
+      if (!Array.isArray(batch)) throw new Error(`${venueId}: unexpected fundingRate response`);
+      rows.push(...batch);
+      if (batch.length < HISTORY_LIMIT) break;
+      startTime = Math.max(...batch.map((r) => epochMs(r.fundingTime, options.timeUnit) ?? 0)) + 1;
+    }
+    windowStart = windowEnd + 1;
   }
   return parseBinanceStyleFundingHistory(
     venueId,
@@ -354,6 +429,7 @@ export async function fetchBinanceStyleFundingHistory(
     toMs,
     fallbackHours,
     assetClass,
+    { timeUnit: options.timeUnit, basisHours: options.basisHours },
   );
 }
 
@@ -393,6 +469,49 @@ export interface BinanceStyleAdapterOptions extends AsterAdapterOptions {
   defaultIntervalHours?: number | null;
   /** Aster allows 100ms between requests; tighter venues override it. */
   minIntervalMs?: number;
+  /** Which exchangeInfo rows are collected. Defaults to `isTradingPerpetual`. */
+  isTradable?: BinanceStyleTradability;
+  /** Where the settlement interval comes from. Defaults to the `fundingInfo` endpoint. */
+  intervalSource?: BinanceStyleIntervalSource;
+  /** The premiumIndex field holding the current estimate. Defaults to `lastFundingRate`. */
+  predictedRate?: (row: BinanceStylePremiumIndex) => unknown;
+  /** Timestamp units per endpoint that reports one we read. Every default is milliseconds. */
+  timeUnits?: { premiumIndex?: BinanceStyleTimeUnit; fundingRate?: BinanceStyleTimeUnit };
+  /** A fixed basis for settled rates; see `BinanceStyleHistoryOptions.basisHours`. */
+  historyBasisHours?: number;
+  /** The widest span one fundingRate request may cover; see `BinanceStyleHistoryFetchOptions`. */
+  historyMaxWindowMs?: number;
+  /** How open interest is read. Defaults to `perSymbol`, the rotating budgeted sweep. */
+  openInterest?: BinanceStyleOpenInterestMode;
+}
+
+/**
+ * - `fundingInfo`: the endpoint, as Binance and Aster serve it. One extra request per cycle.
+ * - `premiumIndex`: read off each premiumIndex row by `hours`, for a member with no fundingInfo.
+ *   fundingInfo is then never requested.
+ */
+export type BinanceStyleIntervalSource =
+  | { from: "fundingInfo" }
+  | { from: "premiumIndex"; hours: (row: BinanceStylePremiumIndex) => number | null };
+
+/**
+ * - `perSymbol`: `openInterest?symbol=` for a budgeted slice each cycle (Binance, Aster).
+ * - `bulk`: one symbol-less `openInterest` call returning every market (Bullet).
+ * - `none`: not collected, where the venue's figure cannot be read as a quantity we trust.
+ */
+export type BinanceStyleOpenInterestMode = "perSymbol" | "bulk" | "none";
+
+/** fundingInfo-shaped intervals read off premiumIndex rows, dropping rows without a usable one. */
+export function intervalsFromPremiumIndex(
+  premium: readonly BinanceStylePremiumIndex[],
+  hours: (row: BinanceStylePremiumIndex) => number | null,
+): BinanceStyleFundingInfo[] {
+  return premium.flatMap((p) => {
+    const h = hours(p);
+    return h !== null && Number.isFinite(h) && h > 0
+      ? [{ symbol: p.symbol, fundingIntervalHours: h }]
+      : [];
+  });
 }
 
 export function createAsterAdapter(options: AsterAdapterOptions = {}): VenueAdapter {
@@ -409,6 +528,14 @@ export function createBinanceStyleAdapter(options: BinanceStyleAdapterOptions): 
   const BASE = options.baseUrl;
   const defaultIntervalHours = options.defaultIntervalHours ?? null;
   const openInterestBudget = options.openInterestBudget ?? OPEN_INTEREST_BUDGET;
+  const openInterestMode = options.openInterest ?? "perSymbol";
+  const premiumHours =
+    options.intervalSource?.from === "premiumIndex" ? options.intervalSource.hours : null;
+  const historyOptions: BinanceStyleHistoryFetchOptions = {
+    timeUnit: options.timeUnits?.fundingRate,
+    basisHours: options.historyBasisHours,
+    maxWindowMs: options.historyMaxWindowMs,
+  };
   let exchangeInfo: { fetchedAt: number; tradable: Map<string, TradableSymbol> } | null = null;
   let intervals = new Map<string, number>();
   const openInterest = new Map<string, OpenInterestEntry>();
@@ -422,19 +549,26 @@ export function createBinanceStyleAdapter(options: BinanceStyleAdapterOptions): 
         const info = await client.getJson<BinanceStyleExchangeInfo>(`${BASE}/exchangeInfo`);
         if (!Array.isArray(info?.symbols))
           throw new Error(`${VENUE}: unexpected exchangeInfo response`);
-        exchangeInfo = { fetchedAt: now, tradable: tradablePerpetuals(info, options.classify) };
+        exchangeInfo = {
+          fetchedAt: now,
+          tradable: tradablePerpetuals(info, options.classify, options.isTradable),
+        };
       }
-      const [premium, fundingInfo, tickers] = await Promise.all([
+      const [premium, fundingInfoRows, tickers] = await Promise.all([
         client
           .getJson(`${BASE}/premiumIndex`)
           .then((v) => expectArray<BinanceStylePremiumIndex>(VENUE, v, "premiumIndex")),
-        client
-          .getJson(`${BASE}/fundingInfo`)
-          .then((v) => expectArray<BinanceStyleFundingInfo>(VENUE, v, "fundingInfo")),
+        premiumHours
+          ? null
+          : client
+              .getJson(`${BASE}/fundingInfo`)
+              .then((v) => expectArray<BinanceStyleFundingInfo>(VENUE, v, "fundingInfo")),
         client
           .getJson(`${BASE}/ticker/24hr`)
           .then((v) => expectArray<BinanceStyleTicker24h>(VENUE, v, "ticker/24hr")),
       ]);
+      const fundingInfo =
+        fundingInfoRows ?? intervalsFromPremiumIndex(premium, premiumHours ?? (() => null));
       intervals = new Map(
         fundingInfo.flatMap((i) => {
           const hours = num(i.fundingIntervalHours);
@@ -450,6 +584,10 @@ export function createBinanceStyleAdapter(options: BinanceStyleAdapterOptions): 
           tickers,
           tradable: exchangeInfo.tradable,
           defaultIntervalHours,
+          ...(options.predictedRate ? { predictedRate: options.predictedRate } : {}),
+          ...(options.timeUnits?.premiumIndex
+            ? { nextFundingTimeUnit: options.timeUnits.premiumIndex }
+            : {}),
         },
         now,
       );
@@ -457,23 +595,42 @@ export function createBinanceStyleAdapter(options: BinanceStyleAdapterOptions): 
       for (const symbol of openInterest.keys()) {
         if (!exchangeInfo.tradable.has(symbol)) openInterest.delete(symbol);
       }
-      const symbols = snapshots.map((s) => s.venueSymbol);
-      for (const symbol of selectRefreshBatch(
-        symbols,
-        openInterest,
-        now,
-        openInterestBudget,
-        OPEN_INTEREST_MAX_AGE_MS,
-      )) {
+      if (openInterestMode === "bulk") {
+        // One call answers for every market. A failure keeps the last known figures, as a failed
+        // per-symbol read does, rather than failing a cycle whose funding already arrived.
         try {
-          const data = await client.getJson<BinanceStyleOpenInterest>(
-            `${BASE}/openInterest?symbol=${encodeURIComponent(symbol)}`,
+          const rows = expectArray<BinanceStyleOpenInterest>(
+            VENUE,
+            await client.getJson(`${BASE}/openInterest`),
+            "openInterest",
           );
-          const contracts = num(data?.openInterest);
-          if (contracts !== null) openInterest.set(symbol, { contracts, fetchedAt: now });
-        } catch (error) {
-          if (error instanceof CircuitOpenError) break;
-          // Leave this symbol for a later cycle; one bad symbol shouldn't fail the batch.
+          for (const row of rows) {
+            const contracts = num(row?.openInterest);
+            if (contracts !== null && exchangeInfo.tradable.has(row.symbol))
+              openInterest.set(row.symbol, { contracts, fetchedAt: now });
+          }
+        } catch {
+          // Leave the cache as it is for this cycle.
+        }
+      } else if (openInterestMode === "perSymbol") {
+        const symbols = snapshots.map((s) => s.venueSymbol);
+        for (const symbol of selectRefreshBatch(
+          symbols,
+          openInterest,
+          now,
+          openInterestBudget,
+          OPEN_INTEREST_MAX_AGE_MS,
+        )) {
+          try {
+            const data = await client.getJson<BinanceStyleOpenInterest>(
+              `${BASE}/openInterest?symbol=${encodeURIComponent(symbol)}`,
+            );
+            const contracts = num(data?.openInterest);
+            if (contracts !== null) openInterest.set(symbol, { contracts, fetchedAt: now });
+          } catch (error) {
+            if (error instanceof CircuitOpenError) break;
+            // Leave this symbol for a later cycle; one bad symbol shouldn't fail the batch.
+          }
         }
       }
 
@@ -492,6 +649,7 @@ export function createBinanceStyleAdapter(options: BinanceStyleAdapterOptions): 
         toMs,
         intervals.get(venueSymbol) ?? null,
         exchangeInfo?.tradable.get(venueSymbol)?.assetClass,
+        historyOptions,
       ),
   };
 }

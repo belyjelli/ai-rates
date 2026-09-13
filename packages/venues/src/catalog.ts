@@ -202,8 +202,9 @@ const cex: Venue[] = [
     ccxt: "weex",
     verified: true,
     probes: [get("premiumIndex", "https://api-contract.weex.com/capi/v3/market/premiumIndex")],
+    // Confirmed 2026-09-14: collectCycle matches each symbol's `delivery` schedule on all 1,016 rows.
     notes:
-      "Bulk without ?symbol=: lastFundingRate, forecastFundingRate, markPrice. collectCycle looks like minutes (unconfirmed).",
+      "Bulk without ?symbol=. lastFundingRate is the last settled rate; forecastFundingRate is the estimate. collectCycle is the interval in minutes; fundingInfo 404s.",
   },
   {
     id: "coinw",

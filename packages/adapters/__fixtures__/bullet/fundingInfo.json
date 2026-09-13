@@ -1,0 +1,116 @@
+[
+  {
+    "symbol": "SOL-USD",
+    "adjustedFundingRateCap": "0.04",
+    "adjustedFundingRateFloor": "-0.04",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "BTC-USD",
+    "adjustedFundingRateCap": "0.04",
+    "adjustedFundingRateFloor": "-0.04",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "ETH-USD",
+    "adjustedFundingRateCap": "0.04",
+    "adjustedFundingRateFloor": "-0.04",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "HYPE-USD",
+    "adjustedFundingRateCap": "0.04",
+    "adjustedFundingRateFloor": "-0.04",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "TAO-USD",
+    "adjustedFundingRateCap": "0.04",
+    "adjustedFundingRateFloor": "-0.04",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "XRP-USD",
+    "adjustedFundingRateCap": "0.04",
+    "adjustedFundingRateFloor": "-0.04",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "ZEC-USD",
+    "adjustedFundingRateCap": "0.04",
+    "adjustedFundingRateFloor": "-0.04",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "LIT-USD",
+    "adjustedFundingRateCap": "0.04",
+    "adjustedFundingRateFloor": "-0.04",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "GOLD-USD",
+    "adjustedFundingRateCap": "0.020",
+    "adjustedFundingRateFloor": "-0.020",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "SILVER-USD",
+    "adjustedFundingRateCap": "0.020",
+    "adjustedFundingRateFloor": "-0.020",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "WTIOIL-USD",
+    "adjustedFundingRateCap": "0.020",
+    "adjustedFundingRateFloor": "-0.020",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "SPCX-USD",
+    "adjustedFundingRateCap": "0.020",
+    "adjustedFundingRateFloor": "-0.020",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "MU-USD",
+    "adjustedFundingRateCap": "0.020",
+    "adjustedFundingRateFloor": "-0.020",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "SNDK-USD",
+    "adjustedFundingRateCap": "0.020",
+    "adjustedFundingRateFloor": "-0.020",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "TSLA-USD",
+    "adjustedFundingRateCap": "0.020",
+    "adjustedFundingRateFloor": "-0.020",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "SKHYNIX-USD",
+    "adjustedFundingRateCap": "0.020",
+    "adjustedFundingRateFloor": "-0.020",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "US100-USD",
+    "adjustedFundingRateCap": "0.020",
+    "adjustedFundingRateFloor": "-0.020",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "US500-USD",
+    "adjustedFundingRateCap": "0.020",
+    "adjustedFundingRateFloor": "-0.020",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "UNITREE-USD",
+    "adjustedFundingRateCap": "0.020",
+    "adjustedFundingRateFloor": "-0.020",
+    "fundingIntervalHours": 1
+  }
+]

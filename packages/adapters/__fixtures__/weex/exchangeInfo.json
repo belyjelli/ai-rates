@@ -1,0 +1,207 @@
+{
+  "symbols": [
+    {
+      "symbol": "BTCUSDT",
+      "displaySymbol": "BTCUSDT",
+      "baseAsset": "BTC",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "underlyingType": "COIN",
+      "delivery": ["00:00:00", "08:00:00", "16:00:00"]
+    },
+    {
+      "symbol": "ETHUSDT",
+      "displaySymbol": "ETHUSDT",
+      "baseAsset": "ETH",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "underlyingType": "COIN",
+      "delivery": ["00:00:00", "08:00:00", "16:00:00"]
+    },
+    {
+      "symbol": "1000PEPEUSDT",
+      "displaySymbol": "1000PEPEUSDT",
+      "baseAsset": "1000PEPE",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "underlyingType": "COIN",
+      "delivery": ["00:00:00", "08:00:00", "16:00:00"]
+    },
+    {
+      "symbol": "CATUSDT",
+      "displaySymbol": "CATUSDT",
+      "baseAsset": "CAT",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "underlyingType": "COIN",
+      "delivery": ["00:00:00", "04:00:00", " 08:00:00", "12:00:00", "16:00:00", "20:00:00"]
+    },
+    {
+      "symbol": "ONUSDT",
+      "displaySymbol": "ONUSDT",
+      "baseAsset": "ON",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "underlyingType": "COIN",
+      "delivery": ["00:00:00", "04:00:00", "08:00:00", "12:00:00", "16:00:00", "20:00:00"]
+    },
+    {
+      "symbol": "JP225USDT",
+      "displaySymbol": "JP225USDT",
+      "baseAsset": "JP225",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "underlyingType": "COIN",
+      "delivery": [
+        "00:00:00",
+        "01:00:00",
+        "02:00:00",
+        "03:00:00",
+        "04:00:00",
+        "05:00:00",
+        "06:00:00",
+        "07:00:00",
+        "08:00:00",
+        "09:00:00",
+        "10:00:00",
+        "11:00:00",
+        "12:00:00",
+        "13:00:00",
+        "14:00:00",
+        "15:00:00",
+        "16:00:00",
+        "17:00:00",
+        "18:00:00",
+        "19:00:00",
+        "20:00:00",
+        "21:00:00",
+        "22:00:00",
+        "23:00:00"
+      ]
+    },
+    {
+      "symbol": "MTLUSDT",
+      "displaySymbol": "MTLUSDT",
+      "baseAsset": "MTL",
+      "quoteAsset": "USDT",
+      "contractType": "PERPETUAL",
+      "underlyingType": "COIN",
+      "delivery": [
+        "00:00:00",
+        "01:00:00",
+        "02:00:00",
+        "03:00:00",
+        "04:00:00",
+        "05:00:00",
+        "06:00:00",
+        "07:00:00",
+        "08:00:00",
+        "09:00:00",
+        "10:00:00",
+        "11:00:00",
+        "12:00:00",
+        "13:00:00",
+        "14:00:00",
+        "15:00:00",
+        "16:00:00",
+        "17:00:00",
+        "18:00:00",
+        "19:00:00",
+        "20:00:00",
+        "21:00:00",
+        "22:00:00",
+        "23:00:00"
+      ]
+    },
+    {
+      "symbol": "TSLAUSDT",
+      "displaySymbol": "TSLAUSDT",
+      "baseAsset": "TSLA",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "underlyingType": "Stocks",
+      "delivery": ["00:00:00", "08:00:00", "16:00:00"]
+    },
+    {
+      "symbol": "CATSTOCKUSDT",
+      "displaySymbol": "CATSTOCKUSDT",
+      "baseAsset": "CATSTOCK",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "underlyingType": "Stocks",
+      "delivery": ["00:00:00", "08:00:00", "16:00:00"]
+    },
+    {
+      "symbol": "OPENAIUSDT",
+      "displaySymbol": "OPENAIUSDT",
+      "baseAsset": "OPENAI",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "underlyingType": "Pre-IPO",
+      "delivery": ["00:00:00", "08:00:00", "16:00:00"]
+    },
+    {
+      "symbol": "SPYUSDT",
+      "displaySymbol": "SPYUSDT",
+      "baseAsset": "SPY",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "underlyingType": "Indices",
+      "delivery": ["00:00:00", "08:00:00", "16:00:00"]
+    },
+    {
+      "symbol": "SP500USDT",
+      "displaySymbol": "SP500USDT",
+      "baseAsset": "SP500",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "underlyingType": "Indices",
+      "delivery": ["00:00:00", "08:00:00", "16:00:00"]
+    },
+    {
+      "symbol": "KOSPIUSDT",
+      "displaySymbol": "KOSPIUSDT",
+      "baseAsset": "KOSPI",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "underlyingType": "Indices",
+      "delivery": ["00:00:00", "08:00:00", "16:00:00"]
+    },
+    {
+      "symbol": "XAUUSDT",
+      "displaySymbol": "XAUUSDT",
+      "baseAsset": "XAU",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "underlyingType": "Metals",
+      "delivery": ["00:00:00", "04:00:00", "08:00:00", "12:00:00", "16:00:00", "20:00:00"]
+    },
+    {
+      "symbol": "PAXGUSDT",
+      "displaySymbol": "PAXGUSDT",
+      "baseAsset": "PAXG",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "underlyingType": "Metals",
+      "delivery": ["00:00:00", "04:00:00", "08:00:00", "12:00:00", "16:00:00", "20:00:00"]
+    },
+    {
+      "symbol": "CLUSDT",
+      "displaySymbol": "OIL(CL)USDT",
+      "baseAsset": "CL",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "underlyingType": "Commodities",
+      "delivery": ["00:00:00", "04:00:00", "08:00:00", "12:00:00", "16:00:00", "20:00:00"]
+    },
+    {
+      "symbol": "EURUSDT",
+      "displaySymbol": "EURUSDT",
+      "baseAsset": "EUR",
+      "quoteAsset": "USDT",
+      "contractType": "TRADIFI_PERPETUAL",
+      "underlyingType": "Forex",
+      "delivery": ["00:00:00", "04:00:00", "08:00:00", "12:00:00", "16:00:00", "20:00:00"]
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+[
+  {
+    "symbol": "BTCUSDT",
+    "lastPrice": "77287.1",
+    "volume": "6536.8578",
+    "quoteVolume": "503416154.40409",
+    "markPrice": "77288"
+  },
+  {
+    "symbol": "ETHUSDT",
+    "lastPrice": "2507.79",
+    "volume": "398267.791",
+    "quoteVolume": "992324380.51519",
+    "markPrice": "2507.86"
+  },
+  {
+    "symbol": "1000PEPEUSDT",
+    "lastPrice": "0.0034169",
+    "volume": "206312349100",
+    "quoteVolume": "706503548.7216301",
+    "markPrice": "0.0034174"
+  },
+  {
+    "symbol": "CATUSDT",
+    "lastPrice": "0.000002105",
+    "volume": "87760300000",
+    "quoteVolume": "185127.271200000",
+    "markPrice": "0.000002105"
+  },
+  {
+    "symbol": "ONUSDT",
+    "lastPrice": "0.1375",
+    "volume": "9362310.0",
+    "quoteVolume": "1273361.1220",
+    "markPrice": "0.1374"
+  },
+  {
+    "symbol": "JP225USDT",
+    "lastPrice": "0",
+    "volume": "0.0",
+    "quoteVolume": "0.0",
+    "markPrice": "64252"
+  },
+  {
+    "symbol": "MTLUSDT",
+    "lastPrice": "0.2782",
+    "volume": "7692098.0",
+    "quoteVolume": "2305412.3093",
+    "markPrice": "0.2784"
+  },
+  {
+    "symbol": "TSLAUSDT",
+    "lastPrice": "363.20",
+    "volume": "151.33000000000002",
+    "quoteVolume": "55049.330499999996",
+    "markPrice": "363.2"
+  },
+  {
+    "symbol": "CATSTOCKUSDT",
+    "lastPrice": "819.12",
+    "volume": "44.740",
+    "quoteVolume": "36528.91964",
+    "markPrice": "819.12"
+  },
+  {
+    "symbol": "OPENAIUSDT",
+    "lastPrice": "1407.25",
+    "volume": "8745.90",
+    "quoteVolume": "12535427.0918",
+    "markPrice": "1407.05"
+  },
+  {
+    "symbol": "SPYUSDT",
+    "lastPrice": "762.48",
+    "volume": "2217.81",
+    "quoteVolume": "1691438.5447",
+    "markPrice": "762.4"
+  },
+  {
+    "symbol": "SP500USDT",
+    "lastPrice": "7627.1",
+    "volume": "227.6150",
+    "quoteVolume": "1736743.37515",
+    "markPrice": "7627.1"
+  },
+  {
+    "symbol": "KOSPIUSDT",
+    "lastPrice": "6886.84",
+    "volume": "41.783",
+    "quoteVolume": "287974.50239",
+    "markPrice": "6886.84"
+  },
+  {
+    "symbol": "XAUUSDT",
+    "lastPrice": "4349.18",
+    "volume": "1394.384",
+    "quoteVolume": "6070872.1613999995",
+    "markPrice": "4349.12"
+  },
+  {
+    "symbol": "PAXGUSDT",
+    "lastPrice": "4346.15",
+    "volume": "854.996",
+    "quoteVolume": "3720537.05457",
+    "markPrice": "4346.15"
+  },
+  {
+    "symbol": "CLUSDT",
+    "lastPrice": "97.07",
+    "volume": "10919.30",
+    "quoteVolume": "1053889.7344",
+    "markPrice": "97.08"
+  },
+  {
+    "symbol": "EURUSDT",
+    "lastPrice": "1.1693",
+    "volume": "888319.0",
+    "quoteVolume": "1038809.7703",
+    "markPrice": "1.168"
+  }
+]

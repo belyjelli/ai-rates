@@ -4,11 +4,11 @@ import { createAdapters, FIXED_ADAPTERS } from "./registry";
 describe("createAdapters", () => {
   test("returns fixed adapters and one adapter per HIP-3 dex, skipping venues without adapters", () => {
     const adapters = createAdapters([
-      // `weex` stands in for "catalogued, no adapter yet". This slot used to be `binance`, which
-      // stopped being an example the moment Binance was built -- and the test said so by failing.
-      // weex is the next member of the same binance-fapi family, so whoever builds it gets the
-      // same warning here rather than a silently weakened assertion.
-      { id: "weex", type: "cex" },
+      // `coinw` stands in for "catalogued, no adapter yet". This slot was `binance`, then `weex`,
+      // and each stopped being an example the moment it was built -- the test said so by failing.
+      // coinw has no adapter today, so whoever builds it gets the same warning rather than a
+      // silently weakened assertion.
+      { id: "coinw", type: "cex" },
       { id: "okx", type: "cex" },
       { id: "hl-xyz", type: "hip3", hip3Dex: "xyz" },
       { id: "hyperliquid", type: "dex" },
@@ -25,6 +25,7 @@ describe("createAdapters", () => {
     expect([...ids].sort()).toEqual([
       "aster",
       "binance",
+      "bullet",
       "bybit",
       "dydx",
       "gate",
@@ -34,6 +35,7 @@ describe("createAdapters", () => {
       "mexc",
       "okx",
       "paradex",
+      "weex",
     ]);
   });
 });
