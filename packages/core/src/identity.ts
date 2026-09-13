@@ -74,9 +74,22 @@ export const MIN_MOVES = 30;
 /**
  * The correlation at which a member is accepted as tracking the anchor.
  *
- * The live separation is wide enough that any value in the middle works: three markets scored
- * 0.823-0.855 (okx ANTHROPIC, hl-mkts US500, okx OPENAI -- all verified 10x contracts) and the
- * next highest of the remaining 26 was 0.183. Nothing has ever been observed in between.
+ * Chosen 2026-09-13 on what was then a clean separation: three markets scored 0.823-0.855 (okx
+ * ANTHROPIC, hl-mkts US500, okx OPENAI -- all verified 10x contracts) against a next-highest of
+ * 0.183 among the other 26, so any value in the middle worked.
+ *
+ * THAT SEPARATION NO LONGER HOLDS. The claim originally written here -- that nothing had ever been
+ * observed in between -- is false as of the 19:48:11Z run the same day, when okx QNT scored 0.603
+ * against a binance anchor at a ratio of 0.759: the first observation inside the gap, and the first
+ * live `tracks` verdict. Its two sibling legs at essentially the same ratio scored 0.110 and 0.309,
+ * so a single price cluster now straddles this threshold -- and which side a leg falls on depends
+ * on the anchor, because against a mexc anchor an hour earlier all three scored 0.15-0.18.
+ *
+ * So this number is doing load-bearing work it was not chosen to do. It stays at 0.5 deliberately:
+ * moving it on one observation would be fitting the threshold to the case. QNT is an open
+ * investigation rather than a settled verdict (see the refactor plan, step 3), and nothing acting on
+ * `tracks` should assume the boundary is clean. The GATE is unaffected either way -- migration 016
+ * excludes anything beyond DIVERGENCE_TRIGGER from the anchor regardless of verdict.
  */
 export const TRACKING_CORR = 0.5;
 

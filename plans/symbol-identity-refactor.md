@@ -127,8 +127,11 @@ power of ten and are unrelated assets:
 
 The ratio rule would have set a 1000× multiplier on `BB` and merged BlackBerry into BounceBit —
 precisely the failure this refactor exists to prevent. **Return correlation decides; the ratio only
-refines.** Three markets scored 0.823–0.855, the highest of the other 26 was 0.183, and nothing has
-ever been observed in between.
+refines.** Three markets scored 0.823–0.855 and the highest of the other 26 was 0.183 — a clean gap
+when the threshold was chosen. **It did not stay clean.** On the 19:48:11Z run that same day
+`okx:QNT` scored **0.603** against a binance anchor: the first observation inside the gap, and the
+first live `tracks` verdict. `TRACKING_CORR` is deliberately left at 0.5 rather than fitted to one
+case, and QNT is an open investigation — see step 3.
 
 Two further corrections the measurements forced:
 
@@ -208,6 +211,15 @@ so they land before any new venue.
       excluded by migration 016 and reported `scale`, exponent −1, rather than merged.
 - [ ] Record price + correlation evidence inline for each new entry, as the existing block does.
 - [ ] Confirm or reject `MUFGSTOCK`→`MUFG` (correlation was inconclusive — under 30 shared minutes).
+- [ ] **Investigate `QNT` by hand — its verdict is unstable across anchor choice.** Two clusters sit
+      1.32× apart (four venues near 64.7, three near 48.7). Against a mexc anchor on 2026-09-13 the
+      three legs scored 0.15–0.18 and read as a clear mismatch; against a binance anchor an hour
+      later the same legs scored 0.110, 0.309 and **0.603**, so one crossed `TRACKING_CORR` into
+      `tracks`. Same prices, same cluster, different verdict. A 1.32× collision genuinely sits on the
+      decision boundary, so this wants correlation over a longer window and a look at what okx and
+      binance actually list — the deliberate, evidence-recorded decision this section reserves for
+      aliases, not an automated verdict. The gate excludes it either way, so nothing is at risk
+      while it stays open.
 
 ### 4. Price verification job — **done**
 - [x] `classifyDivergence` in `packages/core/src/identity.ts`, pure, own tests, thresholds
@@ -230,10 +242,11 @@ so they land before any new venue.
   other venue; being the deepest venue it anchored many pools, and **9 of the 11 `unverified` rows
   were anchored on it at exactly 6 shared minutes**. That is `MIN_SHARED_MINUTES` working —
   `BB|binance` scored −0.418 on six bars and would otherwise have published as a confident
-  mismatch. **Predicted, not yet observed:** it should clear on the 19:48:11Z run, when Binance
-  passes `MIN_SHARED_MINUTES` with ~67 minutes of history. Recorded here as a prediction so that a
-  later reader checks it rather than inherits it — if those rows are still at 6 shared minutes
-  after a second run, the cause is something other than a cold venue. **The gate is never
+  mismatch. **Predicted, then confirmed.** The prediction was that it would clear on the 19:48:11Z
+  run once Binance passed `MIN_SHARED_MINUTES`; it did. Binance reached 66–67 shared minutes and all
+  nine binance-anchored rows resolved — eight to `mismatch`, one to `tracks` — taking `unverified`
+  from 11 to 1. The survivor is `lighter:BYD`: 358 shared minutes, correlation null, a mark that did
+  not move once, which is precisely the case the verdict exists for and is now its only occupant. **The gate is never
   affected**: it compares marks
   live and never reads this table, so `gate:CAT` at 387,756,652× stays excluded from the scan while
   its verdict reads `unverified`. Expect this once per large venue during Phase 5.
