@@ -3,6 +3,7 @@ import { bestPair, pivot } from "../web/pages";
 import { handleApp } from "./app";
 import { CLEARANCE_COOKIE, createClearance } from "./clearance";
 import type {
+  ArbitrageRow,
   DataSource,
   HeatmapCell,
   MarketRow,
@@ -97,6 +98,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     ],
     exchange: async (venueId) => (venueId === "okx" ? [market({})] : []),
     heatmap: async () => [],
+    arbitrage: async () => [],
     leverageTiers: async () => [],
     settlements: async () => [],
     verifiedPairs: async () => [],
@@ -172,6 +174,75 @@ describe("pages", () => {
     // formatter rather than assumed.
     expect(html).toContain("+963%");
     expect(html).toContain("replayed 2026-09-12");
+  });
+
+  /** The ONE case as it was actually measured: a wide quoted gap resting on almost nothing. */
+  const gap = (overrides: Partial<ArbitrageRow> = {}): ArbitrageRow => ({
+    asset: "ONE",
+    venue_count: 2,
+    gap_bps: 269.64,
+    buy_venue_id: "okx",
+    buy_symbol: "ONE-USDT-SWAP",
+    buy_price: 0.01131,
+    buy_depth_usd: 2_000,
+    sell_venue_id: "gate",
+    sell_symbol: "ONE_USDT",
+    sell_price: 0.01162,
+    sell_depth_usd: 220_004,
+    thinner_depth_usd: 2_000,
+    oldest_observed_at: new Date(NOW - 20_000),
+    ...overrides,
+  });
+
+  test("a price gap shows the size it is good for, which is the thinner side", async () => {
+    const { data } = fakeData({ arbitrage: async () => [gap()] });
+    const html = await (await get("/arbitrage", data)).text();
+
+    expect(html).toContain("269.6");
+    // Both sides are rendered, but the figure the row is titled with is the SMALL one: a 269 bps
+    // gap against $2k of resting size is a quote, not a trade.
+    expect(html).toContain("$2.0k");
+    expect(html).toContain("$220k");
+    expect(html).toContain("Good for about $2.0k");
+    // Buy/sell are their own classes: reusing long/short would borrow a funding meaning that a
+    // price gap does not have.
+    expect(html).toContain("buy-leg");
+    expect(html).toContain("sell-leg");
+    expect(html).toContain("quotable gaps at the size shown");
+  });
+
+  test("an unknown resting size says so instead of reading as zero", async () => {
+    const { data } = fakeData({
+      arbitrage: async () => [gap({ buy_depth_usd: null, thinner_depth_usd: null })],
+    });
+    const html = await (await get("/arbitrage", data)).text();
+
+    // esc() turns the apostrophe into an entity, so the assertion avoids one rather than guessing
+    // which form reaches the page.
+    expect(html).toContain("resting size is unknown");
+    expect(html).not.toContain("Good for about");
+  });
+
+  test("/v1/arbitrage echoes the parsed params and their canonical query", async () => {
+    const { data } = fakeData({ arbitrage: async () => [] });
+    const res = await get("/v1/arbitrage?min_bps=25&min_depth=10k", data);
+    const body = (await res.json()) as {
+      params: { minGapBps: number; minDepthUsd: number };
+      query: string;
+      count: number;
+    };
+
+    expect(res.status).toBe(200);
+    expect(body.params.minGapBps).toBe(25);
+    expect(body.params.minDepthUsd).toBe(10_000);
+    expect(body.query).toBe("?min_bps=25&min_depth=10000");
+    expect(body.count).toBe(0);
+  });
+
+  test("an empty table explains that most assets quote nothing", async () => {
+    const { data } = fakeData({ arbitrage: async () => [] });
+    const html = await (await get("/arbitrage", data)).text();
+    expect(html).toContain("No asset quotes a gap this wide right now");
   });
 
   test("the verified ranking says so before the first nightly run", async () => {

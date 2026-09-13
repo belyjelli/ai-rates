@@ -6,6 +6,7 @@ const NAV = [
   { href: "/", label: "spreads", match: (p: string) => p === "/" },
   { href: "/screener", label: "screener", match: (p: string) => p === "/screener" },
   { href: "/rates", label: "rates", match: (p: string) => p === "/rates" },
+  { href: "/arbitrage", label: "arbitrage", match: (p: string) => p === "/arbitrage" },
   { href: "/markets", label: "exchanges", match: (p: string) => p.startsWith("/markets") },
 ];
 
@@ -14,6 +15,7 @@ const KEYS: [string, string, string][] = [
   ["h", "spreads", "/"],
   ["s", "screener", "/screener"],
   ["r", "rates", "/rates"],
+  ["a", "arbitrage", "/arbitrage"],
   ["e", "exchanges", "/markets"],
 ];
 
@@ -135,6 +137,10 @@ table.heat{border-collapse:collapse;width:auto;min-width:100%}
 .leg .venue{border:0}
 .leg .meta{color:var(--muted)}
 .long-leg .venue{color:var(--long)}.short-leg .venue{color:var(--short)}
+/* Buy and sell are a direction of trade, not a funding polarity, so they deliberately do NOT reuse
+   --long/--short: on every other page those colours answer "who pays whom". Accent for the side
+   money leaves, plain ink for the side it returns to. */
+.buy-leg .venue{color:var(--accent)}.sell-leg .venue{color:var(--ink)}
 .shorts-paid{color:var(--short)}.longs-paid{color:var(--long)}.flat{color:var(--muted)}
 .dim{color:var(--muted)}
 .empty{padding:16px 10px;color:var(--muted)}
