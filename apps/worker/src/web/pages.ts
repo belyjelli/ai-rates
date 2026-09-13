@@ -798,6 +798,54 @@ export function pricePair(data: {
 </tr>`;
   };
 
+  /**
+   * Every direction, not just the best one.
+   *
+   * Naming a single pair hides the tradeable one. Sampling production for a minute showed the gaps
+   * holding their magnitude while the depth behind them moved by an order of magnitude — MTL's
+   * tradeable size went $243 → $2,085 → $264 — so the widest quote is routinely not the one worth
+   * taking. Rejected venues never appear here: a mismatched instrument must not set a price in any
+   * direction.
+   */
+  const pairs = agreeing
+    .flatMap((buy) =>
+      agreeing
+        .filter((sell) => sell.venue_id !== buy.venue_id)
+        .map((sell) => ({
+          buy,
+          sell,
+          gapBps: ((sell.best_bid - buy.best_ask) / buy.best_ask) * 10000,
+          // Math.min(null, 500) is 0, not null — the same skip-a-null trap as SQL's least(), in a
+          // different language. An unknown side has to stay unknown.
+          goodForUsd:
+            buy.best_ask_size_usd === null || sell.best_bid_size_usd === null
+              ? null
+              : Math.min(buy.best_ask_size_usd, sell.best_bid_size_usd),
+        })),
+    )
+    .sort((a, b) => b.gapBps - a.gapBps);
+
+  const pairsTable =
+    pairs.length === 0
+      ? ""
+      : `<div class="section-head"><h2>Every pair</h2></div>
+<p class="lede">One row per direction: buy at the first exchange, sell at the second. The widest gap is often not the one to take — a narrower pair can rest far more size behind it, and most directions lose outright.</p>
+<div class="sheet-wrap"><table class="sheet">
+<thead><tr><th>Buy at</th><th>Sell at</th><th class="num">Gap, bps</th><th class="num" title="The smaller of the buying side's ask size and the selling side's bid size — what this direction is good for">Good for</th></tr></thead>
+<tbody data-live="pp-pairs">${pairs
+          .map(
+            (p) => `<tr data-k="${esc(`pair:${p.buy.venue_id}|${p.sell.venue_id}`)}"${
+              p.gapBps > 0 ? "" : ' class="dim"'
+            }>
+<td><div class="leg buy-leg"><a class="venue" href="${exchangeHref(p.buy.venue_id)}">${esc(venueName(p.buy.venue_id))}</a></div></td>
+<td><div class="leg sell-leg"><a class="venue" href="${exchangeHref(p.sell.venue_id)}">${esc(venueName(p.sell.venue_id))}</a></div></td>
+<td class="num spread"><span data-u="pair-gap">${formatGapBps(p.gapBps)}</span>${p.buy === lowestAsk && p.sell === highestBid ? ' <span class="dim">best</span>' : ""}</td>
+<td class="num"><span data-u="pair-depth">${formatUsd(p.goodForUsd)}</span></td>
+</tr>`,
+          )
+          .join("")}</tbody>
+</table></div>`;
+
   const headline =
     crossVenue === null
       ? `<p class="lede" data-live="pp-lede">No two exchanges quote ${esc(name)} in a way that can be compared right now.</p>`
@@ -821,6 +869,8 @@ export function pricePair(data: {
     body: `<p class="eyebrow"><a href="/arbitrage">Price gaps</a></p>
 <h1>${esc(name)}</h1>
 ${headline}
+${pairsTable}
+<div class="section-head"><h2>Every exchange</h2></div>
 <div class="sheet-wrap"><table class="sheet">
 <thead><tr><th>Exchange</th><th class="num">Best bid</th><th class="num">Bid size</th><th class="num">Best ask</th><th class="num">Ask size</th><th class="num" title="The venue's own bid-ask spread in basis points">Own spread</th><th class="num">Mark</th><th>Quoted</th></tr></thead>
 <tbody data-live="pp-quotes">${quotes.map(row).join("")}</tbody>

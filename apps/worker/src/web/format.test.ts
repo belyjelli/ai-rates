@@ -40,6 +40,10 @@ describe("formatGapBps", () => {
     expect(formatGapBps(0)).toBe("0.0");
     expect(formatGapBps(0.04)).toBe("0.0");
     expect(formatGapBps(null)).toBe("–");
+    // Losing directions are shown, with the site's minus sign rather than a hyphen.
+    expect(formatGapBps(-283.51)).toBe("−283.5");
+    // A value that rounds to zero must not acquire a sign it cannot justify.
+    expect(formatGapBps(-0.04)).toBe("0.0");
   });
 });
 
