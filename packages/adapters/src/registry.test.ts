@@ -54,6 +54,7 @@ describe("createAdapters", () => {
       "okx",
       "ondo",
       "orderly",
+      "pacifica",
       "paradex",
       "perpl",
       "phoenix",

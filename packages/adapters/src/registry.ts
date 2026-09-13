@@ -29,6 +29,7 @@ import { nadoAdapter } from "./venues/nado";
 import { okxAdapter } from "./venues/okx";
 import { ondoAdapter } from "./venues/ondo";
 import { orderlyAdapter } from "./venues/orderly";
+import { pacificaAdapter } from "./venues/pacifica";
 import { paradexAdapter } from "./venues/paradex";
 import { perplAdapter } from "./venues/perpl";
 import { phoenixAdapter } from "./venues/phoenix";
@@ -97,6 +98,7 @@ export const FIXED_ADAPTERS: readonly VenueAdapter[] = [
   polymarketAdapter,
   backpackAdapter,
   bluefinAdapter,
+  pacificaAdapter,
 ];
 
 /** Structural subset of a catalog venue, so this package doesn't depend on @ai-rates/venues. */

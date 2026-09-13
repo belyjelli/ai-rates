@@ -57,6 +57,7 @@ describe("collector adapters", () => {
     expect(ids).toContain("nado");
     expect(ids).toContain("polymarket");
     expect(ids).toContain("risex");
+    expect(ids).toContain("pacifica");
     expect(ids).toContain("orderly");
     expect(ids).toContain("pionex");
   });
