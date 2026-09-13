@@ -98,6 +98,17 @@ describe("backtestDaily", () => {
     expect(daily.paybackDays).toEqual(replay.paybackDays);
     expect(daily.long.missedSettlements).toBe(0);
     expect(daily.short.missedSettlements).toBe(0);
+    expect(daily.long.averageAprPercent).toBeCloseTo(
+      replay.long.averageAprPercent ?? Number.NaN,
+      9,
+    );
+    expect(daily.short.averageAprPercent).toBeCloseTo(
+      replay.short.averageAprPercent ?? Number.NaN,
+      9,
+    );
+    expect(daily.bestDay?.date).toBe(replay.bestDay?.date as string);
+    expect(daily.worstDay?.date).toBe(replay.worstDay?.date as string);
+    expect(daily.maxDrawdownUsd).toBeCloseTo(replay.maxDrawdownUsd, 9);
   });
 
   test("a day short of coverage counts the same missed settlements the replay finds", () => {
@@ -169,5 +180,69 @@ describe("backtestDaily", () => {
 
     expect(daily.short.settlements).toBe(3);
     expect(daily.short.fundingUsd).toBeCloseTo(3, 9);
+  });
+});
+
+describe("summary figures", () => {
+  /** A short leg that nets `usd` on each successive day, one 8-hour settlement a day, on $10,000. */
+  const dailyNets = (nets: number[]) =>
+    backtestPair({
+      long: { venueId: "okx", venueSymbol: "BTC-USDT-SWAP", settlements: [] },
+      short: {
+        venueId: "bybit",
+        venueSymbol: "BTCUSDT",
+        settlements: nets.map((usd, i) => ({
+          settledAt: START + i * DAY,
+          rate: usd / 10_000,
+          basisHours: 8,
+        })),
+      },
+      sizeUsd: 10_000,
+      fromMs: START,
+      toMs: START + nets.length * DAY,
+    });
+
+  test("best and worst day, and the largest fall from a previous high", () => {
+    // Cumulative: 5, -3, -1, -2, 4. The high of 5 falls to -3, a drawdown of 8; the later dip
+    // from -1 to -2 is smaller, and the recovery to 4 never passes the old high.
+    const result = dailyNets([5, -8, 2, -1, 6]);
+
+    expect(result.bestDay?.date).toBe("2026-09-05");
+    expect(result.bestDay?.netUsd).toBeCloseTo(6, 9);
+    expect(result.worstDay?.date).toBe("2026-09-02");
+    expect(result.worstDay?.netUsd).toBeCloseTo(-8, 9);
+    expect(result.maxDrawdownUsd).toBeCloseTo(8, 9);
+  });
+
+  test("a pair that opens with a loss draws down from zero", () => {
+    expect(dailyNets([-3, 1]).maxDrawdownUsd).toBeCloseTo(3, 9);
+    expect(dailyNets([1, 2, 3]).maxDrawdownUsd).toBe(0);
+    const empty = dailyNets([]);
+    expect(empty.bestDay).toBeNull();
+    expect(empty.maxDrawdownUsd).toBe(0);
+  });
+
+  test("a leg's average rate is time-weighted and ignores which side it holds", () => {
+    // Sixteen hours at 0.001% an hour and one 8-hour settlement at 0.008%: 0.024% over 24 hours,
+    // 0.001% an hour, 8.76% a year. The leg is long, so it pays, but the rate is still positive.
+    const settlements = [
+      ...Array.from({ length: 16 }, (_, i) => ({
+        settledAt: START + i * HOUR,
+        rate: 0.00001,
+        basisHours: 1,
+      })),
+      { settledAt: START + 16 * HOUR, rate: 0.00008, basisHours: 8 },
+    ];
+    const result = backtestPair({
+      long: { venueId: "okx", venueSymbol: "BTC-USDT-SWAP", settlements },
+      short: { venueId: "bybit", venueSymbol: "BTCUSDT", settlements: [] },
+      sizeUsd: 10_000,
+      fromMs: START,
+      toMs: START + DAY,
+    });
+
+    expect(result.long.fundingUsd).toBeLessThan(0);
+    expect(result.long.averageAprPercent).toBeCloseTo(8.76, 9);
+    expect(result.short.averageAprPercent).toBeNull();
   });
 });

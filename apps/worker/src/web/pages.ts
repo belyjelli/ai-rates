@@ -1266,7 +1266,7 @@ ${feeField("fee_short", "Short taker fee", params?.shortTakerBps ?? null)}
     params
       ? `<a href="${pairHref(asset)}${backtestToQuery({ ...params, longVenueId: params.shortVenueId, shortVenueId: params.longVenueId })}">⇄ swap legs</a>`
       : ""
-  }<a href="${assetHref(asset)}">Back to ${esc(asset)}</a></div>
+  }<a href="/price-pair/${encodeURIComponent(asset)}" title="What entering and exiting would cost at each exchange's top of book">price gap</a><a href="${assetHref(asset)}">Back to ${esc(asset)}</a></div>
 </form>`;
 }
 
@@ -1290,6 +1290,36 @@ function costsFact(result: BacktestResult): string {
   return `${net}${payback}`;
 }
 
+/**
+ * The days that bracket the result, and how far cumulative funding fell on the way. They separate a
+ * steady carry from one that earned everything in a single day. Funding only, before costs, the same
+ * basis as the curve above them.
+ */
+function rangeFacts(result: BacktestResult): string {
+  const { bestDay, worstDay } = result;
+  if (!bestDay || !worstDay) return "";
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const when = (date: string) => {
+    const [, month, day] = date.split("-");
+    return `${months[Number(month) - 1]} ${Number(day)}`;
+  };
+  const drawdown = result.maxDrawdownUsd > 0 ? money(-result.maxDrawdownUsd) : money(0);
+  return `<span>best day <b>${money(bestDay.netUsd)}</b> ${when(bestDay.date)}</span><span>worst day <b>${money(worstDay.netUsd)}</b> ${when(worstDay.date)}</span><span title="The largest fall in cumulative funding from a previous high, before costs">max drawdown <b>${drawdown}</b></span>`;
+}
+
 export function pair(data: {
   asset: string;
   markets: MarketRow[];
@@ -1309,12 +1339,14 @@ export function pair(data: {
   const venues = new Set(markets.map((m) => m.venue_id)).size;
   const legMarket = (venueId: string, venueSymbol: string) =>
     markets.find((m) => m.venue_id === venueId && m.venue_symbol === venueSymbol);
-  // What each leg charges right now and how often, beside what it settled over the window.
-  const legNow = (venueId: string, venueSymbol: string) => {
-    const market = legMarket(venueId, venueSymbol);
-    return market
-      ? ` · now ${apr(market.apr)}, every ${formatInterval(market.interval_hours)}`
-      : "";
+  // What each leg charges right now, against its average over the window and how often it settles.
+  // A leg quoting far above its own average is paying for a spike, not a carry.
+  const legRates = (leg: BacktestResult["long"]) => {
+    const market = legMarket(leg.venueId, leg.venueSymbol);
+    const average =
+      leg.averageAprPercent === null ? "" : `${days}d avg ${apr(leg.averageAprPercent)}`;
+    if (!market) return average ? ` · ${average}` : "";
+    return ` · now ${apr(market.apr)}${average ? `, ${average}` : ""}, every ${formatInterval(market.interval_hours)}`;
   };
   const legs = result
     ? {
@@ -1337,11 +1369,11 @@ export function pair(data: {
       ? `<p class="headline ${result.netFundingUsd >= 0 ? "up" : "down"}">${money(result.netFundingUsd)}</p>
 <p class="eyebrow">net funding over the last ${params.days === 1 ? "day" : `${params.days} days`} · ${formatApr(result.netFundingAprPercent)} annualized</p>
 <div class="pair-legs">
-<span class="long"><b>Long ${esc(venueName(result.long.venueId))}</b> ${esc(result.long.venueSymbol)} · ${result.long.settlements} settlements · ${money(result.long.fundingUsd)}${legNow(result.long.venueId, result.long.venueSymbol)}</span>
-<span class="short"><b>Short ${esc(venueName(result.short.venueId))}</b> ${esc(result.short.venueSymbol)} · ${result.short.settlements} settlements · ${money(result.short.fundingUsd)}${legNow(result.short.venueId, result.short.venueSymbol)}</span>
+<span class="long"><b>Long ${esc(venueName(result.long.venueId))}</b> ${esc(result.long.venueSymbol)} · ${result.long.settlements} settlements · ${money(result.long.fundingUsd)}${legRates(result.long)}</span>
+<span class="short"><b>Short ${esc(venueName(result.short.venueId))}</b> ${esc(result.short.venueSymbol)} · ${result.short.settlements} settlements · ${money(result.short.fundingUsd)}${legRates(result.short)}</span>
 </div>
 ${equityCurve(result, params.sizeUsd)}
-<div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span><span>${capitalFact(capital ?? pairCapital(params.sizeUsd, undefined, undefined, tiers))}</span>${costsFact(result)}</div>
+<div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span>${rangeFacts(result)}<span>${capitalFact(capital ?? pairCapital(params.sizeUsd, undefined, undefined, tiers))}</span>${costsFact(result)}</div>
 ${
   result.long.missedSettlements > 0 || result.short.missedSettlements > 0
     ? `<p class="notes">Missed settlements: ${result.long.missedSettlements} on ${esc(venueName(result.long.venueId))}, ${result.short.missedSettlements} on ${esc(venueName(result.short.venueId))}. A gap is reported rather than counted as zero, so this total covers only the settlements actually recorded.</p>`
