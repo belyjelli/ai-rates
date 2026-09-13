@@ -103,6 +103,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     arbitrage: async () => [],
     priceQuotes: async () => [],
     venueStatus: async () => [],
+    identityChecks: async () => [],
     leverageTiers: async () => [],
     dailyFunding: async () => [],
     hourlyFunding: async () => [],
@@ -348,6 +349,123 @@ describe("pages", () => {
     expect(html).toContain("<b>1</b> collected");
   });
 
+  test("price verification names the collision above the merely rescaled", async () => {
+    const { data } = fakeData({
+      // The three live shapes from migration 015, in the order they were measured.
+      identityChecks: async () => [
+        {
+          base: "US500",
+          venue_id: "hl-mkts",
+          venue_symbol: "mkts:US500",
+          anchor_venue_id: "lighter",
+          anchor_venue_symbol: "US500",
+          verdict: "scale",
+          price_ratio: 0.09988,
+          scale_exponent: -1,
+          return_corr: 0.842,
+          ratio_sd: 0.00009,
+          shared_minutes: 358,
+          member_moves: 226,
+          anchor_moves: 263,
+          member_oi_usd: 1_600_000,
+          anchor_oi_usd: 2_640_000,
+          checked_at: new Date(NOW - 60_000),
+        },
+        {
+          base: "PURR",
+          venue_id: "gate",
+          venue_symbol: "PURR_USDT",
+          anchor_venue_id: "hyperliquid",
+          anchor_venue_symbol: "PURR",
+          verdict: "mismatch",
+          price_ratio: 104.64991,
+          scale_exponent: null,
+          return_corr: 0.005,
+          ratio_sd: 0.00176,
+          shared_minutes: 360,
+          member_moves: 241,
+          anchor_moves: 262,
+          member_oi_usd: 4_000,
+          anchor_oi_usd: 11_140_000,
+          checked_at: new Date(NOW - 60_000),
+        },
+        {
+          base: "BYD",
+          venue_id: "lighter",
+          venue_symbol: "BYD",
+          anchor_venue_id: "bybit",
+          anchor_venue_symbol: "BYDUSDT",
+          verdict: "unverified",
+          price_ratio: 0.29526,
+          scale_exponent: null,
+          return_corr: null,
+          ratio_sd: 0.0006,
+          shared_minutes: 360,
+          member_moves: 0,
+          anchor_moves: 20,
+          member_oi_usd: 1_000,
+          anchor_oi_usd: 90_000,
+          checked_at: new Date(NOW - 60_000),
+        },
+      ],
+    });
+    const html = await (await get("/status", data)).text();
+    // Scoped to this table's own tbody, for the reason the venue test above documents: every vd-*
+    // class name also appears in the inlined stylesheet, so a position check against the whole
+    // document would measure the order the CSS rules were written in, not the order of the rows.
+    const rows = html.split('<tbody data-checks="identity">')[1]?.split("</tbody>")[0] ?? "";
+
+    expect(rows).toContain("vd-mismatch");
+    expect(rows).toContain("vd-scale");
+    expect(rows).toContain("vd-unverified");
+    // A collision means two unrelated assets share a ticker, which is worse than a market quoted in
+    // different units, so it sorts first however the rows arrive.
+    expect(rows.indexOf("vd-mismatch")).toBeLessThan(rows.indexOf("vd-scale"));
+    expect(rows.indexOf("vd-scale")).toBeLessThan(rows.indexOf("vd-unverified"));
+
+    // Ratios span nine orders of magnitude and still have to read as numbers.
+    expect(rows).toContain("104.650×");
+    expect(rows).toContain("0.100×");
+    // The anchor travels with the row: which market was the reference is part of the verdict.
+    expect(rows).toContain("hyperliquid");
+
+    // A frozen market shows a dash, never 0.00. "Nothing to correlate against" and "does not
+    // correlate" are different claims, and only one of them is an accusation.
+    expect(rows).toContain('<span class="dim">–</span>');
+    expect(rows).toContain("0.84");
+
+    expect(html).toContain("<b>3</b> diverging");
+    expect(html).toContain("<b>1</b> mismatch");
+  });
+
+  test("status survives a verification table that does not exist yet", async () => {
+    // The deploy this protects against: the worker ships before migration 015 has been applied.
+    // Collector health IS this page; verification is a section of it. And a 503 here would be the
+    // worst possible one, because /status is where a reader goes to diagnose a half-finished deploy.
+    const { data } = fakeData({
+      venueStatus: async () => [vstatus()],
+      identityChecks: async () => {
+        throw new Error('relation "market_identity_checks" does not exist');
+      },
+    });
+    const response = await get("/status", data);
+    expect(response.status).toBe(200);
+
+    const html = await response.text();
+    // The venue table, the thing this page exists for, still renders.
+    expect(html).toContain("Gate");
+    // And it must NOT claim a clean bill of health it never took.
+    expect(html).toContain("Verification has not run yet");
+    expect(html).not.toContain("Every market agrees");
+  });
+
+  test("price verification says so plainly when every market agrees", async () => {
+    const { data } = fakeData({ identityChecks: async () => [] });
+    const html = await (await get("/status", data)).text();
+    expect(html).toContain("Every market agrees with the deepest market in its asset pool");
+    expect(html).not.toContain('<tbody data-checks="identity">');
+  });
+
   test("/v1/status returns every venue as JSON", async () => {
     const { data } = fakeData({ venueStatus: async () => [vstatus()] });
     const body = (await (await get("/v1/status", data)).json()) as { count: number };
@@ -369,7 +487,7 @@ describe("pages", () => {
     best_bid_size_usd: 50_000,
     best_ask_size_usd: 20_000,
     mark_price: 0.01132,
-    median_mark: 0.01132,
+    anchor_mark: 0.01132,
     mark_agrees: true,
     observed_at: new Date(NOW - 20_000),
     ...overrides,
@@ -968,6 +1086,21 @@ describe("pages", () => {
       )
     ).text();
     expect(long).toContain("annualized · daily");
+  });
+
+  test("about is linked from every footer and names the project and its version", async () => {
+    const { data } = fakeData();
+    const res = await get("/about", data);
+    const html = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(html).toContain("<h1>About airrates</h1>");
+    expect(html).toContain("Recent changes");
+    // The tests run on the committed placeholder, which says so rather than inventing a commit.
+    expect(html).toContain("commit <b>not recorded</b>");
+    expect(html).toContain("4,286 markets");
+    // Every page's footer links it, so it is reachable from anywhere.
+    expect(await (await get("/", data)).text()).toContain('<a href="/about">about</a>');
   });
 
   test("database failures render a 503 page, not an exception", async () => {

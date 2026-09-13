@@ -109,14 +109,58 @@ classifier must be **testable per venue** rather than a single expression.
 This is the "follow the prices that are really the correct ones" requirement, and it is a *check on
 identity*, not a filter that hides bad identity.
 
-For each `assetKey`: take the median mark, and flag any member beyond tolerance. A divergence is
-always one of three things, and the report says which:
+**Built, and the design above was wrong.** The original rule — "near 10× / 100× / 1000× → a scale
+variance → set `multiplier`" — was measured against live data on 2026-09-14 and does not work. It
+is kept here rather than deleted, because the reason it fails is the whole point of this layer.
 
-1. **near 10× / 100× / 1000×** → a scale variance (1c) → set `multiplier`, do not exclude.
-2. **wildly off, no clean ratio** → a bad alias or an undetected collision → **alarm**.
-3. **within tolerance** → identity confirmed.
+*Landing near a power of ten is a coincidence.* Three markets sit within tolerance of a clean
+power of ten and are unrelated assets:
 
-Surface it on `/status` beside the collector states. A silent filter is how 1a survived this long.
+| member | ratio | return corr | what it is |
+| --- | --- | --- | --- |
+| `gate:PURR` | 104.65× | **0.005** | a different asset, 2% off 100× |
+| `bybit:BB` | 0.00105× | **0.030** | BlackBerry vs BounceBit, 5% off 1/1000 |
+| `aster:MEME` | 93.64× | **−0.002** | a different asset |
+| `okx:ANTHROPIC` | 0.10164× | **0.855** | a genuine 10× contract |
+| `hl-mkts:US500` | 0.09988× | **0.842** | a genuine 10× contract |
+| `okx:OPENAI` | 0.10257× | **0.823** | a genuine 10× contract |
+
+The ratio rule would have set a 1000× multiplier on `BB` and merged BlackBerry into BounceBit —
+precisely the failure this refactor exists to prevent. **Return correlation decides; the ratio only
+refines.** Three markets scored 0.823–0.855, the highest of the other 26 was 0.183, and nothing has
+ever been observed in between.
+
+Two further corrections the measurements forced:
+
+- **The anchor is the pool's deepest market by open interest, not its median.** A median names the
+  biggest *cluster* as correct, and the biggest cluster is not the truest. `PURR` splits three thin
+  venues at ~11.4 ($0.91M combined) against hyperliquid and mexc at ~0.109 ($11.15M) — a median
+  hands the verdict to the three and reports Hyperliquid's own token as the outlier.
+- **The evidence floor counts moves, not volatility.** `hl-mkts:US500` had the second-quietest
+  series in the sample and still scored 0.842, because both sides moved on 226 and 263 of 358 bars.
+  What genuinely cannot be judged is `lighter:BYD`, whose mark did not move once in six hours.
+
+So the verdict is one of four, never three: `scale` (tracks at a clean power of ten), `tracks`
+(same underlying, factor is not a contract scale), `mismatch` (does not track, and there was enough
+movement to say so), `unverified` (too little shared movement to judge). And **a collision does not
+have to be large** — `QNT` splits at just 1.32×, far too small to notice by eye.
+
+It reports and never merges: setting a multiplier from a measured ratio *is* automatic price-based
+merging, which §4 forbids. Surfaced on `/status` beside the collector states, because a silent
+filter is how 1a survived this long.
+
+**The verdict now gates the listing (migration 016).** A wrong number is worth less than no number,
+so a market that does not agree with its anchor is not listed on the scan at all — one call, taken
+in one place. The four verdicts are the *reason* behind that call, never a second opinion on it.
+This also retires the 5% median guard from migration 005, which was measurably picking the wrong
+side: both filters drop 29 of 4,730 legs, but they disagree on 10 each way, and the median was
+dropping Hyperliquid's own $11.15M PURR market in favour of three venues holding $0.91M between
+them. Cost, measured before the change: 899 assets quote on two or more venues and 887 still do.
+Of the 12 that fall out, only four carry any open interest — `JPY` ($12.01M, a reciprocal quote
+that must never pair), `AI`, `HK50`, `RTX` — and five of the rest are pre-consolidation artefacts
+that step 1 re-bases as soon as it deploys. `scale` is excluded along with the others: until
+someone sets the multiplier, the number that market publishes is not the asset's price. Fixing the
+multiplier puts it back automatically.
 
 **Correlation confirms; it never decides.** Return correlation over 358 minutes cleanly separated
 real aliases from coincidences — `PUMPFUN`↔`PUMP` **0.906**, `FILECOIN`↔`FIL` **0.727**,
@@ -158,9 +202,16 @@ so they land before any new venue.
 - [ ] Record price + correlation evidence inline for each new entry, as the existing block does.
 - [ ] Confirm or reject `MUFGSTOCK`→`MUFG` (correlation was inconclusive — under 30 shared minutes).
 
-### 4. Price verification job
-- [ ] Per-`assetKey` divergence report: scale variance vs alarm vs confirmed.
-- [ ] Surface on `/status`; add the near-10ⁿ detector so `hl-mkts:US500` becomes a `multiplier`.
+### 4. Price verification job — **done**
+- [x] `classifyDivergence` in `packages/core/src/identity.ts`, pure, own tests, thresholds
+      pre-registered in migration 015 with the live measurements behind each one.
+- [x] Migration 015 `market_identity_checks`; `refreshIdentityChecks` on the collector, hourly.
+- [x] Surfaced on `/status` and `/v1/status`, worst verdict first.
+- [x] Integration tests both sides: the collector's SQL against real minute bars, and the worker's
+      read under `fetch_types: false`.
+- **The near-10ⁿ detector was NOT built, deliberately** — see Layer 3. It would have merged
+  BlackBerry into BounceBit. `hl-mkts:US500` is now reported `scale`, exponent −1, on a correlation
+  of 0.842, and a human decides whether to act on it.
 
 ### 5. Then the venues
 - [ ] WEEX — needs `collectCycle` (minutes: `{240: 493, 480: 517, 60: 6}`) as its interval source,

@@ -168,10 +168,43 @@ describe.skipIf(!url)("screener read models (integration)", () => {
     const unguarded = await pairsFor(`0, 0, NULL, NULL, ${age}, NULL, NULL`);
     expect(unguarded[0]).toMatchObject({ short_venue_id: v3, short_symbol: odd });
 
-    // Every other leg marks 10, so a 5% band excludes it and the honest pair returns.
+    // Every other leg marks 10 and they all hold the same open interest, so the anchor ties to the
+    // lowest venue id at 10 and the band excludes the odd leg; the honest pair returns.
     const guarded = await pairsFor(`0, 0, NULL, NULL, ${age}, NULL, 0.05`);
     expect(guarded[0]?.short_symbol).not.toBe(odd);
     expect(guarded[0]).toMatchObject({ long_venue_id: v1, short_venue_id: v2 });
+  });
+
+  test("the anchor is the deepest market, not the biggest cluster", async () => {
+    // The PURR shape, and the reason migration 016 replaced the median. Two thin venues agree with
+    // each other while a far deeper one disagrees. A median calls the deep market the outlier and
+    // publishes the thin pair; the anchor calls the thin pair the outliers and publishes nothing.
+    // On live data the median was dropping Hyperliquid's $11.15M PURR leg in favour of three
+    // venues holding $0.91M between them.
+    const now = Date.now();
+    const deepAsset = `${asset}DEEP`;
+    const leg = (venueId: string, rate: number, mark: number, oi: number): FundingSnapshot => ({
+      ...snap(venueId, `${deepAsset}-${venueId.slice(-1).toUpperCase()}`, rate, now, oi),
+      base: deepAsset,
+      markPrice: mark,
+      indexPrice: mark,
+    });
+    await store.recordBatch(v1, { snapshots: [leg(v1, 0.0001, 10, 100_000)], settled: [] }, now);
+    await store.recordBatch(v2, { snapshots: [leg(v2, 0.0009, 10, 100_000)], settled: [] }, now);
+    // Ninety times the open interest of the two combined, and priced like a different instrument.
+    await store.recordBatch(
+      v3,
+      { snapshots: [leg(v3, 0.0005, 1000, 9_000_000)], settled: [] },
+      now,
+    );
+
+    const rows = (await sql.unsafe(
+      `SELECT * FROM screener_pairs(0, 0, NULL, NULL, interval '5 minutes') WHERE asset = '${deepAsset}'`,
+    )) as Record<string, unknown>[];
+
+    // One market agrees with the anchor, so there is no pair -- and no pair is the honest answer.
+    // Two thin venues agreeing with each other is not evidence that they are the asset.
+    expect(rows).toHaveLength(0);
   });
 
   test("refreshFundingStats computes time-weighted settled APR windows", async () => {

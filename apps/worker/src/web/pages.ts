@@ -1,9 +1,15 @@
-import { type BacktestResult, pairCapitalUsd, tierForSize } from "@ai-rates/core";
+import {
+  type BacktestResult,
+  type IdentityVerdict,
+  pairCapitalUsd,
+  tierForSize,
+} from "@ai-rates/core";
 import { VENUES, type Venue } from "@ai-rates/venues";
 import type {
   ArbitrageRow,
   ExchangeSummary,
   HeatmapCell,
+  IdentityCheckRow,
   LeverageTierRow,
   MarketRow,
   Overview,
@@ -787,13 +793,13 @@ export function pricePair(data: {
   const row = (q: PriceQuote) => {
     const inVenueBps = ((q.best_ask - q.best_bid) / q.best_bid) * 10000;
     const off =
-      q.mark_agrees || q.median_mark === null || q.mark_price === null || q.median_mark === 0
+      q.mark_agrees || q.anchor_mark === null || q.mark_price === null || q.anchor_mark === 0
         ? null
-        : q.mark_price / q.median_mark;
+        : q.mark_price / q.anchor_mark;
     const why =
       off === null
         ? "This venue's mark disagrees with the rest, so it is excluded from the gap"
-        : `Marked ${off >= 1 ? off.toFixed(1) : (1 / off).toFixed(1)}× ${off >= 1 ? "above" : "below"} the median for this asset, so it is a different instrument, not a price gap`;
+        : `Marked ${off >= 1 ? off.toFixed(1) : (1 / off).toFixed(1)}× ${off >= 1 ? "above" : "below"} this asset's deepest market, so it is a different instrument, not a price gap`;
     return `<tr data-k="${esc(`${q.venue_id}|${q.venue_symbol}`)}"${q.mark_agrees ? "" : ` class="dim" title="${esc(why)}"`}>
 <td><div class="leg${q === lowestAsk ? " buy-leg" : q === highestBid ? " sell-leg" : ""}"><a class="venue" href="${exchangeHref(q.venue_id)}">${esc(venueName(q.venue_id))}</a><span class="meta">${esc(q.venue_symbol)}</span></div></td>
 <td class="num"><span data-u="bid">${formatPrice(q.best_bid)}</span>${q === highestBid ? ' <span class="dim">best</span>' : ""}</td>
@@ -866,7 +872,7 @@ export function pricePair(data: {
           .map((q) => esc(venueName(q.venue_id)))
           .join(
             ", ",
-          )}. Their marks disagree with the median for this asset by more than 5%, which means a differently-sized or differently-named instrument rather than a price difference — the check that stops a 1375× mismatch being published as a 13,660,780 bps opportunity.</p>`;
+          )}. Their marks disagree by more than 10% with this asset's deepest market by open interest, which means a differently-sized or differently-named instrument rather than a price difference — the check that stops a 1375× mismatch being published as a 13,660,780 bps opportunity. <a href="/status">Status</a> names the reason for each one.</p>`;
 
   return layout({
     title: `${name} price gaps by exchange`,
@@ -889,6 +895,30 @@ ${excluded}
 }
 
 /** Problems first. A page nobody reads when things are fine must lead with what is not. */
+/**
+ * Verdicts worst-first. `mismatch` leads because it means two different assets are sharing one
+ * ticker, which silently corrupts every pair built on them; `unverified` trails because a market
+ * too thin to judge is not an accusation.
+ */
+const VERDICT_ORDER: IdentityVerdict[] = ["mismatch", "scale", "tracks", "unverified"];
+
+const VERDICT_TITLE: Record<IdentityVerdict, string> = {
+  mismatch:
+    "Does not track the pool's deepest market: a different asset under the same ticker, or a bad alias. Never pair it",
+  scale:
+    "Tracks the deepest market at a clean power of ten, so it is the same asset quoted per contract rather than per unit",
+  tracks:
+    "Tracks the deepest market, but at a constant that is not a contract scale. Needs a human",
+  unverified:
+    "Too little shared movement to judge either way, which usually means a market whose mark barely moves rather than a fault",
+};
+
+/** These ratios span nine orders of magnitude, so the extremes go exponential rather than to zeros. */
+function formatPriceRatio(ratio: number): string {
+  if (!Number.isFinite(ratio) || ratio <= 0) return "–";
+  return ratio >= 1000 || ratio < 0.001 ? `${ratio.toExponential(1)}×` : `${ratio.toFixed(3)}×`;
+}
+
 const STATE_ORDER: VenueState[] = ["failing", "stale", "silent", "empty", "live", "planned"];
 
 const STATE_TITLE: Record<VenueState, string> = {
@@ -914,8 +944,14 @@ const duration = (ms: number | null): string =>
  * returning zero markets. Six Hyperliquid sub-dexes are in exactly that condition, and both a
  * pass/fail reading and the geo-probe call them healthy.
  */
-export function status(data: { overview: Overview; venues: VenueStatus[]; now: number }): string {
-  const { overview, venues, now } = data;
+export function status(data: {
+  overview: Overview;
+  venues: VenueStatus[];
+  /** Null when the verification table could not be read at all, which is not the same as empty. */
+  checks: IdentityCheckRow[] | null;
+  now: number;
+}): string {
+  const { overview, venues, checks, now } = data;
   // An alias has no feed of its own; listing it would report another venue's health twice.
   const aliases = new Set(VENUES.filter((v) => v.aliasOf).map((v) => v.id));
   const rows = venues
@@ -959,6 +995,33 @@ export function status(data: { overview: Overview; venues: VenueStatus[]; now: n
     })
     .join("");
 
+  // Price verification (migration 015). Sorted by severity, then by the money behind the market: a
+  // mismatch on a deep market is a worse problem than the same verdict on a dust listing.
+  const verified = [...(checks ?? [])].sort(
+    (a, b) =>
+      VERDICT_ORDER.indexOf(a.verdict) - VERDICT_ORDER.indexOf(b.verdict) ||
+      (b.member_oi_usd ?? 0) - (a.member_oi_usd ?? 0) ||
+      a.base.localeCompare(b.base),
+  );
+  const verdictTally = (verdict: IdentityVerdict) =>
+    verified.filter((c) => c.verdict === verdict).length;
+  const checkBody = verified
+    .map((c) => {
+      // A dash, never 0.00: a frozen price correlates with nothing, and reporting that as a
+      // correlation of zero would read as evidence of a mismatch rather than an absence of it.
+      const corr = c.return_corr === null ? '<span class="dim">–</span>' : c.return_corr.toFixed(2);
+      return `<tr data-k="${esc(`${c.venue_id} ${c.venue_symbol}`)}">
+<td class="asset"><a href="${assetHref(c.base)}">${esc(c.base)}</a></td>
+<td><div class="leg"><a class="venue" href="${exchangeHref(c.venue_id)}">${esc(c.venue_id)}</a><span class="meta">${esc(c.venue_symbol)}</span></div></td>
+<td><div class="leg"><a class="venue" href="${exchangeHref(c.anchor_venue_id)}">${esc(c.anchor_venue_id)}</a><span class="meta">${esc(c.anchor_venue_symbol)}</span></div></td>
+<td class="num">${formatPriceRatio(c.price_ratio)}</td>
+<td class="num">${corr}</td>
+<td class="num dim">${c.shared_minutes.toLocaleString("en-US")}</td>
+<td><span class="st vd-${c.verdict}" title="${esc(VERDICT_TITLE[c.verdict])}">${c.verdict}</span></td>
+</tr>`;
+    })
+    .join("");
+
   return layout({
     title: "Collector status",
     description: "Whether each exchange is delivering data right now, and what failed if not.",
@@ -978,6 +1041,27 @@ export function status(data: { overview: Overview; venues: VenueStatus[]; now: n
 <tbody data-live="status">${body}</tbody>
 </table></div>
 ${wrong === 0 ? '<p class="notes">Every collected exchange is live and current.</p>' : ""}
+<h2>Price verification</h2>
+<p class="lede">Whether each market really is the asset it is filed under. Every asset is anchored on its deepest market by open interest, and a market disagreeing with that anchor by more than 10% is judged on whether its minute returns follow it. Correlation decides, never the size of the gap: a ratio landing near a clean 10× is a coincidence, not evidence — Gate quotes <b>PURR</b> at 104.6× Hyperliquid's on a correlation of 0.005, and they are simply different assets. <b>mismatch</b> means two unrelated assets share one ticker.</p>
+${
+  checks === null
+    ? '<p class="notes">Verification has not run yet, so nothing below is confirmed either way. This is what a deployment looks like before the collector has checked its first asset.</p>'
+    : verified.length === 0
+      ? '<p class="notes">Every market agrees with the deepest market in its asset pool.</p>'
+      : `<p class="facts"><span><b>${verified.length}</b> diverging</span>${
+          verdictTally("mismatch") ? `<span><b>${verdictTally("mismatch")}</b> mismatch</span>` : ""
+        }${verdictTally("scale") ? `<span><b>${verdictTally("scale")}</b> scale</span>` : ""}${
+          verdictTally("tracks") ? `<span><b>${verdictTally("tracks")}</b> tracks</span>` : ""
+        }${
+          verdictTally("unverified")
+            ? `<span><b>${verdictTally("unverified")}</b> unverified</span>`
+            : ""
+        }</p>
+<div class="sheet-wrap"><table class="sheet">
+<thead><tr><th>Asset</th><th>Market</th><th title="The deepest market in the asset's pool by open interest. Every other market is measured against it, because the largest cluster is not necessarily the truthful one">Anchor</th><th class="num" title="This market's mark divided by the anchor's">Ratio</th><th class="num" title="Correlation of minute log-returns against the anchor. A dash means one side never moved, which is not the same as a correlation of zero">Corr</th><th class="num" title="Minute buckets in which both markets reported a mark">Mins</th><th>Verdict</th></tr></thead>
+<tbody data-checks="identity">${checkBody}</tbody>
+</table></div>`
+}
 ${
   planned.length === 0
     ? ""

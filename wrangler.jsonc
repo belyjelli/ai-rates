@@ -3,6 +3,11 @@
   // Must match the Worker name in the Cloudflare dashboard (Workers Builds deploys by this name).
   "name": "airates",
   "main": "apps/worker/src/index.ts",
+  // Stamps the commit into apps/worker/src/build-info.ts for the About page. `wrangler deploy` runs
+  // this before bundling, through sh; the script acts only under Workers Builds (WORKERS_CI=1), where
+  // WORKERS_CI_COMMIT_SHA is set. `|| true` keeps the deploy going even if Node is missing or the
+  // script breaks: the placeholder then says the commit was not recorded, and the site still ships.
+  "build": { "command": "node apps/worker/scripts/stamp-build.mjs || true" },
   "compatibility_date": "2026-09-01",
   // Postgres.js needs Node's net/tls shims to reach Hyperdrive.
   "compatibility_flags": ["nodejs_compat"],

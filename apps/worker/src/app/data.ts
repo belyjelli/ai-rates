@@ -1,3 +1,4 @@
+import { DIVERGENCE_TRIGGER, type IdentityVerdict } from "@ai-rates/core";
 import type postgres from "postgres";
 
 /** Markets whose latest snapshot is older than this are treated as not live. */
@@ -147,12 +148,49 @@ export interface HeatmapCell {
 }
 
 /**
- * How far a market's mark may sit from its asset's median before it is dropped from a price
- * comparison. The same 0.05 `screener_pairs` defaults to, and for the same reason: joining by
- * symbol alone produced gaps of 13,660,780 bps on KR200, which quotes 1096.67 on one venue against
- * 0.7973 on another — a 1375× instrument mismatch, not a trade.
+ * How far a market's mark may sit from its asset's ANCHOR — the deepest market in the pool by open
+ * interest — before it is treated as a different instrument and dropped from any comparison.
+ *
+ * This is an identity test, not a tradability one: it asks whether two venues are quoting the same
+ * asset at all. Joining by symbol alone produced gaps of 13,660,780 bps on KR200, which quotes
+ * 1096.67 on one venue against 0.7973 on another — a 1375× instrument mismatch, not a trade.
+ *
+ * It is the core's `DIVERGENCE_TRIGGER` rather than a local number so that the gate and migration
+ * 015's report cannot drift apart: every market this drops is a market /status explains. Migration
+ * 016 carries the measurements behind replacing the old 5% median — which was dropping
+ * Hyperliquid's own $11.15M PURR market in favour of three thin venues quoting something else.
  */
-export const MARK_DEVIATION = 0.05;
+export const MARK_DEVIATION = DIVERGENCE_TRIGGER;
+
+/**
+ * One market that disagrees on price with the deepest market in its asset pool, and what the
+ * evidence says about why.
+ *
+ * The verdict is the collector's, refreshed hourly; the page only renders it. The definition and
+ * the measurements behind every threshold are pre-registered in migration 015. In short:
+ * correlation of minute returns decides, and the price ratio only refines, because landing near a
+ * clean power of ten is a coincidence — gate's PURR sits at 104.6× on a correlation of 0.005.
+ */
+export interface IdentityCheckRow {
+  base: string;
+  venue_id: string;
+  venue_symbol: string;
+  anchor_venue_id: string;
+  anchor_venue_symbol: string;
+  verdict: IdentityVerdict;
+  price_ratio: number;
+  /** `n` where the ratio is about 10^n; null unless the verdict is `scale`. */
+  scale_exponent: number | null;
+  /** Null when either side never moved, which is not the same as a correlation of zero. */
+  return_corr: number | null;
+  ratio_sd: number | null;
+  shared_minutes: number;
+  member_moves: number;
+  anchor_moves: number;
+  member_oi_usd: number | null;
+  anchor_oi_usd: number | null;
+  checked_at: Date;
+}
 
 export interface ArbitrageOptions {
   /** Rows below this quoted gap are dropped; 0 keeps the mostly-zero tail. */
@@ -197,7 +235,7 @@ export interface ArbitrageRow {
  *
  * The list page must drop a mismatched instrument — a 1375× disagreement produces a gap of
  * 13,660,780 bps and would top every ranking. The detail page should do the opposite and *show*
- * it: `mark_agrees` is false and `median_mark` is carried alongside, so the page can say how far
+ * it: `mark_agrees` is false and `anchor_mark` is carried alongside, so the page can say how far
  * out the quote is rather than silently omitting a venue the reader can see listed elsewhere.
  */
 export interface PriceQuote {
@@ -208,8 +246,8 @@ export interface PriceQuote {
   best_bid_size_usd: number | null;
   best_ask_size_usd: number | null;
   mark_price: number | null;
-  /** The asset's median mark across venues, the reference the guard measures against. */
-  median_mark: number | null;
+  /** The asset's anchor mark — its deepest market by open interest — which the gate measures against. */
+  anchor_mark: number | null;
   mark_agrees: boolean;
   observed_at: Date;
 }
@@ -334,6 +372,8 @@ export interface DataSource {
   priceQuotes(base: string): Promise<PriceQuote[]>;
   /** Per-venue collecting health: are we getting data, and what went wrong if not. */
   venueStatus(): Promise<VenueStatus[]>;
+  /** Markets whose price disagrees with their asset pool's deepest market, and the verdict on why. */
+  identityChecks(): Promise<IdentityCheckRow[]>;
   /** Risk-limit ladders for the given markets, ascending by tier; empty where a venue publishes none. */
   leverageTiers(markets: readonly MarketKey[]): Promise<LeverageTierRow[]>;
   /**
@@ -483,17 +523,27 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           WHERE observed_at > now() - ${FRESH_INTERVAL}::interval
             AND best_bid > 0 AND best_ask > 0
         ),
-        -- The median, not the mean: a mismatched leg must not drag the reference toward itself.
-        marks AS (
-          SELECT base, percentile_cont(0.5) WITHIN GROUP (ORDER BY mark_price) AS median_mark
-          FROM candidates WHERE mark_price > 0 GROUP BY base
+        -- The anchor is the asset's deepest market by open interest, read from every fresh market
+        -- rather than from the filtered candidates, so a reader's filters cannot move the
+        -- reference. No backticks in this string: it is a JS template literal and one would end it.
+        -- The median
+        -- this replaced named the biggest CLUSTER as correct, which is not the same thing: on live
+        -- data it drops Hyperliquid's $11.15M PURR leg in favour of three thin venues (migration 016).
+        anchors AS (
+          SELECT DISTINCT ON (base) base, mark_price AS anchor_mark
+          FROM market_latest
+          WHERE observed_at > now() - ${FRESH_INTERVAL}::interval AND mark_price > 0
+          ORDER BY base, open_interest_usd DESC NULLS LAST, venue_id, venue_symbol
         ),
         legs AS (
           SELECT c.* FROM candidates c
-          LEFT JOIN marks k ON k.base = c.base
-          WHERE k.median_mark IS NULL
+          LEFT JOIN anchors a ON a.base = c.base
+          -- A band, so the test is symmetric in the ratio: which market holds the most open interest
+          -- is an accident, and it must not decide whether two prices are judged to agree.
+          WHERE a.anchor_mark IS NULL
              OR c.mark_price IS NULL
-             OR abs(c.mark_price - k.median_mark) <= ${MARK_DEVIATION}::float8 * k.median_mark
+             OR c.mark_price BETWEEN a.anchor_mark / (1 + ${MARK_DEVIATION}::float8)
+                                 AND a.anchor_mark * (1 + ${MARK_DEVIATION}::float8)
         ),
         counts AS (
           SELECT base, count(DISTINCT venue_id)::integer AS n
@@ -540,9 +590,10 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
     },
 
     async priceQuotes(base) {
-      // The same median-mark reference the list query uses, but the deviation is reported instead
-      // of applied: a venue that fails the guard still appears, flagged, because "why is this
-      // exchange missing" is exactly the question a detail page exists to answer.
+      // The same anchor the list query gates on, but here the deviation is reported instead of
+      // applied: a venue that fails the gate still appears, flagged, because "why is this exchange
+      // missing" is exactly the question a detail page exists to answer. The gate makes one call
+      // and this page shows its working.
       const rows = await connect()<PriceQuote[]>`
         WITH candidates AS (
           SELECT venue_id, venue_symbol, mark_price, observed_at,
@@ -552,23 +603,46 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
             AND observed_at > now() - ${FRESH_INTERVAL}::interval
             AND best_bid > 0 AND best_ask > 0
         ),
-        marks AS (
-          SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY mark_price) AS median_mark
-          FROM candidates WHERE mark_price > 0
+        -- Read from every fresh market for this asset, not only from the ones publishing a book:
+        -- the deepest market is the reference whether or not it happens to quote top of book.
+        anchor AS (
+          SELECT mark_price AS anchor_mark
+          FROM market_latest
+          WHERE base = ${base}
+            AND observed_at > now() - ${FRESH_INTERVAL}::interval
+            AND mark_price > 0
+          ORDER BY open_interest_usd DESC NULLS LAST, venue_id, venue_symbol
+          LIMIT 1
         )
         SELECT c.venue_id, c.venue_symbol, c.best_bid, c.best_ask,
                c.best_bid_size_usd, c.best_ask_size_usd, c.mark_price, c.observed_at,
-               m.median_mark,
-               -- Unknown marks agree by default, matching the guard's own null escapes: a missing
+               a.anchor_mark,
+               -- Unknown marks agree by default, matching the gate's own null escapes: a missing
                -- mark is not evidence of a mismatch, and excluding it would punish a venue for a
                -- field it simply does not publish.
                CASE
-                 WHEN m.median_mark IS NULL OR c.mark_price IS NULL THEN true
-                 ELSE abs(c.mark_price - m.median_mark) <= ${MARK_DEVIATION}::float8 * m.median_mark
+                 WHEN a.anchor_mark IS NULL OR c.mark_price IS NULL THEN true
+                 ELSE c.mark_price BETWEEN a.anchor_mark / (1 + ${MARK_DEVIATION}::float8)
+                                       AND a.anchor_mark * (1 + ${MARK_DEVIATION}::float8)
                END AS mark_agrees
-        FROM candidates c CROSS JOIN marks m
+        -- LEFT JOIN, never CROSS JOIN: an asset with no anchor row would otherwise return no
+        -- quotes at all rather than returning them all unflagged.
+        FROM candidates c LEFT JOIN anchor a ON true
         -- Cheapest to buy first, which is the order the page reads in.
         ORDER BY c.best_ask, c.venue_id`;
+      return [...rows];
+    },
+
+    async identityChecks() {
+      // A plain read of verdicts the collector already reached. The judging needs six hours of
+      // minute bars and a correlation per market, which is not something a 10ms request budget can
+      // do -- so it is precomputed hourly, exactly as the verified backtests are. Tens of rows.
+      const rows = await connect()<IdentityCheckRow[]>`
+        SELECT base, venue_id, venue_symbol, anchor_venue_id, anchor_venue_symbol,
+               verdict, price_ratio, scale_exponent, return_corr, ratio_sd,
+               shared_minutes, member_moves, anchor_moves, member_oi_usd, anchor_oi_usd, checked_at
+        FROM market_identity_checks
+        ORDER BY base, venue_id, venue_symbol`;
       return [...rows];
     },
 

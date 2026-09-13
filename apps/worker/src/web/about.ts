@@ -1,0 +1,116 @@
+import type { Overview } from "../app/data";
+import { BUILD, type BuildInfo } from "../build-info";
+import { esc } from "./format";
+import { layout } from "./layout";
+
+const REPOSITORY = "https://github.com/belyjelli/ai-rates";
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export interface Release {
+  /** UTC date the changes went live, YYYY-MM-DD. */
+  date: string;
+  title: string;
+  changes: string[];
+}
+
+/**
+ * What changed, written for someone using the site rather than for whoever wrote the code: one line
+ * per change a reader would notice, newest first. Kept by hand because commit subjects are written
+ * for developers ("Phase 4 Track B") and a CI checkout may hold only the newest commit anyway.
+ *
+ * Add an entry when a release changes what the site shows, and only once it is live: an entry for
+ * work that is merged but not deployed would describe a site nobody can see.
+ */
+export const CHANGELOG: readonly Release[] = [
+  {
+    date: "2026-09-14",
+    title: "The pair page shows every exchange at once",
+    changes: [
+      "The pair page opens with a chart of every exchange's funding for the asset. The two legs you pick and their spread are drawn, any other exchange is a checkbox away, and hovering reads every line at the same moment.",
+      "Each leg shows its rate now beside its average over the window, and the result lists its best day, worst day and largest drawdown.",
+      "Backtests load straight away, with no verification step, over 1, 3, 7, 15, 30 or 60 days. Swap the legs in one click, or jump to the price gap between the two exchanges' order books.",
+    ],
+  },
+  {
+    date: "2026-09-13",
+    title: "Live numbers, price gaps and exchange health",
+    changes: [
+      "Pages refresh on their own about every 30 seconds. A figure that changes flashes green when it rises and red when it falls, and rate markers slide to their new positions.",
+      "New Arbitrage and Price pair pages show where one exchange's bid sits above another's ask, for the exchanges that publish their order books, and how much size each gap is good for.",
+      "A Status page shows which exchanges are delivering data and which have gone quiet.",
+      "The Rates grid shows 50 assets a page, and every page's header says how fresh the data is.",
+    ],
+  },
+  {
+    date: "2026-09-12",
+    title: "Rates grid, stability and backtests",
+    changes: [
+      "The Rates grid compares every exchange's funding across the deepest assets, as it stands now or averaged over 7, 30 or 60 days.",
+      "The screener sorts by spread, settled funding, number of exchanges, or stability: how reliably a pair's weaker leg keeps paying in the same direction.",
+      "The home page ranks what pairs actually paid over the last week, with each pair's depth and risk beside the figure.",
+      "Backtest any two exchanges for an asset, with your own trading fees and capital sized from each exchange's leverage limits.",
+    ],
+  },
+];
+
+function day(date: string): string {
+  const [year, month, dayOfMonth] = date.split("-");
+  return `${MONTHS[Number(month) - 1]} ${Number(dayOfMonth)}, ${year}`;
+}
+
+function moment(iso: string | null): string {
+  if (!iso) return "–";
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return "–";
+  return `${day(at.toISOString().slice(0, 10))} ${at.toISOString().slice(11, 16)} UTC`;
+}
+
+function version(build: BuildInfo): string {
+  if (!build.commit) {
+    return `<div class="facts"><span>project <b>airrates</b></span><span>commit <b>not recorded</b></span></div>
+<p class="notes">This build did not record its commit. Deployed builds stamp the commit they were built from here.</p>`;
+  }
+  const short = build.commit.slice(0, 7);
+  return `<div class="facts"><span>project <b>airrates</b></span><span>commit <b><a href="${REPOSITORY}/commit/${esc(build.commit)}">${esc(short)}</a></b></span><span>committed <b>${moment(build.committedAt)}</b></span><span>deployed <b>${moment(build.builtAt)}</b></span></div>
+${build.subject ? `<p class="notes">${esc(build.subject)}</p>` : ""}`;
+}
+
+/**
+ * The project's name, the commit it is running, and what has changed, for readers who arrive from
+ * the footer. `build` is a parameter only so the stamped case can be tested; the route passes nothing.
+ */
+export function about(data: {
+  overview: Overview;
+  now: number;
+  build?: BuildInfo;
+  changelog?: readonly Release[];
+}): string {
+  const { overview, now, build = BUILD, changelog = CHANGELOG } = data;
+  const releases = changelog
+    .map(
+      (release) => `<article class="release">
+<p class="eyebrow">${day(release.date)}</p>
+<h2>${esc(release.title)}</h2>
+<ul>${release.changes.map((change) => `<li>${esc(change)}</li>`).join("")}</ul>
+</article>`,
+    )
+    .join("");
+
+  return layout({
+    title: "About",
+    description: "What airrates is, which version is running, and what has changed recently.",
+    path: "/about",
+    overview,
+    now,
+    body: `<h1>About airrates</h1>
+<p class="lede">airrates is a funding-rate screener for perpetual futures. It reads funding from each exchange's public API every minute and shows where holding the same asset long on one exchange and short on another collects the gap between their rates, and what that has actually paid.</p>
+<section>
+<div class="section-head"><h2>This version</h2></div>
+${version(build)}
+</section>
+<section>
+<div class="section-head"><h2>Recent changes</h2></div>
+<div class="about-log">${releases}</div>
+</section>`,
+  });
+}

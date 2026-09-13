@@ -73,6 +73,8 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     await sql`DELETE FROM collector_runs WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_leverage_tiers WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM liquidations WHERE venue_id = ${venueId}`;
+    await sql`DELETE FROM market_identity_checks WHERE venue_id = ${venueId}`;
+    await sql`DELETE FROM market_latest WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_funding_daily WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_funding_hourly WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_funding_stats WHERE venue_id = ${venueId}`;
@@ -352,6 +354,149 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     const sparseScore = by.get(sparse)?.stability_30d as number;
     expect(sparseScore).toBeCloseTo(8 / 13, 6);
     expect(sparseScore).toBeLessThan(by.get(steady)?.stability_30d as number);
+  });
+
+  test("verifies identity by price: scale, mismatch and unverified", async () => {
+    // Timestamps come from the DATABASE clock, not this process's: the job compares against now()
+    // server-side, and a few minutes of skew across the tunnel would silently age every fixture row
+    // past the 5-minute freshness window and leave the pool empty.
+    const [{ now: dbNowRaw }] = await sql`SELECT now() AS now`;
+    const dbNow = new Date(dbNowRaw).getTime();
+
+    // Its own base, so the markets other tests in this file leave in market_latest cannot join this
+    // pool and move the anchor.
+    const idBase = `${base}ID`;
+    const anchorSym = `${idBase}-ANCHOR`;
+    const scaleSym = `${idBase}-SCALE`;
+    const missSym = `${idBase}-MISS`;
+    const frozenSym = `${idBase}-FROZEN`;
+
+    const BARS = 90;
+    // The anchor changes on even bars and MISS on odd ones, so their returns never land in the same
+    // minute and the correlation between them is ~0 however long the series runs. Each still clears
+    // the 30-move floor with ~45 moves.
+    const anchorAt = (i: number) => 100 + Math.floor(i / 2) * 0.05;
+    const missAt = (i: number) => 10_000 + Math.floor((i + 1) / 2) * 7;
+
+    const snapshots = [];
+    for (let i = 0; i < BARS; i++) {
+      const observed_at = new Date(dbNow - (BARS - i) * 60_000);
+      const bar = (venue_symbol: string, mark_price: number) => ({
+        observed_at,
+        venue_id: venueId,
+        venue_symbol,
+        rate: 0.0001,
+        basis_hours: 8,
+        interval_hours: 8,
+        next_funding_at: null,
+        kind: "predicted",
+        mark_price,
+        index_price: mark_price,
+        open_interest_usd: null,
+        volume_24h_usd: null,
+      });
+      snapshots.push(bar(anchorSym, anchorAt(i)));
+      // Exactly a tenth of the anchor on every bar: identical log returns, so corr is 1.
+      snapshots.push(bar(scaleSym, anchorAt(i) / 10));
+      snapshots.push(bar(missSym, missAt(i)));
+      // Never moves, which is lighter's BYD: corr comes back null rather than low.
+      snapshots.push(bar(frozenSym, 1022));
+    }
+    await sql`INSERT INTO funding_snapshots ${sql(snapshots)}`;
+
+    const lastBar = BARS - 1;
+    const marketRows = [anchorSym, scaleSym, missSym, frozenSym].map((venue_symbol) => ({
+      venue_id: venueId,
+      venue_symbol,
+      base: idBase,
+      quote: "USDT",
+      multiplier: 1,
+      dex: null,
+      interval_hours: 8,
+      max_leverage: null,
+      last_seen: new Date(dbNow),
+    }));
+    await sql`INSERT INTO markets ${sql(marketRows)}`;
+
+    // Open interest picks the anchor, so the deepest market is deliberately NOT the one with the
+    // most company -- the PURR lesson from migration 015.
+    const latest = (venue_symbol: string, mark_price: number, open_interest_usd: number) => ({
+      venue_id: venueId,
+      venue_symbol,
+      base: idBase,
+      quote: "USDT",
+      observed_at: new Date(dbNow - 30_000),
+      rate: 0.0001,
+      basis_hours: 8,
+      apr: 10.95,
+      interval_hours: 8,
+      next_funding_at: null,
+      kind: "predicted",
+      mark_price,
+      index_price: mark_price,
+      open_interest_usd,
+      volume_24h_usd: null,
+    });
+    await sql`INSERT INTO market_latest ${sql([
+      latest(anchorSym, anchorAt(lastBar), 10_000_000),
+      latest(scaleSym, anchorAt(lastBar) / 10, 1_000_000),
+      latest(missSym, missAt(lastBar), 500_000),
+      latest(frozenSym, 1022, 100_000),
+    ])}`;
+
+    // Other pools in the shared test schema are classified too, so this is a floor, not an equality.
+    expect(await store.refreshIdentityChecks()).toBeGreaterThanOrEqual(3);
+
+    type CheckRow = {
+      venue_symbol: string;
+      anchor_venue_symbol: string;
+      verdict: string;
+      price_ratio: number;
+      scale_exponent: number | null;
+      return_corr: number | null;
+      shared_minutes: number;
+      member_moves: number;
+    };
+    const rows: CheckRow[] = await sql`
+      SELECT venue_symbol, anchor_venue_symbol, verdict, price_ratio, scale_exponent,
+             return_corr, shared_minutes, member_moves
+      FROM market_identity_checks WHERE base = ${idBase}`;
+    const by = new Map(rows.map((r) => [r.venue_symbol, r]));
+
+    // The anchor is the reference and is never reported as diverging from itself.
+    expect(by.has(anchorSym)).toBe(false);
+    expect(by.get(scaleSym)?.anchor_venue_symbol).toBe(anchorSym);
+    expect(by.get(scaleSym)?.shared_minutes).toBe(BARS);
+
+    // Tracks the anchor perfectly at a tenth: the same asset in different units.
+    expect(by.get(scaleSym)?.verdict).toBe("scale");
+    expect(by.get(scaleSym)?.scale_exponent).toBe(-1);
+    expect(by.get(scaleSym)?.return_corr).toBeCloseTo(1, 6);
+
+    // ~101x and comfortably within tolerance of a clean 100x, yet its returns never coincide with
+    // the anchor's. This is the BB and PURR case: classifying on the ratio alone would call it a
+    // 100x contract and merge two unrelated assets.
+    expect(by.get(missSym)?.verdict).toBe("mismatch");
+    expect(by.get(missSym)?.scale_exponent).toBeNull();
+    expect(by.get(missSym)?.price_ratio).toBeGreaterThan(100);
+    expect(by.get(missSym)?.return_corr as number).toBeLessThan(0.5);
+
+    // A frozen mark correlates with nothing. Reporting that as a mismatch would cry wolf on every
+    // thin market, so it is unverified and the correlation stays null rather than becoming 0.
+    expect(by.get(frozenSym)?.verdict).toBe("unverified");
+    expect(by.get(frozenSym)?.return_corr).toBeNull();
+    expect(by.get(frozenSym)?.member_moves).toBe(0);
+
+    // Replaced wholesale, not upserted: a market that comes back into line has to vanish from the
+    // report rather than leave its last alarm standing for good.
+    await sql`
+      UPDATE market_latest SET mark_price = ${anchorAt(lastBar)}
+      WHERE venue_id = ${venueId} AND venue_symbol = ${missSym}`;
+    await store.refreshIdentityChecks();
+    const after: { venue_symbol: string }[] =
+      await sql`SELECT venue_symbol FROM market_identity_checks WHERE base = ${idBase}`;
+    expect(after.map((r) => r.venue_symbol)).not.toContain(missSym);
+    expect(after.map((r) => r.venue_symbol)).toContain(scaleSym);
   });
 
   test("recordLiquidations is insert-only and absorbs a re-read page", async () => {

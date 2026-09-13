@@ -25,6 +25,7 @@ const BACKFILL_BUDGET = 20;
 const TIERS_REFRESH_MS = 24 * 60 * 60_000;
 const LONG_WINDOWS_REFRESH_MS = 60 * 60_000;
 const PAIR_BACKTESTS_REFRESH_MS = 24 * 60 * 60_000;
+const IDENTITY_CHECKS_REFRESH_MS = 60 * 60_000;
 /**
  * Five minutes, with a measured 12x margin: Gate's deepest page covers ~58 minutes of forced
  * closes at ~3 records/min, so a poll this often cannot overflow it even if activity rises an order
@@ -241,6 +242,22 @@ const pairBacktests = new PeriodicTask(
 );
 pairBacktests.start(LONG_WINDOWS_REFRESH_MS + 6 * config.intervalMs);
 loops.push(pairBacktests);
+
+// Does each market actually track the asset it is filed under? Hourly, because identity does not
+// change minute to minute, and offset from the other folds so the 6-hour snapshot scan never
+// contends with them. On a cold database there is no history to correlate and every divergence is
+// reported `unverified`, which is the honest answer rather than a silent one.
+const identityChecks = new PeriodicTask(
+  "identity checks",
+  IDENTITY_CHECKS_REFRESH_MS,
+  async () => {
+    const checked = await store.refreshIdentityChecks();
+    log(`identity checks: ${checked} diverging markets classified`);
+  },
+  log,
+);
+identityChecks.start(7 * config.intervalMs);
+loops.push(identityChecks);
 
 // Venues stop collecting quietly: the site keeps serving the last good rows until they age out.
 if (config.alertWebhookUrl) {
