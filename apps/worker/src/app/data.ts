@@ -270,10 +270,13 @@ export interface LeverageTierRow extends MarketKey {
   max_leverage: number;
 }
 
-export interface SettlementRow extends MarketKey {
-  settled_at: Date;
-  rate: number;
-  basis_hours: number;
+/** One market's funding for one UTC day, from the collector's `market_funding_daily` rollup. */
+export interface DailyFundingRow extends MarketKey {
+  /** UTC date, YYYY-MM-DD. Cast to text in SQL, so no time zone can move a row across midnight. */
+  day: string;
+  rate_sum: number;
+  basis_hours_sum: number;
+  settlements: number;
 }
 
 /**
@@ -324,12 +327,11 @@ export interface DataSource {
   venueStatus(): Promise<VenueStatus[]>;
   /** Risk-limit ladders for the given markets, ascending by tier; empty where a venue publishes none. */
   leverageTiers(markets: readonly MarketKey[]): Promise<LeverageTierRow[]>;
-  /** Settled funding for the given markets within a window, oldest first, ties broken by market. */
-  settlements(
-    markets: readonly MarketKey[],
-    fromMs: number,
-    toMs: number,
-  ): Promise<SettlementRow[]>;
+  /**
+   * Each market's daily funding from `fromDay` (a UTC date, YYYY-MM-DD) onward, oldest first, ties
+   * broken by market. The collector refreshes the rollup hourly and keeps 70 days of it.
+   */
+  dailyFunding(markets: readonly MarketKey[], fromDay: string): Promise<DailyFundingRow[]>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -611,7 +613,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
     async leverageTiers(markets) {
       if (markets.length === 0) return [];
       const sql = connect();
-      // Row-value tuples for the same reason as settlements() below: a text[] parameter is not
+      // Row-value tuples for the same reason as dailyFunding() below: a text[] parameter is not
       // usable with fetch_types: false, and string_to_array splits symbols containing a comma.
       const keys = markets
         .map((market) => sql`(${market.venue_id}, ${market.venue_symbol})`)
@@ -624,7 +626,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       return [...rows];
     },
 
-    async settlements(markets, fromMs, toMs) {
+    async dailyFunding(markets, fromDay) {
       if (markets.length === 0) return [];
       const sql = connect();
       // One bound (venue_id, venue_symbol) tuple per market. Array parameters are not an option
@@ -634,14 +636,16 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       const keys = markets
         .map((market) => sql`(${market.venue_id}, ${market.venue_symbol})`)
         .reduce((all, one) => sql`${all}, ${one}`);
-      const rows = await sql<SettlementRow[]>`
-        SELECT e.venue_id, e.venue_symbol, e.settled_at, e.rate, e.basis_hours
-        FROM funding_events e
-        WHERE (e.venue_id, e.venue_symbol) IN (${keys})
-          AND e.settled_at >= ${new Date(fromMs)} AND e.settled_at <= ${new Date(toMs)}
-        -- Markets settling on the same tick tie on settled_at alone, and the planner is then free to
-        -- return them in any order. The market breaks the tie so the sequence is reproducible.
-        ORDER BY e.settled_at, e.venue_id, e.venue_symbol`;
+      // The primary key leads with the market, so this is an index range per market: at most 60
+      // rows each, where the replay it replaces read every settlement in the window.
+      const rows = await sql<DailyFundingRow[]>`
+        SELECT d.venue_id, d.venue_symbol, d.day::text AS day, d.rate_sum, d.basis_hours_sum,
+               d.settlements
+        FROM market_funding_daily d
+        WHERE (d.venue_id, d.venue_symbol) IN (${keys})
+          AND d.day >= ${fromDay}::date
+        -- Two markets share every day, so the market breaks the tie and the order is reproducible.
+        ORDER BY d.day, d.venue_id, d.venue_symbol`;
       return [...rows];
     },
 

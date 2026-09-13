@@ -26,6 +26,7 @@ import type {
 } from "../app/params";
 import {
   arbitrageToQuery,
+  BACKTEST_WINDOWS,
   DEFAULT_FILTERS,
   filtersToQuery,
   HEATMAP_TIMEFRAMES,
@@ -33,7 +34,6 @@ import {
   MAX_TAKER_FEE_BPS,
   VENUE_TYPES,
 } from "../app/params";
-import { TURNSTILE_ACTION } from "../app/turnstile";
 import {
   aprTone,
   esc,
@@ -1235,13 +1235,12 @@ ${numberField("size", "Size per leg", params?.sizeUsd ?? 10_000, [
   [100_000, "$100k"],
   [1_000_000, "$1M"],
 ])}
-${numberField("days", "Window", params?.days ?? 30, [
-  [7, "7 days"],
-  [14, "14 days"],
-  [30, "30 days"],
-  [60, "60 days"],
-  [90, "90 days"],
-])}
+${numberField(
+  "days",
+  "Window",
+  params?.days ?? 30,
+  BACKTEST_WINDOWS.map((days): [number, string] => [days, days === 1 ? "1 day" : `${days} days`]),
+)}
 ${feeField("fee_long", "Long taker fee", params?.longTakerBps ?? null)}
 ${feeField("fee_short", "Short taker fee", params?.shortTakerBps ?? null)}
 <div class="actions"><button type="submit">Run backtest</button><a href="${assetHref(asset)}">Back to ${esc(asset)}</a></div>
@@ -1294,7 +1293,7 @@ export function pair(data: {
   const body =
     result && params
       ? `<p class="headline ${result.netFundingUsd >= 0 ? "up" : "down"}">${money(result.netFundingUsd)}</p>
-<p class="eyebrow">net funding over ${Math.round(result.days)} days · ${formatApr(result.netFundingAprPercent)} annualized</p>
+<p class="eyebrow">net funding over the last ${params.days === 1 ? "day" : `${params.days} days`} ·${formatApr(result.netFundingAprPercent)} annualized</p>
 <div class="pair-legs">
 <span class="long"><b>Long ${esc(venueName(result.long.venueId))}</b> ${esc(result.long.venueSymbol)} · ${result.long.settlements} settlements · ${money(result.long.fundingUsd)}</span>
 <span class="short"><b>Short ${esc(venueName(result.short.venueId))}</b> ${esc(result.short.venueSymbol)} · ${result.short.settlements} settlements · ${money(result.short.fundingUsd)}</span>
@@ -1307,8 +1306,8 @@ ${
     : ""
 }
 ${
-  result.perDay.length > 0 && result.perDay.length < Math.round(result.days) - 1
-    ? `<p class="notes">Only ${result.perDay.length} of the ${Math.round(result.days)} days asked for have stored settlements. The annualized figure still divides by the whole window, so it reads low. History reaches 90 days on most venues and is still filling on the rest.</p>`
+  result.perDay.length > 0 && result.perDay.length < params.days - 1
+    ? `<p class="notes">Only ${result.perDay.length} of the ${params.days} days asked for have stored settlements. The annualized figure still divides by the whole window, so it reads low. The daily rollup keeps 70 days, and history is still filling on some venues.</p>`
     : ""
 }
 ${
@@ -1329,46 +1328,9 @@ ${
     now,
     body: `<p class="eyebrow"><a href="${assetHref(asset)}">${esc(asset)}</a> / backtest</p>
 <h1>${esc(asset)} carry</h1>
-<p class="lede">What the funding on both legs actually settled to, summed at each venue's own settlement times over the window.</p>
+<p class="lede">What both legs actually settled, summed per UTC day from each venue's recorded funding. Windows are whole calendar days ending today, and the figures refresh hourly.</p>
 ${backtestForm(asset, markets, params)}
 ${body}`,
-  });
-}
-
-/**
- * Shown when a backtest nobody has run yet is asked for and the visitor has no clearance.
- *
- * It exists because the token cannot ride in a GET query string: the edge cache keys on the URL, so
- * a token there would miss cache every time and would put a single-use 300-second credential into a
- * shareable link. The form POSTs instead, and a solved challenge buys a short-lived cookie.
- *
- * Returned with status 403 by the caller, which is what keeps this page out of the edge cache — a
- * cached challenge would otherwise replace the result at this URL for everyone.
- */
-export function challenge(data: {
-  asset: string;
-  params: BacktestParams;
-  sitekey: string;
-  now: number;
-}): string {
-  const { asset, params, sitekey, now } = data;
-  const hidden = (name: string, value: string | number | null) =>
-    value === null ? "" : `<input type="hidden" name="${name}" value="${esc(String(value))}">`;
-
-  return layout({
-    title: `${asset} carry — one check first`,
-    description: `A quick check before replaying ${asset} funding across both legs.`,
-    path: pairHref(asset),
-    now,
-    body: `<p class="eyebrow"><a href="${assetHref(asset)}">${esc(asset)}</a> / backtest</p>
-<h1>One check before the replay</h1>
-<p class="lede">This replays every stored settlement on both legs, which is real work against the database. A combination someone has already run is served straight from the cache with no check at all — this only appears for one nobody has asked for yet.</p>
-<form class="filters" method="post" action="${pairHref(asset)}/verify">
-${hidden("long", params.longVenueId)}${hidden("short", params.shortVenueId)}${hidden("size", params.sizeUsd)}${hidden("days", params.days)}${hidden("fee_long", params.longTakerBps)}${hidden("fee_short", params.shortTakerBps)}
-<div class="cf-turnstile" data-sitekey="${esc(sitekey)}" data-action="${TURNSTILE_ACTION}"></div>
-<div class="actions"><button type="submit">Run the backtest</button><a href="${assetHref(asset)}">Back to ${esc(asset)}</a></div>
-</form>
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>`,
   });
 }
 
@@ -1376,11 +1338,11 @@ ${hidden("long", params.longVenueId)}${hidden("short", params.shortVenueId)}${hi
 export function tooMany(path: string, now: number): string {
   return layout({
     title: "Too many requests",
-    description: "Too many uncached backtests from this address.",
+    description: "Too many backtests from this address.",
     path,
     now,
     body: `<h1>Too many requests</h1>
-<p class="lede">That is more new backtests than one address may run in a minute. Wait a moment and try again. Results that have already been computed are served from the cache and are never limited, so a combination someone has run before will load immediately.</p>
+<p class="lede">That is more backtests than one address may run in a minute. Wait a moment and try again. Results already computed are served from the cache and are never limited, so a combination someone has run before still loads immediately.</p>
 <p><a href="/screener">Back to the screener</a></p>`,
   });
 }

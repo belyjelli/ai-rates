@@ -170,8 +170,13 @@ export function arbitrageToQuery(params: ArbitrageParams): string {
 }
 
 export const DEFAULT_BACKTEST_DAYS = 30;
-/** Backfilled history reaches 90 days, so asking for more would quietly return less. */
-export const MAX_BACKTEST_DAYS = 90;
+/**
+ * Backtests read the collector's daily rollup, which keeps 70 days (market_funding_daily). 60 is
+ * the longest window it serves whole, so asking for more would quietly return less.
+ */
+export const MAX_BACKTEST_DAYS = 60;
+/** The windows the page offers. Any whole number of days up to the maximum still parses. */
+export const BACKTEST_WINDOWS = [1, 3, 7, 15, 30, 60] as const;
 export const DEFAULT_BACKTEST_SIZE_USD = 10_000;
 export const MAX_BACKTEST_SIZE_USD = 10_000_000;
 /**
@@ -220,12 +225,8 @@ export function parseBacktestParams(params: URLSearchParams): BacktestParams | n
 }
 
 /**
- * Canonical query for a backtest, mirroring `filtersToQuery` and `heatmapToQuery`.
- *
- * Used to rebuild the destination after a challenge is solved. The rebuild is deliberate: the POST
- * carries the reader's own fields, and redirecting to a client-supplied URL would be an open
- * redirect. Re-parsing and re-emitting means the target can only ever be a `/pair/:asset` URL with
- * canonical parameters — which is also the same cache key a shared link would produce.
+ * Canonical query for a backtest, mirroring `filtersToQuery` and `heatmapToQuery`, so every link the
+ * page builds to a pair lands on the same cache key a shared link would produce.
  */
 export function backtestToQuery(params: BacktestParams): string {
   const query = new URLSearchParams();

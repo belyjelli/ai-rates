@@ -1,8 +1,6 @@
 import postgres from "postgres";
 import { handleApp } from "./app/app";
-import { createClearance } from "./app/clearance";
 import { createDataSource } from "./app/data";
-import { verifyTurnstile } from "./app/turnstile";
 import { ProbeDO } from "./probe/probe-do";
 import { handleProbe } from "./probe/routes";
 
@@ -31,27 +29,13 @@ export default {
     });
 
     try {
-      // A narrow cast at the one boundary that needs it. Worker secrets are not in wrangler.jsonc,
-      // so `wrangler types` cannot know about them, and declaring TURNSTILE_SECRET as a var to get
-      // the type would overwrite the real secret with that value on deploy.
-      const secret = (env as { TURNSTILE_SECRET?: string }).TURNSTILE_SECRET?.trim();
       const response = await handleApp(request, {
         data,
         now: Date.now,
         log: console.error,
-        sitekey: env.TURNSTILE_SITEKEY,
-        // Per-colo, so a blunt first filter rather than a real bound; Turnstile carries the load.
+        // Per-colo, so a blunt filter against one client hammering one location. Backtests read
+        // the collector's daily rollup, so nothing behind it is expensive enough to need more.
         rateLimit: async (key: string) => (await env.BACKTEST_LIMITER.limit({ key })).success,
-        // No secret configured means no challenge, which is what lets `wrangler dev` work. It also
-        // means production is ungated until the secret is set. The clearance cookie is keyed on the
-        // same secret, so both halves of the gate appear and disappear together.
-        ...(secret
-          ? {
-              verifyToken: (token: string | null, remoteip: string | null) =>
-                verifyTurnstile(token, { secret, remoteip }),
-              clearance: createClearance(secret),
-            }
-          : {}),
       });
       if (request.method === "GET" && response.status === 200) {
         ctx.waitUntil(cache.put(request, response.clone()));

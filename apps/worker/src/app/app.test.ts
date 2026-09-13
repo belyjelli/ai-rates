@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { bestPair, pivot } from "../web/pages";
 import { handleApp } from "./app";
-import { CLEARANCE_COOKIE, createClearance } from "./clearance";
 import type {
   ArbitrageRow,
+  DailyFundingRow,
   DataSource,
   HeatmapCell,
   MarketRow,
@@ -104,22 +104,36 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     priceQuotes: async () => [],
     venueStatus: async () => [],
     leverageTiers: async () => [],
-    settlements: async () => [],
+    dailyFunding: async () => [],
     verifiedPairs: async () => [],
     ...overrides,
   };
   return { data, calls };
 }
 
-/** `count` settlements at `everyHours`, ending just before NOW. */
-const settled = (venue_id: string, venue_symbol: string, rate: number, count = 3) =>
-  Array.from({ length: count }, (_, i) => ({
-    venue_id,
-    venue_symbol,
-    settled_at: new Date(NOW - (count - i) * 8 * 3_600_000),
-    rate,
-    basis_hours: 8,
-  }));
+/**
+ * `count` 8-hourly settlements ending just before NOW, folded the way the daily rollup holds them.
+ * The default three span two UTC days: two on 2026-09-11 and one on 2026-09-12.
+ */
+const dailied = (venue_id: string, venue_symbol: string, rate: number, count = 3) => {
+  const days = new Map<string, DailyFundingRow>();
+  for (let i = 0; i < count; i++) {
+    const day = new Date(NOW - (count - i) * 8 * 3_600_000).toISOString().slice(0, 10);
+    const row = days.get(day) ?? {
+      venue_id,
+      venue_symbol,
+      day,
+      rate_sum: 0,
+      basis_hours_sum: 0,
+      settlements: 0,
+    };
+    row.rate_sum += rate;
+    row.basis_hours_sum += 8;
+    row.settlements += 1;
+    days.set(day, row);
+  }
+  return [...days.values()];
+};
 
 const get = (path: string, data: DataSource) =>
   handleApp(new Request(`https://airates.test${path}`), { data, now: () => NOW });
@@ -622,9 +636,9 @@ describe("pages", () => {
 
   test("pair page runs the backtest and states what it excludes", async () => {
     const { data } = fakeData({
-      settlements: async () => [
-        ...settled("gate", "BTC_USDT", -0.0001),
-        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+      dailyFunding: async () => [
+        ...dailied("gate", "BTC_USDT", -0.0001),
+        ...dailied("okx", "BTC-USDT-SWAP", 0.0001),
       ],
     });
     const res = await get("/pair/BTC?long=gate&short=okx&size=10k&days=7", data);
@@ -651,9 +665,9 @@ describe("pages", () => {
         market({ venue_id: "gate", venue_symbol: "BTC_USDT", apr: -0.55, max_leverage: long }),
         market({ max_leverage: short }),
       ],
-      settlements: async () => [
-        ...settled("gate", "BTC_USDT", -0.0001),
-        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+      dailyFunding: async () => [
+        ...dailied("gate", "BTC_USDT", -0.0001),
+        ...dailied("okx", "BTC-USDT-SWAP", 0.0001),
       ],
     });
     const capital = async (long: number | null, short: number | null, size = "10k") => {
@@ -705,9 +719,9 @@ describe("pages", () => {
     const line = async (size: string) => {
       const { data } = fakeData({
         leverageTiers: async () => ladders,
-        settlements: async () => [
-          ...settled("gate", "BTC_USDT", -0.0001),
-          ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+        dailyFunding: async () => [
+          ...dailied("gate", "BTC_USDT", -0.0001),
+          ...dailied("okx", "BTC-USDT-SWAP", 0.0001),
         ],
       });
       const res = await get(`/pair/BTC?long=gate&short=okx&size=${size}&days=7`, data);
@@ -900,21 +914,33 @@ describe("api", () => {
       { data, now: () => NOW },
     );
     expect(post.status).toBe(405);
+    // The challenge's verify route went with the gate, so it is as read-only as everything else.
+    const verify = await handleApp(
+      new Request("https://airates.test/pair/BTC/verify", { method: "POST" }),
+      { data, now: () => NOW },
+    );
+    expect(verify.status).toBe(405);
   });
 
-  test("pair backtest replays both legs over the window", async () => {
+  test("pair backtest reads both legs' daily rollup over the window", async () => {
+    const asked: string[] = [];
     const { data } = fakeData({
-      settlements: async () => [
-        // Both legs are paid: a negative rate pays the long, a positive one pays the short.
-        ...settled("gate", "BTC_USDT", -0.0001),
-        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
-      ],
+      dailyFunding: async (_markets, fromDay) => {
+        asked.push(fromDay);
+        return [
+          // Both legs are paid: a negative rate pays the long, a positive one pays the short.
+          ...dailied("gate", "BTC_USDT", -0.0001),
+          ...dailied("okx", "BTC-USDT-SWAP", 0.0001),
+        ];
+      },
     });
 
     const res = await get("/v1/pairs/BTC/backtest?long=gate&short=okx&size=10k&days=7", data);
     expect(res.status).toBe(200);
-    // Funding settles hourly at most, so the answer keeps for an hour.
+    // The rollup refreshes hourly, so the answer keeps for an hour.
     expect(res.headers.get("cache-control")).toBe("public, max-age=3600");
+    // Seven calendar days ending with today: 2026-09-06 through 2026-09-12.
+    expect(asked).toEqual(["2026-09-06"]);
 
     const body = (await res.json()) as {
       asset: string;
@@ -939,9 +965,9 @@ describe("api", () => {
 
   test("supplied fees are charged on four fills, and one leg alone charges nothing", async () => {
     const { data } = fakeData({
-      settlements: async () => [
-        ...settled("gate", "BTC_USDT", -0.0001),
-        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+      dailyFunding: async () => [
+        ...dailied("gate", "BTC_USDT", -0.0001),
+        ...dailied("okx", "BTC-USDT-SWAP", 0.0001),
       ],
     });
 
@@ -959,8 +985,9 @@ describe("api", () => {
     // $10,000 x (5 + 5) bps x 2 fills per leg = $20, against $6 of funding.
     expect(body.costsUsd).toBeCloseTo(20, 9);
     expect(body.netAfterCostsUsd).toBeCloseTo(-14, 9);
-    // $6 over 7 days is ~$0.857 a day, so $20 of fees takes ~23 days to repay.
-    expect(body.paybackDays).toBeCloseTo(20 / (6 / 7), 6);
+    // The window runs from 2026-09-06 to noon on the 12th, 6.5 days, so $6 is ~$0.923 a day and $20
+    // of fees takes ~22 days to repay.
+    expect(body.paybackDays).toBeCloseTo(20 / (6 / 6.5), 6);
     expect(body.request).toMatchObject({ longTakerBps: 5, shortTakerBps: 5 });
 
     // One leg priced and the other blank would understate a round trip by half, so nothing is
@@ -974,9 +1001,9 @@ describe("api", () => {
 
   test("the pair page reports costs, payback and what it assumes", async () => {
     const { data } = fakeData({
-      settlements: async () => [
-        ...settled("gate", "BTC_USDT", -0.0001),
-        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
+      dailyFunding: async () => [
+        ...dailied("gate", "BTC_USDT", -0.0001),
+        ...dailied("okx", "BTC-USDT-SWAP", 0.0001),
       ],
     });
     const html = await (
@@ -994,196 +1021,6 @@ describe("api", () => {
     expect(html).not.toContain("Trading fees are excluded");
     // The inputs keep what was typed, so the form round-trips.
     expect(html).toContain('name="fee_long" value="4.5"');
-  });
-
-  test("an uncached backtest is challenged, and the rejection is never cached", async () => {
-    const { data } = fakeData({
-      settlements: async () => [
-        ...settled("gate", "BTC_USDT", -0.0001),
-        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
-      ],
-    });
-    const seen: { token: string | null; remoteip: string | null }[] = [];
-    const deps = {
-      data,
-      now: () => NOW,
-      verifyToken: async (token: string | null, remoteip: string | null) => {
-        seen.push({ token, remoteip });
-        return token === "good" ? { ok: true } : { ok: false, reason: "missing_token" as const };
-      },
-    };
-    const url = "https://airates.test/v1/pairs/BTC/backtest?long=gate&short=okx&size=10k&days=7";
-
-    const refused = await handleApp(new Request(url), deps);
-    expect(refused.status).toBe(403);
-    // A cached 403 would lock out a legitimate caller for the whole TTL.
-    expect(refused.headers.get("cache-control")).toBe("no-store");
-    const body = (await refused.json()) as { error: string; reason: string; detail: string };
-    expect(body.error).toBe("challenge_required");
-    expect(body.reason).toBe("missing_token");
-    // The body says how to satisfy the gate, naming the header rather than a query parameter.
-    expect(body.detail).toContain("cf-turnstile-response");
-
-    // The token comes from the header: a query parameter would miss cache on every request and
-    // bake a 300-second credential into a shareable link.
-    const solved = await handleApp(
-      new Request(url, {
-        headers: { "cf-turnstile-response": "good", "cf-connecting-ip": "203.0.113.9" },
-      }),
-      deps,
-    );
-    expect(solved.status).toBe(200);
-    expect(seen).toEqual([
-      { token: null, remoteip: null },
-      { token: "good", remoteip: "203.0.113.9" },
-    ]);
-
-    // A token in the query string is not read, precisely so the cache key stays clean.
-    const viaQuery = await handleApp(new Request(`${url}&cf-turnstile-response=good`), deps);
-    expect(viaQuery.status).toBe(403);
-  });
-
-  test("the challenge is skipped entirely when no secret is configured", async () => {
-    // What makes `wrangler dev` and these tests work -- and why production must set the secret.
-    const { data } = fakeData({
-      settlements: async () => [
-        ...settled("gate", "BTC_USDT", -0.0001),
-        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
-      ],
-    });
-    const res = await get("/v1/pairs/BTC/backtest?long=gate&short=okx&size=10k&days=7", data);
-    expect(res.status).toBe(200);
-  });
-
-  test("a request that cannot be answered is not challenged, so no token is spent", async () => {
-    // Tokens are single-use and last 300 seconds; burning one on a 400 or a 404 would be rude.
-    const { data } = fakeData();
-    const calls: string[] = [];
-    const deps = {
-      data,
-      now: () => NOW,
-      verifyToken: async () => {
-        calls.push("verified");
-        return { ok: false as const, reason: "missing_token" as const };
-      },
-    };
-    // Same venue twice: rejected as a bad request before the gate.
-    expect(
-      (
-        await handleApp(
-          new Request("https://airates.test/v1/pairs/BTC/backtest?long=gate&short=gate"),
-          deps,
-        )
-      ).status,
-    ).toBe(400);
-    // A venue with no live market for the asset: 404, also before the gate.
-    expect(
-      (
-        await handleApp(
-          new Request("https://airates.test/v1/pairs/BTC/backtest?long=gate&short=bybit"),
-          deps,
-        )
-      ).status,
-    ).toBe(404);
-    expect(calls).toEqual([]);
-  });
-
-  test("the pair page challenges an uncached replay, and a cleared cookie runs it", async () => {
-    // The real clearance module, not a stub: it is pure crypto, so this exercises the actual
-    // cookie end to end rather than a fake that could agree with a broken implementation.
-    const clearance = createClearance("test-secret");
-    const { data } = fakeData({
-      settlements: async () => [
-        ...settled("gate", "BTC_USDT", -0.0001),
-        ...settled("okx", "BTC-USDT-SWAP", 0.0001),
-      ],
-    });
-    const deps = {
-      data,
-      now: () => NOW,
-      sitekey: "0xTESTSITEKEY",
-      clearance,
-      verifyToken: async (token: string | null) =>
-        token === "good" ? { ok: true } : { ok: false, reason: "invalid_token" as const },
-    };
-    const url = "https://airates.test/pair/BTC?long=gate&short=okx&size=10k&days=7";
-
-    // No clearance: the challenge page, and crucially NOT a 200 -- index.ts caches 200s by URL, so
-    // a 200 here would serve the challenge to everyone in place of the result.
-    const challenged = await handleApp(new Request(url), deps);
-    expect(challenged.status).toBe(403);
-    expect(challenged.headers.get("cache-control")).toBe("no-store");
-    const form = await challenged.text();
-    expect(form).toContain('data-sitekey="0xTESTSITEKEY"');
-    expect(form).toContain('data-action="backtest"');
-    expect(form).toContain('action="/pair/BTC/verify"');
-    expect(form).toContain("challenges.cloudflare.com/turnstile/v0/api.js");
-    // The parameters survive the round trip as hidden fields.
-    expect(form).toContain('name="long" value="gate"');
-    expect(form).toContain('name="days" value="7"');
-    // No result leaked into the challenge page.
-    expect(form).not.toContain("net funding over");
-
-    // Solving it: a 303 back to the canonical URL, with the cookie.
-    const body = new FormData();
-    for (const [k, v] of [
-      ["long", "gate"],
-      ["short", "okx"],
-      ["size", "10000"],
-      ["days", "7"],
-      ["cf-turnstile-response", "good"],
-    ])
-      body.set(k as string, v as string);
-    const solved = await handleApp(
-      new Request("https://airates.test/pair/BTC/verify", { method: "POST", body }),
-      deps,
-    );
-    expect(solved.status).toBe(303);
-    expect(solved.headers.get("location")).toBe("/pair/BTC?long=gate&short=okx&days=7");
-    const setCookie = solved.headers.get("set-cookie") ?? "";
-    expect(setCookie).toContain(CLEARANCE_COOKIE);
-    expect(setCookie).toContain("HttpOnly");
-
-    // The cookie then buys the real result at the shareable URL.
-    const cookie = setCookie.slice(0, setCookie.indexOf(";"));
-    const ran = await handleApp(new Request(url, { headers: { cookie } }), deps);
-    expect(ran.status).toBe(200);
-    expect(await ran.text()).toContain("net funding over");
-  });
-
-  test("a refused token returns to the challenge rather than a dead end", async () => {
-    const clearance = createClearance("test-secret");
-    const { data } = fakeData();
-    const body = new FormData();
-    body.set("long", "gate");
-    body.set("short", "okx");
-    body.set("cf-turnstile-response", "stale");
-    const res = await handleApp(
-      new Request("https://airates.test/pair/BTC/verify", { method: "POST", body }),
-      {
-        data,
-        now: () => NOW,
-        sitekey: "0xTESTSITEKEY",
-        clearance,
-        verifyToken: async () => ({ ok: false, reason: "already_used" as const }),
-      },
-    );
-    expect(res.status).toBe(403);
-    // A fresh widget, because the refused token is single-use and already spent.
-    expect(await res.text()).toContain("challenges.cloudflare.com/turnstile/v0/api.js");
-  });
-
-  test("browsing the pair page without a backtest is never challenged", async () => {
-    const { data } = fakeData();
-    const res = await handleApp(new Request("https://airates.test/pair/BTC"), {
-      data,
-      now: () => NOW,
-      sitekey: "0xTESTSITEKEY",
-      clearance: createClearance("test-secret"),
-      verifyToken: async () => ({ ok: false, reason: "missing_token" as const }),
-    });
-    expect(res.status).toBe(200);
-    expect(await res.text()).toContain("Pick two exchanges");
   });
 
   test("the rate limiter refuses before any database read, on both the page and the API", async () => {
