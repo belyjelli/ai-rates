@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "result": [
+    {
+      "market": "BTC-USD.P",
+      "time": "2026-09-13T22:00:00.037237665Z",
+      "fundingRate": "-0.0000338"
+    },
+    { "market": "BTC-USD.P", "time": "2026-09-13T21:00:00.038414854Z", "fundingRate": "-0.000054" },
+    { "market": "BTC-USD.P", "time": "2026-09-13T20:00:00.011911372Z", "fundingRate": "-0.0000177" }
+  ],
+  "pageInfo": { "prevCursor": "", "nextCursor": "PMRHA33TEI5DCNZXGIWCEZDJOIRDUML5" }
+}

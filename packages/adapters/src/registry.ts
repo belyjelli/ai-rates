@@ -18,10 +18,13 @@ import { lbankAdapter } from "./venues/lbank";
 import { lighterAdapter } from "./venues/lighter";
 import { mexcAdapter } from "./venues/mexc";
 import { okxAdapter } from "./venues/okx";
+import { ondoAdapter } from "./venues/ondo";
 import { orderlyAdapter } from "./venues/orderly";
 import { paradexAdapter } from "./venues/paradex";
 import { pionexAdapter } from "./venues/pionex";
 import { reyaAdapter } from "./venues/reya";
+import { sodexAdapter } from "./venues/sodex";
+import { standxAdapter } from "./venues/standx";
 import { variationalAdapter } from "./venues/variational";
 import { weexAdapter } from "./venues/weex";
 
@@ -52,6 +55,9 @@ export const FIXED_ADAPTERS: readonly VenueAdapter[] = [
   orderlyAdapter,
   hotcoinAdapter,
   lbankAdapter,
+  sodexAdapter,
+  ondoAdapter,
+  standxAdapter,
 ];
 
 /** Structural subset of a catalog venue, so this package doesn't depend on @ai-rates/venues. */

@@ -36,6 +36,9 @@ describe("collector adapters", () => {
     expect(ids).toContain("htx");
     expect(ids).toContain("hotcoin");
     expect(ids).toContain("lbank");
+    expect(ids).toContain("ondo");
+    expect(ids).toContain("sodex");
+    expect(ids).toContain("standx");
     expect(ids).toContain("orderly");
     expect(ids).toContain("pionex");
   });
