@@ -103,8 +103,10 @@ export function renderProbePage(
 </head>
 <body>
 <header>
+  <p class="sub"><a href="/">← airrates</a></p>
   <h1>Venue geo-probe</h1>
   <p>Which Cloudflare locations can reach each venue's public API. Hover a cell for per-endpoint detail.</p>
+  <p class="sub">Reachability, not data: a venue can answer here and still return no markets. This page renders on its own, so it carries no site navigation beyond the link above.</p>
   <button id="run" type="button">Run probes now</button>
   <span id="msg" class="sub"></span>
 </header>
