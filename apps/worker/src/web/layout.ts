@@ -29,7 +29,7 @@ const HOTKEY_TARGETS = JSON.stringify(Object.fromEntries(KEYS.map(([key, , href]
 // A terminal, not a printout: black ground, one monospace stack, no radius anywhere, 12px rows.
 // Long stays blue and short stays red as they always were, lifted to values legible on black.
 const CSS = `
-:root{--bg:#000;--band:#0e0e0e;--panel:#0a0a0a;--ink:#d8d8d8;--muted:#7a7a7a;--dim:#494949;--rule:#242424;
+:root{--mast:45px;--bg:#000;--band:#0e0e0e;--panel:#0a0a0a;--ink:#d8d8d8;--muted:#7a7a7a;--dim:#494949;--rule:#242424;
 --long:#5f87ff;--short:#ff5f5f;--zero:#494949;--accent:#c8f5a8;--warn:#e5e500;
 --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
 --display:var(--mono);--body:var(--mono);--data:var(--mono)}
@@ -102,17 +102,21 @@ table.sheet{border-collapse:collapse;width:100%}
 .sheet th[aria-sort] a{color:var(--ink)}
 .sheet th[aria-sort] a::after{content:" ↓"}
 .sheet .rail-cell{width:20%;min-width:170px}
-/* A long sheet scrolls inside its own box so its header row can stick. Sticky against the page would
-   not work: overflow-x:auto already makes .sheet-wrap a scroll container, the same trap .heat-wrap
-   notes below. The inset shadow stands in for the border, which a collapsed table scrolls away. */
-.sheet-wrap.stick{overflow:auto;max-height:calc(100vh - 170px)}
-.sheet-wrap.stick th{position:sticky;top:0;z-index:2;background:var(--bg);border-bottom:0;box-shadow:inset 0 -1px 0 var(--rule)}
+/* A long sheet scrolls with the page, and its header row sticks under the masthead. It used to scroll
+   inside a box of its own, which gave every wheel two scrollbars to move. The wrapper takes no
+   overflow at all: any overflow, even overflow-x alone, makes it a scroll container, and sticky would
+   bind to it instead of the page. It grows to the table's width instead, so a table wider than the
+   screen scrolls the page sideways with its border still around it. --mast is the masthead's height,
+   measured by the page script. The inset shadow stands in for the border a collapsed table scrolls away. */
+.sheet-wrap.stick{overflow:visible;width:max-content;min-width:100%}
+.sheet-wrap.stick th{position:sticky;top:var(--mast);z-index:2;background:var(--bg);border-bottom:0;box-shadow:inset 0 -1px 0 var(--rule)}
 /* The heatmap is a wide matrix, so it sizes to its content rather than the 100% table.sheet uses.
-   It scrolls on both axes inside its own box: overflow-x alone would coerce overflow-y to auto and
-   anchor the sticky header to that box while the page scrolled past it. */
-.heat-wrap{overflow:auto;max-height:calc(100vh - 170px);border:1px solid var(--rule)}
+   Like .sheet-wrap.stick above, it scrolls with the page rather than in a box of its own: the header
+   row sticks under the masthead, the asset column sticks to the left edge, and a grid wider than the
+   screen scrolls the page sideways. No overflow on the wrapper, for the reason given there. */
+.heat-wrap{border:1px solid var(--rule);width:max-content;min-width:100%}
 table.heat{border-collapse:collapse;width:auto;min-width:100%}
-.heat th{font-weight:400;text-transform:lowercase;letter-spacing:0;color:var(--muted);text-align:right;padding:3px 6px;border-bottom:1px solid var(--rule);white-space:nowrap;position:sticky;top:0;background:var(--bg);z-index:2}
+.heat th{font-weight:400;text-transform:lowercase;letter-spacing:0;color:var(--muted);text-align:right;padding:3px 6px;border-bottom:0;box-shadow:inset 0 -1px 0 var(--rule);white-space:nowrap;position:sticky;top:var(--mast);background:var(--bg);z-index:2}
 .heat td{padding:2px 6px;text-align:right;white-space:nowrap;color:var(--ink)}
 .heat th.asset,.heat td.asset{text-align:left;position:sticky;left:0;background:var(--bg);z-index:3}
 .heat thead th.asset{z-index:4}
@@ -228,7 +232,7 @@ footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim)
 `;
 
 // Live "… ago" and countdowns, a UTC clock, and the hotkeys advertised in the status bar.
-const SCRIPT = `(()=>{const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?s+"s":s<3600?Math.floor(s/60)+"m":Math.floor(s/3600)+"h "+p(Math.floor(s%3600/60))+"m"};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=f((n-e.dataset.since)/1e3)+" ago";for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):"settling"}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const n=e.target&&e.target.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA")return;if(e.key==="/"){const q=document.querySelector("form.filters select,form.filters input");if(q){e.preventDefault();q.focus()}return}const g=${HOTKEY_TARGETS}[e.key];if(g){e.preventDefault();location.href=g}})})();`;
+const SCRIPT = `(()=>{const m=document.querySelector(".mast"),ms=()=>{m&&document.documentElement.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?s+"s":s<3600?Math.floor(s/60)+"m":Math.floor(s/3600)+"h "+p(Math.floor(s%3600/60))+"m"};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=f((n-e.dataset.since)/1e3)+" ago";for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):"settling"}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const n=e.target&&e.target.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA")return;if(e.key==="/"){const q=document.querySelector("form.filters select,form.filters input");if(q){e.preventDefault();q.focus()}return}const g=${HOTKEY_TARGETS}[e.key];if(g){e.preventDefault();location.href=g}})})();`;
 
 export function layout(options: {
   title: string;

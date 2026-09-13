@@ -359,7 +359,9 @@ ${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short
     )
     .join("");
 
-  return `<div class="sheet-wrap"><table class="sheet">
+  // The screener's table runs to hundreds of rows, so its header sticks under the masthead; the
+  // homepage's twelve-row teaser, the other caller, has nothing to stick through.
+  return `<div class="sheet-wrap${filters ? " stick" : ""}"><table class="sheet">
 <thead><tr><th>Asset</th>${sortableTh("spread", "Widest funding gap between two exchanges", filters)}<th title="Signed log scale, so ordinary rates keep room next to extreme ones">Long − short, log scale</th><th>Long leg</th><th class="num">Long APR</th><th>Short leg</th><th class="num">Short APR</th>${sortableTh("settled_7d", "Same two markets, averaged over the settlements of the last 7 days", filters)}${sortableTh("venues", "Exchanges with a live market for this asset", filters)}${sortableTh("stability", "How often the weaker leg held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score", filters)}</tr></thead>
 <tbody data-live="pairs">${rows}</tbody>
 </table></div>`;

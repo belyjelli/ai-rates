@@ -705,6 +705,20 @@ describe("pages", () => {
     expect(html).toContain('title="Widest funding gap between two exchanges">Spread</th>');
   });
 
+  test("long tables stick their header to the page; the homepage teaser does not", async () => {
+    const { data } = fakeData();
+    // One page scroll for the screener and the exchange page: the header sticks, no inner box.
+    expect(await (await get("/screener", data)).text()).toContain('<div class="sheet-wrap stick">');
+    expect(await (await get("/markets/exchange/okx", data)).text()).toContain(
+      '<div class="sheet-wrap stick">',
+    );
+    // Twelve rows have nothing to stick through.
+    const home = await (await get("/", data)).text();
+    expect(home).not.toContain("sheet-wrap stick");
+    // The masthead's real height is measured, so the sticky offset follows a wrapped masthead.
+    expect(home).toContain('setProperty("--mast"');
+  });
+
   test("screener shows an empty state", async () => {
     const { data } = fakeData({ screener: async () => [] });
     expect(await (await get("/screener", data)).text()).toContain("No pairs match these filters");
