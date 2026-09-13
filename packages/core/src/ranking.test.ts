@@ -152,6 +152,25 @@ describe("deployableUsd", () => {
   });
 });
 
+describe("expectedWeeklyUsd", () => {
+  test("turns a weekly rate and a position size into dollars", () => {
+    // The measured shape: a $25M thinner leg at 2% is $500k, and 0.003/week on that is $1,500.
+    expect(expectedWeeklyUsd(0.003, 500_000)).toBeCloseTo(1_500, 6);
+  });
+
+  test("the segment's inversion in one line -- rate alone does not decide", () => {
+    // 300% APR on $10k pays $577 a week; 14% on $600k pays $1,620. For a $1M-$10M book the second
+    // is the business and the first is noise, and only this function can tell them apart.
+    expect(expectedWeeklyUsd(0.0577, 10_000)).toBeLessThan(expectedWeeklyUsd(0.0027, 600_000));
+  });
+
+  test("zero rather than NaN when either side is unknown", () => {
+    // A NaN here would propagate into the sort comparator and order the whole table arbitrarily.
+    expect(expectedWeeklyUsd(Number.NaN, 500_000)).toBe(0);
+    expect(expectedWeeklyUsd(0.003, Number.NaN)).toBe(0);
+  });
+});
+
 describe("rankByExpectedDollars", () => {
   test("a deep modest pair outranks a shallow spectacular one", () => {
     // The inversion this segment needs, in one assertion. 300% APR good for $10k is noise to a
