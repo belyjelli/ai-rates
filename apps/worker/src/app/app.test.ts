@@ -313,6 +313,56 @@ describe("pages", () => {
     expect(html).toContain("256.0 bps");
   });
 
+  test("every direction is listed, and the widest gap is not the deepest", async () => {
+    const { data } = fakeData({
+      priceQuotes: async () => [
+        // Cheapest ask, but only $2k rests on it.
+        quote({ best_ask_size_usd: 2_000 }),
+        quote({
+          venue_id: "bybit",
+          venue_symbol: "ONEUSDT",
+          best_bid: 0.01162,
+          best_ask: 0.01164,
+          best_bid_size_usd: 80_000,
+          best_ask_size_usd: 90_000,
+        }),
+        quote({
+          venue_id: "okx",
+          venue_symbol: "ONE-USDT-SWAP",
+          best_bid: 0.0115,
+          best_ask: 0.01152,
+          best_bid_size_usd: 5_000,
+          best_ask_size_usd: 7_000,
+        }),
+        // Excluded by the guard: it must not appear in ANY direction.
+        quote({
+          venue_id: "gate",
+          venue_symbol: "ONE-MISMATCH",
+          best_bid: 15.5,
+          best_ask: 15.6,
+          mark_price: 15.565,
+          mark_agrees: false,
+        }),
+      ],
+    });
+    const html = await (await get("/price-pair/ONE", data)).text();
+
+    expect(html).toContain('data-live="pp-pairs"');
+    // Three agreeing venues give six ordered directions.
+    const pairRows = html.split('data-live="pp-pairs"')[1]?.split("</tbody>")[0] ?? "";
+    expect(pairRows.match(/<tr data-k="pair:/g)).toHaveLength(6);
+    // Widest: buy Gate at 0.01133, sell Bybit at 0.01162 -- but good for only $2.0k.
+    expect(pairRows).toContain("256.0");
+    expect(pairRows).toContain("$2.0k");
+    // A narrower direction rests three and a half times more: OKX -> Bybit at 86.8 bps, $7.0k.
+    expect(pairRows).toContain("86.8");
+    expect(pairRows).toContain("$7.0k");
+    // Losing directions are shown rather than hidden, with the site's minus sign.
+    expect(pairRows).toContain("−283.5");
+    // The mismatched instrument never sets a price in any direction.
+    expect(pairRows).not.toContain("ONE-MISMATCH");
+  });
+
   test("price-pair 404s for an asset nobody quotes", async () => {
     const { data } = fakeData({ priceQuotes: async () => [] });
     const res = await get("/price-pair/NOSUCH", data);

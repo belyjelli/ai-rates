@@ -76,11 +76,12 @@ export function until(date: Date | null, now: number): string {
 }
 
 /**
- * A price gap in basis points, for a column: "269.6", "0.0", "–".
+ * A price gap in basis points, for a column: "269.6", "0.0", "−283.5", "–".
  *
- * Unsigned and untinted, unlike `formatApr`. A funding figure says who pays whom, so it carries a
- * sign and a colour; a quoted price gap is just a distance, and only the positive ones are worth
- * showing at all. One decimal ALWAYS, because the whole distribution lives near zero — the median
+ * Untinted, unlike `formatApr`: a funding figure says who pays whom and carries a colour for it,
+ * while a price gap is just a distance. Signed only because the pair table shows every direction,
+ * and most directions lose — a gap that reads "−283.5" is saying plainly that this way round does
+ * not work. One decimal ALWAYS, because the whole distribution lives near zero — the median
  * comparable asset is 0.0 bps — so trimming decimals would erase the only distinction that matters
  * at the bottom of the table, and a bare "0" would read as no quote at all.
  *
@@ -89,7 +90,10 @@ export function until(date: Date | null, now: number): string {
  */
 export function formatGapBps(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "–";
-  return value.toFixed(1);
+  const text = Math.abs(value).toFixed(1);
+  // The site's minus is U+2212, not a hyphen, everywhere a number can go negative. `toFixed` would
+  // emit a hyphen, which reads narrower and inconsistently beside every other signed figure.
+  return value < 0 && Number(text) !== 0 ? `${MINUS}${text}` : text;
 }
 
 /** CSS class for a funding value: who gets paid (positive: shorts receive, negative: longs receive). */
