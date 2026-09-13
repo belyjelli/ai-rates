@@ -1,0 +1,98 @@
+[
+  {
+    "firstPrice": "0.0034178",
+    "high": "0.0034772",
+    "lastPrice": "0.0033455",
+    "low": "0.0033455",
+    "priceChange": "-0.0000723",
+    "priceChangePercent": "-0.021154",
+    "quoteVolume": "45777.58805",
+    "symbol": "kPEPE_USDC_PERP",
+    "trades": "326",
+    "volume": "13369500"
+  },
+  {
+    "firstPrice": "101.5",
+    "high": "102.31",
+    "lastPrice": "99.75",
+    "low": "99.43",
+    "priceChange": "-1.75",
+    "priceChangePercent": "-0.017241",
+    "quoteVolume": "666909.497",
+    "symbol": "SOL_USDC",
+    "trades": "2424",
+    "volume": "6614.08"
+  },
+  {
+    "firstPrice": "2523.01",
+    "high": "2527.49",
+    "lastPrice": "2478.53",
+    "low": "2460.89",
+    "priceChange": "-44.48",
+    "priceChangePercent": "-0.01763",
+    "quoteVolume": "8280596.044234",
+    "symbol": "ETH_USDC_PERP",
+    "trades": "7259",
+    "volume": "3319.7944"
+  },
+  {
+    "firstPrice": "58.32",
+    "high": "58.46",
+    "lastPrice": "56.59",
+    "low": "56.07",
+    "priceChange": "-1.73",
+    "priceChangePercent": "-0.029664",
+    "quoteVolume": "334231.1928",
+    "symbol": "DRAM.US_USDC_PERP",
+    "trades": "645",
+    "volume": "5857.91"
+  },
+  {
+    "firstPrice": "4352.75",
+    "high": "4357.04",
+    "lastPrice": "4331.16",
+    "low": "4328.14",
+    "priceChange": "-21.59",
+    "priceChangePercent": "-0.00496",
+    "quoteVolume": "49301.037411",
+    "symbol": "PAXG_USDC_PERP",
+    "trades": "355",
+    "volume": "11.342"
+  },
+  {
+    "firstPrice": "77214",
+    "high": "77384",
+    "lastPrice": "76744.2",
+    "low": "76470.7",
+    "priceChange": "-469.8",
+    "priceChangePercent": "-0.006084",
+    "quoteVolume": "126024537.212937",
+    "symbol": "BTC_USDC_PERP",
+    "trades": "18798",
+    "volume": "1634.88439"
+  },
+  {
+    "firstPrice": "967.56",
+    "high": "969.46",
+    "lastPrice": "935.62",
+    "low": "926.77",
+    "priceChange": "-31.94",
+    "priceChangePercent": "-0.033011",
+    "quoteVolume": "341312.68245",
+    "symbol": "MU.US_USDC_PERP",
+    "trades": "848",
+    "volume": "359.735"
+  },
+  {
+    "firstPrice": "715.03",
+    "high": "715.08",
+    "lastPrice": "707.64",
+    "low": "706.6",
+    "priceChange": "-7.39",
+    "priceChangePercent": "-0.010335",
+    "quoteVolume": "366092.4011",
+    "symbol": "QQQ.US_USDC_PERP",
+    "trades": "668",
+    "volume": "514.9"
+  }
+]

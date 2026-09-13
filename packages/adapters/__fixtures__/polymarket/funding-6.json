@@ -1,0 +1,10 @@
+{
+  "data": [
+    { "funding_rate": "0.0000125", "timestamp": 1789336800106 },
+    { "funding_rate": "0.0000125", "timestamp": 1789333200084 },
+    { "funding_rate": "0.0000125", "timestamp": 1789329600027 },
+    { "funding_rate": "0.0000125", "timestamp": 1789326000052 },
+    { "funding_rate": "0.0000125", "timestamp": 1789322400060 }
+  ],
+  "more": false
+}

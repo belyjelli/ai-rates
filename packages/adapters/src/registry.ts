@@ -3,10 +3,12 @@ import { aevoAdapter } from "./venues/aevo";
 import { apexAdapter } from "./venues/apex";
 import { arcusAdapter } from "./venues/arcus";
 import { asterAdapter } from "./venues/aster";
+import { backpackAdapter } from "./venues/backpack";
 import { binanceAdapter } from "./venues/binance";
 import { bingxAdapter } from "./venues/bingx";
 import { bitgetAdapter } from "./venues/bitget";
 import { bitmartAdapter } from "./venues/bitmart";
+import { bluefinAdapter } from "./venues/bluefin";
 import { bulletAdapter } from "./venues/bullet";
 import { bybitAdapter } from "./venues/bybit";
 import { coinwAdapter } from "./venues/coinw";
@@ -23,6 +25,7 @@ import { kucoinAdapter } from "./venues/kucoin";
 import { lbankAdapter } from "./venues/lbank";
 import { lighterAdapter, lighterRhAdapter } from "./venues/lighter";
 import { mexcAdapter } from "./venues/mexc";
+import { nadoAdapter } from "./venues/nado";
 import { okxAdapter } from "./venues/okx";
 import { ondoAdapter } from "./venues/ondo";
 import { orderlyAdapter } from "./venues/orderly";
@@ -30,7 +33,9 @@ import { paradexAdapter } from "./venues/paradex";
 import { perplAdapter } from "./venues/perpl";
 import { phoenixAdapter } from "./venues/phoenix";
 import { pionexAdapter } from "./venues/pionex";
+import { polymarketAdapter } from "./venues/polymarket";
 import { reyaAdapter } from "./venues/reya";
+import { risexAdapter } from "./venues/risex";
 import { sodexAdapter } from "./venues/sodex";
 import { standxAdapter } from "./venues/standx";
 import { toobitAdapter } from "./venues/toobit";
@@ -87,6 +92,11 @@ export const FIXED_ADAPTERS: readonly VenueAdapter[] = [
   hibachiAdapter,
   zero1Adapter,
   aevoAdapter,
+  nadoAdapter,
+  risexAdapter,
+  polymarketAdapter,
+  backpackAdapter,
+  bluefinAdapter,
 ];
 
 /** Structural subset of a catalog venue, so this package doesn't depend on @ai-rates/venues. */

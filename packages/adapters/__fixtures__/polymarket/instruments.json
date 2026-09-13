@@ -1,0 +1,458 @@
+[
+  {
+    "instrument_id": 1,
+    "instrument_type": "perpetual",
+    "category": "index",
+    "isolated_only": false,
+    "symbol": "SP500-USD",
+    "base_asset": "SP500",
+    "quote_asset": "pUSD",
+    "funding_interval": "1h",
+    "quantity_decimals": 5,
+    "price_decimals": 1,
+    "price_bounds": "0.05",
+    "liquidation_fee": "0.005",
+    "max_order_count": 200,
+    "min_notional": "10",
+    "max_market_notional": "1000000",
+    "max_limit_notional": "5000000",
+    "max_leverage": 20,
+    "risk_tiers": [
+      {
+        "lower_bound": "0",
+        "max_leverage": 20
+      },
+      {
+        "lower_bound": "250000",
+        "max_leverage": 10
+      },
+      {
+        "lower_bound": "1000000",
+        "max_leverage": 8
+      },
+      {
+        "lower_bound": "2500000",
+        "max_leverage": 6
+      },
+      {
+        "lower_bound": "5000000",
+        "max_leverage": 5
+      },
+      {
+        "lower_bound": "7500000",
+        "max_leverage": 2
+      },
+      {
+        "lower_bound": "10000000",
+        "max_leverage": 1
+      }
+    ],
+    "ui_live_time": 1785542400000
+  },
+  {
+    "instrument_id": 2,
+    "instrument_type": "perpetual",
+    "category": "commodity",
+    "isolated_only": false,
+    "symbol": "GOLD-USD",
+    "base_asset": "GOLD",
+    "quote_asset": "pUSD",
+    "funding_interval": "1h",
+    "quantity_decimals": 5,
+    "price_decimals": 1,
+    "price_bounds": "0.05",
+    "liquidation_fee": "0.005",
+    "max_order_count": 200,
+    "min_notional": "10",
+    "max_market_notional": "1000000",
+    "max_limit_notional": "5000000",
+    "max_leverage": 20,
+    "risk_tiers": [
+      {
+        "lower_bound": "0",
+        "max_leverage": 20
+      },
+      {
+        "lower_bound": "250000",
+        "max_leverage": 10
+      },
+      {
+        "lower_bound": "1000000",
+        "max_leverage": 8
+      },
+      {
+        "lower_bound": "2500000",
+        "max_leverage": 6
+      },
+      {
+        "lower_bound": "5000000",
+        "max_leverage": 5
+      },
+      {
+        "lower_bound": "7500000",
+        "max_leverage": 2
+      },
+      {
+        "lower_bound": "10000000",
+        "max_leverage": 1
+      }
+    ],
+    "ui_live_time": 1785542400000
+  },
+  {
+    "instrument_id": 3,
+    "instrument_type": "perpetual",
+    "category": "commodity",
+    "isolated_only": false,
+    "symbol": "WTIOIL-USD",
+    "base_asset": "WTIOIL",
+    "quote_asset": "pUSD",
+    "funding_interval": "1h",
+    "quantity_decimals": 3,
+    "price_decimals": 3,
+    "price_bounds": "0.05",
+    "liquidation_fee": "0.005",
+    "max_order_count": 200,
+    "min_notional": "10",
+    "max_market_notional": "1000000",
+    "max_limit_notional": "5000000",
+    "max_leverage": 20,
+    "risk_tiers": [
+      {
+        "lower_bound": "0",
+        "max_leverage": 20
+      },
+      {
+        "lower_bound": "250000",
+        "max_leverage": 10
+      },
+      {
+        "lower_bound": "1000000",
+        "max_leverage": 8
+      },
+      {
+        "lower_bound": "2500000",
+        "max_leverage": 6
+      },
+      {
+        "lower_bound": "5000000",
+        "max_leverage": 5
+      },
+      {
+        "lower_bound": "7500000",
+        "max_leverage": 2
+      },
+      {
+        "lower_bound": "10000000",
+        "max_leverage": 1
+      }
+    ],
+    "ui_live_time": 1785542400000
+  },
+  {
+    "instrument_id": 6,
+    "instrument_type": "perpetual",
+    "category": "crypto",
+    "isolated_only": false,
+    "symbol": "BTC-USD",
+    "base_asset": "BTC",
+    "quote_asset": "pUSD",
+    "funding_interval": "1h",
+    "quantity_decimals": 5,
+    "price_decimals": 1,
+    "price_bounds": "0.05",
+    "liquidation_fee": "0.005",
+    "max_order_count": 200,
+    "min_notional": "10",
+    "max_market_notional": "1000000",
+    "max_limit_notional": "5000000",
+    "max_leverage": 20,
+    "risk_tiers": [
+      {
+        "lower_bound": "0",
+        "max_leverage": 20
+      },
+      {
+        "lower_bound": "250000",
+        "max_leverage": 10
+      },
+      {
+        "lower_bound": "1000000",
+        "max_leverage": 8
+      },
+      {
+        "lower_bound": "2500000",
+        "max_leverage": 6
+      },
+      {
+        "lower_bound": "5000000",
+        "max_leverage": 5
+      },
+      {
+        "lower_bound": "7500000",
+        "max_leverage": 2
+      },
+      {
+        "lower_bound": "10000000",
+        "max_leverage": 1
+      }
+    ],
+    "ui_live_time": 1785542400000
+  },
+  {
+    "instrument_id": 7,
+    "instrument_type": "perpetual",
+    "category": "crypto",
+    "isolated_only": false,
+    "symbol": "ETH-USD",
+    "base_asset": "ETH",
+    "quote_asset": "pUSD",
+    "funding_interval": "1h",
+    "quantity_decimals": 4,
+    "price_decimals": 2,
+    "price_bounds": "0.05",
+    "liquidation_fee": "0.005",
+    "max_order_count": 200,
+    "min_notional": "10",
+    "max_market_notional": "1000000",
+    "max_limit_notional": "5000000",
+    "max_leverage": 20,
+    "risk_tiers": [
+      {
+        "lower_bound": "0",
+        "max_leverage": 20
+      },
+      {
+        "lower_bound": "250000",
+        "max_leverage": 10
+      },
+      {
+        "lower_bound": "1000000",
+        "max_leverage": 8
+      },
+      {
+        "lower_bound": "2500000",
+        "max_leverage": 6
+      },
+      {
+        "lower_bound": "5000000",
+        "max_leverage": 5
+      },
+      {
+        "lower_bound": "7500000",
+        "max_leverage": 2
+      },
+      {
+        "lower_bound": "10000000",
+        "max_leverage": 1
+      }
+    ],
+    "ui_live_time": 1785542400000
+  },
+  {
+    "instrument_id": 17,
+    "instrument_type": "perpetual",
+    "category": "equity",
+    "isolated_only": false,
+    "symbol": "GOOG-USD",
+    "base_asset": "GOOGL",
+    "quote_asset": "pUSD",
+    "funding_interval": "1h",
+    "quantity_decimals": 4,
+    "price_decimals": 2,
+    "price_bounds": "0.10",
+    "liquidation_fee": "0.005",
+    "max_order_count": 200,
+    "min_notional": "10",
+    "max_market_notional": "500000",
+    "max_limit_notional": "2500000",
+    "max_leverage": 10,
+    "risk_tiers": [
+      {
+        "lower_bound": "0",
+        "max_leverage": 10
+      },
+      {
+        "lower_bound": "500000",
+        "max_leverage": 5
+      },
+      {
+        "lower_bound": "1000000",
+        "max_leverage": 3
+      },
+      {
+        "lower_bound": "3000000",
+        "max_leverage": 2
+      },
+      {
+        "lower_bound": "5000000",
+        "max_leverage": 1
+      }
+    ],
+    "ui_live_time": 1785542400000
+  },
+  {
+    "instrument_id": 30,
+    "instrument_type": "perpetual",
+    "category": "index",
+    "isolated_only": false,
+    "symbol": "DRAM-USD",
+    "base_asset": "DRAM",
+    "quote_asset": "pUSD",
+    "funding_interval": "1h",
+    "quantity_decimals": 3,
+    "price_decimals": 3,
+    "price_bounds": "0.10",
+    "liquidation_fee": "0.005",
+    "max_order_count": 200,
+    "min_notional": "10",
+    "max_market_notional": "500000",
+    "max_limit_notional": "2500000",
+    "max_leverage": 10,
+    "risk_tiers": [
+      {
+        "lower_bound": "0",
+        "max_leverage": 10
+      },
+      {
+        "lower_bound": "500000",
+        "max_leverage": 5
+      },
+      {
+        "lower_bound": "1000000",
+        "max_leverage": 3
+      },
+      {
+        "lower_bound": "3000000",
+        "max_leverage": 2
+      },
+      {
+        "lower_bound": "5000000",
+        "max_leverage": 1
+      }
+    ],
+    "ui_live_time": 1785542400000
+  },
+  {
+    "instrument_id": 35,
+    "instrument_type": "perpetual",
+    "category": "crypto",
+    "isolated_only": false,
+    "symbol": "KPEPE-USD",
+    "base_asset": "KPEPE",
+    "quote_asset": "pUSD",
+    "funding_interval": "1h",
+    "quantity_decimals": 0,
+    "price_decimals": 6,
+    "price_bounds": "0.10",
+    "liquidation_fee": "0.005",
+    "max_order_count": 200,
+    "min_notional": "10",
+    "max_market_notional": "500000",
+    "max_limit_notional": "2500000",
+    "max_leverage": 10,
+    "risk_tiers": [
+      {
+        "lower_bound": "0",
+        "max_leverage": 10
+      },
+      {
+        "lower_bound": "500000",
+        "max_leverage": 8
+      },
+      {
+        "lower_bound": "1000000",
+        "max_leverage": 6
+      },
+      {
+        "lower_bound": "2000000",
+        "max_leverage": 5
+      },
+      {
+        "lower_bound": "3000000",
+        "max_leverage": 2
+      },
+      {
+        "lower_bound": "5000000",
+        "max_leverage": 1
+      }
+    ],
+    "ui_live_time": 1785542400000
+  },
+  {
+    "instrument_id": 37,
+    "instrument_type": "perpetual",
+    "category": "equity",
+    "isolated_only": false,
+    "symbol": "MSTR-USD",
+    "base_asset": "MSTR",
+    "quote_asset": "pUSD",
+    "funding_interval": "1h",
+    "quantity_decimals": 3,
+    "price_decimals": 3,
+    "price_bounds": "0.10",
+    "liquidation_fee": "0.005",
+    "max_order_count": 200,
+    "min_notional": "10",
+    "max_market_notional": "500000",
+    "max_limit_notional": "2500000",
+    "max_leverage": 10,
+    "risk_tiers": [
+      {
+        "lower_bound": "0",
+        "max_leverage": 10
+      },
+      {
+        "lower_bound": "500000",
+        "max_leverage": 5
+      },
+      {
+        "lower_bound": "1000000",
+        "max_leverage": 3
+      },
+      {
+        "lower_bound": "3000000",
+        "max_leverage": 2
+      },
+      {
+        "lower_bound": "5000000",
+        "max_leverage": 1
+      }
+    ],
+    "ui_live_time": 1785542400000
+  },
+  {
+    "instrument_id": 69,
+    "instrument_type": "perpetual",
+    "category": "equity",
+    "isolated_only": false,
+    "symbol": "PONS-USD",
+    "base_asset": "PONS",
+    "quote_asset": "pUSD",
+    "funding_interval": "1h",
+    "quantity_decimals": 1,
+    "price_decimals": 5,
+    "price_bounds": "0.3333333333333333333333333333",
+    "liquidation_fee": "0.005",
+    "max_order_count": 200,
+    "min_notional": "10",
+    "max_market_notional": "50000",
+    "max_limit_notional": "250000",
+    "max_leverage": 3,
+    "risk_tiers": [
+      {
+        "lower_bound": "0",
+        "max_leverage": 3
+      },
+      {
+        "lower_bound": "500000",
+        "max_leverage": 2
+      },
+      {
+        "lower_bound": "1000000",
+        "max_leverage": 1
+      }
+    ],
+    "ui_live_time": 1789068819000
+  }
+]
