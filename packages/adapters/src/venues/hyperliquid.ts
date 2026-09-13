@@ -18,6 +18,10 @@ const HISTORY_PAGE_SIZE = 500;
 export const ANNOTATIONS_MAX_AGE_MS = 15 * 60_000;
 /** After a failed annotations refresh, the wait before the next attempt. */
 export const ANNOTATIONS_RETRY_MS = 60_000;
+/** Spot tokens change only when one is deployed, and a dex's collateral token never changes once set. */
+export const SPOT_TOKENS_MAX_AGE_MS = HOUR_MS;
+/** After a failed spotMeta refresh, the wait before the next attempt. */
+export const SPOT_TOKENS_RETRY_MS = 60_000;
 
 interface HlUniverseAsset {
   name: string;
@@ -40,6 +44,16 @@ export type HlMarginTable = [number, { description?: string; marginTiers: HlMarg
 export interface HlMeta {
   universe: HlUniverseAsset[];
   marginTables?: HlMarginTable[];
+  /**
+   * The spot token the dex margins and settles in, by `spotMeta.tokens[].index`. Present in `meta`
+   * and `metaAndAssetCtxs` for the core dex and every HIP-3 dex.
+   */
+  collateralToken?: number;
+}
+
+/** `spotMeta`, trimmed to what the quote lookup reads. */
+export interface HlSpotMeta {
+  tokens: { name: string; index: number }[];
 }
 
 interface HlAssetCtx {
@@ -106,6 +120,81 @@ export function parsePerpAnnotations(payload: HlPerpConciseAnnotations): Map<str
   return categories;
 }
 
+/** Token index to name. Throws on a payload without a token list, so the caller keeps its last copy. */
+export function parseSpotTokenNames(payload: HlSpotMeta): Map<number, string> {
+  if (!Array.isArray(payload?.tokens)) {
+    throw new Error("hyperliquid: spotMeta has no token list");
+  }
+  const names = new Map<number, string>();
+  // Keyed by the declared `index`, never the array position: on 2026-09-14, 43 of 501 tokens sat
+  // somewhere other than their index (FUNT, index 478, at position 458).
+  for (const token of payload.tokens) {
+    if (Number.isInteger(token?.index) && typeof token.name === "string") {
+      names.set(token.index, token.name);
+    }
+  }
+  return names;
+}
+
+/**
+ * The currency a dex settles in: its `collateralToken`, named as `spotMeta` names it.
+ *
+ * The venue's spelling is kept. On 2026-09-14 xyz, para, io, mkts and abcd settled in USDC (0), flx,
+ * km and vntl in USDH (360), cash in USDT0 (268) and hyna in USDE (235) -- USDT0 is not USDT and USDH
+ * is not USDC, and a pair across them carries that conversion. Null when either side is unknown.
+ */
+export function hip3Quote(meta: HlMeta, tokenNames: ReadonlyMap<number, string>): string | null {
+  const index = meta.collateralToken;
+  return index === undefined ? null : (tokenNames.get(index) ?? null);
+}
+
+/** One info response shared by a group of adapters: the last good copy, refreshed first when due. */
+interface InfoCache<T> {
+  /** Never throws. */
+  get(client: HttpClient, now: number): Promise<T>;
+}
+
+/**
+ * Keeps the last good copy of an info response. A failed or empty refresh keeps it and tries again
+ * after `retryMs`; it never fails the sweep that asked. Before any copy has loaded, callers get
+ * `empty`.
+ */
+function createInfoCache<P, K, V>(
+  type: string,
+  parse: (payload: P) => Map<K, V>,
+  maxAgeMs: number,
+  retryMs: number,
+): InfoCache<ReadonlyMap<K, V>> {
+  let current: ReadonlyMap<K, V> = new Map();
+  let refreshAt = 0;
+  let pending: Promise<void> | null = null;
+
+  async function refresh(client: HttpClient, now: number): Promise<void> {
+    try {
+      const parsed = parse(await client.postJson<P>(HYPERLIQUID_INFO_URL, { type }));
+      // An empty list is a broken response, not a venue with nothing listed.
+      if (parsed.size === 0) throw new Error(`hyperliquid: ${type} is empty`);
+      current = parsed;
+      refreshAt = now + maxAgeMs;
+    } catch {
+      refreshAt = now + retryMs;
+    }
+  }
+
+  return {
+    async get(client, now) {
+      if (now >= refreshAt) {
+        // Adapters in the group can overlap; they wait on the same request rather than each sending one.
+        pending ??= refresh(client, now).finally(() => {
+          pending = null;
+        });
+        await pending;
+      }
+      return current;
+    },
+  };
+}
+
 export interface HlAnnotationCache {
   /** Coin to category: the last good copy, refreshed first when due. Never throws. */
   categories(client: HttpClient, now: number): Promise<ReadonlyMap<string, string>>;
@@ -120,38 +209,35 @@ export interface HlAnnotationCache {
  * missing-annotation rule in `hip3DeclaredClass`.
  */
 export function createAnnotationCache(): HlAnnotationCache {
-  let current: ReadonlyMap<string, string> = new Map();
-  let refreshAt = 0;
-  let pending: Promise<void> | null = null;
+  const cache = createInfoCache(
+    "perpConciseAnnotations",
+    parsePerpAnnotations,
+    ANNOTATIONS_MAX_AGE_MS,
+    ANNOTATIONS_RETRY_MS,
+  );
+  return { categories: (client, now) => cache.get(client, now) };
+}
 
-  async function refresh(client: HttpClient, now: number): Promise<void> {
-    try {
-      const parsed = parsePerpAnnotations(
-        await client.postJson<HlPerpConciseAnnotations>(HYPERLIQUID_INFO_URL, {
-          type: "perpConciseAnnotations",
-        }),
-      );
-      // An empty list is a broken response, not a venue with no markets.
-      if (parsed.size === 0) throw new Error("hyperliquid: perpConciseAnnotations is empty");
-      current = parsed;
-      refreshAt = now + ANNOTATIONS_MAX_AGE_MS;
-    } catch {
-      refreshAt = now + ANNOTATIONS_RETRY_MS;
-    }
-  }
+export interface HlSpotTokenCache {
+  /** Token index to name: the last good copy, refreshed first when due. Never throws. */
+  names(client: HttpClient, now: number): Promise<ReadonlyMap<number, string>>;
+}
 
-  return {
-    async categories(client, now) {
-      if (now >= refreshAt) {
-        // Adapters in the group can overlap; they wait on the same request rather than each sending one.
-        pending ??= refresh(client, now).finally(() => {
-          pending = null;
-        });
-        await pending;
-      }
-      return current;
-    },
-  };
+/**
+ * `spotMeta` names the token behind every dex's `collateralToken`. One response serves all HIP-3
+ * adapters, at most once per SPOT_TOKENS_MAX_AGE_MS for the group (a response is ~136 KB).
+ *
+ * A failed or empty refresh keeps the last good copy and tries again after SPOT_TOKENS_RETRY_MS. It
+ * never fails the sweep: before any copy has loaded, HIP-3 snapshots carry a null quote.
+ */
+export function createSpotTokenCache(): HlSpotTokenCache {
+  const cache = createInfoCache(
+    "spotMeta",
+    parseSpotTokenNames,
+    SPOT_TOKENS_MAX_AGE_MS,
+    SPOT_TOKENS_RETRY_MS,
+  );
+  return { names: (client, now) => cache.get(client, now) };
 }
 
 /**
@@ -301,6 +387,7 @@ function createAdapter(
   dex: string | null,
   quote: string | null,
   annotations: HlAnnotationCache | null,
+  spotTokens: HlSpotTokenCache | null,
 ): VenueAdapter {
   return {
     venueId,
@@ -312,10 +399,12 @@ function createAdapter(
     async fetchSnapshots(client, now): Promise<SnapshotBatch> {
       const body = dex ? { type: "metaAndAssetCtxs", dex } : { type: "metaAndAssetCtxs" };
       const payload = await client.postJson<HlMetaAndAssetCtxs>(HYPERLIQUID_INFO_URL, body);
-      // After the main request, so a sweep that is failing anyway spends nothing on annotations.
+      // After the main request, so a sweep that is failing anyway spends nothing on either cache.
       const categories = annotations ? await annotations.categories(client, now) : null;
+      const settlesIn =
+        quote ?? (spotTokens ? hip3Quote(payload[0], await spotTokens.names(client, now)) : null);
       return {
-        snapshots: parseHyperliquidSnapshots(venueId, payload, now, quote, categories),
+        snapshots: parseHyperliquidSnapshots(venueId, payload, now, settlesIn, categories),
         settled: [],
       };
     },
@@ -348,16 +437,33 @@ function createAdapter(
   };
 }
 
-/** Core Hyperliquid perps (USDC collateral). Validator-listed crypto, so no annotations are fetched. */
-export const hyperliquidAdapter: VenueAdapter = createAdapter("hyperliquid", null, "USDC", null);
+/**
+ * Core Hyperliquid perps. Validator-listed crypto, so no annotations are fetched. The core dex
+ * declares `collateralToken` 0, which spotMeta names USDC; it is fixed here rather than looked up,
+ * so the core adapter sends no spotMeta request.
+ */
+export const hyperliquidAdapter: VenueAdapter = createAdapter(
+  "hyperliquid",
+  null,
+  "USDC",
+  null,
+  null,
+);
 
 /** Shared by every HIP-3 adapter: one annotations response covers all dexes. */
 const hip3Annotations = createAnnotationCache();
+/** Shared by every HIP-3 adapter: one spotMeta response names every dex's collateral. */
+const hip3SpotTokens = createSpotTokenCache();
 
-/** A HIP-3 builder-deployed dex; venue id `hl-<dex>`, coins named `<dex>:<SYMBOL>`. */
+/**
+ * A HIP-3 builder-deployed dex; venue id `hl-<dex>`, coins named `<dex>:<SYMBOL>`. Snapshots quote
+ * the dex's declared collateral (see `hip3Quote`). Funding history still carries a null quote: the
+ * history request has no meta to read it from.
+ */
 export function createHip3Adapter(
   dex: string,
   annotations: HlAnnotationCache = hip3Annotations,
+  spotTokens: HlSpotTokenCache = hip3SpotTokens,
 ): VenueAdapter {
-  return createAdapter(`hl-${dex}`, dex, null, annotations);
+  return createAdapter(`hl-${dex}`, dex, null, annotations, spotTokens);
 }

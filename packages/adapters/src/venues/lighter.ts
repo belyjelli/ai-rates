@@ -9,6 +9,22 @@ const HOUR_MS = 3_600_000;
 const HISTORY_PAGE_SIZE = 750;
 
 /**
+ * What every Lighter perp settles in. The API declares no per-perp quote: `orderBookDetails` gives
+ * every perp `quote_asset_id` 0, which names no asset (`assetDetails` numbers USDC 3, and spot
+ * markets do carry 3). The docs name one settlement currency for all perps, as read on 2026-09-14:
+ *
+ * - https://docs.lighter.xyz/trading/pnl-and-total-account-value -- realized PnL is "the difference
+ *   in USDC value" between entry and exit, and funding payments are applied to realized PnL.
+ * - https://docs.lighter.xyz/trading/multi-asset-margin -- "USDC (Lighter) and USDG (Robinhood Chain
+ *   Lighter) remain the base collateral". ETH and XAUT can back margin, discounted, but PnL and
+ *   funding still land in USDC.
+ *
+ * LIGHTER_API is the Lighter (Ethereum) deployment, so USDC. A Robinhood Chain Lighter adapter would
+ * quote USDG instead.
+ */
+const LIGHTER_QUOTE = "USDC";
+
+/**
  * The class Lighter declares for each non-crypto market, by Lighter symbol. Absent means crypto.
  *
  * Lighter's API declares no class, so this is transcribed from what the venue publishes elsewhere,
@@ -205,6 +221,7 @@ export function parseLighterSnapshots(
     const markPrice = num(detail.mark_price);
     snapshots.push({
       ...marketRef("lighter", row.symbol, {
+        quote: LIGHTER_QUOTE,
         assetClass: LIGHTER_ASSET_CLASSES.get(row.symbol) ?? "crypto",
       }),
       observedAt: now,
@@ -237,7 +254,7 @@ export function parseLighterFundings(
     if (percent === null || !Number.isFinite(row.timestamp)) continue;
     const sign = row.direction === "short" ? -1 : 1;
     events.push({
-      ...marketRef("lighter", venueSymbol),
+      ...marketRef("lighter", venueSymbol, { quote: LIGHTER_QUOTE }),
       settledAt: row.timestamp * 1000,
       rate: (sign * percent) / 100,
       basisHours: 1,
