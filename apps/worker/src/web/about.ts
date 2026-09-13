@@ -24,6 +24,14 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-09-13",
+    title: "Seven more exchanges, checked against a real settlement",
+    changes: [
+      "ApeX, GRVT, Hibachi, N1, Aevo, Phoenix and Perpl are collected. Aevo, Hibachi and Phoenix include stocks, commodities or currencies alongside crypto.",
+      "Each rate was read every minute up to a funding settlement and compared with what the exchange actually charged, so a figure shown as a forecast is one, and a figure that only changes at settlement is marked as settled. Phoenix and Perpl are shown as settled for that reason.",
+    ],
+  },
+  {
+    date: "2026-09-13",
     title: "Eight more exchanges",
     changes: [
       "SoDEX, Ondo, StandX, Toobit, CoinW, edgeX, Lighter's Robinhood Chain deployment and Velocity (formerly Drift) are collected, together more than 1,400 markets.",
