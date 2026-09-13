@@ -183,9 +183,14 @@ gain rather than shipping a bundle and guessing.
   sprint 0 needs every candidate. It enumerates candidate leg-pairs from `market_latest` itself, so
   it pairs by asset identity directly and must adopt the split key. **Sequence 017 before 018**
   rather than writing base-keyed enumeration and migrating it a week later.
-- **New table `market_pair_ranked`** — one row per asset per run: chosen legs, score, the
-  **incumbent legs carried from the previous run**, whether it switched and why, deployable dollars,
-  expected weekly dollars, the participation rate and fee tier used.
+- **New table `market_pair_candidates`** (migration 018) — **one row per candidate pair**, not per
+  asset. An earlier draft here called it `market_pair_ranked` and described it as one row per asset
+  per run, which conflated two grains: the next bullet also requires every candidate to be retained,
+  and both cannot be true of one table. It holds candidates, so it is named for them. Each row
+  carries the evidence as gathered (rate, charging days, thinner-leg depth), the score derived from
+  it, deployable and expected weekly dollars, one boolean per pre-registered variant recording which
+  of them selected that pair, and the hysteresis chain — `was_incumbent` and `switch_cost_usd` —
+  which is path-dependent and cannot be rebuilt after the fact.
 - **Candidate rows retained, not just the winner.** `market_pair_backtests` has
   `PRIMARY KEY (run_day, asset)`, so only the winner is stored and **no counterfactual is
   recoverable** — which is exactly why hysteresis cannot be backtested on existing data. The new
