@@ -1,0 +1,41 @@
+{
+  "items": [
+    {
+      "marketId": 0,
+      "time": "2026-09-13T22:00:00.333152Z",
+      "actionId": 6550840417,
+      "fundingIndex": -1010003605454,
+      "fundingRate": -0.000001,
+      "indexPrice": 77283.9,
+      "markPrice": 77285
+    },
+    {
+      "marketId": 0,
+      "time": "2026-09-13T21:00:00.266182Z",
+      "actionId": 6550543577,
+      "fundingIndex": -1010002832615,
+      "fundingRate": 0,
+      "indexPrice": 77321.5,
+      "markPrice": 77313.4
+    },
+    {
+      "marketId": 0,
+      "time": "2026-09-13T20:00:00.292427Z",
+      "actionId": 6550260738,
+      "fundingIndex": -1010002832615,
+      "fundingRate": 0.000004,
+      "indexPrice": 77258.1,
+      "markPrice": 77297.3
+    },
+    {
+      "marketId": 0,
+      "time": "2026-09-13T19:00:00.522297Z",
+      "actionId": 6549968335,
+      "fundingIndex": -1010005922939,
+      "fundingRate": -0.000007,
+      "indexPrice": 77315.7,
+      "markPrice": 77314.6
+    }
+  ],
+  "nextStartInclusive": 6549669807
+}

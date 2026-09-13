@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "fundingRate": "-0.0000148",
+      "highPrice24h": "2526.27",
+      "indexPrice": "2480.03",
+      "lastPrice": "2478.17",
+      "lowPrice24h": "2460.26",
+      "nextFundingTime": "2026-09-13T23:00:00Z",
+      "openInterest": "2950.1999999999994",
+      "oraclePrice": "",
+      "markPrice": "2478.83",
+      "predictedFundingRate": "0.0000125",
+      "price24hPcnt": "-0.0164430862041594",
+      "symbol": "ETHUSDT",
+      "tradeCount": "",
+      "turnover24h": "13691767.3691",
+      "volume24h": "5474.3"
+    }
+  ],
+  "timeCost": 2095
+}

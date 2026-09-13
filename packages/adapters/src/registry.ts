@@ -1,4 +1,6 @@
 import type { VenueAdapter } from "./types";
+import { aevoAdapter } from "./venues/aevo";
+import { apexAdapter } from "./venues/apex";
 import { arcusAdapter } from "./venues/arcus";
 import { asterAdapter } from "./venues/aster";
 import { binanceAdapter } from "./venues/binance";
@@ -12,6 +14,8 @@ import { dydxAdapter } from "./venues/dydx";
 import { edgexV2Adapter } from "./venues/edgex";
 import { extendedAdapter } from "./venues/extended";
 import { gateAdapter } from "./venues/gate";
+import { grvtAdapter } from "./venues/grvt";
+import { hibachiAdapter } from "./venues/hibachi";
 import { hotcoinAdapter } from "./venues/hotcoin";
 import { htxAdapter } from "./venues/htx";
 import { createHip3Adapter, hyperliquidAdapter } from "./venues/hyperliquid";
@@ -33,6 +37,7 @@ import { toobitAdapter } from "./venues/toobit";
 import { variationalAdapter } from "./venues/variational";
 import { velocityAdapter } from "./venues/velocity";
 import { weexAdapter } from "./venues/weex";
+import { zero1Adapter } from "./venues/zero1";
 
 /** Phase 1 venues with a dedicated adapter. HIP-3 dexes get one adapter each, from the catalog. */
 /**
@@ -77,6 +82,11 @@ export const FIXED_ADAPTERS: readonly VenueAdapter[] = [
   velocityAdapter,
   phoenixAdapter,
   perplAdapter,
+  apexAdapter,
+  grvtAdapter,
+  hibachiAdapter,
+  zero1Adapter,
+  aevoAdapter,
 ];
 
 /** Structural subset of a catalog venue, so this package doesn't depend on @ai-rates/venues. */
