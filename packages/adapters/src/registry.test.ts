@@ -48,6 +48,8 @@ describe("createAdapters", () => {
       "ondo",
       "orderly",
       "paradex",
+      "perpl",
+      "phoenix",
       "pionex",
       "reya",
       "sodex",

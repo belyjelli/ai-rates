@@ -1,0 +1,30 @@
+{
+  "marketId": 2,
+  "symbol": "BTC",
+  "rates": [
+    {
+      "timestamp": 1789318800,
+      "fundingRatePercentage": "0.001035"
+    },
+    {
+      "timestamp": 1789322400,
+      "fundingRatePercentage": "0.000866"
+    },
+    {
+      "timestamp": 1789326000,
+      "fundingRatePercentage": "0.000802"
+    },
+    {
+      "timestamp": 1789329600,
+      "fundingRatePercentage": "0.000104"
+    },
+    {
+      "timestamp": 1789333201,
+      "fundingRatePercentage": "-0.000336"
+    },
+    {
+      "timestamp": 1789336801,
+      "fundingRatePercentage": "0.000543"
+    }
+  ]
+}

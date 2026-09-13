@@ -45,6 +45,8 @@ describe("collector adapters", () => {
     expect(ids).toContain("edgex-v2");
     expect(ids).toContain("lighter-rh");
     expect(ids).toContain("velocity");
+    expect(ids).toContain("perpl");
+    expect(ids).toContain("phoenix");
     expect(ids).toContain("orderly");
     expect(ids).toContain("pionex");
   });

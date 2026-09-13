@@ -23,6 +23,8 @@ import { okxAdapter } from "./venues/okx";
 import { ondoAdapter } from "./venues/ondo";
 import { orderlyAdapter } from "./venues/orderly";
 import { paradexAdapter } from "./venues/paradex";
+import { perplAdapter } from "./venues/perpl";
+import { phoenixAdapter } from "./venues/phoenix";
 import { pionexAdapter } from "./venues/pionex";
 import { reyaAdapter } from "./venues/reya";
 import { sodexAdapter } from "./venues/sodex";
@@ -73,6 +75,8 @@ export const FIXED_ADAPTERS: readonly VenueAdapter[] = [
   edgexV2Adapter,
   lighterRhAdapter,
   velocityAdapter,
+  phoenixAdapter,
+  perplAdapter,
 ];
 
 /** Structural subset of a catalog venue, so this package doesn't depend on @ai-rates/venues. */

@@ -1,0 +1,561 @@
+[
+  {
+    "symbol": "AAPL",
+    "assetId": 40,
+    "marketStatus": "active",
+    "commodityMetadata": {
+      "isCommodity": true,
+      "isReopen": false,
+      "isAfterHours": true,
+      "status": "afterHours",
+      "afterHoursRadius": {
+        "value": 16620,
+        "decimals": 3,
+        "ui": "16.620"
+      },
+      "lastKnownIndexPrice": {
+        "value": 332550,
+        "decimals": 3,
+        "ui": "332.550"
+      },
+      "markPriceBand": {
+        "min": {
+          "value": 315930,
+          "decimals": 3,
+          "ui": "315.930"
+        },
+        "max": {
+          "value": 349170,
+          "decimals": 3,
+          "ui": "349.170"
+        }
+      },
+      "executionPriceBand": {
+        "min": {
+          "value": 315930,
+          "decimals": 3,
+          "ui": "315.930"
+        },
+        "max": {
+          "value": 349170,
+          "decimals": 3,
+          "ui": "349.170"
+        }
+      },
+      "lastIndexExpiryTimestamp": 1789344300
+    },
+    "metadata": {
+      "name": "Apple",
+      "description": "AAPL tracks the price of 1 share of Apple Inc. (NASDAQ: AAPL) common stock. This is a perpetual futures contract cash-settled against the real-time market price of AAPL. Apple designs and sells consumer electronics, software, and services and is one of the world's largest publicly traded companies by market capitalization.",
+      "logoUri": "https://phoenixcdn.trade/logos/AAPL/b051c10671321f665ba528b9ee32ad500c0410cf06d44e99a3fabdf6ecccacee.svg",
+      "coinGeckoId": null,
+      "coinMarketCapId": null,
+      "tokensXyzAssetId": null,
+      "calendar": {
+        "id": "us_equities_extended",
+        "description": "us_equities_extended",
+        "calendarUri": "https://phoenixcdn.trade/calendars/us_equities_extended.json",
+        "contentSha256": "8d308a62612513793d193699742ae06d90bb8ccda487f7f1e9f535f419c3768e",
+        "nextMarketTransitionUtc": "2026-09-14T00:00:00Z"
+      },
+      "displayColor": "#FFFFFF"
+    },
+    "marketPubkey": "5pheia5Tou27SJnJjQdrRUMpbWmXF5jU7cXMLBt8upzz",
+    "splinePubkey": "DAc9d2y8M2Bc2KuN2VRUWdBWN8idBfJF9Z9gS57eVASq",
+    "tickSize": 10,
+    "baseLotsDecimals": 3,
+    "takerFee": 0.00035,
+    "makerFee": 0.00005,
+    "leverageTiers": [
+      {
+        "maxLeverage": 20,
+        "maxSizeBaseLots": 10320000,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 10321000,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 10322000,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 10323000,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      }
+    ],
+    "riskFactors": {
+      "maintenance": 50,
+      "maintenanceBps": 5000,
+      "backstop": 20,
+      "backstopBps": 2000,
+      "highRisk": 10,
+      "highRiskBps": 1000,
+      "upnl": 100,
+      "upnlBps": 10000,
+      "upnlForWithdrawals": 1,
+      "upnlForWithdrawalsBps": 100,
+      "cancelOrder": 75,
+      "cancelOrderBps": 7500
+    },
+    "fundingIntervalSeconds": 3600,
+    "fundingPeriodSeconds": 86400,
+    "maxFundingRatePerInterval": 740,
+    "maxFundingRatePerIntervalPercentage": 0.22371364653243847,
+    "openInterestCapBaseLots": "10320000",
+    "maxLiquidationSizeBaseLots": "1030000",
+    "isolatedOnly": false,
+    "statsSnapshot": {
+      "slot": 446817140,
+      "slotIndex": 1848,
+      "openInterestBaseLots": "15448",
+      "fundingStartIntervalTimestamp": "1789336800",
+      "cumulativeFundingRate": "3439"
+    }
+  },
+  {
+    "symbol": "XRP",
+    "assetId": 3,
+    "marketStatus": "active",
+    "metadata": {
+      "name": null,
+      "description": null,
+      "logoUri": "https://phoenixcdn.trade/logos/XRP/27fd1eb1dd77447c1a9bfb743d1d584060e76dab3e050d4483613e4b3164688b.svg",
+      "coinGeckoId": "ripple",
+      "coinMarketCapId": 52,
+      "tokensXyzAssetId": null,
+      "displayColor": "#8BA4FF"
+    },
+    "marketPubkey": "CwaHtR69D287PLnoX8zzzk1zqwNQKVJiJQTNs6JrVyna",
+    "splinePubkey": "DTX3dsRdJfx2bUWWKgGAKv3UGfRFHB2NGX7a5DmG81Em",
+    "tickSize": 10,
+    "baseLotsDecimals": 2,
+    "takerFee": 0.00035,
+    "makerFee": 0.00005,
+    "leverageTiers": [
+      {
+        "maxLeverage": 15,
+        "maxSizeBaseLots": 91491309,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 91491310,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 91491311,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 91491312,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      }
+    ],
+    "riskFactors": {
+      "maintenance": 50,
+      "maintenanceBps": 5000,
+      "backstop": 20,
+      "backstopBps": 2000,
+      "highRisk": 10,
+      "highRiskBps": 1000,
+      "upnl": 100,
+      "upnlBps": 10000,
+      "upnlForWithdrawals": 0,
+      "upnlForWithdrawalsBps": 0,
+      "cancelOrder": 75,
+      "cancelOrderBps": 7500
+    },
+    "fundingIntervalSeconds": 3600,
+    "fundingPeriodSeconds": 86400,
+    "maxFundingRatePerInterval": 30,
+    "maxFundingRatePerIntervalPercentage": 0.22438294689603588,
+    "openInterestCapBaseLots": "91491309",
+    "maxLiquidationSizeBaseLots": "10000000",
+    "isolatedOnly": false,
+    "statsSnapshot": {
+      "slot": 446817140,
+      "slotIndex": 1848,
+      "openInterestBaseLots": "1325793",
+      "fundingStartIntervalTimestamp": "1789336800",
+      "cumulativeFundingRate": "-656"
+    }
+  },
+  {
+    "symbol": "SPY",
+    "assetId": 78,
+    "marketStatus": "active",
+    "commodityMetadata": {
+      "isCommodity": true,
+      "isReopen": false,
+      "isAfterHours": true,
+      "status": "afterHours",
+      "afterHoursRadius": {
+        "value": 38230,
+        "decimals": 3,
+        "ui": "38.230"
+      },
+      "lastKnownIndexPrice": {
+        "value": 764790,
+        "decimals": 3,
+        "ui": "764.790"
+      },
+      "markPriceBand": {
+        "min": {
+          "value": 726560,
+          "decimals": 3,
+          "ui": "726.560"
+        },
+        "max": {
+          "value": 803020,
+          "decimals": 3,
+          "ui": "803.020"
+        }
+      },
+      "executionPriceBand": {
+        "min": {
+          "value": 726560,
+          "decimals": 3,
+          "ui": "726.560"
+        },
+        "max": {
+          "value": 803020,
+          "decimals": 3,
+          "ui": "803.020"
+        }
+      },
+      "lastIndexExpiryTimestamp": 1789344300
+    },
+    "metadata": {
+      "name": null,
+      "description": null,
+      "logoUri": "https://phoenixcdn.trade/logos/SPY/fde6d99e1a0e6390ca20a0b088f74c5d2f870689fc13589d03f21a1cb97829bc.svg",
+      "coinGeckoId": null,
+      "coinMarketCapId": null,
+      "tokensXyzAssetId": null,
+      "calendar": {
+        "id": "us_equities_extended",
+        "description": "us_equities_extended",
+        "calendarUri": "https://phoenixcdn.trade/calendars/us_equities_extended.json",
+        "contentSha256": "8d308a62612513793d193699742ae06d90bb8ccda487f7f1e9f535f419c3768e",
+        "nextMarketTransitionUtc": "2026-09-14T00:00:00Z"
+      },
+      "displayColor": null
+    },
+    "marketPubkey": "FbkK74mnwf51gyccTJxDLWQNw9yN3Ff8jsUXUCEw4LPZ",
+    "splinePubkey": "57RbXMGfTw9cLu4rYLbiGzymPee2G1s46cEwG9Grw7Fk",
+    "tickSize": 10,
+    "baseLotsDecimals": 3,
+    "takerFee": 0.00035,
+    "makerFee": 0.00005,
+    "leverageTiers": [
+      {
+        "maxLeverage": 20,
+        "maxSizeBaseLots": 3920000,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 3921000,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 3922000,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 3923000,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      }
+    ],
+    "riskFactors": {
+      "maintenance": 50,
+      "maintenanceBps": 5000,
+      "backstop": 20,
+      "backstopBps": 2000,
+      "highRisk": 10,
+      "highRiskBps": 1000,
+      "upnl": 100,
+      "upnlBps": 10000,
+      "upnlForWithdrawals": 1,
+      "upnlForWithdrawalsBps": 100,
+      "cancelOrder": 75,
+      "cancelOrderBps": 7500
+    },
+    "fundingIntervalSeconds": 3600,
+    "fundingPeriodSeconds": 28800,
+    "maxFundingRatePerInterval": 1750,
+    "maxFundingRatePerIntervalPercentage": 0.23002405394392675,
+    "openInterestCapBaseLots": "3920000",
+    "maxLiquidationSizeBaseLots": "390000",
+    "isolatedOnly": false,
+    "statsSnapshot": {
+      "slot": 446817140,
+      "slotIndex": 1848,
+      "openInterestBaseLots": "2498",
+      "fundingStartIntervalTimestamp": "1789336800",
+      "cumulativeFundingRate": "2042"
+    }
+  },
+  {
+    "symbol": "ETH",
+    "assetId": 2,
+    "marketStatus": "active",
+    "metadata": {
+      "name": "Ethereum",
+      "description": null,
+      "logoUri": "https://phoenixcdn.trade/logos/ETH/b3e3b01e539aed5885ba95670767e8a88bb5c43f1db39c7cbeccec1aeb1899a7.svg",
+      "coinGeckoId": "ethereum",
+      "coinMarketCapId": 1027,
+      "tokensXyzAssetId": null,
+      "displayColor": "#627EEA"
+    },
+    "marketPubkey": "9u7aqptdRFbsnnoHtjK13E5JkeM14EW5fAKTRPidVF88",
+    "splinePubkey": "DN7uE4FBSs9Uy6V3GNvAbTdUMufY1hBkdy3JV1UfYdg",
+    "tickSize": 100,
+    "baseLotsDecimals": 3,
+    "takerFee": 0.00035,
+    "makerFee": 0.00005,
+    "leverageTiers": [
+      {
+        "maxLeverage": 25,
+        "maxSizeBaseLots": 24146424,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 24146425,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 24146426,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 24146427,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      }
+    ],
+    "riskFactors": {
+      "maintenance": 50,
+      "maintenanceBps": 5000,
+      "backstop": 20,
+      "backstopBps": 2000,
+      "highRisk": 10,
+      "highRiskBps": 1000,
+      "upnl": 100,
+      "upnlBps": 10000,
+      "upnlForWithdrawals": 70,
+      "upnlForWithdrawalsBps": 7000,
+      "cancelOrder": 70,
+      "cancelOrderBps": 7000
+    },
+    "fundingIntervalSeconds": 3600,
+    "fundingPeriodSeconds": 86400,
+    "maxFundingRatePerInterval": 5690,
+    "maxFundingRatePerIntervalPercentage": 0.22937074212923772,
+    "openInterestCapBaseLots": "24146424",
+    "maxLiquidationSizeBaseLots": "241464",
+    "isolatedOnly": false,
+    "statsSnapshot": {
+      "slot": 446817140,
+      "slotIndex": 1848,
+      "openInterestBaseLots": "970619",
+      "fundingStartIntervalTimestamp": "1789336800",
+      "cumulativeFundingRate": "-51158"
+    }
+  },
+  {
+    "symbol": "BTC",
+    "assetId": 1,
+    "marketStatus": "active",
+    "metadata": {
+      "name": "Bitcoin",
+      "description": null,
+      "logoUri": "https://phoenixcdn.trade/logos/BTC/29e92755162f3146841609e71d09b81142196df38b3d7301c82d4cb51dd692dd.svg",
+      "coinGeckoId": "bitcoin",
+      "coinMarketCapId": 1,
+      "tokensXyzAssetId": null,
+      "displayColor": "#F7931A"
+    },
+    "marketPubkey": "AXFz1MuzMUBHi5UKJuK3FDCQ73o3rSzubGU2mPr4LLU7",
+    "splinePubkey": "Dh9NrYjzzdvcYgFSbrkATQ1rPkPjDovXWnFVhfWmD2ZF",
+    "tickSize": 100,
+    "baseLotsDecimals": 4,
+    "takerFee": 0.00035,
+    "makerFee": 0.00005,
+    "leverageTiers": [
+      {
+        "maxLeverage": 40,
+        "maxSizeBaseLots": 7350672,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 7350673,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 7350674,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 7350675,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      }
+    ],
+    "riskFactors": {
+      "maintenance": 50,
+      "maintenanceBps": 5000,
+      "backstop": 20,
+      "backstopBps": 2000,
+      "highRisk": 10,
+      "highRiskBps": 1000,
+      "upnl": 100,
+      "upnlBps": 10000,
+      "upnlForWithdrawals": 70,
+      "upnlForWithdrawalsBps": 7000,
+      "cancelOrder": 70,
+      "cancelOrderBps": 7000
+    },
+    "fundingIntervalSeconds": 3600,
+    "fundingPeriodSeconds": 86400,
+    "maxFundingRatePerInterval": 17957,
+    "maxFundingRatePerIntervalPercentage": 0.2337511878262454,
+    "openInterestCapBaseLots": "7350672",
+    "maxLiquidationSizeBaseLots": "73507",
+    "isolatedOnly": false,
+    "statsSnapshot": {
+      "slot": 446817140,
+      "slotIndex": 1848,
+      "openInterestBaseLots": "298911",
+      "fundingStartIntervalTimestamp": "1789336800",
+      "cumulativeFundingRate": "-128081"
+    }
+  },
+  {
+    "symbol": "GOLD",
+    "assetId": 65556,
+    "marketStatus": "active",
+    "commodityMetadata": {
+      "isCommodity": true,
+      "isReopen": false,
+      "isAfterHours": false,
+      "status": "active",
+      "afterHoursRadius": {
+        "value": 0,
+        "decimals": 3,
+        "ui": "0.000"
+      }
+    },
+    "metadata": {
+      "name": "Gold",
+      "description": null,
+      "searchAliases": ["XAU"],
+      "logoUri": "https://phoenixcdn.trade/logos/GOLD/f745ce39bc4dac585e4b10077ff7c54e2f8192c0aa21b244e6122def06f9fe7e.svg",
+      "coinGeckoId": "tether-gold",
+      "coinMarketCapId": 39344,
+      "tokensXyzAssetId": null,
+      "calendar": {
+        "id": "cme_commodities",
+        "description": "cme_commodities",
+        "calendarUri": "https://phoenixcdn.trade/calendars/cme_commodities.json",
+        "contentSha256": "8ae2de7be9ecf3fdecc3f8e0fde6f8cfb5c7accf49768d64e29f26cb2c902288",
+        "nextMarketTransitionUtc": "2026-09-14T21:00:00Z"
+      },
+      "displayColor": "#D4AF37"
+    },
+    "marketPubkey": "7B7hDscDNBGFpNGypFygoiANCpdM3JR2PY3JbvPvQtmk",
+    "splinePubkey": "4Xf7mkyTyWfiWnRo4oHjfwopSF46aLk8XciWotfG8voB",
+    "tickSize": 100,
+    "baseLotsDecimals": 3,
+    "takerFee": 0.00035,
+    "makerFee": 0.00005,
+    "leverageTiers": [
+      {
+        "maxLeverage": 25,
+        "maxSizeBaseLots": 696379,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 696380,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 696381,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      },
+      {
+        "maxLeverage": 1,
+        "maxSizeBaseLots": 696382,
+        "limitOrderRiskFactor": 100,
+        "limitOrderRiskFactorBps": 10000
+      }
+    ],
+    "riskFactors": {
+      "maintenance": 50,
+      "maintenanceBps": 5000,
+      "backstop": 20,
+      "backstopBps": 2000,
+      "highRisk": 10,
+      "highRiskBps": 1000,
+      "upnl": 100,
+      "upnlBps": 10000,
+      "upnlForWithdrawals": 1,
+      "upnlForWithdrawalsBps": 100,
+      "cancelOrder": 75,
+      "cancelOrderBps": 7500
+    },
+    "fundingIntervalSeconds": 3600,
+    "fundingPeriodSeconds": 86400,
+    "maxFundingRatePerInterval": 10630,
+    "maxFundingRatePerIntervalPercentage": 0.2451116030252721,
+    "openInterestCapBaseLots": "696379",
+    "maxLiquidationSizeBaseLots": "20000",
+    "isolatedOnly": true,
+    "statsSnapshot": {
+      "slot": 446817140,
+      "slotIndex": 1848,
+      "openInterestBaseLots": "40253",
+      "fundingStartIntervalTimestamp": "1789336810",
+      "cumulativeFundingRate": "183415"
+    }
+  }
+]
