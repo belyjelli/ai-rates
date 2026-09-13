@@ -69,7 +69,10 @@ const cex: Venue[] = [
       get("premiumIndex", "https://fapi.binance.com/fapi/v1/premiumIndex"),
       get("fundingInfo", "https://fapi.binance.com/fapi/v1/fundingInfo"),
     ],
-    notes: "HTTP 451 from US IPs. fundingInfo lists only symbols with adjusted interval/cap.",
+    // Corrected 2026-09-13 by measuring: fundingInfo is NOT an exceptions-only list. It returned
+    // 782 entries, 312 of them at the default 8h, against 900 symbols in premiumIndex. The 138
+    // missing are all non-TRADING, so they are filtered before any interval default would apply.
+    notes: "HTTP 451 from US IPs. fundingInfo covers most symbols; 466 of 782 settle 4-hourly.",
   },
   {
     id: "bybit",

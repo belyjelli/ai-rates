@@ -1,0 +1,22 @@
+{
+  "symbols": [
+    {
+      "symbol": "BTCUSDT",
+      "status": "TRADING",
+      "contractType": "PERPETUAL",
+      "quoteAsset": "USDT"
+    },
+    {
+      "symbol": "ETHUSDT",
+      "status": "TRADING",
+      "contractType": "PERPETUAL",
+      "quoteAsset": "USDT"
+    },
+    {
+      "symbol": "LPTUSDT",
+      "status": "TRADING",
+      "contractType": "PERPETUAL",
+      "quoteAsset": "USDT"
+    }
+  ]
+}

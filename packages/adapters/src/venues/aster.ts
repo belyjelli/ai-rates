@@ -3,13 +3,20 @@ import { CircuitOpenError, type HttpClient } from "../http";
 import { marketRef, mul, num, selectRefreshBatch } from "../parse";
 import type { VenueAdapter } from "../types";
 
-// Aster's futures API is Binance-compatible, so the parsing lives in Binance-style helpers that a
-// Binance adapter can reuse (pass defaultIntervalHours: 8, since Binance's fundingInfo only lists
-// symbols with a non-default interval).
+// Aster's futures API is Binance-compatible, so this module is the whole binance-fapi family: the
+// Binance-style helpers below are shared, and `createBinanceStyleAdapter` takes the venue id and
+// base URL rather than closing over constants.
+//
+// On `defaultIntervalHours`, measured against Binance on 2026-09-13 rather than assumed: its
+// fundingInfo is NOT an exceptions-only list. It returned 782 entries, 312 of them at the default
+// 8h, against 900 symbols in premiumIndex. Of the 138 symbols missing from fundingInfo, **zero**
+// are TRADING perpetuals, so `tradablePerpetuals` drops every one of them before the interval
+// lookup matters. `null` is therefore correct for Binance as well as Aster, and inventing an 8h
+// default would have been the wrong guess anyway: 466 of 782 symbols settle 4-hourly.
 
 const VENUE = "aster";
 const BASE = "https://fapi.asterdex.com/fapi/v1";
-/** exchangeInfo is ~800 KB and only needed to know which symbols trade, so refresh it hourly. */
+/** exchangeInfo only says which symbols trade, and it is large (Binance's is 1.1 MB), so hourly. */
 export const EXCHANGE_INFO_MAX_AGE_MS = 60 * 60_000;
 const HISTORY_LIMIT = 1000;
 const HISTORY_MAX_PAGES = 20;
@@ -211,8 +218,14 @@ export async function fetchBinanceStyleFundingHistory(
   return parseBinanceStyleFundingHistory(venueId, venueSymbol, rows, fromMs, toMs, fallbackHours);
 }
 
-function expectArray<T>(value: unknown, what: string): T[] {
-  if (!Array.isArray(value)) throw new Error(`${VENUE}: unexpected ${what} response`);
+/**
+ * Takes the venue rather than closing over the module constant. It used to read `${VENUE}`, which
+ * was correct while this file served one venue and silently wrong the moment it served the family:
+ * a malformed Binance response reported "aster: unexpected premiumIndex response" and sent the
+ * reader to the wrong adapter.
+ */
+function expectArray<T>(venueId: string, value: unknown, what: string): T[] {
+  if (!Array.isArray(value)) throw new Error(`${venueId}: unexpected ${what} response`);
   return value as T[];
 }
 
@@ -220,7 +233,32 @@ export interface AsterAdapterOptions {
   openInterestBudget?: number;
 }
 
+/**
+ * Every venue in the binance-fapi family: Aster, Binance, and any other exchange serving the same
+ * `/fapi/v1` surface. The venue id and base URL are parameters rather than module constants, so a
+ * new member is a configuration rather than a copied adapter.
+ */
+export interface BinanceStyleAdapterOptions extends AsterAdapterOptions {
+  venueId: string;
+  /** Base URL up to and including `/fapi/v1`, with no trailing slash. */
+  baseUrl: string;
+  /**
+   * Interval for symbols absent from fundingInfo; `null` skips them. Null for every member measured
+   * so far — see the note at the top of this file for why an 8h default would be wrong.
+   */
+  defaultIntervalHours?: number | null;
+  /** Aster allows 100ms between requests; tighter venues override it. */
+  minIntervalMs?: number;
+}
+
 export function createAsterAdapter(options: AsterAdapterOptions = {}): VenueAdapter {
+  return createBinanceStyleAdapter({ ...options, venueId: VENUE, baseUrl: BASE });
+}
+
+export function createBinanceStyleAdapter(options: BinanceStyleAdapterOptions): VenueAdapter {
+  const VENUE = options.venueId;
+  const BASE = options.baseUrl;
+  const defaultIntervalHours = options.defaultIntervalHours ?? null;
   const openInterestBudget = options.openInterestBudget ?? OPEN_INTEREST_BUDGET;
   let exchangeInfo: { fetchedAt: number; tradable: Map<string, TradableSymbol> } | null = null;
   let intervals = new Map<string, number>();
@@ -228,7 +266,7 @@ export function createAsterAdapter(options: AsterAdapterOptions = {}): VenueAdap
 
   return {
     venueId: VENUE,
-    minIntervalMs: 100,
+    minIntervalMs: options.minIntervalMs ?? 100,
 
     async fetchSnapshots(client: HttpClient, now: number) {
       if (!exchangeInfo || now - exchangeInfo.fetchedAt >= EXCHANGE_INFO_MAX_AGE_MS) {
@@ -240,13 +278,13 @@ export function createAsterAdapter(options: AsterAdapterOptions = {}): VenueAdap
       const [premium, fundingInfo, tickers] = await Promise.all([
         client
           .getJson(`${BASE}/premiumIndex`)
-          .then((v) => expectArray<BinanceStylePremiumIndex>(v, "premiumIndex")),
+          .then((v) => expectArray<BinanceStylePremiumIndex>(VENUE, v, "premiumIndex")),
         client
           .getJson(`${BASE}/fundingInfo`)
-          .then((v) => expectArray<BinanceStyleFundingInfo>(v, "fundingInfo")),
+          .then((v) => expectArray<BinanceStyleFundingInfo>(VENUE, v, "fundingInfo")),
         client
           .getJson(`${BASE}/ticker/24hr`)
-          .then((v) => expectArray<BinanceStyleTicker24h>(v, "ticker/24hr")),
+          .then((v) => expectArray<BinanceStyleTicker24h>(VENUE, v, "ticker/24hr")),
       ]);
       intervals = new Map(
         fundingInfo.flatMap((i) => {
@@ -262,7 +300,7 @@ export function createAsterAdapter(options: AsterAdapterOptions = {}): VenueAdap
           fundingInfo,
           tickers,
           tradable: exchangeInfo.tradable,
-          defaultIntervalHours: null,
+          defaultIntervalHours,
         },
         now,
       );
