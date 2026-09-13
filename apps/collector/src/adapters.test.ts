@@ -26,5 +26,9 @@ describe("collector adapters", () => {
     // WEEX and Bullet joined in Phase 5 as binance-fapi family members; their catalog ids must match.
     expect(ids).toContain("weex");
     expect(ids).toContain("bullet");
+    expect(ids).toContain("arcus");
+    expect(ids).toContain("extended");
+    expect(ids).toContain("reya");
+    expect(ids).toContain("variational");
   });
 });
