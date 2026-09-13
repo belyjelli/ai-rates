@@ -25,7 +25,8 @@ Every constraint applied in turn, against the newest nightly replay (575 pairs, 
 | + neither leg distressed (< 200% abs APR) | **23** | **4%** |
 
 The median row pays **$3.12 per $10k per week** — about 1.6% APR, which is *negative* after fees.
-The honest output of this product is roughly **23 tradeable pairs**, not 916.
+**At retail fees** the honest output of this product is roughly **23 tradeable pairs**, not 916.
+That qualifier turns out to carry most of the weight — see §1a.
 
 The live spread table tells the same story from the other end. At no open-interest floor there are
 916 pairs at a median 12.57% APR; requiring $5M on *both* legs leaves 152 pairs, 66 of them above
@@ -36,6 +37,31 @@ annihilates the price-gap one — but it thins it by 6×.
 assets, 395 with any positive gap, **median 1.58 bps**, and the widest gaps sit on the thinnest
 books — STORJ 317.2 bps good for **$568**, ONE 296.6 bps for **$18**, LSK 149.1 for **$10**, YOFC
 105.7 for **$3**. It is a useful cross-check and a good honesty exhibit. It is not a business.
+
+### 1a. The funnel is fee-tier dependent, and that changes who this is for
+
+The §1 funnel charges retail taker fees (5 bps, four fills). Re-run against better tiers, the same
+575-pair replay gives a different product:
+
+| thinner leg | 5 bps retail | 1.5 bps VIP | zero fee | maker rebate |
+| --- | --- | --- | --- | --- |
+| any depth | 136 | 285 | 380 | 526 |
+| ≥ $1M open interest | 56 | **122** | 154 | 199 |
+| ≥ $5M open interest | 11 | 23 | 28 | 35 |
+
+At a VIP tier the viable set is **2.2× retail's**; with maker rebates, **3.6×**. The fee wall that
+makes this product marginal for a retail trader is largely absent for anyone with a real fee
+schedule — so *who* is looking decides whether the product is thin or rich, more than any
+engineering choice does.
+
+**Capacity, which is the first question a fund asks.** The 74 pairs clearing VIP fees with ≥$1M on
+the thinner leg and stability ≥0.7 return **$2,334 per week at $10k each** — about **16.4% APR
+gross** on ~$740k deployed — against **$349M** of summed thinner-leg open interest. At 1–5% of that
+depth the strategy absorbs roughly **$3.5–17M**.
+
+*Measurement note: the nightly replay re-ran between two readings taken an hour apart, moving pairs
+clearing $20 from 110 to 136 within the same `run_day`. Treat these as a snapshot with drift, not as
+constants.*
 
 ## 2. The finding that matters most: the ranking does not persist
 
@@ -87,7 +113,61 @@ Subscription aligns the incentives. Affiliate does not. `plans/phase0-referrals-
 entirely about affiliate programs, so the default path is currently the misaligned one. That should
 be a decision, not a drift.
 
-## 5. What is genuinely defensible
+**The conflict dissolves for the fund segment, and that is an argument for targeting it.** A fund
+brings its own capital and generates volume it would have traded regardless, so venue-partner
+revenue from it is not churn induced by bad advice — and telling it honestly which pairs work
+*increases* its trading rather than suppressing it. The aligned model is therefore subscription plus
+venue-partner revenue from funds, with no affiliate dependence on retail, where the conflict is
+real and unfixable.
+
+## 5. Who the customer actually is
+
+Three segments get conflated, and only one of them buys this.
+
+**Market makers — no.** Not primarily because of fees, but because of latency and business model.
+The collector polls on a **60-second** cycle; an MM operates in milliseconds, so this data cannot
+touch their core loop. They earn on spread and rebates with fast capital turnover, not on carry that
+locks capital for days, and any desk holding a market-making agreement already runs a funding and
+basis monitor as table stakes. Build-versus-buy is settled before the conversation starts.
+
+**Funding-carry and basis funds — yes.** Delta-neutral, holding for days to weeks, and therefore
+*not* latency-sensitive: a 60-second cadence is ample. They live on exactly what this system
+computes — funding APR, fee tier, leg depth, venue risk, and whether two legs are genuinely the same
+asset. §1a is their table: at a real VIP tier the opportunity set is 2.2× what retail sees, and the
+capacity figure is the first number they will ask for.
+
+**Retail — audience, not revenue.** Per §3, refusing to flatter the headline number is a liability
+in a free-tool comparison against Coinglass and ORBIT.
+
+### Whale tracking: half-buildable, and the customer is inverted
+
+Measured 2026-09-13: of the open interest this system tracks, **$69.4B sits on 7 CEXs where
+per-address positions are opaque**, and only **$14.7B on 8 DEXs where addresses are public** —
+17.5%. "Show what the big players hold across exchanges" is therefore **not buildable for 82.5% of
+the market**, and no engineering fixes it, because CEX position data does not exist publicly. A
+Hyperliquid-centric version is very buildable — HL, its ten sub-dexes, dYdX, Paradex and Lighter are
+already collected — but it is a **new ingestion path**: this system stores market-level rows today,
+not addresses.
+
+**And the whales are the subject, not the customer.** Traders do not want their positions
+publicised, so tracking someone and then marketing to them annoys more often than it attracts. The
+audience for whale dashboards is retail watching whales. Per-address data therefore belongs to the
+*acquisition* funnel rather than to enterprise sales — still a reason to build it, just not the
+reason first proposed.
+
+### Pricing
+
+**$1,500/month is defensible for execution** — a self-hosted tenant running `profitlock-worker`.
+$18k/yr against roughly $800k gross on $5M deployed at 16% is 2.25% of gross, which is an easy
+conversation. It is hard to defend for **data alone** at that price.
+
+Two cautions. At $1,500/mo the business needs very few customers — **12 clients is $216k/yr** —
+which is a strong lifestyle business rather than a venture outcome, and worth choosing deliberately
+instead of discovering later. And an explicit AUM or volume gate is probably the wrong mechanism:
+the price screens out low-value clients by itself, while a gate adds friction, a KYC-shaped burden,
+and cuts against the free top-of-funnel the whole plan depends on.
+
+## 6. What is genuinely defensible
 
 - **Identity verification.** No competitor can say "both legs are provably the same asset", and we
   have the receipts: `CAT` 387,756,652×, `BB` (BlackBerry vs BounceBit), `PURR` 104×, and `QNT`
@@ -99,7 +179,7 @@ be a decision, not a drift.
 
 These are trust assets. Trust monetises through subscription and B2B/API access, not through clicks.
 
-## 6. The multi-asset bet: real, but early
+## 7. The multi-asset bet: real, but early
 
 Roughly **489 of 5,973 live markets (8%)** are not crypto — 349 MEXC tokenised equities, 104
 `hl-xyz`, 26 `hl-para`, 6 `hl-io`, 4 `hl-mkts`. Thirty known index, metal, FX and equity bases span
@@ -110,7 +190,7 @@ are thin (`hl-mkts` lists four markets) and equity perps idle outside market hou
 exactly why `MU`↔`MUSTOCK` correlated only 0.7385 over 358 minutes. Breadth is a positioning asset
 today, not yet a liquidity one.
 
-## 7. What would change these conclusions
+## 8. What would change these conclusions
 
 Stated in advance so the next measurement is a test rather than a search for confirmation:
 
