@@ -1,0 +1,52 @@
+{
+  "markets": {
+    "XAG-USD": {
+      "clobPairId": "391",
+      "ticker": "XAG-USD",
+      "status": "ACTIVE",
+      "oraclePrice": "64.4546899999",
+      "volume24H": "77.260",
+      "nextFundingRate": "0",
+      "openInterest": "303.1",
+      "marketType": "CROSS",
+      "initialMarginFraction": "0.2",
+      "maintenanceMarginFraction": "0.1"
+    },
+    "WTI-USD": {
+      "clobPairId": "390",
+      "ticker": "WTI-USD",
+      "status": "ACTIVE",
+      "oraclePrice": "97.3420399999",
+      "volume24H": "5852.851135",
+      "nextFundingRate": "0",
+      "openInterest": "69.4",
+      "marketType": "CROSS",
+      "initialMarginFraction": "0.2",
+      "maintenanceMarginFraction": "0.1"
+    },
+    "PAXG-USD": {
+      "clobPairId": "134",
+      "ticker": "PAXG-USD",
+      "status": "ACTIVE",
+      "oraclePrice": "4347.6",
+      "volume24H": "28514.25",
+      "nextFundingRate": "0",
+      "openInterest": "19.219",
+      "marketType": "CROSS",
+      "initialMarginFraction": "0.2",
+      "maintenanceMarginFraction": "0.1"
+    },
+    "EUR-USD": {
+      "clobPairId": "153",
+      "ticker": "EUR-USD",
+      "status": "FINAL_SETTLEMENT",
+      "oraclePrice": "1.161447835",
+      "volume24H": "0",
+      "nextFundingRate": "0.0000125",
+      "openInterest": "0",
+      "marketType": "ISOLATED",
+      "initialMarginFraction": "0.05",
+      "maintenanceMarginFraction": "0.03"
+    }
+  }
+}

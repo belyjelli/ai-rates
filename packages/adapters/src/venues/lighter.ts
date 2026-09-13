@@ -1,4 +1,4 @@
-import type { FundingEvent, FundingSnapshot } from "@ai-rates/core";
+import type { AssetClass, FundingEvent, FundingSnapshot } from "@ai-rates/core";
 import type { HttpClient } from "../http";
 import { marketRef, mul, num } from "../parse";
 import type { SnapshotBatch, VenueAdapter } from "../types";
@@ -7,6 +7,139 @@ export const LIGHTER_API = "https://mainnet.zklighter.elliot.ai/api/v1";
 
 const HOUR_MS = 3_600_000;
 const HISTORY_PAGE_SIZE = 750;
+
+/**
+ * The class Lighter declares for each non-crypto market, by Lighter symbol. Absent means crypto.
+ *
+ * Lighter's API declares no class, so this is transcribed from what the venue publishes elsewhere,
+ * as it stood on 2026-09-14:
+ *
+ * 1. The RWA market-specifications table, whose per-market Type is authoritative for the 73 markets
+ *    it lists: https://docs.lighter.xyz/trading/real-world-assets-rwas/market-specifications
+ *    `bond` is filed as index and `pre-ipo equity` as equity.
+ * 2. For the 34 order-book markets that table omits, the token config bundled in the web app at
+ *    https://app.lighter.xyz: `asset_type` RWA, then its categories in this order -- STOCK, PRE_IPO
+ *    and ETF are equity, COMMODITIES commodity, FX and KRW fx, BONDS and COMPUTE index, and an RWA
+ *    with no category beyond NEW is equity.
+ *
+ * Decisions beyond those sources: QNT is Quantinuum stock, whatever the config's name "Quant" says --
+ * it marked 48.79, against OKX's Quantinuum at 48.85 and the Quant token at 64.3. BB is BlackBerry
+ * (7.72) and WEN is Wendy's. USDHKD is fx per the docs, though the config calls it CRYPTO. PAXG is
+ * absent although the config files it under COMMODITIES: it is a gold token, crypto on every venue.
+ * AI (Artificial Inu) and SPX (SPX6900) are crypto and absent.
+ *
+ * A new RWA listing is crypto until it is added here. Meanwhile migration 016's mark gate still keeps
+ * it out of a crypto pool whose price it does not share.
+ */
+export const LIGHTER_ASSET_CLASSES: ReadonlyMap<string, AssetClass> = new Map([
+  ["AAOI", "equity"],
+  ["AAPL", "equity"],
+  ["AMD", "equity"],
+  ["AMZN", "equity"],
+  ["ANTHROPIC", "equity"],
+  ["ARM", "equity"],
+  ["ASML", "equity"],
+  ["AUDUSD", "fx"],
+  ["AVGO", "equity"],
+  ["AXTI", "equity"],
+  ["BABA", "equity"],
+  ["BB", "equity"],
+  ["BE", "equity"],
+  ["BMNR", "equity"],
+  ["BOT", "equity"],
+  ["BOTZ", "index"],
+  ["BRENTOIL", "commodity"],
+  ["BYD", "equity"],
+  ["CBRS", "equity"],
+  ["COIN", "equity"],
+  ["CRCL", "equity"],
+  ["CRWV", "equity"],
+  ["CXMT", "equity"],
+  ["DELL", "equity"],
+  ["DIA", "index"],
+  ["DRAM", "index"],
+  ["EURUSD", "fx"],
+  ["EWY", "index"],
+  ["GBPUSD", "fx"],
+  ["GEV", "equity"],
+  ["GME", "equity"],
+  ["GOOGL", "equity"],
+  ["H100", "index"],
+  ["HANMI", "equity"],
+  ["HOOD", "equity"],
+  ["HYUNDAI", "equity"],
+  ["HYUNDAIUSD", "equity"],
+  ["IBM", "equity"],
+  ["INTC", "equity"],
+  ["IWM", "index"],
+  ["KIOXIA", "equity"],
+  ["KORU", "equity"],
+  ["KRCOMP", "equity"],
+  ["LITE", "equity"],
+  ["MAGS", "index"],
+  ["META", "equity"],
+  ["MINIMAX", "equity"],
+  ["MRNA", "equity"],
+  ["MRVL", "equity"],
+  ["MSFT", "equity"],
+  ["MSTR", "equity"],
+  ["MU", "equity"],
+  ["NATGAS", "commodity"],
+  ["NBIS", "equity"],
+  ["NOK", "equity"],
+  ["NOW", "equity"],
+  ["NVDA", "equity"],
+  ["NZDUSD", "fx"],
+  ["OPENAI", "equity"],
+  ["ORCL", "equity"],
+  ["PLTR", "equity"],
+  ["POPMART", "equity"],
+  ["QCOM", "equity"],
+  ["QNT", "equity"],
+  ["QQQ", "index"],
+  ["RKLB", "equity"],
+  ["SAMSUNG", "equity"],
+  ["SAMSUNGUSD", "equity"],
+  ["SHEIN", "equity"],
+  ["SKHY", "equity"],
+  ["SKHYNIX", "equity"],
+  ["SKHYNIXUSD", "equity"],
+  ["SMIC", "equity"],
+  ["SNDK", "equity"],
+  ["SOXL", "index"],
+  ["SOXS", "equity"],
+  ["SOXX", "equity"],
+  ["SPACEX", "equity"],
+  ["SPCX", "equity"],
+  ["SPY", "index"],
+  ["STABLECOINX", "equity"],
+  ["STRC", "equity"],
+  ["TENCENT", "equity"],
+  ["TSLA", "equity"],
+  ["TSM", "equity"],
+  ["TTWO", "equity"],
+  ["UNITREE", "equity"],
+  ["URA", "equity"],
+  ["US100", "index"],
+  ["US10Y", "index"],
+  ["US500", "index"],
+  ["USDCAD", "fx"],
+  ["USDCHF", "fx"],
+  ["USDHKD", "fx"],
+  ["USDJPY", "fx"],
+  ["USDKRW", "fx"],
+  ["WDC", "equity"],
+  ["WEN", "equity"],
+  ["WHEAT", "commodity"],
+  ["WTI", "commodity"],
+  ["XAG", "commodity"],
+  ["XAU", "commodity"],
+  ["XCU", "commodity"],
+  ["XIAOMI", "equity"],
+  ["XPD", "commodity"],
+  ["XPT", "commodity"],
+  ["ZHIPU", "equity"],
+]);
 
 export interface LighterFundingRate {
   market_id: number;
@@ -71,7 +204,9 @@ export function parseLighterSnapshots(
 
     const markPrice = num(detail.mark_price);
     snapshots.push({
-      ...marketRef("lighter", row.symbol),
+      ...marketRef("lighter", row.symbol, {
+        assetClass: LIGHTER_ASSET_CLASSES.get(row.symbol) ?? "crypto",
+      }),
       observedAt: now,
       rate,
       basisHours: 8,

@@ -1,0 +1,74 @@
+[
+  {
+    "symbol": "OPENAIUSDT",
+    "markPrice": "1420.06222586",
+    "indexPrice": "1420.03810000",
+    "lastFundingRate": "0.00005000",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334214000
+  },
+  {
+    "symbol": "RTXUSDT",
+    "markPrice": "0.71915316",
+    "indexPrice": "0.70300000",
+    "lastFundingRate": "0.00001250",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334214000
+  },
+  {
+    "symbol": "XAUUSDT",
+    "markPrice": "4348.27780832",
+    "indexPrice": "4348.27780832",
+    "lastFundingRate": "0",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334214000
+  },
+  {
+    "symbol": "BBXUSDT",
+    "markPrice": "7.72299099",
+    "indexPrice": "7.72120896",
+    "lastFundingRate": "0",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334214000
+  },
+  {
+    "symbol": "STXXUSDT",
+    "markPrice": "820.15692484",
+    "indexPrice": "818.23799924",
+    "lastFundingRate": "0",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334214000
+  },
+  {
+    "symbol": "PAXGUSDT",
+    "markPrice": "4346.42964224",
+    "indexPrice": "4348.44793544",
+    "lastFundingRate": "0.00005000",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334214000
+  },
+  {
+    "symbol": "SPYUSDT",
+    "markPrice": "761.36481797",
+    "indexPrice": "761.34291457",
+    "lastFundingRate": "0",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334214000
+  },
+  {
+    "symbol": "CLUSD1",
+    "markPrice": "97.47127632",
+    "indexPrice": "97.43390644",
+    "lastFundingRate": "0.00018282",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334214000
+  },
+  {
+    "symbol": "SKHXUSDT",
+    "markPrice": "1291.88701893",
+    "indexPrice": "1291.88121892",
+    "lastFundingRate": "0.00001250",
+    "nextFundingTime": 1789336800000,
+    "time": 1789334214000
+  }
+]

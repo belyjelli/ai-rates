@@ -1,4 +1,11 @@
-import type { FundingEvent, FundingSnapshot, LeverageTier } from "@ai-rates/core";
+import {
+  type AssetClass,
+  classifyNonCrypto,
+  type FundingEvent,
+  type FundingSnapshot,
+  type LeverageTier,
+  parseVenueSymbol,
+} from "@ai-rates/core";
 import type { HttpClient } from "../http";
 import { marketRef, mul, num } from "../parse";
 import type { VenueAdapter } from "../types";
@@ -10,6 +17,38 @@ const HOUR_MS = 3_600_000;
 const FUNDING_HOURS = 1;
 const HISTORY_PAGE_SIZE = 100;
 const HISTORY_MAX_PAGES = 100;
+
+/**
+ * The dYdX markets that dYdX's own launch announcements present as something other than crypto.
+ *
+ * WHY A LIST OF TICKERS, when class is meant to be declared: dYdX declares nothing. Checked on
+ * 2026-09-14, no class exists in the indexer's `perpetualMarkets` (296 markets, 78 ACTIVE and 218
+ * FINAL_SETTLEMENT), in the chain's perpetual params, or in the slinky market map. So this is the
+ * venue's announcement list written down, NOT a rule read off the ticker. PAXG-USD, XAUT-USD and
+ * TSLAX-USD stay crypto because they are tokens, whatever their marks track.
+ *
+ * Only XAG-USD and WTI-USD are ACTIVE; EUR-USD and TRY-USD are in final settlement and listed so that
+ * their history is not filed as crypto. A new tradfi listing is crypto until it is added here, which
+ * is the safe direction: migration 016's mark gate still keeps it out of a crypto pool it disagrees
+ * with.
+ */
+export const DYDX_NON_CRYPTO_TICKERS: ReadonlySet<string> = new Set([
+  "XAG-USD",
+  "WTI-USD",
+  "EUR-USD",
+  "TRY-USD",
+]);
+
+/**
+ * A dYdX market's declared class: crypto unless dYdX announced it as tradfi, in which case the
+ * commodity, currency and index tables decide which kind. The list above is the only "not crypto"
+ * signal the venue gives, so it only answers WHETHER a market is crypto.
+ */
+export function dydxAssetClass(ticker: string): AssetClass {
+  return DYDX_NON_CRYPTO_TICKERS.has(ticker)
+    ? classifyNonCrypto(parseVenueSymbol(ticker).base)
+    : "crypto";
+}
 
 export interface DydxPerpetualMarket {
   ticker: string;
@@ -46,7 +85,7 @@ export function parseDydxMarkets(
     // dYdX has no separate mark price in the indexer; positions are marked to the oracle price.
     const oracle = num(market.oraclePrice);
     snapshots.push({
-      ...marketRef(VENUE, market.ticker),
+      ...marketRef(VENUE, market.ticker, { assetClass: dydxAssetClass(market.ticker) }),
       observedAt: now,
       rate,
       basisHours: FUNDING_HOURS,
@@ -103,7 +142,7 @@ export function parseDydxHistoricalFunding(
     if (!Number.isFinite(settledAt) || rate === null || settledAt < fromMs || settledAt > toMs)
       continue;
     bySettlement.set(settledAt, {
-      ...marketRef(VENUE, venueSymbol),
+      ...marketRef(VENUE, venueSymbol, { assetClass: dydxAssetClass(venueSymbol) }),
       settledAt,
       rate,
       basisHours: FUNDING_HOURS,

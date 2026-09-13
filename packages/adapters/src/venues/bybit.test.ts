@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { HttpClient } from "../http";
 import {
+  type BybitInstrument,
+  type BybitTicker,
   bybitAdapter,
+  bybitAssetClass,
   parseBybitFundingHistory,
   parseBybitRiskLimit,
   parseBybitSnapshots,
@@ -27,6 +30,7 @@ describe("parseBybitSnapshots", () => {
       base: "BTC",
       quote: "USDT",
       multiplier: 1,
+      assetClass: "crypto",
       dex: null,
       observedAt: NOW,
       rate: 0.00004936,
@@ -71,6 +75,7 @@ describe("parseBybitSnapshots", () => {
       base: "BONK",
       quote: "USDC",
       multiplier: 1000,
+      assetClass: "crypto",
       rate: -0.00022725,
     });
   });
@@ -79,6 +84,68 @@ describe("parseBybitSnapshots", () => {
     expect(() =>
       parseBybitSnapshots({ retCode: 10001, retMsg: "bad", result: { list: [] } }, [], NOW),
     ).toThrow("10001");
+  });
+
+  test("carries each instrument's declared class onto its snapshot", async () => {
+    // Real instrument rows from 2026-09-14; the tickers are stand-ins, since only the join matters.
+    const instruments: BybitInstrument[] = (await fixture("asset-class")).result.list;
+    const list: BybitTicker[] = instruments.map((i) => ({
+      symbol: i.symbol,
+      fundingRate: "0.0001",
+      nextFundingTime: "0",
+      markPrice: "1",
+      indexPrice: "1",
+      openInterestValue: "0",
+      turnover24h: "0",
+    }));
+    const { snapshots } = parseBybitSnapshots(
+      { retCode: 0, retMsg: "OK", result: { list } },
+      instruments,
+      NOW,
+    );
+    expect(
+      Object.fromEntries(snapshots.map((s) => [s.venueSymbol, `${s.assetClass}:${s.base}`])),
+    ).toEqual({
+      // Same tickers, different assets: BB is BounceBit, BBX is a stock; XAUT is a token, XAU gold.
+      BBUSDT: "crypto:BB",
+      SPXUSDT: "crypto:SPX",
+      XAUTUSDT: "crypto:XAUT",
+      AVNTUSDT: "crypto:AVNT",
+      ONUSDT: "equity:ON",
+      PURRUSDT: "equity:PURR",
+      BBXUSDT: "equity:BBX",
+      SPYUSDT: "equity:SPY",
+      XAUUSDT: "commodity:XAU",
+      EURUSDUSDT: "fx:EURUSD",
+    });
+  });
+});
+
+describe("bybitAssetClass", () => {
+  test("reads symbolType, and nothing else, off real instrument rows", async () => {
+    const rows: BybitInstrument[] = (await fixture("asset-class")).result.list;
+    expect(
+      Object.fromEntries(rows.map((r) => [r.symbol, bybitAssetClass(r.symbolType, r.baseCoin)])),
+    ).toEqual({
+      BBUSDT: "crypto",
+      SPXUSDT: "crypto",
+      XAUTUSDT: "crypto",
+      // "innovation" is Bybit's new-listing zone, not a tradfi class.
+      AVNTUSDT: "crypto",
+      ONUSDT: "equity",
+      PURRUSDT: "equity",
+      BBXUSDT: "equity",
+      SPYUSDT: "equity",
+      XAUUSDT: "commodity",
+      EURUSDUSDT: "fx",
+    });
+  });
+
+  test("an unknown symbolType is still not crypto, so the base tables pick the class", () => {
+    expect(bybitAssetClass("bond", "XAU")).toBe("commodity");
+    expect(bybitAssetClass("bond", "US10Y")).toBe("index");
+    expect(bybitAssetClass("bond", "BB")).toBe("equity");
+    expect(bybitAssetClass(undefined, "BTC")).toBe("crypto");
   });
 });
 

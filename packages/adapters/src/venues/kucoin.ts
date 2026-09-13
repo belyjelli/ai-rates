@@ -1,4 +1,7 @@
 import {
+  type AssetClass,
+  canonicalBase,
+  classifyNonCrypto,
   type FundingEvent,
   type FundingSnapshot,
   inferIntervalHours,
@@ -48,6 +51,32 @@ export interface KucoinContract {
   /** Headline leverage; /contracts/risk-limit/{symbol} is the precise, size-aware source. */
   maxLeverage?: number | null;
   turnoverOf24h: number | null;
+  /** What the contract tracks: "CRYPTO", "STOCK", "METAL" or "COMMODITY". */
+  assetClass?: string;
+}
+
+/**
+ * The class KuCoin declares for a contract, from `assetClass` on /api/v1/contracts/active.
+ *
+ * Live 2026-09-14, 687 contracts: CRYPTO 532, STOCK 146, METAL 6, COMMODITY 3. It separates
+ * BBXUSDTM and QNTXUSDTM (stocks) from BBUSDTM and QNTUSDTM (crypto), and files CL, BZ and NATGAS
+ * as commodities. `marketType` is NOT a substitute: it reads CRYPTO on every METAL and COMMODITY
+ * row. PAXG and XAUT are declared METAL and returned to crypto by `marketRef`. A missing field is
+ * undeclared, so crypto; a value this does not know still says not-crypto, so the base tables
+ * settle which class.
+ */
+export function kucoinAssetClass(assetClass: string | undefined, base: string): AssetClass {
+  switch (assetClass ?? "CRYPTO") {
+    case "CRYPTO":
+      return "crypto";
+    case "STOCK":
+      return "equity";
+    case "METAL":
+    case "COMMODITY":
+      return "commodity";
+    default:
+      return classifyNonCrypto(canonicalBase(base));
+  }
 }
 
 export interface KucoinRiskLimit {
@@ -101,7 +130,10 @@ export function parseKucoinSnapshots(
     if (intervalMs === null || rate === null) continue;
 
     const hours = intervalMs / MS_PER_HOUR;
-    const ref = marketRef(VENUE_ID, contract.symbol);
+    const { base } = marketRef(VENUE_ID, contract.symbol);
+    const ref = marketRef(VENUE_ID, contract.symbol, {
+      assetClass: kucoinAssetClass(contract.assetClass, base),
+    });
     const nextFundingAt = num(contract.nextFundingRateDateTime);
     const markPrice = num(contract.markPrice);
     snapshots.push({

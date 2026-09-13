@@ -1,4 +1,10 @@
-import type { FundingEvent, FundingSnapshot, LeverageTier } from "@ai-rates/core";
+import {
+  type AssetClass,
+  classifyNonCrypto,
+  type FundingEvent,
+  type FundingSnapshot,
+  type LeverageTier,
+} from "@ai-rates/core";
 import { CircuitOpenError, type HttpClient } from "../http";
 import { marketRef, mul, num, resolveDeclaredBase, selectRefreshBatch } from "../parse";
 import type { VenueAdapter } from "../types";
@@ -74,6 +80,10 @@ export interface MexcContractDetail {
   initialMarginRate?: number;
   maintenanceMarginRate?: number;
   maxLeverage?: number;
+  /** Trading-zone plates, e.g. "mc-trade-zone-Stock". Carries the asset class; see `mexcDeclaredClass`. */
+  conceptPlate?: string[];
+  /** Contract type: 2 is tradfi (430 of 1192), 1 everything else, including some tradfi. */
+  type?: number;
 }
 
 export interface MexcFundingRate {
@@ -108,6 +118,53 @@ export function parseMexcContracts(
   details: readonly MexcContractDetail[],
 ): Map<string, MexcContractDetail> {
   return new Map(details.filter((d) => d.state === LIVE_STATE).map((d) => [d.symbol, d]));
+}
+
+const PLATE_PREFIX = "mc-trade-zone-";
+const TRADFI_TYPE = 2;
+const COMMODITY_PLATES: ReadonlySet<string> = new Set([
+  "commodities",
+  "metals",
+  "metalsfutures",
+  "oil",
+]);
+const EQUITY_PLATES: ReadonlySet<string> = new Set(["etf", "japanstock", "preipo", "stock"]);
+
+/**
+ * The class MEXC declares for a contract, from its trading-zone plates in `conceptPlate`.
+ *
+ * MEXC puts every tradfi contract on the `tradfi` plate (455 of 1192 live on 2026-09-14) and says
+ * which kind with another: `OIL`, `Commodities`, `metals` or `metalsfutures` (22 commodity), `Forex`
+ * (8 fx), `stockindex` without `ETF` (11 index; the other 54 `stockindex` contracts are ETFs), and
+ * `Stock`, `ETF`, `japanstock` or `preipo` (414 equity). The remaining 737 are crypto. Plates are
+ * spelt in mixed case, so they are matched without it.
+ *
+ * The order matters because plates overlap: SPX500 carries `Stock` and `stockindex`, OPENAI `Stock`
+ * and `preipo`. A contract that is `tradfi`, or `type` 2, with none of those plates says only "not
+ * crypto", so the base tables settle it; none did on 2026-09-14.
+ *
+ * Neither `robinhood` nor `RWA` is tradfi: they hold Robinhood-chain memecoins (PONS) and RWA-sector
+ * tokens (ONDO, and QNT the Quant token), all crypto. `base` is the canonical base, used only for
+ * that fallback.
+ */
+export function mexcDeclaredClass(
+  detail: Pick<MexcContractDetail, "conceptPlate" | "type">,
+  base: string,
+): AssetClass {
+  const plates = new Set(
+    (detail.conceptPlate ?? []).map((plate) => {
+      const lower = plate.trim().toLowerCase();
+      return lower.startsWith(PLATE_PREFIX) ? lower.slice(PLATE_PREFIX.length) : lower;
+    }),
+  );
+  const onAny = (names: ReadonlySet<string>) => [...plates].some((plate) => names.has(plate));
+
+  if (onAny(COMMODITY_PLATES)) return "commodity";
+  if (plates.has("forex")) return "fx";
+  if (plates.has("stockindex") && !plates.has("etf")) return "index";
+  if (onAny(EQUITY_PLATES)) return "equity";
+  if (plates.has("tradfi") || detail.type === TRADFI_TYPE) return classifyNonCrypto(base);
+  return "crypto";
 }
 
 /**
@@ -238,12 +295,18 @@ export function parseMexcSnapshots(
     const mark = num(ticker.fairPrice);
     // Coin-settled contracts (BTC_USD settles in BTC) are sized in USD and report turnover in the coin.
     const coinSettled = Boolean(contract.settleCoin) && contract.settleCoin === contract.baseCoin;
+    const declared = {
+      quote: contract.quoteCoin,
+      // undefined leaves the parsed base in place, so contracts MEXC says nothing about are
+      // untouched. marketRef canonicalises whatever lands here, so SP500 reaches US500.
+      base: resolveDeclaredBase(contract.baseCoin, contract.baseCoinName),
+    };
+    // The class fallback needs the canonical base (MOONSHOT, NATGAS), which only marketRef settles.
+    const { base } = marketRef(VENUE, ticker.symbol, declared);
     snapshots.push({
       ...marketRef(VENUE, ticker.symbol, {
-        quote: contract.quoteCoin,
-        // undefined leaves the parsed base in place, so contracts MEXC says nothing about are
-        // untouched. marketRef canonicalises whatever lands here, so SP500 reaches US500.
-        base: resolveDeclaredBase(contract.baseCoin, contract.baseCoinName),
+        ...declared,
+        assetClass: mexcDeclaredClass(contract, base),
       }),
       observedAt: now,
       rate,

@@ -26,6 +26,7 @@ const overview: Overview = {
 };
 
 const pair: ScreenerPair = {
+  asset_class: "crypto" as const,
   asset: "BTC",
   venue_count: 11,
   spread_apr: 11.5,
@@ -55,6 +56,7 @@ const pair: ScreenerPair = {
 };
 
 const market = (overrides: Partial<MarketRow>): MarketRow => ({
+  asset_class: "crypto" as const,
   venue_id: "okx",
   venue_symbol: "BTC-USDT-SWAP",
   base: "BTC",
@@ -157,10 +159,50 @@ describe("pages", () => {
     expect(calls.screener).toEqual([{ ...DEFAULT_FILTERS, limit: 12 }]);
   });
 
+  test("one ticker in two asset classes gets two addresses, two labels and two row keys", async () => {
+    const asked: [string, string | null][] = [];
+    const { data } = fakeData({
+      asset: async (base, assetClass) => {
+        asked.push([base, assetClass]);
+        return assetClass === "equity"
+          ? [
+              market({
+                base: "BB",
+                asset_class: "equity",
+                venue_id: "okx",
+                venue_symbol: "BB-USDT-SWAP",
+              }),
+            ]
+          : [];
+      },
+      screener: async () => [
+        { ...pair, asset: "BB", asset_class: "equity" },
+        { ...pair, asset: "BB", asset_class: "crypto" },
+      ],
+    });
+
+    const page = await get("/markets/asset/equity/bb", data);
+    expect(page.status).toBe(200);
+    expect(asked).toEqual([["BB", "equity"]]);
+    expect(await page.text()).toContain('BB <span class="cls">equity</span>');
+
+    // BlackBerry is addressed by its class; BounceBit keeps the plain crypto address.
+    const home = await (await get("/", data)).text();
+    expect(home).toContain('href="/markets/asset/equity/BB"');
+    expect(home).toContain('href="/markets/asset/BB"');
+    expect(home).toContain('data-k="equity:BB"');
+    expect(home).toContain('data-k="BB"');
+
+    // An unknown class is an unknown asset, and never reaches the database.
+    expect((await get("/markets/asset/bond/BB", data)).status).toBe(404);
+    expect(asked).toHaveLength(1);
+  });
+
   test("the verified ranking shows each row's risk, and links its own legs", async () => {
     const verified = {
       run_day: new Date("2026-09-12T00:00:00Z"),
       asset: "IOST",
+      asset_class: "crypto" as const,
       long_venue_id: "gate",
       long_symbol: "IOST_USDT",
       short_venue_id: "bybit",
@@ -198,6 +240,7 @@ describe("pages", () => {
 
   /** The ONE case as it was actually measured: a wide quoted gap resting on almost nothing. */
   const gap = (overrides: Partial<ArbitrageRow> = {}): ArbitrageRow => ({
+    asset_class: "crypto" as const,
     asset: "ONE",
     venue_count: 2,
     gap_bps: 269.64,
@@ -355,6 +398,7 @@ describe("pages", () => {
       identityChecks: async () => [
         {
           base: "US500",
+          asset_class: "index" as const,
           venue_id: "hl-mkts",
           venue_symbol: "mkts:US500",
           anchor_venue_id: "lighter",
@@ -373,6 +417,7 @@ describe("pages", () => {
         },
         {
           base: "PURR",
+          asset_class: "crypto" as const,
           venue_id: "gate",
           venue_symbol: "PURR_USDT",
           anchor_venue_id: "hyperliquid",
@@ -391,6 +436,7 @@ describe("pages", () => {
         },
         {
           base: "BYD",
+          asset_class: "equity" as const,
           venue_id: "lighter",
           venue_symbol: "BYD",
           anchor_venue_id: "bybit",
@@ -480,6 +526,7 @@ describe("pages", () => {
 
   /** Two venues that agree, plus one marked 1375x out -- the KR200 shape. */
   const quote = (overrides: Partial<PriceQuote> = {}): PriceQuote => ({
+    asset_class: "crypto" as const,
     venue_id: "gate",
     venue_symbol: "ONE_USDT",
     best_bid: 0.01131,
@@ -909,6 +956,7 @@ describe("pages", () => {
       openInterest: number,
       assetOi: number,
     ): HeatmapCell => ({
+      asset_class: "crypto" as const,
       base,
       venue_id,
       venue_symbol: `${base}-${venue_id}`,
@@ -948,6 +996,7 @@ describe("pages", () => {
 
   test("rates timeframe switches which stored column the cells read", async () => {
     const hcell = (base: string, venue_id: string, apr: number, apr_60d: number | null) => ({
+      asset_class: "crypto" as const,
       base,
       venue_id,
       venue_symbol: `${base}-${venue_id}`,
@@ -1342,6 +1391,7 @@ describe("pivot", () => {
     openInterest: number | null,
     assetOi: number,
   ): HeatmapCell => ({
+    asset_class: "crypto" as const,
     base,
     venue_id,
     venue_symbol: `${base}-${venue_id}`,

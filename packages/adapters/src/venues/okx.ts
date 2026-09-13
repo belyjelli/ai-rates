@@ -1,4 +1,7 @@
 import {
+  type AssetClass,
+  canonicalBase,
+  classifyNonCrypto,
   type FundingEvent,
   type FundingSnapshot,
   inferIntervalHours,
@@ -80,6 +83,37 @@ export interface OkxInstrument {
   /** Base coin for linear swaps; "USD" for inverse ones, which are already quoted in dollars. */
   ctValCcy: string;
   ctMult: string;
+  /**
+   * What the swap tracks: "1" crypto, "3" stocks, "4" commodities, "5" forex, "6" bonds. Not to be
+   * confused with `category`, a fee-schedule field that reads "1" on every swap, stocks included.
+   */
+  instCategory?: string;
+}
+
+/**
+ * The class OKX declares for a swap, from `instCategory` on /api/v5/public/instruments.
+ *
+ * Live 2026-09-14, 479 swaps: "1" 297 (crypto), "3" 174 (stocks), "4" 8 (commodities); no "5" or
+ * "6" listed yet. It is the only thing that says QNT-USDT-SWAP is Quantinuum and BB-USDT-SWAP is
+ * BlackBerry, while STX, AI and SPX stay crypto. OKX files US500, US100, JP225 and KR200 under "3"
+ * too, which `marketRef` refines to index. An empty or missing value is crypto: the field predates
+ * OKX's non-crypto listings. Bonds, and any category added later, are a declaration of not-crypto
+ * with no class of their own, so the base tables decide.
+ */
+export function okxAssetClass(instCategory: string | undefined, base: string): AssetClass {
+  switch (instCategory ?? "") {
+    case "":
+    case "1":
+      return "crypto";
+    case "3":
+      return "equity";
+    case "4":
+      return "commodity";
+    case "5":
+      return "fx";
+    default:
+      return classifyNonCrypto(canonicalBase(base));
+  }
 }
 
 export interface OkxPositionTier {
@@ -201,9 +235,13 @@ export function parseOkxSnapshots(
     const rate = num(row.fundingRate);
     if (intervalHours === null || rate === null) continue;
 
-    const ref = marketRef(VENUE_ID, row.instId);
-    const ticker = tickerById.get(row.instId);
     const instrument = instrumentById.get(row.instId);
+    // No instrument row means no declaration, which is crypto like every other undeclared market.
+    const { base } = marketRef(VENUE_ID, row.instId);
+    const ref = marketRef(VENUE_ID, row.instId, {
+      assetClass: okxAssetClass(instrument?.instCategory, base),
+    });
+    const ticker = tickerById.get(row.instId);
     const contractUsd = instrument ? contractNotionalUsd(instrument, markById) : null;
     snapshots.push({
       ...ref,

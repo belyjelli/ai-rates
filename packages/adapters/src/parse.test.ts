@@ -43,6 +43,7 @@ describe("marketRef", () => {
       base: "BTC",
       quote: "USDT",
       multiplier: 1,
+      assetClass: "crypto",
       dex: null,
     });
   });

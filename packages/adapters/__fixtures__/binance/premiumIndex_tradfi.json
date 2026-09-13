@@ -1,0 +1,82 @@
+[
+  {
+    "symbol": "CATUSDT",
+    "markPrice": "817.85228986",
+    "indexPrice": "817.85228986",
+    "lastFundingRate": "0.00000000",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334212766
+  },
+  {
+    "symbol": "1000CATUSDT",
+    "markPrice": "0.00211281",
+    "indexPrice": "0.00211457",
+    "lastFundingRate": "0.00005000",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334213000
+  },
+  {
+    "symbol": "BBUSDT",
+    "markPrice": "0.00806479",
+    "indexPrice": "0.00807143",
+    "lastFundingRate": "0.00005000",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334213000
+  },
+  {
+    "symbol": "XAUUSDT",
+    "markPrice": "4348.44000000",
+    "indexPrice": "4348.27791278",
+    "lastFundingRate": "0.00000000",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334212766
+  },
+  {
+    "symbol": "PAXGUSDT",
+    "markPrice": "4346.32000000",
+    "indexPrice": "4348.44993703",
+    "lastFundingRate": "0.00001217",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334213000
+  },
+  {
+    "symbol": "TSLAUSDT",
+    "markPrice": "362.94000000",
+    "indexPrice": "362.81646939",
+    "lastFundingRate": "0.00000000",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334212766
+  },
+  {
+    "symbol": "BTCDOMUSDT",
+    "markPrice": "5194.80000000",
+    "indexPrice": "5192.01914984",
+    "lastFundingRate": "0.00010000",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334213000
+  },
+  {
+    "symbol": "SPYUSDT",
+    "markPrice": "761.42653237",
+    "indexPrice": "761.34291457",
+    "lastFundingRate": "0.00000000",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334212766
+  },
+  {
+    "symbol": "OPENAIUSDT",
+    "markPrice": "1420.03810000",
+    "indexPrice": "1420.03810000",
+    "lastFundingRate": "0.00005000",
+    "nextFundingTime": 1789344000000,
+    "time": 1789334212766
+  },
+  {
+    "symbol": "BTCUSDT_260925",
+    "markPrice": "77503.73548726",
+    "indexPrice": "77372.89565217",
+    "lastFundingRate": "0.00000000",
+    "nextFundingTime": 0,
+    "time": 1789334213000
+  }
+]

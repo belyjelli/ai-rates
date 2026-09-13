@@ -9,7 +9,8 @@
       "expiry_at": 0,
       "funding_period_hours": 8,
       "funding_multiplier": 1,
-      "max_funding_rate": "0.02"
+      "max_funding_rate": "0.02",
+      "tags": ["LAYER-1"]
     },
     {
       "symbol": "ETH-USD-PERP",
@@ -20,7 +21,8 @@
       "expiry_at": 0,
       "funding_period_hours": 8,
       "funding_multiplier": 1,
-      "max_funding_rate": "0.02"
+      "max_funding_rate": "0.02",
+      "tags": ["LAYER-1"]
     },
     {
       "symbol": "SOL-USD-25DEC26-96-C",

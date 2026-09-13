@@ -1,4 +1,12 @@
-import type { FundingEvent, FundingSnapshot, LeverageTier } from "@ai-rates/core";
+import {
+  type AssetClass,
+  classifyNonCrypto,
+  type FundingEvent,
+  type FundingSnapshot,
+  type LeverageTier,
+  parseVenueSymbol,
+} from "@ai-rates/core";
+import type { HttpClient } from "../http";
 import { marketRef, mul, num } from "../parse";
 import type { SnapshotBatch, VenueAdapter } from "../types";
 
@@ -6,6 +14,10 @@ export const HYPERLIQUID_INFO_URL = "https://api.hyperliquid.xyz/info";
 
 const HOUR_MS = 3_600_000;
 const HISTORY_PAGE_SIZE = 500;
+/** Annotations change only when a deployer lists or relabels a market; a quarter-hour lag is harmless. */
+export const ANNOTATIONS_MAX_AGE_MS = 15 * 60_000;
+/** After a failed annotations refresh, the wait before the next attempt. */
+export const ANNOTATIONS_RETRY_MS = 60_000;
 
 interface HlUniverseAsset {
   name: string;
@@ -39,6 +51,108 @@ interface HlAssetCtx {
 }
 
 export type HlMetaAndAssetCtxs = [HlMeta, HlAssetCtx[]];
+
+/**
+ * `perpConciseAnnotations`: `[coin, annotation]` for every annotated HIP-3 market on every dex, with
+ * the coin spelt exactly as `meta.universe[].name` spells it (`xyz:BB`).
+ */
+export type HlPerpConciseAnnotations = [string, { category?: string | null }][];
+
+/**
+ * What a HIP-3 deployer's `category` annotation declares.
+ *
+ * On 2026-09-14 one response covered 200 markets across seven dexes: stocks 131, indices 26,
+ * commodities 23, crypto 7, preipo 5 and fx 5, plus one each of `FX` (km:EUR), `stock` (para:AAOI)
+ * and `rates` (para:10Y). Deployers spell freely, so matching ignores case.
+ */
+const HL_CATEGORY_CLASSES: ReadonlyMap<string, AssetClass> = new Map([
+  ["commodities", "commodity"],
+  ["crypto", "crypto"],
+  ["fx", "fx"],
+  ["indices", "index"],
+  ["preipo", "equity"],
+  ["stock", "equity"],
+  ["stocks", "equity"],
+]);
+
+/**
+ * The declared class of a HIP-3 market, from its `perpConciseAnnotations` category.
+ *
+ * A category outside the table (`rates`) still says "not crypto" -- a deployer that meant crypto
+ * writes `crypto`, as flx does for flx:BTC -- so the base tables settle it: para:10Y lands on index.
+ * A missing annotation is read the same way. HIP-3 dexes exist to list tradfi, and on 2026-09-14
+ * every live HIP-3 market was annotated; only delisted ones lacked an entry. Defaulting those to
+ * crypto would put xyz:BB (BlackBerry) in BounceBit's pool.
+ *
+ * The core dex never comes here: its perps are validator-listed crypto and carry no annotations.
+ */
+export function hip3DeclaredClass(category: string | null | undefined, base: string): AssetClass {
+  const declared = category ? HL_CATEGORY_CLASSES.get(category.trim().toLowerCase()) : undefined;
+  return declared ?? classifyNonCrypto(base);
+}
+
+/** Coin to category. Throws on a payload that is not a list, so the caller keeps its last copy. */
+export function parsePerpAnnotations(payload: HlPerpConciseAnnotations): Map<string, string> {
+  if (!Array.isArray(payload)) {
+    throw new Error("hyperliquid: perpConciseAnnotations is not a list");
+  }
+  const categories = new Map<string, string>();
+  for (const entry of payload) {
+    if (!Array.isArray(entry)) continue;
+    const [coin, annotation] = entry;
+    const category = annotation?.category;
+    if (typeof coin === "string" && typeof category === "string") categories.set(coin, category);
+  }
+  return categories;
+}
+
+export interface HlAnnotationCache {
+  /** Coin to category: the last good copy, refreshed first when due. Never throws. */
+  categories(client: HttpClient, now: number): Promise<ReadonlyMap<string, string>>;
+}
+
+/**
+ * One `perpConciseAnnotations` response covers every HIP-3 dex, so all HIP-3 adapters share one of
+ * these: a single request per ANNOTATIONS_MAX_AGE_MS for the whole group, not one per dex per sweep.
+ *
+ * A failed or empty refresh keeps the last good copy and tries again after ANNOTATIONS_RETRY_MS. It
+ * never fails the sweep: before any copy has loaded, every HIP-3 market falls back to the
+ * missing-annotation rule in `hip3DeclaredClass`.
+ */
+export function createAnnotationCache(): HlAnnotationCache {
+  let current: ReadonlyMap<string, string> = new Map();
+  let refreshAt = 0;
+  let pending: Promise<void> | null = null;
+
+  async function refresh(client: HttpClient, now: number): Promise<void> {
+    try {
+      const parsed = parsePerpAnnotations(
+        await client.postJson<HlPerpConciseAnnotations>(HYPERLIQUID_INFO_URL, {
+          type: "perpConciseAnnotations",
+        }),
+      );
+      // An empty list is a broken response, not a venue with no markets.
+      if (parsed.size === 0) throw new Error("hyperliquid: perpConciseAnnotations is empty");
+      current = parsed;
+      refreshAt = now + ANNOTATIONS_MAX_AGE_MS;
+    } catch {
+      refreshAt = now + ANNOTATIONS_RETRY_MS;
+    }
+  }
+
+  return {
+    async categories(client, now) {
+      if (now >= refreshAt) {
+        // Adapters in the group can overlap; they wait on the same request rather than each sending one.
+        pending ??= refresh(client, now).finally(() => {
+          pending = null;
+        });
+        await pending;
+      }
+      return current;
+    },
+  };
+}
 
 /**
  * Risk ladders from `meta.marginTables`, which arrives in a call the collector already makes.
@@ -111,12 +225,16 @@ export type HlPerpDexs = ({ name: string; fullName?: string } | null)[];
  * basis and the interval are 1h. For HIP-3 dexes `funding` already includes the dex's per-asset
  * funding multiplier (`perpDexs.assetToFundingMultiplier`): with a 0.5 multiplier xyz:XYZ100 reports
  * 0.00000625, half the 0.0000125 hourly baseline, and assets with a 0.0 multiplier report 0.0.
+ *
+ * `categories` is the HIP-3 annotation map (see `hip3DeclaredClass`); null for the core dex, whose
+ * perps are all crypto.
  */
 export function parseHyperliquidSnapshots(
   venueId: string,
   payload: HlMetaAndAssetCtxs,
   now: number,
   quote: string | null = null,
+  categories: ReadonlyMap<string, string> | null = null,
 ): FundingSnapshot[] {
   const [meta, ctxs] = payload;
   const nextFundingAt = Math.floor(now / HOUR_MS) * HOUR_MS + HOUR_MS;
@@ -128,9 +246,12 @@ export function parseHyperliquidSnapshots(
     const rate = num(ctx?.funding);
     if (asset.isDelisted || !ctx || rate === null) continue;
 
+    const assetClass = categories
+      ? hip3DeclaredClass(categories.get(asset.name), parseVenueSymbol(asset.name).base)
+      : "crypto";
     const markPrice = num(ctx.markPx);
     snapshots.push({
-      ...marketRef(venueId, asset.name, quote ? { quote } : {}),
+      ...marketRef(venueId, asset.name, quote ? { quote, assetClass } : { assetClass }),
       observedAt: now,
       rate,
       basisHours: 1,
@@ -175,7 +296,12 @@ export function parseHyperliquidFundingHistory(
   return [...byHour.values()].sort((a, b) => a.settledAt - b.settledAt);
 }
 
-function createAdapter(venueId: string, dex: string | null, quote: string | null): VenueAdapter {
+function createAdapter(
+  venueId: string,
+  dex: string | null,
+  quote: string | null,
+  annotations: HlAnnotationCache | null,
+): VenueAdapter {
   return {
     venueId,
     // Core and every HIP-3 dex share one client: the limit is 1200 weight/min per IP and info
@@ -186,7 +312,12 @@ function createAdapter(venueId: string, dex: string | null, quote: string | null
     async fetchSnapshots(client, now): Promise<SnapshotBatch> {
       const body = dex ? { type: "metaAndAssetCtxs", dex } : { type: "metaAndAssetCtxs" };
       const payload = await client.postJson<HlMetaAndAssetCtxs>(HYPERLIQUID_INFO_URL, body);
-      return { snapshots: parseHyperliquidSnapshots(venueId, payload, now, quote), settled: [] };
+      // After the main request, so a sweep that is failing anyway spends nothing on annotations.
+      const categories = annotations ? await annotations.categories(client, now) : null;
+      return {
+        snapshots: parseHyperliquidSnapshots(venueId, payload, now, quote, categories),
+        settled: [],
+      };
     },
 
     async fetchLeverageTiers(client) {
@@ -217,10 +348,16 @@ function createAdapter(venueId: string, dex: string | null, quote: string | null
   };
 }
 
-/** Core Hyperliquid perps (USDC collateral). */
-export const hyperliquidAdapter: VenueAdapter = createAdapter("hyperliquid", null, "USDC");
+/** Core Hyperliquid perps (USDC collateral). Validator-listed crypto, so no annotations are fetched. */
+export const hyperliquidAdapter: VenueAdapter = createAdapter("hyperliquid", null, "USDC", null);
+
+/** Shared by every HIP-3 adapter: one annotations response covers all dexes. */
+const hip3Annotations = createAnnotationCache();
 
 /** A HIP-3 builder-deployed dex; venue id `hl-<dex>`, coins named `<dex>:<SYMBOL>`. */
-export function createHip3Adapter(dex: string): VenueAdapter {
-  return createAdapter(`hl-${dex}`, dex, null);
+export function createHip3Adapter(
+  dex: string,
+  annotations: HlAnnotationCache = hip3Annotations,
+): VenueAdapter {
+  return createAdapter(`hl-${dex}`, dex, null, annotations);
 }

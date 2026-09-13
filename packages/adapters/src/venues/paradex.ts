@@ -1,4 +1,9 @@
-import type { FundingSnapshot } from "@ai-rates/core";
+import {
+  type AssetClass,
+  classifyNonCrypto,
+  type FundingSnapshot,
+  parseVenueSymbol,
+} from "@ai-rates/core";
 import { marketRef, mul, num } from "../parse";
 import type { SnapshotBatch, VenueAdapter } from "../types";
 
@@ -22,10 +27,28 @@ export interface ParadexMarket {
   funding_period_hours?: number | null;
   quote_currency?: string | null;
   settlement_currency?: string | null;
+  /** Sector tags. `RWA` marks the tradfi listings; see `paradexDeclaredClass`. */
+  tags?: string[] | null;
 }
 
 export interface ParadexResults<T> {
   results: T[];
+}
+
+/**
+ * The class Paradex declares for a perp: the `RWA` tag in `/v1/markets`, or crypto.
+ *
+ * `RWA` says "not crypto" without saying which kind, so the base tables settle that. On 2026-09-14
+ * 21 of 63 perps carried it: XAU XAG XPT XCU CL BZ NG (commodity; NG reaches NATGAS by alias), US500
+ * US100 (index), and twelve single names and ETFs such as MSTR, DRAM and EWY (equity). The other 42
+ * carried a crypto sector tag (LAYER-1, DEFI, MEME, AI, LAYER-2) or none. PAXG is tagged DEFI.
+ */
+export function paradexDeclaredClass(
+  tags: readonly string[] | null | undefined,
+  base: string,
+): AssetClass {
+  const rwa = tags?.some((tag) => tag.trim().toUpperCase() === "RWA") ?? false;
+  return rwa ? classifyNonCrypto(base) : "crypto";
 }
 
 /**
@@ -63,6 +86,7 @@ export function parseParadexSnapshots(
       // Funding and PnL settle in the settlement currency (USDC), so that is the collateral quote.
       ...marketRef("paradex", row.symbol, {
         quote: market.settlement_currency ?? market.quote_currency ?? null,
+        assetClass: paradexDeclaredClass(market.tags, parseVenueSymbol(row.symbol).base),
       }),
       observedAt: now,
       rate,

@@ -1,13 +1,18 @@
 import { describe, expect, test } from "bun:test";
 import type { FundingSnapshot } from "@ai-rates/core";
 import exchangeInfoFixture from "../../__fixtures__/aster/exchangeInfo.json";
+import tradfiExchangeInfo from "../../__fixtures__/aster/exchangeInfo_tradfi.json";
 import fundingInfoFixture from "../../__fixtures__/aster/fundingInfo.json";
+import tradfiFundingInfo from "../../__fixtures__/aster/fundingInfo_tradfi.json";
 import historyFixture from "../../__fixtures__/aster/fundingRate_BTCUSDT.json";
 import premiumFixture from "../../__fixtures__/aster/premiumIndex.json";
+import tradfiPremium from "../../__fixtures__/aster/premiumIndex_tradfi.json";
 import tickerFixture from "../../__fixtures__/aster/ticker24hr.json";
 import type { HttpClient } from "../http";
 import {
+  asterAssetClass,
   attachOpenInterest,
+  type BinanceStyleSymbol,
   basisHoursFromGaps,
   createAsterAdapter,
   type OpenInterestEntry,
@@ -18,7 +23,7 @@ import {
 
 const NOW = 1_789_147_709_400;
 const HOUR = 3_600_000;
-const tradable = tradablePerpetuals(exchangeInfoFixture);
+const tradable = tradablePerpetuals(exchangeInfoFixture, asterAssetClass);
 const input = {
   premium: premiumFixture,
   fundingInfo: fundingInfoFixture,
@@ -37,6 +42,7 @@ describe("parseBinanceStyleSnapshots (aster)", () => {
       base: "BTC",
       quote: "USDT",
       multiplier: 1,
+      assetClass: "crypto",
       dex: null,
       observedAt: NOW,
       rate: 0.00003274,
@@ -63,9 +69,10 @@ describe("parseBinanceStyleSnapshots (aster)", () => {
 
   test("skips symbols that aren't TRADING perpetuals in exchangeInfo (BTCUSD, GNSUSD)", () => {
     expect(snapshots.map((s) => s.venueSymbol).sort()).toEqual(["BTCUSDT", "ETHUSDT", "SUSHIUSDT"]);
-    const settling = tradablePerpetuals({
-      symbols: [{ symbol: "TONUSDT", status: "SETTLING", contractType: "PERPETUAL" }],
-    });
+    const settling = tradablePerpetuals(
+      { symbols: [{ symbol: "TONUSDT", status: "SETTLING", contractType: "PERPETUAL" }] },
+      asterAssetClass,
+    );
     expect(settling.size).toBe(0);
   });
 
@@ -86,6 +93,72 @@ describe("parseBinanceStyleSnapshots (aster)", () => {
       venueId: "binance",
       basisHours: 8,
     });
+  });
+});
+
+describe("asterAssetClass", () => {
+  /** Real rows from Aster's exchangeInfo on 2026-09-14, trimmed to the fields the family reads. */
+  const rows: BinanceStyleSymbol[] = tradfiExchangeInfo.symbols;
+  const row = (symbol: string) => rows.find((r) => r.symbol === symbol) as BinanceStyleSymbol;
+
+  test("reads the tags, not underlyingType, which is COIN even on gold", () => {
+    expect(row("XAUUSDT").underlyingType).toBe("COIN");
+    expect(asterAssetClass(row("XAUUSDT"))).toBe("commodity");
+    expect(asterAssetClass(row("CLUSD1"))).toBe("commodity");
+    expect(asterAssetClass(row("OPENAIUSDT"))).toBe("equity"); // ["pre-launch", "STOCK"]
+    expect(asterAssetClass(row("BBXUSDT"))).toBe("equity"); // BlackBerry, not BounceBit
+    expect(asterAssetClass(row("STXXUSDT"))).toBe("equity"); // Seagate, not Stacks
+    expect(asterAssetClass(row("SPYUSDT"))).toBe("equity"); // ["ETF"]
+  });
+
+  test("an untagged row is crypto, whatever the ticker could also mean", () => {
+    // RateX, symbolType 0. Raytheon is RTX on gate; here it is a token.
+    expect(asterAssetClass(row("RTXUSDT"))).toBe("crypto");
+  });
+
+  test("symbolType 1 marks exactly the rows the tags call tradfi", () => {
+    // Holds over all 594 rows of the full response; the fixture keeps one of each kind.
+    for (const r of rows) expect(asterAssetClass(r) !== "crypto").toBe(r.symbolType === 1);
+  });
+
+  test("a row flagged tradfi with tags new to us is not defaulted to crypto", () => {
+    expect(asterAssetClass({ ...row("XAUUSDT"), underlyingSubType: ["Metals"] })).toBe("commodity");
+    expect(asterAssetClass({ ...row("STXXUSDT"), underlyingSubType: [] })).toBe("equity");
+    // The declared base is read, since the parser cannot split CLUSD1's USD1 quote.
+    expect(asterAssetClass({ ...row("CLUSD1"), underlyingSubType: ["AOS2"] })).toBe("commodity");
+  });
+});
+
+describe("aster tradfi snapshots", () => {
+  const snapshots = parseBinanceStyleSnapshots(
+    "aster",
+    {
+      premium: tradfiPremium,
+      fundingInfo: tradfiFundingInfo,
+      tickers: [],
+      tradable: tradablePerpetuals(tradfiExchangeInfo, asterAssetClass),
+      defaultIntervalHours: null,
+    },
+    1_789_334_214_000,
+  );
+
+  test("each snapshot carries its declared class, refined by marketRef", () => {
+    expect(
+      snapshots
+        .map((s) => [s.venueSymbol, s.assetClass])
+        .sort(([a], [b]) => String(a).localeCompare(String(b))),
+    ).toEqual([
+      ["BBXUSDT", "equity"],
+      ["CLUSD1", "commodity"],
+      ["OPENAIUSDT", "equity"],
+      // Declared a commodity; returned to crypto because PAXG is a token, on every venue.
+      ["PAXGUSDT", "crypto"],
+      ["RTXUSDT", "crypto"],
+      ["SPYUSDT", "equity"],
+      ["STXXUSDT", "equity"],
+      ["XAUUSDT", "commodity"],
+      // SKHXUSDT is PENDING_TRADING and not collected.
+    ]);
   });
 });
 
@@ -123,8 +196,22 @@ describe("funding history", () => {
       venueId: "aster",
       base: "BTC",
       quote: "USDT",
+      assetClass: "crypto",
       markPrice: null,
     });
+  });
+
+  test("history carries the class it is given", () => {
+    const events = parseBinanceStyleFundingHistory(
+      "aster",
+      "XAUUSDT",
+      historyFixture,
+      0,
+      Number.MAX_SAFE_INTEGER,
+      null,
+      "commodity",
+    );
+    expect(events.every((e) => e.assetClass === "commodity" && e.base === "XAU")).toBe(true);
   });
 });
 
@@ -189,6 +276,37 @@ describe("createAsterAdapter", () => {
       1_789_142_400_000,
     );
     expect(events?.map((e) => e.settledAt)).toEqual(historyFixture.map((r) => r.fundingTime));
+  });
+
+  test("classifies with Aster's tags, in snapshots and in history", async () => {
+    const at = 1_789_334_214_000;
+    const bodies: Record<string, unknown> = {
+      exchangeInfo: tradfiExchangeInfo,
+      premiumIndex: tradfiPremium,
+      fundingInfo: tradfiFundingInfo,
+      "ticker/24hr": [],
+      // Rows from the BTCUSDT fixture: only the class of the events is under test here.
+      fundingRate: historyFixture,
+    };
+    const client: HttpClient = {
+      venueId: "aster",
+      async getJson<T>(url: string): Promise<T> {
+        const key = url.split("/fapi/v1/")[1]?.split("?")[0] as string;
+        if (key === "openInterest") return { openInterest: "1", time: at } as T;
+        return bodies[key] as T;
+      },
+      postJson: async () => {
+        throw new Error("unused");
+      },
+      circuit: () => ({ open: false, consecutiveFailures: 0, retryAt: null }),
+      requestCount: () => 0,
+    };
+    const adapter = createAsterAdapter();
+    const batch = await adapter.fetchSnapshots(client, at);
+    expect(batch.snapshots.find((s) => s.venueSymbol === "STXXUSDT")?.assetClass).toBe("equity");
+    const events = await adapter.fetchFundingHistory?.(client, "XAUUSDT", 0, at);
+    expect(events?.length).toBeGreaterThan(0);
+    expect(events?.every((e) => e.assetClass === "commodity")).toBe(true);
   });
 
   test("fills open interest a slice at a time and reuses it between refreshes", async () => {
