@@ -1,0 +1,28 @@
+name: venue probe
+
+# Nightly live smoke test for the venue catalog (Phase 5: "a nightly live smoke test flags schema
+# drift"). It calls every catalogued endpoint once, with the same runner the Worker's /probe uses,
+# and fails when any configured endpoint stops answering as expected.
+#
+# This catches host and schema drift on endpoints nobody is collecting yet, before an adapter is
+# built on them. It does NOT replace /status: the collector runs from its own host and location, so
+# per-venue failures in production are read there (failures over 24h per venue).
+#
+# A GitHub-hosted runner sits in a different region from the collector, and some venues geo-block by
+# region. A venue failing here but live on /status is a location difference, not drift.
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bun run probe:local
