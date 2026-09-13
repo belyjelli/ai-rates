@@ -4,6 +4,8 @@ import { marketRef, mul, num } from "../parse";
 import type { SnapshotBatch, VenueAdapter } from "../types";
 
 export const LIGHTER_API = "https://mainnet.zklighter.elliot.ai/api/v1";
+/** The Robinhood Chain deployment: the same API, its own markets, book and settlement currency. */
+export const LIGHTER_RH_API = "https://api.rh.lighter.xyz/api/v1";
 
 const HOUR_MS = 3_600_000;
 const HISTORY_PAGE_SIZE = 750;
@@ -19,8 +21,8 @@ const HISTORY_PAGE_SIZE = 750;
  *   Lighter) remain the base collateral". ETH and XAUT can back margin, discounted, but PnL and
  *   funding still land in USDC.
  *
- * LIGHTER_API is the Lighter (Ethereum) deployment, so USDC. A Robinhood Chain Lighter adapter would
- * quote USDG instead.
+ * LIGHTER_API is the Lighter (Ethereum) deployment, so USDC. The Robinhood Chain deployment quotes
+ * USDG instead; see LIGHTER_RH.
  */
 const LIGHTER_QUOTE = "USDC";
 
@@ -157,6 +159,105 @@ export const LIGHTER_ASSET_CLASSES: ReadonlyMap<string, AssetClass> = new Map([
   ["ZHIPU", "equity"],
 ]);
 
+/** One Lighter deployment: the same API and funding engine, its own book, currency and listings. */
+export interface LighterDeployment {
+  venueId: string;
+  api: string;
+  /** Settlement currency of every perp on the deployment. */
+  quote: string;
+  /** Declared class by Lighter symbol; absent means crypto. */
+  assetClasses: ReadonlyMap<string, AssetClass>;
+}
+
+export const LIGHTER_MAINNET: LighterDeployment = {
+  venueId: "lighter",
+  api: LIGHTER_API,
+  quote: LIGHTER_QUOTE,
+  assetClasses: LIGHTER_ASSET_CLASSES,
+};
+
+/**
+ * The class declared for each non-crypto market on Robinhood Chain Lighter, by symbol. Absent means
+ * crypto, or undeclared.
+ *
+ * Built for this deployment rather than borrowed from LIGHTER_ASSET_CLASSES: it lists 57 perps of its
+ * own (14 of them not on mainnet), and its API declares no class either. Sources, as read 2026-09-14:
+ *
+ * 1. The token config bundled in https://app.lighter.xyz, which is also the Robinhood Chain front end
+ *    (its `robinhood_chain` network switch). It declares 43 of the 57: 29 `asset_type` RWA and 14
+ *    CRYPTO. Categories map as for mainnet -- STOCK and PRE_IPO equity, COMMODITIES commodity.
+ * 2. Where https://docs.lighter.xyz/trading/real-world-assets-rwas/market-specifications types the
+ *    same ticker, its Type is used: SPY, QQQ and SOXL are `index` there (core files them as equity).
+ *
+ * The shared tickers are the same underlyings on both deployments: of 43 symbols listed on both, marks
+ * agreed within 0.6% on 2026-09-14, except the internally priced pre-IPO OPENAI (2.7%) and ANTHROPIC
+ * (1.9%) and BE (5.2%, both Bloom Energy).
+ *
+ * UNDECLARED, so crypto here until Lighter publishes them: ASTS, AMC, CLSK, IREN, LUNR, QBTS, RGTI,
+ * SGOV, SLV, SMCI, SOFI, USAR, USO and WULF. They are RH-only listings, absent from both the token
+ * config and the RWA docs. Migration 016's mark gate keeps each out of any crypto pool it does not
+ * price like.
+ */
+export const LIGHTER_RH_ASSET_CLASSES: ReadonlyMap<string, AssetClass> = new Map([
+  ["AAPL", "equity"],
+  ["AMD", "equity"],
+  ["AMZN", "equity"],
+  ["ANTHROPIC", "equity"],
+  ["BABA", "equity"],
+  ["BE", "equity"],
+  ["COIN", "equity"],
+  ["CRCL", "equity"],
+  ["CRWV", "equity"],
+  ["GOOGL", "equity"],
+  ["INTC", "equity"],
+  ["META", "equity"],
+  ["MSFT", "equity"],
+  ["MU", "equity"],
+  ["NVDA", "equity"],
+  ["OPENAI", "equity"],
+  ["ORCL", "equity"],
+  ["PLTR", "equity"],
+  ["QQQ", "index"],
+  ["SHEIN", "equity"],
+  ["SKHY", "equity"],
+  ["SNDK", "equity"],
+  ["SOXL", "index"],
+  ["SPCX", "equity"],
+  ["SPY", "index"],
+  ["TSLA", "equity"],
+  ["TSM", "equity"],
+  ["XAG", "commodity"],
+  ["XAU", "commodity"],
+]);
+
+/**
+ * Robinhood Chain Lighter (catalog id `lighter-rh`): the same API, funding engine and rate limit.
+ *
+ * FUNDING is mainnet's: an 8-hour rate paid 1/8 hourly. The per-market funding parameters are
+ * identical (BTC and ETH `funding_premium_multiplier` 100, clamps 0.05/4.0, `base_interest_rate` 0.01;
+ * AAPL 50 and 0.0032), and the units check out live: ETH's `funding-rates` 0.000096 / 8 = 0.000012/h
+ * equals its hourly `fundings` rows of 0.0012%. Against Hyperliquid, same minute: ETH 0.000012/h here,
+ * 0.0000125/h there; an hourly misreading would be 8x. BTC read 0.000024-0.000032 (0.000003-0.000004/h)
+ * while Hyperliquid's BTC was 0.0000117/h -- a lower premium, not a basis factor.
+ *
+ * TRADABILITY: 57 perps, all `active`, on 2026-09-14; its 27 spot books (`AAPL/USDG`...) are not perps.
+ *
+ * RATE LIMIT: 60 requests per rolling minute for standard accounts
+ * (https://apidocs.rh.lighter.xyz/docs/rate-limits), as on mainnet.
+ *
+ * QUOTE: USDG. "USDC (Lighter) and USDG (Robinhood Chain Lighter) remain the base collateral"
+ * (https://docs.lighter.xyz/trading/multi-asset-margin), its `assetDetails` lists USDG and no USDC,
+ * and every spot book is quoted in USDG. Perps again declare `quote_asset_id` 0.
+ *
+ * BASE: every symbol is a bare ticker that the parser returns unchanged.
+ */
+export const LIGHTER_RH: LighterDeployment = {
+  venueId: "lighter-rh",
+  api: LIGHTER_RH_API,
+  quote: "USDG",
+  assetClasses: LIGHTER_RH_ASSET_CLASSES,
+};
+
 export interface LighterFundingRate {
   market_id: number;
   exchange: string;
@@ -204,6 +305,7 @@ export function parseLighterSnapshots(
   rates: LighterFundingRates,
   details: LighterOrderBookDetails,
   now: number,
+  deployment: LighterDeployment = LIGHTER_MAINNET,
 ): FundingSnapshot[] {
   const live = new Map(
     details.order_book_details
@@ -220,9 +322,9 @@ export function parseLighterSnapshots(
 
     const markPrice = num(detail.mark_price);
     snapshots.push({
-      ...marketRef("lighter", row.symbol, {
-        quote: LIGHTER_QUOTE,
-        assetClass: LIGHTER_ASSET_CLASSES.get(row.symbol) ?? "crypto",
+      ...marketRef(deployment.venueId, row.symbol, {
+        quote: deployment.quote,
+        assetClass: deployment.assetClasses.get(row.symbol) ?? "crypto",
       }),
       observedAt: now,
       rate,
@@ -247,6 +349,7 @@ export function parseLighterSnapshots(
 export function parseLighterFundings(
   venueSymbol: string,
   payload: LighterFundings,
+  deployment: LighterDeployment = LIGHTER_MAINNET,
 ): FundingEvent[] {
   const events: FundingEvent[] = [];
   for (const row of payload.fundings) {
@@ -254,7 +357,7 @@ export function parseLighterFundings(
     if (percent === null || !Number.isFinite(row.timestamp)) continue;
     const sign = row.direction === "short" ? -1 : 1;
     events.push({
-      ...marketRef("lighter", venueSymbol, { quote: LIGHTER_QUOTE }),
+      ...marketRef(deployment.venueId, venueSymbol, { quote: deployment.quote }),
       settledAt: row.timestamp * 1000,
       rate: (sign * percent) / 100,
       basisHours: 1,
@@ -264,31 +367,30 @@ export function parseLighterFundings(
   return events.sort((a, b) => a.settledAt - b.settledAt);
 }
 
-export function createLighterAdapter(): VenueAdapter {
+export function createLighterAdapter(
+  deployment: LighterDeployment = LIGHTER_MAINNET,
+): VenueAdapter {
+  const api = deployment.api;
   const marketIds = new Map<string, number>();
 
   async function marketIdFor(client: HttpClient, symbol: string): Promise<number | undefined> {
     if (!marketIds.has(symbol)) {
-      const details = await client.getJson<LighterOrderBookDetails>(
-        `${LIGHTER_API}/orderBookDetails`,
-      );
+      const details = await client.getJson<LighterOrderBookDetails>(`${api}/orderBookDetails`);
       for (const d of details.order_book_details) marketIds.set(d.symbol, d.market_id);
     }
     return marketIds.get(symbol);
   }
 
   return {
-    venueId: "lighter",
+    venueId: deployment.venueId,
     // Unauthenticated REST is limited to ~60 requests/min.
     minIntervalMs: 1100,
 
     async fetchSnapshots(client, now): Promise<SnapshotBatch> {
-      const rates = await client.getJson<LighterFundingRates>(`${LIGHTER_API}/funding-rates`);
-      const details = await client.getJson<LighterOrderBookDetails>(
-        `${LIGHTER_API}/orderBookDetails`,
-      );
+      const rates = await client.getJson<LighterFundingRates>(`${api}/funding-rates`);
+      const details = await client.getJson<LighterOrderBookDetails>(`${api}/orderBookDetails`);
       for (const d of details.order_book_details) marketIds.set(d.symbol, d.market_id);
-      return { snapshots: parseLighterSnapshots(rates, details, now), settled: [] };
+      return { snapshots: parseLighterSnapshots(rates, details, now, deployment), settled: [] };
     },
 
     async fetchFundingHistory(client, venueSymbol, fromMs, toMs) {
@@ -300,16 +402,18 @@ export function createLighterAdapter(): VenueAdapter {
       const end = Math.floor(toMs / 1000);
       while (start <= end) {
         const page = await client.getJson<LighterFundings>(
-          `${LIGHTER_API}/fundings?market_id=${marketId}&resolution=1h&start_timestamp=${start}&end_timestamp=${end}&count_back=0`,
+          `${api}/fundings?market_id=${marketId}&resolution=1h&start_timestamp=${start}&end_timestamp=${end}&count_back=0`,
         );
         rows.push(...page.fundings);
         const last = page.fundings.at(-1);
         if (!last || page.fundings.length < HISTORY_PAGE_SIZE) break;
         start = last.timestamp + 1;
       }
-      return parseLighterFundings(venueSymbol, { fundings: rows });
+      return parseLighterFundings(venueSymbol, { fundings: rows }, deployment);
     },
   };
 }
 
 export const lighterAdapter: VenueAdapter = createLighterAdapter();
+
+export const lighterRhAdapter: VenueAdapter = createLighterAdapter(LIGHTER_RH);

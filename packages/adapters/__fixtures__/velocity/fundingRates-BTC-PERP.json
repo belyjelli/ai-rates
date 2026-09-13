@@ -1,0 +1,65 @@
+{
+  "success": true,
+  "meta": {
+    "nextPage": "eyJwayI6Ik1BUktFVCNCVEMtUEVSUCIsInNrIjoiRlVORElOR19SQVRFI1RTIzE3ODkyMzI0NTkjU0xPVCM0NDY0ODExMTUjU0lHIzI2R2FDQTdaZ0NyaUFETFk1MWNEVUtKb0J5SmN0UEU4eWhyUFN4R0NrSmZpUmRSY2h3S05VMUhaVjk4aDNLTk5nck1zV0Y2RjFMRTZKazdaS0RwUzdiQlkjSU5ERVgjMDAwMDAifQ=="
+  },
+  "records": [
+    {
+      "ts": 1789336860,
+      "txSig": "5a77zEQANNJWiA78XpBP11z7DT21NqxmbRE2UHYJbHyrozBEty8fRmpdVae1mghh9cMBdtxSHFFwoYjanYE6xR72",
+      "txSigIndex": 0,
+      "slot": 446811712,
+      "recordId": "1673",
+      "marketIndex": 1,
+      "symbol": "BTC-PERP",
+      "fundingRate": "6.399237833",
+      "fundingRateLong": "6.399237833",
+      "fundingRateShort": "6.399237833",
+      "cumulativeFundingRateLong": "4179.334179711",
+      "cumulativeFundingRateShort": "4179.334179711",
+      "oraclePriceTwap": "77333.726817",
+      "markPriceTwap": "77502.772950",
+      "periodRevenue": "0.000000",
+      "baseAssetAmountWithAmm": "0.314400000",
+      "baseAssetAmountWithUnsettledLp": "0.000000000"
+    },
+    {
+      "ts": 1789333259,
+      "txSig": "3AaQ5L1FAxyqt9P8HopKttmy4oVQugZy8dkg4wgBSisehrf5JQGEj7g2f4J2s1V2svwQzN4ZAsEUSavzX2LtoJ6A",
+      "txSigIndex": 0,
+      "slot": 446800281,
+      "recordId": "1672",
+      "marketIndex": 1,
+      "symbol": "BTC-PERP",
+      "fundingRate": "6.320036916",
+      "fundingRateLong": "6.320036916",
+      "fundingRateShort": "6.320036916",
+      "cumulativeFundingRateLong": "4172.934941878",
+      "cumulativeFundingRateShort": "4172.934941878",
+      "oraclePriceTwap": "77287.184923",
+      "markPriceTwap": "77454.320927",
+      "periodRevenue": "0.000000",
+      "baseAssetAmountWithAmm": "0.314400000",
+      "baseAssetAmountWithUnsettledLp": "0.000000000"
+    },
+    {
+      "ts": 1789329660,
+      "txSig": "5jzjE6CM3BgeoSD39ZLzmxpzy5wVvf4DaWuwKGrfUt2zfrRYwoFZnEaBBgMaGXAYFocG7EvyesMQyDYBuGPHT3UL",
+      "txSigIndex": 0,
+      "slot": 446788891,
+      "recordId": "1671",
+      "marketIndex": 1,
+      "symbol": "BTC-PERP",
+      "fundingRate": "6.206000708",
+      "fundingRateLong": "6.206000708",
+      "fundingRateShort": "6.206000708",
+      "cumulativeFundingRateLong": "4166.614904962",
+      "cumulativeFundingRateShort": "4166.614904962",
+      "oraclePriceTwap": "77262.392462",
+      "markPriceTwap": "77426.786640",
+      "periodRevenue": "0.000000",
+      "baseAssetAmountWithAmm": "0.314400000",
+      "baseAssetAmountWithUnsettledLp": "0.000000000"
+    }
+  ]
+}

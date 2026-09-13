@@ -5,9 +5,13 @@ import {
   createLighterAdapter,
   LIGHTER_API,
   LIGHTER_ASSET_CLASSES,
+  LIGHTER_RH,
+  LIGHTER_RH_API,
+  LIGHTER_RH_ASSET_CLASSES,
   type LighterFundingRates,
   type LighterFundings,
   type LighterOrderBookDetails,
+  lighterRhAdapter,
   parseLighterFundings,
   parseLighterSnapshots,
 } from "./lighter";
@@ -225,5 +229,99 @@ describe("lighterAdapter", () => {
     const details = await fixture<LighterOrderBookDetails>("order-book-details.json");
     const { client } = fakeClient(() => details);
     expect(await createLighterAdapter().fetchFundingHistory?.(client, "NOPE", 0, 1)).toEqual([]);
+  });
+});
+
+describe("Robinhood Chain Lighter", () => {
+  const rhFixture = <T>(name: string): Promise<T> =>
+    Bun.file(new URL(`../../__fixtures__/lighter-rh/${name}`, import.meta.url)).json();
+  // 2026-09-13T22:32:02Z, when funding-rates was read; the next hourly settlement is 23:00Z.
+  const RH_NOW = 1_789_338_722_000;
+  const RH_NEXT_HOUR = 1_789_340_400_000;
+
+  test("normalizes BTC with the deployment's own venue id and USDG", async () => {
+    const rates = await rhFixture<LighterFundingRates>("funding-rates.json");
+    const details = await rhFixture<LighterOrderBookDetails>("order-book-details.json");
+    const snapshots = parseLighterSnapshots(rates, details, RH_NOW, LIGHTER_RH);
+
+    // Relayed binance, bybit and hyperliquid BTC rows are dropped here too.
+    expect(snapshots.map((s) => s.venueSymbol)).toEqual([
+      "BTC",
+      "OPENAI",
+      "SPY",
+      "AAPL",
+      "ETH",
+      "XAU",
+    ]);
+    expect(snapshots[0]).toEqual({
+      venueId: "lighter-rh",
+      venueSymbol: "BTC",
+      base: "BTC",
+      assetClass: "crypto",
+      quote: "USDG",
+      multiplier: 1,
+      dex: null,
+      observedAt: RH_NOW,
+      rate: 0.000023999999999999997,
+      basisHours: 8,
+      intervalHours: 1,
+      nextFundingAt: RH_NEXT_HOUR,
+      kind: "predicted",
+      markPrice: 76806.1,
+      indexPrice: 76843.5,
+      openInterestUsd: 266.23406 * 76806.1,
+      volume24hUsd: 52979592.957577,
+    });
+    // ETH 0.000096 over 8h is 0.000012/h: its hourly fundings rows read 0.0012% that afternoon.
+    const eth = snapshots.find((s) => s.venueSymbol === "ETH");
+    expect((eth?.rate ?? 0) / (eth?.basisHours ?? 1)).toBeCloseTo(0.000012, 12);
+  });
+
+  test("classes come from the deployment's own table, not mainnet's", async () => {
+    const rates = await rhFixture<LighterFundingRates>("funding-rates.json");
+    const details = await rhFixture<LighterOrderBookDetails>("order-book-details.json");
+    const classes = Object.fromEntries(
+      parseLighterSnapshots(rates, details, RH_NOW, LIGHTER_RH).map((s) => [
+        s.venueSymbol,
+        s.assetClass,
+      ]),
+    );
+    // SPY is typed index by the docs, and core files ETFs as equity.
+    expect(classes).toEqual({
+      BTC: "crypto",
+      OPENAI: "equity",
+      SPY: "equity",
+      AAPL: "equity",
+      ETH: "crypto",
+      XAU: "commodity",
+    });
+    // RH-only listings nobody has declared stay crypto rather than being guessed from the ticker.
+    for (const undeclared of ["SLV", "USO", "SGOV", "SOFI", "USAR"]) {
+      expect(LIGHTER_RH_ASSET_CLASSES.has(undeclared)).toBe(false);
+    }
+    const symbols = [...LIGHTER_RH_ASSET_CLASSES.keys()];
+    expect(symbols).toEqual([...symbols].sort());
+  });
+
+  test("history rows carry the deployment's venue id and quote", async () => {
+    const payload = await rhFixture<LighterFundings>("fundings-btc.json");
+    const events = parseLighterFundings("BTC", payload, LIGHTER_RH);
+    expect(events.map((e) => [e.settledAt, e.venueId, e.quote])).toEqual([
+      [1_789_329_600_000, "lighter-rh", "USDG"],
+      [1_789_333_200_000, "lighter-rh", "USDG"],
+      [1_789_336_800_000, "lighter-rh", "USDG"],
+    ]);
+    expect(events.map((e) => e.rate)).toEqual([0.001 / 100, 0.0011 / 100, 0.0005 / 100]);
+  });
+
+  test("the adapter polls the Robinhood Chain host under its own venue id", async () => {
+    const rates = await rhFixture<LighterFundingRates>("funding-rates.json");
+    const details = await rhFixture<LighterOrderBookDetails>("order-book-details.json");
+    const { client, urls } = fakeClient((url) => (url.includes("funding-rates") ? rates : details));
+    const batch = await lighterRhAdapter.fetchSnapshots(client, RH_NOW);
+    expect(lighterRhAdapter.venueId).toBe("lighter-rh");
+    expect(lighterRhAdapter.minIntervalMs).toBe(1100);
+    expect(urls).toEqual([`${LIGHTER_RH_API}/funding-rates`, `${LIGHTER_RH_API}/orderBookDetails`]);
+    expect(new Set(batch.snapshots.map((s) => s.quote))).toEqual(new Set(["USDG"]));
   });
 });
