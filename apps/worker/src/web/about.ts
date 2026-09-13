@@ -24,6 +24,15 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-09-13",
+    title: "Stocks and tokens no longer share a ticker",
+    changes: [
+      "Every market now carries what it tracks: crypto, a stock, a commodity, a currency or an index, as the exchange itself declares it. BB the BlackBerry stock and BB the BounceBit token are now two separate assets, each with its own page, spreads and pairs, where before one of them had to be hidden.",
+      "Stocks, commodities, currencies and indices are tagged wherever they are listed, and their pages carry the class in the address, for example /markets/asset/equity/BB.",
+      "Binance's stock, commodity and index perpetuals are collected too, about 190 more markets.",
+    ],
+  },
+  {
+    date: "2026-09-13",
     title: "Binance, and a price check on every market",
     changes: [
       "Binance's perpetual markets are now collected, more than 570 of them, alongside every other exchange on the site.",
