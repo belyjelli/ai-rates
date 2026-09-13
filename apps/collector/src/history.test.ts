@@ -12,6 +12,7 @@ const event = (venueSymbol: string, settledAt: number): FundingEvent => ({
   base: venueSymbol,
   quote: "USDT",
   multiplier: 1,
+  assetClass: "crypto",
   dex: null,
   settledAt,
   rate: 0.0001,

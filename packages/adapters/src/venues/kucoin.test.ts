@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { HttpClient } from "../http";
 import {
+  type KucoinContract,
   kucoinAdapter,
+  kucoinAssetClass,
   parseKucoinFundingHistory,
   parseKucoinRiskLimits,
   parseKucoinSnapshots,
@@ -21,6 +23,7 @@ describe("parseKucoinSnapshots", () => {
       base: "BTC",
       quote: "USDT",
       multiplier: 1,
+      assetClass: "crypto",
       dex: null,
       observedAt: NOW,
       rate: 0.000037,
@@ -76,6 +79,65 @@ describe("parseKucoinSnapshots", () => {
       snapshots: [],
       settled: [],
     });
+  });
+
+  test("carries each contract's declared class onto its snapshot", async () => {
+    // Real /contracts/active rows from 2026-09-14.
+    const { snapshots, settled } = parseKucoinSnapshots(await fixture("asset-class"), NOW);
+    const expected = {
+      BBUSDTM: "crypto:BB",
+      ONUSDTM: "crypto:ON",
+      QNTUSDTM: "crypto:QNT",
+      STXUSDTM: "crypto:STX",
+      BBXUSDTM: "equity:BBX",
+      QNTXUSDTM: "equity:QNTX",
+      // Declared METAL; tokens, so marketRef returns them to crypto.
+      XAUTUSDTM: "crypto:XAUT",
+      PAXGUSDTM: "crypto:PAXG",
+      XAGUSDTM: "commodity:XAG",
+      CLUSDTM: "commodity:CL",
+      NATGASUSDTM: "commodity:NATGAS",
+    };
+    expect(
+      Object.fromEntries(snapshots.map((s) => [s.venueSymbol, `${s.assetClass}:${s.base}`])),
+    ).toEqual(expected);
+    expect(
+      Object.fromEntries(settled.map((s) => [s.venueSymbol, `${s.assetClass}:${s.base}`])),
+    ).toEqual(expected);
+  });
+});
+
+describe("kucoinAssetClass", () => {
+  test("reads assetClass off real rows, where marketType says CRYPTO for metals", async () => {
+    const rows: (KucoinContract & { marketType: string })[] = (await fixture("asset-class")).data;
+    // Why `marketType` cannot be used: every METAL and COMMODITY row calls itself CRYPTO there.
+    expect(
+      rows
+        .filter((r) => r.assetClass === "METAL" || r.assetClass === "COMMODITY")
+        .map((r) => r.marketType),
+    ).toEqual(["CRYPTO", "CRYPTO", "CRYPTO", "CRYPTO", "CRYPTO"]);
+    expect(
+      Object.fromEntries(rows.map((r) => [r.symbol, kucoinAssetClass(r.assetClass, "")])),
+    ).toEqual({
+      BBUSDTM: "crypto",
+      ONUSDTM: "crypto",
+      QNTUSDTM: "crypto",
+      STXUSDTM: "crypto",
+      BBXUSDTM: "equity",
+      QNTXUSDTM: "equity",
+      XAUTUSDTM: "commodity",
+      PAXGUSDTM: "commodity",
+      XAGUSDTM: "commodity",
+      CLUSDTM: "commodity",
+      NATGASUSDTM: "commodity",
+    });
+  });
+
+  test("an unknown assetClass is still not crypto; a missing one is", () => {
+    expect(kucoinAssetClass("FOREX", "EURUSD")).toBe("fx");
+    expect(kucoinAssetClass("INDEX", "US500")).toBe("index");
+    expect(kucoinAssetClass("ETF", "SPY")).toBe("equity");
+    expect(kucoinAssetClass(undefined, "XBT")).toBe("crypto");
   });
 });
 

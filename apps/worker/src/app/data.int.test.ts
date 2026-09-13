@@ -523,7 +523,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     });
 
     test("priceQuotes flags the mismatched instrument instead of dropping it", async () => {
-      const quotes = await data.priceQuotes(base4);
+      const quotes = await data.priceQuotes(base4, null);
       // All three, including the 1375x mismatch the list query excludes: the detail page shows it.
       expect(quotes).toHaveLength(3);
 
@@ -631,7 +631,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         row("2026-09-11", `${base}OLD`, 999),
         row("2026-09-12", `${base}HI`, 500),
         row("2026-09-12", `${base}LO`, 100),
-      ])} ON CONFLICT (run_day, asset) DO NOTHING`;
+      ])} ON CONFLICT (run_day, asset_class, asset) DO NOTHING`;
 
     const pairs = await data.verifiedPairs(10);
     const mine = pairs.filter((p) => p.asset.startsWith(base));
@@ -645,8 +645,81 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     expect(await data.verifiedPairs(1)).toHaveLength(1);
   });
 
+  /**
+   * Migration 017: one ticker, two assets. BlackBerry (equity) is the deeper market here on purpose,
+   * so a class-less read that picked the deepest class would land on it; the rule is crypto first.
+   */
+  describe("asset class", () => {
+    const shared = `IT6${tag.toUpperCase()}`;
+    const stockOnly = `IT7${tag.toUpperCase()}`;
+    const row = (
+      venue_id: string,
+      venue_symbol: string,
+      rowBase: string,
+      asset_class: string,
+      mark: number,
+      openInterest: number,
+    ) => ({
+      venue_id,
+      venue_symbol,
+      base: rowBase,
+      asset_class,
+      quote: "USDT",
+      observed_at: new Date(),
+      rate: 0.0001,
+      basis_hours: 8,
+      apr: 10.95,
+      interval_hours: 8,
+      next_funding_at: new Date(settledAt + HOUR),
+      kind: "predicted",
+      mark_price: mark,
+      index_price: mark,
+      open_interest_usd: openInterest,
+      volume_24h_usd: 2_000_000,
+      best_bid: mark * 0.999,
+      best_ask: mark * 1.001,
+      best_bid_size_usd: 10_000,
+      best_ask_size_usd: 10_000,
+    });
+
+    beforeAll(async () => {
+      await admin`
+        INSERT INTO market_latest ${admin([
+          row(venueA, `${shared}-STOCK`, shared, "equity", 7.72, 90_000_000),
+          row(venueB, `${shared}-STOCK`, shared, "equity", 7.73, 5_000_000),
+          row(venueB, `${shared}-TOKEN`, shared, "crypto", 0.008, 800_000),
+          row(venueA, `${stockOnly}-STOCK`, stockOnly, "equity", 250, 1_000_000),
+        ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
+    });
+
+    test("a class-less read is crypto when the ticker has a crypto market, however deep the other", async () => {
+      const rows = await data.asset(shared, null);
+      expect(rows.map((r) => [r.venue_symbol, r.asset_class])).toEqual([
+        [`${shared}-TOKEN`, "crypto"],
+      ]);
+    });
+
+    test("an explicit class reads only that asset's markets", async () => {
+      const rows = await data.asset(shared, "equity");
+      expect(rows.map((r) => r.asset_class)).toEqual(["equity", "equity"]);
+      const quotes = await data.priceQuotes(shared, "equity");
+      expect(quotes.map((q) => q.venue_symbol).sort()).toEqual([
+        `${shared}-STOCK`,
+        `${shared}-STOCK`,
+      ]);
+      // BounceBit's 0.008 mark never becomes BlackBerry's anchor, so both stock quotes agree.
+      expect(quotes.every((q) => q.mark_agrees && q.asset_class === "equity")).toBe(true);
+    });
+
+    test("a ticker with no crypto market resolves to the class it has", async () => {
+      const rows = await data.asset(stockOnly, null);
+      expect(rows.map((r) => r.asset_class)).toEqual(["equity"]);
+      expect(await data.asset(stockOnly, "crypto")).toEqual([]);
+    });
+  });
+
   test("asset and exchange carry max_leverage across from markets", async () => {
-    const rows = await data.asset(base);
+    const rows = await data.asset(base, null);
     expect(rows.map((r) => [r.venue_id, r.max_leverage])).toEqual([
       [venueB, null],
       [venueA, 25],

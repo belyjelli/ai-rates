@@ -1,4 +1,7 @@
 import {
+  type AssetClass,
+  canonicalBase,
+  classifyNonCrypto,
   type FundingEvent,
   type FundingSnapshot,
   inferIntervalHours,
@@ -48,6 +51,34 @@ export interface BybitInstrument {
   fundingInterval: number;
   /** Headline leverage; the tiered ladder in /v5/market/risk-limit is the precise source. */
   leverageFilter?: { maxLeverage?: string };
+  /** What the contract tracks: "" or "innovation" for crypto, else "stock", "ETF", "commodity", "forex". */
+  symbolType?: string;
+}
+
+/**
+ * The class Bybit declares for a linear contract, from `symbolType` on /v5/market/instruments-info.
+ *
+ * Live 2026-09-14, 869 linear instruments: "" 503 and "innovation" 124 (crypto, the latter Bybit's
+ * new-listing zone), "stock" 186 and "ETF" 49 (equity), "commodity" 4, "forex" 3. The field is what
+ * separates BBXUSDT, ONUSDT and PURRUSDT (stocks) from BBUSDT (BounceBit), and XAUUSDT (commodity)
+ * from XAUTUSDT (Tether Gold, declared crypto). A value this does not know is still a declaration
+ * that the contract is not crypto, so the base tables settle which class rather than defaulting.
+ */
+export function bybitAssetClass(symbolType: string | undefined, base: string): AssetClass {
+  switch (symbolType ?? "") {
+    case "":
+    case "innovation":
+      return "crypto";
+    case "stock":
+    case "ETF":
+      return "equity";
+    case "commodity":
+      return "commodity";
+    case "forex":
+      return "fx";
+    default:
+      return classifyNonCrypto(canonicalBase(base));
+  }
 }
 
 export interface BybitRiskLimit {
@@ -107,6 +138,7 @@ export function parseBybitSnapshots(
         base: coin.base,
         quote: coin.quote,
         multiplier: coin.multiplier,
+        assetClass: bybitAssetClass(instrument.symbolType, coin.base),
       }),
       observedAt: now,
       rate,

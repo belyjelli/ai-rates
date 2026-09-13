@@ -4,6 +4,7 @@ import type { HttpClient } from "../http";
 import {
   createLighterAdapter,
   LIGHTER_API,
+  LIGHTER_ASSET_CLASSES,
   type LighterFundingRates,
   type LighterFundings,
   type LighterOrderBookDetails,
@@ -47,6 +48,7 @@ describe("parseLighterSnapshots", () => {
     expect(btc).toMatchObject({
       venueId: "lighter",
       base: "BTC",
+      assetClass: "crypto",
       quote: null,
       dex: null,
       observedAt: NOW,
@@ -76,6 +78,70 @@ describe("parseLighterSnapshots", () => {
     expect(
       parseLighterSnapshots(withInactive, details, NOW).map((s) => s.venueSymbol),
     ).not.toContain("PIPPIN");
+  });
+});
+
+describe("asset class", () => {
+  test("markets take the class Lighter publishes for them, and anything unlisted is crypto", () => {
+    // market_id, symbol and mark_price as orderBookDetails returned them on 2026-09-14.
+    const markets: [number, string, string][] = [
+      [190, "QNT", "48.794"],
+      [211, "BB", "7.7244"],
+      [214, "WEN", "7.6081"],
+      [198, "USDHKD", "7.8423"],
+      [92, "XAU", "4345.03"],
+      [180, "US500", "7610.6"],
+      [227, "US10Y", "98.26"],
+      [48, "PAXG", "4344.45"],
+      [232, "AI", "0.27601"],
+      [42, "SPX", "0.49561"],
+      [1, "BTC", "77317.8"],
+    ];
+    const details = {
+      order_book_details: markets.map(([market_id, symbol, mark_price]) => ({
+        market_id,
+        symbol,
+        market_type: "perp",
+        status: "active",
+        mark_price,
+      })),
+    };
+    const rates = {
+      funding_rates: markets.map(([market_id, symbol]) => ({
+        market_id,
+        exchange: "lighter",
+        symbol,
+        rate: 0.000032,
+      })),
+    };
+
+    const classes = new Map(
+      parseLighterSnapshots(rates, details, NOW).map((s) => [s.venueSymbol, s.assetClass]),
+    );
+    expect(Object.fromEntries(classes)).toEqual({
+      // Quantinuum stock at 48.79, not the Quant token at 64.3, whatever the app config calls it.
+      QNT: "equity",
+      // BlackBerry and Wendy's, not BounceBit and the memecoin.
+      BB: "equity",
+      WEN: "equity",
+      // Typed fx by the docs, although the app config says CRYPTO.
+      USDHKD: "fx",
+      XAU: "commodity",
+      US500: "index",
+      // A bond, filed with yields as an index.
+      US10Y: "index",
+      // A gold token: the config's COMMODITIES label is not taken.
+      PAXG: "crypto",
+      // Artificial Inu and SPX6900, not tradfi however they are spelt.
+      AI: "crypto",
+      SPX: "crypto",
+      BTC: "crypto",
+    });
+  });
+
+  test("the table stays sorted, one entry per market", () => {
+    const symbols = [...LIGHTER_ASSET_CLASSES.keys()];
+    expect(symbols).toEqual([...symbols].sort());
   });
 });
 

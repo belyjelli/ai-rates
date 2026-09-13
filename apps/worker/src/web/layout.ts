@@ -138,6 +138,7 @@ table.heat{border-collapse:collapse;width:auto;min-width:100%}
 .pager{display:flex;gap:16px;margin-top:10px;color:var(--muted)}
 .sheet .asset a{font-weight:700;border:0}
 .sheet .asset a:hover{color:var(--accent)}
+.cls{margin-left:.4em;font-size:.68em;font-weight:500;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);vertical-align:.12em}
 .sheet .spread{font-weight:700}
 .leg{display:grid;gap:0}
 .leg .venue{border:0}

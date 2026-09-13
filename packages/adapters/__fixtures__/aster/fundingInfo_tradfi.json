@@ -1,0 +1,38 @@
+[
+  {
+    "symbol": "OPENAIUSDT",
+    "fundingIntervalHours": 8
+  },
+  {
+    "symbol": "RTXUSDT",
+    "fundingIntervalHours": 1
+  },
+  {
+    "symbol": "XAUUSDT",
+    "fundingIntervalHours": 4
+  },
+  {
+    "symbol": "BBXUSDT",
+    "fundingIntervalHours": 8
+  },
+  {
+    "symbol": "STXXUSDT",
+    "fundingIntervalHours": 8
+  },
+  {
+    "symbol": "PAXGUSDT",
+    "fundingIntervalHours": 4
+  },
+  {
+    "symbol": "SPYUSDT",
+    "fundingIntervalHours": 8
+  },
+  {
+    "symbol": "CLUSD1",
+    "fundingIntervalHours": 4
+  },
+  {
+    "symbol": "SKHXUSDT",
+    "fundingIntervalHours": 1
+  }
+]

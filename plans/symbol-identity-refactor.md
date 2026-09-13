@@ -195,15 +195,49 @@ so they land before any new venue.
       rename at ingest and catching it an hour later in the report.
 - [x] Pin `SPX500` until step 3 — resolved in the same commit, see step 3.
 - **Recovers 354 of 356 renames**, each landing on a pool 6–9 venues deep at ratio 1.0.
+- [ ] **Parser artefacts that land in a real pool.**
+      - aster `B-MONEYUSDT` splits on the hyphen into `B`. That puts it in the real B pool: aster at
+        ~0.00435 against five venues at ~0.2195.
+      - aster `CLUSD1`, `XAUUSD1`, `BTCU` and `ETHU` keep those strings as their base, so they never
+        pool with `CL`, `XAU`, `BTC` or `ETH`.
+      - Both are fixable from aster's declared `baseAsset`, the same way MEXC's declared base fixed
+        its renames. Asset class fixes neither.
 
-### 2. Asset class through the pipeline
-- [ ] `assetClass` on `MarketRef` / `FundingSnapshot`; **migration 017** (014 is the other session's
-      `014_funding_hourly.sql`; **015 and 016 are taken** by the identity checks and the anchor
-      gate) adding `markets.asset_class`.
-- [ ] Per-venue classifiers, each with tests: MEXC (plate, then `type`), WEEX (`TRADIFI_PERPETUAL`),
-      Bullet (`RwaPerp*`), Binance/Aster (`PERPETUAL`). Default `crypto` where a venue says nothing.
-- [ ] `screener_pairs`, heatmap and arbitrage group by `(asset_class, base)`.
-- [ ] Backfill existing rows; verify `STX`, `BB`, `RTX`, `PURR`, `CAT` split into two keys each.
+### 2. Asset class through the pipeline — **built, awaiting production verification**
+- [x] `AssetClass` (`crypto|equity|commodity|fx|index`) on `MarketRef`; **migration 017** adds
+      `asset_class` to `markets`, `market_latest` (indexed with `base`), `market_identity_checks`
+      (a column only; its key stays `(venue_id, venue_symbol)`) and `market_pair_backtests` (key
+      becomes `(run_day, asset_class, asset)`), and rebuilds `screener_pairs` from 016's body keyed on
+      `(asset_class, base)`.
+- [x] One core rule, `refineAssetClass` in `packages/core/src/asset-class.ts`, applied inside
+      `marketRef`. The venue's declaration decides crypto versus not. A table only settles equity
+      versus index, which venues use interchangeably (OKX files US500 as a stock, gate as an
+      index), and keeps tokenised gold (PAXG, XAUT) crypto. A crypto declaration is never
+      overridden.
+- [x] Per-venue classifiers, each tested against live rows captured 2026-09-14:
+      - Bybit `symbolType`, OKX `instCategory`, gate `contract_type`, KuCoin `assetClass`.
+      - Binance `underlyingType`, Aster `underlyingSubType`, MEXC plates.
+      - Hyperliquid HIP-3 `perpConciseAnnotations`.
+      - Paradex's `RWA` tag.
+      - Lighter's documented market-specifications table.
+      - dYdX's announced non-crypto list.
+      - **Binance tradability also widened to `TRADIFI_PERPETUAL`**. It was dropping 191 TRADING
+        markets, Caterpillar's CATUSDT among them.
+- [x] Worker: every read keys on `(asset_class, base)`.
+      - Non-crypto assets are addressed with the class in the path (`/markets/asset/equity/BB`,
+        `/pair/equity/BB`, `/price-pair/equity/BB`, and the `/v1` equivalents).
+      - A class-less URL resolves to crypto when the base has a crypto market, and otherwise to its
+        deepest class.
+      - Non-crypto tickers carry a class tag. Row keys include the class.
+- [ ] Deploy the collector first, then verify in production that `STX`, `BB`, `RTX`, `PURR`, `CAT`,
+      `ON` and `ADI` split into two keys each and pair separately. Existing rows backfill themselves
+      on the next collection cycle.
+- **Does not fix** collisions inside one class:
+  - `JPY` (reciprocal quote, both fx).
+  - Scale variants (`hl-mkts:US500`, OKX `ANTHROPIC`/`OPENAI`).
+  - Same-ticker crypto tokens (`MEME`, `AI`, `EDGE`).
+  - Parser artefacts (below).
+  - These stay excluded by the 016 gate and reported by step 4.
 
 ### 3. Cross-venue aliases, with evidence
 - [x] Resolve the S&P 500 four-way split onto one base, excluding the 760.96 scale variant —

@@ -1,4 +1,4 @@
-import { DIVERGENCE_TRIGGER, type IdentityVerdict } from "@ai-rates/core";
+import { type AssetClass, DIVERGENCE_TRIGGER, type IdentityVerdict } from "@ai-rates/core";
 import type postgres from "postgres";
 
 /** Markets whose latest snapshot is older than this are treated as not live. */
@@ -88,6 +88,8 @@ export interface ScreenerFilters {
 
 export interface ScreenerPair {
   asset: string;
+  /** Half of the asset's identity: BB is BlackBerry under `equity` and BounceBit under `crypto`. */
+  asset_class: AssetClass;
   venue_count: number;
   spread_apr: number;
   spread_apr_7d: number | null;
@@ -136,6 +138,7 @@ export interface HeatmapOptions {
 /** One asset-on-one-venue cell. Absent combinations simply have no row; they are never zero. */
 export interface HeatmapCell {
   base: string;
+  asset_class: AssetClass;
   venue_id: string;
   venue_symbol: string;
   apr: number;
@@ -173,6 +176,7 @@ export const MARK_DEVIATION = DIVERGENCE_TRIGGER;
  */
 export interface IdentityCheckRow {
   base: string;
+  asset_class: AssetClass;
   venue_id: string;
   venue_symbol: string;
   anchor_venue_id: string;
@@ -212,6 +216,7 @@ export interface ArbitrageOptions {
  */
 export interface ArbitrageRow {
   asset: string;
+  asset_class: AssetClass;
   venue_count: number;
   gap_bps: number;
   buy_venue_id: string;
@@ -240,6 +245,7 @@ export interface ArbitrageRow {
  */
 export interface PriceQuote {
   venue_id: string;
+  asset_class: AssetClass;
   venue_symbol: string;
   best_bid: number;
   best_ask: number;
@@ -256,6 +262,7 @@ export interface MarketRow {
   venue_id: string;
   venue_symbol: string;
   base: string;
+  asset_class: AssetClass;
   quote: string | null;
   apr: number;
   apr_24h: number | null;
@@ -335,6 +342,7 @@ export interface DailyFundingRow extends MarketKey {
 export interface VerifiedPair {
   run_day: Date;
   asset: string;
+  asset_class: AssetClass;
   long_venue_id: string;
   long_symbol: string;
   short_venue_id: string;
@@ -361,7 +369,12 @@ export interface DataSource {
   screener(filters: ScreenerFilters): Promise<ScreenerPair[]>;
   /** The newest nightly ranking of pairs by what they actually settled. Empty until a run lands. */
   verifiedPairs(limit: number): Promise<VerifiedPair[]>;
-  asset(base: string): Promise<MarketRow[]>;
+  /**
+   * One asset's live markets. A null class resolves to crypto when the base has a crypto market and
+   * otherwise to its deepest class, so /markets/asset/TSLA still finds the equity without a class in
+   * the URL, while /markets/asset/BB stays BounceBit however deep BlackBerry gets.
+   */
+  asset(base: string, assetClass: AssetClass | null): Promise<MarketRow[]>;
   exchanges(): Promise<ExchangeSummary[]>;
   exchange(venueId: string): Promise<MarketRow[]>;
   /** Every venue's funding for the top assets by open interest, one row per populated cell. */
@@ -369,7 +382,7 @@ export interface DataSource {
   /** Widest quotable price gap per asset, behind the same mark-agreement guard the screener uses. */
   arbitrage(options: ArbitrageOptions): Promise<ArbitrageRow[]>;
   /** Every venue's top of book for one asset, mismatched instruments flagged rather than dropped. */
-  priceQuotes(base: string): Promise<PriceQuote[]>;
+  priceQuotes(base: string, assetClass: AssetClass | null): Promise<PriceQuote[]>;
   /** Per-venue collecting health: are we getting data, and what went wrong if not. */
   venueStatus(): Promise<VenueStatus[]>;
   /** Markets whose price disagrees with their asset pool's deepest market, and the verdict on why. */
@@ -397,6 +410,25 @@ const EMPTY_OVERVIEW: Overview = {
 };
 
 /**
+ * The one class an asset page reads, as a subquery: the class asked for, or with none asked for,
+ * crypto when the base has a crypto market and its deepest class otherwise.
+ *
+ * Crypto first rather than deepest first so that a class-less URL means the same asset tomorrow as
+ * today. The site links every non-crypto asset with its class in the path, so the class-less form
+ * only has to be stable for crypto, and for bookmarks to a ticker that was only ever one thing.
+ */
+function chosenClass(sql: postgres.Sql, base: string, assetClass: AssetClass | null) {
+  return sql`
+    SELECT asset_class FROM market_latest
+    WHERE base = ${base}
+      AND observed_at > now() - ${FRESH_INTERVAL}::interval
+      AND (${assetClass}::text IS NULL OR asset_class = ${assetClass}::text)
+    GROUP BY asset_class
+    ORDER BY (asset_class = 'crypto') DESC, sum(open_interest_usd) DESC NULLS LAST, asset_class
+    LIMIT 1`;
+}
+
+/**
  * Read queries against the collector's read models (packages/db/migrations/002_screener.sql).
  * `connect` is called lazily so routes that don't touch the database never open a connection.
  */
@@ -417,17 +449,17 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
     async screener(f) {
       const sql = connect();
       // The sort key indexes a fixed set of fragments; it is never interpolated. Every fragment
-      // ends with `asset` because LIMIT over a partial order drops and repeats rows between
+      // ends with `asset, asset_class` because LIMIT over a partial order drops and repeats rows between
       // requests, and carries NULLS LAST because spread_apr_7d is a difference of two per-leg
       // stats and goes null the moment either leg has none.
       const order = {
-        spread: sql`spread_apr DESC NULLS LAST, asset`,
-        settled_7d: sql`spread_apr_7d DESC NULLS LAST, asset`,
-        venues: sql`venue_count DESC NULLS LAST, spread_apr DESC NULLS LAST, asset`,
+        spread: sql`spread_apr DESC NULLS LAST, asset, asset_class`,
+        settled_7d: sql`spread_apr_7d DESC NULLS LAST, asset, asset_class`,
+        venues: sql`venue_count DESC NULLS LAST, spread_apr DESC NULLS LAST, asset, asset_class`,
         // pair_stability is already null when either leg is unscored -- the function uses a CASE
         // rather than least(), which skips nulls instead of propagating them. So NULLS LAST has a
         // real null to act on here, and a half-scored pair cannot sort by its scored leg alone.
-        stability: sql`pair_stability DESC NULLS LAST, spread_apr DESC NULLS LAST, asset`,
+        stability: sql`pair_stability DESC NULLS LAST, spread_apr DESC NULLS LAST, asset, asset_class`,
       }[f.sort];
 
       const rows = await sql<ScreenerPair[]>`
@@ -450,14 +482,15 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         SELECT * FROM market_pair_backtests
         WHERE run_day = (SELECT max(run_day) FROM market_pair_backtests)
         -- Total order: LIMIT over a partial one drops and repeats rows between requests.
-        ORDER BY net_funding_usd DESC, asset
+        ORDER BY net_funding_usd DESC, asset, asset_class
         LIMIT ${limit}`;
       return [...rows];
     },
 
-    async asset(base) {
+    async asset(base, assetClass) {
       const rows = await connect()<MarketRow[]>`
-        SELECT m.venue_id, m.venue_symbol, m.base, m.quote, m.apr, s.apr_24h, s.apr_7d, m.interval_hours,
+        WITH chosen AS (${chosenClass(connect(), base, assetClass)})
+        SELECT m.venue_id, m.venue_symbol, m.base, m.asset_class, m.quote, m.apr, s.apr_24h, s.apr_7d, m.interval_hours,
                m.next_funding_at, m.mark_price, m.open_interest_usd, m.volume_24h_usd, m.observed_at,
                k.max_leverage,
                -- Free: market_funding_stats is already joined for the settled windows.
@@ -465,7 +498,9 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         FROM market_latest m
         LEFT JOIN market_funding_stats s ON s.venue_id = m.venue_id AND s.venue_symbol = m.venue_symbol
         LEFT JOIN markets k ON k.venue_id = m.venue_id AND k.venue_symbol = m.venue_symbol
-        WHERE m.base = ${base} AND m.observed_at > now() - ${FRESH_INTERVAL}::interval
+        WHERE m.base = ${base}
+          AND m.asset_class = (SELECT asset_class FROM chosen)
+          AND m.observed_at > now() - ${FRESH_INTERVAL}::interval
         ORDER BY m.apr`;
       return [...rows];
     },
@@ -490,23 +525,23 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       // drops and repeats rows between pages -- the same trap as the settled_at tie below.
       const rows = await connect()<HeatmapCell[]>`
         WITH ranked AS (
-          SELECT base, sum(open_interest_usd) AS asset_oi_usd
+          SELECT asset_class, base, sum(open_interest_usd) AS asset_oi_usd
           FROM market_latest
           WHERE observed_at > now() - ${FRESH_INTERVAL}::interval
-          GROUP BY base
+          GROUP BY asset_class, base
           HAVING count(DISTINCT venue_id) >= ${minVenues}
-          ORDER BY sum(open_interest_usd) DESC NULLS LAST, base
+          ORDER BY sum(open_interest_usd) DESC NULLS LAST, base, asset_class
           LIMIT ${limit} OFFSET ${offset}
         )
-        SELECT m.base, m.venue_id, m.venue_symbol, m.apr,
+        SELECT m.base, m.asset_class, m.venue_id, m.venue_symbol, m.apr,
                s.apr_7d, s.apr_30d, s.apr_60d,
                m.open_interest_usd, r.asset_oi_usd
         FROM ranked r
-        JOIN market_latest m ON m.base = r.base
+        JOIN market_latest m ON m.asset_class = r.asset_class AND m.base = r.base
         LEFT JOIN market_funding_stats s
           ON s.venue_id = m.venue_id AND s.venue_symbol = m.venue_symbol
         WHERE m.observed_at > now() - ${FRESH_INTERVAL}::interval
-        ORDER BY r.asset_oi_usd DESC NULLS LAST, m.base, m.venue_id`;
+        ORDER BY r.asset_oi_usd DESC NULLS LAST, m.base, m.asset_class, m.venue_id`;
       return [...rows];
     },
 
@@ -517,7 +552,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       // It is inlined rather than a SQL function only because it reads different columns.
       const rows = await connect()<ArbitrageRow[]>`
         WITH candidates AS (
-          SELECT venue_id, venue_symbol, base, mark_price, observed_at,
+          SELECT venue_id, venue_symbol, asset_class, base, mark_price, observed_at,
                  best_bid, best_ask, best_bid_size_usd, best_ask_size_usd
           FROM market_latest
           WHERE observed_at > now() - ${FRESH_INTERVAL}::interval
@@ -530,14 +565,14 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         -- this replaced named the biggest CLUSTER as correct, which is not the same thing: on live
         -- data it drops Hyperliquid's $11.15M PURR leg in favour of three thin venues (migration 016).
         anchors AS (
-          SELECT DISTINCT ON (base) base, mark_price AS anchor_mark
+          SELECT DISTINCT ON (asset_class, base) asset_class, base, mark_price AS anchor_mark
           FROM market_latest
           WHERE observed_at > now() - ${FRESH_INTERVAL}::interval AND mark_price > 0
-          ORDER BY base, open_interest_usd DESC NULLS LAST, venue_id, venue_symbol
+          ORDER BY asset_class, base, open_interest_usd DESC NULLS LAST, venue_id, venue_symbol
         ),
         legs AS (
           SELECT c.* FROM candidates c
-          LEFT JOIN anchors a ON a.base = c.base
+          LEFT JOIN anchors a ON a.asset_class = c.asset_class AND a.base = c.base
           -- A band, so the test is symmetric in the ratio: which market holds the most open interest
           -- is an accident, and it must not decide whether two prices are judged to agree.
           WHERE a.anchor_mark IS NULL
@@ -546,18 +581,21 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                                  AND a.anchor_mark * (1 + ${MARK_DEVIATION}::float8)
         ),
         counts AS (
-          SELECT base, count(DISTINCT venue_id)::integer AS n
-          FROM legs GROUP BY base HAVING count(DISTINCT venue_id) >= 2
+          SELECT asset_class, base, count(DISTINCT venue_id)::integer AS n
+          FROM legs GROUP BY asset_class, base HAVING count(DISTINCT venue_id) >= 2
         ),
         cheapest AS (
-          SELECT DISTINCT ON (base, venue_id) * FROM legs ORDER BY base, venue_id, best_ask ASC
+          SELECT DISTINCT ON (asset_class, base, venue_id) * FROM legs
+          ORDER BY asset_class, base, venue_id, best_ask ASC
         ),
         richest AS (
-          SELECT DISTINCT ON (base, venue_id) * FROM legs ORDER BY base, venue_id, best_bid DESC
+          SELECT DISTINCT ON (asset_class, base, venue_id) * FROM legs
+          ORDER BY asset_class, base, venue_id, best_bid DESC
         ),
         paired AS (
-          SELECT DISTINCT ON (a.base)
+          SELECT DISTINCT ON (a.asset_class, a.base)
             a.base AS asset,
+            a.asset_class,
             c.n AS venue_count,
             (b.best_bid - a.best_ask) / a.best_ask * 10000 AS gap_bps,
             a.venue_id AS buy_venue_id, a.venue_symbol AS buy_symbol,
@@ -573,9 +611,9 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
             END AS thinner_depth_usd,
             least(a.observed_at, b.observed_at) AS oldest_observed_at
           FROM cheapest a
-          JOIN counts c ON c.base = a.base
-          JOIN richest b ON b.base = a.base AND b.venue_id <> a.venue_id
-          ORDER BY a.base, (b.best_bid - a.best_ask) / a.best_ask DESC
+          JOIN counts c ON c.asset_class = a.asset_class AND c.base = a.base
+          JOIN richest b ON b.asset_class = a.asset_class AND b.base = a.base AND b.venue_id <> a.venue_id
+          ORDER BY a.asset_class, a.base, (b.best_bid - a.best_ask) / a.best_ask DESC
         )
         SELECT * FROM paired
         WHERE gap_bps >= ${minGapBps}::float8
@@ -584,22 +622,24 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           -- whose size we could not determine.
           AND (${minDepthUsd}::float8 <= 0 OR thinner_depth_usd >= ${minDepthUsd}::float8)
         -- Total order: LIMIT/OFFSET over a partial one drops and repeats rows between pages.
-        ORDER BY gap_bps DESC, asset
+        ORDER BY gap_bps DESC, asset, asset_class
         LIMIT ${limit} OFFSET ${offset}`;
       return [...rows];
     },
 
-    async priceQuotes(base) {
+    async priceQuotes(base, assetClass) {
       // The same anchor the list query gates on, but here the deviation is reported instead of
       // applied: a venue that fails the gate still appears, flagged, because "why is this exchange
       // missing" is exactly the question a detail page exists to answer. The gate makes one call
       // and this page shows its working.
       const rows = await connect()<PriceQuote[]>`
-        WITH candidates AS (
-          SELECT venue_id, venue_symbol, mark_price, observed_at,
+        WITH chosen AS (${chosenClass(connect(), base, assetClass)}),
+        candidates AS (
+          SELECT venue_id, venue_symbol, asset_class, mark_price, observed_at,
                  best_bid, best_ask, best_bid_size_usd, best_ask_size_usd
           FROM market_latest
           WHERE base = ${base}
+            AND asset_class = (SELECT asset_class FROM chosen)
             AND observed_at > now() - ${FRESH_INTERVAL}::interval
             AND best_bid > 0 AND best_ask > 0
         ),
@@ -609,12 +649,13 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           SELECT mark_price AS anchor_mark
           FROM market_latest
           WHERE base = ${base}
+            AND asset_class = (SELECT asset_class FROM chosen)
             AND observed_at > now() - ${FRESH_INTERVAL}::interval
             AND mark_price > 0
           ORDER BY open_interest_usd DESC NULLS LAST, venue_id, venue_symbol
           LIMIT 1
         )
-        SELECT c.venue_id, c.venue_symbol, c.best_bid, c.best_ask,
+        SELECT c.venue_id, c.venue_symbol, c.asset_class, c.best_bid, c.best_ask,
                c.best_bid_size_usd, c.best_ask_size_usd, c.mark_price, c.observed_at,
                a.anchor_mark,
                -- Unknown marks agree by default, matching the gate's own null escapes: a missing
@@ -638,11 +679,11 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       // minute bars and a correlation per market, which is not something a 10ms request budget can
       // do -- so it is precomputed hourly, exactly as the verified backtests are. Tens of rows.
       const rows = await connect()<IdentityCheckRow[]>`
-        SELECT base, venue_id, venue_symbol, anchor_venue_id, anchor_venue_symbol,
+        SELECT base, asset_class, venue_id, venue_symbol, anchor_venue_id, anchor_venue_symbol,
                verdict, price_ratio, scale_exponent, return_corr, ratio_sd,
                shared_minutes, member_moves, anchor_moves, member_oi_usd, anchor_oi_usd, checked_at
         FROM market_identity_checks
-        ORDER BY base, venue_id, venue_symbol`;
+        ORDER BY base, asset_class, venue_id, venue_symbol`;
       return [...rows];
     },
 
@@ -757,7 +798,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
     async exchange(venueId) {
       const rows = await connect()<MarketRow[]>`
-        SELECT m.venue_id, m.venue_symbol, m.base, m.quote, m.apr, s.apr_24h, s.apr_7d, m.interval_hours,
+        SELECT m.venue_id, m.venue_symbol, m.base, m.asset_class, m.quote, m.apr, s.apr_24h, s.apr_7d, m.interval_hours,
                m.next_funding_at, m.mark_price, m.open_interest_usd, m.volume_24h_usd, m.observed_at,
                k.max_leverage,
                -- Selected but not rendered here: the exchange table is already ten columns wide and

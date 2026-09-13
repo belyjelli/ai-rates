@@ -1,4 +1,12 @@
-import { type FundingEvent, type FundingSnapshot, inferIntervalHours } from "@ai-rates/core";
+import {
+  type AssetClass,
+  canonicalBase,
+  classifyNonCrypto,
+  type FundingEvent,
+  type FundingSnapshot,
+  inferIntervalHours,
+  parseVenueSymbol,
+} from "@ai-rates/core";
 import { CircuitOpenError, type HttpClient } from "../http";
 import { marketRef, mul, num, selectRefreshBatch } from "../parse";
 import type { VenueAdapter } from "../types";
@@ -9,10 +17,11 @@ import type { VenueAdapter } from "../types";
 //
 // On `defaultIntervalHours`, measured against Binance on 2026-09-13 rather than assumed: its
 // fundingInfo is NOT an exceptions-only list. It returned 782 entries, 312 of them at the default
-// 8h, against 900 symbols in premiumIndex. Of the 138 symbols missing from fundingInfo, **zero**
-// are TRADING perpetuals, so `tradablePerpetuals` drops every one of them before the interval
-// lookup matters. `null` is therefore correct for Binance as well as Aster, and inventing an 8h
-// default would have been the wrong guess anyway: 466 of 782 symbols settle 4-hourly.
+// 8h, against 900 symbols in premiumIndex. Re-measured on 2026-09-14, after `tradablePerpetuals`
+// began admitting TradFi perpetuals: every one of Binance's 762 collected markets is in fundingInfo,
+// and so is every one of Aster's 574. A symbol missing from it is never one we collect, so `null` is
+// correct for both, and inventing an 8h default would have been the wrong guess anyway: 466 of
+// Binance's 782 symbols settle 4-hourly.
 
 const VENUE = "aster";
 const BASE = "https://fapi.asterdex.com/fapi/v1";
@@ -48,9 +57,33 @@ export interface BinanceStyleTicker24h {
   quoteVolume: string;
 }
 
-export interface BinanceStyleExchangeInfo {
-  symbols: { symbol: string; status: string; contractType: string; quoteAsset?: string }[];
+/** One exchangeInfo row, with only the fields this family reads. */
+export interface BinanceStyleSymbol {
+  symbol: string;
+  status: string;
+  contractType: string;
+  baseAsset?: string;
+  quoteAsset?: string;
+  /**
+   * Binance's declared class: COIN, INDEX, EQUITY, HK_EQUITY, KR_EQUITY, CN_EQUITY, PREMARKET or
+   * COMMODITY. Aster sends the field too, but as COIN on every row, Apple and gold included.
+   */
+  underlyingType?: string;
+  /** Tags. Aster's carry the class (STOCK, ETF, Commodities); Binance's only say TradFi or Crypto. */
+  underlyingSubType?: string[];
+  /** Aster only: 1 on exactly the rows its tags mark as stock, ETF or commodity, 0 everywhere else. */
+  symbolType?: number;
 }
+
+export interface BinanceStyleExchangeInfo {
+  symbols: BinanceStyleSymbol[];
+}
+
+/**
+ * Reads what a family member declares an exchangeInfo row to be. Pluggable because the members
+ * share an API and not a declaration: Binance states the class in `underlyingType`, Aster in tags.
+ */
+export type BinanceStyleClassifier = (symbol: BinanceStyleSymbol) => AssetClass;
 
 export interface BinanceStyleFundingRate {
   symbol: string;
@@ -61,6 +94,8 @@ export interface BinanceStyleFundingRate {
 
 export interface TradableSymbol {
   quoteAsset: string | null;
+  /** As the venue declares it; `marketRef` settles equity against index and tokenised gold. */
+  assetClass: AssetClass;
 }
 
 export interface BinanceStyleOpenInterest {
@@ -74,6 +109,51 @@ export interface OpenInterestEntry {
   contracts: number;
   fetchedAt: number;
 }
+
+/**
+ * The canonical base for `classifyNonCrypto`, from the venue's declared `baseAsset` where it sends
+ * one. The symbol alone does not always split: Aster's CLUSD1 has a USD1 quote the parser does not
+ * know, which would leave `CLUSD1` as the base and file crude oil as a single stock.
+ */
+export function declaredBase(symbol: BinanceStyleSymbol): string {
+  return symbol.baseAsset ? canonicalBase(symbol.baseAsset) : parseVenueSymbol(symbol.symbol).base;
+}
+
+/**
+ * Aster's declared class, from the `underlyingSubType` tags.
+ *
+ * Aster's `underlyingType` is COIN on all 574 TRADING perpetuals, stocks and gold included, so the
+ * field Binance declares in carries nothing here; the tags do. Over the full exchangeInfo on
+ * 2026-09-14, of 574 TRADING perpetuals: 11 tagged Commodities (XAU, XAG, XCU, XPT, XPD, CL, BZ,
+ * NATGAS, PAXG, and CLUSD1 and XAUUSD1 on the USD1 quote), 117 tagged STOCK or ETF (OPENAI and
+ * ANTHROPIC as ["pre-launch", "STOCK"]), and 446 with neither. PAXG is declared a commodity here and
+ * returned to crypto by `marketRef`'s tokenised table, as on every venue.
+ *
+ * `symbolType` is the cross-check: it is 1 on exactly the 128 rows those tags call tradfi, across
+ * all 594 rows, pending and settling included. So a row flagged 1 whose tags are new to us is tradfi
+ * of a kind we cannot read, and goes to `classifyNonCrypto` rather than defaulting to crypto. The
+ * reverse never happens: a row flagged 0 is crypto whatever its ticker, which is what keeps RTXUSDT
+ * (RateX) apart from Raytheon.
+ */
+export function asterAssetClass(symbol: BinanceStyleSymbol): AssetClass {
+  const tags = symbol.underlyingSubType ?? [];
+  if (tags.includes("Commodities")) return "commodity";
+  if (tags.includes("STOCK") || tags.includes("ETF")) return "equity";
+  if (symbol.symbolType === 1) return classifyNonCrypto(declaredBase(symbol));
+  return "crypto";
+}
+
+/**
+ * Contract types collected. TRADIFI_PERPETUAL is Binance's perpetual on a stock, ETF or commodity:
+ * 191 TRADING markets on 2026-09-14, XAU, TSLA, SPY and Caterpillar among them, every one in
+ * premiumIndex and fundingInfo and funded like any other perpetual. Reading PERPETUAL alone silently
+ * dropped all of them. Quarterlies (CURRENT_QUARTER, NEXT_QUARTER) have no funding and stay out.
+ * Aster lists no TRADIFI_PERPETUAL, its tradfi markets being plain PERPETUAL, so one set serves both.
+ */
+export const PERPETUAL_CONTRACT_TYPES: ReadonlySet<string> = new Set([
+  "PERPETUAL",
+  "TRADIFI_PERPETUAL",
+]);
 
 /**
  * Fills in open interest from the rotating cache. A contract covers `multiplier` units of the base
@@ -91,12 +171,15 @@ export function attachOpenInterest(
   });
 }
 
-/** Perpetual symbols currently TRADING, by symbol. */
-export function tradablePerpetuals(info: BinanceStyleExchangeInfo): Map<string, TradableSymbol> {
+/** Perpetual symbols currently TRADING, by symbol, each with the class its venue declares. */
+export function tradablePerpetuals(
+  info: BinanceStyleExchangeInfo,
+  classify: BinanceStyleClassifier,
+): Map<string, TradableSymbol> {
   return new Map(
     info.symbols
-      .filter((s) => s.status === "TRADING" && s.contractType === "PERPETUAL")
-      .map((s) => [s.symbol, { quoteAsset: s.quoteAsset ?? null }]),
+      .filter((s) => s.status === "TRADING" && PERPETUAL_CONTRACT_TYPES.has(s.contractType))
+      .map((s) => [s.symbol, { quoteAsset: s.quoteAsset ?? null, assetClass: classify(s) }]),
   );
 }
 
@@ -126,7 +209,10 @@ export function parseBinanceStyleSnapshots(
 
     const next = num(p.nextFundingTime);
     snapshots.push({
-      ...marketRef(venueId, p.symbol, tradable.quoteAsset ? { quote: tradable.quoteAsset } : {}),
+      ...marketRef(venueId, p.symbol, {
+        assetClass: tradable.assetClass,
+        ...(tradable.quoteAsset ? { quote: tradable.quoteAsset } : {}),
+      }),
       observedAt: now,
       rate,
       basisHours: interval,
@@ -162,6 +248,7 @@ export function basisHoursFromGaps(
   });
 }
 
+/** `assetClass` is the venue's declaration for the symbol; omitted, the market is crypto. */
 export function parseBinanceStyleFundingHistory(
   venueId: string,
   venueSymbol: string,
@@ -169,6 +256,7 @@ export function parseBinanceStyleFundingHistory(
   fromMs: number,
   toMs: number,
   fallbackHours: number | null,
+  assetClass?: AssetClass,
 ): FundingEvent[] {
   const byTime = new Map<number, BinanceStyleFundingRate>();
   for (const row of rows) {
@@ -178,6 +266,7 @@ export function parseBinanceStyleFundingHistory(
   }
   const times = [...byTime.keys()].sort((a, b) => a - b);
   const basis = basisHoursFromGaps(times, fallbackHours);
+  const ref = marketRef(venueId, venueSymbol, assetClass ? { assetClass } : {});
 
   const events: FundingEvent[] = [];
   times.forEach((time, i) => {
@@ -185,7 +274,7 @@ export function parseBinanceStyleFundingHistory(
     const basisHours = basis[i];
     if (basisHours === null || basisHours === undefined) return;
     events.push({
-      ...marketRef(venueId, venueSymbol),
+      ...ref,
       settledAt: time,
       rate: num(row.fundingRate) as number,
       basisHours,
@@ -204,6 +293,7 @@ export async function fetchBinanceStyleFundingHistory(
   fromMs: number,
   toMs: number,
   fallbackHours: number | null,
+  assetClass?: AssetClass,
 ): Promise<FundingEvent[]> {
   const rows: BinanceStyleFundingRate[] = [];
   let startTime = fromMs;
@@ -215,7 +305,15 @@ export async function fetchBinanceStyleFundingHistory(
     if (batch.length < HISTORY_LIMIT) break;
     startTime = Math.max(...batch.map((r) => r.fundingTime)) + 1;
   }
-  return parseBinanceStyleFundingHistory(venueId, venueSymbol, rows, fromMs, toMs, fallbackHours);
+  return parseBinanceStyleFundingHistory(
+    venueId,
+    venueSymbol,
+    rows,
+    fromMs,
+    toMs,
+    fallbackHours,
+    assetClass,
+  );
 }
 
 /**
@@ -243,6 +341,11 @@ export interface BinanceStyleAdapterOptions extends AsterAdapterOptions {
   /** Base URL up to and including `/fapi/v1`, with no trailing slash. */
   baseUrl: string;
   /**
+   * How this member declares a market's class. Required, so a new member has to say where its
+   * declaration lives instead of inheriting another venue's reading of a field it may not fill.
+   */
+  classify: BinanceStyleClassifier;
+  /**
    * Interval for symbols absent from fundingInfo; `null` skips them. Null for every member measured
    * so far — see the note at the top of this file for why an 8h default would be wrong.
    */
@@ -252,7 +355,12 @@ export interface BinanceStyleAdapterOptions extends AsterAdapterOptions {
 }
 
 export function createAsterAdapter(options: AsterAdapterOptions = {}): VenueAdapter {
-  return createBinanceStyleAdapter({ ...options, venueId: VENUE, baseUrl: BASE });
+  return createBinanceStyleAdapter({
+    ...options,
+    venueId: VENUE,
+    baseUrl: BASE,
+    classify: asterAssetClass,
+  });
 }
 
 export function createBinanceStyleAdapter(options: BinanceStyleAdapterOptions): VenueAdapter {
@@ -273,7 +381,7 @@ export function createBinanceStyleAdapter(options: BinanceStyleAdapterOptions): 
         const info = await client.getJson<BinanceStyleExchangeInfo>(`${BASE}/exchangeInfo`);
         if (!Array.isArray(info?.symbols))
           throw new Error(`${VENUE}: unexpected exchangeInfo response`);
-        exchangeInfo = { fetchedAt: now, tradable: tradablePerpetuals(info) };
+        exchangeInfo = { fetchedAt: now, tradable: tradablePerpetuals(info, options.classify) };
       }
       const [premium, fundingInfo, tickers] = await Promise.all([
         client
@@ -331,6 +439,8 @@ export function createBinanceStyleAdapter(options: BinanceStyleAdapterOptions): 
       return { snapshots: attachOpenInterest(snapshots, openInterest), settled: [] };
     },
 
+    // The class, like the interval, comes from the last snapshot cycle. History requested before
+    // any cycle has run finds neither, and its events default to crypto as its interval does to null.
     fetchFundingHistory: (client, venueSymbol, fromMs, toMs) =>
       fetchBinanceStyleFundingHistory(
         client,
@@ -340,6 +450,7 @@ export function createBinanceStyleAdapter(options: BinanceStyleAdapterOptions): 
         fromMs,
         toMs,
         intervals.get(venueSymbol) ?? null,
+        exchangeInfo?.tradable.get(venueSymbol)?.assetClass,
       ),
   };
 }

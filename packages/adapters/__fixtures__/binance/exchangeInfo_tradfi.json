@@ -1,0 +1,94 @@
+{
+  "symbols": [
+    {
+      "symbol": "CATUSDT",
+      "status": "TRADING",
+      "contractType": "TRADIFI_PERPETUAL",
+      "baseAsset": "CAT",
+      "quoteAsset": "USDT",
+      "underlyingType": "EQUITY",
+      "underlyingSubType": ["TradFi"]
+    },
+    {
+      "symbol": "1000CATUSDT",
+      "status": "TRADING",
+      "contractType": "PERPETUAL",
+      "baseAsset": "1000CAT",
+      "quoteAsset": "USDT",
+      "underlyingType": "COIN",
+      "underlyingSubType": ["Meme", "Crypto"]
+    },
+    {
+      "symbol": "BBUSDT",
+      "status": "TRADING",
+      "contractType": "PERPETUAL",
+      "baseAsset": "BB",
+      "quoteAsset": "USDT",
+      "underlyingType": "COIN",
+      "underlyingSubType": ["Layer-1", "Crypto"]
+    },
+    {
+      "symbol": "XAUUSDT",
+      "status": "TRADING",
+      "contractType": "TRADIFI_PERPETUAL",
+      "baseAsset": "XAU",
+      "quoteAsset": "USDT",
+      "underlyingType": "COMMODITY",
+      "underlyingSubType": ["TradFi"]
+    },
+    {
+      "symbol": "PAXGUSDT",
+      "status": "TRADING",
+      "contractType": "PERPETUAL",
+      "baseAsset": "PAXG",
+      "quoteAsset": "USDT",
+      "underlyingType": "COIN",
+      "underlyingSubType": ["RWA", "Crypto"]
+    },
+    {
+      "symbol": "TSLAUSDT",
+      "status": "TRADING",
+      "contractType": "TRADIFI_PERPETUAL",
+      "baseAsset": "TSLA",
+      "quoteAsset": "USDT",
+      "underlyingType": "EQUITY",
+      "underlyingSubType": ["TradFi"]
+    },
+    {
+      "symbol": "BTCDOMUSDT",
+      "status": "TRADING",
+      "contractType": "PERPETUAL",
+      "baseAsset": "BTCDOM",
+      "quoteAsset": "USDT",
+      "underlyingType": "INDEX",
+      "underlyingSubType": ["Index", "Crypto"]
+    },
+    {
+      "symbol": "SPYUSDT",
+      "status": "TRADING",
+      "contractType": "TRADIFI_PERPETUAL",
+      "baseAsset": "SPY",
+      "quoteAsset": "USDT",
+      "underlyingType": "EQUITY",
+      "underlyingSubType": ["TradFi"]
+    },
+    {
+      "symbol": "OPENAIUSDT",
+      "status": "TRADING",
+      "contractType": "TRADIFI_PERPETUAL",
+      "baseAsset": "OPENAI",
+      "quoteAsset": "USDT",
+      "underlyingType": "PREMARKET",
+      "underlyingSubType": ["Pre-IPO", "TradFi"]
+    },
+    {
+      "symbol": "BTCUSDT_260925",
+      "status": "TRADING",
+      "contractType": "CURRENT_QUARTER",
+      "baseAsset": "BTC",
+      "quoteAsset": "USDT",
+      "underlyingType": "COIN",
+      "underlyingSubType": []
+    }
+  ]
+}

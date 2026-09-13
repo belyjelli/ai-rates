@@ -2,15 +2,21 @@ import { describe, expect, test } from "bun:test";
 import { aprFromRate } from "@ai-rates/core";
 import type { HttpClient } from "../http";
 import {
+  ANNOTATIONS_MAX_AGE_MS,
+  ANNOTATIONS_RETRY_MS,
+  createAnnotationCache,
   createHip3Adapter,
   type HlFundingHistoryRow,
   type HlMetaAndAssetCtxs,
+  type HlPerpConciseAnnotations,
   type HlPerpDexs,
   HYPERLIQUID_INFO_URL,
+  hip3DeclaredClass,
   hyperliquidAdapter,
   parseHyperliquidFundingHistory,
   parseHyperliquidMarginTables,
   parseHyperliquidSnapshots,
+  parsePerpAnnotations,
   parsePerpDexs,
 } from "./hyperliquid";
 
@@ -35,6 +41,14 @@ function fakeClient(handler: (body: Record<string, unknown>) => unknown) {
   return { client, bodies };
 }
 
+/** A metaAndAssetCtxs payload for these coins; the ctx numbers are not what the caller tests. */
+function payloadFor(coins: readonly string[]): HlMetaAndAssetCtxs {
+  return [
+    { universe: coins.map((name) => ({ name })) },
+    coins.map(() => ({ funding: "0.0000125", markPx: "1" })),
+  ];
+}
+
 // 2026-09-11T16:38:40Z; the next hourly settlement is 17:00:00Z.
 const NOW = 1_789_147_120_000;
 const NEXT_HOUR = 1_789_149_600_000;
@@ -52,6 +66,7 @@ describe("parseHyperliquidSnapshots (core)", () => {
       base: "BTC",
       quote: "USDC",
       multiplier: 1,
+      assetClass: "crypto",
       dex: null,
       observedAt: NOW,
       rate: 0.0000083651,
@@ -87,6 +102,125 @@ describe("parseHyperliquidSnapshots (HIP-3)", () => {
     });
     expect(snapshots[0]?.openInterestUsd).toBeCloseTo(8837.92 * 29432, 2);
     expect(snapshots[1]?.rate).toBe(-0.0000178177);
+  });
+});
+
+describe("asset class", () => {
+  test("a HIP-3 market takes its deployer's category, refined by the base tables", async () => {
+    const categories = parsePerpAnnotations(
+      await fixture<HlPerpConciseAnnotations>("perp-concise-annotations.json"),
+    );
+    // Coin names as meta.universe spelt them on 2026-09-14. hyna:GOLD has no annotation.
+    const coins = [
+      "xyz:BB",
+      "xyz:QNT",
+      "para:STX",
+      "xyz:SP500",
+      "xyz:GOLD",
+      "xyz:JPY",
+      "km:EUR",
+      "para:10Y",
+      "para:AAOI",
+      "io:ANTH",
+      "flx:BTC",
+      "hyna:GOLD",
+    ];
+    const snapshots = parseHyperliquidSnapshots(
+      "hl-test",
+      payloadFor(coins),
+      NOW,
+      null,
+      categories,
+    );
+
+    expect(snapshots.map((s) => [s.venueSymbol, s.base, s.assetClass])).toEqual([
+      // BlackBerry, Quantinuum and Seagate: named like crypto tickers, declared stocks.
+      ["xyz:BB", "BB", "equity"],
+      ["xyz:QNT", "QNT", "equity"],
+      ["para:STX", "STX", "equity"],
+      ["xyz:SP500", "US500", "index"],
+      ["xyz:GOLD", "XAU", "commodity"],
+      ["xyz:JPY", "JPY", "fx"],
+      // Deployers spell freely: "FX" and "stock".
+      ["km:EUR", "EUR", "fx"],
+      // "rates" is outside the table, so the base tables settle it.
+      ["para:10Y", "10Y", "index"],
+      ["para:AAOI", "AAOI", "equity"],
+      ["io:ANTH", "ANTH", "equity"],
+      ["flx:BTC", "BTC", "crypto"],
+      // No annotation: read as not crypto, never defaulted to crypto.
+      ["hyna:GOLD", "XAU", "commodity"],
+    ]);
+  });
+
+  test("the core dex is crypto, with no annotations to consult", () => {
+    const snapshots = parseHyperliquidSnapshots(
+      "hyperliquid",
+      payloadFor(["STX", "PURR", "SPX"]),
+      NOW,
+      "USDC",
+    );
+    expect(snapshots.map((s) => s.assetClass)).toEqual(["crypto", "crypto", "crypto"]);
+  });
+
+  test("hip3DeclaredClass ignores case and never consults the object prototype", () => {
+    expect(hip3DeclaredClass("Stocks", "AAPL")).toBe("equity");
+    expect(hip3DeclaredClass("CRYPTO", "USDE")).toBe("crypto");
+    expect(hip3DeclaredClass("constructor", "NVDA")).toBe("equity");
+    expect(hip3DeclaredClass(null, "EURUSD")).toBe("fx");
+  });
+
+  test("parsePerpAnnotations skips malformed entries and rejects a non-list", () => {
+    const parsed = parsePerpAnnotations([
+      ["xyz:BB", { category: "stocks" }],
+      ["xyz:NOCATEGORY", {}],
+      "garbage",
+    ] as unknown as HlPerpConciseAnnotations);
+    expect([...parsed]).toEqual([["xyz:BB", "stocks"]]);
+    expect(() => parsePerpAnnotations({} as unknown as HlPerpConciseAnnotations)).toThrow();
+  });
+});
+
+describe("createAnnotationCache", () => {
+  const annotated: HlPerpConciseAnnotations = [["flx:BTC", { category: "crypto" }]];
+
+  test("one request serves every caller until the copy is due", async () => {
+    const cache = createAnnotationCache();
+    const { client, bodies } = fakeClient(() => annotated);
+
+    const [first, second] = await Promise.all([
+      cache.categories(client, NOW),
+      cache.categories(client, NOW),
+    ]);
+    expect(bodies).toEqual([{ type: "perpConciseAnnotations" }]);
+    expect(first.get("flx:BTC")).toBe("crypto");
+    expect(second).toBe(first);
+
+    await cache.categories(client, NOW + ANNOTATIONS_MAX_AGE_MS - 1);
+    expect(bodies).toHaveLength(1);
+    await cache.categories(client, NOW + ANNOTATIONS_MAX_AGE_MS);
+    expect(bodies).toHaveLength(2);
+  });
+
+  test("a failed or empty refresh keeps the last good copy and retries sooner", async () => {
+    const cache = createAnnotationCache();
+    let respond: () => unknown = () => annotated;
+    const { client, bodies } = fakeClient(() => respond());
+    await cache.categories(client, NOW);
+
+    respond = () => {
+      throw new Error("HTTP 500");
+    };
+    const due = NOW + ANNOTATIONS_MAX_AGE_MS;
+    expect((await cache.categories(client, due)).get("flx:BTC")).toBe("crypto");
+    await cache.categories(client, due + ANNOTATIONS_RETRY_MS - 1);
+    expect(bodies).toHaveLength(2);
+
+    respond = () => [];
+    expect((await cache.categories(client, due + ANNOTATIONS_RETRY_MS)).get("flx:BTC")).toBe(
+      "crypto",
+    );
+    expect(bodies).toHaveLength(3);
   });
 });
 
@@ -182,7 +316,7 @@ describe("parseHyperliquidFundingHistory", () => {
 });
 
 describe("adapters", () => {
-  test("core adapter requests metaAndAssetCtxs without a dex", async () => {
+  test("core adapter requests metaAndAssetCtxs without a dex, and no annotations", async () => {
     const payload = await fixture<HlMetaAndAssetCtxs>("meta-and-asset-ctxs.json");
     const { client, bodies } = fakeClient(() => payload);
     const batch = await hyperliquidAdapter.fetchSnapshots(client, NOW);
@@ -191,14 +325,43 @@ describe("adapters", () => {
     expect(batch.settled).toEqual([]);
   });
 
-  test("HIP-3 adapter passes the dex and uses venue id hl-<dex>", async () => {
+  test("HIP-3 adapter passes the dex, uses venue id hl-<dex> and classes from annotations", async () => {
     const payload = await fixture<HlMetaAndAssetCtxs>("xyz-meta-and-asset-ctxs.json");
-    const { client, bodies } = fakeClient(() => payload);
-    const adapter = createHip3Adapter("xyz");
+    const annotations = await fixture<HlPerpConciseAnnotations>("perp-concise-annotations.json");
+    const { client, bodies } = fakeClient((body) =>
+      body.type === "perpConciseAnnotations" ? annotations : payload,
+    );
+    const adapter = createHip3Adapter("xyz", createAnnotationCache());
     const batch = await adapter.fetchSnapshots(client, NOW);
     expect(adapter.venueId).toBe("hl-xyz");
-    expect(bodies).toEqual([{ type: "metaAndAssetCtxs", dex: "xyz" }]);
+    expect(bodies).toEqual([
+      { type: "metaAndAssetCtxs", dex: "xyz" },
+      { type: "perpConciseAnnotations" },
+    ]);
     expect(batch.snapshots.every((s) => s.venueId === "hl-xyz")).toBe(true);
+    expect(batch.snapshots.map((s) => [s.venueSymbol, s.assetClass])).toEqual([
+      ["xyz:XYZ100", "index"],
+      ["xyz:AAPL", "equity"],
+    ]);
+  });
+
+  test("HIP-3 adapters share one annotations request, and its failure never fails a sweep", async () => {
+    const payload = await fixture<HlMetaAndAssetCtxs>("xyz-meta-and-asset-ctxs.json");
+    const { client, bodies } = fakeClient((body) => {
+      if (body.type === "perpConciseAnnotations") throw new Error("HTTP 500");
+      return payload;
+    });
+    const annotations = createAnnotationCache();
+
+    const batch = await createHip3Adapter("xyz", annotations).fetchSnapshots(client, NOW);
+    // Nothing loaded yet, so the missing-annotation rule classes both markets.
+    expect(batch.snapshots.map((s) => [s.venueSymbol, s.assetClass])).toEqual([
+      ["xyz:XYZ100", "index"],
+      ["xyz:AAPL", "equity"],
+    ]);
+
+    await createHip3Adapter("flx", annotations).fetchSnapshots(client, NOW + 1_000);
+    expect(bodies.filter((b) => b.type === "perpConciseAnnotations")).toHaveLength(1);
   });
 
   test("history paginates by the last row's time until a short page", async () => {

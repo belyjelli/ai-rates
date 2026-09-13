@@ -15,6 +15,7 @@ const snapshot = (venueSymbol: string): FundingSnapshot => ({
   base: venueSymbol,
   quote: "USDT",
   multiplier: 1,
+  assetClass: "crypto",
   dex: null,
   observedAt: 0,
   rate: 0.0001,

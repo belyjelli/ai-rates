@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import type { HttpClient } from "../http";
 import {
+  type OkxFundingRate,
   type OkxInstrument,
   type OkxMarkPrice,
   okxAdapter,
+  okxAssetClass,
   parseOkxFundingHistory,
   parseOkxLiquidations,
   parseOkxPositionTiers,
@@ -35,6 +37,7 @@ describe("parseOkxSnapshots", () => {
       base: "BTC",
       quote: "USDT",
       multiplier: 1,
+      assetClass: "crypto",
       dex: null,
       observedAt: NOW,
       rate: 0.0000593556502673,
@@ -91,6 +94,80 @@ describe("parseOkxSnapshots", () => {
     expect(() =>
       parseOkxSnapshots({ code: "50011", msg: "rate limited", data: [] }, ok, ok, ok, ok, NOW),
     ).toThrow("50011");
+  });
+
+  test("carries each instrument's declared class onto its snapshot", async () => {
+    // Real instrument rows from 2026-09-14; the funding rows are stand-ins, since only the join
+    // on instId matters here.
+    const instruments = await fixture("asset-class");
+    const funding: OkxFundingRate[] = instruments.data.map((i: OkxInstrument) => ({
+      instId: i.instId,
+      fundingRate: "0.0001",
+      fundingTime: "1789142400000",
+      nextFundingTime: "1789171200000",
+      settFundingRate: "",
+      prevFundingTime: "",
+    }));
+    const empty = { code: "0", data: [] };
+    const { snapshots } = parseOkxSnapshots(
+      { code: "0", data: funding },
+      empty,
+      empty,
+      empty,
+      instruments,
+      NOW,
+    );
+    expect(
+      Object.fromEntries(snapshots.map((s) => [s.venueSymbol, `${s.assetClass}:${s.base}`])),
+    ).toEqual({
+      "STX-USDT-SWAP": "crypto:STX",
+      "AI-USDT-SWAP": "crypto:AI",
+      "SPX-USDT-SWAP": "crypto:SPX",
+      // Quantinuum and BlackBerry, not Quant and BounceBit: the symbol cannot tell them apart.
+      "QNT-USDT-SWAP": "equity:QNT",
+      "BB-USDT-SWAP": "equity:BB",
+      "ON-USDT-SWAP": "equity:ON",
+      "PURR-USDT-SWAP": "equity:PURR",
+      // Declared "3" (stocks) by OKX, refined to index by marketRef.
+      "US500-USDT-SWAP": "index:US500",
+      "JP225-USDT-SWAP": "index:JP225",
+      "XAU-USDT-SWAP": "commodity:XAU",
+    });
+  });
+});
+
+describe("okxAssetClass", () => {
+  test("reads instCategory off real rows, never the always-1 `category`", async () => {
+    const rows: OkxInstrument[] = (await fixture("asset-class")).data;
+    // `category` is a fee-schedule field: "1" on the stocks and gold alike.
+    expect(new Set(rows.map((r) => (r as OkxInstrument & { category: string }).category))).toEqual(
+      new Set(["1"]),
+    );
+    expect(
+      Object.fromEntries(rows.map((r) => [r.instId, okxAssetClass(r.instCategory, "")])),
+    ).toEqual({
+      "STX-USDT-SWAP": "crypto",
+      "AI-USDT-SWAP": "crypto",
+      "SPX-USDT-SWAP": "crypto",
+      "QNT-USDT-SWAP": "equity",
+      "BB-USDT-SWAP": "equity",
+      "ON-USDT-SWAP": "equity",
+      "PURR-USDT-SWAP": "equity",
+      "US500-USDT-SWAP": "equity",
+      "JP225-USDT-SWAP": "equity",
+      "XAU-USDT-SWAP": "commodity",
+    });
+  });
+
+  test("forex, bonds, unknown and missing categories", () => {
+    expect(okxAssetClass("5", "EUR")).toBe("fx");
+    // Bonds have no class of their own; the base tables decide.
+    expect(okxAssetClass("6", "US10Y")).toBe("index");
+    expect(okxAssetClass("9", "XAG")).toBe("commodity");
+    expect(okxAssetClass("9", "TSLA")).toBe("equity");
+    // The field predates OKX's tradfi listings, so absence is crypto.
+    expect(okxAssetClass("", "BTC")).toBe("crypto");
+    expect(okxAssetClass(undefined, "BTC")).toBe("crypto");
   });
 });
 

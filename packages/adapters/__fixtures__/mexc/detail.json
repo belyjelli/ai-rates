@@ -55,7 +55,9 @@
           "imr": 0.1,
           "maxLeverage": 10
         }
-      ]
+      ],
+      "conceptPlate": ["mc-trade-zone-layer2", "mc-trade-zone-pow"],
+      "type": 1
     },
     {
       "symbol": "ETH_USDT",
@@ -110,7 +112,9 @@
           "imr": 0.1,
           "maxLeverage": 10
         }
-      ]
+      ],
+      "conceptPlate": ["mc-trade-zone-layer2", "mc-trade-zone-0fees"],
+      "type": 1
     },
     {
       "symbol": "XAU_USDT",
@@ -159,7 +163,14 @@
           "maxLeverage": 20
         }
       ],
-      "baseCoinName": "GOLD(XAU)"
+      "baseCoinName": "GOLD(XAU)",
+      "conceptPlate": [
+        "mc-trade-zone-metals",
+        "mc-trade-zone-tradfi",
+        "mc-trade-zone-metalsfutures",
+        "mc-trade-zone-Commodities"
+      ],
+      "type": 1
     },
     {
       "symbol": "MUSTOCK_USDT",
@@ -171,7 +182,17 @@
       "isHidden": false,
       "apiAllowed": true,
       "futureType": 1,
-      "baseCoinName": "MU"
+      "baseCoinName": "MU",
+      "conceptPlate": [
+        "mc-trade-zone-Stock",
+        "mc-trade-zone-0fees",
+        "mc-trade-zone-tradfi",
+        "mc-trade-zone-semiconductors",
+        "mc-trade-zone-AICompute",
+        "mc-trade-zone-aistorage",
+        "mc-trade-zone-aisemiconductors"
+      ],
+      "type": 2
     },
     {
       "symbol": "CATSTOCK_USDT",
@@ -183,7 +204,9 @@
       "isHidden": false,
       "apiAllowed": true,
       "futureType": 1,
-      "baseCoinName": "CATSTOCK"
+      "baseCoinName": "CATSTOCK",
+      "conceptPlate": ["mc-trade-zone-Stock", "mc-trade-zone-0fees", "mc-trade-zone-tradfi"],
+      "type": 2
     },
     {
       "symbol": "LONGXIA_USDT",
@@ -195,7 +218,9 @@
       "isHidden": false,
       "apiAllowed": true,
       "futureType": 1,
-      "baseCoinName": "\u9f99\u867e"
+      "baseCoinName": "龙虾",
+      "conceptPlate": ["mc-trade-zone-Chinese"],
+      "type": 1
     },
     {
       "symbol": "SPX500_USDT",
@@ -207,7 +232,14 @@
       "isHidden": false,
       "apiAllowed": true,
       "futureType": 1,
-      "baseCoinName": "SP500"
+      "baseCoinName": "SP500",
+      "conceptPlate": [
+        "mc-trade-zone-Stock",
+        "mc-trade-zone-0fees",
+        "mc-trade-zone-tradfi",
+        "mc-trade-zone-stockindex"
+      ],
+      "type": 2
     }
   ]
 }

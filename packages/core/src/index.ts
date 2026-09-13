@@ -1,3 +1,4 @@
+export * from "./asset-class";
 export * from "./backtest";
 export * from "./fees";
 export * from "./identity";

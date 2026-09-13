@@ -1,11 +1,31 @@
 /** How trustworthy a funding value is: an estimate for the next settlement, or an actual settlement. */
 export type FundingRateKind = "predicted" | "settled";
 
+/**
+ * What kind of underlying a market tracks. It is half of an asset's identity, with `base` the other
+ * half: `equity:STX` (Seagate) and `crypto:STX` (Stacks) are different assets that must never pair,
+ * and no ticker rule can tell them apart because both are named correctly.
+ *
+ * Taken from what the venue declares, never inferred from the ticker. A venue that declares nothing
+ * is `crypto`, because that is what every such venue lists. Mirrored by the CHECK in migration 017.
+ */
+export type AssetClass = "crypto" | "equity" | "commodity" | "fx" | "index";
+
+export const ASSET_CLASSES: readonly AssetClass[] = [
+  "crypto",
+  "equity",
+  "commodity",
+  "fx",
+  "index",
+];
+
 export interface MarketRef {
   venueId: string;
   /** Symbol exactly as the venue names it (e.g. "BTCUSDT", "BTC-USDT-SWAP", "xyz:XYZ100"). */
   venueSymbol: string;
   base: string;
+  /** Declared by the venue; see `AssetClass`. An asset is (assetClass, base), never base alone. */
+  assetClass: AssetClass;
   quote: string | null;
   /** Contracts per unit of `base` implied by the symbol (1000 for "1000PEPE"). */
   multiplier: number;

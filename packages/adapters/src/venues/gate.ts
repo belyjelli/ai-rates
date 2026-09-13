@@ -1,4 +1,7 @@
 import {
+  type AssetClass,
+  canonicalBase,
+  classifyNonCrypto,
   type FundingEvent,
   type FundingSnapshot,
   inferIntervalHours,
@@ -40,6 +43,35 @@ export interface GateContract {
   in_delisting: boolean;
   status?: string;
   is_pre_market?: boolean;
+  /** What the contract tracks: "" for crypto, else "stocks", "indices", "metals", "commodities", "forex". */
+  contract_type?: string;
+}
+
+/**
+ * The class gate declares for a contract, from `contract_type` on /futures/usdt/contracts.
+ *
+ * Live 2026-09-14, 981 contracts: "" 565 (crypto), "stocks" 380, "indices" 18, "metals" 12,
+ * "commodities" 3, "forex" 3. It is what makes CAT_USDT Caterpillar and RTX_USDT Raytheon on gate
+ * while BB, ON, QNT and STX stay crypto. gate files PAXG and XAUT under metals and USDC under forex;
+ * `marketRef` returns those tokens to crypto. A missing field is undeclared, so crypto; a value this
+ * does not know still says not-crypto, so the base tables settle which class.
+ */
+export function gateAssetClass(contractType: string | undefined, base: string): AssetClass {
+  switch (contractType ?? "") {
+    case "":
+      return "crypto";
+    case "stocks":
+      return "equity";
+    case "indices":
+      return "index";
+    case "metals":
+    case "commodities":
+      return "commodity";
+    case "forex":
+      return "fx";
+    default:
+      return classifyNonCrypto(canonicalBase(base));
+  }
 }
 
 export interface GateTicker {
@@ -77,8 +109,11 @@ export function parseGateSnapshots(
     const hours = contract.funding_interval / 3600;
     const markPrice = num(contract.mark_price);
     const ticker = tickerByContract.get(contract.name);
+    const { base } = marketRef(VENUE_ID, contract.name);
     snapshots.push({
-      ...marketRef(VENUE_ID, contract.name),
+      ...marketRef(VENUE_ID, contract.name, {
+        assetClass: gateAssetClass(contract.contract_type, base),
+      }),
       observedAt: now,
       rate,
       basisHours: hours,

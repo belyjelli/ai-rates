@@ -1,9 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import historyFixture from "../../__fixtures__/dydx/historicalFunding_LINK-USD.json";
 import marketsFixture from "../../__fixtures__/dydx/perpetualMarkets.json";
+import tradfiMarketsFixture from "../../__fixtures__/dydx/perpetualMarkets_tradfi.json";
 import type { HttpClient } from "../http";
 import {
   dydxAdapter,
+  dydxAssetClass,
   parseDydxHistoricalFunding,
   parseDydxLeverageTiers,
   parseDydxMarkets,
@@ -22,6 +24,7 @@ describe("parseDydxMarkets", () => {
       base: "LINK",
       quote: "USD",
       multiplier: 1,
+      assetClass: "crypto",
       dex: null,
       observedAt: NOW,
       rate: 0.00001665625,
@@ -39,6 +42,7 @@ describe("parseDydxMarkets", () => {
   test("normalizes BTC-USD and ETH-USD", () => {
     expect(snapshots.find((s) => s.venueSymbol === "BTC-USD")).toMatchObject({
       base: "BTC",
+      assetClass: "crypto",
       rate: 0,
       openInterestUsd: 194.239 * 77862.55687,
       volume24hUsd: 3889329.2462,
@@ -54,6 +58,46 @@ describe("parseDydxMarkets", () => {
     expect(parseDydxMarkets(marketsFixture, NEXT_HOUR)[0]?.nextFundingAt).toBe(
       NEXT_HOUR + 3_600_000,
     );
+  });
+});
+
+describe("dydxAssetClass", () => {
+  test("the markets dYdX announced as tradfi take their kind from the tables", () => {
+    expect(dydxAssetClass("XAG-USD")).toBe("commodity");
+    expect(dydxAssetClass("WTI-USD")).toBe("commodity");
+    expect(dydxAssetClass("EUR-USD")).toBe("fx");
+    expect(dydxAssetClass("TRY-USD")).toBe("fx");
+  });
+
+  test("everything else is crypto, tokens that track tradfi included", () => {
+    for (const ticker of ["BTC-USD", "PAXG-USD", "XAUT-USD", "TSLAX-USD"]) {
+      expect(dydxAssetClass(ticker)).toBe("crypto");
+    }
+  });
+
+  test("snapshots carry it, from real rows of the indexer response", () => {
+    // EUR-USD is in FINAL_SETTLEMENT and skipped like any other settled market.
+    expect(
+      parseDydxMarkets(tradfiMarketsFixture, NOW)
+        .map((s) => [s.venueSymbol, s.base, s.assetClass])
+        .sort(([a], [b]) => String(a).localeCompare(String(b))),
+    ).toEqual([
+      ["PAXG-USD", "PAXG", "crypto"],
+      ["WTI-USD", "CL", "commodity"],
+      ["XAG-USD", "XAG", "commodity"],
+    ]);
+  });
+
+  test("history carries it too", () => {
+    // LINK rows stand in for WTI's: only the class of the events is under test here.
+    const events = parseDydxHistoricalFunding(
+      historyFixture.historicalFunding,
+      "WTI-USD",
+      0,
+      Number.MAX_SAFE_INTEGER,
+    );
+    expect(events.length).toBeGreaterThan(0);
+    expect(events.every((e) => e.assetClass === "commodity" && e.base === "CL")).toBe(true);
   });
 });
 
@@ -103,6 +147,7 @@ describe("dYdX funding history", () => {
       ["2026-09-11T16:00:00.622Z", 0.000114, 1, 11.709829134],
       ["2026-09-11T17:00:00.234Z", 0.000004125, 1, 11.792210428],
     ]);
+    expect(events[0]?.assetClass).toBe("crypto");
   });
 
   test("fetchFundingHistory filters to the window and stops on a short page", async () => {

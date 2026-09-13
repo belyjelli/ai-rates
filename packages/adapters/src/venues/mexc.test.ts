@@ -11,6 +11,7 @@ import {
   type IntervalEntry,
   type MexcContractDetail,
   type MexcTicker,
+  mexcDeclaredClass,
   nextSettlementAfter,
   parseMexcContracts,
   parseMexcFundingHistory,
@@ -47,6 +48,7 @@ describe("parseMexcSnapshots", () => {
       base: "BTC",
       quote: "USDT",
       multiplier: 1,
+      assetClass: "crypto",
       dex: null,
       observedAt: NOW,
       rate: 0.000029,
@@ -165,6 +167,227 @@ describe("declared base reaches the snapshot", () => {
   test("a parenthesised display name yields the ticker inside it", () => {
     // Live MEXC returns GOLD(XAU) here, and XAU is where eight venues already quote gold.
     expect(bySymbol.get("XAU_USDT")).toBe("XAU");
+  });
+
+  test("the fixture contracts carry the class their plates declare", () => {
+    const classes = new Map(
+      parseMexcSnapshots(synthetic, contracts, intervals, NOW).map((s) => [
+        s.venueSymbol,
+        s.assetClass,
+      ]),
+    );
+    expect(Object.fromEntries(classes)).toEqual({
+      MUSTOCK_USDT: "equity",
+      CATSTOCK_USDT: "equity",
+      LONGXIA_USDT: "crypto",
+      SPX500_USDT: "index",
+      XAU_USDT: "commodity",
+    });
+  });
+});
+
+describe("asset class", () => {
+  // Identity fields exactly as contract/detail returned them on 2026-09-14; sizing is not under test.
+  const live: Pick<
+    MexcContractDetail,
+    "symbol" | "baseCoin" | "baseCoinName" | "type" | "conceptPlate"
+  >[] = [
+    {
+      symbol: "XAU_USDT",
+      baseCoin: "XAU",
+      baseCoinName: "GOLD(XAU)",
+      type: 1,
+      conceptPlate: [
+        "mc-trade-zone-metals",
+        "mc-trade-zone-tradfi",
+        "mc-trade-zone-metalsfutures",
+        "mc-trade-zone-Commodities",
+      ],
+    },
+    {
+      symbol: "USOIL_USDT",
+      baseCoin: "USOIL",
+      baseCoinName: "OIL(WTI)",
+      type: 2,
+      conceptPlate: ["mc-trade-zone-0fees", "mc-trade-zone-OIL", "mc-trade-zone-tradfi"],
+    },
+    {
+      symbol: "NGAS_USDT",
+      baseCoin: "NGAS",
+      baseCoinName: "GAS(NG)",
+      type: 2,
+      conceptPlate: ["mc-trade-zone-0fees", "mc-trade-zone-tradfi", "mc-trade-zone-Commodities"],
+    },
+    {
+      symbol: "EUR_USDT",
+      baseCoin: "EUR",
+      baseCoinName: "EUR",
+      type: 1,
+      conceptPlate: ["mc-trade-zone-web3", "mc-trade-zone-tradfi", "mc-trade-zone-Forex"],
+    },
+    {
+      symbol: "SPX500_USDT",
+      baseCoin: "SPX500",
+      baseCoinName: "SP500",
+      type: 2,
+      conceptPlate: [
+        "mc-trade-zone-Stock",
+        "mc-trade-zone-0fees",
+        "mc-trade-zone-tradfi",
+        "mc-trade-zone-stockindex",
+      ],
+    },
+    {
+      symbol: "QQQSTOCK_USDT",
+      baseCoin: "QQQSTOCK",
+      baseCoinName: "QQQ",
+      type: 2,
+      conceptPlate: [
+        "mc-trade-zone-Stock",
+        "mc-trade-zone-0fees",
+        "mc-trade-zone-tradfi",
+        "mc-trade-zone-stockindex",
+      ],
+    },
+    {
+      symbol: "MUSTOCK_USDT",
+      baseCoin: "MUSTOCK",
+      baseCoinName: "MU",
+      type: 2,
+      conceptPlate: [
+        "mc-trade-zone-Stock",
+        "mc-trade-zone-0fees",
+        "mc-trade-zone-tradfi",
+        "mc-trade-zone-semiconductors",
+        "mc-trade-zone-AICompute",
+        "mc-trade-zone-aistorage",
+        "mc-trade-zone-aisemiconductors",
+      ],
+    },
+    {
+      symbol: "CATSTOCK_USDT",
+      baseCoin: "CATSTOCK",
+      baseCoinName: "CATSTOCK",
+      type: 2,
+      conceptPlate: ["mc-trade-zone-Stock", "mc-trade-zone-0fees", "mc-trade-zone-tradfi"],
+    },
+    {
+      symbol: "STXSTOCK_USDT",
+      baseCoin: "STXSTOCK",
+      baseCoinName: "STXSTOCK",
+      type: 2,
+      conceptPlate: [
+        "mc-trade-zone-Stock",
+        "mc-trade-zone-0fees",
+        "mc-trade-zone-tradfi",
+        "mc-trade-zone-AICompute",
+        "mc-trade-zone-aistorage",
+      ],
+    },
+    {
+      symbol: "BBSTOCK_USDT",
+      baseCoin: "BBSTOCK",
+      baseCoinName: "BBSTOCK",
+      type: 2,
+      conceptPlate: [
+        "mc-trade-zone-Stock",
+        "mc-trade-zone-0fees",
+        "mc-trade-zone-tradfi",
+        "mc-trade-zone-aiapplicationlayer",
+      ],
+    },
+    {
+      symbol: "KIMISTOCK_USDT",
+      baseCoin: "KIMISTOCK",
+      baseCoinName: "MOONSHOT",
+      type: 1,
+      conceptPlate: [
+        "mc-trade-zone-Stock",
+        "mc-trade-zone-preipo",
+        "mc-trade-zone-0fees",
+        "mc-trade-zone-tradfi",
+      ],
+    },
+    {
+      symbol: "PAXG_USDT",
+      baseCoin: "PAXG",
+      baseCoinName: "GOLD(PAXG)",
+      type: 1,
+      conceptPlate: [
+        "mc-trade-zone-metals",
+        "mc-trade-zone-tradfi",
+        "mc-trade-zone-metalsfutures",
+        "mc-trade-zone-Commodities",
+      ],
+    },
+    { symbol: "BB_USDT", baseCoin: "BB", baseCoinName: "BB", type: 1, conceptPlate: [] },
+    {
+      symbol: "PONS_USDT",
+      baseCoin: "PONS",
+      baseCoinName: "PONS",
+      type: 1,
+      conceptPlate: ["mc-trade-zone-robinhood", "mc-trade-zone-MEME", "mc-trade-zone-0fees"],
+    },
+  ];
+
+  test("each contract takes its plates' class, refined by the base tables", () => {
+    const liveContracts = parseMexcContracts(
+      live.map((c) => ({ ...c, quoteCoin: "USDT", settleCoin: "USDT", contractSize: 1, state: 0 })),
+    );
+    const liveTickers = live.map(({ symbol }) => ({
+      symbol,
+      fundingRate: 0.0001,
+      fairPrice: 100,
+      indexPrice: 100,
+      holdVol: 1000,
+      amount24: 5000,
+    }));
+    const liveIntervals = new Map<string, IntervalEntry>(
+      live.map(({ symbol }) => [symbol, { hours: 8, nextSettleTime: null, fetchedAt: NOW }]),
+    );
+
+    const classes = parseMexcSnapshots(liveTickers, liveContracts, liveIntervals, NOW).map((s) => [
+      s.venueSymbol,
+      s.base,
+      s.assetClass,
+    ]);
+    expect(classes).toEqual([
+      ["XAU_USDT", "XAU", "commodity"],
+      ["USOIL_USDT", "CL", "commodity"],
+      ["NGAS_USDT", "NATGAS", "commodity"],
+      ["EUR_USDT", "EUR", "fx"],
+      // Stock and stockindex both: the index plate wins, and the alias reaches US500.
+      ["SPX500_USDT", "US500", "index"],
+      // MEXC calls QQQ an index; the tables file ETFs as equity, as five other venues do.
+      ["QQQSTOCK_USDT", "QQQ", "equity"],
+      ["MUSTOCK_USDT", "MU", "equity"],
+      // The withheld renames stay withheld, and are equity whatever crypto ticker hides inside.
+      ["CATSTOCK_USDT", "CATSTOCK", "equity"],
+      ["STXSTOCK_USDT", "STXSTOCK", "equity"],
+      ["BBSTOCK_USDT", "BBSTOCK", "equity"],
+      // Pre-IPO, and type 1 despite being tradfi: the plates are the signal, not the type.
+      ["KIMISTOCK_USDT", "MOONSHOT", "equity"],
+      // Plated as a commodity, but a gold token, crypto on every venue.
+      ["PAXG_USDT", "PAXG", "crypto"],
+      // BounceBit: no plates at all.
+      ["BB_USDT", "BB", "crypto"],
+      // The robinhood plate holds memecoins, not stocks.
+      ["PONS_USDT", "PONS", "crypto"],
+    ]);
+  });
+
+  test("plates match without case, and a bare not-crypto declaration defers to the base tables", () => {
+    expect(mexcDeclaredClass({ conceptPlate: ["MC-TRADE-ZONE-STOCK"] }, "AAPL")).toBe("equity");
+    expect(
+      mexcDeclaredClass({ conceptPlate: ["mc-trade-zone-stockindex", "mc-trade-zone-ETF"] }, "SPY"),
+    ).toBe("equity");
+    expect(mexcDeclaredClass({ conceptPlate: ["mc-trade-zone-tradfi"] }, "XAG")).toBe("commodity");
+    expect(mexcDeclaredClass({ conceptPlate: ["mc-trade-zone-tradfi"] }, "NEWCO")).toBe("equity");
+    expect(mexcDeclaredClass({ type: 2 }, "JP225")).toBe("index");
+    expect(mexcDeclaredClass({ conceptPlate: ["mc-trade-zone-RWA"], type: 1 }, "ONDO")).toBe(
+      "crypto",
+    );
+    expect(mexcDeclaredClass({}, "XAU")).toBe("crypto");
   });
 });
 

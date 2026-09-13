@@ -1,0 +1,99 @@
+[
+  [
+    "flx:BTC",
+    {
+      "category": "crypto"
+    }
+  ],
+  [
+    "io:ANTH",
+    {
+      "category": "preipo",
+      "displayName": "ANTH",
+      "keywords": ["anthropic"]
+    }
+  ],
+  [
+    "km:EUR",
+    {
+      "category": "FX"
+    }
+  ],
+  [
+    "para:10Y",
+    {
+      "category": "rates",
+      "keywords": ["treasury", "yield"]
+    }
+  ],
+  [
+    "para:AAOI",
+    {
+      "category": "stock",
+      "keywords": ["applied", "optics"]
+    }
+  ],
+  [
+    "para:STX",
+    {
+      "category": "stocks",
+      "keywords": ["seagate", "storage"]
+    }
+  ],
+  [
+    "xyz:AAPL",
+    {
+      "category": "stocks",
+      "displayName": "AAPL",
+      "keywords": ["apple", "tech"]
+    }
+  ],
+  [
+    "xyz:BB",
+    {
+      "category": "stocks",
+      "displayName": "BB",
+      "keywords": ["blackberry", "tech"]
+    }
+  ],
+  [
+    "xyz:GOLD",
+    {
+      "category": "commodities",
+      "displayName": "GOLD",
+      "keywords": ["xau", "bullion"]
+    }
+  ],
+  [
+    "xyz:JPY",
+    {
+      "category": "fx",
+      "displayName": "USDJPY",
+      "keywords": ["yen", "currency"]
+    }
+  ],
+  [
+    "xyz:QNT",
+    {
+      "category": "stocks",
+      "displayName": "QNT",
+      "keywords": ["quantum", "iontrap"]
+    }
+  ],
+  [
+    "xyz:SP500",
+    {
+      "category": "indices",
+      "displayName": "S&P500",
+      "keywords": ["spx", "es"]
+    }
+  ],
+  [
+    "xyz:XYZ100",
+    {
+      "category": "indices",
+      "displayName": "XYZ100",
+      "keywords": ["nasdaq", "qqq"]
+    }
+  ]
+]

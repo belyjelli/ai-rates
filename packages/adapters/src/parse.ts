@@ -1,4 +1,4 @@
-import { canonicalBase, type MarketRef, parseVenueSymbol } from "@ai-rates/core";
+import { canonicalBase, type MarketRef, parseVenueSymbol, refineAssetClass } from "@ai-rates/core";
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -87,6 +87,9 @@ export function marketRef(
     venueId,
     venueSymbol,
     base: parsed.base,
+    // Crypto unless the adapter passes what its venue declares. Never read off the symbol: CAT is
+    // a memecoin on five venues and Caterpillar on gate, under the same correct ticker.
+    assetClass: "crypto",
     quote: parsed.quote,
     multiplier: parsed.multiplier,
     dex: parsed.dex,
@@ -96,5 +99,10 @@ export function marketRef(
   // re-split the pools that map exists to join: MEXC declares the S&P 500 as SP500, which has to
   // reach US500 the same way gate's SPX500 does. Only the base is canonicalised -- `quote` is a
   // settlement currency, not an asset, and has no alias table.
-  return overrides.base === undefined ? ref : { ...ref, base: canonicalBase(overrides.base) };
+  // `parsed.base`, not `ref.base`: an adapter passing `base: undefined` explicitly (MEXC, when
+  // `baseCoin` is empty) spreads that undefined over the parsed base above.
+  const base = overrides.base === undefined ? parsed.base : canonicalBase(overrides.base);
+  // Refined here rather than in each adapter so that every venue settles equity-versus-index and
+  // tokenised gold by the same table; a venue's crypto declaration passes through untouched.
+  return { ...ref, base, assetClass: refineAssetClass(ref.assetClass, base) };
 }

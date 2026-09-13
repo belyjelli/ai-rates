@@ -1,4 +1,5 @@
 import {
+  type AssetClass,
   type BacktestResult,
   type IdentityVerdict,
   pairCapitalUsd,
@@ -58,7 +59,32 @@ import { layout } from "./layout";
 import { type RailScale, railPosition, railScale, renderRail } from "./rail";
 import { VENUE_TYPE_LABEL, VENUE_TYPE_SHORT, venueName } from "./venues";
 
-const assetHref = (asset: string) => `/markets/asset/${encodeURIComponent(asset)}`;
+/**
+ * An asset's address. Crypto is the unmarked default; every other class is part of the path, so BB
+ * the stock and BB the token never share a page -- a class-less URL would merge BlackBerry's and
+ * BounceBit's markets onto one table, the exact conflation migration 017 exists to end.
+ */
+const assetPath = (asset: string, assetClass: AssetClass) =>
+  assetClass === "crypto"
+    ? encodeURIComponent(asset)
+    : `${assetClass}/${encodeURIComponent(asset)}`;
+export const assetHref = (asset: string, assetClass: AssetClass) =>
+  `/markets/asset/${assetPath(asset, assetClass)}`;
+export const pairHref = (asset: string, assetClass: AssetClass) =>
+  `/pair/${assetPath(asset, assetClass)}`;
+export const priceHref = (asset: string, assetClass: AssetClass) =>
+  `/price-pair/${assetPath(asset, assetClass)}`;
+/** A row identity that keeps two same-named assets apart when a live refresh matches rows. */
+const assetKey = (asset: string, assetClass: AssetClass) =>
+  assetClass === "crypto" ? asset : `${assetClass}:${asset}`;
+/**
+ * The ticker, tagged with its class unless it is crypto. Tagging only the ~70 tradfi markets keeps
+ * 5,900 crypto rows clean, and still tells the two BB rows apart wherever both appear.
+ */
+const assetName = (asset: string, assetClass: AssetClass) =>
+  `${esc(asset)}${assetClass === "crypto" ? "" : ` <span class="cls">${assetClass}</span>`}`;
+const assetTitle = (asset: string, assetClass: AssetClass) =>
+  assetClass === "crypto" ? asset : `${asset} (${assetClass})`;
 const exchangeHref = (venueId: string) => `/markets/exchange/${encodeURIComponent(venueId)}`;
 const apr = (value: number | null) => `<span class="${aprTone(value)}">${formatApr(value)}</span>`;
 
@@ -95,7 +121,7 @@ const stability = (score: number | null, days: number | null): string =>
  * the pair's stability, so a reader can see the danger beside the number instead of discovering it
  * after opening a position.
  *
- * Each row links to its OWN legs. `pairHref(asset)` alone would open whichever pair the asset page
+ * Each row links to its OWN legs. `pairHref` alone would open whichever pair the asset page
  * picks by spread, which is often not the pair that earned this row.
  */
 function verifiedTable(verified: VerifiedPair[]): string {
@@ -104,9 +130,9 @@ function verifiedTable(verified: VerifiedPair[]): string {
   }
   const rows = verified
     .map((v) => {
-      const href = `${pairHref(v.asset)}?long=${encodeURIComponent(v.long_venue_id)}&short=${encodeURIComponent(v.short_venue_id)}`;
-      return `<tr data-k="${esc(`${v.asset}|${v.long_venue_id}|${v.short_venue_id}`)}">
-<td class="asset"><a href="${href}">${esc(v.asset)}</a></td>
+      const href = `${pairHref(v.asset, v.asset_class)}?long=${encodeURIComponent(v.long_venue_id)}&short=${encodeURIComponent(v.short_venue_id)}`;
+      return `<tr data-k="${esc(`${assetKey(v.asset, v.asset_class)}|${v.long_venue_id}|${v.short_venue_id}`)}">
+<td class="asset"><a href="${href}">${assetName(v.asset, v.asset_class)}</a></td>
 <td class="num ${v.net_funding_usd >= 0 ? "longs-paid" : "shorts-paid"}">${money(v.net_funding_usd)}</td>
 <td class="num">${formatApr(v.net_funding_apr_percent)}</td>
 <td><div class="leg long-leg"><a class="venue" href="${exchangeHref(v.long_venue_id)}">${esc(venueName(v.long_venue_id))}</a><span class="meta">${esc(v.long_symbol)}</span></div></td>
@@ -163,7 +189,7 @@ function heroPair(p: ScreenerPair): string {
   return `<section class="hero" data-live="hero">
 <p class="eyebrow">Widest funding spread right now</p>
 <div class="hero-head">
-<a class="hero-asset" href="${assetHref(p.asset)}">${esc(p.asset)}</a>
+<a class="hero-asset" href="${assetHref(p.asset, p.asset_class)}">${assetName(p.asset, p.asset_class)}</a>
 <p class="hero-spread"><b data-u="spread">${formatApr(p.spread_apr)}</b><span>funding spread, per year</span></p>
 </div>
 ${renderRail({
@@ -327,8 +353,8 @@ function pairsTable(
 
   const rows = pairs
     .map(
-      (p) => `<tr data-k="${esc(p.asset)}">
-<td class="asset"><a href="${assetHref(p.asset)}">${esc(p.asset)}</a></td>
+      (p) => `<tr data-k="${esc(assetKey(p.asset, p.asset_class))}">
+<td class="asset"><a href="${assetHref(p.asset, p.asset_class)}">${assetName(p.asset, p.asset_class)}</a></td>
 <td class="num spread">${formatApr(p.spread_apr)}</td>
 <td class="rail-cell">${renderRail({
         scale,
@@ -422,7 +448,7 @@ export function exchange(data: {
     .map(
       (m) => `<tr data-k="${esc(m.venue_symbol)}">
 <td>${esc(m.venue_symbol)}</td>
-<td class="asset"><a href="${assetHref(m.base)}">${esc(m.base)}</a></td>
+<td class="asset"><a href="${assetHref(m.base, m.asset_class)}">${assetName(m.base, m.asset_class)}</a></td>
 <td class="num">${apr(m.apr)}</td>
 <td class="rail-cell">${renderRail({ scale, marks: [{ apr: m.apr, tone: m.apr >= 0 ? "short" : "long", label: m.venue_symbol }] })}</td>
 <td class="num">${m.apr_7d === null ? '<span class="dim">–</span>' : apr(m.apr_7d)}</td>
@@ -479,6 +505,7 @@ const ALIASED_VENUES = new Set(VENUES.filter((v) => v.aliasOf).map((v) => v.id))
 
 export interface HeatmapRow {
   base: string;
+  assetClass: AssetClass;
   assetOiUsd: number | null;
   /** Keyed by venue id. A venue with no market for this asset is absent, never zero. */
   byVenue: Map<string, HeatmapCell>;
@@ -502,10 +529,17 @@ export function pivot(cells: readonly HeatmapCell[]): {
 
   for (const cell of cells) {
     if (ALIASED_VENUES.has(cell.venue_id)) continue;
-    let row = byBase.get(cell.base);
+    // Keyed by asset, not base: equity BB and crypto BB are two rows, never one merged row.
+    const key = assetKey(cell.base, cell.asset_class);
+    let row = byBase.get(key);
     if (!row) {
-      row = { base: cell.base, assetOiUsd: cell.asset_oi_usd, byVenue: new Map() };
-      byBase.set(cell.base, row);
+      row = {
+        base: cell.base,
+        assetClass: cell.asset_class,
+        assetOiUsd: cell.asset_oi_usd,
+        byVenue: new Map(),
+      };
+      byBase.set(key, row);
       rows.push(row);
     }
     row.byVenue.set(cell.venue_id, cell);
@@ -587,7 +621,7 @@ export function heatmap(data: {
               const high = Math.max(...present);
               const longId = venueIds[values.indexOf(low)] as string;
               const shortId = venueIds[values.indexOf(high)] as string;
-              return `<a href="${pairHref(row.base)}?long=${encodeURIComponent(longId)}&short=${encodeURIComponent(shortId)}">${formatApr(high - low)}</a>`;
+              return `<a href="${pairHref(row.base, row.assetClass)}?long=${encodeURIComponent(longId)}&short=${encodeURIComponent(shortId)}">${formatApr(high - low)}</a>`;
             })()
           : `<span class="dim">–</span>`;
 
@@ -603,7 +637,7 @@ export function heatmap(data: {
         })
         .join("");
 
-      return `<tr data-k="${esc(row.base)}"><td class="asset"><a href="${assetHref(row.base)}">${esc(row.base)}</a></td><td class="dim">${formatUsd(row.assetOiUsd)}</td><td>${spread}</td>${grid}</tr>`;
+      return `<tr data-k="${esc(assetKey(row.base, row.assetClass))}"><td class="asset"><a href="${assetHref(row.base, row.assetClass)}">${assetName(row.base, row.assetClass)}</a></td><td class="dim">${formatUsd(row.assetOiUsd)}</td><td>${spread}</td>${grid}</tr>`;
     })
     .join("");
 
@@ -682,8 +716,8 @@ export function arbitrage(data: {
         r.thinner_depth_usd === null
           ? "One side's resting size is unknown, so the size this gap is good for cannot be stated"
           : `Good for about ${formatUsd(r.thinner_depth_usd)} at these quotes, before fees and before either book moves`;
-      return `<tr data-k="${esc(r.asset)}">
-<td class="asset"><a href="/price-pair/${encodeURIComponent(r.asset)}">${esc(r.asset)}</a></td>
+      return `<tr data-k="${esc(assetKey(r.asset, r.asset_class))}">
+<td class="asset"><a href="${priceHref(r.asset, r.asset_class)}">${assetName(r.asset, r.asset_class)}</a></td>
 <td class="num spread" title="${esc(title)}"><span data-u="gap">${formatGapBps(r.gap_bps)}</span></td>
 <td class="num" title="${esc(title)}">${formatUsd(r.thinner_depth_usd)}</td>
 ${side("buy", r.buy_venue_id, r.buy_symbol, r.buy_price, r.buy_depth_usd)}
@@ -765,11 +799,13 @@ function filtersForArbitrage(params: ArbitrageParams): string {
  */
 export function pricePair(data: {
   asset: string;
+  /** The class the quotes were read for, so the page's own address and heading carry it. */
+  assetClass: AssetClass;
   quotes: PriceQuote[];
   overview: Overview;
   now: number;
 }): string {
-  const { asset: name, quotes, now } = data;
+  const { asset: name, assetClass, quotes, now } = data;
   const agreeing = quotes.filter((q) => q.mark_agrees);
   const rejected = quotes.filter((q) => !q.mark_agrees);
 
@@ -877,13 +913,13 @@ export function pricePair(data: {
           )}. Their marks disagree by more than 10% with this asset's deepest market by open interest, which means a differently-sized or differently-named instrument rather than a price difference — the check that stops a 1375× mismatch being published as a 13,660,780 bps opportunity. <a href="/status">Status</a> names the reason for each one.</p>`;
 
   return layout({
-    title: `${name} price gaps by exchange`,
+    title: `${assetTitle(name, assetClass)} price gaps by exchange`,
     description: `${name} best bid and ask on every exchange that quotes it, with the size resting at each.`,
-    path: `/price-pair/${encodeURIComponent(name)}`,
+    path: priceHref(name, assetClass),
     overview: data.overview,
     now,
     body: `<p class="eyebrow"><a href="/arbitrage">Price gaps</a></p>
-<h1>${esc(name)}</h1>
+<h1>${assetName(name, assetClass)}</h1>
 ${headline}
 ${pairsTable}
 <div class="section-head"><h2>Every exchange</h2></div>
@@ -1013,7 +1049,7 @@ export function status(data: {
       // correlation of zero would read as evidence of a mismatch rather than an absence of it.
       const corr = c.return_corr === null ? '<span class="dim">–</span>' : c.return_corr.toFixed(2);
       return `<tr data-k="${esc(`${c.venue_id} ${c.venue_symbol}`)}">
-<td class="asset"><a href="${assetHref(c.base)}">${esc(c.base)}</a></td>
+<td class="asset"><a href="${assetHref(c.base, c.asset_class)}">${assetName(c.base, c.asset_class)}</a></td>
 <td><div class="leg"><a class="venue" href="${exchangeHref(c.venue_id)}">${esc(c.venue_id)}</a><span class="meta">${esc(c.venue_symbol)}</span></div></td>
 <td><div class="leg"><a class="venue" href="${exchangeHref(c.anchor_venue_id)}">${esc(c.anchor_venue_id)}</a><span class="meta">${esc(c.anchor_venue_symbol)}</span></div></td>
 <td class="num">${formatPriceRatio(c.price_ratio)}</td>
@@ -1076,12 +1112,13 @@ ${
 
 export function asset(data: {
   asset: string;
+  assetClass: AssetClass;
   markets: MarketRow[];
   /** Required for the same reason as on the exchange page. */
   overview: Overview;
   now: number;
 }): string {
-  const { markets, now } = data;
+  const { markets, now, assetClass } = data;
   const minOi = DEFAULT_FILTERS.minOpenInterestUsd;
   const pair = bestPair(markets, minOi);
   const venues = new Set(markets.map((m) => m.venue_id)).size;
@@ -1121,14 +1158,14 @@ export function asset(data: {
       : `No two exchanges have at least ${formatUsd(minOi)} open interest in it, so there's no pair to show.`;
 
   return layout({
-    title: `${data.asset} funding rates by exchange`,
-    description: `${data.asset} perpetual funding rates across ${venues} exchanges, with the widest long/short spread.`,
-    path: assetHref(data.asset),
+    title: `${assetTitle(data.asset, assetClass)} funding rates by exchange`,
+    description: `${assetTitle(data.asset, assetClass)} perpetual funding rates across ${venues} exchanges, with the widest long/short spread.`,
+    path: assetHref(data.asset, assetClass),
     overview: data.overview,
     now,
     body: `<p class="eyebrow">Funding by exchange</p>
-<h1>${esc(data.asset)}</h1>
-<p class="lede" data-live="asset-lede">${markets.length} live markets on ${venues} exchanges. ${summary}${pair ? ` <a href="${pairHref(data.asset)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}">Backtest this pair</a>.` : ""}</p>
+<h1>${assetName(data.asset, assetClass)}</h1>
+<p class="lede" data-live="asset-lede">${markets.length} live markets on ${venues} exchanges. ${summary}${pair ? ` <a href="${pairHref(data.asset, assetClass)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}">Backtest this pair</a>.` : ""}</p>
 <div class="asset-rail" data-live="asset-rail">${renderRail({ scale, marks, bar: pair ? [pair.long.apr, pair.short.apr] : undefined, size: "big" })}</div>
 <div class="sheet-wrap"><table class="sheet"><thead><tr><th>Exchange</th><th class="num">Funding APR</th><th class="num">24h settled</th><th class="num">7d settled</th><th class="num" title="How often this market held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score">Stability</th><th class="num" title="Last 7 charging days against the days before them, in APR points. Up means funding is widening in the direction it already had">30d trend</th><th class="num">Interval</th><th class="num">Next funding</th><th class="num">Mark price</th><th class="num">Open interest</th><th class="num">24h volume</th></tr></thead><tbody data-live="asset-markets">${rows}</tbody></table></div>`,
   });
@@ -1247,8 +1284,6 @@ function capitalFact(capital: PairCapital): string {
     : `capital <b>${amount}</b> across both legs at ${leverage} (small size)`;
 }
 
-const pairHref = (asset: string) => `/pair/${encodeURIComponent(asset)}`;
-
 /**
  * Cumulative funding by day. Rendered server-side: the site has no chart library, and the Free plan
  * allows 10 ms of CPU per request.
@@ -1299,20 +1334,26 @@ function feeField(name: string, label: string, current: number | null): string {
  * The window as links, marked the way the rates page marks its timeframe. Each keeps the legs, size
  * and fees already chosen, so switching window never throws away the pair being read.
  */
-function windowStrip(asset: string, params: BacktestParams | null, days: number): string {
+function windowStrip(
+  asset: string,
+  assetClass: AssetClass,
+  params: BacktestParams | null,
+  days: number,
+): string {
   const links = BACKTEST_WINDOWS.map((n) => {
     const query = params
       ? backtestToQuery({ ...params, days: n })
       : n === DEFAULT_BACKTEST_DAYS
         ? ""
         : `?days=${n}`;
-    return `<a href="${pairHref(asset)}${query}"${n === days ? ' aria-current="true"' : ""}>${n}d</a>`;
+    return `<a href="${pairHref(asset, assetClass)}${query}"${n === days ? ' aria-current="true"' : ""}>${n}d</a>`;
   }).join("");
   return `<div class="tf" aria-label="Window">${links}</div>`;
 }
 
 function backtestForm(
   asset: string,
+  assetClass: AssetClass,
   markets: MarketRow[],
   params: BacktestParams | null,
   days: number,
@@ -1335,7 +1376,7 @@ function backtestForm(
       )
       .join("")}</select></label>`;
 
-  return `<form class="filters" method="get" action="${pairHref(asset)}">
+  return `<form class="filters" method="get" action="${pairHref(asset, assetClass)}">
 ${venueField("long", params?.longVenueId)}
 ${venueField("short", params?.shortVenueId)}
 ${numberField("size", "Size per leg", params?.sizeUsd ?? 10_000, [
@@ -1350,9 +1391,9 @@ ${feeField("fee_long", "Long taker fee", params?.longTakerBps ?? null)}
 ${feeField("fee_short", "Short taker fee", params?.shortTakerBps ?? null)}
 <div class="actions"><button type="submit">Run backtest</button>${
     params
-      ? `<a href="${pairHref(asset)}${backtestToQuery({ ...params, longVenueId: params.shortVenueId, shortVenueId: params.longVenueId })}">⇄ swap legs</a>`
+      ? `<a href="${pairHref(asset, assetClass)}${backtestToQuery({ ...params, longVenueId: params.shortVenueId, shortVenueId: params.longVenueId })}">⇄ swap legs</a>`
       : ""
-  }<a href="/price-pair/${encodeURIComponent(asset)}" title="What entering and exiting would cost at each exchange's top of book">price gap</a><a href="${assetHref(asset)}">Back to ${esc(asset)}</a></div>
+  }<a href="${priceHref(asset, assetClass)}" title="What entering and exiting would cost at each exchange's top of book">price gap</a><a href="${assetHref(asset, assetClass)}">Back to ${esc(asset)}</a></div>
 </form>`;
 }
 
@@ -1408,6 +1449,7 @@ function rangeFacts(result: BacktestResult): string {
 
 export function pair(data: {
   asset: string;
+  assetClass: AssetClass;
   markets: MarketRow[];
   params: BacktestParams | null;
   /** The window, known even before legs are chosen, since the chart draws it either way. */
@@ -1421,7 +1463,7 @@ export function pair(data: {
   overview: Overview;
   now: number;
 }): string {
-  const { asset, markets, params, days, result, tiers, history, overview, now } = data;
+  const { asset, assetClass, markets, params, days, result, tiers, history, overview, now } = data;
   const venues = new Set(markets.map((m) => m.venue_id)).size;
   const legMarket = (venueId: string, venueSymbol: string) =>
     markets.find((m) => m.venue_id === venueId && m.venue_symbol === venueSymbol);
@@ -1482,16 +1524,16 @@ ${
         }</p>`;
 
   return layout({
-    title: `${asset} funding carry backtest`,
-    description: `What holding ${asset} long on one exchange and short on another would have paid in funding.`,
-    path: pairHref(asset),
+    title: `${assetTitle(asset, assetClass)} funding carry backtest`,
+    description: `What holding ${assetTitle(asset, assetClass)} long on one exchange and short on another would have paid in funding.`,
+    path: pairHref(asset, assetClass),
     overview,
     now,
-    body: `<p class="eyebrow"><a href="${assetHref(asset)}">${esc(asset)}</a> / backtest</p>
-<h1>${esc(asset)} carry</h1>
+    body: `<p class="eyebrow"><a href="${assetHref(asset, assetClass)}">${assetName(asset, assetClass)}</a> / backtest</p>
+<h1>${assetName(asset, assetClass)} carry</h1>
 <p class="lede">Every exchange's funding over one window, and what the two legs you pick actually settled, summed per UTC day. Windows are whole calendar days ending today, and the figures refresh hourly.</p>
-${backtestForm(asset, markets, params, days)}
-${windowStrip(asset, params, days)}
+${backtestForm(asset, assetClass, markets, params, days)}
+${windowStrip(asset, assetClass, params, days)}
 ${renderFundingChart(history, legs)}
 ${body}`,
   });

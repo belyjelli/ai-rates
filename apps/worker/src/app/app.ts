@@ -1,4 +1,4 @@
-import { backtestDaily, dailyWindowStart } from "@ai-rates/core";
+import { ASSET_CLASSES, type AssetClass, backtestDaily, dailyWindowStart } from "@ai-rates/core";
 import { VENUES } from "@ai-rates/venues";
 import { about } from "../web/about";
 import type { FundingHistory } from "../web/funding-chart";
@@ -33,6 +33,36 @@ export interface AppDeps {
 const PAGE_MAX_AGE = 30;
 const API_MAX_AGE = 15;
 const ASSET_PATTERN = /^[A-Za-z0-9._-]{1,40}$/;
+
+interface AssetAddress {
+  asset: string;
+  /** Null when the URL names no class: the data layer resolves it (crypto first, else deepest). */
+  assetClass: AssetClass | null;
+}
+
+/**
+ * Reads an asset address from the path segments after the route name: `BB`, or `equity/BB`.
+ *
+ * The class is a path segment rather than a query parameter so that the pages' existing
+ * `?long=&short=` links keep working unchanged. Null for anything malformed, which each route
+ * answers exactly as it answers an asset nobody lists.
+ */
+function assetAddress(parts: readonly string[]): AssetAddress | null {
+  const [first, second] = parts;
+  if (parts.length === 1 && first !== undefined) {
+    return ASSET_PATTERN.test(first) ? { asset: first.toUpperCase(), assetClass: null } : null;
+  }
+  if (parts.length === 2 && first !== undefined && second !== undefined) {
+    const assetClass = ASSET_CLASSES.find((c) => c === first.toLowerCase());
+    return assetClass && ASSET_PATTERN.test(second)
+      ? { asset: second.toUpperCase(), assetClass }
+      : null;
+  }
+  return null;
+}
+
+/** The asset's name for a not-found message, even when the address did not parse. */
+const askedAsset = (parts: readonly string[]) => (parts.at(-1) ?? "").toUpperCase();
 /** Rows in the homepage's verified ranking, and in /v1/verified. The original plan asked for ten. */
 const VERIFIED_LIMIT = 10;
 
@@ -110,19 +140,21 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(pages.arbitrage({ overview, rows, params, now }));
     }
 
-    if (segments[0] === "price-pair" && segments.length === 2) {
-      const asset = (segments[1] as string).toUpperCase();
+    if (segments[0] === "price-pair" && (segments.length === 2 || segments.length === 3)) {
+      const address = assetAddress(segments.slice(1));
+      const asset = address?.asset ?? askedAsset(segments);
       const [overview, quotes] = await Promise.all([
         deps.data.overview(),
-        ASSET_PATTERN.test(asset) ? deps.data.priceQuotes(asset) : [],
+        address ? deps.data.priceQuotes(address.asset, address.assetClass) : [],
       ]);
-      if (quotes.length === 0) {
+      const [first] = quotes;
+      if (!first) {
         return page(
           pages.notFound(path, now, `No exchange is quoting a ${asset} book right now.`),
           404,
         );
       }
-      return page(pages.pricePair({ asset, quotes, overview, now }));
+      return page(pages.pricePair({ asset, assetClass: first.asset_class, quotes, overview, now }));
     }
 
     if (path === "/about") {
@@ -171,19 +203,25 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(pages.exchange({ venue, markets, overview, now }));
     }
 
-    if (segments[0] === "markets" && segments[1] === "asset" && segments.length === 3) {
-      const asset = (segments[2] as string).toUpperCase();
+    if (
+      segments[0] === "markets" &&
+      segments[1] === "asset" &&
+      (segments.length === 3 || segments.length === 4)
+    ) {
+      const address = assetAddress(segments.slice(2));
+      const asset = address?.asset ?? askedAsset(segments);
       const [overview, markets] = await Promise.all([
         deps.data.overview(),
-        ASSET_PATTERN.test(asset) ? deps.data.asset(asset) : [],
+        address ? deps.data.asset(address.asset, address.assetClass) : [],
       ]);
-      if (markets.length === 0) {
+      const [first] = markets;
+      if (!first) {
         return page(
           pages.notFound(path, now, `No exchange has a live ${asset} perpetual right now.`),
           404,
         );
       }
-      return page(pages.asset({ asset, markets, overview, now }));
+      return page(pages.asset({ asset, assetClass: first.asset_class, markets, overview, now }));
     }
 
     if (path === "/v1/health") {
@@ -244,10 +282,20 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return json({ params, query: arbitrageToQuery(params), count: rows.length, rows });
     }
 
-    if (segments[0] === "v1" && segments[1] === "price-pair" && segments.length === 3) {
-      const asset = (segments[2] as string).toUpperCase();
-      const quotes = ASSET_PATTERN.test(asset) ? await deps.data.priceQuotes(asset) : [];
-      return json({ asset, count: quotes.length, quotes });
+    if (
+      segments[0] === "v1" &&
+      segments[1] === "price-pair" &&
+      (segments.length === 3 || segments.length === 4)
+    ) {
+      const address = assetAddress(segments.slice(2));
+      const asset = address?.asset ?? askedAsset(segments);
+      const quotes = address ? await deps.data.priceQuotes(address.asset, address.assetClass) : [];
+      return json({
+        asset,
+        asset_class: quotes[0]?.asset_class ?? address?.assetClass ?? null,
+        count: quotes.length,
+        quotes,
+      });
     }
 
     if (segments[0] === "v1" && segments[1] === "exchanges" && segments.length === 3) {
@@ -257,20 +305,27 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return json({ exchange: { id: venue.id, name: venue.name, type: venue.type }, markets });
     }
 
-    if (segments[0] === "v1" && segments[1] === "assets" && segments.length === 3) {
-      const asset = (segments[2] as string).toUpperCase();
-      const markets = ASSET_PATTERN.test(asset) ? await deps.data.asset(asset) : [];
-      if (markets.length === 0) return json({ error: "no_live_markets", asset }, 404);
-      return json({ asset, markets });
+    if (
+      segments[0] === "v1" &&
+      segments[1] === "assets" &&
+      (segments.length === 3 || segments.length === 4)
+    ) {
+      const address = assetAddress(segments.slice(2));
+      const asset = address?.asset ?? askedAsset(segments);
+      const markets = address ? await deps.data.asset(address.asset, address.assetClass) : [];
+      const [first] = markets;
+      if (!first) return json({ error: "no_live_markets", asset }, 404);
+      return json({ asset, asset_class: first.asset_class, markets });
     }
 
     if (
       segments[0] === "v1" &&
       segments[1] === "pairs" &&
-      segments[3] === "backtest" &&
-      segments.length === 4
+      segments.at(-1) === "backtest" &&
+      (segments.length === 4 || segments.length === 5)
     ) {
-      const asset = (segments[2] as string).toUpperCase();
+      const address = assetAddress(segments.slice(2, -1));
+      const asset = address?.asset ?? askedAsset(segments.slice(0, -1));
       // Ahead of everything, including validation: the point is to bound volume, and the limiter
       // costs far less than the database read below.
       if (!(await withinRate(deps, request, "backtest"))) {
@@ -288,7 +343,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           0,
         );
       }
-      const markets = ASSET_PATTERN.test(asset) ? await deps.data.asset(asset) : [];
+      const markets = address ? await deps.data.asset(address.asset, address.assetClass) : [];
       const long = pickMarket(markets, params.longVenueId);
       const short = pickMarket(markets, params.shortVenueId);
       if (!long || !short) {
@@ -309,8 +364,9 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return json({ asset, request: params, ...result }, 200, 3600);
     }
 
-    if (segments[0] === "pair" && segments.length === 2) {
-      const asset = (segments[1] as string).toUpperCase();
+    if (segments[0] === "pair" && (segments.length === 2 || segments.length === 3)) {
+      const address = assetAddress(segments.slice(1));
+      const asset = address?.asset ?? askedAsset(segments);
       const requested = parseBacktestParams(url.searchParams);
       const days = requested?.days ?? parseBacktestDays(url.searchParams);
       // Only a request that computes a backtest is limited; browsing /pair/:asset to pick two legs
@@ -318,13 +374,15 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       if (requested && !(await withinRate(deps, request, "pair"))) {
         return page(pages.tooMany(path, now), 429);
       }
-      const markets = ASSET_PATTERN.test(asset) ? await deps.data.asset(asset) : [];
-      if (markets.length === 0) {
+      const markets = address ? await deps.data.asset(address.asset, address.assetClass) : [];
+      const [first] = markets;
+      if (!first) {
         return page(
           pages.notFound(path, now, `No exchange has a live ${asset} perpetual right now.`),
           404,
         );
       }
+      const assetClass = first.asset_class;
       const params = requested;
       const long = params ? pickMarket(markets, params.longVenueId) : undefined;
       const short = params ? pickMarket(markets, params.shortVenueId) : undefined;
@@ -338,7 +396,18 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         deps.data.overview(),
       ]);
       return page(
-        pages.pair({ asset, markets, params, days, result, tiers, history, overview, now }),
+        pages.pair({
+          asset,
+          assetClass,
+          markets,
+          params,
+          days,
+          result,
+          tiers,
+          history,
+          overview,
+          now,
+        }),
       );
     }
 

@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { HttpClient } from "../http";
 import {
+  type GateContract,
   gateAdapter,
+  gateAssetClass,
   parseGateFundingHistory,
   parseGateLiquidations,
   parseGateRiskLimitTiers,
@@ -27,6 +29,7 @@ describe("parseGateSnapshots", () => {
       base: "BTC",
       quote: "USDT",
       multiplier: 1,
+      assetClass: "crypto",
       dex: null,
       observedAt: NOW,
       rate: 0.000016,
@@ -79,6 +82,62 @@ describe("parseGateSnapshots", () => {
       openInterestUsd: null,
       volume24hUsd: null,
     });
+  });
+
+  test("carries each contract's declared class onto its snapshot", async () => {
+    // Real /contracts rows from 2026-09-14.
+    const { snapshots } = parseGateSnapshots(await fixture("asset-class"), [], NOW);
+    expect(
+      Object.fromEntries(snapshots.map((s) => [s.venueSymbol, `${s.assetClass}:${s.base}`])),
+    ).toEqual({
+      BB_USDT: "crypto:BB",
+      ON_USDT: "crypto:ON",
+      QNT_USDT: "crypto:QNT",
+      STX_USDT: "crypto:STX",
+      // Caterpillar and Raytheon on gate, memecoins elsewhere under the same tickers.
+      CAT_USDT: "equity:CAT",
+      RTX_USDT: "equity:RTX",
+      PURR_USDT: "equity:PURR",
+      // Declared metals and forex; tokens, so marketRef returns them to crypto.
+      PAXG_USDT: "crypto:PAXG",
+      XAUT_USDT: "crypto:XAUT",
+      USDC_USDT: "crypto:USDC",
+      XAU_USDT: "commodity:XAU",
+      CL_USDT: "commodity:CL",
+      EURUSD_USDT: "fx:EURUSD",
+      SPX500_USDT: "index:US500",
+    });
+  });
+});
+
+describe("gateAssetClass", () => {
+  test("reads contract_type off real rows, before marketRef's token refinement", async () => {
+    const rows: GateContract[] = await fixture("asset-class");
+    expect(
+      Object.fromEntries(rows.map((r) => [r.name, gateAssetClass(r.contract_type, "")])),
+    ).toEqual({
+      BB_USDT: "crypto",
+      ON_USDT: "crypto",
+      QNT_USDT: "crypto",
+      STX_USDT: "crypto",
+      CAT_USDT: "equity",
+      RTX_USDT: "equity",
+      PURR_USDT: "equity",
+      PAXG_USDT: "commodity",
+      XAUT_USDT: "commodity",
+      USDC_USDT: "fx",
+      XAU_USDT: "commodity",
+      CL_USDT: "commodity",
+      EURUSD_USDT: "fx",
+      SPX500_USDT: "index",
+    });
+  });
+
+  test("an unknown contract_type is still not crypto; a missing one is", () => {
+    expect(gateAssetClass("bonds", "US10Y")).toBe("index");
+    expect(gateAssetClass("bonds", "XAG")).toBe("commodity");
+    expect(gateAssetClass("bonds", "CAT")).toBe("equity");
+    expect(gateAssetClass(undefined, "CAT")).toBe("crypto");
   });
 });
 

@@ -28,6 +28,7 @@ describe.skipIf(!url)("screener read models (integration)", () => {
     base: asset,
     quote: "USDT",
     multiplier: 1,
+    assetClass: "crypto",
     dex: null,
     observedAt,
     rate,
@@ -216,6 +217,7 @@ describe.skipIf(!url)("screener read models (integration)", () => {
       base: asset,
       quote: "USDT",
       multiplier: 1,
+      assetClass: "crypto",
       dex: null,
       settledAt,
       rate,
@@ -272,6 +274,7 @@ describe.skipIf(!url)("screener read models (integration)", () => {
         base,
         quote: "USDT",
         multiplier: 1,
+        assetClass: "crypto",
         dex: null,
         // Spread across the last 7 days, newest first, staying inside the window.
         settledAt: now - Math.floor(i / 3) * DAY - (i % 3) * 8 * 60 * 60_000 - 60_000,
@@ -308,5 +311,70 @@ describe.skipIf(!url)("screener read models (integration)", () => {
     // The ranking is ungated, so the risk travels with the row: the $0.5M leg is the thinner one.
     expect(row?.thinner_leg_oi_usd as number).toBeCloseTo(500_000, 6);
     expect(row?.worst_leg_abs_apr as number).toBeGreaterThan(0);
+  });
+
+  test("one ticker in two asset classes pairs as two assets, neither anchoring the other", async () => {
+    // The BB shape from migration 017: BlackBerry marks ~7.7 on two venues while BounceBit marks
+    // ~0.008 on two others. Keyed on base alone, the deepest market anchored both and the gate
+    // threw one side away. Keyed on (asset_class, base), each side is a complete pool of its own.
+    const now = Date.now();
+    const ticker = `${asset}BB`;
+    const leg = (
+      venueId: string,
+      assetClass: "equity" | "crypto",
+      markPrice: number,
+      rate: number,
+      openInterestUsd: number,
+    ): FundingSnapshot => ({
+      ...snap(venueId, `${ticker}-${assetClass}`, rate, now, openInterestUsd),
+      base: ticker,
+      assetClass,
+      markPrice,
+      indexPrice: markPrice,
+    });
+    await store.recordBatch(
+      v1,
+      { snapshots: [leg(v1, "equity", 7.72, 0.0001, 90_000_000)], settled: [] },
+      now,
+    );
+    await store.recordBatch(
+      v2,
+      {
+        snapshots: [
+          leg(v2, "equity", 7.73, 0.0004, 1_000_000),
+          leg(v2, "crypto", 0.0081, -0.0002, 800_000),
+        ],
+        settled: [],
+      },
+      now,
+    );
+    await store.recordBatch(
+      v3,
+      { snapshots: [leg(v3, "crypto", 0.008, 0.0003, 900_000)], settled: [] },
+      now,
+    );
+
+    const rows = (await sql.unsafe(
+      `SELECT asset, asset_class, venue_count, long_venue_id, short_venue_id
+       FROM screener_pairs(0, 0, NULL, NULL, interval '5 minutes')
+       WHERE asset = '${ticker}' ORDER BY asset_class`,
+    )) as Record<string, unknown>[];
+
+    expect(rows).toEqual([
+      {
+        asset: ticker,
+        asset_class: "crypto",
+        venue_count: 2,
+        long_venue_id: v2,
+        short_venue_id: v3,
+      },
+      {
+        asset: ticker,
+        asset_class: "equity",
+        venue_count: 2,
+        long_venue_id: v1,
+        short_venue_id: v2,
+      },
+    ]);
   });
 });
