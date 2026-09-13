@@ -21,7 +21,12 @@ live `screener_pairs` function for its hero and spreads table, and `market_pair_
 "What actually paid, last 7 days" block. So:
 
 - `screener_pairs` is **not modified**. No new selection mode, no changed default.
-- `market_pair_backtests` is **not modified**. Same rows, same primary key, same writer.
+- `market_pair_backtests` is **not modified by this work**. 017 does reshape it — it gains
+  `asset_class` and its primary key becomes `(run_day, asset_class, asset)`, because a split
+  `screener_pairs` can return an equity `BB` and a crypto `BB` in the same run and the old
+  `(run_day, asset)` key would reject the second. Same rows otherwise, same writer. Nothing here
+  reads it: it stores only the winning pair per asset, which is precisely the counterfactual gap
+  sprint 0 exists to close.
 - Everything below lands in a **new read model** written by a **new collector job**, served on a
   **new surface**.
 
@@ -161,11 +166,18 @@ gain rather than shipping a bundle and guessing.
 
 ## 5. Shape of the implementation
 
-- **Migration 018**, agreed with the session holding the identity refactor: **017 is `asset_class`**
-  and is theirs. Provisional contract to build against, final names to be confirmed when 017
-  commits: `markets.asset_class text NOT NULL DEFAULT 'crypto'`, constrained to
-  `crypto | equity | commodity | fx | index`, mirrored onto `market_latest` so readers need no join,
-  and **the identity key everywhere becomes `(asset_class, base)`**.
+- **Migration 018.** 017 is `asset_class` and belongs to the identity-refactor session. Its contract
+  as written (2026-09-13, before deployment):
+  - `markets` and `market_latest` gain `asset_class text NOT NULL DEFAULT 'crypto'`, constrained to
+    `crypto | equity | commodity | fx | index`, plus an index `market_latest_class_base
+    (asset_class, base)` — which is exactly the index candidate enumeration below wants.
+  - `market_identity_checks` gains the column only; its key stays `(venue_id, venue_symbol)`, which
+    is already unique per market whatever the asset class.
+  - `market_pair_backtests` gains the column and re-keys to `(run_day, asset_class, asset)`.
+  - `screener_pairs` is dropped and recreated on 016's body with the same seven arguments, adding an
+    `asset_class` output column and keying every CTE on `(asset_class, base)`.
+  - `packages/core/src/asset-class.ts` holds `refineAssetClass` and `classifyNonCrypto`, applied by
+    `marketRef`.
 - **This read model keys on `(asset_class, base)`, never on `base` alone** — and it does **not**
   consume `screener_pairs`. It cannot: that returns one winner per asset via `DISTINCT ON`, while
   sprint 0 needs every candidate. It enumerates candidate leg-pairs from `market_latest` itself, so
@@ -253,3 +265,27 @@ variant has actually won.
   State it in the migration before use, as migration 009 does for stability.
 - **One venue dominating an asset's depth** makes capacity-weighting concentrate into that venue's
   risk. Track per-venue exposure in the ranked table so the concentration is visible.
+
+### Adjacent risk, recorded here because nothing else owns it yet
+
+Not this design's work, and deliberately not claimed by it — written down because it lands the
+moment 017 deploys and it currently lives only in a cross-session message, which is not a durable
+place for a pre-deploy hazard.
+
+**A split `screener_pairs` makes `/` render two `BB` rows**, one equity and one crypto, and nothing
+on the page distinguishes them today. A reader sees two identical-looking rows carrying different
+numbers and concludes the site is broken — a worse outcome than the conflation 017 fixes. The same
+applies to the rates grid and to arbitrage. Three concrete pieces:
+
+1. `ScreenerPair` (and `HeatmapCell`, `ArbitrageRow`) in `apps/worker/src/app/data.ts` need
+   `asset_class`, or the typed row silently omits a column the function now returns.
+2. `pages.ts` needs to render the class **where a ticker appears more than once**. Tagging every row
+   `crypto` would be noise on ~5,900 of 5,973 markets.
+3. **Routing is the awkward one.** `assetHref()` builds `/markets/asset/:asset` from `base` alone,
+   so equity `BB` and crypto `BB` resolve to the same URL and `data.asset(base)` merges both assets
+   onto one page — showing BlackBerry and BounceBit interleaved, which is exactly the conflation
+   017 exists to end, surviving in the one place a reader goes to inspect an asset. `/price-pair/:asset`
+   has the same shape.
+
+Whoever lands 017 should own 1 and 2. If 3 goes unclaimed it should come here, since it has no
+obvious fallback and a wrong answer is silently wrong rather than visibly broken.
