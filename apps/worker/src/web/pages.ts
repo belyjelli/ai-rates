@@ -261,6 +261,7 @@ ${select("min_vol", "Min 24h volume, each leg", f.minVolume24hUsd, [
   [10_000_000, "$10M"],
 ])}
 <fieldset class="field"><legend>Exchange types</legend><div class="checks">${types}</div></fieldset>
+<fieldset class="field"><legend>Settlement</legend><div class="checks"><label title="A USDT leg against a USDC leg carries the basis between the two stablecoins and needs collateral in both. Ticked, each asset is paired only within one quote currency"><input type="checkbox" name="quote" value="same"${f.sameQuote ? " checked" : ""}> Same quote currency on both legs</label></div></fieldset>
 <fieldset class="field"><legend>Distressed markets</legend><div class="checks"><label title="Delisting and distressed listings can pay beyond ±2000% APR and crowd out tradeable spreads"><input type="checkbox" name="extremes" value="1"${f.maxAbsApr === null ? " checked" : ""}> Include beyond ±1000% APR</label></div></fieldset>
 ${select("limit", "Rows", f.limit, [
   [50, "50"],
@@ -331,6 +332,23 @@ function stabilityTitle(p: ScreenerPair): string {
   return ` title="${esc(`Weaker leg held its direction on ${days} of its charging days in the last 30`)}"`;
 }
 
+/**
+ * Names a leg's settlement currency, but only when the two legs differ. Same-quote pairs stay quiet:
+ * 76% of live pairs settle both legs in one currency and a label on every row would be noise.
+ *
+ * Migration 019 measured 166 of 678 live pairs mixing quotes, 59 of them USDT against USDC. A mixed
+ * pair is not delta-neutral in dollars: it carries the basis between the two stablecoins and needs
+ * collateral in both. An unknown quote is said plainly rather than guessed.
+ */
+function quoteMark(quote: string | null, otherQuote: string | null): string {
+  if (quote === otherQuote) return "";
+  const title =
+    quote === null
+      ? "This exchange does not say what the leg settles in, so it cannot be shown to match the other leg"
+      : `Settles in ${quote} while the other leg settles in ${otherQuote ?? "an undeclared currency"}: the pair carries the basis between them`;
+  return ` · <span class="qmix" title="${esc(title)}">${esc(quote ?? "quote ?")}</span>`;
+}
+
 function pairsTable(
   pairs: ScreenerPair[],
   emptyMessage: string,
@@ -348,8 +366,10 @@ function pairsTable(
     symbol: string,
     interval: number | null,
     oi: number | null,
+    quote: string | null,
+    otherQuote: string | null,
   ) =>
-    `<td><div class="leg ${side}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)} · ${formatInterval(interval)} · OI <span data-u="${side}-oi">${formatUsd(oi)}</span></span></div></td>`;
+    `<td><div class="leg ${side}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)} · ${formatInterval(interval)} · OI <span data-u="${side}-oi">${formatUsd(oi)}</span>${quoteMark(quote, otherQuote)}</span></div></td>`;
 
   const rows = pairs
     .map(
@@ -374,9 +394,9 @@ function pairsTable(
         ],
         bar: [p.long_apr, p.short_apr],
       })}</td>
-${leg("long", p.long_venue_id, p.long_symbol, p.long_interval_hours, p.long_open_interest_usd)}
+${leg("long", p.long_venue_id, p.long_symbol, p.long_interval_hours, p.long_open_interest_usd, p.long_quote, p.short_quote)}
 <td class="num">${apr(p.long_apr)}</td>
-${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short_open_interest_usd)}
+${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short_open_interest_usd, p.short_quote, p.long_quote)}
 <td class="num">${apr(p.short_apr)}</td>
 <td class="num">${p.spread_apr_7d === null ? '<span class="dim">–</span>' : formatApr(p.spread_apr_7d)}</td>
 <td class="num dim">${p.venue_count}</td>

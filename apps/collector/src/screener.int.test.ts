@@ -377,4 +377,58 @@ describe.skipIf(!url)("screener read models (integration)", () => {
       },
     ]);
   });
+
+  test("same-quote pairing chooses legs within one settlement currency, before picking the widest", async () => {
+    // Migration 019. The widest pair is USDT against USDC; a reader who asked for one quote must get
+    // the narrower USDT/USDT pair for the SAME asset, not lose the asset because its widest was mixed.
+    const now = Date.now();
+    const ticker = `${asset}Q`;
+    const leg = (venueId: string, quote: string | null, rate: number): FundingSnapshot => ({
+      ...snap(venueId, `${ticker}-${quote ?? "none"}`, rate, now),
+      base: ticker,
+      quote,
+    });
+    await store.recordBatch(v1, { snapshots: [leg(v1, "USDT", -0.0003)], settled: [] }, now);
+    await store.recordBatch(
+      v2,
+      { snapshots: [leg(v2, "USDC", 0.0005), leg(v2, null, 0.0009)], settled: [] },
+      now,
+    );
+    await store.recordBatch(v3, { snapshots: [leg(v3, "USDT", 0.0002)], settled: [] }, now);
+
+    const read = async (sameQuote: boolean) =>
+      (await sql.unsafe(
+        `SELECT long_venue_id, short_venue_id, long_quote, short_quote, venue_count
+         FROM screener_pairs(0, 0, NULL, NULL, interval '5 minutes', NULL, 0.10, ${sameQuote})
+         WHERE asset = '${ticker}'`,
+      )) as Record<string, unknown>[];
+
+    // Default: pairs across quotes exactly as before, now saying so. The unknown-quote leg is the
+    // richest, so it is the short.
+    expect(await read(false)).toEqual([
+      {
+        long_venue_id: v1,
+        short_venue_id: v2,
+        long_quote: "USDT",
+        short_quote: null,
+        venue_count: 3,
+      },
+    ]);
+    // Same quote: the unknown leg sits out, USDC has no partner, and USDT pairs with USDT.
+    expect(await read(true)).toEqual([
+      {
+        long_venue_id: v1,
+        short_venue_id: v3,
+        long_quote: "USDT",
+        short_quote: "USDT",
+        venue_count: 2,
+      },
+    ]);
+    // The seven-argument call the collector and worker already make still resolves.
+    const [legacy] = (await sql.unsafe(
+      `SELECT long_venue_id FROM screener_pairs(0, 0, NULL, NULL, interval '5 minutes', NULL, 0.10)
+       WHERE asset = '${ticker}'`,
+    )) as Record<string, unknown>[];
+    expect(legacy?.long_venue_id).toBe(v1);
+  });
 });

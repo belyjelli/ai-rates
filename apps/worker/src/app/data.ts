@@ -82,6 +82,11 @@ export interface ScreenerFilters {
   venueTypes: string[] | null;
   /** Drops legs beyond this absolute APR; null keeps distressed markets in. */
   maxAbsApr: number | null;
+  /**
+   * Pairs only legs that settle in the same quote currency, chosen before the widest pair is picked
+   * (migration 019), so an asset keeps its best same-quote pair rather than vanishing.
+   */
+  sameQuote: boolean;
   sort: ScreenerSort;
   limit: number;
 }
@@ -117,6 +122,9 @@ export interface ScreenerPair {
    */
   pair_stability: number | null;
   oldest_observed_at: Date;
+  /** Settlement currency of each leg; null where the venue does not declare one. */
+  long_quote: string | null;
+  short_quote: string | null;
 }
 
 export interface Overview {
@@ -469,7 +477,9 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           string_to_array(${f.venueIds?.join(",") ?? null}::text, ','),
           string_to_array(${f.venueTypes?.join(",") ?? null}::text, ','),
           ${FRESH_INTERVAL}::interval,
-          ${f.maxAbsApr}::float8)
+          ${f.maxAbsApr}::float8,
+          ${MARK_DEVIATION}::float8,
+          ${f.sameQuote}::boolean)
         ORDER BY ${order}
         LIMIT ${f.limit}`;
       return [...rows];
