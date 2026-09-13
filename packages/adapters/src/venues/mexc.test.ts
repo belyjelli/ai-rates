@@ -123,6 +123,51 @@ describe("parseMexcSnapshots", () => {
   });
 });
 
+describe("declared base reaches the snapshot", () => {
+  // parseMexcSnapshots iterates TICKERS, so the new fixture contracts need tickers to be reachable.
+  // Without this the resolver is only unit-tested and the wiring at the marketRef call is not.
+  const declared = ["MUSTOCK_USDT", "CATSTOCK_USDT", "LONGXIA_USDT", "SPX500_USDT", "XAU_USDT"];
+  const synthetic = declared.map((symbol) => ({
+    symbol,
+    fundingRate: 0.0001,
+    fairPrice: 100,
+    indexPrice: 100,
+    holdVol: 1000,
+    amount24: 5000,
+  })) as MexcTicker[];
+  const intervals = new Map<string, IntervalEntry>(
+    declared.map((symbol) => [symbol, { hours: 8, nextSettleTime: NOW + HOUR, fetchedAt: NOW }]),
+  );
+  const bySymbol = new Map(
+    parseMexcSnapshots(synthetic, contracts, intervals, NOW).map((s) => [s.venueSymbol, s.base]),
+  );
+
+  test("a declared underlying replaces the contract code", () => {
+    // MEXC's own UI shows MUSTOCK_USDT as MU; 356 contracts rename this way.
+    expect(bySymbol.get("MUSTOCK_USDT")).toBe("MU");
+  });
+
+  test("declaration and the alias map compose", () => {
+    // MEXC declares SP500; the alias map carries it to US500, where four venues already are.
+    expect(bySymbol.get("SPX500_USDT")).toBe("US500");
+  });
+
+  test("a withheld rename is honoured, never stripped", () => {
+    // CAT is a memecoin AND Caterpillar, 387,440,758x apart. MEXC withholds the rename on exactly
+    // these, and that silence is the signal that keeps them apart.
+    expect(bySymbol.get("CATSTOCK_USDT")).toBe("CATSTOCK");
+  });
+
+  test("a display name that is not a ticker falls back to the contract code", () => {
+    expect(bySymbol.get("LONGXIA_USDT")).toBe("LONGXIA");
+  });
+
+  test("a parenthesised display name yields the ticker inside it", () => {
+    // Live MEXC returns GOLD(XAU) here, and XAU is where eight venues already quote gold.
+    expect(bySymbol.get("XAU_USDT")).toBe("XAU");
+  });
+});
+
 describe("parseMexcLeverageTiers", () => {
   const tiers = parseMexcLeverageTiers(detailFixture.data as MexcContractDetail[]);
 
