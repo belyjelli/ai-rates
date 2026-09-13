@@ -315,13 +315,21 @@ so they land before any new venue.
   live and never reads this table, so `gate:CAT` at 387,756,652× stays excluded from the scan while
   its verdict reads `unverified`. Expect this once per large venue during Phase 5.
 
-### 5. Then the venues
-- [ ] WEEX — needs `collectCycle` (minutes: `{240: 493, 480: 517, 60: 6}`) as its interval source,
-      since `fundingInfo` 404s; and its `exchangeInfo` has `status: null` on all 1,016 symbols, so
-      `tradablePerpetuals`' `status === "TRADING"` test would return **zero**.
-- [ ] Bullet — bulk `openInterest` (ignores `?symbol=`, returns all 19), **microsecond**
-      `fundingTime` (`1789308000008909`), and `contractType` values that are never `"PERPETUAL"`.
-- [ ] Both need the base extension's pluggable tradability, interval source and timestamp scale.
+### 5. Then the venues — **WEEX and Bullet shipped `b149162`, verified in production**
+- [x] **WEEX (1,016 markets).** `exchangeInfo` sends no `status`, so its tradability reads the contract type.
+      `fundingInfo` is 404, so the interval comes from premiumIndex `collectCycle`. `lastFundingRate` turned
+      out to be the last **settled** rate, so the prediction is `forecastFundingRate`. Open interest is left
+      null until its unit is established: read as base units, BTC would be $10.8B.
+- [x] **Bullet (19 markets).** Contract types are `CryptoPerp` and `RwaPerp*`, and they also declare the
+      class. Rates are 8-hour, paid hourly at an eighth. History timestamps are microseconds. Open interest
+      comes from one bulk call.
+- [x] The binance-fapi base gained per-member options for tradability, interval source, predicted-rate
+      field, time units, history basis and window, and open-interest mode. Their defaults leave Aster and
+      Binance unchanged.
+- **Measured live on 2026-09-13:** WEEX BTC 8.42% APR, identical to Binance BTCUSDT. Bullet BTC 10.95% on a
+      1h basis, against Hyperliquid's 8.87%.
+- **Left for evidence:** WEEX's 11 `STOCK`-suffixed bases (CATSTOCK, ONSTOCK…) stay as declared. WEEX
+      files JP225USDT as COIN, so it doesn't pair with the JP225 index. Bullet's `WTIOIL` has no CL alias.
 
 ### 6. Deferred, deliberately
 - [x] **Cross-stablecoin filter and marker, shipped `87f64e9` (migration 019).**
