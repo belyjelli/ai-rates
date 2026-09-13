@@ -76,6 +76,15 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     await sql`DELETE FROM market_leverage_tiers WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM liquidations WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_identity_checks WHERE venue_id = ${venueId}`;
+    // Keyed by leg rather than by venue_id, so it cannot join the sweep above. Without this its
+    // rows outlive the run in the shared airates_it schema and hold FKs on venues we then delete.
+    await sql`DELETE FROM market_pair_candidates WHERE long_venue_id LIKE ${`${venueId}%`}
+              OR short_venue_id LIKE ${`${venueId}%`}`;
+    await sql`DELETE FROM market_latest WHERE venue_id LIKE ${`${venueId}%`}`;
+    await sql`DELETE FROM markets WHERE venue_id LIKE ${`${venueId}%`}`;
+    await sql`DELETE FROM funding_events WHERE venue_id LIKE ${`${venueId}%`}`;
+    await sql`DELETE FROM market_funding_daily WHERE venue_id LIKE ${`${venueId}%`}`;
+    await sql`DELETE FROM venues WHERE id LIKE ${`${venueId}-%`}`;
     await sql`DELETE FROM market_latest WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_funding_daily WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_funding_hourly WHERE venue_id = ${venueId}`;
@@ -503,6 +512,161 @@ describe.skipIf(!url)("PgStore (integration)", () => {
       await sql`SELECT venue_symbol FROM market_identity_checks WHERE base = ${idBase}`;
     expect(after.map((r) => r.venue_symbol)).not.toContain(missSym);
     expect(after.map((r) => r.venue_symbol)).toContain(scaleSym);
+  });
+
+  test("enumerates candidates per asset class, and hysteresis holds its incumbent", async () => {
+    // Five venues under ONE ticker: three quoting it as crypto, two as equity. If the enumeration
+    // keyed on base alone it would produce C(5,2) = 10 candidates and pair BlackBerry against
+    // BounceBit; keyed on (asset_class, base) it produces C(3,2) + C(2,2) = 4. That difference is
+    // the whole point of migration 017 and is what this test exists to pin.
+    const rankBase = `${base}RANK`;
+    const crypto = [1, 2, 3].map((i) => `${venueId}-c${i}`);
+    const equity = [1, 2].map((i) => `${venueId}-e${i}`);
+    await store.upsertVenues([...crypto, ...equity].map((id) => ({ id, name: id, type: "cex" })));
+
+    const now = new Date();
+    const settledAt = Math.floor(Date.now() / 3_600_000) * 3_600_000;
+    const symbolOf = (v: string) => `${rankBase}-${v.slice(-2)}`;
+
+    // Marks are identical within a class so every leg clears the anchor gate, and far apart between
+    // classes so a base-keyed enumeration could not have passed by luck.
+    const marketRows = [
+      ...crypto.map((v) => ({ v, cls: "crypto", mark: 100 })),
+      ...equity.map((v) => ({ v, cls: "equity", mark: 7_000 })),
+    ];
+    await sql`INSERT INTO markets ${sql(
+      marketRows.map(({ v, cls }) => ({
+        venue_id: v,
+        venue_symbol: symbolOf(v),
+        base: rankBase,
+        asset_class: cls,
+        quote: "USDT",
+        multiplier: 1,
+        dex: null,
+        interval_hours: 8,
+        max_leverage: null,
+        last_seen: now,
+      })),
+    )}`;
+    // APRs differ per venue so the variants have something to discriminate on: the widest live
+    // spread is c1-c3, which is also the deepest pair, so a capacity-ranked answer can differ.
+    const aprOf: Record<string, number> = {
+      [crypto[0] as string]: -20,
+      [crypto[1] as string]: 5,
+      [crypto[2] as string]: 40,
+      [equity[0] as string]: -3,
+      [equity[1] as string]: 9,
+    };
+    await sql`INSERT INTO market_latest ${sql(
+      marketRows.map(({ v, cls, mark }) => ({
+        venue_id: v,
+        venue_symbol: symbolOf(v),
+        base: rankBase,
+        asset_class: cls,
+        quote: "USDT",
+        observed_at: new Date(Date.now() - 30_000),
+        rate: 0.0001,
+        basis_hours: 8,
+        apr: aprOf[v] as number,
+        interval_hours: 8,
+        next_funding_at: null,
+        kind: "predicted",
+        mark_price: mark,
+        index_price: mark,
+        open_interest_usd: v === crypto[1] ? 50_000_000 : 2_000_000,
+        volume_24h_usd: null,
+      })),
+    )}`;
+
+    // Seven days of settled funding per leg, so backtestPair has something real to replay rather
+    // than scoring every candidate at zero.
+    const events = marketRows.flatMap(({ v }) =>
+      Array.from({ length: 21 }, (_, i) => ({
+        settled_at: new Date(settledAt - i * 8 * 3_600_000),
+        venue_id: v,
+        venue_symbol: symbolOf(v),
+        rate: ((aprOf[v] as number) / 876000) * 8,
+        basis_hours: 8,
+        source: "history",
+      })),
+    );
+    await sql`INSERT INTO funding_events ${sql(events)} ON CONFLICT DO NOTHING`;
+    await sql`INSERT INTO market_funding_daily ${sql(
+      marketRows.flatMap(({ v }) =>
+        Array.from({ length: 7 }, (_, d) => ({
+          venue_id: v,
+          venue_symbol: symbolOf(v),
+          day: new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10),
+          rate_sum: ((aprOf[v] as number) / 876000) * 24,
+          basis_hours_sum: 24,
+          settlements: 3,
+        })),
+      ),
+    )} ON CONFLICT DO NOTHING`;
+
+    expect(await store.refreshRankedPairs()).toBeGreaterThanOrEqual(4);
+
+    type Row = {
+      asset_class: string;
+      long_venue_id: string;
+      short_venue_id: string;
+      chosen_widest: boolean;
+      chosen_hysteresis: boolean;
+      chosen_capacity: boolean;
+      was_incumbent: boolean;
+      switch_cost_usd: number | null;
+      thinner_leg_oi_usd: number | null;
+    };
+    const read = (): Promise<Row[]> => sql`
+      SELECT asset_class, long_venue_id, short_venue_id, chosen_widest, chosen_hysteresis,
+             chosen_capacity, was_incumbent, switch_cost_usd, thinner_leg_oi_usd
+      FROM market_pair_candidates WHERE asset = ${rankBase}`;
+    const first = await read();
+
+    // Four candidates, not ten: the two classes never pair with one another.
+    expect(first).toHaveLength(4);
+    expect(first.filter((r) => r.asset_class === "crypto")).toHaveLength(3);
+    expect(first.filter((r) => r.asset_class === "equity")).toHaveLength(1);
+    for (const r of first) {
+      const legs = [r.long_venue_id, r.short_venue_id];
+      const sameClass = legs.every((v) =>
+        r.asset_class === "crypto" ? crypto.includes(v) : equity.includes(v),
+      );
+      expect(sameClass).toBe(true);
+    }
+
+    // Exactly one winner per variant per class -- more than one is a bug in the writer, not a tie.
+    for (const cls of ["crypto", "equity"]) {
+      const rows = first.filter((r) => r.asset_class === cls);
+      expect(rows.filter((r) => r.chosen_widest)).toHaveLength(1);
+      expect(rows.filter((r) => r.chosen_hysteresis)).toHaveLength(1);
+      expect(rows.filter((r) => r.chosen_capacity)).toHaveLength(1);
+    }
+
+    // The widest live spread in crypto is c1 (-20) against c3 (+40), and the thinner leg of that
+    // pair is $2M while any pair containing c2 has $2M too -- so capacity cannot simply mirror it.
+    const widest = first.find((r) => r.asset_class === "crypto" && r.chosen_widest) as Row;
+    expect([widest.long_venue_id, widest.short_venue_id].sort()).toEqual(
+      [crypto[0] as string, crypto[2] as string].sort(),
+    );
+    // Nothing was held on the first run, so nothing is an incumbent yet.
+    expect(first.every((r) => r.was_incumbent === false)).toBe(true);
+
+    // Second run over unchanged evidence: no challenger can clear the band, so hysteresis must HOLD
+    // the same pair and mark it as the incumbent. This is the behaviour the whole design turns on --
+    // 71% of venue pairs changing overnight is what it exists to stop.
+    await store.refreshRankedPairs();
+    const second = await read();
+    const heldBefore = first.find((r) => r.asset_class === "crypto" && r.chosen_hysteresis) as Row;
+    const heldNow = second.find((r) => r.asset_class === "crypto" && r.chosen_hysteresis) as Row;
+
+    expect([heldNow.long_venue_id, heldNow.short_venue_id]).toEqual([
+      heldBefore.long_venue_id,
+      heldBefore.short_venue_id,
+    ]);
+    expect(heldNow.was_incumbent).toBe(true);
+    // Null, not zero: no switch was contemplated, which is not the same as a switch that was free.
+    expect(heldNow.switch_cost_usd).toBeNull();
   });
 
   test("recordLiquidations is insert-only and absorbs a re-read page", async () => {
