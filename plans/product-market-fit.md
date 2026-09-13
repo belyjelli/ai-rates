@@ -81,8 +81,14 @@ churn is already high under conditions that should suppress it.
 **A likely cause is in our own SQL, not in the market.** `screener_pairs` selects the representative
 pair per asset with `DISTINCT ON (base) ... ORDER BY spread DESC` — the *widest* spread, which
 selects for outliers by construction. `refreshPairBacktests` then replays whatever that picked. Each
-re-selection is a re-entry, and each re-entry pays the ~$20 that already erases the median row. See
-the task in `development-plan.md`.
+re-selection is a re-entry, and each re-entry pays the ~$20 that already erases the median row.
+
+**The design that answers this is [`ranking-system-design.md`](ranking-system-design.md).** It
+carries the cost of this churn — `0.71 × 52 × $20 = $738` per $10k per year, **7.4% of capital
+against a 15.6% size-weighted gross** — together with the capacity sizing for a $1M–$10M book, the
+no-trade-band method, and a four-sprint shadow evaluation. Its pre-registered criteria are the only
+ones that count: the sketch that once sat in `development-plan.md` was superseded so that there is
+one set to be held to rather than three.
 
 ## 3. The tension at the centre of the product
 

@@ -502,10 +502,19 @@ a re-entry that pays the ~$20 of fees already erasing the median row.
     change: hold the legs fixed across the two runs and re-score.
   - **Then try** selecting legs by settled `spread_apr_7d`, or by spread weighted with
     `pair_stability` — both already returned by the function, so this costs no new scan.
-  - **Pre-registered success criterion:** consecutive-run overlap of the viable set rises from 8/23
-    to **≥15**, and same-legs from 29% to **≥60%**, without the viable set's median net funding
-    falling more than a quarter. Re-measure on two *non-overlapping* windows (from ~2026-09-26);
-    today's figure is a churn floor, not a persistence measurement.
+  - **The full design, and the criteria that decide it, now live in
+    [`ranking-system-design.md`](ranking-system-design.md)** — capacity-first ranking for the
+    $1M–$10M book, no-trade-band selection, and a four-sprint shadow evaluation. That document is
+    the single source of the pre-registered criteria; the earlier ones sketched here were
+    superseded by it and are deliberately not restated, so there is only one set to be held to.
+  - Two figures from it worth carrying here: following the current ranking costs
+    `0.71 × 52 × $20 = $738` per $10k per year — **7.4% of capital against a 15.6% size-weighted
+    gross** — and the decisive comparison **cannot be run on existing data**, because only the
+    winning pair is stored per asset per night and no counterfactual is recoverable. Instrumenting
+    that is sprint 0 and ships nothing user-visible.
+  - **The spread page is out of scope and does not change.** It reads both `screener_pairs` and
+    `market_pair_backtests`, so neither is modified; the new ranking gets its own read model,
+    collector job and surface.
   - **Ship net-of-fees alongside it.** `packages/core/src/fees.ts` exists and nothing renders it, so
     every figure on the site is currently gross — and the median row is negative once four fills are
     charged. This is an integrity fix as much as a product one.
