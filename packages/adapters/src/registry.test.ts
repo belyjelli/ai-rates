@@ -29,7 +29,6 @@ describe("createAdapters", () => {
       "bingx",
       "bitget",
       "bitmart",
-      "blofin",
       "bullet",
       "bybit",
       "coinw",

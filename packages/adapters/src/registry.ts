@@ -5,7 +5,6 @@ import { binanceAdapter } from "./venues/binance";
 import { bingxAdapter } from "./venues/bingx";
 import { bitgetAdapter } from "./venues/bitget";
 import { bitmartAdapter } from "./venues/bitmart";
-import { blofinAdapter } from "./venues/blofin";
 import { bulletAdapter } from "./venues/bullet";
 import { bybitAdapter } from "./venues/bybit";
 import { coinwAdapter } from "./venues/coinw";
@@ -34,6 +33,12 @@ import { velocityAdapter } from "./venues/velocity";
 import { weexAdapter } from "./venues/weex";
 
 /** Phase 1 venues with a dedicated adapter. HIP-3 dexes get one adapter each, from the catalog. */
+/**
+ * Adapters built but not collected: `blofin` (packages/adapters/src/venues/blofin.ts) answers from a
+ * development machine but returns HTTP 403 to the collector's host, measured 2026-09-13 22:53Z on its
+ * first production run. It is left out rather than left failing every run on /status; re-add it when
+ * the collector can reach openapi.blofin.com.
+ */
 export const FIXED_ADAPTERS: readonly VenueAdapter[] = [
   bybitAdapter,
   okxAdapter,
@@ -63,7 +68,6 @@ export const FIXED_ADAPTERS: readonly VenueAdapter[] = [
   sodexAdapter,
   ondoAdapter,
   standxAdapter,
-  blofinAdapter,
   toobitAdapter,
   coinwAdapter,
   edgexV2Adapter,
