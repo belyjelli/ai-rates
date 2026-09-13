@@ -26,6 +26,7 @@ const TIERS_REFRESH_MS = 24 * 60 * 60_000;
 const LONG_WINDOWS_REFRESH_MS = 60 * 60_000;
 const PAIR_BACKTESTS_REFRESH_MS = 24 * 60 * 60_000;
 const IDENTITY_CHECKS_REFRESH_MS = 60 * 60_000;
+const RANKED_PAIRS_REFRESH_MS = 24 * 60 * 60_000;
 /**
  * Five minutes, with a measured 12x margin: Gate's deepest page covers ~58 minutes of forced
  * closes at ~3 records/min, so a poll this often cannot overflow it even if activity rises an order
@@ -258,6 +259,26 @@ const identityChecks = new PeriodicTask(
 );
 identityChecks.start(7 * config.intervalMs);
 loops.push(identityChecks);
+
+// Sprint 0 of the ranking work: every candidate pair, and what each of the five pre-registered
+// variants would have selected, written nightly. It displays nothing -- market_pair_backtests keeps
+// only the pair that won, so without this row the counterfactual is unrecoverable at any price.
+//
+// Nightly, and started after the backtests for the same reason they are: the charging floor reads
+// market_funding_daily, so a run before the first fold would score every pair on zero charge days.
+// The evaluation needs two non-overlapping 7-day windows, so what gates it is the date of the
+// FIRST row written, not the job's own latency -- which is why an unregistered task cost real time.
+const rankedPairs = new PeriodicTask(
+  "ranked pair candidates",
+  RANKED_PAIRS_REFRESH_MS,
+  async () => {
+    const rows = await store.refreshRankedPairs();
+    log(`ranked pair candidates: ${rows} candidates scored across five variants`);
+  },
+  log,
+);
+rankedPairs.start(LONG_WINDOWS_REFRESH_MS + 8 * config.intervalMs);
+loops.push(rankedPairs);
 
 // Venues stop collecting quietly: the site keeps serving the last good rows until they age out.
 if (config.alertWebhookUrl) {
