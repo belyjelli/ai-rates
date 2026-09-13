@@ -47,6 +47,11 @@ export interface GateTicker {
   volume_24h_quote: string;
   /** Open interest in contracts. */
   total_size: string;
+  /** Top of book. Prices are quote currency; the paired sizes are contracts. */
+  highest_bid?: string;
+  highest_size?: string;
+  lowest_ask?: string;
+  lowest_size?: string;
 }
 
 export interface GateFundingHistoryItem {
@@ -82,6 +87,16 @@ export function parseGateSnapshots(
       kind: "predicted",
       markPrice,
       indexPrice: num(contract.index_price),
+      bestBid: ticker ? num(ticker.highest_bid) : null,
+      // Sizes are contracts, so they go through `quanto_multiplier` exactly as `total_size` does
+      // above -- 2,776 BTC contracts is 0.2776 BTC, not 2,776 of anything tradable.
+      bestBidSizeUsd: ticker
+        ? mul(num(ticker.highest_size), num(contract.quanto_multiplier), num(ticker.highest_bid))
+        : null,
+      bestAsk: ticker ? num(ticker.lowest_ask) : null,
+      bestAskSizeUsd: ticker
+        ? mul(num(ticker.lowest_size), num(contract.quanto_multiplier), num(ticker.lowest_ask))
+        : null,
       openInterestUsd: ticker
         ? mul(num(ticker.total_size), num(contract.quanto_multiplier), markPrice)
         : null,

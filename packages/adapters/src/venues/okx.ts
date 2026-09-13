@@ -54,6 +54,11 @@ export interface OkxTicker {
   last: string;
   /** 24h volume in the base currency. */
   volCcy24h: string;
+  /** Top of book. Prices are quote currency; the paired sizes are contracts. */
+  bidPx?: string;
+  bidSz?: string;
+  askPx?: string;
+  askSz?: string;
 }
 
 export interface OkxOpenInterest {
@@ -176,11 +181,16 @@ export function parseOkxSnapshots(
   tickers: OkxEnvelope<OkxTicker>,
   openInterest: OkxEnvelope<OkxOpenInterest>,
   markPrices: OkxEnvelope<OkxMarkPrice>,
+  instruments: OkxEnvelope<OkxInstrument>,
   now: number,
 ): SnapshotBatch {
   const tickerById = byInstId(unwrap(tickers, "tickers"));
   const oiById = byInstId(unwrap(openInterest, "open interest"));
   const markById = byInstId(unwrap(markPrices, "mark price"));
+  // Only for turning book sizes into money: OKX quotes them in contracts, and `ctVal` is the only
+  // thing that says what a contract is worth. Fifteen swaps are inverse (`ctValCcy: "USD"`), which
+  // `contractNotionalUsd` already handles -- reading those as coin was a 77,742x error once.
+  const instrumentById = byInstId(unwrap(instruments, "instruments"));
 
   const snapshots: FundingSnapshot[] = [];
   const settled: FundingEvent[] = [];
@@ -193,6 +203,8 @@ export function parseOkxSnapshots(
 
     const ref = marketRef(VENUE_ID, row.instId);
     const ticker = tickerById.get(row.instId);
+    const instrument = instrumentById.get(row.instId);
+    const contractUsd = instrument ? contractNotionalUsd(instrument, markById) : null;
     snapshots.push({
       ...ref,
       observedAt: now,
@@ -203,6 +215,10 @@ export function parseOkxSnapshots(
       kind: "predicted",
       markPrice: num(markById.get(row.instId)?.markPx),
       indexPrice: null,
+      bestBid: num(ticker?.bidPx),
+      bestBidSizeUsd: mul(num(ticker?.bidSz), contractUsd),
+      bestAsk: num(ticker?.askPx),
+      bestAskSizeUsd: mul(num(ticker?.askSz), contractUsd),
       openInterestUsd: num(oiById.get(row.instId)?.oiUsd),
       volume24hUsd: ticker ? mul(num(ticker.volCcy24h), num(ticker.last)) : null,
     });
@@ -354,7 +370,7 @@ export const okxAdapter: VenueAdapter = {
   minIntervalMs: 120,
 
   async fetchSnapshots(client, now) {
-    const [funding, tickers, openInterest, markPrices] = await Promise.all([
+    const [funding, tickers, openInterest, markPrices, instruments] = await Promise.all([
       client.getJson<OkxEnvelope<OkxFundingRate>>(
         `${BASE_URL}/api/v5/public/funding-rate?instId=ANY`,
       ),
@@ -365,8 +381,13 @@ export const okxAdapter: VenueAdapter = {
       client.getJson<OkxEnvelope<OkxMarkPrice>>(
         `${BASE_URL}/api/v5/public/mark-price?instType=SWAP`,
       ),
+      // One bulk call for all 479 swaps, not one per market: `ctVal` is what turns a book size in
+      // contracts into a USD depth, and nothing else in this request set carries it.
+      client.getJson<OkxEnvelope<OkxInstrument>>(
+        `${BASE_URL}/api/v5/public/instruments?instType=SWAP`,
+      ),
     ]);
-    return parseOkxSnapshots(funding, tickers, openInterest, markPrices, now);
+    return parseOkxSnapshots(funding, tickers, openInterest, markPrices, instruments, now);
   },
 
   /**

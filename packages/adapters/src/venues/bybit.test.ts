@@ -36,6 +36,12 @@ describe("parseBybitSnapshots", () => {
       kind: "predicted",
       markPrice: 77766.7,
       indexPrice: 77797.59,
+      bestBid: 77766.7,
+      // Bybit sizes are base coin, so depth is just size x price -- 0.181 BTC, about $14k. No
+      // multiplier, unlike gate and okx, which is precisely why the stored column is USD.
+      bestBidSizeUsd: 0.181 * 77766.7,
+      bestAsk: 77766.8,
+      bestAskSizeUsd: 2.763 * 77766.8,
       openInterestUsd: 4142076932.53,
       volume24hUsd: 6285417277.3039,
       maxLeverage: 150,

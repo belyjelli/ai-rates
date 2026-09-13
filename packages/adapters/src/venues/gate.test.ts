@@ -36,6 +36,12 @@ describe("parseGateSnapshots", () => {
       kind: "predicted",
       markPrice: 77762.8,
       indexPrice: 77790.63,
+      bestBid: 77763.7,
+      // Book sizes are contracts, so the depth is size x quanto_multiplier x price: 2,776
+      // contracts is 0.2776 BTC, about $21.6k -- not 2,776 dollars and not 2,776 coins.
+      bestBidSizeUsd: 2776 * 0.0001 * 77763.7,
+      bestAsk: 77765.3,
+      bestAskSizeUsd: 36039 * 0.0001 * 77765.3,
       openInterestUsd: 640887002 * 0.0001 * 77762.8,
       volume24hUsd: 7031702789,
       maxLeverage: 200,
