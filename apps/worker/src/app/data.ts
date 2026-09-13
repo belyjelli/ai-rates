@@ -270,6 +270,15 @@ export interface LeverageTierRow extends MarketKey {
   max_leverage: number;
 }
 
+/** One market's funding for one UTC hour, from the collector's `market_funding_hourly` rollup. */
+export interface HourlyFundingRow extends MarketKey {
+  /** Start of the hour, epoch milliseconds: a number rather than a Date, so nothing re-zones it. */
+  hour_ms: number;
+  rate_sum: number;
+  basis_hours_sum: number;
+  settlements: number;
+}
+
 /** One market's funding for one UTC day, from the collector's `market_funding_daily` rollup. */
 export interface DailyFundingRow extends MarketKey {
   /** UTC date, YYYY-MM-DD. Cast to text in SQL, so no time zone can move a row across midnight. */
@@ -332,6 +341,11 @@ export interface DataSource {
    * broken by market. The collector refreshes the rollup hourly and keeps 70 days of it.
    */
   dailyFunding(markets: readonly MarketKey[], fromDay: string): Promise<DailyFundingRow[]>;
+  /**
+   * Each market's hourly funding from `fromMs` onward, oldest first, ties broken by market. The
+   * collector keeps 8 days of it (migration 014), which bounds the windows the pair chart reads.
+   */
+  hourlyFunding(markets: readonly MarketKey[], fromMs: number): Promise<HourlyFundingRow[]>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -646,6 +660,24 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           AND d.day >= ${fromDay}::date
         -- Two markets share every day, so the market breaks the tie and the order is reproducible.
         ORDER BY d.day, d.venue_id, d.venue_symbol`;
+      return [...rows];
+    },
+
+    async hourlyFunding(markets, fromMs) {
+      if (markets.length === 0) return [];
+      const sql = connect();
+      // Row-value tuples, for the reason dailyFunding() gives.
+      const keys = markets
+        .map((market) => sql`(${market.venue_id}, ${market.venue_symbol})`)
+        .reduce((all, one) => sql`${all}, ${one}`);
+      // One asset's markets through the primary key: at most 8 days of hours each.
+      const rows = await sql<HourlyFundingRow[]>`
+        SELECT h.venue_id, h.venue_symbol, (extract(epoch FROM h.hour) * 1000)::float8 AS hour_ms,
+               h.rate_sum, h.basis_hours_sum, h.settlements
+        FROM market_funding_hourly h
+        WHERE (h.venue_id, h.venue_symbol) IN (${keys})
+          AND h.hour >= ${new Date(fromMs)}
+        ORDER BY h.hour, h.venue_id, h.venue_symbol`;
       return [...rows];
     },
 

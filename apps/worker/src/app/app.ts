@@ -1,5 +1,6 @@
 import { backtestDaily, dailyWindowStart } from "@ai-rates/core";
 import { VENUES } from "@ai-rates/venues";
+import type { FundingHistory } from "../web/funding-chart";
 import * as pages from "../web/pages";
 import { VENUE_BY_ID } from "../web/venues";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
@@ -11,6 +12,7 @@ import {
   HEATMAP_MIN_VENUES,
   heatmapToQuery,
   parseArbitrageParams,
+  parseBacktestDays,
   parseBacktestParams,
   parseHeatmapParams,
   parseScreenerFilters,
@@ -283,6 +285,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     if (segments[0] === "pair" && segments.length === 2) {
       const asset = (segments[1] as string).toUpperCase();
       const requested = parseBacktestParams(url.searchParams);
+      const days = requested?.days ?? parseBacktestDays(url.searchParams);
       // Only a request that computes a backtest is limited; browsing /pair/:asset to pick two legs
       // stays free.
       if (requested && !(await withinRate(deps, request, "pair"))) {
@@ -298,12 +301,14 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const params = requested;
       const long = params ? pickMarket(markets, params.longVenueId) : undefined;
       const short = params ? pickMarket(markets, params.shortVenueId) : undefined;
-      // Only the two chosen legs need ladders, and only when there is a pair to price at all.
-      const [result, tiers] = await Promise.all([
+      // Only the two chosen legs need ladders, and only when there is a pair to price at all. The
+      // chart reads every listed market, legs or not.
+      const [result, tiers, history] = await Promise.all([
         params && long && short ? runBacktest(deps, long, short, params, now) : null,
         long && short ? deps.data.leverageTiers([long, short]) : [],
+        fundingHistory(deps, markets, days, now),
       ]);
-      return page(pages.pair({ asset, markets, params, result, tiers, now }));
+      return page(pages.pair({ asset, markets, params, days, result, tiers, history, now }));
     }
 
     if (path === "/robots.txt") {
@@ -397,6 +402,59 @@ async function runBacktest(
     toMs: now,
     ...(fees ? { fees } : {}),
   });
+}
+
+/** The longest window the chart draws from the hourly rollup; beyond it the grain is a day. */
+const HOURLY_CHART_MAX_DAYS = 7;
+
+/**
+ * Every listed market's funding over the window, for the pair page's comparison chart: hourly up to
+ * a week, daily beyond. Fail-soft, like the verified ranking: the chart is one section of the page,
+ * and the hourly rollup exists only once the collector has applied migration 014, so a missing table
+ * must cost the chart and never the backtest beside it.
+ */
+async function fundingHistory(
+  deps: AppDeps,
+  markets: readonly MarketRow[],
+  days: number,
+  now: number,
+): Promise<FundingHistory | null> {
+  const fromMs = dailyWindowStart(now, days);
+  try {
+    if (days <= HOURLY_CHART_MAX_DAYS) {
+      const rows = await deps.data.hourlyFunding(markets, fromMs);
+      return {
+        grain: "hour",
+        fromMs,
+        toMs: now,
+        buckets: rows.map((row) => ({
+          venue_id: row.venue_id,
+          venue_symbol: row.venue_symbol,
+          atMs: row.hour_ms,
+          rate_sum: row.rate_sum,
+          basis_hours_sum: row.basis_hours_sum,
+        })),
+      };
+    }
+    const rows = await deps.data.dailyFunding(markets, new Date(fromMs).toISOString().slice(0, 10));
+    return {
+      grain: "day",
+      fromMs,
+      toMs: now,
+      buckets: rows.map((row) => ({
+        venue_id: row.venue_id,
+        venue_symbol: row.venue_symbol,
+        atMs: Date.parse(`${row.day}T00:00:00Z`),
+        rate_sum: row.rate_sum,
+        basis_hours_sum: row.basis_hours_sum,
+      })),
+    };
+  } catch (error) {
+    deps.log?.(
+      `funding chart unavailable: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return null;
+  }
 }
 
 /**

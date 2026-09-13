@@ -202,6 +202,17 @@ export interface BacktestParams {
   shortTakerBps: number | null;
 }
 
+/**
+ * The window from `days`, clamped to what the rollup serves; the default when missing or unreadable.
+ * Read on its own too, because the pair page charts a window before any legs are chosen.
+ */
+export function parseBacktestDays(params: URLSearchParams): number {
+  const days = Number.parseInt(params.get("days") ?? "", 10);
+  return Number.isFinite(days)
+    ? Math.min(Math.max(days, 1), MAX_BACKTEST_DAYS)
+    : DEFAULT_BACKTEST_DAYS;
+}
+
 /** Backtest inputs from query params. Null when the two legs don't name two different exchanges. */
 export function parseBacktestParams(params: URLSearchParams): BacktestParams | null {
   const longVenueId = (params.get("long") ?? "").trim().toLowerCase();
@@ -211,14 +222,11 @@ export function parseBacktestParams(params: URLSearchParams): BacktestParams | n
   if (longVenueId === shortVenueId) return null;
 
   const size = parseUsd(params.get("size")) ?? DEFAULT_BACKTEST_SIZE_USD;
-  const days = Number.parseInt(params.get("days") ?? "", 10);
   return {
     longVenueId,
     shortVenueId,
     sizeUsd: Math.min(Math.max(size, 1), MAX_BACKTEST_SIZE_USD),
-    days: Number.isFinite(days)
-      ? Math.min(Math.max(days, 1), MAX_BACKTEST_DAYS)
-      : DEFAULT_BACKTEST_DAYS,
+    days: parseBacktestDays(params),
     longTakerBps: parseTakerBps(params.get("fee_long")),
     shortTakerBps: parseTakerBps(params.get("fee_short")),
   };

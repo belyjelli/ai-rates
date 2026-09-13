@@ -105,6 +105,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     venueStatus: async () => [],
     leverageTiers: async () => [],
     dailyFunding: async () => [],
+    hourlyFunding: async () => [],
     verifiedPairs: async () => [],
     ...overrides,
   };
@@ -861,7 +862,100 @@ describe("pages", () => {
     expect(html).toContain("Pick two exchanges to hold against each other.");
     expect(html).toContain('<form class="filters" method="get" action="/pair/BTC">');
     expect(html).not.toContain('class="headline');
+    // The window is chosen before any legs: the default 30 days is marked and carries no query.
+    expect(html).toContain('href="/pair/BTC" aria-current="true">30d</a>');
+    expect(html).toContain('href="/pair/BTC?days=7">7d</a>');
+    expect(html).toContain("No stored funding for this window yet");
     expect((await get("/pair/NOPE", data)).status).toBe(404);
+  });
+
+  test("pair page charts every exchange's funding, legs on and the rest a toggle away", async () => {
+    const top = Math.floor(NOW / 3_600_000) * 3_600_000;
+    const hour = (venue_id: string, venue_symbol: string, hoursAgo: number, rate: number) => ({
+      venue_id,
+      venue_symbol,
+      hour_ms: top - hoursAgo * 3_600_000,
+      rate_sum: rate,
+      basis_hours_sum: 8,
+      settlements: 1,
+    });
+    const asked: number[] = [];
+    const { data } = fakeData({
+      asset: async () => [
+        market({ venue_id: "gate", venue_symbol: "BTC_USDT", apr: -0.55 }),
+        market({}),
+        market({ venue_id: "bybit", venue_symbol: "BTCUSDT", apr: 3, interval_hours: 8 }),
+      ],
+      dailyFunding: async () => [
+        ...dailied("gate", "BTC_USDT", -0.0001),
+        ...dailied("okx", "BTC-USDT-SWAP", 0.0001),
+      ],
+      hourlyFunding: async (_markets, fromMs) => {
+        asked.push(fromMs);
+        return [
+          hour("gate", "BTC_USDT", 16, -0.0001),
+          hour("gate", "BTC_USDT", 8, -0.0002),
+          hour("okx", "BTC-USDT-SWAP", 8, 0.0001),
+          hour("bybit", "BTCUSDT", 8, 0.00005),
+        ];
+      },
+    });
+
+    const html = await (await get("/pair/BTC?long=gate&short=okx&days=7", data)).text();
+
+    // Seven days is inside the hourly rollup, read from the start of the window's first day.
+    expect(asked).toEqual([Date.parse("2026-09-06T00:00:00Z")]);
+    expect(html).toContain('class="fchart"');
+    // The legs and their spread draw; a third exchange is listed but starts switched off.
+    expect(html).toContain('<path class="fchart-line long" data-series="gate|BTC_USDT"');
+    expect(html).toContain('<path class="fchart-line short" data-series="okx|BTC-USDT-SWAP"');
+    expect(html).toContain('<path class="fchart-line spread" data-series="spread"');
+    expect(html).toContain('<path class="fchart-line other off" data-series="bybit|BTCUSDT"');
+    expect(html).toContain('data-series="gate|BTC_USDT" checked>');
+    expect(html).toContain('data-series="bybit|BTCUSDT"><i');
+    // The window strip keeps the legs and marks the current window; swapping reverses the legs.
+    expect(html).toContain(
+      'href="/pair/BTC?long=gate&short=okx&days=7" aria-current="true">7d</a>',
+    );
+    expect(html).toContain('href="/pair/BTC?long=gate&short=okx">30d</a>');
+    expect(html).toContain('href="/pair/BTC?long=okx&short=gate&days=7">⇄ swap legs</a>');
+    // Each leg carries what it charges now beside what it settled.
+    expect(html).toContain("now <span");
+    expect(html).toContain(", every 8h");
+  });
+
+  test("the chart fails soft without its table, and long windows read the daily rollup", async () => {
+    const logs: string[] = [];
+    const { data } = fakeData({
+      dailyFunding: async () => [
+        ...dailied("gate", "BTC_USDT", -0.0001),
+        ...dailied("okx", "BTC-USDT-SWAP", 0.0001),
+      ],
+      hourlyFunding: async () => {
+        throw new Error('relation "market_funding_hourly" does not exist');
+      },
+    });
+    const deps = { data, now: () => NOW, log: (m: string) => logs.push(m) };
+
+    // The collector has not applied 014 yet: the chart says so, and the backtest still renders.
+    const short = await handleApp(
+      new Request("https://airates.test/pair/BTC?long=gate&short=okx&days=7"),
+      deps,
+    );
+    expect(short.status).toBe(200);
+    const html = await short.text();
+    expect(html).toContain("The funding chart is unavailable right now");
+    expect(html).toContain('<p class="headline up">$6.00</p>');
+    expect(logs.some((line) => line.includes("funding chart unavailable"))).toBe(true);
+
+    // Thirty days is past the hourly rollup, so the chart draws daily and never asks for hours.
+    const long = await (
+      await handleApp(
+        new Request("https://airates.test/pair/BTC?long=gate&short=okx&days=30"),
+        deps,
+      )
+    ).text();
+    expect(long).toContain("annualized · daily");
   });
 
   test("database failures render a 503 page, not an exception", async () => {
