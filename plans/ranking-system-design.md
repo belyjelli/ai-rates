@@ -28,6 +28,16 @@ live `screener_pairs` function for its hero and spreads table, and `market_pair_
 That constraint happens to be exactly what a staged evaluation wants anyway: the new ranking runs in
 shadow beside the old one, and nothing a reader sees changes until the evidence says it should.
 
+**Scope of that constraint, clarified 2026-09-13.** It binds *this* work, not the repository. A
+separate workstream — the identity refactor's asset-class step, migration 017 — changes
+`screener_pairs`' grouping key from `base` to `(asset_class, base)`, which **will** change what `/`
+renders: `BB` splits into an equity row and a crypto row. Asked directly which instruction won, the
+user chose correctness, with the change recorded in the About changelog once it is live. Freezing
+the homepage on a grouping known to conflate two assets would have made it the least correct page
+on the site — a filter compensating for the model, which is the pattern the identity refactor exists
+to remove. So the spread page does change, by decision, for **that** reason — and still not for this
+one. Nothing in this design touches `screener_pairs` or `market_pair_backtests` either way.
+
 ---
 
 ## 1. Who this is for, and what they can actually enter
@@ -151,8 +161,16 @@ gain rather than shipping a bundle and guessing.
 
 ## 5. Shape of the implementation
 
-- **Migration 018.** (017 is already claimed by the identity refactor's asset-class step; take the
-  next free number at implementation time and update whichever plan is wrong.)
+- **Migration 018**, agreed with the session holding the identity refactor: **017 is `asset_class`**
+  and is theirs. Provisional contract to build against, final names to be confirmed when 017
+  commits: `markets.asset_class text NOT NULL DEFAULT 'crypto'`, constrained to
+  `crypto | equity | commodity | fx | index`, mirrored onto `market_latest` so readers need no join,
+  and **the identity key everywhere becomes `(asset_class, base)`**.
+- **This read model keys on `(asset_class, base)`, never on `base` alone** — and it does **not**
+  consume `screener_pairs`. It cannot: that returns one winner per asset via `DISTINCT ON`, while
+  sprint 0 needs every candidate. It enumerates candidate leg-pairs from `market_latest` itself, so
+  it pairs by asset identity directly and must adopt the split key. **Sequence 017 before 018**
+  rather than writing base-keyed enumeration and migrating it a week later.
 - **New table `market_pair_ranked`** — one row per asset per run: chosen legs, score, the
   **incumbent legs carried from the previous run**, whether it switched and why, deployable dollars,
   expected weekly dollars, the participation rate and fee tier used.
