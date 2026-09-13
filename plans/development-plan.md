@@ -447,7 +447,7 @@ ai-rates/
     - **Process note: never edit a migration after it has run.** The first version of 013 was applied to `airates_it` by a test run, then renamed (`best_bid_size` → `best_bid_size_usd`) while keeping the same filename — so `migrate()` saw `013_top_of_book.sql` in `schema_migrations` and skipped it for good, and 9 integration tests failed on a column that did not exist. Repaired by dropping the four empty columns and deleting that one `schema_migrations` row so the corrected file re-applied. `public` was never touched; production gets 013 from `main.ts:47` on deploy.
 - **Public MVP launch at weeks 8–10 with ~15–20 venues.**
   - **Phase 4 closed on engineering 2026-09-13; the launch line is the only thing outstanding.** Track A: L0/L1/L2 collecting, L3 run and returned a well-powered null (pre-registered at `e075a5e`, recorded at `d63e135`), L4 recorded as not applicable at this sample. Track B: top-of-book data layer, `/arbitrage`, `/price-pair/$sym`, the every-direction pairs table, and a fee model defined in `packages/core` and deliberately not displayed until member settings can supply per-venue fees. Plus `/status` and the geo-probe footer link.
-  - **Two gates remain, and neither is code.** Live venues stand at **14** against the 15–20 target, and `robots.txt` still returns `Disallow: /` — `app.ts` says why: "keep the site out of search engines until the legal checklist is done", i.e. `plans/phase0-referrals-legal.md`. The legal checklist runs in parallel with adapter work; it gates publication, not building.
+  - **Two gates remained, and neither was code. One is now met.** Live venues stand at **15** against the 15–20 target as of 2026-09-13 (Binance is what closed it), so the count gate is cleared — but *thinly*: 6 of the 21 built venues return zero markets (`hl-cash`, `hl-flx`, `hl-hyna`, `hl-vntl`, `hl-km`, `hl-abcd`), so a single breakage drops back under 15. Treat 15 as a floor to build headroom above, not a finish line. `robots.txt` still returns `Disallow: /` — `app.ts` says why: "keep the site out of search engines until the legal checklist is done", i.e. `plans/phase0-referrals-legal.md`, which stands at **25 unchecked items and 0 checked**, plus 9 ordered next actions. The legal checklist runs in parallel with adapter work; it gates publication, not building.
   - **The venue gate and Phase 5 are the same task.** Closing it means building adapters, which is Phase 5's entire content — so Phase 5 starts now rather than after launch, and the first family to land also clears the MVP count.
 
 ### Phase 5 — Scale to ~57 venues (weeks 8–18, run in parallel across devs)
@@ -456,7 +456,7 @@ ai-rates/
 >
 > - **Read `plans/symbol-identity-refactor.md` first: steps 1–3 of it gate the venue work.** Adding venues multiplies an identity bug that is already live. `base` is serving as both the venue's ticker and the cross-venue asset key, and all three failure modes are measured: collision (`CAT` 387,440,758×, a memecoin and Caterpillar; `STX` 2,963×; `BB` 955×), fragmentation (the S&P 500 under `SPX500`/`US500`/`SP500` across six venues), and scale variance (`hl-mkts:US500` at 760.96 against ~7,620 with `multiplier: 1`). WEEX and Bullet add 438 and 11 TradFi perps respectively, so each new venue makes the conflation worse rather than revealing it. Steps 1–3 also change *which markets pair*, so landing them after a venue launch would move the rankings twice.
 >
-> - **20 built, 61 catalogued.** `FIXED_ADAPTERS` holds ten — bybit, okx, gate, mexc, kucoin, aster, hyperliquid, dydx, paradex, lighter — and `createAdapters` *synthesises* an adapter for any `type: "hip3"` venue carrying a `hip3Dex`, so the ten Hyperliquid sub-dexes are covered by construction rather than written by hand. The remaining **41** need adapters.
+> - **21 built, 61 catalogued, 39 unbuilt** (recounted from the catalog itself on 2026-09-13, superseding the "20 built / remaining 41" first written here). `FIXED_ADAPTERS` holds **eleven** — bybit, okx, gate, mexc, kucoin, aster, hyperliquid, dydx, paradex, lighter, **binance** — and `createAdapters` *synthesises* an adapter for any `type: "hip3"` venue carrying a `hip3Dex`, so the ten Hyperliquid sub-dexes are covered by construction rather than written by hand. 61 catalogued less 11 fixed, less 10 synthesised, less 1 alias leaves **39**: 11 CEX and 28 DEX.
 > - **Do not read "not built" off market counts.** Six HL sub-dexes return zero markets while running cleanly, and `hl-flx` and `hl-abcd` additionally fail 5–6 runs a day. Those are built-and-broken, not unbuilt, and `/status` now distinguishes them: `planned` means the collector has never run it, `silent` means it ran within retention and stopped.
 > - **The first family is the cheapest win and it is partly done.** `binance-fapi` covers Binance, Aster, WEEX and Bullet — and `asterAdapter` already exists, so the base can be extracted from working code rather than written blind. Binance is the largest venue missing from the site, so this family alone likely clears the 15–20 MVP venue gate.
 > - **Sequencing rationale.** Families before singletons: `binance-fapi` (4 venues), then `orderly` (WOOFi Pro plus other brokers), then the bulk "all markets" CEX endpoints already listed below, which are one cheap call each. The one-call-per-symbol and WebSocket venues are last, since they cost the most per venue collected.
@@ -483,6 +483,42 @@ ai-rates/
 **Rough monthly cost:** ~$30–120. Workers Paid $5; DO alarms ~$5–15; Pipelines/R2/R2 SQL <$20; D1 ~$5; Python Container on demand <$10; relay (if needed) ~$10–40.
 
 > **Workers Free (current account):** Containers and Pipelines are unavailable. Free's limits (10ms CPU and 50 subrequests per invocation, 100k requests/day) don't fit Phase 1's 60s polling of ~57 venues with 1–2 MB bulk responses. Phase 0 recommends upgrading to Paid before Phase 1; see [`phase0-report.md`](phase0-report.md) for the Free-plan substitutes (R2 NDJSON archive, backfills from CI, fallback rungs 3/4 only).
+
+---
+
+## Sequencing from here (written 2026-09-13, after the identity gate shipped)
+
+Everything below is ordered by what unblocks the most, not by what is easiest.
+
+**1. Asset class first — identity refactor step 2, migration 017.** The gate shipped in 016 is
+*lossy*, and that is the argument for doing this next. Because `base` still cannot hold two assets
+under one ticker, the gate keeps one cluster and discards the other: `BB` keeps BlackBerry's three
+venues and throws away BounceBit's five ($1.83M of open interest), and `PURR`, `ON`, `AI`, `STX`
+and `CAT` all lose a side the same way. `(asset_class, base)` makes `equity:STX` and `crypto:STX`
+different keys, so **both sides become listable instead of one being discarded**. It also has to
+land before WEEX (+438 TradFi perps) and Bullet (+11), each of which multiplies exactly this
+collision.
+
+**2. Start the legal and affiliate track now, in parallel — it is the real critical path.** It is
+also the only track that is not code, and its lead times are external: counsel review, entity
+setup, KYC'd accounts, affiliate applications, and written data-consent from Binance, OKX, MEXC,
+KuCoin, Aster and Paradex. Engineering owes just two of the 25 items — geo-gating the referral CTAs
+in the Worker, and shipping the disclosure/disclaimer text. Adapter work cannot shorten this, so
+starting it late is what would delay launch.
+
+**3. WEEX and Bullet, then the rest of the `binance-fapi` family.** The largest venues still
+missing, the base is extractable from the working `asterAdapter` rather than written blind, and it
+buys headroom above the 15-venue floor. Both need the pluggable tradability, interval source and
+timestamp scale noted in refactor step 5.
+
+**4. Work the verification report as a list.** `scale` verdicts are a to-do, not just a finding:
+`hl-mkts:US500` sits at exponent −1 on a correlation of 0.813, and setting that multiplier returns
+a real market to the scan. Re-read `/status` after each large venue lands.
+
+**5. Then the remaining families in cost order** — `orderly`, the bulk "all markets" CEX endpoints,
+the one-call-per-symbol venues, and the WebSocket-only venues last. Refactor step 6
+(cross-stablecoin, 23.3% of live pairs) lands after steps 1–3, not before, or it filters a pairing
+that is about to change.
 
 ---
 

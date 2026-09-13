@@ -177,28 +177,35 @@ built by hand. It is never an automatic merge.
 Ordered so each step is independently shippable and green. **Steps 1–3 change which markets pair**,
 so they land before any new venue.
 
-### 1. Declared base — `marketRef` and MEXC  *(smallest, recovers the most)*
-- [ ] `resolveDeclaredBase(baseCoin, baseCoinName)` in `parse.ts`, pure, own tests. Branches, all
+### 1. Declared base — `marketRef` and MEXC — **shipped `893c8d1`, one item outstanding**
+- [x] `resolveDeclaredBase(baseCoin, baseCoinName)` in `parse.ts`, pure, own tests. Branches, all
       captured live: `MU` (clean), `GOLD(XAU)`→`XAU`, `OIL(WTI)`→`WTI`, `龙虾` (non-ASCII → fall
       back), `CATSTOCK` (withheld → fall back), `SP500` (pinned → rejected).
-- [ ] `MexcContractDetail` gains `baseCoinName`; pass the resolved base through `marketRef`.
-- [ ] Extend `__fixtures__/mexc/detail.json` with one row per branch. Note `XAU_USDT` is **stale** —
+- [x] `MexcContractDetail` gains `baseCoinName`; pass the resolved base through `marketRef`.
+- [x] Extend `__fixtures__/mexc/detail.json` with one row per branch. Note `XAU_USDT` is **stale** —
       live MEXC now returns `GOLD(XAU)` where the fixture has `null`.
-- [ ] Guard: reject a rename whose new name exists elsewhere at >1.5× — catches `AIGENSYN→AI`
-      (0.0198 vs 0.2738) and `KIMISTOCK→MOONSHOT` (7.42 vs 64.81).
-- [ ] Pin `SPX500` until step 3.
+- [ ] **Still outstanding.** Guard: reject a rename whose new name exists elsewhere at >1.5× —
+      catches `AIGENSYN→AI` (0.0198 vs 0.2738) and `KIMISTOCK→MOONSHOT` (7.42 vs 64.81). Verified
+      absent from `parse.ts`, `mexc.ts` and `symbols.ts` on 2026-09-13. **Partly superseded:** step
+      4 now reports a bad rename as `mismatch` and migration 016 excludes it from the scan either
+      way, so this is no longer a correctness hole — it is the difference between catching the
+      rename at ingest and catching it an hour later in the report.
+- [x] Pin `SPX500` until step 3 — resolved in the same commit, see step 3.
 - **Recovers 354 of 356 renames**, each landing on a pool 6–9 venues deep at ratio 1.0.
 
 ### 2. Asset class through the pipeline
-- [ ] `assetClass` on `MarketRef` / `FundingSnapshot`; migration 015 (**014 is taken** by the other
-      session's `014_funding_hourly.sql`) adding `markets.asset_class`.
+- [ ] `assetClass` on `MarketRef` / `FundingSnapshot`; **migration 017** (014 is the other session's
+      `014_funding_hourly.sql`; **015 and 016 are taken** by the identity checks and the anchor
+      gate) adding `markets.asset_class`.
 - [ ] Per-venue classifiers, each with tests: MEXC (plate, then `type`), WEEX (`TRADIFI_PERPETUAL`),
       Bullet (`RwaPerp*`), Binance/Aster (`PERPETUAL`). Default `crypto` where a venue says nothing.
 - [ ] `screener_pairs`, heatmap and arbitrage group by `(asset_class, base)`.
 - [ ] Backfill existing rows; verify `STX`, `BB`, `RTX`, `PURR`, `CAT` split into two keys each.
 
 ### 3. Cross-venue aliases, with evidence
-- [ ] Resolve the S&P 500 four-way split onto one base, excluding the 760.96 scale variant.
+- [x] Resolve the S&P 500 four-way split onto one base, excluding the 760.96 scale variant —
+      `893c8d1`. `SPX500` and `SP500` alias to `US500` in `symbols.ts`; the 760.96 variant is
+      excluded by migration 016 and reported `scale`, exponent −1, rather than merged.
 - [ ] Record price + correlation evidence inline for each new entry, as the existing block does.
 - [ ] Confirm or reject `MUFGSTOCK`→`MUFG` (correlation was inconclusive — under 30 shared minutes).
 
@@ -212,6 +219,24 @@ so they land before any new venue.
 - **The near-10ⁿ detector was NOT built, deliberately** — see Layer 3. It would have merged
   BlackBerry into BounceBit. `hl-mkts:US500` is now reported `scale`, exponent −1, on a correlation
   of 0.842, and a human decides whether to act on it.
+- **Confirmed in production 2026-09-13 18:48:11Z:** 31 rows — 17 `mismatch`, 11 `unverified`,
+  3 `scale`. The three `scale` verdicts are exactly the three predicted, all exponent −1:
+  `okx:ANTHROPIC` (0.857), `okx:OPENAI` (0.834), `hl-mkts:US500` (0.813). `PURR` at 104× (0.003 to
+  0.068) and all five `BB` legs at 0.00105 (−0.009 to 0.040) came back `mismatch` despite sitting
+  within tolerance of a clean power of ten — the failure the original rule would have shipped,
+  caught on live data.
+- **A new large venue becomes the anchor immediately and blinds the REPORT for an hour.** Binance
+  began collecting at this boot and had 7 minutes of `funding_snapshots` against 1,439 for every
+  other venue; being the deepest venue it anchored many pools, and **9 of the 11 `unverified` rows
+  were anchored on it at exactly 6 shared minutes**. That is `MIN_SHARED_MINUTES` working —
+  `BB|binance` scored −0.418 on six bars and would otherwise have published as a confident
+  mismatch. **Predicted, not yet observed:** it should clear on the 19:48:11Z run, when Binance
+  passes `MIN_SHARED_MINUTES` with ~67 minutes of history. Recorded here as a prediction so that a
+  later reader checks it rather than inherits it — if those rows are still at 6 shared minutes
+  after a second run, the cause is something other than a cold venue. **The gate is never
+  affected**: it compares marks
+  live and never reads this table, so `gate:CAT` at 387,756,652× stays excluded from the scan while
+  its verdict reads `unverified`. Expect this once per large venue during Phase 5.
 
 ### 5. Then the venues
 - [ ] WEEX — needs `collectCycle` (minutes: `{240: 493, 480: 517, 60: 6}`) as its interval source,
