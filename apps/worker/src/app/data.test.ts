@@ -8,6 +8,7 @@ const status = (overrides: Partial<VenueStatus> = {}): VenueStatus => ({
   name: "Gate",
   type: "cex",
   last_run_at: new Date(NOW - 30_000),
+  last_run_ever: new Date(NOW - 30_000),
   last_success_at: new Date(NOW - 30_000),
   duration_ms: 306,
   requests: 2,
@@ -47,8 +48,32 @@ describe("venueState", () => {
     expect(venueState(status({ freshest: null }), NOW)).toBe("stale");
   });
 
-  test("a venue that has not run at all is silent, which no other state implies", () => {
+  test("a venue that ran inside retention but not today is silent", () => {
     // Driven from the venues table rather than the runs, so silence is visible instead of absent.
-    expect(venueState(status({ last_run_at: null, freshest: null }), NOW)).toBe("silent");
+    const stopped = status({
+      last_run_at: null,
+      last_run_ever: new Date(NOW - 3 * 24 * 60 * 60_000),
+      freshest: null,
+    });
+    expect(venueState(stopped, NOW)).toBe("silent");
+  });
+
+  test("a venue that has never run is planned, not a fault", () => {
+    // The catalog holds 61 venues and the collector runs 20. Without this the other 41 read as
+    // alarms, and a page meant to surface faults becomes a wall of phantom ones.
+    const unbuilt = status({ last_run_at: null, last_run_ever: null, freshest: null });
+    expect(venueState(unbuilt, NOW)).toBe("planned");
+  });
+
+  test("planned outranks every other signal, including an old error", () => {
+    // A venue with no adapter can still carry a stale error row; never having run wins.
+    const unbuilt = status({
+      last_run_at: null,
+      last_run_ever: null,
+      last_error: "HTTP 500",
+      freshest: null,
+      live_markets: 0,
+    });
+    expect(venueState(unbuilt, NOW)).toBe("planned");
   });
 });
