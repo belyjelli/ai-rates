@@ -541,6 +541,20 @@ describe("pages", () => {
     expect(body.count).toBe(1);
   });
 
+  test("a positive quoted gap is green, and a negative or zero one is not", async () => {
+    const { data } = fakeData({
+      arbitrage: async () => [
+        gap(),
+        gap({ asset: "TWO", gap_bps: -3.2 }),
+        gap({ asset: "THREE", gap_bps: 0.04 }),
+      ],
+    });
+    const html = await (await get("/arbitrage", data)).text();
+    expect(html).toContain('<span data-u="gap" class="gap-pos">269.6</span>');
+    expect(html).toContain('<span data-u="gap">−3.2</span>');
+    expect(html).toContain('<span data-u="gap">0.0</span>');
+  });
+
   test("an empty table explains that most assets quote nothing", async () => {
     const { data } = fakeData({ arbitrage: async () => [] });
     const html = await (await get("/arbitrage", data)).text();

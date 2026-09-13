@@ -333,6 +333,16 @@ function stabilityTitle(p: ScreenerPair): string {
 }
 
 /**
+ * Marks a quoted gap that is actually positive, where buying on one exchange and selling on the other
+ * would take in more than it pays at the quotes shown. A gap that rounds to 0.0 stays plain, since the
+ * figure printed beside it says nothing is there.
+ */
+const gapTone = (bps: number | null): string =>
+  bps !== null && Number.isFinite(bps) && bps > 0 && Number(bps.toFixed(1)) !== 0
+    ? ' class="gap-pos"'
+    : "";
+
+/**
  * Names a leg's settlement currency, but only when the two legs differ. Same-quote pairs stay quiet:
  * 76% of live pairs settle both legs in one currency and a label on every row would be noise.
  *
@@ -738,7 +748,7 @@ export function arbitrage(data: {
           : `Good for about ${formatUsd(r.thinner_depth_usd)} at these quotes, before fees and before either book moves`;
       return `<tr data-k="${esc(assetKey(r.asset, r.asset_class))}">
 <td class="asset"><a href="${priceHref(r.asset, r.asset_class)}">${assetName(r.asset, r.asset_class)}</a></td>
-<td class="num spread" title="${esc(title)}"><span data-u="gap">${formatGapBps(r.gap_bps)}</span></td>
+<td class="num spread" title="${esc(title)}"><span data-u="gap"${gapTone(r.gap_bps)}>${formatGapBps(r.gap_bps)}</span></td>
 <td class="num" title="${esc(title)}">${formatUsd(r.thinner_depth_usd)}</td>
 ${side("buy", r.buy_venue_id, r.buy_symbol, r.buy_price, r.buy_depth_usd)}
 ${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_depth_usd)}
@@ -911,7 +921,7 @@ export function pricePair(data: {
             }>
 <td><div class="leg buy-leg"><a class="venue" href="${exchangeHref(p.buy.venue_id)}">${esc(venueName(p.buy.venue_id))}</a></div></td>
 <td><div class="leg sell-leg"><a class="venue" href="${exchangeHref(p.sell.venue_id)}">${esc(venueName(p.sell.venue_id))}</a></div></td>
-<td class="num spread"><span data-u="pair-gap">${formatGapBps(p.gapBps)}</span>${p.buy === lowestAsk && p.sell === highestBid ? ' <span class="dim">best</span>' : ""}</td>
+<td class="num spread"><span data-u="pair-gap"${gapTone(p.gapBps)}>${formatGapBps(p.gapBps)}</span>${p.buy === lowestAsk && p.sell === highestBid ? ' <span class="dim">best</span>' : ""}</td>
 <td class="num"><span data-u="pair-depth">${formatUsd(p.goodForUsd)}</span></td>
 </tr>`,
           )
