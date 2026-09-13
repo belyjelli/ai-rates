@@ -24,6 +24,14 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-09-13",
+    title: "Bitget, BingX, BitMart, HTX, Pionex and WOOFi Pro",
+    changes: [
+      "Six more exchanges are collected: Bitget, BingX, BitMart, HTX and Pionex, and WOOFi Pro on the Orderly network. Together they add around 2,600 markets, including stocks, commodities, currencies and indices where the exchange lists them.",
+      "HTX and BitMart do not publish a mark price in bulk, so their markets are checked against the exchange's own index price instead. A coin that only shares a ticker with another still cannot pose as a spread.",
+    ],
+  },
+  {
+    date: "2026-09-13",
     title: "Extended, Reya, Arcus and Variational",
     changes: [
       "Four more exchanges are collected: Extended, with crypto, stocks, commodities, currencies and indices; Reya; Arcus, with crypto and stocks; and Variational, with more than 540 markets.",
