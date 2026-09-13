@@ -285,6 +285,24 @@ so they land before any new venue.
       aliases, not an automated verdict. The gate excludes it either way, so nothing is at risk
       while it stays open.
 
+### 3b. Aliases and base tables from the Phase 5 venues — **shipped `ebde92e`, verified in production**
+- [x] Aliases, each confirmed by median mark within the same asset class (017 makes cross-class ratios
+      meaningless: CATSTOCK read 393,957,426x the CAT memecoin across classes). Measured by the ranking
+      session, re-measured ~23:15Z, ratios recorded in `symbols.ts`: WTIOIL->CL, BRENT->BZ,
+      SMSN->SAMSUNG, XNG->NATGAS, ANTHROP->ANTHROPIC, SPX500M->US500, TECH100M->NASDAQ100, and WEEX's
+      TGTSTOCK, TOKYOELSTOCK, ADVANTESTSTOCK, ONSTOCK, CATSTOCK, RTXSTOCK, QNTSTOCK.
+- [x] COMMODITY_BASES gained XTI, XBR (Toobit crude) and SUGAR, COCOA, COTTON, SOYBEAN, WHEAT (LBank);
+      INDEX_BASES gained NASDAQ100.
+- **Production after deploy:** merged pools stay tight within class: equity:CAT x1.004 (7 venues),
+      commodity:CL x1.003 (25), commodity:BZ x1.004 (14), equity:SAMSUNG x1.005 (20),
+      commodity:NATGAS x1.003 (18), equity:QNT x1.009 (8), equity:RTX x1.004 (4), equity:ON x1.036 (5).
+      LBank's CATSTOCK, declared nothing and so crypto, sits in crypto:CAT and is excluded by the gate.
+- [ ] **Nasdaq 100 stays fragmented**: NAS100, US100, XYZ100 and NASDAQ100 all mark 29,031-29,113, and
+      USTECH (~707) is a 41x scale variant. Merge only on return correlation, as the S&P 500 was.
+- [ ] Not aliased, no same-class pool to join: CSTOCK, CVXSTOCK, OPENSTOCK. XPB2 (1.0039 against XPB)
+      needs an alias decision; SLVON2 tracks SLV, not silver. Backpack's `.US` equities and GRVT/Polymarket
+      `K`-prefixed 1000x contracts pool with nothing until an evidenced alias exists.
+
 ### 4. Price verification job — **done**
 - [x] `classifyDivergence` in `packages/core/src/identity.ts`, pure, own tests, thresholds
       pre-registered in migration 015 with the live measurements behind each one.

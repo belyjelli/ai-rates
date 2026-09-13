@@ -24,6 +24,23 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-09-13",
+    title: "Renamed stocks and commodities join their markets",
+    changes: [
+      "Several exchanges list the same stock or commodity under a different ticker: WTIOIL for crude, BRENT, XNG for natural gas, SMSN for Samsung, and stock contracts with a STOCK suffix such as CATSTOCK for Caterpillar. They now join the markets they track, after checking each one's price against the rest, so they can pair.",
+      "Toobit's crude oil contracts and LBank's sugar, cocoa, cotton, soybean and wheat are filed as commodities, and HTX's Nasdaq 100 as an index.",
+      "Pacifica is collected, with its crypto, stock, commodity, currency and index markets.",
+    ],
+  },
+  {
+    date: "2026-09-13",
+    title: "Nado, RiseX, Polymarket, Backpack and Bluefin",
+    changes: [
+      "Five more exchanges are collected, together more than 280 markets, including Polymarket's perpetuals on stocks, commodities and indices.",
+      "Each one's funding was read every minute up to a settlement and compared with what was actually charged. RiseX only updates its rate at settlement, so it is shown as settled.",
+    ],
+  },
+  {
+    date: "2026-09-13",
     title: "Seven more exchanges, checked against a real settlement",
     changes: [
       "ApeX, GRVT, Hibachi, N1, Aevo, Phoenix and Perpl are collected. Aevo, Hibachi and Phoenix include stocks, commodities or currencies alongside crypto.",
