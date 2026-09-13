@@ -24,6 +24,15 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-09-13",
+    title: "Eight more exchanges",
+    changes: [
+      "SoDEX, Ondo, StandX, Toobit, CoinW, edgeX, Lighter's Robinhood Chain deployment and Velocity (formerly Drift) are collected, together more than 1,400 markets.",
+      "Ondo, StandX and edgeX file their stocks, commodities and indices as such, and Lighter's Robinhood deployment keeps its own list, so those markets pair with the same assets elsewhere.",
+      "CoinW's public data only gives each market's last settled rate, so its figures are marked as settled. Its markets appear over the first few minutes as each one is read.",
+    ],
+  },
+  {
+    date: "2026-09-13",
     title: "Hotcoin and LBank",
     changes: [
       "LBank is collected, more than 800 perpetual markets with its live predicted funding.",
