@@ -212,8 +212,11 @@ const longWindows = new PeriodicTask(
     const days = await store.refreshDailyFunding();
     const markets = await store.refreshLongWindows();
     const scored = await store.refreshStability();
+    // The pair page's short-window chart. Eight days of events, so a small fraction of the daily
+    // fold above, and hourly is exactly the grain it keeps.
+    const hours = await store.refreshHourlyFunding();
     log(
-      `long funding windows: ${days} day-rows folded, ${markets} markets updated, ${scored} scored`,
+      `long funding windows: ${days} day-rows folded, ${markets} markets updated, ${scored} scored, ${hours} hour-rows folded`,
     );
   },
   log,

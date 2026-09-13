@@ -74,6 +74,7 @@ describe.skipIf(!url)("PgStore (integration)", () => {
     await sql`DELETE FROM market_leverage_tiers WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM liquidations WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_funding_daily WHERE venue_id = ${venueId}`;
+    await sql`DELETE FROM market_funding_hourly WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM market_funding_stats WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM markets WHERE venue_id = ${venueId}`;
     await sql`DELETE FROM venues WHERE id = ${venueId}`;
@@ -237,6 +238,47 @@ describe.skipIf(!url)("PgStore (integration)", () => {
       WHERE venue_id = ${venueId} AND venue_symbol = ${symbol} ORDER BY day`;
     expect(days).toHaveLength(3);
     expect(days[0]).toMatchObject({ rate_sum: 0.0008, basis_hours_sum: 8, settlements: 1 });
+  });
+
+  test("folds funding into UTC hours and keeps only the retained window", async () => {
+    const HOUR = 3_600_000;
+    const DAY = 86_400_000;
+    const symbol = `${base}HOURLY`;
+    // Its own symbol, so the other tests' events cannot drift into these sums.
+    const hourly = (rate: number, settledAt: number): FundingEvent => ({
+      venueId,
+      venueSymbol: symbol,
+      base,
+      quote: "USDT",
+      multiplier: 1,
+      dex: null,
+      settledAt,
+      rate,
+      basisHours: 8,
+      markPrice: null,
+    });
+
+    const hour = Math.floor(Date.now() / HOUR) * HOUR - 2 * HOUR;
+    await store.recordHistory(venueId, [
+      // Two settlements inside one hour sum into that hour's single row.
+      hourly(0.0001, hour + 5 * 60_000),
+      hourly(0.0002, hour + 50 * 60_000),
+      hourly(-0.0003, hour - 8 * HOUR),
+      // Past the 8-day retention, so it must never be folded in.
+      hourly(0.009, hour - 9 * DAY),
+    ]);
+
+    expect(await store.refreshHourlyFunding()).toBeGreaterThanOrEqual(2);
+
+    const hours = await sql`
+      SELECT hour, rate_sum, basis_hours_sum, settlements FROM market_funding_hourly
+      WHERE venue_id = ${venueId} AND venue_symbol = ${symbol} ORDER BY hour`;
+    expect(hours).toHaveLength(2);
+    expect(hours[0]).toMatchObject({ rate_sum: -0.0003, basis_hours_sum: 8, settlements: 1 });
+    // Keyed on the top of the hour, whatever minute the settlements carried.
+    expect(new Date(hours[1].hour).getTime()).toBe(hour);
+    expect(hours[1].rate_sum).toBeCloseTo(0.0003, 12);
+    expect(hours[1]).toMatchObject({ basis_hours_sum: 16, settlements: 2 });
   });
 
   test("scores stability on charging days, shrunk by sample size", async () => {
