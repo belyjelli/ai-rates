@@ -150,6 +150,7 @@ table.heat{border-collapse:collapse;width:auto;min-width:100%}
 .st-empty,.st-stale{color:var(--warn)}
 .st-failing{color:var(--short)}
 .st-silent{color:var(--dim)}
+.st-planned{color:var(--dim)}
 .dim{color:var(--muted)}
 .empty{padding:16px 10px;color:var(--muted)}
 form.filters{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-end;margin:0 0 10px;padding:8px 10px;border:1px solid var(--rule)}

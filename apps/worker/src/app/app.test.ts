@@ -256,6 +256,7 @@ describe("pages", () => {
     name: "Gate",
     type: "cex",
     last_run_at: new Date(NOW - 30_000),
+    last_run_ever: new Date(NOW - 30_000),
     last_success_at: new Date(NOW - 30_000),
     duration_ms: 306,
     requests: 2,
@@ -308,6 +309,28 @@ describe("pages", () => {
     expect(rows).toContain("HTTP 429 rate limited");
     // Cost is readable rather than raw milliseconds.
     expect(rows).toContain("306ms");
+  });
+
+  test("planned venues are counted and named, never listed as table rows", async () => {
+    const { data } = fakeData({
+      venueStatus: async () => [
+        vstatus(),
+        vstatus({ venue_id: "binance", name: "Binance", last_run_at: null, last_run_ever: null }),
+        vstatus({ venue_id: "bitget", name: "Bitget", last_run_at: null, last_run_ever: null }),
+      ],
+    });
+    const html = await (await get("/status", data)).text();
+    const rows = html.split('<tbody data-live="status">')[1]?.split("</tbody>")[0] ?? "";
+
+    // 41 of 61 catalogued venues are unbuilt; as rows they would bury the ones that can break.
+    expect(rows).not.toContain("Binance");
+    expect(rows).not.toContain("Bitget");
+    expect(rows).toContain("Gate");
+    // Still visible, as a backlog rather than an alarm.
+    expect(html).toContain("<b>2</b> more exchanges are catalogued but not collected yet");
+    expect(html).toContain("Binance, Bitget");
+    // One collected venue, so the summary counts what is collected rather than the catalog.
+    expect(html).toContain("<b>1</b> collected");
   });
 
   test("/v1/status returns every venue as JSON", async () => {

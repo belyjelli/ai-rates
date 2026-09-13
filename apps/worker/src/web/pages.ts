@@ -886,12 +886,13 @@ ${excluded}
 }
 
 /** Problems first. A page nobody reads when things are fine must lead with what is not. */
-const STATE_ORDER: VenueState[] = ["failing", "stale", "silent", "empty", "live"];
+const STATE_ORDER: VenueState[] = ["failing", "stale", "silent", "empty", "live", "planned"];
 
 const STATE_TITLE: Record<VenueState, string> = {
   failing: "The most recent run returned an error",
   stale: "Running, but nothing has updated in the last five minutes",
-  silent: "Configured, but has not run at all in the last 24 hours",
+  silent: "Ran at some point in the last 30 days, but not in the last 24 hours",
+  planned: "Catalogued, but the collector has never run it: no adapter yet",
   empty: "Running cleanly and returning no markets at all",
   live: "Running, and its markets are current",
 };
@@ -925,11 +926,15 @@ export function status(data: { overview: Overview; venues: VenueStatus[]; now: n
     );
 
   const tally = (state: VenueState) => rows.filter((r) => r.state === state).length;
-  const wrong = rows.length - tally("live");
+  // Planned venues are the scaling backlog, not the operational picture. There are more of them
+  // than there are venues we run, so listing them as rows would bury the twenty that can break.
+  const running = rows.filter((r) => r.state !== "planned");
+  const planned = rows.filter((r) => r.state === "planned");
+  const wrong = running.length - tally("live");
   const failures = rows.reduce((sum, r) => sum + r.status.failures_24h, 0);
   const runs = rows.reduce((sum, r) => sum + r.status.runs_24h, 0);
 
-  const body = rows
+  const body = running
     .map(({ status: v, state }) => {
       // Live markets and the last run's count differ when a venue has gone stale holding a figure.
       const drift =
@@ -960,7 +965,7 @@ export function status(data: { overview: Overview; venues: VenueStatus[]; now: n
     body: `<p class="eyebrow">Collector</p>
 <h1>Status</h1>
 <p class="lede">Whether each exchange is actually delivering data. That is a different question from the <a href="/probe">geo-probe</a>, which asks only whether the endpoint answers: a venue can reply and still return nothing, which is what <b>empty</b> means here and why it is coloured as a fault.</p>
-<p class="facts" data-live="status-facts"><span><b>${rows.length}</b> exchanges</span><span><b>${tally("live")}</b> live</span>${
+<p class="facts" data-live="status-facts"><span><b>${running.length}</b> collected</span><span><b>${tally("live")}</b> live</span>${
       tally("empty") ? `<span><b>${tally("empty")}</b> empty</span>` : ""
     }${tally("failing") ? `<span><b>${tally("failing")}</b> failing</span>` : ""}${
       tally("stale") ? `<span><b>${tally("stale")}</b> stale</span>` : ""
@@ -969,7 +974,14 @@ export function status(data: { overview: Overview; venues: VenueStatus[]; now: n
 <thead><tr><th>Exchange</th><th>State</th><th class="num">Live markets</th><th>Last success</th><th class="num" title="Runs that returned an error in the last 24 hours. One blip and a venue that is down look identical without this">Failures 24h</th><th class="num" title="The last run's wall time and request count">Cost</th></tr></thead>
 <tbody data-live="status">${body}</tbody>
 </table></div>
-${wrong === 0 ? '<p class="notes">Every exchange is live and current.</p>' : ""}`,
+${wrong === 0 ? '<p class="notes">Every collected exchange is live and current.</p>' : ""}
+${
+  planned.length === 0
+    ? ""
+    : `<p class="notes"><b>${planned.length}</b> more exchanges are catalogued but not collected yet — no adapter has been built for them, so they are a scaling backlog rather than a fault: ${planned
+        .map((r) => esc(r.status.name))
+        .join(", ")}.</p>`
+}`,
   });
 }
 

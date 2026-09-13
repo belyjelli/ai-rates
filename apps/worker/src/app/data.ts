@@ -16,9 +16,14 @@ export const STALE_MS = 5 * 60_000;
  * Order matters. A venue that errored is `failing` even if it is also stale, because the error is
  * the cause and staleness is the symptom.
  */
-export type VenueState = "failing" | "stale" | "empty" | "live" | "silent";
+export type VenueState = "failing" | "stale" | "silent" | "empty" | "live" | "planned";
 
 export function venueState(status: VenueStatus, now: number): VenueState {
+  // `planned` before everything else. The catalog holds 61 venues and the collector runs 20, so
+  // most rows are venues no adapter has been built for yet -- Phase 5's backlog, not a fault.
+  // Without this they all read as `silent`, and the page becomes 41 phantom alarms.
+  if (status.last_run_ever === null) return "planned";
+  // Ran at some point inside retention, but not in the last 24 hours: it stopped, and that is real.
   if (status.last_run_at === null) return "silent";
   if (status.last_error !== null) return "failing";
   const freshest = status.freshest?.getTime() ?? null;
@@ -36,6 +41,12 @@ export interface VenueStatus {
   type: string;
   /** Null when the venue has not run at all in the window: configured but silent. */
   last_run_at: Date | null;
+  /**
+   * The newest run ever recorded, bounded by the 30-day retention policy. Null means the collector
+   * has never run this venue, which is how a catalogued-but-unbuilt venue is told apart from one
+   * that was running and stopped.
+   */
+  last_run_ever: Date | null;
   last_success_at: Date | null;
   duration_ms: number | null;
   requests: number | null;
@@ -563,6 +574,14 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           FROM collector_runs
           WHERE started_at > now() - interval '24 hours'
         ),
+        -- Bounded at 30 days to match the retention policy, so "never" is a statement about the
+        -- whole history we keep rather than an unbounded scan that means the same thing.
+        ever AS (
+          SELECT venue_id, max(started_at) AS last_run_ever
+          FROM collector_runs
+          WHERE started_at > now() - interval '30 days'
+          GROUP BY venue_id
+        ),
         live AS (
           SELECT venue_id, count(*)::int AS live_markets, max(observed_at) AS freshest
           FROM market_latest
@@ -571,6 +590,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         )
         SELECT v.id AS venue_id, v.name, v.type,
                r.started_at AS last_run_at,
+               e.last_run_ever,
                r.last_success_at,
                r.duration_ms,
                r.requests,
@@ -582,6 +602,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                l.freshest
         FROM venues v
         LEFT JOIN recent r ON r.venue_id = v.id AND r.rn = 1
+        LEFT JOIN ever e ON e.venue_id = v.id
         LEFT JOIN live l ON l.venue_id = v.id
         ORDER BY v.name`;
       return [...rows];

@@ -470,7 +470,19 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       expect(b).toBeDefined();
       expect(b?.last_run_at).toBeNull();
       expect(b?.runs_24h).toBe(0);
-      expect(venueState(b as NonNullable<typeof b>, Date.now())).toBe("silent");
+      // venueB has never run at all, so it is a venue nobody built an adapter for -- `planned` --
+      // rather than one that was running and stopped, which is what `silent` means.
+      expect(b?.last_run_ever).toBeNull();
+      expect(venueState(b as NonNullable<typeof b>, Date.now())).toBe("planned");
+    });
+
+    test("a venue that ran inside retention but not today is silent, not planned", async () => {
+      // The distinction the page exists to make: stopping is an alarm, never starting is a backlog
+      // item. Driven off last_run_ever, which is bounded by the 30-day retention policy.
+      const a = (await mine()).get(venueA);
+      expect(a?.last_run_ever).toBeInstanceOf(Date);
+      const stopped = { ...(a as NonNullable<typeof a>), last_run_at: null };
+      expect(venueState(stopped, Date.now())).toBe("silent");
     });
 
     test("live market counts come from market_latest, not from the run's own figure", async () => {
