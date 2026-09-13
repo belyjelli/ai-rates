@@ -1195,7 +1195,12 @@ export function asset(data: {
     now,
     body: `<p class="eyebrow">Funding by exchange</p>
 <h1>${assetName(data.asset, assetClass)}</h1>
-<p class="lede" data-live="asset-lede">${markets.length} live markets on ${venues} exchanges. ${summary}${pair ? ` <a href="${pairHref(data.asset, assetClass)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}">Backtest this pair</a>.` : ""}</p>
+<p class="lede" data-live="asset-lede">${markets.length} live markets on ${venues} exchanges. ${summary}</p>
+<div class="cta" data-live="asset-cta">${
+      pair
+        ? `<a class="btn" href="${pairHref(data.asset, assetClass)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}">Backtest this pair <span aria-hidden="true">→</span></a><span class="dim">long ${esc(venueName(pair.long.venue_id))} · short ${esc(venueName(pair.short.venue_id))} · <span data-u="cta-spread">${formatApr(pair.short.apr - pair.long.apr)}</span> a year, replayed on settled funding</span>`
+        : ""
+    }</div>
 <div class="asset-rail" data-live="asset-rail">${renderRail({ scale, marks, bar: pair ? [pair.long.apr, pair.short.apr] : undefined, size: "big" })}</div>
 <div class="sheet-wrap"><table class="sheet"><thead><tr><th>Exchange</th><th class="num">Funding APR</th><th class="num">24h settled</th><th class="num">7d settled</th><th class="num" title="How often this market held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score">Stability</th><th class="num" title="Last 7 charging days against the days before them, in APR points. Up means funding is widening in the direction it already had">30d trend</th><th class="num">Interval</th><th class="num">Next funding</th><th class="num">Mark price</th><th class="num">Open interest</th><th class="num">24h volume</th></tr></thead><tbody data-live="asset-markets">${rows}</tbody></table></div>`,
   });
