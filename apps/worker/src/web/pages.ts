@@ -1301,9 +1301,11 @@ export function pair(data: {
   tiers: LeverageTierRow[];
   /** Every listed market's funding over the window; null when the chart could not be read. */
   history: FundingHistory | null;
+  /** Required, as on the asset and exchange pages: the status line reads it. */
+  overview: Overview;
   now: number;
 }): string {
-  const { asset, markets, params, days, result, tiers, history, now } = data;
+  const { asset, markets, params, days, result, tiers, history, overview, now } = data;
   const venues = new Set(markets.map((m) => m.venue_id)).size;
   const legMarket = (venueId: string, venueSymbol: string) =>
     markets.find((m) => m.venue_id === venueId && m.venue_symbol === venueSymbol);
@@ -1365,6 +1367,7 @@ ${
     title: `${asset} funding carry backtest`,
     description: `What holding ${asset} long on one exchange and short on another would have paid in funding.`,
     path: pairHref(asset),
+    overview,
     now,
     body: `<p class="eyebrow"><a href="${assetHref(asset)}">${esc(asset)}</a> / backtest</p>
 <h1>${esc(asset)} carry</h1>

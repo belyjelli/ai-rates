@@ -303,12 +303,16 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const short = params ? pickMarket(markets, params.shortVenueId) : undefined;
       // Only the two chosen legs need ladders, and only when there is a pair to price at all. The
       // chart reads every listed market, legs or not.
-      const [result, tiers, history] = await Promise.all([
+      const [result, tiers, history, overview] = await Promise.all([
         params && long && short ? runBacktest(deps, long, short, params, now) : null,
         long && short ? deps.data.leverageTiers([long, short]) : [],
         fundingHistory(deps, markets, days, now),
+        // The status line reads it; without it the page claimed no venue had reported.
+        deps.data.overview(),
       ]);
-      return page(pages.pair({ asset, markets, params, days, result, tiers, history, now }));
+      return page(
+        pages.pair({ asset, markets, params, days, result, tiers, history, overview, now }),
+      );
     }
 
     if (path === "/robots.txt") {
