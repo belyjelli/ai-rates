@@ -23,7 +23,15 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
-    date: "2026-09-14",
+    date: "2026-09-13",
+    title: "Binance, and a price check on every market",
+    changes: [
+      "Binance's perpetual markets are now collected, more than 570 of them, alongside every other exchange on the site.",
+      "Every market's price is checked against the deepest market for the same asset. One that disagrees by more than 10% is kept out of the screener, and the Status page says why, so two different coins sharing a ticker can no longer pose as a spread.",
+    ],
+  },
+  {
+    date: "2026-09-13",
     title: "The pair page shows every exchange at once",
     changes: [
       "The pair page opens with a chart of every exchange's funding for the asset. The two legs you pick and their spread are drawn, any other exchange is a checkbox away, and hovering reads every line at the same moment.",
@@ -33,11 +41,17 @@ export const CHANGELOG: readonly Release[] = [
   },
   {
     date: "2026-09-13",
-    title: "Live numbers, price gaps and exchange health",
+    title: "Price gaps and exchange health",
     changes: [
-      "Pages refresh on their own about every 30 seconds. A figure that changes flashes green when it rises and red when it falls, and rate markers slide to their new positions.",
       "New Arbitrage and Price pair pages show where one exchange's bid sits above another's ask, for the exchanges that publish their order books, and how much size each gap is good for.",
       "A Status page shows which exchanges are delivering data and which have gone quiet.",
+    ],
+  },
+  {
+    date: "2026-09-12",
+    title: "Live numbers",
+    changes: [
+      "Pages refresh on their own about every 30 seconds. A figure that changes flashes green when it rises and red when it falls, and rate markers slide to their new positions.",
       "The Rates grid shows 50 assets a page, and every page's header says how fresh the data is.",
     ],
   },
