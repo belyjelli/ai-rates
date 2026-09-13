@@ -27,6 +27,8 @@ import type {
 import {
   arbitrageToQuery,
   BACKTEST_WINDOWS,
+  backtestToQuery,
+  DEFAULT_BACKTEST_DAYS,
   DEFAULT_FILTERS,
   filtersToQuery,
   HEATMAP_TIMEFRAMES,
@@ -45,6 +47,7 @@ import {
   since,
   until,
 } from "./format";
+import { type FundingHistory, renderFundingChart } from "./funding-chart";
 import { layout } from "./layout";
 import { type RailScale, railPosition, railScale, renderRail } from "./rail";
 import { VENUE_TYPE_LABEL, VENUE_TYPE_SHORT, venueName } from "./venues";
@@ -1206,7 +1209,28 @@ function feeField(name: string, label: string, current: number | null): string {
   return `<label class="field" title="Taker fee in basis points, per fill. Both legs must be filled in before costs are charged.">${label} (bps)<input type="number" name="${name}" value="${esc(value)}" min="0" max="${MAX_TAKER_FEE_BPS}" step="0.1" placeholder="blank = ignore" inputmode="decimal"></label>`;
 }
 
-function backtestForm(asset: string, markets: MarketRow[], params: BacktestParams | null): string {
+/**
+ * The window as links, marked the way the rates page marks its timeframe. Each keeps the legs, size
+ * and fees already chosen, so switching window never throws away the pair being read.
+ */
+function windowStrip(asset: string, params: BacktestParams | null, days: number): string {
+  const links = BACKTEST_WINDOWS.map((n) => {
+    const query = params
+      ? backtestToQuery({ ...params, days: n })
+      : n === DEFAULT_BACKTEST_DAYS
+        ? ""
+        : `?days=${n}`;
+    return `<a href="${pairHref(asset)}${query}"${n === days ? ' aria-current="true"' : ""}>${n}d</a>`;
+  }).join("");
+  return `<div class="tf" aria-label="Window">${links}</div>`;
+}
+
+function backtestForm(
+  asset: string,
+  markets: MarketRow[],
+  params: BacktestParams | null,
+  days: number,
+): string {
   const venues = [...new Set(markets.map((m) => m.venue_id))].sort((a, b) =>
     venueName(a).localeCompare(venueName(b)),
   );
@@ -1235,15 +1259,14 @@ ${numberField("size", "Size per leg", params?.sizeUsd ?? 10_000, [
   [100_000, "$100k"],
   [1_000_000, "$1M"],
 ])}
-${numberField(
-  "days",
-  "Window",
-  params?.days ?? 30,
-  BACKTEST_WINDOWS.map((days): [number, string] => [days, days === 1 ? "1 day" : `${days} days`]),
-)}
+<input type="hidden" name="days" value="${days}">
 ${feeField("fee_long", "Long taker fee", params?.longTakerBps ?? null)}
 ${feeField("fee_short", "Short taker fee", params?.shortTakerBps ?? null)}
-<div class="actions"><button type="submit">Run backtest</button><a href="${assetHref(asset)}">Back to ${esc(asset)}</a></div>
+<div class="actions"><button type="submit">Run backtest</button>${
+    params
+      ? `<a href="${pairHref(asset)}${backtestToQuery({ ...params, longVenueId: params.shortVenueId, shortVenueId: params.longVenueId })}">⇄ swap legs</a>`
+      : ""
+  }<a href="${assetHref(asset)}">Back to ${esc(asset)}</a></div>
 </form>`;
 }
 
@@ -1271,15 +1294,32 @@ export function pair(data: {
   asset: string;
   markets: MarketRow[];
   params: BacktestParams | null;
+  /** The window, known even before legs are chosen, since the chart draws it either way. */
+  days: number;
   result: BacktestResult | null;
   /** Risk-limit ladders for the two legs. Required so a caller cannot silently price without them. */
   tiers: LeverageTierRow[];
+  /** Every listed market's funding over the window; null when the chart could not be read. */
+  history: FundingHistory | null;
   now: number;
 }): string {
-  const { asset, markets, params, result, tiers, now } = data;
+  const { asset, markets, params, days, result, tiers, history, now } = data;
   const venues = new Set(markets.map((m) => m.venue_id)).size;
   const legMarket = (venueId: string, venueSymbol: string) =>
     markets.find((m) => m.venue_id === venueId && m.venue_symbol === venueSymbol);
+  // What each leg charges right now and how often, beside what it settled over the window.
+  const legNow = (venueId: string, venueSymbol: string) => {
+    const market = legMarket(venueId, venueSymbol);
+    return market
+      ? ` · now ${apr(market.apr)}, every ${formatInterval(market.interval_hours)}`
+      : "";
+  };
+  const legs = result
+    ? {
+        long: { venue_id: result.long.venueId, venue_symbol: result.long.venueSymbol },
+        short: { venue_id: result.short.venueId, venue_symbol: result.short.venueSymbol },
+      }
+    : {};
   const capital =
     result && params
       ? pairCapital(
@@ -1293,10 +1333,10 @@ export function pair(data: {
   const body =
     result && params
       ? `<p class="headline ${result.netFundingUsd >= 0 ? "up" : "down"}">${money(result.netFundingUsd)}</p>
-<p class="eyebrow">net funding over the last ${params.days === 1 ? "day" : `${params.days} days`} ·${formatApr(result.netFundingAprPercent)} annualized</p>
+<p class="eyebrow">net funding over the last ${params.days === 1 ? "day" : `${params.days} days`} · ${formatApr(result.netFundingAprPercent)} annualized</p>
 <div class="pair-legs">
-<span class="long"><b>Long ${esc(venueName(result.long.venueId))}</b> ${esc(result.long.venueSymbol)} · ${result.long.settlements} settlements · ${money(result.long.fundingUsd)}</span>
-<span class="short"><b>Short ${esc(venueName(result.short.venueId))}</b> ${esc(result.short.venueSymbol)} · ${result.short.settlements} settlements · ${money(result.short.fundingUsd)}</span>
+<span class="long"><b>Long ${esc(venueName(result.long.venueId))}</b> ${esc(result.long.venueSymbol)} · ${result.long.settlements} settlements · ${money(result.long.fundingUsd)}${legNow(result.long.venueId, result.long.venueSymbol)}</span>
+<span class="short"><b>Short ${esc(venueName(result.short.venueId))}</b> ${esc(result.short.venueSymbol)} · ${result.short.settlements} settlements · ${money(result.short.fundingUsd)}${legNow(result.short.venueId, result.short.venueSymbol)}</span>
 </div>
 ${equityCurve(result, params.sizeUsd)}
 <div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span><span>${capitalFact(capital ?? pairCapital(params.sizeUsd, undefined, undefined, tiers))}</span>${costsFact(result)}</div>
@@ -1328,8 +1368,10 @@ ${
     now,
     body: `<p class="eyebrow"><a href="${assetHref(asset)}">${esc(asset)}</a> / backtest</p>
 <h1>${esc(asset)} carry</h1>
-<p class="lede">What both legs actually settled, summed per UTC day from each venue's recorded funding. Windows are whole calendar days ending today, and the figures refresh hourly.</p>
-${backtestForm(asset, markets, params)}
+<p class="lede">Every exchange's funding over one window, and what the two legs you pick actually settled, summed per UTC day. Windows are whole calendar days ending today, and the figures refresh hourly.</p>
+${backtestForm(asset, markets, params, days)}
+${windowStrip(asset, params, days)}
+${renderFundingChart(history, legs)}
 ${body}`,
   });
 }

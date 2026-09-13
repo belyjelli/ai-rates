@@ -96,6 +96,23 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         dayRow(venueB, "OTHER-PERP", 24 * HOUR, 0.005, 3), // same venue, market not asked for
       ])}`;
 
+    // The hourly rollup the pair chart reads over its short windows, written directly for the same
+    // reason as the daily rows above.
+    const hourRow = (venue_id: string, venue_symbol: string, msAgo: number, rate_sum: number) => ({
+      venue_id,
+      venue_symbol,
+      hour: new Date(settledAt - msAgo),
+      rate_sum,
+      basis_hours_sum: 8,
+      settlements: 1,
+    });
+    await admin`
+      INSERT INTO market_funding_hourly ${admin([
+        hourRow(venueA, symbolA, 2 * HOUR, 0.0001),
+        hourRow(venueA, symbolA, 9 * 24 * HOUR, 0.0009), // before the window asked for
+        hourRow(venueB, symbolB, 2 * HOUR, -0.0002),
+      ])}`;
+
     // max_leverage lives on `markets`, but asset()/exchange() read `market_latest` and join across
     // for it. Seed both so the join is exercised, with one venue publishing a figure and one silent.
     const now = new Date();
@@ -284,6 +301,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
   afterAll(async () => {
     await admin`DELETE FROM funding_events WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_funding_daily WHERE venue_id IN (${venueA}, ${venueB})`;
+    await admin`DELETE FROM market_funding_hourly WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_latest WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_leverage_tiers WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_pair_backtests WHERE long_venue_id IN (${venueA}, ${venueB})`;
@@ -329,6 +347,24 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
 
   test("asking for no markets queries nothing", async () => {
     expect(await data.dailyFunding([], dayOf(0))).toEqual([]);
+    expect(await data.hourlyFunding([], settledAt)).toEqual([]);
+  });
+
+  test("reads the hourly rollup from the window's start, with the hour as epoch milliseconds", async () => {
+    const rows = await data.hourlyFunding(
+      [
+        { venue_id: venueA, venue_symbol: symbolA },
+        { venue_id: venueB, venue_symbol: symbolB },
+      ],
+      settledAt - 7 * 24 * HOUR,
+    );
+
+    expect(rows.map((r) => [r.venue_id, r.venue_symbol, r.hour_ms, r.rate_sum])).toEqual([
+      [venueA, symbolA, settledAt - 2 * HOUR, 0.0001],
+      [venueB, symbolB, settledAt - 2 * HOUR, -0.0002],
+    ]);
+    expect(typeof rows[0]?.hour_ms).toBe("number");
+    expect(rows[0]?.basis_hours_sum).toBe(8);
   });
 
   /**

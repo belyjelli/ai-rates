@@ -181,6 +181,29 @@ input[type=checkbox]{accent-color:var(--accent)}
 .curve.down .curve-line{stroke:var(--short)}
 .curve-zero{stroke:var(--zero);stroke-width:1;stroke-dasharray:2 3;vector-effect:non-scaling-stroke}
 .curve figcaption{color:var(--muted);padding-top:6px}
+/* Pair page funding comparison. The plot stretches its SVG to the box, so strokes stay hairline with
+   non-scaling-stroke and the axis labels are HTML placed by percentage rather than SVG text. */
+.fchart{margin:0 0 12px;padding:8px 10px 6px;border:1px solid var(--rule);background:var(--panel)}
+.fchart-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px;margin-bottom:8px}
+.fchart-title{color:var(--muted)}
+.fchart-keys{display:flex;flex-wrap:wrap;gap:2px 12px}
+.fchart-keys label{display:flex;align-items:center;gap:5px;color:var(--muted);cursor:pointer}
+.fchart-keys input{accent-color:var(--accent);margin:0}
+.fchart-keys i{display:inline-block;width:12px;height:2px}
+.fchart-plot{position:relative;height:220px;margin:6px 0 20px 48px}
+.fchart svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.fchart-grid{stroke:var(--rule);stroke-width:1;vector-effect:non-scaling-stroke}
+.fchart-zero{stroke:var(--zero);stroke-dasharray:2 3}
+.fchart-line{fill:none;stroke-width:1.2;vector-effect:non-scaling-stroke}
+.fchart-line.long{stroke:var(--long);stroke-width:2}.fchart-line.short{stroke:var(--short);stroke-width:2}
+.fchart-line.spread{stroke:var(--ink);stroke-width:1;stroke-dasharray:4 3}
+.fchart-cursor{stroke:var(--muted);stroke-width:1;vector-effect:non-scaling-stroke}
+.fchart .off{display:none}
+.fchart-y,.fchart-x{position:absolute;color:var(--dim);white-space:nowrap;pointer-events:none}
+.fchart-y{left:-48px;width:42px;text-align:right;transform:translateY(-50%)}
+.fchart-x{top:100%;padding-top:3px;transform:translateX(-50%)}
+.fchart-read{color:var(--muted);min-height:1.35em}
+.fchart-note{color:var(--dim);margin-top:4px;max-width:100ch}
 .facts{display:flex;flex-wrap:wrap;gap:4px 24px;color:var(--muted);margin:0 0 14px}
 .facts b{font-weight:700;color:var(--ink)}
 .notes{margin-top:14px;color:var(--muted);max-width:100ch;line-height:1.5}
