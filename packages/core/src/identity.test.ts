@@ -138,10 +138,15 @@ describe("classifyDivergence", () => {
   });
 
   test("tracks: same underlying, but the factor is not a contract scale", () => {
-    // This had no live instance when it was written. It does now: okx QNT scored 0.603 against a
-    // binance anchor at a ratio of 0.759 on 2026-09-13, the first `tracks` verdict in production.
-    // The branch exists so an unexplained constant is never silently reported as a power-of-ten
-    // multiplier a caller might act on -- and that is exactly the job it did.
+    // This had no live instance when it was written, then briefly had one, and now has none again.
+    // okx QNT scored 0.603 against a binance anchor at a ratio of 0.759 on 2026-09-13 -- the first
+    // `tracks` verdict in production -- and migration 017 then dissolved it: QNT was Quant and
+    // Quantinuum in one pool, and keying on (asset_class, base) split them into two consistent
+    // pools that no longer diverge at all.
+    //
+    // The case is kept because the branch earned its place by catching that. An unexplained
+    // constant was reported as `tracks` rather than silently as a power-of-ten multiplier a caller
+    // might have acted on, and the thing it was really pointing at was a bad key.
     expect(
       classifyDivergence(observed({ priceRatio: 0.75871, returnCorr: 0.603, sharedMinutes: 67 })),
     ).toEqual({ verdict: "tracks", scaleExponent: null });

@@ -85,11 +85,25 @@ export const MIN_MOVES = 30;
  * so a single price cluster now straddles this threshold -- and which side a leg falls on depends
  * on the anchor, because against a mexc anchor an hour earlier all three scored 0.15-0.18.
  *
- * So this number is doing load-bearing work it was not chosen to do. It stays at 0.5 deliberately:
- * moving it on one observation would be fitting the threshold to the case. QNT is an open
- * investigation rather than a settled verdict (see the refactor plan, step 3), and nothing acting on
- * `tracks` should assume the boundary is clean. The GATE is unaffected either way -- migration 016
- * excludes anything beyond DIVERGENCE_TRIGGER from the anchor regardless of verdict.
+ * RESOLVED BY MIGRATION 017, AND THE RESOLUTION IS THE INTERESTING PART. QNT was never a boundary
+ * case. It was Quant and Quantinuum forced into one pool by keying on `base` alone: production now
+ * shows crypto QNT on five venues at 63.66-63.78 and equity QNT on three at 48.76-48.81, two
+ * internally consistent pools. Under (asset_class, base) QNT no longer appears in the report at all,
+ * because within each class its markets agree.
+ *
+ * So the 0.603 stands as a measurement and is wrong as an argument. It never showed the gap was
+ * populated; it showed the POOL was, and the unstable verdict across anchor choice (0.15-0.18
+ * against a mexc anchor, 0.110/0.309/0.603 against binance) was the symptom of two assets being
+ * averaged, not of a fragile threshold. That is a case FOR keying by class, not against 0.5.
+ *
+ * The number therefore stays at 0.5, now for a better reason than "don't fit to one case": the one
+ * observation inside the gap turned out to be a keying artefact. Whether the gap is genuinely
+ * populated is still unmeasured, so nothing acting on `tracks` should assume the boundary is clean
+ * -- but it should no longer cite QNT as evidence that it is not. The GATE is unaffected either way:
+ * migration 016 excludes anything beyond DIVERGENCE_TRIGGER from the anchor regardless of verdict.
+ *
+ * Scale of what class-keying fixed, measured the same day: the report went from 31 rows
+ * (17 mismatch, 11 unverified, 3 scale) to 14 (6, 7, 1).
  */
 export const TRACKING_CORR = 0.5;
 
