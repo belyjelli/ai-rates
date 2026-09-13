@@ -1,4 +1,5 @@
 export * from "./backtest";
+export * from "./fees";
 export * from "./leverage";
 export * from "./market";
 export * from "./pool";
