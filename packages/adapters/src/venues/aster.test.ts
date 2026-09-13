@@ -15,6 +15,7 @@ import {
   type BinanceStyleSymbol,
   basisHoursFromGaps,
   createAsterAdapter,
+  declaredMarketBase,
   type OpenInterestEntry,
   parseBinanceStyleFundingHistory,
   parseBinanceStyleSnapshots,
@@ -159,6 +160,75 @@ describe("aster tradfi snapshots", () => {
       ["XAUUSDT", "commodity"],
       // SKHXUSDT is PENDING_TRADING and not collected.
     ]);
+  });
+
+  test("a USD1-quoted market joins its base's pool instead of sitting in one of its own", () => {
+    expect(snapshots.find((s) => s.venueSymbol === "CLUSD1")).toMatchObject({
+      base: "CL",
+      quote: "USD1",
+      multiplier: 1,
+    });
+  });
+});
+
+describe("declaredMarketBase", () => {
+  /** Shapes from Aster's and Binance's exchangeInfo on 2026-09-14. */
+  const symbol = (sym: string, baseAsset: string, quoteAsset: string): BinanceStyleSymbol => ({
+    symbol: sym,
+    status: "TRADING",
+    contractType: "PERPETUAL",
+    baseAsset,
+    quoteAsset,
+  });
+
+  test("reads the declared base where the parser cannot split the symbol", () => {
+    // Quotes the parser does not know left the whole symbol as the base.
+    expect(declaredMarketBase(symbol("BTCUSD1", "BTC", "USD1"))).toBe("BTC");
+    expect(declaredMarketBase(symbol("XAUUSD1", "XAU", "USD1"))).toBe("XAU");
+    expect(declaredMarketBase(symbol("BTCU", "BTC", "U"))).toBe("BTC");
+    // A hyphen inside the base cut it to B: a 0.0043 token filed in the 0.217 token's pool.
+    expect(declaredMarketBase(symbol("B-MONEYUSDT", "B-MONEY", "USDT"))).toBe("B-MONEY");
+  });
+
+  test("leaves the parser alone where it already agrees, or reads a contract size", () => {
+    expect(declaredMarketBase(symbol("BTCUSDT", "BTC", "USDT"))).toBeNull();
+    expect(declaredMarketBase(symbol("1000PEPEUSDT", "1000PEPE", "USDT"))).toBeNull();
+    // Aliased bases agree once canonical: XBT is BTC.
+    expect(declaredMarketBase(symbol("XBTUSDT", "XBT", "USDT"))).toBeNull();
+  });
+
+  test("never moves a market priced in something other than dollars into a dollar pool", () => {
+    // ETH priced in BTC would join the ETH pool as a permanent 30,000x mark mismatch.
+    expect(declaredMarketBase(symbol("ETHBTC", "ETH", "BTC"))).toBeNull();
+    expect(
+      declaredMarketBase({ ...symbol("BTCUSD1", "BTC", "USD1"), baseAsset: undefined }),
+    ).toBeNull();
+  });
+
+  test("snapshots carry the corrected base through marketRef", () => {
+    const [snapshot] = parseBinanceStyleSnapshots(
+      "aster",
+      {
+        premium: [
+          {
+            symbol: "B-MONEYUSDT",
+            markPrice: "0.00428",
+            indexPrice: "0.00428",
+            lastFundingRate: "0.0001",
+            nextFundingTime: 0,
+          },
+        ],
+        fundingInfo: [{ symbol: "B-MONEYUSDT", fundingIntervalHours: 4 }],
+        tickers: [],
+        tradable: tradablePerpetuals(
+          { symbols: [symbol("B-MONEYUSDT", "B-MONEY", "USDT")] },
+          asterAssetClass,
+        ),
+        defaultIntervalHours: null,
+      },
+      NOW,
+    );
+    expect(snapshot).toMatchObject({ base: "B-MONEY", quote: "USDT", assetClass: "crypto" });
   });
 });
 
