@@ -3,7 +3,7 @@ import { VENUES } from "@ai-rates/venues";
 import * as pages from "../web/pages";
 import { VENUE_BY_ID } from "../web/venues";
 import type { Clearance } from "./clearance";
-import type { DataSource, MarketRow } from "./data";
+import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import {
   arbitrageToQuery,
   type BacktestParams,
@@ -44,8 +44,6 @@ export interface AppDeps {
   rateLimit?: (key: string) => Promise<boolean>;
 }
 
-/** Health reports stale when the newest market update is older than this. */
-const STALE_MS = 5 * 60_000;
 const PAGE_MAX_AGE = 30;
 const API_MAX_AGE = 15;
 const ASSET_PATTERN = /^[A-Za-z0-9._-]{1,40}$/;
@@ -186,6 +184,11 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(pages.pricePair({ asset, quotes, overview, now }));
     }
 
+    if (path === "/status") {
+      const [overview, venues] = await Promise.all([deps.data.overview(), deps.data.venueStatus()]);
+      return page(pages.status({ overview, venues, now }));
+    }
+
     if (path === "/markets") {
       const [overview, exchanges] = await Promise.all([
         deps.data.overview(),
@@ -261,6 +264,11 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         minVenues: HEATMAP_MIN_VENUES,
       });
       return json({ params, query: heatmapToQuery(params), count: cells.length, cells });
+    }
+
+    if (path === "/v1/status") {
+      const venues = await deps.data.venueStatus();
+      return json({ count: venues.length, venues });
     }
 
     if (path === "/v1/arbitrage") {

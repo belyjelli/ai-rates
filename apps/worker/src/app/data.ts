@@ -2,6 +2,52 @@ import type postgres from "postgres";
 
 /** Markets whose latest snapshot is older than this are treated as not live. */
 export const FRESH_INTERVAL = "5 minutes";
+/** The same threshold in milliseconds, for code that compares timestamps rather than writing SQL. */
+export const STALE_MS = 5 * 60_000;
+
+/**
+ * What a venue is actually doing, as one word.
+ *
+ * Not ok/error: the interesting state is the third one. Six Hyperliquid sub-dexes run clean, report
+ * no error, and return zero markets — working and useless at once, which a pass/fail reading calls
+ * healthy. `/probe` cannot express this at all, since a venue can answer its endpoint and still
+ * serve nothing.
+ *
+ * Order matters. A venue that errored is `failing` even if it is also stale, because the error is
+ * the cause and staleness is the symptom.
+ */
+export type VenueState = "failing" | "stale" | "empty" | "live" | "silent";
+
+export function venueState(status: VenueStatus, now: number): VenueState {
+  if (status.last_run_at === null) return "silent";
+  if (status.last_error !== null) return "failing";
+  const freshest = status.freshest?.getTime() ?? null;
+  if (freshest === null || now - freshest > STALE_MS) return "stale";
+  return status.live_markets === 0 ? "empty" : "live";
+}
+
+/**
+ * One venue's collecting health. Answers "are we getting data", which is a different question from
+ * the geo-probe's "can Cloudflare reach this venue".
+ */
+export interface VenueStatus {
+  venue_id: string;
+  name: string;
+  type: string;
+  /** Null when the venue has not run at all in the window: configured but silent. */
+  last_run_at: Date | null;
+  last_success_at: Date | null;
+  duration_ms: number | null;
+  requests: number | null;
+  /** Markets the last run reported, which is not the same as markets currently live. */
+  last_run_markets: number | null;
+  last_error: string | null;
+  runs_24h: number;
+  /** A single blip and a venue that is down look identical without this. */
+  failures_24h: number;
+  live_markets: number;
+  freshest: Date | null;
+}
 
 /**
  * How the screener is ordered. Every key here is backed by a column `screener_pairs` actually
@@ -263,6 +309,8 @@ export interface DataSource {
   arbitrage(options: ArbitrageOptions): Promise<ArbitrageRow[]>;
   /** Every venue's top of book for one asset, mismatched instruments flagged rather than dropped. */
   priceQuotes(base: string): Promise<PriceQuote[]>;
+  /** Per-venue collecting health: are we getting data, and what went wrong if not. */
+  venueStatus(): Promise<VenueStatus[]>;
   /** Risk-limit ladders for the given markets, ascending by tier; empty where a venue publishes none. */
   leverageTiers(markets: readonly MarketKey[]): Promise<LeverageTierRow[]>;
   /** Settled funding for the given markets within a window, oldest first, ties broken by market. */
@@ -494,6 +542,48 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         FROM candidates c CROSS JOIN marks m
         -- Cheapest to buy first, which is the order the page reads in.
         ORDER BY c.best_ask, c.venue_id`;
+      return [...rows];
+    },
+
+    async venueStatus() {
+      // Driven from `venues` rather than from the runs, so a venue that stopped running entirely
+      // still appears -- silence is the failure most worth seeing, and an inner join would hide it.
+      //
+      // The 24h window is bounded by the retention policy anyway (30 days), and
+      // collector_runs_venue (venue_id, started_at DESC) serves both the DISTINCT ON and the counts.
+      const rows = await connect()<VenueStatus[]>`
+        WITH recent AS (
+          SELECT venue_id, started_at, duration_ms, markets, requests, error,
+                 row_number() OVER (PARTITION BY venue_id ORDER BY started_at DESC) AS rn,
+                 count(*) OVER (PARTITION BY venue_id) AS runs_24h,
+                 count(*) FILTER (WHERE error IS NOT NULL)
+                   OVER (PARTITION BY venue_id) AS failures_24h,
+                 max(started_at) FILTER (WHERE error IS NULL)
+                   OVER (PARTITION BY venue_id) AS last_success_at
+          FROM collector_runs
+          WHERE started_at > now() - interval '24 hours'
+        ),
+        live AS (
+          SELECT venue_id, count(*)::int AS live_markets, max(observed_at) AS freshest
+          FROM market_latest
+          WHERE observed_at > now() - ${FRESH_INTERVAL}::interval
+          GROUP BY venue_id
+        )
+        SELECT v.id AS venue_id, v.name, v.type,
+               r.started_at AS last_run_at,
+               r.last_success_at,
+               r.duration_ms,
+               r.requests,
+               r.markets AS last_run_markets,
+               r.error AS last_error,
+               coalesce(r.runs_24h, 0)::int AS runs_24h,
+               coalesce(r.failures_24h, 0)::int AS failures_24h,
+               coalesce(l.live_markets, 0)::int AS live_markets,
+               l.freshest
+        FROM venues v
+        LEFT JOIN recent r ON r.venue_id = v.id AND r.rn = 1
+        LEFT JOIN live l ON l.venue_id = v.id
+        ORDER BY v.name`;
       return [...rows];
     },
 

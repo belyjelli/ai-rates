@@ -11,6 +11,7 @@ import type {
   PriceQuote,
   ScreenerFilters,
   ScreenerPair,
+  VenueStatus,
 } from "./data";
 import { DEFAULT_FILTERS } from "./params";
 
@@ -101,6 +102,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     heatmap: async () => [],
     arbitrage: async () => [],
     priceQuotes: async () => [],
+    venueStatus: async () => [],
     leverageTiers: async () => [],
     settlements: async () => [],
     verifiedPairs: async () => [],
@@ -241,11 +243,77 @@ describe("pages", () => {
     expect(body.count).toBe(0);
   });
 
-  test("every page footer links to the exchange status page", async () => {
+  test("every page footer links to both status pages, distinctly labelled", async () => {
     const { data } = fakeData();
     const html = await (await get("/", data)).text();
     // Exactly "/probe": the route is an exact match and "/probe/" 404s.
-    expect(html).toContain('<a href="/probe">exchange status</a>');
+    expect(html).toContain('<a href="/probe">geo-probe</a>');
+    expect(html).toContain('<a href="/status">status</a>');
+  });
+
+  const vstatus = (overrides: Partial<VenueStatus> = {}): VenueStatus => ({
+    venue_id: "gate",
+    name: "Gate",
+    type: "cex",
+    last_run_at: new Date(NOW - 30_000),
+    last_success_at: new Date(NOW - 30_000),
+    duration_ms: 306,
+    requests: 2,
+    last_run_markets: 970,
+    last_error: null,
+    runs_24h: 1440,
+    failures_24h: 0,
+    live_markets: 970,
+    freshest: new Date(NOW - 20_000),
+    ...overrides,
+  });
+
+  test("status separates a venue that answers cleanly from one that delivers data", async () => {
+    const { data } = fakeData({
+      venueStatus: async () => [
+        vstatus(),
+        // The state that earns the page: no error, running, and zero markets.
+        vstatus({
+          venue_id: "hl-cash",
+          name: "dreamcash",
+          type: "hip3",
+          live_markets: 0,
+          last_run_markets: 0,
+        }),
+        vstatus({
+          venue_id: "okx",
+          name: "OKX",
+          last_error: "HTTP 429 rate limited",
+          failures_24h: 12,
+        }),
+      ],
+    });
+    const html = await (await get("/status", data)).text();
+    // Scoped to the tbody, NOT the whole page, and anchored on the full opening tag.
+    //
+    // Two traps here, both hit while writing this. The stylesheet is inlined, so every st-* class
+    // name also appears in the CSS and a position check against the whole document measures the
+    // order the RULES were written in. And `data-live="status"` is not unique: the masthead's own
+    // status line in layout.ts carries it, so splitting on the attribute alone captured the gap
+    // between the masthead and the table, which holds no rows at all.
+    const rows = html.split('<tbody data-live="status">')[1]?.split("</tbody>")[0] ?? "";
+
+    expect(rows).toContain("st-empty");
+    expect(rows).toContain("st-failing");
+    expect(rows).toContain("st-live");
+    // Problems sort above healthy venues.
+    expect(rows.indexOf("st-failing")).toBeLessThan(rows.indexOf("st-live"));
+    // The failure count is what separates one blip from a venue that is down.
+    expect(rows).toContain("12 of 1440 runs");
+    expect(rows).toContain("HTTP 429 rate limited");
+    // Cost is readable rather than raw milliseconds.
+    expect(rows).toContain("306ms");
+  });
+
+  test("/v1/status returns every venue as JSON", async () => {
+    const { data } = fakeData({ venueStatus: async () => [vstatus()] });
+    const body = (await (await get("/v1/status", data)).json()) as { count: number };
+    expect(body.count).toBe(1);
   });
 
   test("an empty table explains that most assets quote nothing", async () => {

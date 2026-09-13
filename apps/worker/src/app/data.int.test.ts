@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { migrate } from "@ai-rates/db";
 import { SQL } from "bun";
 import postgres from "postgres";
-import { createDataSource, type ScreenerFilters, type ScreenerSort } from "./data";
+import { createDataSource, type ScreenerFilters, type ScreenerSort, venueState } from "./data";
 
 // Runs only with a database: `bun --env-file=.env.test.local test apps/worker`.
 //
@@ -259,6 +259,9 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     await admin`DELETE FROM market_latest WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_leverage_tiers WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_pair_backtests WHERE long_venue_id IN (${venueA}, ${venueB})`;
+    // collector_runs was not cleaned before venueStatus seeded it; without this the rows outlive
+    // the run in the shared airates_it schema, which is the leak screener.int.test.ts warns about.
+    await admin`DELETE FROM collector_runs WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_funding_stats WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM markets WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM venues WHERE id IN (${venueA}, ${venueB})`;
@@ -426,6 +429,56 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       expect(bySymbol.get(symbolA4Bad)?.median_mark).toBeCloseTo(100, 6);
       // Cheapest ask first: the mismatch quotes 0.07, so it leads despite being excluded.
       expect(quotes[0]?.venue_symbol).toBe(symbolA4Bad);
+    });
+  });
+
+  describe("venueStatus", () => {
+    beforeAll(async () => {
+      const run = (venue_id: string, minutesAgo: number, error: string | null) => ({
+        started_at: new Date(Date.now() - minutesAgo * 60_000),
+        venue_id,
+        duration_ms: 306,
+        markets: 12,
+        requests: 2,
+        error,
+      });
+      // venueA: three runs, one of which failed, with the newest clean.
+      // venueB: deliberately none, so the "silent" path has real data behind it.
+      await admin`
+        INSERT INTO collector_runs ${admin([
+          run(venueA, 3, null),
+          run(venueA, 4, "HTTP 429 rate limited"),
+          run(venueA, 5, null),
+        ])}`;
+    });
+
+    const mine = async () =>
+      new Map((await data.venueStatus()).map((v) => [v.venue_id, v] as const));
+
+    test("counts failures over the window rather than only the last run", async () => {
+      const a = (await mine()).get(venueA);
+      expect(a?.runs_24h).toBe(3);
+      // One blip and a venue that is down are indistinguishable without this.
+      expect(a?.failures_24h).toBe(1);
+      // The newest run is clean, so the venue is not currently failing.
+      expect(a?.last_error).toBeNull();
+      expect(a?.last_success_at).toBeInstanceOf(Date);
+    });
+
+    test("a venue with no runs still appears, rather than vanishing from the join", async () => {
+      const b = (await mine()).get(venueB);
+      expect(b).toBeDefined();
+      expect(b?.last_run_at).toBeNull();
+      expect(b?.runs_24h).toBe(0);
+      expect(venueState(b as NonNullable<typeof b>, Date.now())).toBe("silent");
+    });
+
+    test("live market counts come from market_latest, not from the run's own figure", async () => {
+      const a = (await mine()).get(venueA);
+      // The seeded run claims 12 markets; what is actually live is whatever market_latest holds.
+      expect(a?.last_run_markets).toBe(12);
+      expect(a?.live_markets).toBeGreaterThan(0);
+      expect(a?.live_markets).not.toBe(12);
     });
   });
 

@@ -142,6 +142,14 @@ table.heat{border-collapse:collapse;width:auto;min-width:100%}
    money leaves, plain ink for the side it returns to. */
 .buy-leg .venue{color:var(--accent)}.sell-leg .venue{color:var(--ink)}
 .shorts-paid{color:var(--short)}.longs-paid{color:var(--long)}.flat{color:var(--muted)}
+/* Collector state. "empty" is deliberately a warning colour, not a neutral one: a venue answering
+   cleanly while returning no markets is the fault a pass/fail reading calls healthy.
+   No backticks in here: this CSS is a JS template literal, and one would end the string. */
+.st{text-transform:uppercase;letter-spacing:.04em}
+.st-live{color:var(--accent)}
+.st-empty,.st-stale{color:var(--warn)}
+.st-failing{color:var(--short)}
+.st-silent{color:var(--dim)}
 .dim{color:var(--muted)}
 .empty{padding:16px 10px;color:var(--muted)}
 form.filters{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-end;margin:0 0 10px;padding:8px 10px;border:1px solid var(--rule)}
@@ -221,7 +229,7 @@ export function layout(options: {
 </header>
 <main class="wrap">${body}</main>
 <footer><div class="wrap">
-<p class="sig"><span>read only · public venue APIs</span><span><a href="/probe">exchange status</a></span><span>airrates</span></p>
+<p class="sig"><span>read only · public venue APIs</span><span><a href="/status">status</a> · <a href="/probe">geo-probe</a></span><span>airrates</span></p>
 <p>Funding rates come from each venue's public API and refresh every minute. They are estimates for each venue's next settlement and change before it. Spreads are before trading fees, slippage and price moves.</p>
 <p>Not financial advice. Not affiliated with any exchange.</p>
 </div></footer>
