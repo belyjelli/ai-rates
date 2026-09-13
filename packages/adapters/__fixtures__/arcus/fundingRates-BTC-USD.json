@@ -1,0 +1,34 @@
+{
+  "fundingRates": [
+    {
+      "marketId": 1,
+      "marketDisplayName": "BTC-USD",
+      "fundingRate": "0.0000125",
+      "time": 1789336800000000
+    },
+    {
+      "marketId": 1,
+      "marketDisplayName": "BTC-USD",
+      "fundingRate": "0.0000125",
+      "time": 1789333200000000
+    },
+    {
+      "marketId": 1,
+      "marketDisplayName": "BTC-USD",
+      "fundingRate": "0.0000125",
+      "time": 1789329600000000
+    },
+    {
+      "marketId": 1,
+      "marketDisplayName": "BTC-USD",
+      "fundingRate": "0.0000125",
+      "time": 1789326000000000
+    },
+    {
+      "marketId": 1,
+      "marketDisplayName": "BTC-USD",
+      "fundingRate": "0.0000125",
+      "time": 1789322400000000
+    }
+  ]
+}

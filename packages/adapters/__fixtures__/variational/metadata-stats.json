@@ -1,0 +1,301 @@
+{
+  "total_volume_24h": "596971006.955463",
+  "cumulative_volume": "330063428041.783213",
+  "tvl": "191873077.425803501125",
+  "open_interest": "1612663282.9575674032052286696",
+  "num_markets": 553,
+  "loss_refund": {
+    "pool_size": "0",
+    "refunded_24h": "0"
+  },
+  "listings": [
+    {
+      "ticker": "BTC",
+      "name": "Bitcoin",
+      "mark_price": "77229.3565140889",
+      "volume_24h": "245987215.191356",
+      "open_interest": {
+        "long_open_interest": "79488330.90156663078909270000",
+        "short_open_interest": "70056049.647245814573357420000"
+      },
+      "funding_rate": "0.091241",
+      "funding_interval_s": 28800,
+      "base_spread_bps": "1.0811950761854030298845160000",
+      "quotes": {
+        "updated_at": "2026-09-13T22:00:06.684094484Z",
+        "base": {
+          "bid": "77211.27",
+          "ask": "77219.62"
+        },
+        "size_1k": {
+          "bid": "77211.1",
+          "ask": "77219.8"
+        },
+        "size_100k": {
+          "bid": "77207.49",
+          "ask": "77223.4"
+        },
+        "size_1m": {
+          "bid": "77193.75",
+          "ask": "77237.15"
+        }
+      }
+    },
+    {
+      "ticker": "ETH",
+      "name": "Ethereum",
+      "mark_price": "2504.806274400028",
+      "volume_24h": "138564687.521117",
+      "open_interest": {
+        "long_open_interest": "96254544.74819814845160160000",
+        "short_open_interest": "37705759.539278599382186000000"
+      },
+      "funding_rate": "0.069232",
+      "funding_interval_s": 28800,
+      "base_spread_bps": "1.1178509206947268816591640000",
+      "quotes": {
+        "updated_at": "2026-09-13T22:00:30.267465884Z",
+        "base": {
+          "bid": "2503.79",
+          "ask": "2504.07"
+        },
+        "size_1k": {
+          "bid": "2503.79",
+          "ask": "2504.07"
+        },
+        "size_100k": {
+          "bid": "2503.63",
+          "ask": "2504.23"
+        },
+        "size_1m": {
+          "bid": "2502.89",
+          "ask": "2504.97"
+        }
+      }
+    },
+    {
+      "ticker": "HYPER",
+      "name": "Hyperlane",
+      "mark_price": "0.0688824349790803",
+      "volume_24h": "201.138840",
+      "open_interest": {
+        "long_open_interest": "672.95069006713193272",
+        "short_open_interest": "4980.4580686118158164000000000"
+      },
+      "funding_rate": "0.1095",
+      "funding_interval_s": 14400,
+      "base_spread_bps": "15.969238026124826579303178000",
+      "quotes": {
+        "updated_at": "2026-09-13T22:00:34.340293197Z",
+        "base": {
+          "bid": "0.06873",
+          "ask": "0.06884"
+        },
+        "size_1k": {
+          "bid": "0.06871",
+          "ask": "0.06887"
+        },
+        "size_100k": {
+          "bid": "0.06727",
+          "ask": "0.07239"
+        }
+      }
+    },
+    {
+      "ticker": "STORJ",
+      "name": "Storj",
+      "mark_price": "0.03558592558897481",
+      "volume_24h": "55656.036314",
+      "open_interest": {
+        "long_open_interest": "20743.086382108740885110000000",
+        "short_open_interest": "1300.4935991962129848410000000"
+      },
+      "funding_rate": "-85.536623",
+      "funding_interval_s": 3600,
+      "base_spread_bps": "14.050498665542913892405740000",
+      "quotes": {
+        "updated_at": "2026-09-13T22:00:31.305663308Z",
+        "base": {
+          "bid": "0.03557",
+          "ask": "0.03562"
+        },
+        "size_1k": {
+          "bid": "0.03557",
+          "ask": "0.03563"
+        },
+        "size_100k": {
+          "bid": "0.03432",
+          "ask": "0.03699"
+        }
+      }
+    },
+    {
+      "ticker": "1000PEPE",
+      "name": "Pepe",
+      "mark_price": "0.003408630799146218",
+      "volume_24h": "291763.066581",
+      "open_interest": {
+        "long_open_interest": "403265.37106066889903121000000",
+        "short_open_interest": "36677.737791485254251105000000"
+      },
+      "funding_rate": "0.1095",
+      "funding_interval_s": 28800,
+      "base_spread_bps": "14.668646429095174016947138000",
+      "quotes": {
+        "updated_at": "2026-09-13T22:00:18.525698028Z",
+        "base": {
+          "bid": "0.003406",
+          "ask": "0.003411"
+        },
+        "size_1k": {
+          "bid": "0.003406",
+          "ask": "0.003411"
+        },
+        "size_100k": {
+          "bid": "0.003402",
+          "ask": "0.003415"
+        }
+      }
+    },
+    {
+      "ticker": "OPN_OPINION",
+      "name": "Opinion",
+      "mark_price": "0.0474479007852997",
+      "volume_24h": "201.931120",
+      "open_interest": {
+        "long_open_interest": "1161.1713775849398710100000000",
+        "short_open_interest": "0.2755429811100058200000000000"
+      },
+      "funding_rate": "0.109500",
+      "funding_interval_s": 14400,
+      "base_spread_bps": "14.753023598820074097139714000",
+      "quotes": {
+        "updated_at": "2026-09-13T22:00:06.662709468Z",
+        "base": {
+          "bid": "0.04738",
+          "ask": "0.04745"
+        },
+        "size_1k": {
+          "bid": "0.04738",
+          "ask": "0.04745"
+        },
+        "size_100k": {
+          "bid": "0.04349",
+          "ask": "0.05914"
+        }
+      }
+    },
+    {
+      "ticker": "OPENAI",
+      "name": "OpenAI",
+      "mark_price": "1404.556838006308",
+      "volume_24h": "1488578.414421",
+      "open_interest": {
+        "long_open_interest": "2537131.4992056502758411600000",
+        "short_open_interest": "293378.90946419118105243000000"
+      },
+      "funding_rate": "0.05475",
+      "funding_interval_s": 28800,
+      "base_spread_bps": "9.967556756102685146005109000",
+      "quotes": {
+        "updated_at": "2026-09-13T22:00:39.493126901Z",
+        "base": {
+          "bid": "1403.86",
+          "ask": "1405.26"
+        },
+        "size_1k": {
+          "bid": "1403.03",
+          "ask": "1405.26"
+        },
+        "size_100k": {
+          "bid": "1383.87",
+          "ask": "1419.82"
+        }
+      }
+    },
+    {
+      "ticker": "TSLA",
+      "name": "Tesla, Inc.",
+      "mark_price": "362.7225057610309",
+      "volume_24h": "1087791.997451",
+      "open_interest": {
+        "long_open_interest": "842887.5202977482509332300000",
+        "short_open_interest": "690021.35076761774382033000000"
+      },
+      "funding_rate": "0",
+      "funding_interval_s": 28800,
+      "base_spread_bps": "5.3760105012196303889315430000",
+      "quotes": {
+        "updated_at": "2026-09-13T22:00:30.785621419Z",
+        "base": {
+          "bid": "362.61",
+          "ask": "362.805"
+        },
+        "size_1k": {
+          "bid": "362.61",
+          "ask": "362.869"
+        },
+        "size_100k": {
+          "bid": "362.238",
+          "ask": "363.275"
+        }
+      }
+    },
+    {
+      "ticker": "CAT",
+      "name": "Caterpillar Inc.",
+      "mark_price": "817.81145807819",
+      "volume_24h": "8749.287944",
+      "open_interest": {
+        "long_open_interest": "31312.95585960997506200000000",
+        "short_open_interest": "29339.74885356669212400000000"
+      },
+      "funding_rate": "0",
+      "funding_interval_s": 28800,
+      "base_spread_bps": "18.231586085914771181822111000",
+      "quotes": {
+        "updated_at": "2026-09-13T22:00:49.491789228Z",
+        "base": {
+          "bid": "817.066",
+          "ask": "818.557"
+        },
+        "size_1k": {
+          "bid": "816.449",
+          "ask": "819.302"
+        },
+        "size_100k": {
+          "bid": "803.537",
+          "ask": "839.401"
+        }
+      }
+    },
+    {
+      "ticker": "XAUS",
+      "name": "Swap on Gold Spot",
+      "mark_price": "4330.57",
+      "volume_24h": "376055.595020",
+      "open_interest": {
+        "long_open_interest": "32813888.273768807589763770000",
+        "short_open_interest": "4498948.2741896010405945900000"
+      },
+      "funding_rate": "0",
+      "funding_interval_s": 0,
+      "base_spread_bps": "0.36946637509611898664610000",
+      "quotes": {
+        "updated_at": "2026-09-13T22:00:21.480040717Z",
+        "base": {
+          "bid": "4332.27",
+          "ask": "4332.43"
+        },
+        "size_1k": {
+          "bid": "4332.27",
+          "ask": "4332.43"
+        },
+        "size_100k": {
+          "bid": "4332.27",
+          "ask": "4332.43"
+        }
+      }
+    }
+  ]
+}

@@ -23,11 +23,13 @@ describe("createAdapters", () => {
     // The set rather than a bare count: a count tells you the number changed, not which adapter
     // went missing, and dropping one silently is the failure worth catching.
     expect([...ids].sort()).toEqual([
+      "arcus",
       "aster",
       "binance",
       "bullet",
       "bybit",
       "dydx",
+      "extended",
       "gate",
       "hyperliquid",
       "kucoin",
@@ -35,6 +37,8 @@ describe("createAdapters", () => {
       "mexc",
       "okx",
       "paradex",
+      "reya",
+      "variational",
       "weex",
     ]);
   });
