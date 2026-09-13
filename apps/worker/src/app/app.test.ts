@@ -182,6 +182,13 @@ describe("pages", () => {
     expect(calls.screener.at(-1)?.sameQuote).toBe(false);
   });
 
+  test("every page carries its build, so open tabs can tell a deploy landed", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/rates", data)).text();
+    // BUILD.commit is null outside Workers Builds, so tests see an empty stamp and live.ts never reloads.
+    expect(html).toMatch(/<body data-rendered="\d+" data-build="">/);
+  });
+
   test("the asset page offers its best pair's backtest as a button, not a link in the sentence", async () => {
     const { data } = fakeData();
     const html = await (await get("/markets/asset/BTC", data)).text();

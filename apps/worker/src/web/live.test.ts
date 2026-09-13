@@ -71,6 +71,15 @@ describe("LIVE_SCRIPT", () => {
     expect(() => new Function(LIVE_SCRIPT)).not.toThrow();
   });
 
+  test("reloads once per new build, and only for a newer render", () => {
+    // A tab opened before a deploy keeps its old CSS through every region swap, so a newer build must
+    // trigger a real reload -- guarded so an older edge copy or a stale landing cannot loop it.
+    expect(LIVE_SCRIPT).toContain("document.body.dataset.build");
+    expect(LIVE_SCRIPT).toContain("Number(stamp[1]) > Number(rendered)");
+    expect(LIVE_SCRIPT).toContain('sessionStorage.getItem("airates-reloaded-for")');
+    expect(LIVE_SCRIPT).toContain("location.reload()");
+  });
+
   test("cannot close its own script tag", () => {
     expect(LIVE_SCRIPT.toLowerCase()).not.toContain("</script");
   });

@@ -1,4 +1,5 @@
 import type { Overview } from "../app/data";
+import { BUILD } from "../build-info";
 import { esc, since } from "./format";
 import { LIVE_SCRIPT } from "./live";
 
@@ -281,7 +282,7 @@ export function layout(options: {
 <meta name="description" content="${esc(description)}">
 <style>${CSS}</style>
 </head>
-<body data-rendered="${now}">
+<body data-rendered="${now}" data-build="${esc(BUILD.commit ?? "")}">
 <header class="mast">
 <div class="wrap bar"><a class="brand" href="/">airrates<small>funding carry sheet</small></a><span class="status" data-live="status">${status}</span><time class="clock" id="clock">--:--:-- UTC</time></div>
 <div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><span class="keys">${keys}<span><b>/</b>filter</span></span></div>
