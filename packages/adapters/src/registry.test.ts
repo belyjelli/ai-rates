@@ -42,10 +42,13 @@ describe("createAdapters", () => {
       "lighter",
       "mexc",
       "okx",
+      "ondo",
       "orderly",
       "paradex",
       "pionex",
       "reya",
+      "sodex",
+      "standx",
       "variational",
       "weex",
     ]);
