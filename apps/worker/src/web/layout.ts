@@ -68,7 +68,9 @@ p{margin:0}
 .hero-asset:hover{color:var(--accent)}
 .hero-spread{font:700 clamp(20px,4vw,36px)/1 var(--mono);color:var(--short)}
 .hero-spread span{display:block;color:var(--muted);font-size:12px;font-weight:400;text-align:right;margin-top:4px}
-.hero .rail-big{margin:18px 0 8px}
+/* The big rail hangs its "0%" label 16px below itself (.rail-big .rail-zero::after), so the bottom
+   margin has to clear that label or it lands in the legs row; the asset page's rail had the same fix. */
+.hero .rail-big{margin:18px 0 26px}
 /* On the asset page the table follows the rail directly, so leave room for the "0%" label to clear it. */
 .asset-rail .rail-big{margin:14px 0 30px}
 .legs{display:flex;justify-content:space-between;gap:4px 24px;flex-wrap:wrap;margin-bottom:10px}
