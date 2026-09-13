@@ -1,0 +1,7 @@
+[
+  { "fundingRateE9": "12500", "fundingTimeAtMillis": 1789336800051, "symbol": "BTC-PERP" },
+  { "fundingRateE9": "12500", "fundingTimeAtMillis": 1789333200277, "symbol": "BTC-PERP" },
+  { "fundingRateE9": "12500", "fundingTimeAtMillis": 1789329600304, "symbol": "BTC-PERP" },
+  { "fundingRateE9": "12500", "fundingTimeAtMillis": 1789326000267, "symbol": "BTC-PERP" },
+  { "fundingRateE9": "12500", "fundingTimeAtMillis": 1789322400051, "symbol": "BTC-PERP" }
+]

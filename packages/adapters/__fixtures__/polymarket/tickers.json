@@ -1,0 +1,122 @@
+[
+  {
+    "instrument_id": 1,
+    "symbol": "SP500-USD",
+    "index_price": "7613",
+    "mark_price": "7611.6",
+    "last_price": "7611.4",
+    "mid_price": "7611.6",
+    "open_interest": "871.21737",
+    "funding_rate": "0.00000625",
+    "next_funding": 1789340400000,
+    "timestamp": 1789338398739
+  },
+  {
+    "instrument_id": 2,
+    "symbol": "GOLD-USD",
+    "index_price": "4332.6",
+    "mark_price": "4334.2",
+    "last_price": "4332.2",
+    "mid_price": "4334.2",
+    "open_interest": "663.87979",
+    "funding_rate": "0.00000625",
+    "next_funding": 1789340400000,
+    "timestamp": 1789338398739
+  },
+  {
+    "instrument_id": 3,
+    "symbol": "WTIOIL-USD",
+    "index_price": "99.336",
+    "mark_price": "99.024",
+    "last_price": "98.965",
+    "mid_price": "99.024",
+    "open_interest": "9737.140",
+    "funding_rate": "-0.00012796",
+    "next_funding": 1789340400000,
+    "timestamp": 1789338398739
+  },
+  {
+    "instrument_id": 6,
+    "symbol": "BTC-USD",
+    "index_price": "76793",
+    "mark_price": "76770",
+    "last_price": "76753",
+    "mid_price": "76770",
+    "open_interest": "114.13806000000000000000000000",
+    "funding_rate": "0.0000125",
+    "next_funding": 1789340400000,
+    "timestamp": 1789338398739
+  },
+  {
+    "instrument_id": 7,
+    "symbol": "ETH-USD",
+    "index_price": "2479.7",
+    "mark_price": "2479",
+    "last_price": "2477.2",
+    "mid_price": "2479.2",
+    "open_interest": "3434.8167",
+    "funding_rate": "0.0000125",
+    "next_funding": 1789340400000,
+    "timestamp": 1789338398739
+  },
+  {
+    "instrument_id": 17,
+    "symbol": "GOOG-USD",
+    "index_price": "337.66",
+    "mark_price": "337.5",
+    "last_price": "337.4",
+    "mid_price": "337.5",
+    "open_interest": "2012.1311",
+    "funding_rate": "-0.00005729",
+    "next_funding": 1789340400000,
+    "timestamp": 1789338398739
+  },
+  {
+    "instrument_id": 30,
+    "symbol": "DRAM-USD",
+    "index_price": "56.606",
+    "mark_price": "56.416",
+    "last_price": "56.405",
+    "mid_price": "56.416",
+    "open_interest": "3935.987",
+    "funding_rate": "-0.00015476",
+    "next_funding": 1789340400000,
+    "timestamp": 1789338398739
+  },
+  {
+    "instrument_id": 35,
+    "symbol": "KPEPE-USD",
+    "index_price": "0.00335",
+    "mark_price": "0.003347",
+    "last_price": "0.003348",
+    "mid_price": "0.003347",
+    "open_interest": "50052422",
+    "funding_rate": "0.00001182",
+    "next_funding": 1789340400000,
+    "timestamp": 1789338398739
+  },
+  {
+    "instrument_id": 37,
+    "symbol": "MSTR-USD",
+    "index_price": "129.49",
+    "mark_price": "128.9",
+    "last_price": "128.94",
+    "mid_price": "128.64",
+    "open_interest": "1642.566",
+    "funding_rate": "-0.00035442",
+    "next_funding": 1789340400000,
+    "timestamp": 1789338398739
+  },
+  {
+    "instrument_id": 69,
+    "symbol": "PONS-USD",
+    "index_price": "0.55465",
+    "mark_price": "0.55532",
+    "last_price": "0.55606",
+    "mid_price": "0.55516",
+    "open_interest": "59684.4",
+    "funding_rate": "0.00001705",
+    "next_funding": 1789340400000,
+    "timestamp": 1789338398739
+  }
+]

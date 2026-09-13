@@ -52,6 +52,11 @@ describe("collector adapters", () => {
     expect(ids).toContain("grvt");
     expect(ids).toContain("hibachi");
     expect(ids).toContain("zero1");
+    expect(ids).toContain("backpack");
+    expect(ids).toContain("bluefin");
+    expect(ids).toContain("nado");
+    expect(ids).toContain("polymarket");
+    expect(ids).toContain("risex");
     expect(ids).toContain("orderly");
     expect(ids).toContain("pionex");
   });
