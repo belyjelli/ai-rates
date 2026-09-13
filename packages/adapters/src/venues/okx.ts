@@ -508,7 +508,21 @@ export const okxAdapter: VenueAdapter = {
    * records, which extrapolates to ~132 active families and ~4,200 records per full rotation.
    *
    * The cursor lives in module state so successive calls continue where the last stopped; a restart
-   * simply begins again at zero, which costs nothing because the pages are so deep.
+   * begins again at zero.
+   *
+   * **A ROTATING SAMPLE, NOT A SWEEP, AND NOT COMPARABLE WITH GATE'S TOTALS.** Measured 2026-09-13 on
+   * ~2,527 visit windows (a family revisited about every 35-40 minutes at a run every 3x intervalMs):
+   *   1. The 100-record page is a CEILING. 11 windows hit it (max 197 records) and 9 more reached 80-99,
+   *      so the busiest assets in a violent hour are lower bounds.
+   *   2. The feed runs about 69 minutes behind (see types.ts), so this venue's newest time bucket is
+   *      always incomplete.
+   *   3. The cursor resets on every deploy, so families early in the list are re-read more often than
+   *      the tail: coverage is uneven along an arbitrary ordering, not along market activity.
+   * Gate answers for its whole venue in one call with no ceiling. On assets both covered in the same
+   * 24 hours the OKX-to-Gate notional ratio spanned 0.10x (MORPHO) to 16.4x (DOGE), with BTC 1.15x and
+   * ETH 0.76x. Nothing in the data separates real venue difference from sampling artefact, so do not
+   * sum the two venues or rank assets across them; present each venue on its own. (Migration 012's
+   * header predates this rotation and still describes OKX as too costly to ingest.)
    */
   async fetchLiquidations(client) {
     const [instruments, markPrices] = await Promise.all([
