@@ -187,12 +187,20 @@ so they land before any new venue.
 - [x] `MexcContractDetail` gains `baseCoinName`; pass the resolved base through `marketRef`.
 - [x] Extend `__fixtures__/mexc/detail.json` with one row per branch. Note `XAU_USDT` is **stale** —
       live MEXC now returns `GOLD(XAU)` where the fixture has `null`.
-- [ ] **Still outstanding.** Guard: reject a rename whose new name exists elsewhere at >1.5× —
-      catches `AIGENSYN→AI` (0.0198 vs 0.2738) and `KIMISTOCK→MOONSHOT` (7.42 vs 64.81). Verified
-      absent from `parse.ts`, `mexc.ts` and `symbols.ts` on 2026-09-13. **Partly superseded:** step
-      4 now reports a bad rename as `mismatch` and migration 016 excludes it from the scan either
-      way, so this is no longer a correctness hole — it is the difference between catching the
-      rename at ingest and catching it an hour later in the report.
+- [x] ~~Guard: reject a rename whose new name exists elsewhere at >1.5×.~~ **Closed, not built:
+      production showed its premise was wrong.**
+      - **`AIGENSYN→AI` is a correct rename.** On 2026-09-13 ~21:50Z mexc `AIGENSYN_USDT` marked
+        0.01972, exactly okx `AI-USDT-SWAP` at 0.01972 (OKX lists Gensyn as `AI`). The 0.2754 markets
+        are a different token on lighter and aster.
+      - So the collision is two crypto tokens sharing a ticker, not a bad rename. The guard would have
+        rejected the correct mexc market while leaving the actual collision in place.
+      - The gate already handles it: `screener_pairs` pairs `crypto:AI` on mexc/okx only, and step 4
+        reports aster and lighter as `mismatch` (correlation 0.009 and 0.036).
+      - `KIMISTOCK→MOONSHOT` (mexc 7.42 against okx 65.28, correlation −0.055) is caught the same way.
+        Both are pre-IPO contracts, and whether they even quote the same unit is unclear; a price
+        guard at ingest could not settle that either.
+      - Ingest has no cross-venue prices anyway: an adapter sees one venue. The check that can see
+        both sides already exists, in steps 4 and 016.
 - [x] Pin `SPX500` until step 3 — resolved in the same commit, see step 3.
 - **Recovers 354 of 356 renames**, each landing on a pool 6–9 venues deep at ratio 1.0.
 - [ ] **Parser artefacts that land in a real pool.**
@@ -203,7 +211,7 @@ so they land before any new venue.
       - Both are fixable from aster's declared `baseAsset`, the same way MEXC's declared base fixed
         its renames. Asset class fixes neither.
 
-### 2. Asset class through the pipeline — **built, awaiting production verification**
+### 2. Asset class through the pipeline — **shipped `e51fde9`, verified in production**
 - [x] `AssetClass` (`crypto|equity|commodity|fx|index`) on `MarketRef`; **migration 017** adds
       `asset_class` to `markets`, `market_latest` (indexed with `base`), `market_identity_checks`
       (a column only; its key stays `(venue_id, venue_symbol)`) and `market_pair_backtests` (key
@@ -229,9 +237,28 @@ so they land before any new venue.
       - A class-less URL resolves to crypto when the base has a crypto market, and otherwise to its
         deepest class.
       - Non-crypto tickers carry a class tag. Row keys include the class.
-- [ ] Deploy the collector first, then verify in production that `STX`, `BB`, `RTX`, `PURR`, `CAT`,
-      `ON` and `ADI` split into two keys each and pair separately. Existing rows backfill themselves
-      on the next collection cycle.
+- [x] Deployed the collector first, then verified in production on the first full cycle. Existing rows
+      backfilled themselves.
+      - Live markets by class: 4,159 crypto, 1,844 equity, 93 commodity, 43 index, 25 fx.
+      - Each collided ticker now has one pool per class:
+
+        | ticker | crypto | equity |
+        |---|---|---|
+        | `BB` | 6 venues at 0.008 | 3 venues at 7.75 |
+        | `STX` | 8 venues at 0.27 | hl-para at 818 |
+        | `CAT` | 5 venues, the memecoin | binance and gate at 817 |
+        | `ON` | 5 venues at 0.137 | 2 venues at 74.5 |
+        | `PURR` | 2 venues at 0.11 | 3 venues at 11.5 |
+        | `QNT` | 5 venues at 63.7 (Quant) | 3 venues at 48.8 (Quantinuum) |
+        | `RTX`, `ADI` | the tokens | the stocks |
+
+      - `screener_pairs` returns a separate row for each side of `BB`, `CAT`, `ON`, `PURR` and `QNT`.
+      - `US500` became one `index` pool across 7 venues; OKX's "stock" filing is refined to index.
+      - **This also closes `QNT` from step 3.** Its two clusters were Quant and Quantinuum, which
+        OKX, hl-xyz and Lighter declare as a stock. No alias was needed.
+      - Still >1.5× inside one class: `fx:JPY`, `index:KR200`, `index:US500` (hl-mkts, 10×),
+        `index:HK50`, `equity:OPENAI`, `equity:ANTHROPIC`, `equity:MOONSHOT`, `equity:BYD`,
+        `crypto:MEME`, `crypto:B`, `crypto:AI`, `crypto:EDGE`. Every one was predicted above.
 - **Does not fix** collisions inside one class:
   - `JPY` (reciprocal quote, both fx).
   - Scale variants (`hl-mkts:US500`, OKX `ANTHROPIC`/`OPENAI`).
@@ -244,7 +271,10 @@ so they land before any new venue.
       `893c8d1`. `SPX500` and `SP500` alias to `US500` in `symbols.ts`; the 760.96 variant is
       excluded by migration 016 and reported `scale`, exponent −1, rather than merged.
 - [ ] Record price + correlation evidence inline for each new entry, as the existing block does.
-- [ ] Confirm or reject `MUFGSTOCK`→`MUFG` (correlation was inconclusive — under 30 shared minutes).
+- [x] **Confirmed `MUFGSTOCK`→`MUFG`.** On 2026-09-13 ~21:50Z mexc `MUFGSTOCK_USDT` marked 23.700 and
+      gate `MUFG_USDT` 23.625, 0.3% apart. Both are declared equity. `screener_pairs` pairs them, and
+      step 4 raised no divergence for either. No alias entry was needed: the venue's declared base
+      already does the join.
 - [ ] **Investigate `QNT` by hand — its verdict is unstable across anchor choice.** Two clusters sit
       1.32× apart (four venues near 64.7, three near 48.7). Against a mexc anchor on 2026-09-13 the
       three legs scored 0.15–0.18 and read as a clear mismatch; against a binance anchor an hour
