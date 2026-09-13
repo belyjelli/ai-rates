@@ -1,5 +1,6 @@
 import type { VenueAdapter } from "./types";
 import { asterAdapter } from "./venues/aster";
+import { binanceAdapter } from "./venues/binance";
 import { bybitAdapter } from "./venues/bybit";
 import { dydxAdapter } from "./venues/dydx";
 import { gateAdapter } from "./venues/gate";
@@ -18,6 +19,7 @@ export const FIXED_ADAPTERS: readonly VenueAdapter[] = [
   mexcAdapter,
   kucoinAdapter,
   asterAdapter,
+  binanceAdapter,
   hyperliquidAdapter,
   dydxAdapter,
   paradexAdapter,

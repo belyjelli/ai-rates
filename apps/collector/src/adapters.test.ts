@@ -16,9 +16,12 @@ describe("collector adapters", () => {
     expect(new Set(adapters.map((a) => a.venueId)).size).toBe(adapters.length);
   });
 
-  test("deferred venues are not collected", () => {
+  test("still-deferred venues are not collected", () => {
+    // Binance came off this list in Phase 5. The deferral was Phase 1 SCOPING -- "KuCoin and Aster
+    // replace Binance and Bitget" -- not a policy about Binance itself, and Phase 5's own venue
+    // list names it. The remaining three stay deferred until they are actually built.
     const ids = adapters.map((a) => a.venueId);
-    for (const deferred of ["binance", "bitget", "blofin", "pionex"])
-      expect(ids).not.toContain(deferred);
+    for (const deferred of ["bitget", "blofin", "pionex"]) expect(ids).not.toContain(deferred);
+    expect(ids).toContain("binance");
   });
 });

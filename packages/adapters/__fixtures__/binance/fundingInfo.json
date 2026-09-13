@@ -1,0 +1,14 @@
+[
+  {
+    "symbol": "LPTUSDT",
+    "fundingIntervalHours": 4
+  },
+  {
+    "symbol": "ETHUSDT",
+    "fundingIntervalHours": 8
+  },
+  {
+    "symbol": "BTCUSDT",
+    "fundingIntervalHours": 8
+  }
+]
