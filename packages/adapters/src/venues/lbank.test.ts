@@ -129,7 +129,8 @@ describe("lbankAssetClass", () => {
   test("needSuspend 1 is not crypto, and the base tables pick the class", () => {
     expect(instrument("CEGUSDT").needSuspend).toBe(1);
     expect(lbankAssetClass(instrument("CEGUSDT"))).toBe("equity");
-    expect(bySymbol.get("SUGARUSDT")?.assetClass).toBe("equity");
+    // SUGAR is in COMMODITY_BASES, so the suspended soft commodities are no longer filed as equity.
+    expect(bySymbol.get("SUGARUSDT")?.assetClass).toBe("commodity");
     expect(lbankAssetClass({ ...instrument("CEGUSDT"), baseCurrency: "XAL" })).toBe("commodity");
   });
 
@@ -140,7 +141,8 @@ describe("lbankAssetClass", () => {
     const counts = Object.fromEntries(
       ["crypto", "equity"].map((c) => [c, snapshots.filter((s) => s.assetClass === c).length]),
     );
-    expect(counts).toEqual({ crypto: 7, equity: 2 });
+    // SUGAR moved to commodity with the base-table row, leaving one equity.
+    expect(counts).toEqual({ crypto: 7, equity: 1 });
   });
 });
 

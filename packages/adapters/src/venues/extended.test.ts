@@ -99,8 +99,8 @@ describe("parseExtendedMarkets", () => {
       ["XAU-USD", "XAU", 1, "commodity"],
       // assetName is MU_24_5; uiName MU-USD and the parser agree on MU.
       ["MU_24_5-USD", "MU", 1, "equity"],
-      // ETF/Index is passed as index; SPX500M is not in the index table, so it lands on equity.
-      ["SPX500m-USD", "SPX500M", 1, "equity"],
+      // Declared ETF/Index; aliased SPX500M -> US500 on price evidence, which the index table keeps index.
+      ["SPX500m-USD", "US500", 1, "index"],
       ["JP225-USD", "JP225", 1, "index"],
       ["EUR-USD", "EUR", 1, "fx"],
       // Pre-market is pre-IPO shares.

@@ -55,6 +55,10 @@ export const INDEX_BASES: ReadonlySet<string> = new Set([
   "H100",
   "10Y",
   "US10Y",
+  // HTX's declared index, marking 29,044; Extended's TECH100m aliases here in symbols.ts. Not merged
+  // with NAS100, US100 or XYZ100: that pool is fragmented four ways and wants return correlation,
+  // not price proximity, before any merge (USTECH at ~707 is a 41x scale variant).
+  "NASDAQ100",
 ]);
 
 /**
@@ -90,6 +94,18 @@ export const COMMODITY_BASES: ReadonlySet<string> = new Set([
   "OIL",
   "NATGAS",
   "URANIUM",
+  // Measured 2026-09-13 ~23:15Z. Toobit's crude contracts mark with their pools: XTI 98.78 against
+  // CL's 98.74, XBR 103.15 against BZ's 103.10. Toobit flags them isRwa with rwaType STOCK, so
+  // without these rows they fell through to equity.
+  "XTI",
+  "XBR",
+  // LBank's soft commodities, the instruments it suspends out of hours (needSuspend). They fell
+  // through to equity; WHEAT already sits under commodity on Lighter at 7.227 against LBank's 7.259.
+  "SUGAR",
+  "COCOA",
+  "COTTON",
+  "SOYBEAN",
+  "WHEAT",
 ]);
 
 export const FX_BASES: ReadonlySet<string> = new Set([

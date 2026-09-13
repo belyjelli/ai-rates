@@ -132,8 +132,8 @@ describe("bullet snapshots", () => {
     const of = (symbol: string) => [bySymbol.get(symbol)?.base, bySymbol.get(symbol)?.assetClass];
     expect(of("GOLD-USD")).toEqual(["XAU", "commodity"]);
     expect(of("SILVER-USD")).toEqual(["XAG", "commodity"]);
-    // No alias to CL without price evidence.
-    expect(of("WTIOIL-USD")).toEqual(["WTIOIL", "commodity"]);
+    // Aliased to CL on price evidence: 98.69 against CL's 98.74 across 20 venues (symbols.ts).
+    expect(of("WTIOIL-USD")).toEqual(["CL", "commodity"]);
     expect(of("US500-USD")).toEqual(["US500", "index"]);
     expect(of("SKHYNIX-USD")).toEqual(["SKHYNIX", "equity"]);
   });

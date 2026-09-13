@@ -153,8 +153,9 @@ describe("weexAssetClass", () => {
     expect(of("JP225USDT")).toEqual(["JP225", "crypto"]);
   });
 
-  test("keeps the STOCK suffix as declared, so Caterpillar never meets the memecoin", () => {
-    expect(bySymbol.get("CATSTOCKUSDT")).toMatchObject({ base: "CATSTOCK", assetClass: "equity" });
+  test("CATSTOCK joins Caterpillar's equity pool, and the class keeps it from the memecoin", () => {
+    // Aliased on same-class price evidence (816.8 against 815.1, symbols.ts); same base, different class.
+    expect(bySymbol.get("CATSTOCKUSDT")).toMatchObject({ base: "CAT", assetClass: "equity" });
     expect(bySymbol.get("CATUSDT")).toMatchObject({ base: "CAT", assetClass: "crypto" });
     expect(bySymbol.get("TSLAUSDT")).toMatchObject({ base: "TSLA", assetClass: "equity" });
   });

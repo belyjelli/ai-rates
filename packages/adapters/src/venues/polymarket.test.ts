@@ -97,7 +97,7 @@ describe("parsePolymarketSnapshots", () => {
       ["SP500-USD", "US500", "index", "PUSD"],
       // GOLD reaches XAU through core's alias.
       ["GOLD-USD", "XAU", "commodity", "PUSD"],
-      ["WTIOIL-USD", "WTIOIL", "commodity", "PUSD"],
+      ["WTIOIL-USD", "CL", "commodity", "PUSD"],
       ["BTC-USD", "BTC", "crypto", "PUSD"],
       ["ETH-USD", "ETH", "crypto", "PUSD"],
       // Declared base_asset GOOGL, parsed GOOG: the declaration wins.
