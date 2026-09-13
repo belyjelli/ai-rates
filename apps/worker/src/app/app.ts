@@ -1,5 +1,6 @@
 import { backtestDaily, dailyWindowStart } from "@ai-rates/core";
 import { VENUES } from "@ai-rates/venues";
+import { about } from "../web/about";
 import type { FundingHistory } from "../web/funding-chart";
 import * as pages from "../web/pages";
 import { VENUE_BY_ID } from "../web/venues";
@@ -124,9 +125,30 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(pages.pricePair({ asset, quotes, overview, now }));
     }
 
+    if (path === "/about") {
+      return page(about({ overview: await deps.data.overview(), now }));
+    }
+
     if (path === "/status") {
-      const [overview, venues] = await Promise.all([deps.data.overview(), deps.data.venueStatus()]);
-      return page(pages.status({ overview, venues, now }));
+      const [overview, venues, checks] = await Promise.all([
+        deps.data.overview(),
+        deps.data.venueStatus(),
+        // Fail-soft, for the reason the homepage's verified ranking is: a missing
+        // market_identity_checks is the state of any deployment where the worker ships before
+        // migration 015 has been applied. Verification is a section of this page; collector health
+        // is the page itself. And a 503 here would be the worst possible one -- /status is where a
+        // reader goes to diagnose exactly the sort of half-finished deploy that caused it.
+        // Null, not an empty array: "no market diverges" and "we have not checked" are different
+        // claims, and only one of them is reassuring. The page must not report a clean bill of
+        // health it never actually took.
+        deps.data.identityChecks().catch((error) => {
+          deps.log?.(
+            `identity checks unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return null;
+        }),
+      ]);
+      return page(pages.status({ overview, venues, checks, now }));
     }
 
     if (path === "/markets") {
@@ -207,8 +229,13 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     }
 
     if (path === "/v1/status") {
-      const venues = await deps.data.venueStatus();
-      return json({ count: venues.length, venues });
+      const [venues, checks] = await Promise.all([
+        deps.data.venueStatus(),
+        // Fail-soft for the same reason as the page above; a consumer polling venue health must not
+        // lose it because the verification table is not there yet.
+        deps.data.identityChecks().catch(() => null),
+      ]);
+      return json({ count: venues.length, venues, identity_checks: checks });
     }
 
     if (path === "/v1/arbitrage") {

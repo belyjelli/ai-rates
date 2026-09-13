@@ -151,6 +151,12 @@ table.heat{border-collapse:collapse;width:auto;min-width:100%}
 .st-failing{color:var(--short)}
 .st-silent{color:var(--dim)}
 .st-planned{color:var(--dim)}
+/* Price-verification verdicts. "mismatch" gets the alarm colour because it means two different
+   assets are sharing one name; "scale" is a real market in different units, which is a correction
+   to make rather than a fault; "unverified" is dim because a thin market is not an accusation. */
+.vd-mismatch{color:var(--short)}
+.vd-scale,.vd-tracks{color:var(--warn)}
+.vd-unverified{color:var(--dim)}
 .dim{color:var(--muted)}
 .empty{padding:16px 10px;color:var(--muted)}
 form.filters{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:flex-end;margin:0 0 10px;padding:8px 10px;border:1px solid var(--rule)}
@@ -209,6 +215,11 @@ input[type=checkbox]{accent-color:var(--accent)}
 .notes{margin-top:14px;color:var(--muted);max-width:100ch;line-height:1.5}
 footer{border-top:1px solid var(--rule);margin-top:24px;padding:8px 0 24px;color:var(--dim);line-height:1.6}
 footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+/* About page: the changelog reads as prose, so it gets a measure and some line height. */
+.about-log{display:grid;gap:16px;max-width:96ch;margin-top:6px}
+.about-log h2{margin:0 0 6px}
+.about-log ul{margin:0;padding-left:18px;line-height:1.5}
+.about-log li+li{margin-top:4px}
 /* Reduced motion: a still outline in place of the live-refresh fade, cleared on the next refresh. */
 .chg{outline:1px solid var(--muted);outline-offset:-1px}.chg-up{outline-color:#00ff88}.chg-down{outline-color:#ff4757}
 @media (max-width:860px){.keys{display:none}.status{font-size:11px}.legs .short{text-align:left}}
@@ -253,7 +264,7 @@ export function layout(options: {
 </header>
 <main class="wrap">${body}</main>
 <footer><div class="wrap">
-<p class="sig"><span>read only · public venue APIs</span><span><a href="/status">status</a> · <a href="/probe">geo-probe</a></span><span>airrates</span></p>
+<p class="sig"><span>read only · public venue APIs</span><span><a href="/status">status</a> · <a href="/probe">geo-probe</a> · <a href="/about">about</a></span><span>airrates</span></p>
 <p>Funding rates come from each venue's public API and refresh every minute. They are estimates for each venue's next settlement and change before it. Spreads are before trading fees, slippage and price moves.</p>
 <p>Not financial advice. Not affiliated with any exchange.</p>
 </div></footer>

@@ -304,6 +304,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     await admin`DELETE FROM market_funding_hourly WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_latest WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_leverage_tiers WHERE venue_id IN (${venueA}, ${venueB})`;
+    await admin`DELETE FROM market_identity_checks WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_pair_backtests WHERE long_venue_id IN (${venueA}, ${venueB})`;
     // collector_runs was not cleaned before venueStatus seeded it; without this the rows outlive
     // the run in the shared airates_it schema, which is the leak screener.int.test.ts warns about.
@@ -313,6 +314,46 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     await admin`DELETE FROM venues WHERE id IN (${venueA}, ${venueB})`;
     await admin.close();
     await client.end();
+  });
+
+  test("reads identity verdicts, keeping 'not applicable' distinct from zero", async () => {
+    await admin`
+      INSERT INTO market_identity_checks ${admin([
+        {
+          checked_at: new Date(settledAt),
+          base,
+          venue_id: venueB,
+          venue_symbol: symbolB,
+          // The anchor's symbol contains a comma, so this also proves the round trip is not
+          // splitting a delimited list anywhere along the way.
+          anchor_venue_id: venueA,
+          anchor_venue_symbol: symbolA,
+          verdict: "mismatch",
+          price_ratio: 104.64991,
+          scale_exponent: null,
+          return_corr: 0.005,
+          ratio_sd: 0.00176,
+          shared_minutes: 360,
+          member_moves: 241,
+          anchor_moves: 262,
+          member_oi_usd: 20_000,
+          anchor_oi_usd: 11_140_000,
+        },
+      ])}`;
+
+    const rows = await data.identityChecks();
+    const row = rows.find((r) => r.venue_id === venueB && r.venue_symbol === symbolB);
+    expect(row?.base).toBe(base);
+    expect(row?.verdict).toBe("mismatch");
+    expect(row?.anchor_venue_symbol).toBe(symbolA);
+    expect(row?.price_ratio).toBeCloseTo(104.64991, 5);
+    expect(row?.return_corr).toBeCloseTo(0.005, 6);
+    expect(row?.shared_minutes).toBe(360);
+    // Null has to survive as null. A scale exponent of 0 would mean "10^0, no scaling", and a
+    // correlation of 0 would read as positive evidence of a mismatch — both are different claims
+    // from "this does not apply", which is what the column actually says here.
+    expect(row?.scale_exponent).toBeNull();
+    expect(row?.checked_at).toBeInstanceOf(Date);
   });
 
   test("reads the daily rollup for the given markets from the first day, oldest first", async () => {
@@ -491,7 +532,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       expect(bySymbol.get(symbolB4)?.mark_agrees).toBe(true);
       expect(bySymbol.get(symbolA4Bad)?.mark_agrees).toBe(false);
       // The reference the guard measures against travels with every row.
-      expect(bySymbol.get(symbolA4Bad)?.median_mark).toBeCloseTo(100, 6);
+      expect(bySymbol.get(symbolA4Bad)?.anchor_mark).toBeCloseTo(100, 6);
       // Cheapest ask first: the mismatch quotes 0.07, so it leads despite being excluded.
       expect(quotes[0]?.venue_symbol).toBe(symbolA4Bad);
     });
