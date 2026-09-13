@@ -32,6 +32,8 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
   const symbolA3 = `${base3}-A`;
   const symbolB3 = `${base3}-B`;
   const settledAt = Math.floor(Date.now() / HOUR) * HOUR;
+  /** The UTC date `msAgo` before settledAt, as the daily rollup keys its rows. */
+  const dayOf = (msAgo: number) => new Date(settledAt - msAgo).toISOString().slice(0, 10);
 
   let admin: SQL;
   let client: postgres.Sql;
@@ -67,6 +69,31 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         event(venueA, symbolA, 240, 0.0009), // outside a 7-day window
         event(venueB, symbolB, 8, -0.0001),
         event(venueB, "OTHER-PERP", 8, 0.005), // same venue, market not asked for
+      ])}`;
+
+    // The daily rollup the backtest reads. Written directly rather than folded from funding_events:
+    // folding is the collector's job, and this checks the read.
+    const dayRow = (
+      venue_id: string,
+      venue_symbol: string,
+      msAgo: number,
+      rate_sum: number,
+      settlements: number,
+    ) => ({
+      venue_id,
+      venue_symbol,
+      day: dayOf(msAgo),
+      rate_sum,
+      basis_hours_sum: settlements * 8,
+      settlements,
+    });
+    await admin`
+      INSERT INTO market_funding_daily ${admin([
+        dayRow(venueA, symbolA, 24 * HOUR, 0.0003, 2),
+        dayRow(venueA, symbolA, 0, 0.0001, 1),
+        dayRow(venueA, symbolA, 10 * 24 * HOUR, 0.0009, 3), // outside a 7-day window
+        dayRow(venueB, symbolB, 24 * HOUR, -0.0001, 1),
+        dayRow(venueB, "OTHER-PERP", 24 * HOUR, 0.005, 3), // same venue, market not asked for
       ])}`;
 
     // max_leverage lives on `markets`, but asset()/exchange() read `market_latest` and join across
@@ -256,6 +283,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
 
   afterAll(async () => {
     await admin`DELETE FROM funding_events WHERE venue_id IN (${venueA}, ${venueB})`;
+    await admin`DELETE FROM market_funding_daily WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_latest WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_leverage_tiers WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_pair_backtests WHERE long_venue_id IN (${venueA}, ${venueB})`;
@@ -269,37 +297,38 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     await client.end();
   });
 
-  test("reads settlements for the given markets, in the window, oldest first", async () => {
-    const rows = await data.settlements(
+  test("reads the daily rollup for the given markets from the first day, oldest first", async () => {
+    const rows = await data.dailyFunding(
       [
         { venue_id: venueA, venue_symbol: symbolA },
         { venue_id: venueB, venue_symbol: symbolB },
       ],
-      settledAt - 7 * 24 * HOUR,
-      settledAt,
+      dayOf(7 * 24 * HOUR),
     );
 
-    expect(rows.map((r) => [r.venue_id, r.venue_symbol, r.rate])).toEqual([
-      [venueA, symbolA, 0.0002],
-      [venueA, symbolA, 0.0001],
-      [venueB, symbolB, -0.0001],
-    ]);
-    expect(rows[0]?.settled_at).toBeInstanceOf(Date);
-    expect(rows[0]?.basis_hours).toBe(8);
+    expect(rows.map((r) => [r.venue_id, r.venue_symbol, r.day, r.rate_sum, r.settlements])).toEqual(
+      [
+        [venueA, symbolA, dayOf(24 * HOUR), 0.0003, 2],
+        [venueB, symbolB, dayOf(24 * HOUR), -0.0001, 1],
+        [venueA, symbolA, dayOf(0), 0.0001, 1],
+      ],
+    );
+    // A plain date string, so no time zone between Postgres and the Worker can shift a day.
+    expect(typeof rows[0]?.day).toBe("string");
+    expect(rows[0]?.basis_hours_sum).toBe(16);
   });
 
   test("matches a symbol containing a comma exactly", async () => {
-    const rows = await data.settlements(
+    const rows = await data.dailyFunding(
       [{ venue_id: venueA, venue_symbol: symbolA }],
-      settledAt - 7 * 24 * HOUR,
-      settledAt,
+      dayOf(7 * 24 * HOUR),
     );
     expect(rows).toHaveLength(2);
     expect(new Set(rows.map((r) => r.venue_symbol))).toEqual(new Set([symbolA]));
   });
 
   test("asking for no markets queries nothing", async () => {
-    expect(await data.settlements([], settledAt - HOUR, settledAt)).toEqual([]);
+    expect(await data.dailyFunding([], dayOf(0))).toEqual([]);
   });
 
   /**

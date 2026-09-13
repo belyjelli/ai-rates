@@ -4,7 +4,6 @@
 interface __BaseEnv_Env {
 	HYPERDRIVE: Hyperdrive;
 	BACKTEST_LIMITER: RateLimit;
-	TURNSTILE_SITEKEY: "0x4AAAAAAExm6URFATT9sOXm";
 	PROBE: DurableObjectNamespace<import("./apps/worker/src/index").ProbeDO>;
 }
 declare namespace Cloudflare {
@@ -15,12 +14,6 @@ declare namespace Cloudflare {
 	interface Env extends __BaseEnv_Env {}
 }
 interface Env extends __BaseEnv_Env {}
-type StringifyValues<EnvType extends Record<string, unknown>> = {
-	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
-};
-declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "TURNSTILE_SITEKEY">> {}
-}
 
 // Begin runtime types
 /*! *****************************************************************************
