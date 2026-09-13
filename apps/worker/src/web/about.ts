@@ -24,6 +24,15 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-09-13",
+    title: "Extended, Reya, Arcus and Variational",
+    changes: [
+      "Four more exchanges are collected: Extended, with crypto, stocks, commodities, currencies and indices; Reya; Arcus, with crypto and stocks; and Variational, with more than 540 markets.",
+      "Each rate is converted from the way the exchange quotes it, whether hourly, annualised or continuous, so every exchange's funding compares on the same yearly scale.",
+      "Reya can pay shorts less than longs pay. The rate shown is what longs pay.",
+    ],
+  },
+  {
+    date: "2026-09-13",
     title: "WEEX and Bullet",
     changes: [
       "WEEX is collected, more than 1,000 perpetual markets across crypto, stocks, commodities, currencies and indices.",
