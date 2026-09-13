@@ -21,6 +21,7 @@ async function batch() {
     await fixture("tickers"),
     await fixture("open-interest"),
     await fixture("mark-price"),
+    await fixture("instruments"),
     NOW,
   );
 }
@@ -43,6 +44,13 @@ describe("parseOkxSnapshots", () => {
       kind: "predicted",
       markPrice: 77760.9,
       indexPrice: null,
+      bestBid: 77769.4,
+      // OKX books are in contracts, and a contract is ctVal (0.01 BTC) x ctMult, valued at the
+      // mark. So 504.48 contracts is 5.04 BTC, about $392k -- reading it as 504 of anything would
+      // be four orders of magnitude out.
+      bestBidSizeUsd: 504.48 * (0.01 * 77760.9),
+      bestAsk: 77769.5,
+      bestAskSizeUsd: 28.23 * (0.01 * 77760.9),
       openInterestUsd: Number("2146320021.55324936285784"),
       volume24hUsd: 110381.4949 * 77769.5,
     });
@@ -81,7 +89,7 @@ describe("parseOkxSnapshots", () => {
   test("throws on an error envelope", async () => {
     const ok = await fixture("tickers");
     expect(() =>
-      parseOkxSnapshots({ code: "50011", msg: "rate limited", data: [] }, ok, ok, ok, NOW),
+      parseOkxSnapshots({ code: "50011", msg: "rate limited", data: [] }, ok, ok, ok, ok, NOW),
     ).toThrow("50011");
   });
 });
@@ -170,7 +178,7 @@ describe("parseOkxFundingHistory", () => {
 });
 
 describe("okxAdapter", () => {
-  test("fetchSnapshots requests all four SWAP endpoints", async () => {
+  test("fetchSnapshots requests all five SWAP endpoints", async () => {
     const files: Record<string, unknown> = {
       "funding-rate": await fixture("funding-rate"),
       tickers: await fixture("tickers"),
@@ -189,8 +197,12 @@ describe("okxAdapter", () => {
 
     const result = await okxAdapter.fetchSnapshots(client, NOW);
     expect(result.snapshots).toHaveLength(4);
-    expect(urls).toHaveLength(4);
+    // Five, not four: `/instruments` was added for `ctVal`, without which a book size in contracts
+    // cannot be turned into money. The count is asserted so that any further per-cycle request has
+    // to be argued for here rather than slipped in -- this runs against every SWAP every minute.
+    expect(urls).toHaveLength(5);
     expect(urls.some((u) => u.includes("instId=ANY"))).toBe(true);
+    expect(urls.some((u) => u.includes("/instruments?instType=SWAP"))).toBe(true);
   });
 
   /** A client whose position-tiers call fails `failures` times before answering properly. */

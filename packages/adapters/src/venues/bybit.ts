@@ -6,7 +6,7 @@ import {
   parseVenueSymbol,
 } from "@ai-rates/core";
 import type { HttpClient } from "../http";
-import { marketRef, num } from "../parse";
+import { marketRef, mul, num } from "../parse";
 import type { SnapshotBatch, VenueAdapter } from "../types";
 
 const VENUE_ID = "bybit";
@@ -31,6 +31,11 @@ export interface BybitTicker {
   indexPrice: string;
   openInterestValue: string;
   turnover24h: string;
+  /** Top of book. Prices are quote currency; the paired sizes are contracts. */
+  bid1Price?: string;
+  bid1Size?: string;
+  ask1Price?: string;
+  ask1Size?: string;
 }
 
 export interface BybitInstrument {
@@ -111,6 +116,12 @@ export function parseBybitSnapshots(
       kind: "predicted",
       markPrice: num(ticker.markPrice),
       indexPrice: num(ticker.indexPrice),
+      bestBid: num(ticker.bid1Price),
+      // Bybit sizes are base coin already, not contracts: `openInterestValue / openInterest` comes
+      // out at exactly the mark price. So the conversion is just size x price, no multiplier.
+      bestBidSizeUsd: mul(num(ticker.bid1Size), num(ticker.bid1Price)),
+      bestAsk: num(ticker.ask1Price),
+      bestAskSizeUsd: mul(num(ticker.ask1Size), num(ticker.ask1Price)),
       openInterestUsd: num(ticker.openInterestValue),
       volume24hUsd: num(ticker.turnover24h),
       maxLeverage: num(instrument.leverageFilter?.maxLeverage),

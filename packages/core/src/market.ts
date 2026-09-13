@@ -26,6 +26,29 @@ export interface FundingSnapshot extends MarketRef {
   kind: FundingRateKind;
   markPrice: number | null;
   indexPrice: number | null;
+  /**
+   * Best bid and ask, with the USD notional resting at each, when the venue publishes them in a
+   * call we already make.
+   *
+   * Price and size travel together deliberately. Level 1 gives a spread quotable only at the size
+   * shown, and a gap without the depth beside it reads as profit when it is a loss: `ONE` quoted
+   * 269.6 bps against an OKX ask of two units. Anything rendering these must show both.
+   *
+   * Depth is USD, not the venue's own size, because the venues do not agree on what a size is:
+   * gate quotes contracts (2,776 = 0.2776 BTC at a 0.0001 multiplier), okx quotes contracts
+   * against `ctVal` (and 15 of its swaps are inverse, priced in USD), bybit quotes base coin.
+   * Printing those three side by side is a 10,000x error on the one page whose purpose is showing
+   * that a spread is too thin to trade, so each adapter converts where it already holds the
+   * multiplier -- the same discipline as `openInterestUsd` and `Liquidation.notionalUsd`.
+   *
+   * Optional for the same reason as `maxLeverage`: only three of ten venues publish top of book in
+   * a call we already make, and a required null would touch every adapter and fixture for a field
+   * they cannot fill.
+   */
+  bestBid?: number | null;
+  bestBidSizeUsd?: number | null;
+  bestAsk?: number | null;
+  bestAskSizeUsd?: number | null;
   openInterestUsd: number | null;
   volume24hUsd: number | null;
   /**
