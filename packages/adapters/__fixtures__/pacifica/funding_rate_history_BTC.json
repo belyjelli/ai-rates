@@ -1,0 +1,31 @@
+{
+  "success": true,
+  "data": [
+    {
+      "oracle_price": "77315.51898",
+      "bid_impact_price": "77259.925406",
+      "ask_impact_price": "77269",
+      "funding_rate": "0.00000383",
+      "next_funding_rate": "0.00000475",
+      "created_at": 1789336800497
+    },
+    {
+      "oracle_price": "77342.161371",
+      "bid_impact_price": "77307.230185",
+      "ask_impact_price": "77312.550405",
+      "funding_rate": "0.00000632",
+      "next_funding_rate": "0.00000383",
+      "created_at": 1789333200405
+    },
+    {
+      "oracle_price": "77281.797324",
+      "bid_impact_price": "77245",
+      "ask_impact_price": "77249.098609",
+      "funding_rate": "0.00000466",
+      "next_funding_rate": "0.00000632",
+      "created_at": 1789329600426
+    }
+  ],
+  "next_cursor": "1111Yd1mZ",
+  "has_more": true
+}
