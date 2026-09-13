@@ -922,6 +922,9 @@ describe("pages", () => {
     // Each leg carries what it charges now beside what it settled.
     expect(html).toContain("now <span");
     expect(html).toContain(", every 8h");
+    // The status line has the overview, as the asset and exchange pages do.
+    expect(html).toContain("4,286 markets");
+    expect(html).not.toContain("no venue has reported");
   });
 
   test("the chart fails soft without its table, and long windows read the daily rollup", async () => {
