@@ -658,6 +658,15 @@ describe("pages", () => {
     // Three 8-hourly settlements do not fill a 7-day window, and the page says so.
     expect(html).toContain("of the 7 days asked for have stored settlements");
     expect(html).toContain("Trading fees are excluded because none were given");
+    // Each leg pays $1 a settlement: two on 2026-09-11 across both legs make $4, one each on the
+    // 12th makes $2, and cumulative funding only ever rises.
+    expect(html).toContain("best day <b>$4.00</b> Sep 11");
+    expect(html).toContain("worst day <b>$2.00</b> Sep 12");
+    expect(html).toContain("max drawdown <b>$0.00</b>");
+    // Both legs set their rate now against their own average over the window.
+    expect(html.match(/, 7d avg <span/g)).toHaveLength(2);
+    // Entry and exit at the books is the price-pair page's question, one link away.
+    expect(html).toContain('href="/price-pair/BTC"');
   });
 
   test("pair capital is margined at the lower of the two venues' leverage", async () => {

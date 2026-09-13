@@ -16,6 +16,7 @@
 const MS_PER_DAY = 86_400_000;
 const MS_PER_HOUR = 3_600_000;
 const DAYS_PER_YEAR = 365;
+const HOURS_PER_YEAR = 8_760;
 /** A gap longer than this multiple of the expected interval counts as missed settlements. */
 const GAP_TOLERANCE = 1.5;
 
@@ -57,6 +58,13 @@ export interface LegResult {
   fundingUsd: number;
   /** This leg's own funding annualized over the window. */
   aprPercent: number;
+  /**
+   * The market's funding rate over the window, in the market's own sign (positive: longs pay),
+   * time-weighted as sum(rate) / sum(basis hours) the way the rollups do. Unlike `aprPercent` it
+   * ignores which side the leg holds, and hours with no recorded funding neither lower nor raise
+   * it. Null when nothing settled.
+   */
+  averageAprPercent: number | null;
   /** Settlements the cadence implies are missing, and the hours they span. */
   missedSettlements: number;
   missedHours: number;
@@ -81,6 +89,15 @@ export interface BacktestResult {
   perDay: BacktestDay[];
   /** Days with positive net funding, as a share of days that had any settlement. */
   winRateDays: number;
+  /** The day with the largest net funding, and the day with the smallest; null with no days. */
+  bestDay: BacktestDay | null;
+  worstDay: BacktestDay | null;
+  /**
+   * The largest fall in cumulative net funding from a previous high, as a positive dollar figure.
+   * Measured from a start of zero and before costs, so a pair that opens with a losing day draws
+   * down from zero. Zero when cumulative funding never falls.
+   */
+  maxDrawdownUsd: number;
   avgDailyUsd: number;
   /** Four taker fills: entry and exit on both legs. Null when fees weren't supplied. */
   costsUsd: number | null;
@@ -130,9 +147,13 @@ function legResult(
 ): LegResult {
   const settlements = [...leg.settlements].sort((a, b) => a.settledAt - b.settledAt);
   let fundingUsd = 0;
+  let rateSum = 0;
+  let hours = 0;
   for (const settlement of settlements) {
     const amount = cashflow(sizeUsd, settlement.rate, side);
     fundingUsd += amount;
+    rateSum += settlement.rate;
+    hours += settlement.basisHours;
     const date = utcDate(settlement.settledAt);
     daily.set(date, (daily.get(date) ?? 0) + amount);
   }
@@ -143,6 +164,7 @@ function legResult(
     settlements: settlements.length,
     fundingUsd,
     aprPercent: days > 0 ? (fundingUsd / sizeUsd / days) * DAYS_PER_YEAR * 100 : 0,
+    averageAprPercent: hours > 0 ? (rateSum / hours) * HOURS_PER_YEAR * 100 : null,
     ...findGaps(settlements),
   };
 }
@@ -256,12 +278,16 @@ function dailyLegResult(
   );
   let fundingUsd = 0;
   let settlements = 0;
+  let rateSum = 0;
+  let hours = 0;
   for (const day of inWindow) {
     // Funding is linear in the rate, so a day's summed rate settles exactly what its settlements
     // would have one by one.
     const amount = cashflow(sizeUsd, day.rateSum, side);
     fundingUsd += amount;
     settlements += day.settlements;
+    rateSum += day.rateSum;
+    hours += day.basisHoursSum;
     if (day.settlements > 0) daily.set(day.date, (daily.get(day.date) ?? 0) + amount);
   }
 
@@ -271,6 +297,7 @@ function dailyLegResult(
     settlements,
     fundingUsd,
     aprPercent: days > 0 ? (fundingUsd / sizeUsd / days) * DAYS_PER_YEAR * 100 : 0,
+    averageAprPercent: hours > 0 ? (rateSum / hours) * HOURS_PER_YEAR * 100 : null,
     ...dailyGaps(inWindow, window.firstDate, window.lastDate),
   };
 }
@@ -309,6 +336,19 @@ function summarize(
   const winningDays = perDay.filter((day) => day.netUsd > 0).length;
   const avgDailyUsd = days > 0 ? netFundingUsd / days : 0;
 
+  let bestDay: BacktestDay | null = null;
+  let worstDay: BacktestDay | null = null;
+  let running = 0;
+  let peak = 0;
+  let maxDrawdownUsd = 0;
+  for (const day of perDay) {
+    if (!bestDay || day.netUsd > bestDay.netUsd) bestDay = day;
+    if (!worstDay || day.netUsd < worstDay.netUsd) worstDay = day;
+    running += day.netUsd;
+    peak = Math.max(peak, running);
+    maxDrawdownUsd = Math.max(maxDrawdownUsd, peak - running);
+  }
+
   // Four fills: in and out of both legs.
   const costsUsd = fees ? (sizeUsd * (fees.longTakerBps + fees.shortTakerBps) * 2) / 10_000 : null;
   const netAfterCostsUsd = costsUsd === null ? null : netFundingUsd - costsUsd;
@@ -325,6 +365,9 @@ function summarize(
     netFundingAprPercent: days > 0 ? (netFundingUsd / sizeUsd / days) * DAYS_PER_YEAR * 100 : 0,
     perDay,
     winRateDays: perDay.length > 0 ? winningDays / perDay.length : 0,
+    bestDay,
+    worstDay,
+    maxDrawdownUsd,
     avgDailyUsd,
     costsUsd,
     netAfterCostsUsd,
