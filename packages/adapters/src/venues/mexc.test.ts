@@ -154,10 +154,11 @@ describe("declared base reaches the snapshot", () => {
     expect(bySymbol.get("SPX500_USDT")).toBe("US500");
   });
 
-  test("a withheld rename is honoured, never stripped", () => {
+  test("a withheld rename is honoured, and only the evidence-backed alias moves it", () => {
     // CAT is a memecoin AND Caterpillar, 387,440,758x apart. MEXC withholds the rename on exactly
-    // these, and that silence is the signal that keeps them apart.
-    expect(bySymbol.get("CATSTOCK_USDT")).toBe("CATSTOCK");
+    // these, and the adapter never strips the suffix. The alias table then maps CATSTOCK to CAT on
+    // same-class price evidence; asset class (equity, not crypto) is what keeps it from the memecoin.
+    expect(bySymbol.get("CATSTOCK_USDT")).toBe("CAT");
   });
 
   test("a display name that is not a ticker falls back to the contract code", () => {
@@ -362,7 +363,7 @@ describe("asset class", () => {
       ["QQQSTOCK_USDT", "QQQ", "equity"],
       ["MUSTOCK_USDT", "MU", "equity"],
       // The withheld renames stay withheld, and are equity whatever crypto ticker hides inside.
-      ["CATSTOCK_USDT", "CATSTOCK", "equity"],
+      ["CATSTOCK_USDT", "CAT", "equity"],
       ["STXSTOCK_USDT", "STXSTOCK", "equity"],
       ["BBSTOCK_USDT", "BBSTOCK", "equity"],
       // Pre-IPO, and type 1 despite being tradfi: the plates are the signal, not the type.
