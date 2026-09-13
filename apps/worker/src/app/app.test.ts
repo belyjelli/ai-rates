@@ -241,6 +241,13 @@ describe("pages", () => {
     expect(body.count).toBe(0);
   });
 
+  test("every page footer links to the exchange status page", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/", data)).text();
+    // Exactly "/probe": the route is an exact match and "/probe/" 404s.
+    expect(html).toContain('<a href="/probe">exchange status</a>');
+  });
+
   test("an empty table explains that most assets quote nothing", async () => {
     const { data } = fakeData({ arbitrage: async () => [] });
     const html = await (await get("/arbitrage", data)).text();

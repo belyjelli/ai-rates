@@ -221,7 +221,7 @@ export function layout(options: {
 </header>
 <main class="wrap">${body}</main>
 <footer><div class="wrap">
-<p class="sig"><span>read only · public venue APIs</span><span>airrates</span></p>
+<p class="sig"><span>read only · public venue APIs</span><span><a href="/probe">exchange status</a></span><span>airrates</span></p>
 <p>Funding rates come from each venue's public API and refresh every minute. They are estimates for each venue's next settlement and change before it. Spreads are before trading fees, slippage and price moves.</p>
 <p>Not financial advice. Not affiliated with any exchange.</p>
 </div></footer>
