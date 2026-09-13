@@ -120,10 +120,23 @@ export const LIVE_SCRIPT = String.raw`(() => {
     }
     return found;
   };
-  const positions = (region) => new Map([...railParts(region)].map(([key, part]) => [key, { left: part.style.left, width: part.style.width }]));
+  // A mark's colour comes from its tone class, so it is read computed: once the old element is
+  // replaced there is nothing left to ask what blue or red it was.
+  const positions = (region) =>
+    new Map([...railParts(region)].map(([key, part]) => {
+      const was = { left: part.style.left, width: part.style.width, tone: part.className };
+      if (part.dataset.m) {
+        const style = getComputedStyle(part);
+        was.fill = style.backgroundColor;
+        was.edge = style.borderColor;
+      }
+      return [key, was];
+    }));
 
-  // Indicators slide from where they were to where they are, alongside the flash, instead of
-  // jumping. A mark with no previous position (a venue newly listed) fades in.
+  // Indicators ease out from where they were to where they are, alongside the flash, instead of
+  // jumping. When a rate crosses zero its mark changes tone, and the colour travels with it on the
+  // same curve: blue passes through violet into red just as the rail's own gradient does. A mark
+  // with no previous position (a venue newly listed) fades in.
   const slide = (before, region) => {
     if (still.matches || before.size === 0) return;
     for (const [key, part] of railParts(region)) {
@@ -132,10 +145,14 @@ export const LIVE_SCRIPT = String.raw`(() => {
         if (part.dataset.m) part.animate([{ offset: 0, opacity: 0 }], { duration: 600 });
         continue;
       }
-      if (was.left === part.style.left && was.width === part.style.width) continue;
-      const from = { offset: 0, left: was.left };
-      if (was.width) from.width = was.width;
-      part.animate([from], { duration: 700, easing: "cubic-bezier(.2,0,.2,1)" });
+      const from = { offset: 0 };
+      if (was.left !== part.style.left) from.left = was.left;
+      if (was.width !== part.style.width && was.width) from.width = was.width;
+      if (was.fill !== undefined && was.tone !== part.className) {
+        from.backgroundColor = was.fill;
+        from.borderColor = was.edge;
+      }
+      if (Object.keys(from).length > 1) part.animate([from], { duration: 700, easing: "cubic-bezier(.2,0,.2,1)" });
     }
   };
 
