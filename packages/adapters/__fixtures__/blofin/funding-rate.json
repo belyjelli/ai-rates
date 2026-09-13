@@ -1,0 +1,123 @@
+{
+  "code": "0",
+  "msg": "success",
+  "data": [
+    {
+      "instId": "BTC-USDT",
+      "fundingRate": "0.00018548000000000002",
+      "fundingTime": "1789344000000",
+      "fundingInterval": "8",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.005",
+      "fundingRateFloor": "-0.005"
+    },
+    {
+      "instId": "ETH-USDT",
+      "fundingRate": "-0.00002517011113692349",
+      "fundingTime": "1789344000000",
+      "fundingInterval": "8",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.0075",
+      "fundingRateFloor": "-0.0075"
+    },
+    {
+      "instId": "BTC-USDC",
+      "fundingRate": "-0.000020893946370811227",
+      "fundingTime": "1789344000000",
+      "fundingInterval": "8",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.005",
+      "fundingRateFloor": "-0.005"
+    },
+    {
+      "instId": "BTC-USD",
+      "fundingRate": "0.00010008212579971392",
+      "fundingTime": "1789344000000",
+      "fundingInterval": "8",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.02",
+      "fundingRateFloor": "-0.02"
+    },
+    {
+      "instId": "PNUT-USDT",
+      "fundingRate": "0.00006653667177854031",
+      "fundingTime": "1789344000000",
+      "fundingInterval": "4",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.03",
+      "fundingRateFloor": "-0.03"
+    },
+    {
+      "instId": "1000BONK-USDT",
+      "fundingRate": "0.00006794",
+      "fundingTime": "1789344000000",
+      "fundingInterval": "4",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.05",
+      "fundingRateFloor": "-0.05"
+    },
+    {
+      "instId": "TSLA-USDT",
+      "fundingRate": "0.00012",
+      "fundingTime": "1789344000000",
+      "fundingInterval": "8",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.03",
+      "fundingRateFloor": "-0.03"
+    },
+    {
+      "instId": "SPY-USDT",
+      "fundingRate": "-0.00012",
+      "fundingTime": "1789344000000",
+      "fundingInterval": "8",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.03",
+      "fundingRateFloor": "-0.03"
+    },
+    {
+      "instId": "CL-USDT",
+      "fundingRate": "0.00012",
+      "fundingTime": "1789344000000",
+      "fundingInterval": "4",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.03",
+      "fundingRateFloor": "-0.03"
+    },
+    {
+      "instId": "NG-USDT",
+      "fundingRate": "0.00002564558908825722",
+      "fundingTime": "1789344000000",
+      "fundingInterval": "8",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.03",
+      "fundingRateFloor": "-0.03"
+    },
+    {
+      "instId": "XAU-USDT",
+      "fundingRate": "0.00012",
+      "fundingTime": "1789344000000",
+      "fundingInterval": "4",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.03",
+      "fundingRateFloor": "-0.03"
+    },
+    {
+      "instId": "IOST-USDT",
+      "fundingRate": "-0.001246800258614201",
+      "fundingTime": "1789340400000",
+      "fundingInterval": "1",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.05",
+      "fundingRateFloor": "-0.05"
+    },
+    {
+      "instId": "OPG-USDT",
+      "fundingRate": "0.00002867269058458772",
+      "fundingTime": "1789344000000",
+      "fundingInterval": "4",
+      "fundingIntervalUnit": "hour",
+      "fundingRateCap": "0.03",
+      "fundingRateFloor": "-0.03"
+    }
+  ]
+}

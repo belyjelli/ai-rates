@@ -1,0 +1,84 @@
+{
+  "code": "0",
+  "msg": "success",
+  "data": [
+    {
+      "instId": "BTC-USDT",
+      "indexPrice": "76789.5",
+      "markPrice": "76750.5",
+      "ts": "1789338518283"
+    },
+    {
+      "instId": "ETH-USDT",
+      "indexPrice": "2480",
+      "markPrice": "2478.68",
+      "ts": "1789338518283"
+    },
+    {
+      "instId": "BTC-USDC",
+      "indexPrice": "76772.2",
+      "markPrice": "76740.4",
+      "ts": "1789338518261"
+    },
+    {
+      "instId": "BTC-USD",
+      "indexPrice": "76758",
+      "markPrice": "76713.2",
+      "ts": "1789338518375"
+    },
+    {
+      "instId": "PNUT-USDT",
+      "indexPrice": "0.04481",
+      "markPrice": "0.04479",
+      "ts": "1789338518324"
+    },
+    {
+      "instId": "1000BONK-USDT",
+      "indexPrice": "0.002696",
+      "markPrice": "0.002693",
+      "ts": "1789338518287"
+    },
+    {
+      "instId": "TSLA-USDT",
+      "indexPrice": "362.64",
+      "markPrice": "362.5",
+      "ts": "1789338518362"
+    },
+    {
+      "instId": "SPY-USDT",
+      "indexPrice": "760.66",
+      "markPrice": "760.48",
+      "ts": "1789338518363"
+    },
+    {
+      "instId": "CL-USDT",
+      "indexPrice": "99.25",
+      "markPrice": "99.14",
+      "ts": "1789338518363"
+    },
+    {
+      "instId": "NG-USDT",
+      "indexPrice": "2.975",
+      "markPrice": "2.98",
+      "ts": "1789338518363"
+    },
+    {
+      "instId": "XAU-USDT",
+      "indexPrice": "4337.55",
+      "markPrice": "4340.27",
+      "ts": "1789338518363"
+    },
+    {
+      "instId": "IOST-USDT",
+      "indexPrice": "0.0007759",
+      "markPrice": "0.0007665",
+      "ts": "1789338518396"
+    },
+    {
+      "instId": "OPG-USDT",
+      "indexPrice": "0.1016",
+      "markPrice": "0.1017",
+      "ts": "1789338518365"
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "2279384",
+    "symbol": "BTC-SWAP-USDT",
+    "settleTime": "1789315200000",
+    "settleRate": "0.0000645",
+    "period": "8H"
+  },
+  {
+    "id": "2277783",
+    "symbol": "BTC-SWAP-USDT",
+    "settleTime": "1789286400000",
+    "settleRate": "0.0000539",
+    "period": "8H"
+  },
+  {
+    "id": "2276477",
+    "symbol": "BTC-SWAP-USDT",
+    "settleTime": "1789257600000",
+    "settleRate": "0.00004794",
+    "period": "8H"
+  },
+  {
+    "id": "2274601",
+    "symbol": "BTC-SWAP-USDT",
+    "settleTime": "1789228800000",
+    "settleRate": "0.00005153",
+    "period": "8H"
+  },
+  {
+    "id": "2273319",
+    "symbol": "BTC-SWAP-USDT",
+    "settleTime": "1789200000000",
+    "settleRate": "0.00004368",
+    "period": "8H"
+  }
+]
