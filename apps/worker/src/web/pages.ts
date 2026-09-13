@@ -11,8 +11,13 @@ import type {
   ScreenerFilters,
   ScreenerPair,
   ScreenerSort,
+  VenueState,
+  VenueStatus,
   VerifiedPair,
 } from "../app/data";
+// A value, not a type: the page and the JSON endpoint must classify a venue the same way, so the
+// rule lives beside the type rather than being restated here.
+import { venueState } from "../app/data";
 import type {
   ArbitrageParams,
   BacktestParams,
@@ -877,6 +882,94 @@ ${pairsTable}
 </table></div>
 ${excluded}
 <p class="notes">Sizes are the money resting at the very top of each book, converted to USD because the three venues that publish depth count it differently — Gate in contracts, OKX in contracts against <code>ctVal</code>, Bybit in base coin. Reading those raw, side by side, is a 10,000× error.</p>`,
+  });
+}
+
+/** Problems first. A page nobody reads when things are fine must lead with what is not. */
+const STATE_ORDER: VenueState[] = ["failing", "stale", "silent", "empty", "live"];
+
+const STATE_TITLE: Record<VenueState, string> = {
+  failing: "The most recent run returned an error",
+  stale: "Running, but nothing has updated in the last five minutes",
+  silent: "Configured, but has not run at all in the last 24 hours",
+  empty: "Running cleanly and returning no markets at all",
+  live: "Running, and its markets are current",
+};
+
+/** "18.3s" reads; "18271ms" does not. Sub-second stays in milliseconds, where the detail matters. */
+const duration = (ms: number | null): string =>
+  ms === null ? "–" : ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
+
+/**
+ * Whether each exchange is actually delivering data.
+ *
+ * Deliberately not a dump of `collector_runs`. The table has six columns and printing all of them
+ * would answer no question at all; this answers three — is anything broken, which venue, how bad.
+ *
+ * The state that earns the page is **empty**: a venue running cleanly, reporting no error, and
+ * returning zero markets. Six Hyperliquid sub-dexes are in exactly that condition, and both a
+ * pass/fail reading and the geo-probe call them healthy.
+ */
+export function status(data: { overview: Overview; venues: VenueStatus[]; now: number }): string {
+  const { overview, venues, now } = data;
+  // An alias has no feed of its own; listing it would report another venue's health twice.
+  const aliases = new Set(VENUES.filter((v) => v.aliasOf).map((v) => v.id));
+  const rows = venues
+    .filter((v) => !aliases.has(v.venue_id))
+    .map((v) => ({ status: v, state: venueState(v, now) }))
+    .sort(
+      (a, b) =>
+        STATE_ORDER.indexOf(a.state) - STATE_ORDER.indexOf(b.state) ||
+        b.status.live_markets - a.status.live_markets ||
+        a.status.name.localeCompare(b.status.name),
+    );
+
+  const tally = (state: VenueState) => rows.filter((r) => r.state === state).length;
+  const wrong = rows.length - tally("live");
+  const failures = rows.reduce((sum, r) => sum + r.status.failures_24h, 0);
+  const runs = rows.reduce((sum, r) => sum + r.status.runs_24h, 0);
+
+  const body = rows
+    .map(({ status: v, state }) => {
+      // Live markets and the last run's count differ when a venue has gone stale holding a figure.
+      const drift =
+        v.last_run_markets !== null && v.last_run_markets !== v.live_markets
+          ? ` <span class="dim">(last run ${v.last_run_markets.toLocaleString("en-US")})</span>`
+          : "";
+      const failed =
+        v.failures_24h === 0
+          ? '<span class="dim">–</span>'
+          : `<span title="${esc(`${v.failures_24h} of ${v.runs_24h} runs in the last 24 hours`)}">${v.failures_24h}</span>`;
+      return `<tr data-k="${esc(v.venue_id)}">
+<td><div class="leg"><a class="venue" href="${exchangeHref(v.venue_id)}">${esc(v.name)}</a><span class="meta">${esc(v.type)}</span></div></td>
+<td><span class="st st-${state}" title="${esc(v.last_error ? `${STATE_TITLE[state]}: ${v.last_error}` : STATE_TITLE[state])}">${state}</span></td>
+<td class="num"><span data-u="markets">${v.live_markets.toLocaleString("en-US")}</span>${drift}</td>
+<td class="dim">${v.last_success_at === null ? "never" : since(v.last_success_at, now)}</td>
+<td class="num">${failed}</td>
+<td class="num dim">${duration(v.duration_ms)}${v.requests === null ? "" : ` · ${v.requests} req`}</td>
+</tr>`;
+    })
+    .join("");
+
+  return layout({
+    title: "Collector status",
+    description: "Whether each exchange is delivering data right now, and what failed if not.",
+    path: "/status",
+    overview,
+    now,
+    body: `<p class="eyebrow">Collector</p>
+<h1>Status</h1>
+<p class="lede">Whether each exchange is actually delivering data. That is a different question from the <a href="/probe">geo-probe</a>, which asks only whether the endpoint answers: a venue can reply and still return nothing, which is what <b>empty</b> means here and why it is coloured as a fault.</p>
+<p class="facts" data-live="status-facts"><span><b>${rows.length}</b> exchanges</span><span><b>${tally("live")}</b> live</span>${
+      tally("empty") ? `<span><b>${tally("empty")}</b> empty</span>` : ""
+    }${tally("failing") ? `<span><b>${tally("failing")}</b> failing</span>` : ""}${
+      tally("stale") ? `<span><b>${tally("stale")}</b> stale</span>` : ""
+    }${tally("silent") ? `<span><b>${tally("silent")}</b> silent</span>` : ""}<span><b>${failures.toLocaleString("en-US")}</b> failed runs of ${runs.toLocaleString("en-US")} in 24h</span></p>
+<div class="sheet-wrap"><table class="sheet">
+<thead><tr><th>Exchange</th><th>State</th><th class="num">Live markets</th><th>Last success</th><th class="num" title="Runs that returned an error in the last 24 hours. One blip and a venue that is down look identical without this">Failures 24h</th><th class="num" title="The last run's wall time and request count">Cost</th></tr></thead>
+<tbody data-live="status">${body}</tbody>
+</table></div>
+${wrong === 0 ? '<p class="notes">Every exchange is live and current.</p>' : ""}`,
   });
 }
 
