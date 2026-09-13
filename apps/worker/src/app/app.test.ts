@@ -182,6 +182,16 @@ describe("pages", () => {
     expect(calls.screener.at(-1)?.sameQuote).toBe(false);
   });
 
+  test("the asset page offers its best pair's backtest as a button, not a link in the sentence", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/markets/asset/BTC", data)).text();
+    const lede = html.match(/<p class="lede" data-live="asset-lede">[\s\S]*?<\/p>/)?.[0] ?? "";
+    expect(lede).not.toContain("Backtest this pair");
+    expect(html).toMatch(
+      /<div class="cta" data-live="asset-cta"><a class="btn" href="\/pair\/BTC\?long=[a-z-]+&short=[a-z-]+">Backtest this pair/,
+    );
+  });
+
   test("one ticker in two asset classes gets two addresses, two labels and two row keys", async () => {
     const asked: [string, string | null][] = [];
     const { data } = fakeData({

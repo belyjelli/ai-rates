@@ -115,6 +115,16 @@ table.sheet{border-collapse:collapse;width:100%}
    row sticks under the masthead, the asset column sticks to the left edge, and a grid wider than the
    screen scrolls the page sideways. No overflow on the wrapper, for the reason given there. */
 .heat-wrap{border:1px solid var(--rule);width:max-content;min-width:100%}
+/* A grid wider than the screen widens the page, so the page scrolls sideways. Only the grid should move:
+   on pages holding one, the page and its main column grow to the grid's width, and everything outside
+   the grid (masthead, title, controls, pager, footer) sticks to the left edge at the viewport's width.
+   Sticky rather than a scroll box around the grid, so the column header still sticks under the masthead
+   on the one page scroll; --vw is the viewport width without its scrollbar, set by the script below. */
+body:has(.heat-wrap,.sheet-wrap.stick){width:max-content;min-width:100%}
+body:has(.heat-wrap,.sheet-wrap.stick) .mast,body:has(.heat-wrap,.sheet-wrap.stick) footer{position:sticky;left:0;width:var(--vw,100vw);box-sizing:border-box}
+body:has(.heat-wrap,.sheet-wrap.stick) .mast{top:0}
+body:has(.heat-wrap,.sheet-wrap.stick) main.wrap{max-width:none;margin:0;width:max-content;min-width:100%;box-sizing:border-box}
+body:has(.heat-wrap,.sheet-wrap.stick) main.wrap>:not(.heat-wrap):not(.sheet-wrap){position:sticky;left:10px;max-width:calc(var(--vw,100vw) - 20px);box-sizing:border-box}
 table.heat{border-collapse:collapse;width:auto;min-width:100%}
 .heat th{font-weight:400;text-transform:lowercase;letter-spacing:0;color:var(--muted);text-align:right;padding:3px 6px;border-bottom:0;box-shadow:inset 0 -1px 0 var(--rule);white-space:nowrap;position:sticky;top:var(--mast);background:var(--bg);z-index:2}
 .heat td{padding:2px 6px;text-align:right;white-space:nowrap;color:var(--ink)}
@@ -181,6 +191,11 @@ fieldset.field legend{padding:0;margin-bottom:3px}
 .actions{display:flex;gap:12px;align-items:center}
 button{font:700 12px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--bg);background:var(--ink);border:1px solid var(--ink);padding:2px 10px;cursor:pointer}
 button:hover{background:var(--accent);border-color:var(--accent)}
+/* A link that starts a feature rather than continuing a sentence: styled as the form buttons are. */
+.cta{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:4px 0 12px}
+.cta:empty{display:none}
+a.btn{display:inline-block;font:700 12px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--bg);background:var(--ink);border:1px solid var(--ink);padding:4px 12px;text-decoration:none}
+a.btn:hover{color:var(--bg);background:var(--accent);border-color:var(--accent)}
 input[type=checkbox]{accent-color:var(--accent)}
 .actions a{color:var(--muted)}
 .headline{font:700 clamp(24px,5vw,44px)/1 var(--mono);margin:0}
@@ -235,7 +250,7 @@ footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim)
 `;
 
 // Live "… ago" and countdowns, a UTC clock, and the hotkeys advertised in the status bar.
-const SCRIPT = `(()=>{const m=document.querySelector(".mast"),ms=()=>{m&&document.documentElement.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?s+"s":s<3600?Math.floor(s/60)+"m":Math.floor(s/3600)+"h "+p(Math.floor(s%3600/60))+"m"};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=f((n-e.dataset.since)/1e3)+" ago";for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):"settling"}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const n=e.target&&e.target.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA")return;if(e.key==="/"){const q=document.querySelector("form.filters select,form.filters input");if(q){e.preventDefault();q.focus()}return}const g=${HOTKEY_TARGETS}[e.key];if(g){e.preventDefault();location.href=g}})})();`;
+const SCRIPT = `(()=>{const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?s+"s":s<3600?Math.floor(s/60)+"m":Math.floor(s/3600)+"h "+p(Math.floor(s%3600/60))+"m"};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=f((n-e.dataset.since)/1e3)+" ago";for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):"settling"}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const n=e.target&&e.target.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA")return;if(e.key==="/"){const q=document.querySelector("form.filters select,form.filters input");if(q){e.preventDefault();q.focus()}return}const g=${HOTKEY_TARGETS}[e.key];if(g){e.preventDefault();location.href=g}})})();`;
 
 export function layout(options: {
   title: string;
