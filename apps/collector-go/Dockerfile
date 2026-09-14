@@ -26,6 +26,14 @@ RUN apk add --no-cache ca-certificates && adduser -D -u 10001 collector
 
 COPY --from=build /out/collector /usr/local/bin/collector
 
+# The two things the binary reads from the repository at startup. Migrations are applied before any
+# loop starts; the catalog supplies every venue's row (market tables reference it) and the curated
+# leverage. Both are generated or owned on the TypeScript side, so they are copied, never duplicated.
+COPY packages/db/migrations/ /usr/local/share/airates/migrations/
+COPY packages/venues/catalog.json /usr/local/share/airates/catalog.json
+ENV MIGRATIONS_DIR=/usr/local/share/airates/migrations \
+    VENUE_CATALOG=/usr/local/share/airates/catalog.json
+
 USER collector
 EXPOSE 8080
 

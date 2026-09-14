@@ -77,8 +77,10 @@ import (
 	"github.com/belyjelli/ai-rates/collector/internal/adapters/variational"
 	"github.com/belyjelli/ai-rates/collector/internal/adapters/velocity"
 	"github.com/belyjelli/ai-rates/collector/internal/adapters/zero1"
+	"github.com/belyjelli/ai-rates/collector/internal/catalog"
 	"github.com/belyjelli/ai-rates/collector/internal/collector"
 	"github.com/belyjelli/ai-rates/collector/internal/httpclient"
+	"github.com/belyjelli/ai-rates/collector/internal/migrate"
 	"github.com/belyjelli/ai-rates/collector/internal/store"
 )
 
@@ -87,6 +89,12 @@ const (
 	// warmUpMaxAge bounds how stale a stored market may be and still seed an adapter. A day is well
 	// past any restart while still excluding anything genuinely delisted.
 	warmUpMaxAge = 24 * time.Hour
+	// alertCheckEvery matches the Bun collector's ALERT_CHECK_MS.
+	alertCheckEvery = time.Minute
+
+	// Where the Dockerfile puts the two files the binary reads from the repository.
+	defaultMigrationsDir = "/usr/local/share/airates/migrations"
+	defaultVenueCatalog  = "/usr/local/share/airates/catalog.json"
 )
 
 type config struct {
@@ -94,6 +102,11 @@ type config struct {
 	interval    time.Duration
 	healthPort  int
 	venues      []string
+	// migrationsDir holds packages/db/migrations; venueCatalog is packages/venues/catalog.json.
+	migrationsDir string
+	venueCatalog  string
+	// alertWebhookURL is a Slack- or Discord-style incoming webhook. Empty disables stale-venue alerts.
+	alertWebhookURL string
 }
 
 func loadConfig(env func(string) string) (config, error) {
@@ -124,6 +137,21 @@ func loadConfig(env func(string) string) (config, error) {
 		if trimmed := strings.TrimSpace(venue); trimmed != "" {
 			cfg.venues = append(cfg.venues, trimmed)
 		}
+	}
+
+	cfg.migrationsDir = env("MIGRATIONS_DIR")
+	if cfg.migrationsDir == "" {
+		cfg.migrationsDir = defaultMigrationsDir
+	}
+	cfg.venueCatalog = env("VENUE_CATALOG")
+	if cfg.venueCatalog == "" {
+		cfg.venueCatalog = defaultVenueCatalog
+	}
+
+	cfg.alertWebhookURL = strings.TrimSpace(env("ALERT_WEBHOOK_URL"))
+	if cfg.alertWebhookURL != "" &&
+		!strings.HasPrefix(cfg.alertWebhookURL, "http://") && !strings.HasPrefix(cfg.alertWebhookURL, "https://") {
+		return cfg, errors.New("ALERT_WEBHOOK_URL must be an http(s) URL")
 	}
 	return cfg, nil
 }
@@ -170,6 +198,12 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
+	// Read before connecting, so a missing or malformed catalog fails the boot before anything is written.
+	venues, err := catalog.Load(cfg.venueCatalog)
+	if err != nil {
+		return err
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
@@ -190,8 +224,26 @@ func run(log *slog.Logger) error {
 		return fmt.Errorf("ping: %w", err)
 	}
 
+	// Migrations first, as the Bun collector ran them on every boot: nothing below may touch a table a
+	// pending migration is about to change. A failure stops the boot rather than collecting into an
+	// old schema.
+	migrated, err := migrate.Apply(ctx, pool, os.DirFS(cfg.migrationsDir))
+	if err != nil {
+		return fmt.Errorf("migrations from %s: %w", cfg.migrationsDir, err)
+	}
+	log.Info("migrations", "applied", migrated.Applied, "already_applied", len(migrated.Skipped))
+
 	// Curated leverage for venues that publish none; a figure a venue states always wins over it.
-	db := store.New(pool, curatedMaxLeverage)
+	db := store.New(pool, catalog.CuratedMaxLeverage(venues))
+
+	// Every catalogued venue gets its row before any loop writes a market that references it.
+	venueRows := make([]store.VenueRow, len(venues))
+	for i, venue := range venues {
+		venueRows[i] = store.VenueRow{ID: venue.ID, Name: venue.Name, Type: venue.Type}
+	}
+	if err := db.UpsertVenues(ctx, venueRows); err != nil {
+		return err
+	}
 
 	venueIDs := selectedVenueIDs(cfg)
 	if len(venueIDs) == 0 {
@@ -228,6 +280,23 @@ func run(log *slog.Logger) error {
 		log.Info("venue loop started", "venue", loop.venueID)
 	}
 
+	// Tasks beside the venue loops, stopped with them at shutdown.
+	var tasks []*collector.PeriodicTask
+	if cfg.alertWebhookURL != "" {
+		alerter := collector.NewStaleVenueAlerter(
+			collector.WebhookSink(cfg.alertWebhookURL, nil),
+			func(message string) { log.Warn("stale venue alert", "message", message) },
+		)
+		alerts := collector.NewPeriodicTask("stale venue alerts", alertCheckEvery,
+			func(ctx context.Context) error { return alerter.Check(ctx, status.Snapshot(time.Now())) },
+			func(message string) { log.Warn(message) })
+		alerts.Start(ctx, alertCheckEvery)
+		tasks = append(tasks, alerts)
+		log.Info("stale venue alerts enabled")
+	} else {
+		log.Info("stale venue alerts disabled (set ALERT_WEBHOOK_URL)")
+	}
+
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.healthPort),
 		Handler:           healthHandler(status),
@@ -251,6 +320,11 @@ func run(log *slog.Logger) error {
 	for _, loop := range loops {
 		if err := loop.loop.Stop(graceCtx); err != nil {
 			log.Warn("loop did not stop within the grace period", "venue", loop.venueID, "error", err)
+		}
+	}
+	for _, task := range tasks {
+		if err := task.Stop(graceCtx); err != nil {
+			log.Warn("task did not stop within the grace period", "error", err)
 		}
 	}
 	_ = server.Shutdown(graceCtx)
@@ -277,17 +351,6 @@ type candidate struct {
 	// separate clients would each think they had the whole allowance, spend eleven times the
 	// intended rate, and give the circuit breaker eleven partial views of one failing venue.
 	group string
-}
-
-// curatedMaxLeverage mirrors `maxLeverage` in packages/venues/src/catalog.ts: a hand-set, deliberately
-// low figure for venues that publish no leverage at all. The Bun collector read it from the catalog;
-// this port passed an empty map until 2026-09-15 -- a leftover from when only bybit was ported -- so a
-// market aster, lighter or paradex listed after the cutover stored no max_leverage (COALESCE kept the
-// older rows). TestCuratedLeverageMatchesCatalog pins this map to the catalog.
-var curatedMaxLeverage = map[string]float64{
-	"aster":   10,
-	"lighter": 10,
-	"paradex": 10,
 }
 
 // registry is every venue this binary can collect.
