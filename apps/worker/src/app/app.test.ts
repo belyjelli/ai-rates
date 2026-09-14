@@ -195,7 +195,7 @@ describe("pages", () => {
     const lede = html.match(/<p class="lede" data-live="asset-lede">[\s\S]*?<\/p>/)?.[0] ?? "";
     expect(lede).not.toContain("Backtest this pair");
     expect(html).toMatch(
-      /<div class="cta" data-live="asset-cta"><a class="btn" href="\/pair\/BTC\?long=[a-z-]+&short=[a-z-]+">Backtest this pair/,
+      /<div class="cta" data-live="asset-cta"><a class="btn" href="\/pair\/BTC\?long=[a-z-]+&short=[a-z-]+" data-await>Backtest this pair/,
     );
   });
 
@@ -1104,7 +1104,7 @@ describe("pages", () => {
     const html = await (await get("/pair/BTC", data)).text();
 
     expect(html).toContain("Pick two exchanges to hold against each other.");
-    expect(html).toContain('<form class="filters" method="get" action="/pair/BTC">');
+    expect(html).toContain('<form class="filters" method="get" action="/pair/BTC" data-await>');
     expect(html).not.toContain('class="headline');
     // The window is chosen before any legs: the default 30 days is marked and carries no query.
     expect(html).toContain('href="/pair/BTC" aria-current="true">30d</a>');
@@ -1404,6 +1404,8 @@ describe("api", () => {
       deps,
     );
     expect(api.status).toBe(429);
+    // The page's backtest button polls until its report is ready, and waits out this window.
+    expect(api.headers.get("retry-after")).toBe("60");
     expect((await api.json()) as { error: string }).toMatchObject({ error: "rate_limited" });
 
     const html = await handleApp(
@@ -1413,6 +1415,7 @@ describe("api", () => {
       deps,
     );
     expect(html.status).toBe(429);
+    expect(html.headers.get("retry-after")).toBe("60");
     expect(await html.text()).toContain("Too many requests");
 
     // Nothing touched the database, and the page and API use separate buckets so one cannot

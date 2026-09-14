@@ -1198,7 +1198,7 @@ export function asset(data: {
 <p class="lede" data-live="asset-lede">${markets.length} live markets on ${venues} exchanges. ${summary}</p>
 <div class="cta" data-live="asset-cta">${
       pair
-        ? `<a class="btn" href="${pairHref(data.asset, assetClass)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}">Backtest this pair <span aria-hidden="true">→</span></a><span class="dim">long ${esc(venueName(pair.long.venue_id))} · short ${esc(venueName(pair.short.venue_id))} · <span data-u="cta-spread">${formatApr(pair.short.apr - pair.long.apr)}</span> a year, replayed on settled funding</span>`
+        ? `<a class="btn" href="${pairHref(data.asset, assetClass)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}" data-await>Backtest this pair <span aria-hidden="true">→</span></a><span class="dim">long ${esc(venueName(pair.long.venue_id))} · short ${esc(venueName(pair.short.venue_id))} · <span data-u="cta-spread">${formatApr(pair.short.apr - pair.long.apr)}</span> a year, replayed on settled funding</span>`
         : ""
     }</div>
 <div class="asset-rail" data-live="asset-rail">${renderRail({ scale, marks, bar: pair ? [pair.long.apr, pair.short.apr] : undefined, size: "big" })}</div>
@@ -1411,7 +1411,7 @@ function backtestForm(
       )
       .join("")}</select></label>`;
 
-  return `<form class="filters" method="get" action="${pairHref(asset, assetClass)}">
+  return `<form class="filters" method="get" action="${pairHref(asset, assetClass)}" data-await>
 ${venueField("long", params?.longVenueId)}
 ${venueField("short", params?.shortVenueId)}
 ${numberField("size", "Size per leg", params?.sizeUsd ?? 10_000, [
