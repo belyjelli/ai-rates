@@ -79,6 +79,7 @@ import (
 	"github.com/belyjelli/ai-rates/collector/internal/adapters/zero1"
 	"github.com/belyjelli/ai-rates/collector/internal/catalog"
 	"github.com/belyjelli/ai-rates/collector/internal/collector"
+	"github.com/belyjelli/ai-rates/collector/internal/core"
 	"github.com/belyjelli/ai-rates/collector/internal/httpclient"
 	"github.com/belyjelli/ai-rates/collector/internal/migrate"
 	"github.com/belyjelli/ai-rates/collector/internal/store"
@@ -214,6 +215,13 @@ func run(log *slog.Logger) error {
 	// Matching the TypeScript collector's pool size. The database is shared with other tenants, so
 	// the ceiling is a courtesy as much as a tuning choice.
 	poolCfg.MaxConns = 10
+	// UTC for every session, whatever the server's own time zone. The jobs fold settlements into UTC
+	// days (`AT TIME ZONE 'UTC'`) but cut their windows with `(now() - interval '7 days')::date`, which
+	// casts in the SESSION zone. On a server at +07 that cutoff lands a day late, the 7-of-7 charging
+	// floor sees six days, and the verified backtests and ranking silently come back empty — found
+	// when exactly that happened against a local PostgreSQL. The TypeScript SQL has the same
+	// dependency; pinning the session makes both halves of the arithmetic agree by construction.
+	poolCfg.ConnConfig.RuntimeParams["timezone"] = "UTC"
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -282,6 +290,7 @@ func run(log *slog.Logger) error {
 
 	// Tasks beside the venue loops, stopped with them at shutdown.
 	tasks := startSideTasks(ctx, cfg, loops, db, log)
+	tasks = append(tasks, startJobs(ctx, cfg, db, log)...)
 	if cfg.alertWebhookURL != "" {
 		alerter := collector.NewStaleVenueAlerter(
 			collector.WebhookSink(cfg.alertWebhookURL, nil),
@@ -820,6 +829,90 @@ func startSideTasks(ctx context.Context, cfg config, loops []*venueLoop, db *sto
 			})
 		}
 	}
+	return tasks
+}
+
+// Fleet-wide job cadences, matching apps/collector/src/main.ts.
+const (
+	statsRefresh         = 10 * time.Minute
+	longWindowsRefresh   = time.Hour
+	pairBacktestsRefresh = 24 * time.Hour
+	identityRefresh      = time.Hour
+	rankedPairsRefresh   = 24 * time.Hour
+)
+
+// startJobs starts the fleet-wide jobs that turn stored funding into what the site reads: settled
+// 24h/7d averages, the daily and hourly folds with the 30/60-day windows and stability scores, the
+// verified 7-day pair backtests behind the homepage, the price identity checks behind /status, and
+// the nightly ranked-pair candidates.
+//
+// All ran in the Bun collector and none in the Go port until 2026-09-15, so each of those surfaces
+// had been serving whatever the last Bun boot left. Order and start delays match main.ts, and the
+// order is load-bearing: the backtests and the ranking read market_funding_daily, so they start only
+// after the long-windows job has folded it once. On a cold database every pair would otherwise fail
+// the 7-of-7 charging floor and the first ranking would be empty.
+func startJobs(ctx context.Context, cfg config, db *store.Store, log *slog.Logger) []*collector.PeriodicTask {
+	var tasks []*collector.PeriodicTask
+	start := func(name string, pause, delay time.Duration, job func(context.Context) error) {
+		task := collector.NewPeriodicTask(name, pause, job, func(message string) { log.Warn(message) })
+		task.Start(ctx, delay)
+		tasks = append(tasks, task)
+	}
+
+	start("funding stats refresh", statsRefresh, 3*cfg.interval, func(ctx context.Context) error {
+		markets, err := db.RefreshFundingStats(ctx)
+		if err == nil {
+			log.Info("funding stats refreshed", "markets", markets)
+		}
+		return err
+	})
+
+	// One fold feeds the 30/60-day windows and the stability scores alike, so they share a pass.
+	start("long funding windows", longWindowsRefresh, 5*cfg.interval, func(ctx context.Context) error {
+		days, err := db.RefreshDailyFunding(ctx, store.DailyFundingLookbackDays)
+		if err != nil {
+			return err
+		}
+		markets, err := db.RefreshLongWindows(ctx)
+		if err != nil {
+			return err
+		}
+		scored, err := db.RefreshStability(ctx)
+		if err != nil {
+			return err
+		}
+		hours, err := db.RefreshHourlyFunding(ctx, store.HourlyFundingRetainDays)
+		if err != nil {
+			return err
+		}
+		log.Info("long funding windows", "day_rows", days, "markets", markets, "scored", scored, "hour_rows", hours)
+		return nil
+	})
+
+	start("verified pair backtests", pairBacktestsRefresh, longWindowsRefresh+6*cfg.interval, func(ctx context.Context) error {
+		pairs, err := db.RefreshPairBacktests(ctx, store.PairBacktestSizeUSD, store.PairBacktestRetainDays)
+		if err == nil {
+			log.Info("verified pair backtests", "pairs", pairs)
+		}
+		return err
+	})
+
+	start("identity checks", identityRefresh, 7*cfg.interval, func(ctx context.Context) error {
+		checked, err := db.RefreshIdentityChecks(ctx, store.IdentityCheckWindowHours)
+		if err == nil {
+			log.Info("identity checks", "diverging", checked)
+		}
+		return err
+	})
+
+	start("ranked pair candidates", rankedPairsRefresh, longWindowsRefresh+8*cfg.interval, func(ctx context.Context) error {
+		rows, err := db.RefreshRankedPairs(ctx, store.RankedPairsSizeUSD, store.RankedPairsRetainDays,
+			core.DefaultParticipation, store.RankedPairsSwitchCostPerDollar)
+		if err == nil {
+			log.Info("ranked pair candidates", "candidates", rows)
+		}
+		return err
+	})
 	return tasks
 }
 
