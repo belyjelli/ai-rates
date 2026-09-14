@@ -20,9 +20,9 @@ export const STALE_MS = 5 * 60_000;
 export type VenueState = "failing" | "stale" | "silent" | "empty" | "live" | "planned";
 
 export function venueState(status: VenueStatus, now: number): VenueState {
-  // `planned` before everything else. The catalog holds 61 venues and the collector runs 20, so
-  // most rows are venues no adapter has been built for yet -- Phase 5's backlog, not a fault.
-  // Without this they all read as `silent`, and the page becomes 41 phantom alarms.
+  // `planned` before everything else. Without it, a venue the collector has never run reads as
+  // `silent` -- an alarm for something that was never wired up. Phase 5 closed most of that gap:
+  // the catalog holds 61 venues and 56 are collected, so this now catches 4 rather than 41.
   if (status.last_run_ever === null) return "planned";
   // Ran at some point inside retention, but not in the last 24 hours: it stopped, and that is real.
   if (status.last_run_at === null) return "silent";
@@ -347,6 +347,21 @@ export interface DailyFundingRow extends MarketKey {
  * The ranking is deliberately ungated, so every row carries what makes it risky: a $0.28M thinner
  * leg or a 305% worst leg is exactly what a reader needs to see beside a big net figure.
  */
+/**
+ * The bar a verified pair must clear to head the homepage, drawn from the funnel in
+ * plans/product-market-fit.md §1: deep enough to size into, neither leg distressed, a weaker leg that
+ * holds its direction, no missed settlements, and paying more than a retail round trip costs.
+ */
+export const HEADLINE_BAR = {
+  minThinnerLegOiUsd: 1_000_000,
+  maxWorstLegAbsApr: 200,
+  minPairStability: 0.7,
+  /** A retail taker fee, charged on every fill. */
+  retailTakerBps: 5,
+  /** Open and close, on both legs. */
+  roundTripFills: 4,
+} as const;
+
 export interface VerifiedPair {
   run_day: Date;
   asset: string;
@@ -377,6 +392,11 @@ export interface DataSource {
   screener(filters: ScreenerFilters): Promise<ScreenerPair[]>;
   /** The newest nightly ranking of pairs by what they actually settled. Empty until a run lands. */
   verifiedPairs(limit: number): Promise<VerifiedPair[]>;
+  /**
+   * The newest run's best pair that clears HEADLINE_BAR. Null when none does, which is a real answer
+   * about the market rather than a fault.
+   */
+  bestVerifiedPair(): Promise<VerifiedPair | null>;
   /**
    * One asset's live markets. A null class resolves to crypto when the base has a crypto market and
    * otherwise to its deepest class, so /markets/asset/TSLA still finds the equity without a class in
@@ -495,6 +515,23 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         ORDER BY net_funding_usd DESC, asset, asset_class
         LIMIT ${limit}`;
       return [...rows];
+    },
+
+    async bestVerifiedPair() {
+      const bar = HEADLINE_BAR;
+      // A NULL risk column fails its comparison, so a pair we cannot vouch for never heads the page.
+      const [row] = await connect()<VerifiedPair[]>`
+        SELECT * FROM market_pair_backtests
+        WHERE run_day = (SELECT max(run_day) FROM market_pair_backtests)
+          AND thinner_leg_oi_usd >= ${bar.minThinnerLegOiUsd}::float8
+          AND worst_leg_abs_apr < ${bar.maxWorstLegAbsApr}::float8
+          AND pair_stability >= ${bar.minPairStability}::float8
+          AND missed_settlements = 0
+          -- Pays more than the round trip costs at the retail taker fee.
+          AND net_funding_usd > size_usd * ${(bar.roundTripFills * bar.retailTakerBps) / 10_000}::float8
+        ORDER BY net_funding_usd DESC, asset, asset_class
+        LIMIT 1`;
+      return row ?? null;
     },
 
     async asset(base, assetClass) {

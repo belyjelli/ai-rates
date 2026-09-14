@@ -80,7 +80,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
 
   try {
     if (path === "/") {
-      const [overview, pairs, verified] = await Promise.all([
+      const [overview, pairs, verified, best] = await Promise.all([
         deps.data.overview(),
         deps.data.screener({ ...DEFAULT_FILTERS, limit: 12 }),
         // Precomputed nightly, so this is one indexed read rather than ~650 replays per request.
@@ -96,8 +96,15 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           );
           return [];
         }),
+        // Fail-soft for the same reason: without it the page falls back to the live widest spread.
+        deps.data.bestVerifiedPair().catch((error) => {
+          deps.log?.(
+            `headline pair unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return null;
+        }),
       ]);
-      return page(pages.home({ overview, pairs, verified, now }));
+      return page(pages.home({ overview, pairs, verified, best, now }));
     }
 
     if (path === "/screener") {
@@ -404,6 +411,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           tiers,
           history,
           overview,
+          origin: url.origin,
           now,
         }),
       );

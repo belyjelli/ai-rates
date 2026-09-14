@@ -19,6 +19,9 @@
   "ratelimits": [
     { "name": "BACKTEST_LIMITER", "namespace_id": "1001", "simple": { "limit": 20, "period": 60 } }
   ],
+  // Page views by source and page, counted in index.ts ahead of the edge cache (app/visits.ts). No
+  // cookies and no addresses. Included on Workers Free; read with apps/worker/scripts/visits.ts.
+  "analytics_engine_datasets": [{ "binding": "VISITS", "dataset": "airates_visits" }],
   "hyperdrive": [
     // airates-vaultdeck: $AIRATES_DEPLOY_HOST:$AIRATES_PG_PORT/vaultdeck as $AIRATES_PG_ROLE, sslmode=verify-full with the hklab CA.
     // Local dev: set CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE (see deploy/hklab/README.md).

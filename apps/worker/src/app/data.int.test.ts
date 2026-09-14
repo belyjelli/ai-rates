@@ -645,6 +645,50 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     expect(await data.verifiedPairs(1)).toHaveLength(1);
   });
 
+  test("bestVerifiedPair heads the page only with a pair someone could hold", async () => {
+    // Its own prefix, so the ranking test above still sees only its two rows under `base`.
+    const prefix = `BV${tag.toUpperCase()}`;
+    const row = (asset: string, overrides: Record<string, number | null> = {}) => ({
+      // The same run as the test above: a newer day would retire that test's rows on a re-run.
+      run_day: "2026-09-12",
+      asset: `${prefix}${asset}`,
+      long_venue_id: venueA,
+      long_symbol: symbolA,
+      short_venue_id: venueB,
+      short_symbol: symbolB,
+      size_usd: 10_000,
+      days: 7,
+      // Far above anything a real row pays, so a leftover from another run cannot outrank these.
+      net_funding_usd: 900_000,
+      net_funding_apr_percent: 50,
+      win_rate_days: 1,
+      avg_daily_usd: 100,
+      long_settlements: 21,
+      short_settlements: 21,
+      missed_settlements: 0,
+      thinner_leg_oi_usd: 5_000_000,
+      worst_leg_abs_apr: 60,
+      pair_stability: 0.8,
+      long_charge_days: 7,
+      short_charge_days: 7,
+      ...overrides,
+    });
+    await admin`
+      INSERT INTO market_pair_backtests ${admin([
+        // Each misses exactly one part of the bar, and each pays more than the pair that clears it.
+        row("THIN", { net_funding_usd: 990_000, thinner_leg_oi_usd: 900_000 }),
+        row("HOT", { net_funding_usd: 980_000, worst_leg_abs_apr: 250 }),
+        row("FLIP", { net_funding_usd: 970_000, pair_stability: 0.6 }),
+        row("GAPS", { net_funding_usd: 960_000, missed_settlements: 2 }),
+        row("NOSCORE", { net_funding_usd: 950_000, pair_stability: null }),
+        row("OK"),
+      ])} ON CONFLICT (run_day, asset_class, asset) DO NOTHING`;
+
+    const best = await data.bestVerifiedPair();
+    expect(best?.asset).toBe(`${prefix}OK`);
+    expect(best?.run_day).toBeInstanceOf(Date);
+  });
+
   /**
    * Migration 017: one ticker, two assets. BlackBerry (equity) is the deeper market here on purpose,
    * so a class-less read that picked the deepest class would land on it; the rule is crypto first.
