@@ -1,0 +1,312 @@
+[
+  {
+    "id": "binance",
+    "name": "Binance",
+    "type": "cex"
+  },
+  {
+    "id": "bybit",
+    "name": "Bybit",
+    "type": "cex"
+  },
+  {
+    "id": "okx",
+    "name": "OKX",
+    "type": "cex"
+  },
+  {
+    "id": "bitget",
+    "name": "Bitget",
+    "type": "cex"
+  },
+  {
+    "id": "mexc",
+    "name": "MEXC",
+    "type": "cex"
+  },
+  {
+    "id": "kucoin",
+    "name": "KuCoin",
+    "type": "cex"
+  },
+  {
+    "id": "gate",
+    "name": "Gate",
+    "type": "cex"
+  },
+  {
+    "id": "htx",
+    "name": "HTX",
+    "type": "cex"
+  },
+  {
+    "id": "bingx",
+    "name": "BingX",
+    "type": "cex"
+  },
+  {
+    "id": "blofin",
+    "name": "BloFin",
+    "type": "cex"
+  },
+  {
+    "id": "bitmart",
+    "name": "BitMart",
+    "type": "cex"
+  },
+  {
+    "id": "toobit",
+    "name": "Toobit",
+    "type": "cex"
+  },
+  {
+    "id": "hotcoin",
+    "name": "Hotcoin",
+    "type": "cex"
+  },
+  {
+    "id": "weex",
+    "name": "WEEX",
+    "type": "cex"
+  },
+  {
+    "id": "coinw",
+    "name": "CoinW",
+    "type": "cex"
+  },
+  {
+    "id": "lbank",
+    "name": "LBank",
+    "type": "cex"
+  },
+  {
+    "id": "pionex",
+    "name": "Pionex",
+    "type": "cex"
+  },
+  {
+    "id": "hyperliquid",
+    "name": "Hyperliquid",
+    "type": "dex"
+  },
+  {
+    "id": "bullpen",
+    "name": "Bullpen",
+    "type": "dex"
+  },
+  {
+    "id": "hl-xyz",
+    "name": "trade[XYZ]",
+    "type": "hip3"
+  },
+  {
+    "id": "aster",
+    "name": "Aster",
+    "type": "dex",
+    "maxLeverage": 10
+  },
+  {
+    "id": "edgex-v2",
+    "name": "edgeX V2",
+    "type": "dex"
+  },
+  {
+    "id": "lighter",
+    "name": "Lighter",
+    "type": "dex",
+    "maxLeverage": 10
+  },
+  {
+    "id": "pacifica",
+    "name": "Pacifica",
+    "type": "dex"
+  },
+  {
+    "id": "apex",
+    "name": "ApeX",
+    "type": "dex"
+  },
+  {
+    "id": "variational",
+    "name": "Variational",
+    "type": "dex"
+  },
+  {
+    "id": "extended",
+    "name": "Extended",
+    "type": "dex"
+  },
+  {
+    "id": "grvt",
+    "name": "GRVT",
+    "type": "dex"
+  },
+  {
+    "id": "standx",
+    "name": "StandX",
+    "type": "dex"
+  },
+  {
+    "id": "lighter-rh",
+    "name": "Lighter Robinhood",
+    "type": "dex"
+  },
+  {
+    "id": "sodex",
+    "name": "SoDEX",
+    "type": "dex"
+  },
+  {
+    "id": "nado",
+    "name": "Nado",
+    "type": "dex"
+  },
+  {
+    "id": "ondo",
+    "name": "Ondo",
+    "type": "dex"
+  },
+  {
+    "id": "risex",
+    "name": "RiseX",
+    "type": "dex"
+  },
+  {
+    "id": "reya",
+    "name": "Reya",
+    "type": "dex"
+  },
+  {
+    "id": "arcus",
+    "name": "Arcus",
+    "type": "dex"
+  },
+  {
+    "id": "txflow",
+    "name": "TxFlow",
+    "type": "dex"
+  },
+  {
+    "id": "orderly",
+    "name": "WOOFi Pro",
+    "type": "dex"
+  },
+  {
+    "id": "hl-io",
+    "name": "Entropy",
+    "type": "hip3"
+  },
+  {
+    "id": "perpl",
+    "name": "Perpl",
+    "type": "dex"
+  },
+  {
+    "id": "hl-mkts",
+    "name": "Kinetiq",
+    "type": "hip3"
+  },
+  {
+    "id": "dydx",
+    "name": "dYdX",
+    "type": "dex"
+  },
+  {
+    "id": "hibachi",
+    "name": "Hibachi",
+    "type": "dex"
+  },
+  {
+    "id": "paradex",
+    "name": "Paradex",
+    "type": "dex",
+    "maxLeverage": 10
+  },
+  {
+    "id": "hl-para",
+    "name": "Paragon",
+    "type": "hip3"
+  },
+  {
+    "id": "zero1",
+    "name": "N1 (01)",
+    "type": "dex"
+  },
+  {
+    "id": "bullet",
+    "name": "Bullet",
+    "type": "dex"
+  },
+  {
+    "id": "polymarket",
+    "name": "Polymarket",
+    "type": "dex"
+  },
+  {
+    "id": "phoenix",
+    "name": "Phoenix",
+    "type": "dex"
+  },
+  {
+    "id": "hl-cash",
+    "name": "dreamcash",
+    "type": "hip3"
+  },
+  {
+    "id": "hl-flx",
+    "name": "Felix Exchange",
+    "type": "hip3"
+  },
+  {
+    "id": "hl-hyna",
+    "name": "HyENA",
+    "type": "hip3"
+  },
+  {
+    "id": "hl-vntl",
+    "name": "Ventuals",
+    "type": "hip3"
+  },
+  {
+    "id": "hl-km",
+    "name": "Kinetiq (legacy)",
+    "type": "hip3"
+  },
+  {
+    "id": "hl-abcd",
+    "name": "HIP-3 abcd",
+    "type": "hip3"
+  },
+  {
+    "id": "edgex",
+    "name": "edgeX V1",
+    "type": "dex",
+    "retired": "2026-09-15: superseded by edgeX V2 (`edgex-v2`), which is collected; the V1 endpoint answers 200 with an empty `data` array."
+  },
+  {
+    "id": "ethereal",
+    "name": "Ethereal",
+    "type": "dex",
+    "retired": "2026-09-15: /v1/product lists 18 markets, all DELISTED, with zero open interest and 24h volume; funding last updated 2026-08-26T01:00Z."
+  },
+  {
+    "id": "aevo",
+    "name": "Aevo",
+    "type": "dex"
+  },
+  {
+    "id": "backpack",
+    "name": "Backpack",
+    "type": "dex"
+  },
+  {
+    "id": "bluefin",
+    "name": "Bluefin",
+    "type": "dex"
+  },
+  {
+    "id": "velocity",
+    "name": "Velocity (ex-Drift)",
+    "type": "dex"
+  }
+]

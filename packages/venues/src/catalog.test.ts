@@ -1,5 +1,18 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { VENUES } from "./catalog";
+import { catalogJson } from "./catalog-json";
+
+describe("catalog.json", () => {
+  test("matches the catalog, so the Go collector reads what TypeScript defines", () => {
+    // Stale means the Go collector writes old venue names, misses a new venue's row (every market
+    // table's foreign key needs it), or applies old curated leverage. Fix by regenerating:
+    //   bun packages/venues/scripts/emit-catalog-json.ts
+    const onDisk = readFileSync(join(import.meta.dir, "..", "catalog.json"), "utf8");
+    expect(onDisk).toBe(catalogJson());
+  });
+});
 
 describe("venue catalog", () => {
   test("ids are unique", () => {
