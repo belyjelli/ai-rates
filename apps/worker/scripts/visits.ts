@@ -1,5 +1,5 @@
 /**
- * Page views by source, and where outside visits land, from the airates_visits dataset that
+ * Page views by source, and where outside visits land, from the airrates dataset that
  * app/visits.ts writes.
  *
  *   CLOUDFLARE_ACCOUNT_ID=… CLOUDFLARE_API_TOKEN=… bun apps/worker/scripts/visits.ts [days]
@@ -29,7 +29,7 @@ const window = `timestamp > NOW() - INTERVAL '${days}' DAY`;
 console.log(`Page views, last ${days} days, by source`);
 console.table(
   await query(`SELECT blob1 AS source, SUM(_sample_interval) AS views
-    FROM airates_visits WHERE ${window}
+    FROM airrates WHERE ${window}
     GROUP BY source ORDER BY views DESC LIMIT 20`),
 );
 
@@ -37,6 +37,6 @@ console.table(
 console.log("Where outside visits land");
 console.table(
   await query(`SELECT blob1 AS source, blob2 AS page, SUM(_sample_interval) AS views
-    FROM airates_visits WHERE ${window} AND blob1 != 'internal'
+    FROM airrates WHERE ${window} AND blob1 != 'internal'
     GROUP BY source, page ORDER BY views DESC LIMIT 30`),
 );
