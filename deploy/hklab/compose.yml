@@ -18,7 +18,7 @@ services:
       - "127.0.0.1:20090:8080"
     networks:
       - postgres
-    mem_limit: 512m
+    mem_limit: 1g
     cpus: 1.0
     logging:
       driver: json-file
