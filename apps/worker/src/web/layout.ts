@@ -1,5 +1,6 @@
 import type { Overview } from "../app/data";
 import { BUILD } from "../build-info";
+import { AWAIT_SCRIPT } from "./await";
 import { esc, since } from "./format";
 import { LIVE_SCRIPT } from "./live";
 
@@ -197,6 +198,11 @@ button:hover{background:var(--accent);border-color:var(--accent)}
 .cta:empty{display:none}
 a.btn{display:inline-block;font:700 12px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--bg);background:var(--ink);border:1px solid var(--ink);padding:4px 12px;text-decoration:none}
 a.btn:hover{color:var(--bg);background:var(--accent);border-color:var(--accent)}
+/* A button whose report is being built (await.ts): accent-filled, with a spinner before its label. */
+a.btn[aria-busy=true],button[aria-busy=true]{color:var(--bg);background:var(--accent);border-color:var(--accent);cursor:progress;white-space:nowrap}
+.spin{display:inline-block;box-sizing:border-box;width:1em;height:1em;margin-right:7px;vertical-align:-.15em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none;border-right-color:currentColor;opacity:.55}}
 input[type=checkbox]{accent-color:var(--accent)}
 .actions a{color:var(--muted)}
 .headline{font:700 clamp(24px,5vw,44px)/1 var(--mono);margin:0}
@@ -295,6 +301,7 @@ export function layout(options: {
 </div></footer>
 <script>${SCRIPT}</script>
 <script>${LIVE_SCRIPT}</script>
+<script>${AWAIT_SCRIPT}</script>
 </body>
 </html>`;
 }

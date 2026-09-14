@@ -329,10 +329,8 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       // Ahead of everything, including validation: the point is to bound volume, and the limiter
       // costs far less than the database read below.
       if (!(await withinRate(deps, request, "backtest"))) {
-        return json(
-          { error: "rate_limited", detail: "Too many backtests from this address." },
-          429,
-          0,
+        return retryLater(
+          json({ error: "rate_limited", detail: "Too many backtests from this address." }, 429, 0),
         );
       }
       const params = parseBacktestParams(url.searchParams);
@@ -372,7 +370,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       // Only a request that computes a backtest is limited; browsing /pair/:asset to pick two legs
       // stays free.
       if (requested && !(await withinRate(deps, request, "pair"))) {
-        return page(pages.tooMany(path, now), 429);
+        return retryLater(page(pages.tooMany(path, now), 429));
       }
       const markets = address ? await deps.data.asset(address.asset, address.assetClass) : [];
       const [first] = markets;
@@ -443,6 +441,18 @@ async function withinRate(deps: AppDeps, request: Request, bucket: string): Prom
   if (!deps.rateLimit) return true;
   const ip = request.headers.get("cf-connecting-ip") ?? "anonymous";
   return deps.rateLimit(`${bucket}:${ip}`);
+}
+
+/** The limiter's window, as BACKTEST_LIMITER declares it in wrangler.jsonc. */
+const RATE_PERIOD_SECONDS = 60;
+
+/**
+ * Says when a limited caller may ask again. The page's backtest button polls until its report is
+ * ready (web/await.ts) and waits this long rather than spending more of the allowance on retries.
+ */
+function retryLater(response: Response): Response {
+  response.headers.set("retry-after", String(RATE_PERIOD_SECONDS));
+  return response;
 }
 
 /**

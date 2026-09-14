@@ -195,6 +195,9 @@ export const LIVE_SCRIPT = String.raw`(() => {
   const engaged = () => document.querySelector("main [data-live]:hover, form.filters:focus-within") !== null;
   const settle = () => {
     if (!pending) return;
+    // A button waiting on its report (await.ts) is about to leave the page: swapping its region would
+    // replace it with an idle copy, so nothing moves until it is done, however long that takes.
+    if (document.querySelector("main [aria-busy=true]")) return void setTimeout(settle, 1e3);
     if (engaged() && Date.now() - heldSince < PERIOD) return void setTimeout(settle, 1e3);
     const doc = pending;
     pending = null;
@@ -234,7 +237,7 @@ export const LIVE_SCRIPT = String.raw`(() => {
       // too. Only a NEWER render counts, so an older edge copy mid-rollout cannot bounce the page; once
       // per build, so a reload that lands on a stale copy cannot loop; never under a pointer or an open
       // filter, which waits for the next poll instead.
-      if (stamp && build && nextBuild && nextBuild !== build && Number(stamp[1]) > Number(rendered) && !engaged()) {
+      if (stamp && build && nextBuild && nextBuild !== build && Number(stamp[1]) > Number(rendered) && !engaged() && !document.querySelector("main [aria-busy=true]")) {
         let seen = "";
         try { seen = sessionStorage.getItem("airates-reloaded-for") || ""; } catch (_) {}
         if (seen !== nextBuild) {
