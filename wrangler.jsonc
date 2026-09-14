@@ -9,6 +9,12 @@
   // script breaks: the placeholder then says the commit was not recorded, and the site still ships.
   "build": { "command": "node apps/worker/scripts/stamp-build.mjs || true" },
   "compatibility_date": "2026-09-01",
+  // Custom Domains: Cloudflare creates the DNS record and the edge certificate for each. List both --
+  // a deploy with custom domains replaces the Worker's set, so leaving one out would detach it.
+  "routes": [
+    { "pattern": "airrates.net", "custom_domain": true },
+    { "pattern": "www.airrates.net", "custom_domain": true }
+  ],
   // Postgres.js needs Node's net/tls shims to reach Hyperdrive.
   "compatibility_flags": ["nodejs_compat"],
   // A first filter on the backtest routes. Cloudflare's limiter is PER-LOCATION, not global -- "for
