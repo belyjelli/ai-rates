@@ -23,6 +23,15 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-09-15",
+    title: "A headline that already paid, and results you can share",
+    changes: [
+      "The home page now opens on the best pair from last night's replay that someone could actually have held: at least $1M of open interest on its thinner leg, neither leg above 200% a year, a stable weaker leg and no missed settlements. It shows what the pair paid over the last 7 days and what is left after a retail round trip of fees. When no pair clears that bar, the widest live spread heads the page as before.",
+      "Backtest results have a Share on X button that writes the post for you, with the result's own figure and whether fees are in it.",
+      "Page views are counted by where they came from and which page they opened, without cookies and without storing addresses.",
+    ],
+  },
+  {
     date: "2026-09-13",
     title: "Renamed stocks and commodities join their markets",
     changes: [

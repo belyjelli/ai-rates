@@ -24,7 +24,7 @@ import type {
 } from "../app/data";
 // A value, not a type: the page and the JSON endpoint must classify a venue the same way, so the
 // rule lives beside the type rather than being restated here.
-import { venueState } from "../app/data";
+import { HEADLINE_BAR, venueState } from "../app/data";
 import type {
   ArbitrageParams,
   BacktestParams,
@@ -155,12 +155,16 @@ export function home(data: {
   overview: Overview;
   pairs: ScreenerPair[];
   verified: VerifiedPair[];
+  /** The newest run's best pair clearing HEADLINE_BAR; the live widest spread heads the page without one. */
+  best: VerifiedPair | null;
   now: number;
 }): string {
   const [top] = data.pairs;
-  const hero = top
-    ? heroPair(top)
-    : `<section class="hero" data-live="hero"><p class="eyebrow">Widest funding spread right now</p><p class="lede">No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.</p></section>`;
+  const hero = data.best
+    ? heroVerified(data.best)
+    : top
+      ? heroPair(top)
+      : `<section class="hero" data-live="hero"><p class="eyebrow">Widest funding spread right now</p><p class="lede">No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.</p></section>`;
   const runDay = data.verified[0]?.run_day;
 
   return layout({
@@ -181,6 +185,43 @@ ${pairsTable(data.pairs, "No pairs yet: an asset needs live markets on at least 
 ${verifiedTable(data.verified)}
 </section>`,
   });
+}
+
+/**
+ * The headline once a pair clears HEADLINE_BAR: what it settled, not what it quotes. The widest live
+ * spread is the biggest number on the page and often an outlier on a thin book; this one is smaller,
+ * already happened, and could have been held, which makes it the figure worth putting in front of
+ * someone. Fees are a retail round trip, so the net is one a reader reaches without a VIP tier, and the
+ * link opens the backtest with those same fees so the two pages agree.
+ */
+function heroVerified(v: VerifiedPair): string {
+  const long = venueName(v.long_venue_id);
+  const short = venueName(v.short_venue_id);
+  const { retailTakerBps, roundTripFills } = HEADLINE_BAR;
+  const net = v.net_funding_usd - (v.size_usd * roundTripFills * retailTakerBps) / 10_000;
+  const query = backtestToQuery({
+    longVenueId: v.long_venue_id,
+    shortVenueId: v.short_venue_id,
+    sizeUsd: v.size_usd,
+    days: v.days,
+    longTakerBps: retailTakerBps,
+    shortTakerBps: retailTakerBps,
+  });
+  const span = v.days === 1 ? "day" : `${v.days} days`;
+  return `<section class="hero" data-live="hero">
+<p class="eyebrow">Best verified carry, last ${span}</p>
+<div class="hero-head">
+<a class="hero-asset" href="${assetHref(v.asset, v.asset_class)}">${assetName(v.asset, v.asset_class)}</a>
+<p class="hero-spread up"><b>${money(v.net_funding_usd)}</b><span>funding settled on ${wholeMoney(v.size_usd)} per leg</span></p>
+</div>
+<div class="legs">
+<p class="long"><b>Long on <a href="${exchangeHref(v.long_venue_id)}">${esc(long)}</a></b> ${esc(v.long_symbol)}</p>
+<p class="short"><b>Short on <a href="${exchangeHref(v.short_venue_id)}">${esc(short)}</a></b> ${esc(v.short_symbol)}</p>
+</div>
+<div class="facts"><span>after retail fees <b class="${net >= 0 ? "up" : "down"}">${money(net)}</b></span><span>annualized <b>${formatApr(v.net_funding_apr_percent)}</b> before fees</span><span>win rate <b>${Math.round(v.win_rate_days * 100)}%</b> of days</span><span>thinner leg <b>${formatUsd(v.thinner_leg_oi_usd)}</b> open interest</span><span>stability <b>${stability(v.pair_stability, Math.min(v.long_charge_days, v.short_charge_days))}</b></span></div>
+<div class="cta"><a class="btn" href="${pairHref(v.asset, v.asset_class)}${query}" data-await>Open this backtest <span aria-hidden="true">→</span></a><span class="dim">replayed ${esc(v.run_day.toISOString().slice(0, 10))}</span></div>
+<p class="lede">Settled, not forecast: both legs replayed at their own settlement times. This is the best pair in the newest nightly run with at least ${formatUsd(HEADLINE_BAR.minThinnerLegOiUsd)} of open interest on its thinner leg, neither leg past ${HEADLINE_BAR.maxWorstLegAbsApr}% a year, stability of ${HEADLINE_BAR.minPairStability} or better and no missed settlements. Retail fees are ${retailTakerBps} bps on each of ${roundTripFills} fills, opening and closing both legs. Last week's funding is not a promise about next week's.</p>
+</section>`;
 }
 
 function heroPair(p: ScreenerPair): string {
@@ -1033,8 +1074,10 @@ export function status(data: {
     );
 
   const tally = (state: VenueState) => rows.filter((r) => r.state === state).length;
-  // Planned venues are the scaling backlog, not the operational picture. There are more of them
-  // than there are venues we run, so listing them as rows would bury the twenty that can break.
+  // Planned venues are the scaling backlog, not the operational picture. Phase 5 inverted the
+  // arithmetic -- 4 planned against 56 collected, where it was 41 against 20 -- so they no longer
+  // bury the rows that can break. They stay separate because a venue with no feed has no health to
+  // report, which is a different claim from "there are too many of them to list".
   const running = rows.filter((r) => r.state !== "planned");
   const planned = rows.filter((r) => r.state === "planned");
   const wrong = running.length - tally("live");
@@ -1133,7 +1176,7 @@ ${
 ${
   planned.length === 0
     ? ""
-    : `<p class="notes"><b>${planned.length}</b> more exchanges are catalogued but not collected yet — no adapter has been built for them, so they are a scaling backlog rather than a fault: ${planned
+    : `<p class="notes"><b>${planned.length}</b> more exchanges are catalogued but not collected yet — either no adapter has been built for them, or one exists and is deliberately held back, so they are a backlog rather than a fault: ${planned
         .map((r) => esc(r.status.name))
         .join(", ")}.</p>`
 }`,
@@ -1432,6 +1475,27 @@ ${feeField("fee_short", "Short taker fee", params?.shortTakerBps ?? null)}
 </form>`;
 }
 
+/**
+ * A post on X with the result already written, linking back with `ref=x` so the visit counts under
+ * its source (app/visits.ts). The text carries the page's own figure and nothing larger: net of fees
+ * when both were entered, otherwise funding alone, and it says which.
+ */
+function shareOnX(
+  asset: string,
+  assetClass: AssetClass,
+  params: BacktestParams,
+  result: BacktestResult,
+  origin: string,
+): string {
+  const net = result.netAfterCostsUsd ?? result.netFundingUsd;
+  const label = assetClass === "crypto" ? asset : `${asset} (${assetClass})`;
+  const span = params.days === 1 ? "day" : `${params.days} days`;
+  const text = `${label} funding carry, long ${venueName(result.long.venueId)} / short ${venueName(result.short.venueId)}: ${money(net)} on ${wholeMoney(params.sizeUsd)} per leg over the last ${span}, ${result.netAfterCostsUsd === null ? "before fees" : "after fees"}. Replayed from settled funding:`;
+  const link = `${origin}${pairHref(asset, assetClass)}${backtestToQuery(params)}&ref=x`;
+  const intent = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`;
+  return `<div class="cta"><a class="btn" href="${esc(intent)}" target="_blank" rel="noopener">Share on X</a><span class="dim">opens a post with this result and a link back to it</span></div>`;
+}
+
 /** Trims a bps figure for prose: "4.5" stays, "5.0" reads as "5". */
 const formatBps = (bps: number | null): string => (bps === null ? "–" : String(Number(bps)));
 
@@ -1496,9 +1560,23 @@ export function pair(data: {
   history: FundingHistory | null;
   /** Required, as on the asset and exchange pages: the status line reads it. */
   overview: Overview;
+  /** The site's own origin: a post on X needs an absolute link back to the result. */
+  origin: string;
   now: number;
 }): string {
-  const { asset, assetClass, markets, params, days, result, tiers, history, overview, now } = data;
+  const {
+    asset,
+    assetClass,
+    markets,
+    params,
+    days,
+    result,
+    tiers,
+    history,
+    overview,
+    origin,
+    now,
+  } = data;
   const venues = new Set(markets.map((m) => m.venue_id)).size;
   const legMarket = (venueId: string, venueSymbol: string) =>
     markets.find((m) => m.venue_id === venueId && m.venue_symbol === venueSymbol);
@@ -1537,6 +1615,7 @@ export function pair(data: {
 </div>
 ${equityCurve(result, params.sizeUsd)}
 <div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span>${rangeFacts(result)}<span>${capitalFact(capital ?? pairCapital(params.sizeUsd, undefined, undefined, tiers))}</span>${costsFact(result)}</div>
+${shareOnX(asset, assetClass, params, result, origin)}
 ${
   result.long.missedSettlements > 0 || result.short.missedSettlements > 0
     ? `<p class="notes">Missed settlements: ${result.long.missedSettlements} on ${esc(venueName(result.long.venueId))}, ${result.short.missedSettlements} on ${esc(venueName(result.short.venueId))}. A gap is reported rather than counted as zero, so this total covers only the settlements actually recorded.</p>`

@@ -69,6 +69,8 @@ p{margin:0}
 .hero-asset{font:700 clamp(28px,6vw,56px)/1 var(--mono);letter-spacing:-.02em;border:0}
 .hero-asset:hover{color:var(--accent)}
 .hero-spread{font:700 clamp(20px,4vw,36px)/1 var(--mono);color:var(--short)}
+/* A verified headline is what a pair paid, not a gap between rates: toned as the pair page's headline is. */
+.hero-spread.up{color:var(--long)}
 .hero-spread span{display:block;color:var(--muted);font-size:12px;font-weight:400;text-align:right;margin-top:4px}
 /* The big rail hangs its "0%" label 16px below itself (.rail-big .rail-zero::after), so the bottom
    margin has to clear that label or it lands in the legs row; the asset page's rail had the same fix. */

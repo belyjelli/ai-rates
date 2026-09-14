@@ -112,6 +112,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     dailyFunding: async () => [],
     hourlyFunding: async () => [],
     verifiedPairs: async () => [],
+    bestVerifiedPair: async () => null,
     ...overrides,
   };
   return { data, calls };
@@ -276,6 +277,66 @@ describe("pages", () => {
     // formatter rather than assumed.
     expect(html).toContain("+963%");
     expect(html).toContain("replayed 2026-09-12");
+  });
+
+  test("the headline is the best pair someone could hold, net of a retail round trip", async () => {
+    const best = {
+      run_day: new Date("2026-09-13T00:00:00Z"),
+      asset: "ETH",
+      asset_class: "crypto" as const,
+      long_venue_id: "gate",
+      long_symbol: "ETH_USDT",
+      short_venue_id: "okx",
+      short_symbol: "ETH-USDT-SWAP",
+      size_usd: 10_000,
+      days: 7,
+      net_funding_usd: 61.2,
+      net_funding_apr_percent: 31.9,
+      win_rate_days: 0.857,
+      avg_daily_usd: 8.74,
+      long_settlements: 21,
+      short_settlements: 21,
+      missed_settlements: 0,
+      thinner_leg_oi_usd: 25_000_000,
+      worst_leg_abs_apr: 48.2,
+      pair_stability: 0.81,
+      long_charge_days: 7,
+      short_charge_days: 7,
+    };
+    const { data } = fakeData({ bestVerifiedPair: async () => best });
+    const html = await (await get("/", data)).text();
+
+    // What it settled, not the live widest spread, which is the outlier-prone figure.
+    expect(html).toContain("Best verified carry, last 7 days");
+    expect(html).not.toContain("Widest funding spread right now");
+    expect(html).toContain('<p class="hero-spread up"><b>$61.20</b>');
+    // Four fills at 5 bps on $10,000 is $20, charged before the net is shown.
+    expect(html).toContain('after retail fees <b class="up">$41.20</b>');
+    expect(html).toContain("Long on <a");
+    expect(html).toContain("ETH-USDT-SWAP");
+    // The backtest opens with the same fees, so its net agrees with the headline's.
+    expect(html).toContain(
+      'href="/pair/ETH?long=gate&short=okx&days=7&fee_long=5&fee_short=5" data-await>Open this backtest',
+    );
+    // The bar it cleared is stated, not implied.
+    expect(html).toContain("no missed settlements");
+  });
+
+  test("the homepage keeps the live spread as its headline when the verified one is unavailable", async () => {
+    const logged: string[] = [];
+    const { data } = fakeData({
+      bestVerifiedPair: async () => {
+        throw new Error("connection reset");
+      },
+    });
+    const res = await handleApp(new Request("https://airates.test/"), {
+      data,
+      now: () => NOW,
+      log: (message: string) => logged.push(message),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("Widest funding spread right now");
+    expect(logged.join("\n")).toContain("headline pair unavailable");
   });
 
   /** The ONE case as it was actually measured: a wide quoted gap resting on almost nothing. */
@@ -900,6 +961,15 @@ describe("pages", () => {
     expect(html.match(/, 7d avg <span/g)).toHaveLength(2);
     // Entry and exit at the books is the price-pair page's question, one link away.
     expect(html).toContain('href="/price-pair/BTC"');
+    // Sharing posts the page's own figure, before fees since none were entered, and links back with
+    // where the visit came from.
+    expect(html).toContain('<a class="btn" href="https://x.com/intent/post?text=');
+    expect(html).toContain(
+      encodeURIComponent("$6.00 on $10,000 per leg over the last 7 days, before fees"),
+    );
+    expect(html).toContain(
+      `url=${encodeURIComponent("https://airates.test/pair/BTC?long=gate&short=okx&days=7&ref=x")}`,
+    );
   });
 
   test("pair capital is margined at the lower of the two venues' leverage", async () => {

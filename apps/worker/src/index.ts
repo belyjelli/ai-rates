@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import { handleApp } from "./app/app";
 import { createDataSource } from "./app/data";
+import { visitPoint } from "./app/visits";
 import { ProbeDO } from "./probe/probe-do";
 import { handleProbe } from "./probe/routes";
 
@@ -10,6 +11,10 @@ export default {
   async fetch(request, env, ctx): Promise<Response> {
     const probe = await handleProbe(request, env);
     if (probe) return probe;
+
+    // Ahead of the cache: a page served from it never reaches the app, and would go uncounted.
+    const visit = visitPoint(request, request.cf?.country);
+    if (visit) env.VISITS.writeDataPoint(visit);
 
     const cache = caches.default;
     if (request.method === "GET") {
