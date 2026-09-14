@@ -19,3 +19,12 @@ __pycache__/
 .venv-workers/
 python_modules/
 .pytest_cache/
+# Go build output; `make build` in apps/collector-go writes binaries here.
+apps/collector-go/bin/
+# A bare `go build` (no -o) drops the binary beside the package; the Makefile writes to bin/.
+apps/collector-go/collector
+# go.sum is ignored by this machine's global gitignore (~/.gitignore_global), which would strip
+# checksums from every Go module here. Repo patterns outrank core.excludesFile, so this negation
+# keeps the module verifiable in a fresh clone. Without it the server-side build in golang:1.26-alpine
+# resolves dependencies unchecked, or fails outright.
+!apps/collector-go/go.sum

@@ -3,7 +3,19 @@
 name: airates
 
 services:
+  # DEPRECATED 2026-09-15, superseded by collector-go once that reached all 56 venues. Kept — and
+  # kept buildable — because it IS the rollback: `--profile bun up -d collector` brings it straight
+  # back.
+  #
+  # Profile-gated so an ordinary `docker compose up -d` does NOT start it. Without the gate, the
+  # next routine deploy would silently resurrect a second writer on all 56 venues, and nothing would
+  # report it: both writes succeed and the observed_at guard picks a winner.
+  #
+  # It still binds 20090, the port collector-go now takes. That collision is DELIBERATE — it makes
+  # running both impossible, so Docker refuses loudly rather than letting two collectors race over
+  # the same market_latest rows.
   collector:
+    profiles: ["bun"]
     build:
       context: ../..
       dockerfile: apps/collector/Dockerfile
@@ -15,6 +27,56 @@ services:
       HEALTH_PORT: "8080"
     ports:
       # Health/debug API reachable from the server only.
+      - "127.0.0.1:20090:8080"
+    networks:
+      - postgres
+    mem_limit: 1g
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  # The Go collector (apps/collector-go). Cloudflare is unaffected: the worker there stays Bun and
+  # reads Postgres through Hyperdrive. This service exists only on hklab.
+  #
+  # THE COLLECTOR as of 2026-09-15. Covers all 56 venues — the same 56 the Bun collector reported
+  # live — each adapter pinned to the same __fixtures__ JSON its TypeScript twin asserts on.
+  #
+  # Cut over straight, by decision: the Bun service above is profile-gated off rather than run
+  # alongside, so there is exactly one writer. Rollback is `--profile bun up -d collector` after
+  # stopping this one.
+  #
+  # WHAT IS STILL UNPROVEN, and what to watch on the first day: whether 56 venues fit inside a 60 s
+  # cycle on `cpus: 1.0`, where memory settles against GOMEMLIMIT, and every TimescaleDB-specific
+  # behaviour (hypertable routing, compression, retention) under real write load — none of which the
+  # throwaway Postgres in the integration tests could exercise.
+  #
+  # ENDPOINTS ARE NOT AT PARITY: the Bun collector served /health and /v1/latest; this serves
+  # /health only. Nothing consumes /v1/latest (the worker reads Postgres through Hyperdrive), so it
+  # is an operator convenience that is gone, not a dependency.
+  collector-go:
+    build:
+      context: ../..
+      dockerfile: apps/collector-go/Dockerfile
+    image: airates-collector-go:latest
+    container_name: airates-collector-go
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HEALTH_PORT: "8080"
+      # A soft limit under mem_limit, so pressure becomes GC work rather than an OOM kill. The Bun
+      # collector hit its hard cap 1,508 times in one boot and restarted every ~50 minutes.
+      GOMEMLIMIT: "900MiB"
+      # Empty means ALL 56 registered venues — main.go's selected() returns the whole registry when
+      # the list is empty. That is correct only because the Bun collector is gated off above; with
+      # both running it would collide on every venue.
+      COLLECT_VENUES: ""
+    ports:
+      # 20090 is "the collector's port", whichever implementation holds it: deploy.sh health-checks
+      # it and README documents it. The deprecated Bun service still declares the same port, which
+      # is what makes running both impossible.
       - "127.0.0.1:20090:8080"
     networks:
       - postgres
