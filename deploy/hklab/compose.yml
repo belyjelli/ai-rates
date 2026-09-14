@@ -26,6 +26,62 @@ services:
         max-size: 10m
         max-file: "3"
 
+  # The Go collector (apps/collector-go). Cloudflare is unaffected: the worker there stays Bun and
+  # reads Postgres through Hyperdrive. This service exists only on hklab.
+  #
+  # PROFILE-GATED ON PURPOSE. `docker compose up -d --build`, which deploy.sh runs, skips services
+  # in a profile entirely, so an ordinary deploy neither builds nor starts this. Bring it up
+  # deliberately:
+  #
+  #   docker compose -f deploy/hklab/compose.yml --profile go up -d --build collector-go
+  #
+  # ALL 56 VENUES ARE PORTED as of 2026-09-15, so on venue count alone this could replace
+  # `collector`. Do not. IT HAS NEVER RUN — not here, not for one full cycle, against no database
+  # but a throwaway Postgres. What 56 venues cost on `cpus: 1.0` is untested, and so is every
+  # TimescaleDB-specific behaviour (hypertable routing, compression, retention) under real writes.
+  #
+  # Both collectors write market_latest and funding_snapshots, so the two MUST cover disjoint
+  # venues: set COLLECT_VENUES here to what the Go side owns, and add the matching exclusion to the
+  # Bun collector's COLLECT_VENUES in .env on the server — that file is server-only, mode 600, and
+  # is the one step no deploy script performs. Two writers on one venue race over the same rows,
+  # arbitrated unpredictably by the observed_at guard, and THE LOSER IS SILENT because both writes
+  # succeed.
+  collector-go:
+    profiles: ["go"]
+    build:
+      context: ../..
+      dockerfile: apps/collector-go/Dockerfile
+    image: airates-collector-go:latest
+    container_name: airates-collector-go
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HEALTH_PORT: "8080"
+      # A soft limit under mem_limit, so pressure becomes GC work rather than an OOM kill. The Bun
+      # collector hit its hard cap 1,508 times in one boot and restarted every ~50 minutes.
+      GOMEMLIMIT: "900MiB"
+      # Explicit, never empty: an empty value now collects ALL 56 registered venues, which would
+      # collide with the Bun collector on every one it already owns.
+      #
+      # One venue on purpose. This is a CANARY, not a porting limit — bybit's numbers are the most
+      # densely pinned in the fixtures (rate 0.00004936, mark 77766.7, OI 4142076932.53, 60 risk
+      # tiers), so its rows can be diffed against the Bun collector's for the same asset and the
+      # comparison is decisive rather than impressionistic. Widen this only after several clean
+      # cycles on /health and collector_runs, and only in step with the Bun side's exclusion.
+      COLLECT_VENUES: "bybit"
+    ports:
+      # Its own port; 20090 belongs to the Bun collector and deploy.sh health-checks that one.
+      - "127.0.0.1:20091:8080"
+    networks:
+      - postgres
+    mem_limit: 1g
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
 networks:
   # Existing network shared with timescaledb_container (/srv/postgres/db_compose.yml).
   postgres:

@@ -27,8 +27,13 @@ SSH="ssh -o BatchMode=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=15 -p
 REMOTE_DIR="\$HOME/airates-app"
 STAGE_DIR="$REMOTE_DIR.staging"
 
-# Everything the Dockerfile copies, plus the compose file. Keep in sync with apps/collector/Dockerfile.
-SRC="package.json bun.lock apps/collector apps/worker/package.json packages deploy/hklab/compose.yml"
+# Everything the Dockerfiles copy, plus the compose file. Keep in sync with
+# apps/collector/Dockerfile and apps/collector-go/Dockerfile.
+#
+# apps/collector-go ships on every deploy even though its compose service is profile-gated and will
+# not start: streaming the source costs a few hundred kilobytes, and having the tree already on the
+# server is what makes bringing it up a one-command decision rather than another deploy.
+SRC="package.json bun.lock apps/collector apps/collector-go apps/worker/package.json packages deploy/hklab/compose.yml"
 
 for f in $SRC; do
   [ -e "$f" ] || { echo "deploy: missing '$f'" >&2; exit 1; }
@@ -53,7 +58,9 @@ $SSH "test -f $REMOTE_DIR/deploy/hklab/.env" || {
 
 echo "==> streaming source to hklab"
 $SSH "rm -rf $STAGE_DIR && mkdir -p $STAGE_DIR"
-tar czf - --exclude node_modules --exclude .DS_Store --exclude '*.test.ts' $SRC | $SSH "tar xzf - -C $STAGE_DIR"
+# `bin` excluded because apps/collector-go/bin holds a 16 MB locally-built binary that is the wrong
+# architecture for the server anyway -- the image builds its own inside golang:1.26-alpine.
+tar czf - --exclude node_modules --exclude .DS_Store --exclude '*.test.ts' --exclude bin $SRC | $SSH "tar xzf - -C $STAGE_DIR"
 
 echo "==> swapping remote tree (keeping .env)"
 $SSH "cp $REMOTE_DIR/deploy/hklab/.env $STAGE_DIR/deploy/hklab/.env && chmod 600 $STAGE_DIR/deploy/hklab/.env && rm -rf $REMOTE_DIR && mv $STAGE_DIR $REMOTE_DIR"

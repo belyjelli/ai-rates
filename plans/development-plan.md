@@ -452,7 +452,35 @@ ai-rates/
 
 ### Phase 5 — Scale to ~57 venues (weeks 8–18, run in parallel across devs)
 
-> **Opened 2026-09-13. The backlog is exactly 41, and it is already enumerated in the catalog.**
+> **Opened 2026-09-13. Closed 2026-09-14 at 56 collected venues against a 61-venue catalog.**
+>
+> **Status 2026-09-14 — complete, and every count below it is superseded.** Recounted from
+> `registry.ts` and `catalog.ts` rather than from this plan's own prose: `FIXED_ADAPTERS` holds
+> **46**, `createAdapters` synthesises **10** HIP-3 dexes, and one entry (`bullpen`) is an alias with
+> no feed of its own — so **56 of 61 catalogued venues are collected**, against a "~57 venues" goal.
+> Four are not, and only one is real work:
+>   - **`ethereal`** — genuinely unbuilt, and the only remaining adapter of the four.
+>   - **`blofin`** — *built and deliberately unregistered.* It answers from a development machine and
+>     returns 403 to the collector's host (measured 2026-09-13 22:53Z), so `registry.ts:49-54` leaves
+>     it out rather than have it fail every run on `/status`. Reinstating it is a hosting question,
+>     not an adapter one.
+>   - **`txflow`** — blocked upstream: the platform API is "coming soon" and returns 403.
+>   - **`edgex`** — V1, superseded by `edgex-v2`, which is built. Retire the catalog entry rather
+>     than build it.
+>
+> - **Every family closed, and two of them differently than this plan assumed.** `binance-fapi` is
+>   real shared code — `createBinanceStyleAdapter`, extracted from `aster.ts` exactly as the entry
+>   below predicted — covering aster, binance, bullet and weex. `orderly` covers other brokers
+>   **inside one adapter** via `broker_id` rather than as separate venue ids, so "WOOFi Pro plus
+>   other brokers" is satisfied with no extra catalog entries.
+> - **The three WebSocket venues were solved over REST, which matters for Phase 6.** This plan
+>   routed lighter, phoenix and perpl to WebSockets on rate-limit grounds. All three ship as REST
+>   adapters: `perpl.ts:14-20` re-measured the "10 req/min" that forced the decision and found it
+>   applies to the *WebSocket*, with REST public endpoints at ~100/min. **No adapter opens a socket,
+>   so Phase 6 begins with no WebSocket code anywhere in the repo.**
+> - **56 is a build count, not a live count.** `silent` and `empty` are runtime states read from
+>   `collector_runs`, so the six zero-market HL sub-dexes named below cannot be re-verified from code
+>   alone. Read `/status` before quoting 56 as live.
 >
 > - **Read `plans/symbol-identity-refactor.md` first: steps 1–3 of it gate the venue work.** Adding venues multiplies an identity bug that is already live. `base` is serving as both the venue's ticker and the cross-venue asset key, and all three failure modes are measured: collision (`CAT` 387,440,758×, a memecoin and Caterpillar; `STX` 2,963×; `BB` 955×), fragmentation (the S&P 500 under `SPX500`/`US500`/`SP500` across six venues), and scale variance (`hl-mkts:US500` at 760.96 against ~7,620 with `multiplier: 1`). WEEX and Bullet add 438 and 11 TradFi perps respectively, so each new venue makes the conflation worse rather than revealing it. Steps 1–3 also change *which markets pair*, so landing them after a venue launch would move the rankings twice.
 >
@@ -477,7 +505,31 @@ ai-rates/
 - Budget about 20% of ongoing time for adapter breakages (expect 1–3 per week at 57 venues). A nightly live smoke test flags schema drift.
 
 ### Phase 6 — Post-MVP
-- WebSocket streams for tier-1 price arb (DO outbound WS, reconnect every 15 min on alarm) plus a hibernating LiveFeed DO.
+
+> **Opened 2026-09-14. The WebSocket item has its own design:
+> [`phase6-websocket-streams.md`](phase6-websocket-streams.md).**
+>
+> - **The substrate below is superseded, for the fifth time.** "DO outbound WS plus a hibernating
+>   LiveFeed DO" assumes ingestion on Cloudflare; `wrangler.jsonc` declares `durable_objects` with
+>   only `ProbeDO`, no Pipelines, no R2, no queues, and collection has run from hklab since Phase 1.
+>   Same correction already applied to `py-backfill`, `VenueHistoryDO`, `py-analytics` and
+>   `MarketHubDO`. The feed belongs beside the collector.
+> - **And the reader-facing half already exists.** `web/live.ts` polls the page's own URL every 30 s,
+>   swaps changed regions, flashes moved cells, animates the rails and reloads on a new build — with
+>   a written rationale for why polling HTML beats a bespoke feed. A LiveFeed DO would replace
+>   working code, so this phase's WebSocket work is about *ingestion*, not about live pages.
+> - **Venue research, 2026-09-14:** only gate, okx and bybit publish top of book, the same three
+>   already parsed for it over REST (013). **No venue offers an all-symbols subscription**, so topics
+>   scale with market count — but bybit's 21,000-character `args` cap is the only documented limit,
+>   and the whole fleet lands at roughly **6–12 connections**. That killed the per-connection-memory
+>   argument for writing this in Go; the binding constraint is **CPU on a `cpus: 1.0` container**,
+>   not sockets. All three publish taker side, so the CVD trigger pre-registered in
+>   `charting-roadmap.md` §7 has fired and is recorded there rather than acted on.
+> - **First slice is W0, a probe that keeps no code**, because okx and gate document no
+>   per-connection topic cap and the message rate on the pairable subset is unmeasured. It must run
+>   from hklab, not a dev machine: bybit 403s US and Mainland China IPs, and okx enforces an EEA/US
+>   endpoint split.
+
 - Airdrop calendar, points calculator, blog/glossary (MDX), en/ru with hreflang, Telegram spread alerts, public read API.
 
 **Rough monthly cost:** ~$30–120. Workers Paid $5; DO alarms ~$5–15; Pipelines/R2/R2 SQL <$20; D1 ~$5; Python Container on demand <$10; relay (if needed) ~$10–40.
