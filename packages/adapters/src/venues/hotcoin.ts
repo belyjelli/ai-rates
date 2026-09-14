@@ -20,7 +20,9 @@ import { basisHoursFromGaps, declaredMarketBase } from "./aster";
  *   `premiumIndex.lastFeeRate` for every contract checked (BTC 0.0000645, ETH 0.00004585, BTCUSDC
  *   0.00003907), and the newest row of `fee-rate` history, stamped 16:00:53 for BTCUSDT. It equals
  *   Binance's own 16:00 settled rate on 173 of 316 shared symbols, and not one of 558 values moved
- *   between reads a minute apart. The estimate lives only in per-contract
+ *   between reads a minute apart. Polled every 5 minutes from 22:14 to 00:10, nothing moved until
+ *   the 00:00 settlement; by 00:05 358 had, BTCUSDT to 0.0001143464450483, which is the fee-rate row
+ *   then written at 00:01:46. Binance settled BTCUSDT at 0.00007157, so this is Hotcoin's own rate. The estimate lives only in per-contract
  *   `/{code}/premiumIndex.estimateFeeRate` (BTC 0.00007737 at the same moment), and 549 of those per
  *   minute would blow the 10/s budget, so it is not collected.
  * - **No interval anywhere in bulk.** `nextLiquidationInterval` is 0 and `countDownTimeInterval` ""

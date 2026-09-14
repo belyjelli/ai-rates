@@ -23,7 +23,9 @@ import { declaredMarketBase } from "./aster";
  *   on 126 of 834 symbols between reads a minute apart (BTCUSDT 0.00007692 then 0.00007709), which a
  *   settled rate never does; that second BTC read equals WEEX's live `forecastFundingRate` exactly,
  *   and 444 of 609 shared symbols equal Binance's current estimate. Binance's 16:00 settlement for
- *   BTCUSDT was 0.0000645, which LBank showed nowhere. `positionFeeRate` equals `fundingRate` on
+ *   BTCUSDT was 0.0000645, which LBank showed nowhere. Polled every 5 minutes up to settlement, 198
+ *   to 266 symbols moved on every read, and BTCUSDT's 23:55 read, 0.00007157, is exactly what Binance
+ *   settled at 00:00. `positionFeeRate` equals `fundingRate` on
  *   every row. BTCUSDT 0.00007709 over 8h is 8.4% APR; Binance's estimate was 0.00007727.
  * - **Interval**: `positionFeeTime` in SECONDS — {28800: 338, 14400: 492, 3600: 4}. The four 3600s
  *   (VRT, STORJ, B3, IOST) are exactly the four whose `nextFeeTime` (epoch ms) was 23:00 UTC rather
