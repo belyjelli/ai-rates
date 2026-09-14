@@ -30,9 +30,8 @@ STAGE_DIR="$REMOTE_DIR.staging"
 # Everything the Dockerfiles copy, plus the compose file. Keep in sync with
 # apps/collector/Dockerfile and apps/collector-go/Dockerfile.
 #
-# apps/collector-go ships on every deploy even though its compose service is profile-gated and will
-# not start: streaming the source costs a few hundred kilobytes, and having the tree already on the
-# server is what makes bringing it up a one-command decision rather than another deploy.
+# apps/collector-go IS the collector as of 2026-09-15. apps/collector is the deprecated Bun one,
+# still streamed because its compose service is the rollback and has to stay buildable.
 SRC="package.json bun.lock apps/collector apps/collector-go apps/worker/package.json packages deploy/hklab/compose.yml"
 
 for f in $SRC; do
@@ -70,5 +69,5 @@ $SSH "cd $REMOTE_DIR && docker compose -f deploy/hklab/compose.yml up -d --build
 
 echo "==> health (waiting up to 60s for the collector to start)"
 $SSH 'for i in $(seq 1 30); do curl -fsS http://127.0.0.1:20090/health && exit 0; sleep 2; done; exit 1' \
-  || { echo "deploy: health check failed; see 'docker logs airates-collector'" >&2; exit 1; }
+  || { echo "deploy: health check failed; see 'docker logs airates-collector-go'" >&2; exit 1; }
 echo

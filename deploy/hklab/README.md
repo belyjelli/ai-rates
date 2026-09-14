@@ -186,12 +186,29 @@ The script streams the source, builds the image on the server, runs `docker comp
 ## Operations (on hklab)
 
 ```sh
-docker logs -f airates-collector                       # collector logs
+docker logs -f airates-collector-go                    # collector logs
 curl -s http://127.0.0.1:20090/health                  # per-venue freshness
-curl -s 'http://127.0.0.1:20090/v1/latest?base=BTC'    # latest BTC funding across venues
-docker compose -f ~/airates-app/deploy/hklab/compose.yml restart collector
+docker compose -f ~/airates-app/deploy/hklab/compose.yml restart collector-go
 docker exec timescaledb_container sh -c 'psql -U "$POSTGRES_USER" -d vaultdeck -c "\dt+"'
 ```
+
+**The collector is `collector-go` as of 2026-09-15.** The Bun collector (`airates-collector`) is
+deprecated and profile-gated, so an ordinary `docker compose up -d` no longer starts it.
+
+`/v1/latest` is **gone**: the Bun collector served `/health` and `/v1/latest`, the Go one serves
+`/health` only. Nothing consumed it — the Worker reads Postgres through Hyperdrive, not this API —
+so it was an operator convenience. Query `market_latest` directly for the same answer.
+
+Rollback, if the Go collector misbehaves:
+
+```sh
+docker compose -f ~/airates-app/deploy/hklab/compose.yml stop collector-go
+docker compose -f ~/airates-app/deploy/hklab/compose.yml --profile bun up -d collector
+```
+
+They cannot run at the same time: both bind 20090, so Docker refuses the second one. That is
+deliberate — two collectors writing `market_latest` and `funding_snapshots` would race over the same
+rows, both writes would succeed, and the loser would be silent.
 
 ## Public site (Cloudflare Worker)
 
