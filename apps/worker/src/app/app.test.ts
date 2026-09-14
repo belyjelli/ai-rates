@@ -477,6 +477,8 @@ describe("pages", () => {
         vstatus(),
         vstatus({ venue_id: "binance", name: "Binance", last_run_at: null, last_run_ever: null }),
         vstatus({ venue_id: "bitget", name: "Bitget", last_run_at: null, last_run_ever: null }),
+        // Retired in the catalog: its `venues` row survives for the foreign keys, but it is no backlog.
+        vstatus({ venue_id: "ethereal", name: "Ethereal", last_run_at: null, last_run_ever: null }),
       ],
     });
     const html = await (await get("/status", data)).text();
@@ -489,6 +491,7 @@ describe("pages", () => {
     // Still visible, as a backlog rather than an alarm.
     expect(html).toContain("<b>2</b> more exchanges are catalogued but not collected yet");
     expect(html).toContain("Binance, Bitget");
+    expect(html).not.toContain("Ethereal");
     // One collected venue, so the summary counts what is collected rather than the catalog.
     expect(html).toContain("<b>1</b> collected");
   });

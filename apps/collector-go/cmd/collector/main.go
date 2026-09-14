@@ -190,9 +190,8 @@ func run(log *slog.Logger) error {
 		return fmt.Errorf("ping: %w", err)
 	}
 
-	// Curated leverage for venues that publish none. Empty for now: bybit reports its own, and a
-	// figure a venue states always wins over a curated one.
-	db := store.New(pool, map[string]float64{})
+	// Curated leverage for venues that publish none; a figure a venue states always wins over it.
+	db := store.New(pool, curatedMaxLeverage)
 
 	venueIDs := selectedVenueIDs(cfg)
 	if len(venueIDs) == 0 {
@@ -278,6 +277,17 @@ type candidate struct {
 	// separate clients would each think they had the whole allowance, spend eleven times the
 	// intended rate, and give the circuit breaker eleven partial views of one failing venue.
 	group string
+}
+
+// curatedMaxLeverage mirrors `maxLeverage` in packages/venues/src/catalog.ts: a hand-set, deliberately
+// low figure for venues that publish no leverage at all. The Bun collector read it from the catalog;
+// this port passed an empty map until 2026-09-15 -- a leftover from when only bybit was ported -- so a
+// market aster, lighter or paradex listed after the cutover stored no max_leverage (COALESCE kept the
+// older rows). TestCuratedLeverageMatchesCatalog pins this map to the catalog.
+var curatedMaxLeverage = map[string]float64{
+	"aster":   10,
+	"lighter": 10,
+	"paradex": 10,
 }
 
 // registry is every venue this binary can collect.

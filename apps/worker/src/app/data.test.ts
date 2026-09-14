@@ -32,6 +32,13 @@ describe("venueState", () => {
     expect(venueState(status({ live_markets: 0 }), NOW)).toBe("empty");
   });
 
+  test("a clean run listing nothing is empty even with no freshest market, never stale", () => {
+    // The shape production actually has: `freshest` comes from the same live markets that number
+    // zero, so it is null. This read `stale` until empty was decided first.
+    const hollow = status({ last_run_markets: 0, live_markets: 0, freshest: null });
+    expect(venueState(hollow, NOW)).toBe("empty");
+  });
+
   test("an error outranks staleness, because it is the cause rather than the symptom", () => {
     const broken = status({
       last_error: "HTTP 429",
@@ -44,7 +51,7 @@ describe("venueState", () => {
   test("stale is decided by the shared threshold, not a second definition", () => {
     expect(venueState(status({ freshest: new Date(NOW - STALE_MS + 1_000) }), NOW)).toBe("live");
     expect(venueState(status({ freshest: new Date(NOW - STALE_MS - 1_000) }), NOW)).toBe("stale");
-    // No market has ever been seen, so there is nothing to be fresh.
+    // The last run reported markets, yet none of them is fresh: that is stale, not empty.
     expect(venueState(status({ freshest: null }), NOW)).toBe("stale");
   });
 

@@ -482,6 +482,33 @@ ai-rates/
 >   `collector_runs`, so the six zero-market HL sub-dexes named below cannot be re-verified from code
 >   alone. Read `/status` before quoting 56 as live.
 >
+> **Follow-up 2026-09-15, after the Go cutover — the leftovers above, re-measured rather than carried.**
+>
+> - **`ethereal` is retired, not the last adapter to build.** Its `/v1/product` lists 18 markets, all
+>   `DELISTED`, with zero open interest and 24h volume, and funding last updated 2026-08-26. `edgex`
+>   (V1) is retired alongside it; its endpoint answers 200 with an empty `data` array. Both carry
+>   `retired` in `catalog.ts`, which keeps their ids resolving for the `REFERENCES venues` foreign
+>   keys while taking them out of collection, the nightly probe and the `/status` backlog.
+> - **`txflow` still returns 403** (re-measured 2026-09-15), so the backlog is one venue.
+> - **`blofin`'s 4 failures on `/status` are not a second writer.** They are 403s from its first
+>   production runs (2026-09-13 22:53Z), still inside the 24h window; it reads `silent` once they age
+>   out. Neither registry holds it.
+> - **Live is 50 of 56.** The six HL sub-dexes are dead upstream — every asset on `cash`, `flx`,
+>   `hyna`, `vntl`, `km` and `abcd` is delisted with zero open interest — and stay registered by the
+>   decision recorded in `main.go`. But `/status` called them `stale`, not `empty`: a venue listing
+>   nothing has no freshest market, so the stale check claimed it and `empty` was unreachable in
+>   production. `venueState` now decides `empty` first.
+> - **Cutover regression, fixed:** the Go collector passed an empty curated-leverage map, so markets
+>   aster, lighter and paradex listed after the cutover stored no `max_leverage`. Now wired, and
+>   `TestCuratedLeverageMatchesCatalog` pins it to `catalog.ts`.
+> - **Cutover gap, still open:** only the Bun collector ever wrote the `venues` table. Every current id
+>   has its row, but a venue added to the catalog from now on fails the foreign key under Go until
+>   something upserts it — including BloFin's reinstatement if its row were ever dropped.
+> - **Still open from this phase:** per-venue taker fees (`member-fee-settings.md`: nothing built),
+>   and WEEX failing 79 of 1,371 runs in 24h, whose error text needs `collector_runs` on hklab.
+>   GRVT and ApeX showing fewer markets on their last run is not a fault: both rotate a per-cycle
+>   ticker budget (100 and 64).
+>
 > - **Read `plans/symbol-identity-refactor.md` first: steps 1–3 of it gate the venue work.** Adding venues multiplies an identity bug that is already live. `base` is serving as both the venue's ticker and the cross-venue asset key, and all three failure modes are measured: collision (`CAT` 387,440,758×, a memecoin and Caterpillar; `STX` 2,963×; `BB` 955×), fragmentation (the S&P 500 under `SPX500`/`US500`/`SP500` across six venues), and scale variance (`hl-mkts:US500` at 760.96 against ~7,620 with `multiplier: 1`). WEEX and Bullet add 438 and 11 TradFi perps respectively, so each new venue makes the conflation worse rather than revealing it. Steps 1–3 also change *which markets pair*, so landing them after a venue launch would move the rankings twice.
 >
 > - **21 built, 61 catalogued, 39 unbuilt** (recounted from the catalog itself on 2026-09-13, superseding the "20 built / remaining 41" first written here). `FIXED_ADAPTERS` holds **eleven** — bybit, okx, gate, mexc, kucoin, aster, hyperliquid, dydx, paradex, lighter, **binance** — and `createAdapters` *synthesises* an adapter for any `type: "hip3"` venue carrying a `hip3Dex`, so the ten Hyperliquid sub-dexes are covered by construction rather than written by hand. 61 catalogued less 11 fixed, less 10 synthesised, less 1 alias leaves **39**: 11 CEX and 28 DEX.

@@ -18,7 +18,12 @@ export interface StoredRun {
 // Workers throw "Illegal invocation" if the global fetch is called detached from globalThis.
 export const workerFetch: FetchLike = (input, init) => fetch(input, init);
 
-/** Every probe job for the venue catalog, in a stable order so runs can resume by index. */
+/** Every probe job for the unretired catalog, in a stable order so runs can resume by index. */
 export function catalogJobs(): ProbeJob[] {
-  return planJobs(VENUES.map((venue) => ({ venueId: venue.id, endpoints: venue.probes })));
+  return planJobs(
+    VENUES.filter((venue) => !venue.retired).map((venue) => ({
+      venueId: venue.id,
+      endpoints: venue.probes,
+    })),
+  );
 }

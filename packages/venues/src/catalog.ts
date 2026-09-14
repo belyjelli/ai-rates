@@ -29,6 +29,12 @@ export interface Venue {
    * it. Every venue here really offers more than the value set.
    */
   maxLeverage?: number;
+  /**
+   * When and why the venue stopped being worth collecting, as "YYYY-MM-DD: evidence". A retired
+   * venue is not collected, not probed and not listed as backlog -- but it stays in the catalog,
+   * because `venues` rows and anything keyed on its id must keep resolving. Clear it to reinstate.
+   */
+  retired?: string;
   /** True when the probe URLs were checked live (2xx JSON) during research. */
   verified: boolean;
   /** Public endpoints hit by the Phase 0 geo-probe. Empty means no public REST endpoint found yet. */
@@ -546,6 +552,8 @@ const dex: Venue[] = [
     id: "edgex",
     name: "edgeX V1",
     type: "dex",
+    retired:
+      "2026-09-15: superseded by edgeX V2 (`edgex-v2`), which is collected; the V1 endpoint answers 200 with an empty `data` array.",
     verified: true,
     probes: [
       get(
@@ -558,6 +566,8 @@ const dex: Venue[] = [
     id: "ethereal",
     name: "Ethereal",
     type: "dex",
+    retired:
+      "2026-09-15: /v1/product lists 18 markets, all DELISTED, with zero open interest and 24h volume; funding last updated 2026-08-26T01:00Z.",
     verified: true,
     probes: [get("product", "https://api.ethereal.trade/v1/product")],
     notes: "Funding history ~1 month max.",
