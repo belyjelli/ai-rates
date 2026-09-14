@@ -190,7 +190,9 @@ fieldset.field{border:0;margin:0;padding:0;display:grid}
 fieldset.field legend{padding:0;margin-bottom:3px}
 .checks{display:flex;gap:12px}
 .checks label{display:flex;align-items:center;gap:5px;color:var(--ink);text-transform:none}
-.actions{display:flex;gap:12px;align-items:center}
+.actions{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+/* A link button beside a submit button: the same height, so the row reads as one set of buttons. */
+.actions a.btn{padding:2px 10px}
 button{font:700 12px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--bg);background:var(--ink);border:1px solid var(--ink);padding:2px 10px;cursor:pointer}
 button:hover{background:var(--accent);border-color:var(--accent)}
 /* A link that starts a feature rather than continuing a sentence: styled as the form buttons are. */
@@ -204,7 +206,7 @@ a.btn[aria-busy=true],button[aria-busy=true]{color:var(--bg);background:var(--ac
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spin{animation:none;border-right-color:currentColor;opacity:.55}}
 input[type=checkbox]{accent-color:var(--accent)}
-.actions a{color:var(--muted)}
+.actions a:not(.btn){color:var(--muted)}
 .headline{font:700 clamp(24px,5vw,44px)/1 var(--mono);margin:0}
 .headline.up{color:var(--long)}.headline.down{color:var(--short)}
 .headline+.eyebrow{margin-top:6px}

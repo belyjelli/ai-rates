@@ -1162,7 +1162,11 @@ describe("pages", () => {
       'href="/pair/BTC?long=gate&short=okx&days=7" aria-current="true">7d</a>',
     );
     expect(html).toContain('href="/pair/BTC?long=gate&short=okx">30d</a>');
-    expect(html).toContain('href="/pair/BTC?long=okx&short=gate&days=7">⇄ swap legs</a>');
+    expect(html).toContain(
+      '<a class="btn" href="/pair/BTC?long=okx&short=gate&days=7" data-await>⇄ swap legs</a>',
+    );
+    // The way back to the asset is the breadcrumb, not a button among the form's actions.
+    expect(html).not.toContain("Back to BTC");
     // Each leg carries what it charges now beside what it settled.
     expect(html).toContain("now <span");
     expect(html).toContain(", every 8h");

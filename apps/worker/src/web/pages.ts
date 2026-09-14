@@ -1426,9 +1426,9 @@ ${feeField("fee_long", "Long taker fee", params?.longTakerBps ?? null)}
 ${feeField("fee_short", "Short taker fee", params?.shortTakerBps ?? null)}
 <div class="actions"><button type="submit">Run backtest</button>${
     params
-      ? `<a href="${pairHref(asset, assetClass)}${backtestToQuery({ ...params, longVenueId: params.shortVenueId, shortVenueId: params.longVenueId })}">⇄ swap legs</a>`
+      ? `<a class="btn" href="${pairHref(asset, assetClass)}${backtestToQuery({ ...params, longVenueId: params.shortVenueId, shortVenueId: params.longVenueId })}" data-await>⇄ swap legs</a>`
       : ""
-  }<a href="${priceHref(asset, assetClass)}" title="What entering and exiting would cost at each exchange's top of book">price gap</a><a href="${assetHref(asset, assetClass)}">Back to ${esc(asset)}</a></div>
+  }<a class="btn" href="${priceHref(asset, assetClass)}" title="What entering and exiting would cost at each exchange's top of book">price gap</a></div>
 </form>`;
 }
 
