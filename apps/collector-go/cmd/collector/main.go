@@ -281,7 +281,7 @@ func run(log *slog.Logger) error {
 	}
 
 	// Tasks beside the venue loops, stopped with them at shutdown.
-	var tasks []*collector.PeriodicTask
+	tasks := startSideTasks(ctx, cfg, loops, db, log)
 	if cfg.alertWebhookURL != "" {
 		alerter := collector.NewStaleVenueAlerter(
 			collector.WebhookSink(cfg.alertWebhookURL, nil),
@@ -337,6 +337,11 @@ type venueLoop struct {
 	venueID string
 	loop    *collector.VenueLoop
 	fetcher collector.Fetcher
+	// client is the venue's shared HTTP client: the side loops send through it so its spacing and
+	// circuit breaker cover them too, and read its circuit to stop early when the venue is down.
+	client *httpclient.Client
+	// offset is the loop's position within each interval, reused so side loops stay staggered.
+	offset time.Duration
 }
 
 type candidate struct {
@@ -720,9 +725,102 @@ func buildLoops(cfg config, db *store.Store, log *slog.Logger, status *collector
 			OnRun:    status.Record,
 			Log:      func(message string) { log.Info(message) },
 		})
-		loops = append(loops, &venueLoop{venueID: c.id, loop: loop, fetcher: fetcher})
+		loops = append(loops, &venueLoop{venueID: c.id, loop: loop, fetcher: fetcher, client: client, offset: offset})
 	}
 	return loops
+}
+
+// Side-loop cadences, matching apps/collector/src/main.ts.
+const (
+	historyPause        = 5 * time.Minute
+	backfillPause       = 5 * time.Minute
+	backfillBudget      = 20
+	tiersRefresh        = 24 * time.Hour
+	liquidationsRefresh = 5 * time.Minute
+)
+
+// startSideTasks starts, for each venue, whichever of the history sweep, the history backfill, the
+// tier sweep and the liquidation poll its adapter supports.
+//
+// These ran beside every snapshot loop in the Bun collector and were dropped at the Go cutover, which
+// stopped settled funding — the input to every 7-day average, fold, backtest and ranking — from
+// arriving at all. Start delays match main.ts: each waits until the snapshot loop has listed the
+// venue's markets, shifted by the venue's own offset so venues never sweep on the same second.
+func startSideTasks(ctx context.Context, cfg config, loops []*venueLoop, db *store.Store, log *slog.Logger) []*collector.PeriodicTask {
+	var tasks []*collector.PeriodicTask
+	start := func(name string, pause, delay time.Duration, job func(context.Context) error) {
+		task := collector.NewPeriodicTask(name, pause, job, func(message string) { log.Warn(message) })
+		task.Start(ctx, delay)
+		tasks = append(tasks, task)
+	}
+
+	for _, loop := range loops {
+		venueID, client, offset := loop.venueID, loop.client, loop.offset
+		circuitOpen := func() bool { return client.Circuit().Open }
+		logInfo := func(message string) { log.Info(message) }
+
+		if fetcher, ok := loop.fetcher.(collector.HistoryFetcher); ok {
+			start(venueID+" history", historyPause, 2*cfg.interval+offset, func(ctx context.Context) error {
+				sweep, err := collector.SweepVenueHistory(ctx, fetcher, db,
+					collector.HistorySweepOptions{CircuitOpen: circuitOpen, Log: logInfo})
+				if err != nil {
+					return err
+				}
+				if sweep.Fetched > 0 || sweep.Errors > 0 {
+					log.Info("history", "venue", venueID, "fetched", sweep.Fetched, "markets", sweep.Markets,
+						"events", sweep.Events, "errors", sweep.Errors)
+				}
+				return nil
+			})
+
+			// Process lifetime is the right scope for "this market has nothing older"; one task owns it.
+			exhausted := map[string]bool{}
+			budget := backfillBudget
+			start(venueID+" history backfill", backfillPause, backfillPause+offset, func(ctx context.Context) error {
+				backfill, err := collector.BackfillVenueHistory(ctx, fetcher, db, collector.HistoryBackfillOptions{
+					Budget: &budget, Exhausted: exhausted, CircuitOpen: circuitOpen, Log: logInfo,
+				})
+				if err != nil {
+					return err
+				}
+				if backfill.Fetched > 0 || backfill.Errors > 0 {
+					log.Info("backfill", "venue", venueID, "events", backfill.Events, "short", backfill.Pending,
+						"exhausted", backfill.Exhausted, "errors", backfill.Errors)
+				}
+				return nil
+			})
+		}
+
+		if fetcher, ok := loop.fetcher.(collector.TierFetcher); ok {
+			start(venueID+" leverage tiers", tiersRefresh, 4*cfg.interval+offset, func(ctx context.Context) error {
+				sweep, err := collector.RefreshVenueLeverageTiers(ctx, fetcher, db, nil)
+				if err != nil {
+					return err
+				}
+				if sweep.Tiers > 0 || !sweep.Complete {
+					log.Info("leverage tiers", "venue", venueID, "tiers", sweep.Tiers, "markets", sweep.Markets,
+						"complete", sweep.Complete)
+				}
+				return nil
+			})
+		}
+
+		if fetcher, ok := loop.fetcher.(collector.LiquidationFetcher); ok {
+			start(venueID+" liquidations", liquidationsRefresh, 3*cfg.interval+offset, func(ctx context.Context) error {
+				sweep, err := collector.RefreshVenueLiquidations(ctx, fetcher, db)
+				if err != nil {
+					return err
+				}
+				// Stored far below fetched is the steady state; log only news or lost coverage.
+				if sweep.Stored > 0 || !sweep.Complete {
+					log.Info("liquidations", "venue", venueID, "stored", sweep.Stored, "fetched", sweep.Fetched,
+						"markets", sweep.Markets, "complete", sweep.Complete)
+				}
+				return nil
+			})
+		}
+	}
+	return tasks
 }
 
 func healthHandler(status *collector.Status) http.Handler {

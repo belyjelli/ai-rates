@@ -146,6 +146,11 @@ func SweepVenueHistory(ctx context.Context, fetcher HistoryFetcher, store Histor
 			from = last + 1
 		}
 		events, err := fetcher.FetchFundingHistory(ctx, market.VenueSymbol, from, at)
+		// Shutdown cancelling an in-flight request is the stop the TypeScript `shouldStop` made, not a
+		// venue fault. Counting it logged a false "history failed" for every venue on every deploy.
+		if err != nil && ctx.Err() != nil {
+			break
+		}
 		if err == nil {
 			result.Fetched++
 			if len(events) > 0 {
@@ -248,6 +253,10 @@ func BackfillVenueHistory(ctx context.Context, fetcher HistoryFetcher, store His
 		anchor := oldest[market.VenueSymbol]
 
 		events, err := fetcher.FetchFundingHistory(ctx, market.VenueSymbol, target, anchor-1)
+		// As in the forward sweep: a cancelled request is shutdown, not a failure to count.
+		if err != nil && ctx.Err() != nil {
+			break
+		}
 		if err == nil {
 			result.Fetched++
 			if len(events) == 0 {
