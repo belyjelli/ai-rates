@@ -14,7 +14,7 @@ export default {
 
     // Ahead of the cache: a page served from it never reaches the app, and would go uncounted.
     const visit = visitPoint(request, request.cf?.country);
-    if (visit) env.VISITS.writeDataPoint(visit);
+    if (visit) env.ANAL.writeDataPoint(visit);
 
     const cache = caches.default;
     if (request.method === "GET") {
