@@ -195,6 +195,21 @@ docker exec timescaledb_container sh -c 'psql -U "$POSTGRES_USER" -d vaultdeck -
 **The collector is `collector-go` as of 2026-09-15.** The Bun collector (`airates-collector`) is
 deprecated and profile-gated, so an ordinary `docker compose up -d` no longer starts it.
 
+**What it runs.** On boot it applies `packages/db/migrations` (the same `schema_migrations` table the Bun
+runner used) and upserts every venue from `packages/venues/catalog.json`. Beside the 56 snapshot loops:
+
+- per venue, where the adapter supports it: the history sweep and backfill (49 venues), leverage tiers
+  (17) and liquidations (2);
+- fleet-wide: funding stats every 10 minutes; the daily and hourly folds, 30/60-day windows and
+  stability hourly; identity checks hourly; verified pair backtests and ranked pair candidates nightly,
+  first run one hour after boot;
+- stale-venue alerts to `ALERT_WEBHOOK_URL` in `.env`, when it is set.
+
+**The first cutover build ran snapshot loops only.** None of the list above ran until the
+`go-jobs-port` build, so the site's derived figures (settled averages, stability, verified pairs,
+identity checks) were frozen at the last Bun boot. If those look stale, check which build is running
+before anything else.
+
 `/v1/latest` is **gone**: the Bun collector served `/health` and `/v1/latest`, the Go one serves
 `/health` only. Nothing consumed it — the Worker reads Postgres through Hyperdrive, not this API —
 so it was an operator convenience. Query `market_latest` directly for the same answer.

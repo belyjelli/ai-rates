@@ -260,3 +260,51 @@ asset, which the fixtures make decisive rather than impressionistic.
   production-ready whatever the unit-test count says.
 - **A venue's numbers diverge between the two implementations.** The fixtures make that detectable;
   running both against one asset for a day and diffing `market_latest` would make it decisive.
+
+## 10. The cutover dropped everything but snapshots — found and restored 2026-09-15
+
+The port reached 56-venue parity on **snapshot adapters**, and the cutover took that for parity with
+the collector. It was not. The Bun `main.ts` also did all of this, and the Go `run()` did none of it:
+
+| Dropped at the cutover | What it did while missing |
+| --- | --- |
+| migrations at boot | a new migration would deploy and never apply |
+| `venues` upsert | a newly catalogued venue's first market would fail the foreign key |
+| curated leverage | new markets on aster, lighter and paradex stored no `max_leverage` |
+| history sweep and backfill (49 venues) | no settled funding arrived, so everything below starved |
+| leverage tiers (17), liquidations (2) | ladders and the Phase 4 liquidation series stopped |
+| stats, folds, stability, identity checks, pair backtests, ranked pairs | every derived surface kept serving its last Bun values |
+| stale-venue alerts | an outage would have been silent |
+
+**Nothing failed.** Snapshots kept flowing, `/status` stayed green, and the site kept serving rows
+that had stopped changing. Parity has to be defined over what the process does, not over its adapter
+list.
+
+**Restored on branch `go-jobs-port`:**
+- `internal/migrate` — the TypeScript runner's algorithm on the same `schema_migrations` table.
+- `internal/catalog` over `packages/venues/catalog.json`, generated from the TypeScript catalog and
+  pinned to it by `catalog.test.ts`; it supplies the `venues` rows and the curated leverage.
+- The sweeps: `internal/collector/sweeps.go` and `internal/store/sweeps.go`.
+  `TestSideLoopsAttachToTheSameVenuesAsTypeScript` pins which venues get each loop to what
+  `createAdapters(VENUES)` attaches.
+- The engines: `internal/core/{backtest,ranking,identity}.go`, with the TypeScript test vectors for
+  what they port. `backtestDaily` is not ported because no job calls it.
+- The jobs: `internal/store/jobs.go`, SQL copied statement for statement.
+- Stale-venue alerts, and the wiring in `main.go` on the Bun cadences and start delays.
+
+**Verified** against a throwaway PostgreSQL 14 with the TimescaleDB statements stripped. All 50 Go
+packages pass with the integration tests enabled. The binary booted on an empty database and applied
+all 20 migrations. From real bybit and gate data it stored 26,958 history events, 40,162 tier rows and
+116 liquidations, refreshed stats for 1,001 markets, folded 8,809 day and 39,376 hour rows, and ran the
+identity checks, with no failed runs.
+
+**Not verified:**
+- The nightly pair backtests and ranked pairs outside their integration tests; they first run an hour
+  after boot.
+- Anything TimescaleDB-specific.
+- Whether the side loops and jobs fit beside 56 venues on `cpus: 1.0`.
+
+**One defect surfaced, and the TypeScript has it too.** The folds date settlements in UTC, but the
+charge-day and retention cutoffs cast `now()` in the session's time zone. On a server at +07 the
+7-of-7 charging floor saw six days, so the pair backtests came back empty. The collector and its test
+harness now pin their sessions to UTC.
