@@ -9,13 +9,20 @@ export async function handleProbe(request: Request, env: Env): Promise<Response 
   const { pathname } = new URL(request.url);
   switch (`${request.method} ${pathname}`) {
     case "GET /probe":
-      return new Response(renderProbePage(VENUES, await latestSnapshots(env), Date.now()), {
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "no-store",
-          "x-robots-tag": "noindex, nofollow",
+      return new Response(
+        renderProbePage(
+          VENUES.filter((venue) => !venue.retired),
+          await latestSnapshots(env),
+          Date.now(),
+        ),
+        {
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-store",
+            "x-robots-tag": "noindex, nofollow",
+          },
         },
-      });
+      );
     case "GET /v1/probe":
       return noStore(await latestSnapshots(env));
     case "POST /v1/probe/run": {

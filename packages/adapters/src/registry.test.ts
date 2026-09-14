@@ -17,6 +17,15 @@ describe("createAdapters", () => {
     expect(adapters.map((a) => a.venueId)).toEqual(["okx", "hl-xyz", "hyperliquid"]);
   });
 
+  test("a retired venue is skipped even when an adapter exists for it", () => {
+    const adapters = createAdapters([
+      { id: "okx", type: "cex", retired: "2026-09-15: test" },
+      { id: "hl-xyz", type: "hip3", hip3Dex: "xyz", retired: "2026-09-15: test" },
+      { id: "hyperliquid", type: "dex" },
+    ]);
+    expect(adapters.map((a) => a.venueId)).toEqual(["hyperliquid"]);
+  });
+
   test("fixed adapters have unique venue ids", () => {
     const ids = FIXED_ADAPTERS.map((a) => a.venueId);
     expect(new Set(ids).size).toBe(ids.length);

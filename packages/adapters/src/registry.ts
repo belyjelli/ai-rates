@@ -106,13 +106,15 @@ export interface AdapterCatalogEntry {
   id: string;
   type: string;
   hip3Dex?: string;
+  retired?: string;
 }
 
-/** Adapters for every catalog venue that can be collected, in catalog order. */
+/** Adapters for every catalog venue that can be collected, in catalog order. Retired venues are not. */
 export function createAdapters(venues: readonly AdapterCatalogEntry[]): VenueAdapter[] {
   const fixed = new Map(FIXED_ADAPTERS.map((adapter) => [adapter.venueId, adapter]));
   const adapters: VenueAdapter[] = [];
   for (const venue of venues) {
+    if (venue.retired) continue;
     const adapter = fixed.get(venue.id);
     if (adapter) adapters.push(adapter);
     else if (venue.type === "hip3" && venue.hip3Dex)

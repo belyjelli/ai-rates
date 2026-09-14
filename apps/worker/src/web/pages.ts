@@ -470,7 +470,9 @@ export function exchanges(data: {
   now: number;
 }): string {
   const live = new Set(data.exchanges.map((e) => e.id));
-  const notCollected = VENUES.filter((v) => !live.has(v.id) && !v.aliasOf).map((v) => v.name);
+  const notCollected = VENUES.filter((v) => !live.has(v.id) && !v.aliasOf && !v.retired).map(
+    (v) => v.name,
+  );
   const rows = data.exchanges
     .map(
       (e) => `<tr data-k="${esc(e.id)}">
@@ -1061,10 +1063,11 @@ export function status(data: {
   now: number;
 }): string {
   const { overview, venues, checks, now } = data;
-  // An alias has no feed of its own; listing it would report another venue's health twice.
-  const aliases = new Set(VENUES.filter((v) => v.aliasOf).map((v) => v.id));
+  // An alias has no feed of its own; listing it would report another venue's health twice. A retired
+  // venue keeps its `venues` row for the foreign keys, but it is neither a fault nor a backlog item.
+  const hidden = new Set(VENUES.filter((v) => v.aliasOf || v.retired).map((v) => v.id));
   const rows = venues
-    .filter((v) => !aliases.has(v.venue_id))
+    .filter((v) => !hidden.has(v.venue_id))
     .map((v) => ({ status: v, state: venueState(v, now) }))
     .sort(
       (a, b) =>
@@ -1075,7 +1078,7 @@ export function status(data: {
 
   const tally = (state: VenueState) => rows.filter((r) => r.state === state).length;
   // Planned venues are the scaling backlog, not the operational picture. Phase 5 inverted the
-  // arithmetic -- 4 planned against 56 collected, where it was 41 against 20 -- so they no longer
+  // arithmetic -- 1 planned against 56 collected, where it was 41 against 20 -- so they no longer
   // bury the rows that can break. They stay separate because a venue with no feed has no health to
   // report, which is a different claim from "there are too many of them to list".
   const running = rows.filter((r) => r.state !== "planned");

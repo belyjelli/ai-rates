@@ -27,6 +27,12 @@ describe("venue catalog", () => {
     }
   });
 
+  test("retired venues say when and on what evidence", () => {
+    for (const venue of VENUES.filter((v) => v.retired !== undefined)) {
+      expect(venue.retired).toMatch(/^\d{4}-\d{2}-\d{2}: \S/);
+    }
+  });
+
   test("verified venues have at least one probe", () => {
     for (const venue of VENUES.filter((v) => v.verified)) {
       expect(venue.probes.length).toBeGreaterThan(0);

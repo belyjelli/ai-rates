@@ -22,11 +22,15 @@ export type VenueState = "failing" | "stale" | "silent" | "empty" | "live" | "pl
 export function venueState(status: VenueStatus, now: number): VenueState {
   // `planned` before everything else. Without it, a venue the collector has never run reads as
   // `silent` -- an alarm for something that was never wired up. Phase 5 closed most of that gap:
-  // the catalog holds 61 venues and 56 are collected, so this now catches 4 rather than 41.
+  // 56 venues are collected and retired ones are filtered by the page, so this catches the backlog.
   if (status.last_run_ever === null) return "planned";
   // Ran at some point inside retention, but not in the last 24 hours: it stopped, and that is real.
   if (status.last_run_at === null) return "silent";
   if (status.last_error !== null) return "failing";
+  // Decided before staleness, or it is unreachable: a venue listing nothing has no freshest market,
+  // so the stale check below claimed it. The six empty Hyperliquid sub-dexes read `stale` on /status
+  // for exactly that reason, which says "stopped updating" about a venue that is running fine.
+  if (status.last_run_markets === 0 && status.live_markets === 0) return "empty";
   const freshest = status.freshest?.getTime() ?? null;
   if (freshest === null || now - freshest > STALE_MS) return "stale";
   return status.live_markets === 0 ? "empty" : "live";

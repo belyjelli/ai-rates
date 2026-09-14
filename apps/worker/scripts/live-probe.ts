@@ -7,13 +7,15 @@
 import { VENUES } from "@ai-rates/venues";
 import { planJobs, runJobs } from "../src/probe/runner";
 
-const jobs = planJobs(VENUES.map((venue) => ({ venueId: venue.id, endpoints: venue.probes })));
+// Retired venues are dead on purpose; probing them could only fail the nightly run for nothing.
+const venues = VENUES.filter((venue) => !venue.retired);
+const jobs = planJobs(venues.map((venue) => ({ venueId: venue.id, endpoints: venue.probes })));
 const started = Date.now();
 const results = await runJobs(jobs, { fetch: (input, init) => fetch(input, init) });
 
 const counts: Record<string, number> = {};
 for (const result of results) counts[result.verdict] = (counts[result.verdict] ?? 0) + 1;
-console.log(`${VENUES.length} venues, ${jobs.length} jobs in ${Date.now() - started}ms`, counts);
+console.log(`${venues.length} venues, ${jobs.length} jobs in ${Date.now() - started}ms`, counts);
 
 for (const r of results.filter((r) => r.verdict !== "ok")) {
   console.log(
