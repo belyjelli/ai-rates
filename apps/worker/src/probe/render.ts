@@ -56,6 +56,7 @@ export function renderProbePage(
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>airrates · venue geo-probe</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📟</text></svg>">
 <style>
   /* Same terminal as the public pages: black ground, one monospace stack, no radius, tight rows.
      Verdicts borrow the site tokens rather than a palette of their own, so green reads healthy
