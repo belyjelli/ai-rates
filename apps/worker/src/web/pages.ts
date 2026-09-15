@@ -510,6 +510,8 @@ export function exchange(data: {
   /** Required: the status line reads it, and leaving it out reported every venue as silent. */
   overview: Overview;
   now: number;
+  /** The venue's referral CTA, already geo-gated; empty or absent renders nothing. */
+  cta?: string;
 }): string {
   const { venue, markets, now } = data;
   const oi = markets.reduce((sum, m) => sum + (m.open_interest_usd ?? 0), 0);
@@ -542,6 +544,7 @@ export function exchange(data: {
     now,
     body: `<p class="eyebrow"><a href="/markets">Exchanges</a> / ${esc(VENUE_TYPE_LABEL[venue.type] ?? venue.type)}</p>
 <h1>${esc(venue.name)}</h1>
+${data.cta ?? ""}
 ${
   markets.length === 0
     ? `<p class="lede">No live markets from ${esc(venue.name)}: it isn't collected yet, or its last update is more than five minutes old.</p>`
