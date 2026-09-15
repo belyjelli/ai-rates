@@ -106,8 +106,12 @@ type config struct {
 	// migrationsDir holds packages/db/migrations; venueCatalog is packages/venues/catalog.json.
 	migrationsDir string
 	venueCatalog  string
-	// alertWebhookURL is a Slack- or Discord-style incoming webhook. Empty disables stale-venue alerts.
+	// alertWebhookURL is a Slack- or Discord-style incoming webhook.
 	alertWebhookURL string
+	// telegramBotToken and telegramChatID send alerts to one Telegram chat. The token is a credential:
+	// it lives only in the server's .env and must never be logged.
+	telegramBotToken string
+	telegramChatID   string
 }
 
 func loadConfig(env func(string) string) (config, error) {
@@ -153,6 +157,14 @@ func loadConfig(env func(string) string) (config, error) {
 	if cfg.alertWebhookURL != "" &&
 		!strings.HasPrefix(cfg.alertWebhookURL, "http://") && !strings.HasPrefix(cfg.alertWebhookURL, "https://") {
 		return cfg, errors.New("ALERT_WEBHOOK_URL must be an http(s) URL")
+	}
+
+	// Both or neither: a token without a chat has nowhere to send, and failing at boot is kinder than
+	// discovering it on the first outage.
+	cfg.telegramBotToken = strings.TrimSpace(env("TELEGRAM_BOT_TOKEN"))
+	cfg.telegramChatID = strings.TrimSpace(env("TELEGRAM_CHAT_ID"))
+	if (cfg.telegramBotToken == "") != (cfg.telegramChatID == "") {
+		return cfg, errors.New("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set together")
 	}
 	return cfg, nil
 }
@@ -290,20 +302,39 @@ func run(log *slog.Logger) error {
 
 	// Tasks beside the venue loops, stopped with them at shutdown.
 	tasks := startSideTasks(ctx, cfg, loops, db, log)
-	tasks = append(tasks, startJobs(ctx, cfg, db, log)...)
-	if cfg.alertWebhookURL != "" {
-		alerter := collector.NewStaleVenueAlerter(
-			collector.WebhookSink(cfg.alertWebhookURL, nil),
-			func(message string) { log.Warn("stale venue alert", "message", message) },
-		)
-		alerts := collector.NewPeriodicTask("stale venue alerts", alertCheckEvery,
-			func(ctx context.Context) error { return alerter.Check(ctx, status.Snapshot(time.Now())) },
-			func(message string) { log.Warn(message) })
+	jobWatch := collector.NewJobWatch(time.Now())
+	tasks = append(tasks, startJobs(ctx, cfg, db, log, jobWatch)...)
+
+	// Alerts go to every configured channel: Telegram, a Slack- or Discord-style webhook, or both.
+	if sink := alertSink(cfg); sink != nil {
+		alerter := collector.NewStaleVenueAlerter(sink,
+			func(message string) { log.Warn("alert", "message", message) })
+		alerts := collector.NewPeriodicTask("alerts", alertCheckEvery, func(ctx context.Context) error {
+			now := time.Now()
+			err := alerter.Check(ctx, status.Snapshot(now))
+			for _, payload := range jobWatch.Check(now) {
+				log.Warn("alert", "message", payload.Text)
+				err = errors.Join(err, sink(ctx, payload))
+			}
+			return err
+		}, func(message string) { log.Warn(message) })
 		alerts.Start(ctx, alertCheckEvery)
 		tasks = append(tasks, alerts)
-		log.Info("stale venue alerts enabled")
+
+		// A boot is itself an event worth seeing: every deploy, every crash-restart, every host reboot.
+		// Sent off the boot path, so a slow or unreachable chat cannot delay collection.
+		bootText := fmt.Sprintf("airates collector started: %d venues, %d jobs watched, migrations applied %d (already %d)",
+			len(loops), len(jobWatchNames), len(migrated.Applied), len(migrated.Skipped))
+		go func() {
+			sendCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+			defer cancel()
+			if err := sink(sendCtx, collector.AlertPayload{Text: bootText, OK: true}); err != nil {
+				log.Warn("boot alert failed", "error", err)
+			}
+		}()
+		log.Info("alerts enabled", "telegram", cfg.telegramBotToken != "", "webhook", cfg.alertWebhookURL != "")
 	} else {
-		log.Info("stale venue alerts disabled (set ALERT_WEBHOOK_URL)")
+		log.Info("alerts disabled (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID, or ALERT_WEBHOOK_URL)")
 	}
 
 	server := &http.Server{
@@ -851,10 +882,20 @@ const (
 // order is load-bearing: the backtests and the ranking read market_funding_daily, so they start only
 // after the long-windows job has folded it once. On a cold database every pair would otherwise fail
 // the 7-of-7 charging floor and the first ranking would be empty.
-func startJobs(ctx context.Context, cfg config, db *store.Store, log *slog.Logger) []*collector.PeriodicTask {
+func startJobs(ctx context.Context, cfg config, db *store.Store, log *slog.Logger, watch *collector.JobWatch) []*collector.PeriodicTask {
 	var tasks []*collector.PeriodicTask
 	start := func(name string, pause, delay time.Duration, job func(context.Context) error) {
-		task := collector.NewPeriodicTask(name, pause, job, func(message string) { log.Warn(message) })
+		// Every outcome feeds the job watch, which is what reports a job that fails or stops running.
+		// A run cut short by shutdown is not an outcome.
+		watch.Expect(name, delay, pause)
+		watched := func(ctx context.Context) error {
+			err := job(ctx)
+			if ctx.Err() == nil {
+				watch.Record(name, time.Now(), err)
+			}
+			return err
+		}
+		task := collector.NewPeriodicTask(name, pause, watched, func(message string) { log.Warn(message) })
 		task.Start(ctx, delay)
 		tasks = append(tasks, task)
 	}
@@ -914,6 +955,31 @@ func startJobs(ctx context.Context, cfg config, db *store.Store, log *slog.Logge
 		return err
 	})
 	return tasks
+}
+
+// jobWatchNames are the fleet-wide jobs startJobs registers with the job watch, for the boot message
+// and for the test that keeps the two in step.
+var jobWatchNames = []string{
+	"funding stats refresh", "long funding windows", "verified pair backtests", "identity checks",
+	"ranked pair candidates",
+}
+
+// alertSink is every configured alert channel, or nil when none is.
+func alertSink(cfg config) collector.AlertSink {
+	var sinks []collector.AlertSink
+	if cfg.telegramBotToken != "" {
+		sinks = append(sinks, collector.TelegramSink(cfg.telegramBotToken, cfg.telegramChatID, nil))
+	}
+	if cfg.alertWebhookURL != "" {
+		sinks = append(sinks, collector.WebhookSink(cfg.alertWebhookURL, nil))
+	}
+	switch len(sinks) {
+	case 0:
+		return nil
+	case 1:
+		return sinks[0]
+	}
+	return collector.FanOut(sinks...)
 }
 
 func healthHandler(status *collector.Status) http.Handler {

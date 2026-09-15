@@ -36,6 +36,40 @@ func TestConfigRejectsANonHTTPWebhook(t *testing.T) {
 	}
 }
 
+func TestConfigRequiresTheTelegramTokenAndChatTogether(t *testing.T) {
+	base := map[string]string{"DATABASE_URL": "postgres://x"}
+	with := func(extra map[string]string) map[string]string {
+		out := map[string]string{}
+		for k, v := range base {
+			out[k] = v
+		}
+		for k, v := range extra {
+			out[k] = v
+		}
+		return out
+	}
+
+	for name, env := range map[string]map[string]string{
+		"token only": with(map[string]string{"TELEGRAM_BOT_TOKEN": "1:abc"}),
+		"chat only":  with(map[string]string{"TELEGRAM_CHAT_ID": "42"}),
+	} {
+		if _, err := loadConfig(envOf(env)); err == nil || !strings.Contains(err.Error(), "TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID") {
+			t.Errorf("%s: err = %v, want both required together", name, err)
+		}
+	}
+
+	cfg, err := loadConfig(envOf(with(map[string]string{"TELEGRAM_BOT_TOKEN": " 1:abc ", "TELEGRAM_CHAT_ID": " -100 "})))
+	if err != nil || cfg.telegramBotToken != "1:abc" || cfg.telegramChatID != "-100" {
+		t.Fatalf("cfg = %+v, err = %v; want both accepted and trimmed", cfg, err)
+	}
+	if alertSink(cfg) == nil {
+		t.Error("Telegram configured but no alert sink built")
+	}
+	if alertSink(config{}) != nil {
+		t.Error("nothing configured but an alert sink was built")
+	}
+}
+
 // TestEveryRegisteredVenueIsCatalogued pins the foreign key the collector depends on: every market row
 // references venues(id), and the venues rows come from catalog.json. A registry id missing from the
 // catalog would collect nothing but foreign-key errors; a retired one would be collecting a venue the
