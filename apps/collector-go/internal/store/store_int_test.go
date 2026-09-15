@@ -36,7 +36,14 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	if dsn == "" {
 		t.Skip("set AIRATES_TEST_DSN to run store integration tests")
 	}
-	pool, err := pgxpool.New(context.Background(), dsn)
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatalf("parse AIRATES_TEST_DSN: %v", err)
+	}
+	// The same UTC session the collector pins in main.go. Without it the job tests depend on the test
+	// server's time zone: at +07 the 7-day charging floor sees six days and the pair backtest test fails.
+	cfg.ConnConfig.RuntimeParams["timezone"] = "UTC"
+	pool, err := pgxpool.NewWithConfig(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("connect: %v", err)
 	}

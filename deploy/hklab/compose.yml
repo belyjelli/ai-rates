@@ -48,8 +48,14 @@ services:
   # alongside, so there is exactly one writer. Rollback is `--profile bun up -d collector` after
   # stopping this one.
   #
+  # IT RUNS EVERYTHING THE BUN SERVICE RAN, from the go-jobs-port build on: migrations at boot, venue
+  # rows from packages/venues/catalog.json, the history/backfill/tier/liquidation loops, the scheduled
+  # jobs and stale-venue alerts (ALERT_WEBHOOK_URL in .env). The first cutover build ran snapshot loops
+  # only, which froze every derived figure on the site; see plans/go-collector.md §10.
+  #
   # WHAT IS STILL UNPROVEN, and what to watch on the first day: whether 56 venues fit inside a 60 s
-  # cycle on `cpus: 1.0`, where memory settles against GOMEMLIMIT, and every TimescaleDB-specific
+  # cycle on `cpus: 1.0` with the side loops and jobs beside them (the nightly ranking replays every
+  # candidate pair), where memory settles against GOMEMLIMIT, and every TimescaleDB-specific
   # behaviour (hypertable routing, compression, retention) under real write load — none of which the
   # throwaway Postgres in the integration tests could exercise.
   #

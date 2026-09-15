@@ -77,8 +77,11 @@ import (
 	"github.com/belyjelli/ai-rates/collector/internal/adapters/variational"
 	"github.com/belyjelli/ai-rates/collector/internal/adapters/velocity"
 	"github.com/belyjelli/ai-rates/collector/internal/adapters/zero1"
+	"github.com/belyjelli/ai-rates/collector/internal/catalog"
 	"github.com/belyjelli/ai-rates/collector/internal/collector"
+	"github.com/belyjelli/ai-rates/collector/internal/core"
 	"github.com/belyjelli/ai-rates/collector/internal/httpclient"
+	"github.com/belyjelli/ai-rates/collector/internal/migrate"
 	"github.com/belyjelli/ai-rates/collector/internal/store"
 )
 
@@ -87,6 +90,12 @@ const (
 	// warmUpMaxAge bounds how stale a stored market may be and still seed an adapter. A day is well
 	// past any restart while still excluding anything genuinely delisted.
 	warmUpMaxAge = 24 * time.Hour
+	// alertCheckEvery matches the Bun collector's ALERT_CHECK_MS.
+	alertCheckEvery = time.Minute
+
+	// Where the Dockerfile puts the two files the binary reads from the repository.
+	defaultMigrationsDir = "/usr/local/share/airates/migrations"
+	defaultVenueCatalog  = "/usr/local/share/airates/catalog.json"
 )
 
 type config struct {
@@ -94,6 +103,11 @@ type config struct {
 	interval    time.Duration
 	healthPort  int
 	venues      []string
+	// migrationsDir holds packages/db/migrations; venueCatalog is packages/venues/catalog.json.
+	migrationsDir string
+	venueCatalog  string
+	// alertWebhookURL is a Slack- or Discord-style incoming webhook. Empty disables stale-venue alerts.
+	alertWebhookURL string
 }
 
 func loadConfig(env func(string) string) (config, error) {
@@ -124,6 +138,21 @@ func loadConfig(env func(string) string) (config, error) {
 		if trimmed := strings.TrimSpace(venue); trimmed != "" {
 			cfg.venues = append(cfg.venues, trimmed)
 		}
+	}
+
+	cfg.migrationsDir = env("MIGRATIONS_DIR")
+	if cfg.migrationsDir == "" {
+		cfg.migrationsDir = defaultMigrationsDir
+	}
+	cfg.venueCatalog = env("VENUE_CATALOG")
+	if cfg.venueCatalog == "" {
+		cfg.venueCatalog = defaultVenueCatalog
+	}
+
+	cfg.alertWebhookURL = strings.TrimSpace(env("ALERT_WEBHOOK_URL"))
+	if cfg.alertWebhookURL != "" &&
+		!strings.HasPrefix(cfg.alertWebhookURL, "http://") && !strings.HasPrefix(cfg.alertWebhookURL, "https://") {
+		return cfg, errors.New("ALERT_WEBHOOK_URL must be an http(s) URL")
 	}
 	return cfg, nil
 }
@@ -170,6 +199,12 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
+	// Read before connecting, so a missing or malformed catalog fails the boot before anything is written.
+	venues, err := catalog.Load(cfg.venueCatalog)
+	if err != nil {
+		return err
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
@@ -180,6 +215,13 @@ func run(log *slog.Logger) error {
 	// Matching the TypeScript collector's pool size. The database is shared with other tenants, so
 	// the ceiling is a courtesy as much as a tuning choice.
 	poolCfg.MaxConns = 10
+	// UTC for every session, whatever the server's own time zone. The jobs fold settlements into UTC
+	// days (`AT TIME ZONE 'UTC'`) but cut their windows with `(now() - interval '7 days')::date`, which
+	// casts in the SESSION zone. On a server at +07 that cutoff lands a day late, the 7-of-7 charging
+	// floor sees six days, and the verified backtests and ranking silently come back empty — found
+	// when exactly that happened against a local PostgreSQL. The TypeScript SQL has the same
+	// dependency; pinning the session makes both halves of the arithmetic agree by construction.
+	poolCfg.ConnConfig.RuntimeParams["timezone"] = "UTC"
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
 		return fmt.Errorf("connect: %w", err)
@@ -190,8 +232,26 @@ func run(log *slog.Logger) error {
 		return fmt.Errorf("ping: %w", err)
 	}
 
+	// Migrations first, as the Bun collector ran them on every boot: nothing below may touch a table a
+	// pending migration is about to change. A failure stops the boot rather than collecting into an
+	// old schema.
+	migrated, err := migrate.Apply(ctx, pool, os.DirFS(cfg.migrationsDir))
+	if err != nil {
+		return fmt.Errorf("migrations from %s: %w", cfg.migrationsDir, err)
+	}
+	log.Info("migrations", "applied", migrated.Applied, "already_applied", len(migrated.Skipped))
+
 	// Curated leverage for venues that publish none; a figure a venue states always wins over it.
-	db := store.New(pool, curatedMaxLeverage)
+	db := store.New(pool, catalog.CuratedMaxLeverage(venues))
+
+	// Every catalogued venue gets its row before any loop writes a market that references it.
+	venueRows := make([]store.VenueRow, len(venues))
+	for i, venue := range venues {
+		venueRows[i] = store.VenueRow{ID: venue.ID, Name: venue.Name, Type: venue.Type}
+	}
+	if err := db.UpsertVenues(ctx, venueRows); err != nil {
+		return err
+	}
 
 	venueIDs := selectedVenueIDs(cfg)
 	if len(venueIDs) == 0 {
@@ -228,6 +288,24 @@ func run(log *slog.Logger) error {
 		log.Info("venue loop started", "venue", loop.venueID)
 	}
 
+	// Tasks beside the venue loops, stopped with them at shutdown.
+	tasks := startSideTasks(ctx, cfg, loops, db, log)
+	tasks = append(tasks, startJobs(ctx, cfg, db, log)...)
+	if cfg.alertWebhookURL != "" {
+		alerter := collector.NewStaleVenueAlerter(
+			collector.WebhookSink(cfg.alertWebhookURL, nil),
+			func(message string) { log.Warn("stale venue alert", "message", message) },
+		)
+		alerts := collector.NewPeriodicTask("stale venue alerts", alertCheckEvery,
+			func(ctx context.Context) error { return alerter.Check(ctx, status.Snapshot(time.Now())) },
+			func(message string) { log.Warn(message) })
+		alerts.Start(ctx, alertCheckEvery)
+		tasks = append(tasks, alerts)
+		log.Info("stale venue alerts enabled")
+	} else {
+		log.Info("stale venue alerts disabled (set ALERT_WEBHOOK_URL)")
+	}
+
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.healthPort),
 		Handler:           healthHandler(status),
@@ -253,6 +331,11 @@ func run(log *slog.Logger) error {
 			log.Warn("loop did not stop within the grace period", "venue", loop.venueID, "error", err)
 		}
 	}
+	for _, task := range tasks {
+		if err := task.Stop(graceCtx); err != nil {
+			log.Warn("task did not stop within the grace period", "error", err)
+		}
+	}
 	_ = server.Shutdown(graceCtx)
 	return nil
 }
@@ -263,6 +346,11 @@ type venueLoop struct {
 	venueID string
 	loop    *collector.VenueLoop
 	fetcher collector.Fetcher
+	// client is the venue's shared HTTP client: the side loops send through it so its spacing and
+	// circuit breaker cover them too, and read its circuit to stop early when the venue is down.
+	client *httpclient.Client
+	// offset is the loop's position within each interval, reused so side loops stay staggered.
+	offset time.Duration
 }
 
 type candidate struct {
@@ -277,17 +365,6 @@ type candidate struct {
 	// separate clients would each think they had the whole allowance, spend eleven times the
 	// intended rate, and give the circuit breaker eleven partial views of one failing venue.
 	group string
-}
-
-// curatedMaxLeverage mirrors `maxLeverage` in packages/venues/src/catalog.ts: a hand-set, deliberately
-// low figure for venues that publish no leverage at all. The Bun collector read it from the catalog;
-// this port passed an empty map until 2026-09-15 -- a leftover from when only bybit was ported -- so a
-// market aster, lighter or paradex listed after the cutover stored no max_leverage (COALESCE kept the
-// older rows). TestCuratedLeverageMatchesCatalog pins this map to the catalog.
-var curatedMaxLeverage = map[string]float64{
-	"aster":   10,
-	"lighter": 10,
-	"paradex": 10,
 }
 
 // registry is every venue this binary can collect.
@@ -657,9 +734,186 @@ func buildLoops(cfg config, db *store.Store, log *slog.Logger, status *collector
 			OnRun:    status.Record,
 			Log:      func(message string) { log.Info(message) },
 		})
-		loops = append(loops, &venueLoop{venueID: c.id, loop: loop, fetcher: fetcher})
+		loops = append(loops, &venueLoop{venueID: c.id, loop: loop, fetcher: fetcher, client: client, offset: offset})
 	}
 	return loops
+}
+
+// Side-loop cadences, matching apps/collector/src/main.ts.
+const (
+	historyPause        = 5 * time.Minute
+	backfillPause       = 5 * time.Minute
+	backfillBudget      = 20
+	tiersRefresh        = 24 * time.Hour
+	liquidationsRefresh = 5 * time.Minute
+)
+
+// startSideTasks starts, for each venue, whichever of the history sweep, the history backfill, the
+// tier sweep and the liquidation poll its adapter supports.
+//
+// These ran beside every snapshot loop in the Bun collector and were dropped at the Go cutover, which
+// stopped settled funding — the input to every 7-day average, fold, backtest and ranking — from
+// arriving at all. Start delays match main.ts: each waits until the snapshot loop has listed the
+// venue's markets, shifted by the venue's own offset so venues never sweep on the same second.
+func startSideTasks(ctx context.Context, cfg config, loops []*venueLoop, db *store.Store, log *slog.Logger) []*collector.PeriodicTask {
+	var tasks []*collector.PeriodicTask
+	start := func(name string, pause, delay time.Duration, job func(context.Context) error) {
+		task := collector.NewPeriodicTask(name, pause, job, func(message string) { log.Warn(message) })
+		task.Start(ctx, delay)
+		tasks = append(tasks, task)
+	}
+
+	for _, loop := range loops {
+		venueID, client, offset := loop.venueID, loop.client, loop.offset
+		circuitOpen := func() bool { return client.Circuit().Open }
+		logInfo := func(message string) { log.Info(message) }
+
+		if fetcher, ok := loop.fetcher.(collector.HistoryFetcher); ok {
+			start(venueID+" history", historyPause, 2*cfg.interval+offset, func(ctx context.Context) error {
+				sweep, err := collector.SweepVenueHistory(ctx, fetcher, db,
+					collector.HistorySweepOptions{CircuitOpen: circuitOpen, Log: logInfo})
+				if err != nil {
+					return err
+				}
+				if sweep.Fetched > 0 || sweep.Errors > 0 {
+					log.Info("history", "venue", venueID, "fetched", sweep.Fetched, "markets", sweep.Markets,
+						"events", sweep.Events, "errors", sweep.Errors)
+				}
+				return nil
+			})
+
+			// Process lifetime is the right scope for "this market has nothing older"; one task owns it.
+			exhausted := map[string]bool{}
+			budget := backfillBudget
+			start(venueID+" history backfill", backfillPause, backfillPause+offset, func(ctx context.Context) error {
+				backfill, err := collector.BackfillVenueHistory(ctx, fetcher, db, collector.HistoryBackfillOptions{
+					Budget: &budget, Exhausted: exhausted, CircuitOpen: circuitOpen, Log: logInfo,
+				})
+				if err != nil {
+					return err
+				}
+				if backfill.Fetched > 0 || backfill.Errors > 0 {
+					log.Info("backfill", "venue", venueID, "events", backfill.Events, "short", backfill.Pending,
+						"exhausted", backfill.Exhausted, "errors", backfill.Errors)
+				}
+				return nil
+			})
+		}
+
+		if fetcher, ok := loop.fetcher.(collector.TierFetcher); ok {
+			start(venueID+" leverage tiers", tiersRefresh, 4*cfg.interval+offset, func(ctx context.Context) error {
+				sweep, err := collector.RefreshVenueLeverageTiers(ctx, fetcher, db, nil)
+				if err != nil {
+					return err
+				}
+				if sweep.Tiers > 0 || !sweep.Complete {
+					log.Info("leverage tiers", "venue", venueID, "tiers", sweep.Tiers, "markets", sweep.Markets,
+						"complete", sweep.Complete)
+				}
+				return nil
+			})
+		}
+
+		if fetcher, ok := loop.fetcher.(collector.LiquidationFetcher); ok {
+			start(venueID+" liquidations", liquidationsRefresh, 3*cfg.interval+offset, func(ctx context.Context) error {
+				sweep, err := collector.RefreshVenueLiquidations(ctx, fetcher, db)
+				if err != nil {
+					return err
+				}
+				// Stored far below fetched is the steady state; log only news or lost coverage.
+				if sweep.Stored > 0 || !sweep.Complete {
+					log.Info("liquidations", "venue", venueID, "stored", sweep.Stored, "fetched", sweep.Fetched,
+						"markets", sweep.Markets, "complete", sweep.Complete)
+				}
+				return nil
+			})
+		}
+	}
+	return tasks
+}
+
+// Fleet-wide job cadences, matching apps/collector/src/main.ts.
+const (
+	statsRefresh         = 10 * time.Minute
+	longWindowsRefresh   = time.Hour
+	pairBacktestsRefresh = 24 * time.Hour
+	identityRefresh      = time.Hour
+	rankedPairsRefresh   = 24 * time.Hour
+)
+
+// startJobs starts the fleet-wide jobs that turn stored funding into what the site reads: settled
+// 24h/7d averages, the daily and hourly folds with the 30/60-day windows and stability scores, the
+// verified 7-day pair backtests behind the homepage, the price identity checks behind /status, and
+// the nightly ranked-pair candidates.
+//
+// All ran in the Bun collector and none in the Go port until 2026-09-15, so each of those surfaces
+// had been serving whatever the last Bun boot left. Order and start delays match main.ts, and the
+// order is load-bearing: the backtests and the ranking read market_funding_daily, so they start only
+// after the long-windows job has folded it once. On a cold database every pair would otherwise fail
+// the 7-of-7 charging floor and the first ranking would be empty.
+func startJobs(ctx context.Context, cfg config, db *store.Store, log *slog.Logger) []*collector.PeriodicTask {
+	var tasks []*collector.PeriodicTask
+	start := func(name string, pause, delay time.Duration, job func(context.Context) error) {
+		task := collector.NewPeriodicTask(name, pause, job, func(message string) { log.Warn(message) })
+		task.Start(ctx, delay)
+		tasks = append(tasks, task)
+	}
+
+	start("funding stats refresh", statsRefresh, 3*cfg.interval, func(ctx context.Context) error {
+		markets, err := db.RefreshFundingStats(ctx)
+		if err == nil {
+			log.Info("funding stats refreshed", "markets", markets)
+		}
+		return err
+	})
+
+	// One fold feeds the 30/60-day windows and the stability scores alike, so they share a pass.
+	start("long funding windows", longWindowsRefresh, 5*cfg.interval, func(ctx context.Context) error {
+		days, err := db.RefreshDailyFunding(ctx, store.DailyFundingLookbackDays)
+		if err != nil {
+			return err
+		}
+		markets, err := db.RefreshLongWindows(ctx)
+		if err != nil {
+			return err
+		}
+		scored, err := db.RefreshStability(ctx)
+		if err != nil {
+			return err
+		}
+		hours, err := db.RefreshHourlyFunding(ctx, store.HourlyFundingRetainDays)
+		if err != nil {
+			return err
+		}
+		log.Info("long funding windows", "day_rows", days, "markets", markets, "scored", scored, "hour_rows", hours)
+		return nil
+	})
+
+	start("verified pair backtests", pairBacktestsRefresh, longWindowsRefresh+6*cfg.interval, func(ctx context.Context) error {
+		pairs, err := db.RefreshPairBacktests(ctx, store.PairBacktestSizeUSD, store.PairBacktestRetainDays)
+		if err == nil {
+			log.Info("verified pair backtests", "pairs", pairs)
+		}
+		return err
+	})
+
+	start("identity checks", identityRefresh, 7*cfg.interval, func(ctx context.Context) error {
+		checked, err := db.RefreshIdentityChecks(ctx, store.IdentityCheckWindowHours)
+		if err == nil {
+			log.Info("identity checks", "diverging", checked)
+		}
+		return err
+	})
+
+	start("ranked pair candidates", rankedPairsRefresh, longWindowsRefresh+8*cfg.interval, func(ctx context.Context) error {
+		rows, err := db.RefreshRankedPairs(ctx, store.RankedPairsSizeUSD, store.RankedPairsRetainDays,
+			core.DefaultParticipation, store.RankedPairsSwitchCostPerDollar)
+		if err == nil {
+			log.Info("ranked pair candidates", "candidates", rows)
+		}
+		return err
+	})
+	return tasks
 }
 
 func healthHandler(status *collector.Status) http.Handler {

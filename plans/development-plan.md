@@ -498,12 +498,18 @@ ai-rates/
 >   decision recorded in `main.go`. But `/status` called them `stale`, not `empty`: a venue listing
 >   nothing has no freshest market, so the stale check claimed it and `empty` was unreachable in
 >   production. `venueState` now decides `empty` first.
-> - **Cutover regression, fixed:** the Go collector passed an empty curated-leverage map, so markets
->   aster, lighter and paradex listed after the cutover stored no `max_leverage`. Now wired, and
->   `TestCuratedLeverageMatchesCatalog` pins it to `catalog.ts`.
-> - **Cutover gap, still open:** only the Bun collector ever wrote the `venues` table. Every current id
->   has its row, but a venue added to the catalog from now on fails the foreign key under Go until
->   something upserts it — including BloFin's reinstatement if its row were ever dropped.
+> - **The Go cutover ran snapshot loops only; found and restored 2026-09-15.** These lived only in the
+>   Bun `main.ts`:
+>   - migrations at boot;
+>   - the `venues` rows;
+>   - curated leverage;
+>   - the history, backfill, tier and liquidation loops;
+>   - every scheduled job: stats, folds, stability, identity checks, pair backtests and ranked pairs;
+>   - stale-venue alerts.
+>
+>   All are back on branch `go-jobs-port`. The full account, including what is and is not verified, is
+>   `go-collector.md` §10. Until that build deploys, every derived figure on the site is what the last
+>   Bun boot wrote.
 > - **Still open from this phase:** per-venue taker fees (`member-fee-settings.md`: nothing built),
 >   and WEEX failing 79 of 1,371 runs in 24h, whose error text needs `collector_runs` on hklab.
 >   GRVT and ApeX showing fewer markets on their last run is not a fault: both rotate a per-cycle
