@@ -27,9 +27,9 @@ const CONTRACT_TOKENS = new Set(["SWAP", "PERP", "PERPETUAL", "FUTURES", "FUT"])
  * which is this map's stated rule. Left unconsolidated, the deepest liquidity could not pair at all:
  * SP500 alone held $413M of open interest and SPX500 $129M, while US500 held $4.4M.
  *
- * NOTE: `hl-mkts:US500` marks ~760 against ~7,620 — a tenth-size contract already sitting inside
- * this pool, with `multiplier` stored as 1. Consolidation does not cause that and does not fix it;
- * it needs the scale detector in plans/symbol-identity-refactor.md.
+ * NOTE: `hl-mkts:US500` marks ~760 against ~7,620 — a tenth-size contract inside this pool.
+ * Consolidation does not cause that and does not fix it. Since 2026-09-15 a per-market scale override
+ * stores it at multiplier 0.1, on the identity check's evidence; see packages/adapters/src/scale.ts.
  */
 const ALIASES: Record<string, string> = {
   XBT: "BTC",

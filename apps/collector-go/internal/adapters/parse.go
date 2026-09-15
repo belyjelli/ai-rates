@@ -330,6 +330,11 @@ func MarketRefFor(venueID, venueSymbol string, o Overrides) core.MarketRef {
 	if o.Multiplier != nil {
 		ref.Multiplier = *o.Multiplier
 	}
+	// On top of whatever the symbol or the venue said: a scale override exists precisely because
+	// neither reports this market's contract size (see scale.go for the evidence behind each entry).
+	if scale, ok := ScaleOverride(venueID, venueSymbol); ok {
+		ref.Multiplier *= scale
+	}
 	if o.AssetClass != nil {
 		ref.AssetClass = *o.AssetClass
 	}

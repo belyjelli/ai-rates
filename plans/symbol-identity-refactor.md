@@ -313,6 +313,24 @@ so they land before any new venue.
 - **The near-10ⁿ detector was NOT built, deliberately** — see Layer 3. It would have merged
   BlackBerry into BounceBit. `hl-mkts:US500` is now reported `scale`, exponent −1, on a correlation
   of 0.842, and a human decides whether to act on it.
+- **Acted on 2026-09-15: per-market scale overrides.** `packages/adapters/src/scale.ts` and
+  `apps/collector-go/internal/adapters/scale.go` hold the same table, pinned by a test. An entry
+  multiplies the market's stored multiplier, so its per-unit price joins the pool. Each entry needs a
+  clean power-of-ten ratio and return correlation ≥ `TRACKING_CORR` (0.5), re-measured over six
+  hours of minute bars on the day:
+  - **Added** `hl-mkts:US500` ×0.1 (ratio 0.09988 to `xyz:SP500`, corr 0.821) and
+    `okx:OPENAI-USDT-SWAP` ×0.1 (ratio 0.10214 to bitget, corr 0.804). OKX's own metadata says ctVal 1,
+    so nothing the venue publishes explains the scale; 18 of 19 venues quote OPENAI near 1,470.
+  - **Not added: `okx:ANTHROPIC`.** It scored 0.857 on 2026-09-13 but 0.423 against bitget and 0.173
+    against binance on 2026-09-15. Evidence that swings like that is not evidence; re-measure before
+    acting.
+  - **Not added: `variational:US500`.** Its ratio is a clean 0.0999, but its correlation is 0.01–0.07
+    against three references: it barely moves (71 moves in six hours). It is also filed `crypto`, so it
+    anchors a `crypto:US500` pool as its deepest market and pushes five genuine S&P legs there
+    (sodex, orderly, lbank, hotcoin, coinw) to `mismatch` at ~10×. That is a classification problem
+    to fix first; the scale question follows.
+  - After deploy, each overridden market's six-hour identity window straddles the rescale, so its
+    verdict is unreliable for up to six hours before it settles.
 - **Confirmed in production 2026-09-13 18:48:11Z:** 31 rows — 17 `mismatch`, 11 `unverified`,
   3 `scale`. The three `scale` verdicts are exactly the three predicted, all exponent −1:
   `okx:ANTHROPIC` (0.857), `okx:OPENAI` (0.834), `hl-mkts:US500` (0.813). `PURR` at 104× (0.003 to
