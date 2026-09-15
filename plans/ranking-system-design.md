@@ -226,8 +226,14 @@ Compute all variants nightly, store all, display none:
 | **D** | C + hysteresis (Layer B) |
 | **E** | D + capacity weighting (Layer C) |
 
-**Sprint 2 — evaluate**, after at least **two non-overlapping** 7-day windows (earliest 2026-09-26;
-four windows preferred). Criteria are pre-registered below and are not to be revised after looking.
+**Sprint 2 — evaluate**, after at least **two non-overlapping** 7-day windows (four preferred). Criteria
+are pre-registered below and are not to be revised after looking.
+
+**How they are computed is pre-registered too, in
+[`ranking-evaluation-preregistration.md`](ranking-evaluation-preregistration.md)** (written 2026-09-15,
+before any variant result). It fixes the windows, book construction, costs, turnover and validity
+rules. The earliest evaluation is **2026-09-29 06:00Z**, not the 2026-09-26 first written here,
+because candidate data starts on 2026-09-14.
 
 **Sprint 3 — promote** the winner to `/carry` only. If the winner is D rather than E, **ship D** —
 do not ship the whole stack because it was built.
