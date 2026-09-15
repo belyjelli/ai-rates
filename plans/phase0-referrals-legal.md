@@ -89,29 +89,41 @@ No venue below publishes an attribution requirement. The main question is whethe
 
 ## 3. Compliance checklist (engineering view — counsel to review)
 
+> **Engineering status 2026-09-15.** Items ticked below are built and tested, not legally reviewed.
+> Where the code lives:
+> - `apps/worker/src/app/geo.ts` — the global blocklist, EEA rule and per-venue lists, fail-closed.
+> - `apps/worker/src/web/referral.ts` — the CTA component, rendering nothing when blocked.
+> - `REFERRAL_LINKS` (Worker configuration, JSON of venue id to https URL) — where affiliate IDs go.
+>   It is unset, so **no page shows a referral link today**.
+> - `/legal` (`apps/worker/src/web/legal.ts`) — disclaimer, affiliate disclosure, independence notice
+>   and privacy policy. The site-wide footer links it.
+>
+> The edge cache splits by country only once a link is configured, so a CTA rendered for one country
+> is never served from cache in another.
+
 **Affiliate disclosure (US FTC)**
-- [ ] Put a clear, conspicuous disclosure next to every referral CTA, e.g. "We earn a commission if you sign up via this link." A footer-only disclosure is not enough. — [16 CFR Part 255](https://www.ecfr.gov/current/title-16/chapter-I/subchapter-B/part-255)
+- [x] Put a clear, conspicuous disclosure next to every referral CTA, e.g. "We earn a commission if you sign up via this link." A footer-only disclosure is not enough. — [16 CFR Part 255](https://www.ecfr.gov/current/title-16/chapter-I/subchapter-B/part-255)
 - [ ] The FTC's "link to all vendors" exemption only applies if no vendor gets a benefit or preference. We link venues unevenly (paid and unpaid), so disclose. — [FTC FAQ](https://www.ftc.gov/business-guidance/resources/ftcs-endorsement-guides-what-people-are-asking)
-- [ ] Keep default sorting independent of affiliate status. If it isn't, label placements "Sponsored".
+- [x] Keep default sorting independent of affiliate status. If it isn't, label placements "Sponsored". *(No ranking reads referral configuration; CTA links carry `rel="sponsored"`.)*
 
 **UK — FCA cryptoasset financial promotions**
 - [ ] The regime covers any firm marketing cryptoassets to UK consumers "regardless of whether the firm is based overseas". An unapproved promotion is a criminal offence under FSMA s21. — [FCA: marketing to UK consumers](https://www.fca.org.uk/firms/cryptoassets/marketing-uk-consumers), [PS23/6](https://www.fca.org.uk/publications/policy-statements/ps23-6-financial-promotion-rules-cryptoassets)
-- [ ] **Geo-gate GB:** hide referral links, sign-up bonuses and "trade on X" copy. Keep only neutral data.
+- [x] **Geo-gate GB:** hide referral links, sign-up bonuses and "trade on X" copy. Keep only neutral data. *(GB is on the global blocklist. The site has no sign-up or "trade on X" copy.)*
 - [ ] Counsel to confirm whether the data table itself (venue names plus outbound links) counts as a promotion.
 - [ ] Affiliate/finfluencer activity is squarely in scope. — [FG24/1](https://www.fca.org.uk/publications/finalised-guidance/fg24-1-finalised-guidance-financial-promotions-social-media)
 
 **EU — MiCA**
 - [ ] Marketing communications must be identifiable, fair, clear and not misleading. — [MiCA Art. 7 (ESMA)](https://www.esma.europa.eu/publications-and-data/interactive-single-rulebook/mica/article-7-marketing-communications), [Reg. (EU) 2023/1114](https://eur-lex.europa.eu/eli/reg/2023/1114/oj)
-- [ ] ESMA reads "solicitation" by non-EU firms broadly: online ads, social media, and generally no disclaimer cure. For EEA visitors, show CTAs only for MiCA-authorised entities (e.g. OKX EEA program) or hide them. — [ESMA reverse-solicitation guidelines](https://www.esma.europa.eu/sites/default/files/2025-02/ESMA35-1872330276-2030_Guidelines_on_reverse_solicitation_under_MiCA.pdf)
+- [x] ESMA reads "solicitation" by non-EU firms broadly: *(EEA visitors see a CTA only for a venue marked `micaAuthorised`; none is.)* online ads, social media, and generally no disclaimer cure. For EEA visitors, show CTAs only for MiCA-authorised entities (e.g. OKX EEA program) or hide them. — [ESMA reverse-solicitation guidelines](https://www.esma.europa.eu/sites/default/files/2025-02/ESMA35-1872330276-2030_Guidelines_on_reverse_solicitation_under_MiCA.pdf)
 - [ ] Counsel: perps may be derivatives (MiFID II), not MiCA crypto-assets. Confirm which regime applies.
 
 **Restricted jurisdictions (geo-gate referral CTAs)**
-- [ ] Add per-venue `restrictedCountries` config using ISO-3166 codes plus subdivisions (e.g. `CA-ON`, `CA-BC`). Hide the CTA if the visitor matches the global or venue list. Unknown geo = no CTA. The Cloudflare Worker can read `request.cf.country`/`regionCode`.
-- [ ] Global CTA blocklist, as the minimum:
+- [x] Add per-venue `restrictedCountries` config using ISO-3166 codes plus subdivisions *(`VENUE_CTA_RULES` in `geo.ts`; a venue with no entry shows no CTA)* (e.g. `CA-ON`, `CA-BC`). Hide the CTA if the visitor matches the global or venue list. Unknown geo = no CTA. The Cloudflare Worker can read `request.cf.country`/`regionCode`.
+- [x] Global CTA blocklist, as the minimum:
   - **US, CA** (incl. Ontario), **GB**
   - sanctioned: **IR, KP, CU, SY**, Crimea/Donetsk/Luhansk
   - **RU, BY**
-- [ ] Venue lists:
+- [x] Venue lists: *(entered as recorded below; several say "incl.", so extend each from the venue's current terms before giving it a link)*
   - Hyperliquid (US, Ontario) — [ToS §1.6](https://app.hyperliquid.xyz/terms)
   - KuCoin (US, SG, CN/HK, MY, KZ, UZ, Ontario, BC, FR, NL) — [ToS Art. 17](https://www.kucoin.com/legal/terms-of-use)
   - Bitget (incl. AT, CA, FR, DE, HK, JP, SG, US) — [ToU](https://www.bitget.com/support/articles/360014944032-terms-of-use)
@@ -122,15 +134,15 @@ No venue below publishes an attribution requirement. The main question is whethe
 - [ ] Ontario regulator actively acts against unregistered platforms. — [OSC re Binance](https://www.osc.ca/en/news-events/news/binance-not-registered-ontario)
 
 **Sanctions / Russian-language locale**
-- [ ] A locale is a language, not a location. Keep data available in Russian, but **never show CTAs to RU/BY/occupied-region IPs**, and don't run Russia-targeted acquisition campaigns.
+- [x] A locale is a language, not a location. Keep data available in Russian, but **never show CTAs to RU/BY/occupied-region IPs**, and don't run Russia-targeted acquisition campaigns. *(Engineering half: RU, BY, UA-43, UA-40, UA-14 and UA-09 are blocked. The campaign rule is a team policy.)*
 - [ ] EU Reg. 833/2014 Art. 5b prohibits crypto-asset services to Russian nationals and residents. — [EC crypto sanctions FAQ](https://finance.ec.europa.eu/system/files/2023-03/faqs-sanctions-russia-crypto_en.pdf)
 - [ ] US persons: follow the risk-based screening expectations. — [OFAC virtual-currency guidance](https://ofac.treasury.gov/media/913571/download?inline=), [Russia program](https://ofac.treasury.gov/sanctions-programs-and-country-information/russian-harmful-foreign-activities-sanctions)
 - [ ] Counsel: confirm which regimes apply based on the team's and entity's nationality and location.
 
 **Disclaimers**
-- [ ] Add site-wide and near-table text: "Informational only, not financial advice. Data may be delayed or inaccurate." Venues disclaim their own data accuracy (e.g. [Hyperliquid ToS §4.2](https://app.hyperliquid.xyz/terms), [Paradex ToS](https://www.paradex.trade/terms-of-service)).
-- [ ] Add: "Not affiliated with or endorsed by any exchange listed." Programs ban impersonation and look-alike sites ([OKX rules](https://www.okx.com/en-us/help/okx-affiliate-program-rules), [Pionex rules](https://www.pionex.com/blog/pionex-affiliate-program-2/)).
-- [ ] No "guaranteed yield" or "risk-free arbitrage" copy. — [Toobit agreement](https://www.toobit.com/en-US/support/toobit-affiliate-program-agreement-regulations), [FCA FG24/1](https://www.fca.org.uk/publications/finalised-guidance/fg24-1-finalised-guidance-financial-promotions-social-media)
+- [ ] Add site-wide and near-table text: "Informational only, not financial advice. Data may be delayed or inaccurate." *(Site-wide done: every footer, plus `/legal`. Near-table text not added.)* Venues disclaim their own data accuracy (e.g. [Hyperliquid ToS §4.2](https://app.hyperliquid.xyz/terms), [Paradex ToS](https://www.paradex.trade/terms-of-service)).
+- [x] Add: "Not affiliated with or endorsed by any exchange listed." Programs ban impersonation and look-alike sites ([OKX rules](https://www.okx.com/en-us/help/okx-affiliate-program-rules), [Pionex rules](https://www.pionex.com/blog/pionex-affiliate-program-2/)).
+- [x] No "guaranteed yield" or "risk-free arbitrage" copy. *(Site copy audited 2026-09-15: none found.)* — [Toobit agreement](https://www.toobit.com/en-US/support/toobit-affiliate-program-agreement-regulations), [FCA FG24/1](https://www.fca.org.uk/publications/finalised-guidance/fg24-1-finalised-guidance-financial-promotions-social-media)
 
 **Trademarks / logos**
 - [ ] Use plain-text venue names by default. Use logos only unmodified from official kits:
@@ -143,8 +155,8 @@ No venue below publishes an attribution requirement. The main question is whethe
   - Toobit requires approval for any paid ads — [Toobit](https://www.toobit.com/en-US/support/toobit-affiliate-program-agreement-regulations)
 
 **Privacy / cookies**
-- [ ] Consent rules cover cookies **and** localStorage, pixels and similar tech. Prefer cookieless, aggregate analytics. Put any non-essential tags behind a consent banner for EEA and UK visitors. — [EDPB Guidelines 2/2023](https://www.edpb.europa.eu/system/files/2024-10/edpb_guidelines_202302_technical_scope_art_53_eprivacydirective_v2_en_0.pdf), [ICO storage & access guidance](https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/guidance-on-the-use-of-storage-and-access-technologies/)
-- [ ] Track outbound referral clicks server-side, without persistent identifiers. Publish a privacy policy.
+- [x] Consent rules cover cookies **and** localStorage, pixels and similar tech. *(No cookies, pixels or third-party tags. Analytics are cookieless aggregates. One functional sessionStorage value, disclosed on `/legal`. Counsel to confirm no banner is needed.)* Prefer cookieless, aggregate analytics. Put any non-essential tags behind a consent banner for EEA and UK visitors. — [EDPB Guidelines 2/2023](https://www.edpb.europa.eu/system/files/2024-10/edpb_guidelines_202302_technical_scope_art_53_eprivacydirective_v2_en_0.pdf), [ICO storage & access guidance](https://ico.org.uk/for-organisations/direct-marketing-and-privacy-and-electronic-communications/guidance-on-the-use-of-storage-and-access-technologies/)
+- [ ] Track outbound referral clicks server-side, without persistent identifiers. Publish a privacy policy. *(Privacy policy published at `/legal`. Click tracking is not built, and nothing to track until a link is configured.)*
 
 ---
 

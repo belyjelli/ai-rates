@@ -1297,6 +1297,50 @@ describe("pages", () => {
     expect(await (await get("/", data)).text()).toContain('<a href="/about">about</a>');
   });
 
+  test("legal and privacy is linked from every footer and says what is and is not recorded", async () => {
+    const { data } = fakeData();
+    const res = await get("/legal", data);
+    const html = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(html).toContain("<h1>Legal and privacy</h1>");
+    for (const id of ["disclaimer", "affiliate", "independence", "privacy", "storage"]) {
+      expect(html).toContain(`id="${id}"`);
+    }
+    // The claims most likely to drift from the code, pinned so a change has to touch this test.
+    expect(html).toContain("sets no cookies");
+    expect(html).toContain("does not record your IP address");
+    expect(html).toContain("keeps them for three months");
+    expect(await (await get("/", data)).text()).toContain(
+      '<a href="/legal">legal &amp; privacy</a>',
+    );
+  });
+
+  test("an exchange page shows a referral CTA only with a configured link and an allowed location", async () => {
+    const { data } = fakeData();
+    const url = "https://app.hyperliquid.xyz/join/AIRRATES";
+    const at = (country?: string) => {
+      const request = new Request("https://airates.test/markets/exchange/hyperliquid");
+      if (country) Object.defineProperty(request, "cf", { value: { country } });
+      return request;
+    };
+    const render = async (request: Request, referrals?: Record<string, string>) => {
+      const res = await handleApp(request, { data, now: () => NOW, referrals });
+      expect(res.status).toBe(200);
+      return res.text();
+    };
+
+    expect(await render(at("SG"))).not.toContain("Referral link");
+    // Unknown location, as outside Cloudflare, and a barred country: no CTA even with a link.
+    expect(await render(at(), { hyperliquid: url })).not.toContain("Referral link");
+    expect(await render(at("GB"), { hyperliquid: url })).not.toContain("Referral link");
+
+    const shown = await render(at("SG"), { hyperliquid: url });
+    expect(shown).toContain(`href="${url}"`);
+    expect(shown).toContain('rel="sponsored noopener noreferrer"');
+    expect(shown).toContain("may earn a commission");
+  });
+
   test("database failures render a 503 page, not an exception", async () => {
     const logs: string[] = [];
     const { data } = fakeData({

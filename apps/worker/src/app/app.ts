@@ -2,9 +2,12 @@ import { ASSET_CLASSES, type AssetClass, backtestDaily, dailyWindowStart } from 
 import { VENUES } from "@ai-rates/venues";
 import { about } from "../web/about";
 import type { FundingHistory } from "../web/funding-chart";
+import { legal } from "../web/legal";
 import * as pages from "../web/pages";
+import { referralCta } from "../web/referral";
 import { VENUE_BY_ID } from "../web/venues";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
+import { requestGeo } from "./geo";
 import {
   arbitrageToQuery,
   type BacktestParams,
@@ -28,6 +31,8 @@ export interface AppDeps {
    * is the case in tests and in local dev.
    */
   rateLimit?: (key: string) => Promise<boolean>;
+  /** Venue id to referral URL, from REFERRAL_LINKS. Absent or empty means no page shows a CTA. */
+  referrals?: Readonly<Record<string, string>>;
 }
 
 const PAGE_MAX_AGE = 30;
@@ -168,6 +173,10 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(about({ overview: await deps.data.overview(), now }));
     }
 
+    if (path === "/legal") {
+      return page(legal({ overview: await deps.data.overview(), now }));
+    }
+
     if (path === "/status") {
       const [overview, venues, checks] = await Promise.all([
         deps.data.overview(),
@@ -207,7 +216,8 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         deps.data.overview(),
         deps.data.exchange(venue.id),
       ]);
-      return page(pages.exchange({ venue, markets, overview, now }));
+      const cta = referralCta(venue, deps.referrals?.[venue.id], requestGeo(request));
+      return page(pages.exchange({ venue, markets, overview, now, cta }));
     }
 
     if (
