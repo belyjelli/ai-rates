@@ -12,6 +12,16 @@ const NAV = [
   { href: "/markets", label: "exchanges", match: (p: string) => p.startsWith("/markets") },
 ];
 
+/**
+ * The member area, which lives on its own subdomain and is not served by this Worker.
+ *
+ * Labelled "login" in the footer because that is where it actually lands: measured 2026-09-16,
+ * `member.airrates.net/` answers 303 to `/member` and settles on `/member/login`. It is the one
+ * off-origin link in the footer, so it opens in a new tab with rel="noopener" — a reader who is
+ * mid-screener keeps their filters rather than losing them to an auth redirect.
+ */
+const MEMBER_URL = "https://member.airrates.net/";
+
 /** Hotkeys shown in the status bar. They are advertised, so they are implemented. */
 const KEYS: [string, string, string][] = [
   ["h", "spreads", "/"],
@@ -300,7 +310,7 @@ export function layout(options: {
 </header>
 <main class="wrap">${body}</main>
 <footer><div class="wrap">
-<p class="sig"><span>read only · public venue APIs</span><span><a href="/status">status</a> · <a href="/probe">geo-probe</a> · <a href="/about">about</a> · <a href="/referrals">referral links</a> · <a href="/legal">legal &amp; privacy</a></span><span>airrates</span></p>
+<p class="sig"><span>read only · public venue APIs</span><span><a href="${MEMBER_URL}" target="_blank" rel="noopener">login</a> · <a href="/status">status</a> · <a href="/probe">geo-probe</a> · <a href="/about">about</a> · <a href="/referrals">referral links</a> · <a href="/legal">legal &amp; privacy</a></span><span>airrates</span></p>
 <p>Funding rates come from each venue's public API and refresh every minute. They are estimates for each venue's next settlement and change before it. Spreads are before trading fees, slippage and price moves.</p>
 <p>Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.</p>
 </div></footer>

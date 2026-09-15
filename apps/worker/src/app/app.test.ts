@@ -412,6 +412,19 @@ describe("pages", () => {
     expect(html).toContain('<a href="/status">status</a>');
   });
 
+  test("every page footer links to the member area as login, off-origin and in a new tab", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/", data)).text();
+    // The member area is a different subdomain this Worker does not serve, so the href is absolute
+    // and carries target/rel. Pinned whole: dropping rel="noopener" on a target="_blank" link hands
+    // the opened page a window.opener handle back to ours.
+    expect(html).toContain(
+      '<a href="https://member.airrates.net/" target="_blank" rel="noopener">login</a>',
+    );
+    // Reachable from anywhere, as the other footer links are.
+    expect(await (await get("/screener", data)).text()).toContain(">login</a>");
+  });
+
   const vstatus = (overrides: Partial<VenueStatus> = {}): VenueStatus => ({
     venue_id: "gate",
     name: "Gate",
