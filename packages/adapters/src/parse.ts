@@ -1,4 +1,5 @@
 import { canonicalBase, type MarketRef, parseVenueSymbol, refineAssetClass } from "@ai-rates/core";
+import { scaleOverride } from "./scale";
 
 const MS_PER_HOUR = 3_600_000;
 
@@ -102,7 +103,10 @@ export function marketRef(
   // `parsed.base`, not `ref.base`: an adapter passing `base: undefined` explicitly (MEXC, when
   // `baseCoin` is empty) spreads that undefined over the parsed base above.
   const base = overrides.base === undefined ? parsed.base : canonicalBase(overrides.base);
+  // On top of whatever the symbol or the venue said: a scale override exists precisely because
+  // neither reports this market's contract size (see scale.ts).
+  const multiplier = ref.multiplier * (scaleOverride(venueId, venueSymbol) ?? 1);
   // Refined here rather than in each adapter so that every venue settles equity-versus-index and
   // tokenised gold by the same table; a venue's crypto declaration passes through untouched.
-  return { ...ref, base, assetClass: refineAssetClass(ref.assetClass, base) };
+  return { ...ref, base, multiplier, assetClass: refineAssetClass(ref.assetClass, base) };
 }
