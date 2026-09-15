@@ -6,11 +6,15 @@ interface __BaseEnv_Env {
 	ANAL: AnalyticsEngineDataset;
 	BACKTEST_LIMITER: RateLimit;
 	PROBE: DurableObjectNamespace<import("./apps/worker/src/index").ProbeDO>;
+	REFERRALS: DurableObjectNamespace<import("./apps/worker/src/index").ReferralStoreDO>;
+	// Set in the dashboard, not wrangler.jsonc (keep_vars): unset means /admin refuses everyone.
+	ACCESS_TEAM_DOMAIN?: string;
+	ACCESS_AUD?: string;
 }
 declare namespace Cloudflare {
 	interface GlobalProps {
 		mainModule: typeof import("./apps/worker/src/index");
-		durableNamespaces: "ProbeDO";
+		durableNamespaces: "ProbeDO" | "ReferralStoreDO";
 	}
 	interface Env extends __BaseEnv_Env {}
 }

@@ -1,24 +1,37 @@
 import postgres from "postgres";
+import { accessConfig } from "./app/access";
 import { handleApp } from "./app/app";
 import { createDataSource } from "./app/data";
-import { geoCacheBucket, parseReferralLinks, requestGeo } from "./app/geo";
+import { geoCacheBucket, requestGeo } from "./app/geo";
 import { visitPoint } from "./app/visits";
 import { ProbeDO } from "./probe/probe-do";
 import { handleProbe } from "./probe/routes";
+import { handleAdmin } from "./referrals/admin";
+import { forgetReferrals, loadReferrals } from "./referrals/load";
+import { ReferralStoreDO, referralStore } from "./referrals/store-do";
 
-export { ProbeDO };
+export { ProbeDO, ReferralStoreDO };
 
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const probe = await handleProbe(request, env);
     if (probe) return probe;
 
+    // Before the page cache and the visit count: the admin form is private, never cached, never counted.
+    const admin = await handleAdmin(request, {
+      store: referralStore(env),
+      access: accessConfig(env.ACCESS_TEAM_DOMAIN, env.ACCESS_AUD),
+      onSaved: forgetReferrals,
+    });
+    if (admin) return admin;
+
     // Ahead of the cache: a page served from it never reaches the app, and would go uncounted.
     const visit = visitPoint(request, request.cf?.country);
     if (visit) env.ANAL.writeDataPoint(visit);
 
-    // Affiliate IDs are configuration, never code. Unset means no page renders a referral CTA.
-    const referrals = parseReferralLinks((env as { REFERRAL_LINKS?: string }).REFERRAL_LINKS);
+    // Entered at /admin/referrals and kept in ReferralStoreDO. Affiliate IDs are configuration, never
+    // code; with none saved, no page renders a referral CTA.
+    const referrals = await loadReferrals(referralStore(env), Date.now(), console.error);
 
     // Keyed by the visitor's CTA bucket as well as the URL once referral links exist, or a page
     // rendered with a CTA for one country would be served from cache to a visitor where it is barred.
