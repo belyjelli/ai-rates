@@ -575,6 +575,26 @@ ai-rates/
 
 Everything below is ordered by what unblocks the most, not by what is easiest.
 
+> **Landed since this list was written, 2026-09-15.** Two items that were not on it, recorded here so
+> the ordering below is read against what is now true:
+>
+> - **The Go collector is verified running on hklab, and is the only collector running.** Measured on
+>   the box: `airates-collector-go` up with `restarts=0`, `oom=false`; the Bun service `Exited (0)`;
+>   `/health` reporting `ok:true`, **56 venues, 0 stale, 0 errors**; side loops working, not just the
+>   snapshot cycle. [`go-collector.md`](go-collector.md) §8 previously said "it has never run" and is
+>   corrected. The staged small-disjoint-venue rollout it prescribed was **skipped**, so the
+>   row-level diff against the Bun implementation was never done — the shared fixtures are now the
+>   only guard against the two implementations drifting.
+> - **The hourly price rollup is built** — migration `021_price_hourly.sql`, folded by
+>   `store.RefreshPriceHourly`. This was [`charting-roadmap.md`](charting-roadmap.md) §5 item 1, the
+>   only task whose cost rose every day it was deferred, because `funding_snapshots` drops at 30 days
+>   and nothing in it can be rebuilt afterwards. It is the first table here to keep price, open
+>   interest and basis over time. Migration **022** is now the next free number; Phase 6's `quotes_at`
+>   was renumbered to it.
+>
+> Unchanged by both: item 1 (ranking by persistence, with net-of-fees) and item 3 (the legal track)
+> are still the two that matter, and item 3 is still the only one whose lead times are external.
+
 **1. Make the ranking reward persistence rather than width — cheapest change here, and it decides
 whether anything else is worth scaling.** Measured 2026-09-13 and written up in
 [`product-market-fit.md`](product-market-fit.md): consecutive nightly runs share six of their seven

@@ -30,7 +30,8 @@ func jobFresh(t *testing.T, venues ...string) (*Store, *pgxpool.Pool) {
 	if _, err := pool.Exec(ctx, `
 		TRUNCATE market_latest, funding_snapshots, funding_events, collector_runs, markets,
 		         market_funding_stats, market_funding_daily, market_funding_hourly,
-		         market_pair_backtests, market_identity_checks, market_pair_candidates, venues CASCADE`); err != nil {
+		         market_price_hourly, market_pair_backtests, market_identity_checks,
+		         market_pair_candidates, venues CASCADE`); err != nil {
 		t.Fatalf("truncate: %v", err)
 	}
 	for _, id := range venues {
@@ -74,6 +75,27 @@ func jobEvent(t *testing.T, pool *pgxpool.Pool, venue, symbol string, settledAtM
 		INSERT INTO funding_events (settled_at, venue_id, venue_symbol, rate, basis_hours, mark_price, source)
 		VALUES ($1, $2, $3, $4, 8, NULL, 'history')
 		ON CONFLICT DO NOTHING`, time.UnixMilli(settledAtMs).UTC(), venue, symbol, rate)
+}
+
+// jobSnapshot seeds one funding_snapshots row. mark, index and openInterest are pointers because
+// their coverage genuinely differs per venue: HTX and BitMart publish no mark in any bulk call, so
+// a null mark is a real shape the price rollup has to fold rather than an invalid input.
+func jobSnapshot(t *testing.T, pool *pgxpool.Pool, venue, symbol string, observedAtMs int64,
+	mark, index, openInterest *float64) {
+	t.Helper()
+	jobExec(t, pool, `
+		INSERT INTO funding_snapshots (observed_at, venue_id, venue_symbol, rate, basis_hours,
+		                               interval_hours, next_funding_at, kind, mark_price, index_price,
+		                               open_interest_usd, volume_24h_usd)
+		VALUES ($1, $2, $3, 0.0001, 8, 8, NULL, 'predicted', $4, $5, $6, NULL)`,
+		time.UnixMilli(observedAtMs).UTC(), venue, symbol, mark, index, openInterest)
+}
+
+func jobNull(t *testing.T, label string, got *float64) {
+	t.Helper()
+	if got != nil {
+		t.Errorf("%s: got %v, want NULL", label, *got)
+	}
 }
 
 func jobCount(t *testing.T, label string, got int, err error, floor int) {
@@ -234,6 +256,139 @@ func TestRefreshHourlyFundingKeepsOnlyTheRetainedWindow(t *testing.T) {
 	if hours[1].hours != 16 || hours[1].settlements != 2 {
 		t.Errorf("second hour %+v, want 16 hours and 2 settlements", hours[1])
 	}
+}
+
+func TestRefreshPriceHourlyFoldsMeansEndpointsAndCoverage(t *testing.T) {
+	store, pool := jobFresh(t, "it-a")
+	ctx := context.Background()
+	symbol := "ITPRICE"
+	jobMarket(t, pool, "it-a", symbol, "IT", "crypto")
+	// The previous whole hour, so every sample sits inside it and inside the lookback.
+	hour := jobNow()/jobHour*jobHour - jobHour
+	// Three reads: mark rises, index flat, open interest rises. The last read is at +50m.
+	jobSnapshot(t, pool, "it-a", symbol, hour+10*60_000, jobF(100), jobF(100), jobF(1000))
+	jobSnapshot(t, pool, "it-a", symbol, hour+30*60_000, jobF(102), jobF(100), jobF(2000))
+	jobSnapshot(t, pool, "it-a", symbol, hour+50*60_000, jobF(104), jobF(100), jobF(3000))
+
+	n, err := store.RefreshPriceHourly(ctx, PriceHourlyLookbackHours, PriceHourlyRetainDays)
+	jobCount(t, "RefreshPriceHourly", n, err, 1)
+
+	var samples, markSamples, indexSamples, oiSamples, basisSamples int
+	var markAvg, markLast, indexAvg, oiAvg, oiLast, basisAvg *float64
+	if err := pool.QueryRow(ctx, `
+		SELECT samples, mark_samples, index_samples, oi_samples, basis_samples,
+		       mark_avg, mark_last, index_avg, oi_avg, oi_last, basis_avg
+		FROM market_price_hourly
+		WHERE venue_id = 'it-a' AND venue_symbol = $1 AND hour = $2`,
+		symbol, time.UnixMilli(hour).UTC()).Scan(&samples, &markSamples, &indexSamples, &oiSamples,
+		&basisSamples, &markAvg, &markLast, &indexAvg, &oiAvg, &oiLast, &basisAvg); err != nil {
+		t.Fatal(err)
+	}
+	if samples != 3 || markSamples != 3 || indexSamples != 3 || oiSamples != 3 || basisSamples != 3 {
+		t.Errorf("samples=%d mark=%d index=%d oi=%d basis=%d, want 3 each",
+			samples, markSamples, indexSamples, oiSamples, basisSamples)
+	}
+	jobClose(t, "mark_avg", markAvg, 102, 9)
+	jobClose(t, "index_avg", indexAvg, 100, 9)
+	jobClose(t, "oi_avg", oiAvg, 2000, 6)
+	// The endpoints are the hour's edge, not its mean: flow and price change need them, and neither
+	// is recoverable from an average.
+	jobClose(t, "mark_last", markLast, 104, 9)
+	jobClose(t, "oi_last", oiLast, 3000, 6)
+	// avg(mark - index) per sample, which here equals avg(mark) - avg(index) only because coverage
+	// happens to be complete. The next test is the case where it is not.
+	jobClose(t, "basis_avg", basisAvg, 2, 9)
+}
+
+func TestRefreshPriceHourlyLeavesBasisNullWhereTheVenuePublishesNoMark(t *testing.T) {
+	store, pool := jobFresh(t, "it-a")
+	ctx := context.Background()
+	symbol := "ITNOMARK"
+	jobMarket(t, pool, "it-a", symbol, "IT", "crypto")
+	hour := jobNow()/jobHour*jobHour - jobHour
+	// The HTX and BitMart shape: an index in every bulk call and never a mark.
+	jobSnapshot(t, pool, "it-a", symbol, hour+10*60_000, nil, jobF(50), jobF(500))
+	jobSnapshot(t, pool, "it-a", symbol, hour+40*60_000, nil, jobF(52), jobF(700))
+
+	n, err := store.RefreshPriceHourly(ctx, PriceHourlyLookbackHours, PriceHourlyRetainDays)
+	jobCount(t, "RefreshPriceHourly", n, err, 1)
+
+	var samples, markSamples, indexSamples, basisSamples int
+	var markAvg, markLast, indexAvg, indexLast, basisAvg *float64
+	if err := pool.QueryRow(ctx, `
+		SELECT samples, mark_samples, index_samples, basis_samples,
+		       mark_avg, mark_last, index_avg, index_last, basis_avg
+		FROM market_price_hourly
+		WHERE venue_id = 'it-a' AND venue_symbol = $1 AND hour = $2`,
+		symbol, time.UnixMilli(hour).UTC()).Scan(&samples, &markSamples, &indexSamples, &basisSamples,
+		&markAvg, &markLast, &indexAvg, &indexLast, &basisAvg); err != nil {
+		t.Fatal(err)
+	}
+	// The hour is folded and its index history kept; only the mark-derived columns are absent, and
+	// they are absent rather than zero, so a chart can say "uncomputable here" instead of drawing a
+	// flat zero basis.
+	if samples != 2 || indexSamples != 2 {
+		t.Errorf("samples=%d index_samples=%d, want 2 each", samples, indexSamples)
+	}
+	if markSamples != 0 || basisSamples != 0 {
+		t.Errorf("mark_samples=%d basis_samples=%d, want 0 each", markSamples, basisSamples)
+	}
+	jobNull(t, "mark_avg", markAvg)
+	jobNull(t, "mark_last", markLast)
+	jobNull(t, "basis_avg", basisAvg)
+	jobClose(t, "index_avg", indexAvg, 51, 9)
+	jobClose(t, "index_last", indexLast, 52, 9)
+}
+
+func TestRefreshPriceHourlyFoldsOnlyTheLookbackAndExpiresPastRetention(t *testing.T) {
+	store, pool := jobFresh(t, "it-a")
+	ctx := context.Background()
+	symbol := "ITRETAIN"
+	jobMarket(t, pool, "it-a", symbol, "IT", "crypto")
+	hour := jobNow()/jobHour*jobHour - jobHour
+
+	// Already stored, and older than retention: it must be swept.
+	jobExec(t, pool, `
+		INSERT INTO market_price_hourly (venue_id, venue_symbol, hour, samples, mark_samples,
+		                                 index_samples, oi_samples, basis_samples, mark_avg)
+		VALUES ('it-a', $1, now() - interval '401 days', 60, 60, 60, 60, 60, 7)`, symbol)
+	// Ten hours back is outside a three-hour lookback, so this must NOT be folded -- a wider window
+	// would scan tens of millions of snapshot rows every hour for no new information.
+	jobSnapshot(t, pool, "it-a", symbol, hour-10*jobHour, jobF(1), jobF(1), jobF(10))
+	jobSnapshot(t, pool, "it-a", symbol, hour+60_000, jobF(5), jobF(5), jobF(50))
+
+	n, err := store.RefreshPriceHourly(ctx, PriceHourlyLookbackHours, PriceHourlyRetainDays)
+	jobCount(t, "RefreshPriceHourly", n, err, 1)
+
+	rows, err := pool.Query(ctx, `
+		SELECT hour, mark_avg FROM market_price_hourly
+		WHERE venue_id = 'it-a' AND venue_symbol = $1 ORDER BY hour`, symbol)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	type priceRow struct {
+		at   time.Time
+		mark *float64
+	}
+	var kept []priceRow
+	for rows.Next() {
+		var r priceRow
+		if err := rows.Scan(&r.at, &r.mark); err != nil {
+			t.Fatal(err)
+		}
+		kept = append(kept, r)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(kept) != 1 {
+		t.Fatalf("%d rows kept, want 1 (the expired row swept, the pre-lookback hour never folded)", len(kept))
+	}
+	if kept[0].at.UnixMilli() != hour {
+		t.Errorf("kept hour %v, want %v", kept[0].at.UnixMilli(), hour)
+	}
+	jobClose(t, "mark_avg", kept[0].mark, 5, 9)
 }
 
 func TestRefreshStabilityScoresChargingDaysShrunkBySampleSize(t *testing.T) {

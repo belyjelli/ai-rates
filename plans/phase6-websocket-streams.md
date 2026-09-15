@@ -101,7 +101,7 @@ and no timestamp). `arbitrage()` gates both its candidates and its anchors on
 - If quotes **do** touch it, they silently resurrect a dead venue's funding row and defeat the
   stale-venue alerting added after the last silent outage.
 
-**Migration 021 adds `quotes_at timestamptz`**, and the arbitrage query's freshness test splits: mark
+**Migration 022 adds `quotes_at timestamptz`**, and the arbitrage query's freshness test splits: mark
 and identity keep reading `observed_at`, the bid/ask columns read `quotes_at`. A row may then be
 fresh in one sense and stale in the other, which is the truth and must render as such.
 
@@ -156,7 +156,7 @@ backoff, reconnect and heartbeat in `internal/relay/client.go`, which is most of
 - **W0 — probe, no code kept.** Open one connection per venue and measure: how many topics each
   actually accepts (okx and gate document no cap), real message rate on the pairable subset, and the
   CPU cost of parsing it. This is the slice that decides §2 and §6, and its output is numbers.
-- **W1 — migration 021 + the quote-scoped writer**, with `arbitrage()` split across `observed_at`
+- **W1 — migration 022 + the quote-scoped writer**, with `arbitrage()` split across `observed_at`
   and `quotes_at`. No socket yet; the writer is exercised by tests. Ships the schema change that
   everything else needs, and is independently reviewable.
 - **W2 — one venue end to end.** Bybit, because it is the only venue with a documented hard limit,

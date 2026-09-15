@@ -870,6 +870,7 @@ const (
 	pairBacktestsRefresh = 24 * time.Hour
 	identityRefresh      = time.Hour
 	rankedPairsRefresh   = 24 * time.Hour
+	priceHourlyRefresh   = time.Hour
 )
 
 // startJobs starts the fleet-wide jobs that turn stored funding into what the site reads: settled
@@ -938,6 +939,17 @@ func startJobs(ctx context.Context, cfg config, db *store.Store, log *slog.Logge
 		return err
 	})
 
+	// Last of the hourly jobs, at 9 cycles, because it is the only one that scans funding_snapshots
+	// -- the largest table here -- and the others should have had their turn first. It reads no other
+	// job's output, so nothing waits on it.
+	start("price hourly rollup", priceHourlyRefresh, 9*cfg.interval, func(ctx context.Context) error {
+		hours, err := db.RefreshPriceHourly(ctx, store.PriceHourlyLookbackHours, store.PriceHourlyRetainDays)
+		if err == nil {
+			log.Info("price hourly rollup", "hour_rows", hours)
+		}
+		return err
+	})
+
 	start("identity checks", identityRefresh, 7*cfg.interval, func(ctx context.Context) error {
 		checked, err := db.RefreshIdentityChecks(ctx, store.IdentityCheckWindowHours)
 		if err == nil {
@@ -960,8 +972,8 @@ func startJobs(ctx context.Context, cfg config, db *store.Store, log *slog.Logge
 // jobWatchNames are the fleet-wide jobs startJobs registers with the job watch, for the boot message
 // and for the test that keeps the two in step.
 var jobWatchNames = []string{
-	"funding stats refresh", "long funding windows", "verified pair backtests", "identity checks",
-	"ranked pair candidates",
+	"funding stats refresh", "long funding windows", "verified pair backtests", "price hourly rollup",
+	"identity checks", "ranked pair candidates",
 }
 
 // alertSink is every configured alert channel, or nil when none is.

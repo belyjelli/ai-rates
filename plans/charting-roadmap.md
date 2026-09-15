@@ -173,8 +173,22 @@ cost once §3's rollup exists. Good top of funnel; no claim about direction.
 
 ## 5. Build order
 
-1. **The §3 rollup.** Hourly `mark`, `index`, `open_interest_usd`. Nothing user-visible, and the only
-   item whose cost rises every day it is deferred.
+1. ~~**The §3 rollup.**~~ **Built 2026-09-15 — migration `021_price_hourly.sql` and
+   `store.RefreshPriceHourly`, scheduled hourly as `price hourly rollup` at 9 cycles.** Nothing
+   user-visible, as planned. What it stores per market per UTC hour: `mark`, `index` and
+   `open_interest_usd` as both a mean and an hour-edge value, `basis_avg` as `avg(mark - index)` per
+   sample rather than the difference of two means, and a per-column sample count so the HTX/BitMart
+   mark-less shape reads as *uncomputable* rather than as a zero basis.
+   - Two things differ from 008/014 and are the reason this could not be copied from them: the
+     lookback is **hours, not days** (snapshots are never backfilled, and `funding_snapshots` takes
+     ~324k rows an hour, so a three-day re-fold would scan ~23M rows every hour on one vCPU), and
+     retention is **400 days** because outliving the source's 30-day drop is the entire point.
+   - Verified by executing the fold against a throwaway PostgreSQL 14.19: means, endpoints, the
+     null-mark coverage case, the retention sweep, the pre-lookback boundary, and idempotency on a
+     second pass. Three integration tests cover the same ground in
+     `internal/store/jobs_int_test.go`.
+   - **Still unverified: that it has run on hklab.** It ships on the next collector deploy, and the
+     first thing to read afterwards is one row of `market_price_hourly` against the hour it folded.
 2. **Basis chart.** Proves the rollup and puts a stored-but-unseen column in front of a reader.
 3. **Capacity curve.** Arrives with 018 regardless; the differentiated one for the buyer.
 4. **Predicted vs settled.**

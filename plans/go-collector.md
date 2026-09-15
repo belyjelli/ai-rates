@@ -229,16 +229,30 @@ The plumbing is in place and **deliberately inert**:
 **The arithmetic objection is gone as of 2026-09-15: all 56 venues are wired, so running the Go
 collector instead of `collector` would now drop nothing.** What remains is not a count.
 
-**It has never run.** Not on hklab, not against any database but the throwaway Postgres in §6, not
-for one full cycle. Every number in this document comes from tests and benchmarks; none comes from
-the Go collector actually collecting. Specifically unproven: that 56 venues fit inside a 60 s cycle
-on a `cpus: 1.0` container, that memory settles where §3 predicts, that the venues answer this
-client as they answer Bun's, and that the TimescaleDB-only behaviour §6 could not test — hypertable
-routing, compression, retention — works under the real write load.
+**It runs, and it is the only collector running — verified on hklab 2026-09-15.** This paragraph
+previously read "it has never run"; that was true when written and was overtaken within the hour by
+the cutover itself. Measured on the box, not inferred:
 
-The order that follows from that: bring it up on hklab under its profile with a **small disjoint
-venue set**, read `/health` and `collector_runs` for a few cycles, diff its rows against the Bun
-collector's for one asset, and only then widen `COLLECT_VENUES`.
+- `docker compose ps` shows one collector up: `airates-collector-go`, `127.0.0.1:20090->8080`.
+  `airates-collector` — the Bun service — is `Exited (0)`, a clean stop rather than a crash.
+- `docker inspect`: `restarts=0`, `oom=false`, `exit=0`. The 537 MB restart loop of §1 has not
+  recurred under `GOMEMLIMIT=900MiB`.
+- `/health` returns `ok:true`, `starting:false`, **56 venues, 0 stale, 0 carrying an error**. A 503
+  read minutes after boot was the documented `starting` state, not a fault.
+- Logs show the side loops working, not just the snapshot cycle: `backfill` per venue and
+  `leverage tiers` completing sweeps (`kucoin`, 5,451 tiers across 682 markets, `complete=true`).
+- The site agrees: 15,158 markets across 50 live venues, `/v1/health` fresh inside its window.
+
+So the arithmetic objection, the count objection and the "never run" objection are all closed. What
+is still genuinely unproven is narrower than this section used to claim: **the TimescaleDB-only
+behaviour** — hypertable routing, compression and retention under real write load — which §6 could
+not test and which no amount of running proves until a chunk actually compresses and a retention
+policy actually drops one.
+
+The staged-rollout order this section used to prescribe — small disjoint venue set, diff against Bun,
+then widen — was **not followed**; the cutover went straight to all 56 with Bun stopped. That worked,
+but it means the row-level diff against the Bun implementation was never performed, and the shared
+fixtures are now the only thing standing between the two implementations and silent drift.
 
 **The two MUST cover disjoint venues.** Both write `market_latest` and `funding_snapshots`. Two
 writers on one venue race over the same rows, arbitrated unpredictably by the `observed_at` guard in
@@ -248,9 +262,11 @@ the `market_latest` upsert — and the loser is silent, because both writes succ
 2. The matching exclusion on the Bun collector's `COLLECT_VENUES`, in `deploy/hklab/.env` on the
    server. **That file is server-only, mode 600, and is the one step no deploy script performs.**
 
-**Do not do either until §6 is closed.** The store has no tests and would be writing to `vaultdeck`.
-The safer first move is a separate schema and a day of diffing the two implementations' rows for one
-asset, which the fixtures make decisive rather than impressionistic.
+**Superseded 2026-09-15.** §6 is closed, and the question is no longer "may it write to `vaultdeck`"
+— it has been the only thing writing there since the cutover. The disjoint-venue rule above stays on
+the page because it governs any *rollback*: bringing the Bun service back with
+`--profile bun up -d collector` while the Go one is up is the two-writer race, and the compose file's
+shared port 20090 is what makes that impossible by construction rather than by discipline.
 
 ## 9. What would change these conclusions
 

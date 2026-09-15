@@ -42,6 +42,18 @@ const (
 	RankedPairsSwitchCostPerDollar = 0.002
 )
 
+// Price-rollup defaults. This rollup has no TypeScript counterpart: it is the first table to keep
+// price, open interest and basis over time, and migration 021 records why its shape differs from
+// the funding folds above.
+const (
+	// Three hours, not days. Snapshots are never backfilled, so the only reason to re-read a past
+	// hour is a run this process missed -- two spare hours covers a restart, and keeps the scan near
+	// 1M rows instead of the ~23M a three-day window would take.
+	PriceHourlyLookbackHours = 3
+	// Longer than the 30 days funding_snapshots retains, because outliving the source is the point.
+	PriceHourlyRetainDays = 400
+)
+
 // jobChunkRows matches the TypeScript's CHUNK_ROWS, so a failure lands on the same boundaries.
 const jobChunkRows = 2_000
 
@@ -189,6 +201,80 @@ func (s *Store) RefreshHourlyFunding(ctx context.Context, retainDays int) (int, 
 		WHERE hour < date_trunc('hour', (now() - make_interval(days => $1)) AT TIME ZONE 'UTC')
 		               AT TIME ZONE 'UTC'`, retainDays); err != nil {
 		return 0, fmt.Errorf("expire hourly funding: %w", err)
+	}
+	return rows, nil
+}
+
+// RefreshPriceHourly folds funding_snapshots into one row per market per UTC hour carrying mark,
+// index and open interest -- means, hour-edge values and per-column sample counts -- and drops hours
+// past retention. Returns hour-rows written.
+//
+// lookbackHours must stay narrow and retainDays must stay wide: the source is dropped at 30 days and
+// nothing here is rebuildable once it is. Migration 021 carries the full reasoning. Pass
+// PriceHourlyLookbackHours and PriceHourlyRetainDays for the scheduled defaults; a wider lookback is
+// how a gap left by a long outage gets folded by hand.
+//
+// Only hours inside the lookback are touched, so an older row already stored is never overwritten by
+// a later run that can no longer see its source rows.
+func (s *Store) RefreshPriceHourly(ctx context.Context, lookbackHours, retainDays int) (int, error) {
+	var rows int
+	err := s.pool.QueryRow(ctx, `
+		WITH from_hour AS (
+		  SELECT date_trunc('hour', (now() - make_interval(hours => $1)) AT TIME ZONE 'UTC')
+		           AT TIME ZONE 'UTC' AS h
+		), folded AS (
+		  INSERT INTO market_price_hourly
+		    (venue_id, venue_symbol, hour, samples,
+		     mark_avg, mark_last, mark_samples,
+		     index_avg, index_last, index_samples,
+		     oi_avg, oi_last, oi_samples,
+		     basis_avg, basis_samples)
+		  SELECT s.venue_id,
+		         s.venue_symbol,
+		         date_trunc('hour', s.observed_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC',
+		         count(*)::integer,
+		         avg(s.mark_price),
+		         (array_agg(s.mark_price ORDER BY s.observed_at DESC)
+		            FILTER (WHERE s.mark_price IS NOT NULL))[1],
+		         count(s.mark_price)::integer,
+		         avg(s.index_price),
+		         (array_agg(s.index_price ORDER BY s.observed_at DESC)
+		            FILTER (WHERE s.index_price IS NOT NULL))[1],
+		         count(s.index_price)::integer,
+		         avg(s.open_interest_usd),
+		         (array_agg(s.open_interest_usd ORDER BY s.observed_at DESC)
+		            FILTER (WHERE s.open_interest_usd IS NOT NULL))[1],
+		         count(s.open_interest_usd)::integer,
+		         avg(s.mark_price - s.index_price),
+		         (count(*) FILTER (
+		            WHERE s.mark_price IS NOT NULL AND s.index_price IS NOT NULL))::integer
+		  FROM funding_snapshots s
+		  WHERE s.observed_at >= (SELECT h FROM from_hour)
+		  GROUP BY 1, 2, 3
+		  ON CONFLICT (venue_id, venue_symbol, hour) DO UPDATE SET
+		    samples = EXCLUDED.samples,
+		    mark_avg = EXCLUDED.mark_avg,
+		    mark_last = EXCLUDED.mark_last,
+		    mark_samples = EXCLUDED.mark_samples,
+		    index_avg = EXCLUDED.index_avg,
+		    index_last = EXCLUDED.index_last,
+		    index_samples = EXCLUDED.index_samples,
+		    oi_avg = EXCLUDED.oi_avg,
+		    oi_last = EXCLUDED.oi_last,
+		    oi_samples = EXCLUDED.oi_samples,
+		    basis_avg = EXCLUDED.basis_avg,
+		    basis_samples = EXCLUDED.basis_samples
+		  RETURNING 1
+		)
+		SELECT count(*)::integer AS rows FROM folded`, lookbackHours).Scan(&rows)
+	if err != nil {
+		return 0, fmt.Errorf("refresh price hourly: %w", err)
+	}
+	if _, err := s.pool.Exec(ctx, `
+		DELETE FROM market_price_hourly
+		WHERE hour < date_trunc('hour', (now() - make_interval(days => $1)) AT TIME ZONE 'UTC')
+		               AT TIME ZONE 'UTC'`, retainDays); err != nil {
+		return 0, fmt.Errorf("expire price hourly: %w", err)
 	}
 	return rows, nil
 }
