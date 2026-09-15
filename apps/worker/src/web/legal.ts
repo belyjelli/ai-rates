@@ -41,7 +41,7 @@ export function legal(data: { overview: Overview; now: number }): string {
 <li>Every referral link is labelled as one, beside the link itself.</li>
 <li>Referral arrangements never affect which markets appear, how they are ranked, or what the numbers say. Rankings are computed from market data alone.</li>
 <li>Referral links appear only where both the exchange's terms and local rules allow them, and never when your location is unknown. Visitors in the United States, Canada, the United Kingdom and sanctioned jurisdictions do not see them, and nor do visitors in the European Economic Area unless the exchange holds the authorisation required there.</li>
-<li>As of ${UPDATED}, airrates shows no referral links.</li>
+<li>Every referral link airrates offers where you are is listed on <a href="/referrals">Referral links</a>, sorted by exchange name.</li>
 </ul>
 </article>
 <article id="independence">
