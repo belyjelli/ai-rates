@@ -160,7 +160,15 @@ export interface Referral {
 }
 
 /** A referral code as venues issue them: letters, digits, dash and underscore. */
-const REFERRAL_CODE = /^[A-Za-z0-9_-]{1,64}$/;
+export const REFERRAL_CODE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** Whether this venue's country restrictions are written down; without them it never shows a CTA. */
+export function hasCtaRules(
+  venueId: string,
+  rules: Readonly<Record<string, VenueCtaRules>> = VENUE_CTA_RULES,
+): boolean {
+  return rules[rulesKey(venueId)] !== undefined;
+}
 
 /**
  * Referral links from configuration, in the REFERRAL_LINKS variable: a JSON object keyed by venue id,

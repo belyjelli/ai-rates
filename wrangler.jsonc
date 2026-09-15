@@ -44,7 +44,18 @@
     "crons": []
   },
   "durable_objects": {
-    "bindings": [{ "name": "PROBE", "class_name": "ProbeDO" }]
+    "bindings": [
+      { "name": "PROBE", "class_name": "ProbeDO" },
+      // The referral links entered at /admin/referrals (apps/worker/src/referrals/store-do.ts).
+      { "name": "REFERRALS", "class_name": "ReferralStoreDO" }
+    ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ProbeDO"] }]
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["ProbeDO"] },
+    { "tag": "v2", "new_sqlite_classes": ["ReferralStoreDO"] }
+  ],
+  // ACCESS_TEAM_DOMAIN and ACCESS_AUD protect /admin and are set in the dashboard (Workers > airates >
+  // Settings > Variables), not here. keep_vars stops each deploy wiping them; without both, /admin
+  // refuses every request.
+  "keep_vars": true
 }
