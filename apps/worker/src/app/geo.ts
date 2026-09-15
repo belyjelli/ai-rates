@@ -133,26 +133,45 @@ export function requestGeo(request: Request): Geo {
   return { country, region };
 }
 
+/** True when no referral CTA may be shown to this visitor for any venue: unknown or globally blocked. */
+export function globallyBlocked(geo: Geo): boolean {
+  return geo.country === null || matches(GLOBAL_CTA_BLOCKLIST, geo);
+}
+
 /** Whether a referral CTA for this venue may be shown to this visitor. */
 export function referralAllowed(
   venueId: string,
   geo: Geo,
   rules: Readonly<Record<string, VenueCtaRules>> = VENUE_CTA_RULES,
 ): boolean {
-  if (geo.country === null) return false;
-  if (matches(GLOBAL_CTA_BLOCKLIST, geo)) return false;
+  // The null check is repeated so the type narrows: globallyBlocked already treats null as blocked.
+  const { country } = geo;
+  if (country === null || globallyBlocked(geo)) return false;
   const venue = rules[rulesKey(venueId)];
   if (!venue) return false;
-  if (EEA.includes(geo.country) && !venue.micaAuthorised) return false;
+  if (EEA.includes(country) && !venue.micaAuthorised) return false;
   return !matches(venue.restricted, geo);
 }
 
+/** One venue's referral: where to sign up, and the code to enter if the venue asks for one. */
+export interface Referral {
+  url: string;
+  code: string | null;
+}
+
+/** A referral code as venues issue them: letters, digits, dash and underscore. */
+const REFERRAL_CODE = /^[A-Za-z0-9_-]{1,64}$/;
+
 /**
- * Referral links from configuration: a JSON object of venue id to https URL, in the REFERRAL_LINKS
- * variable. Affiliate IDs are configuration, never code (checklist §4 item 9). Anything malformed is
- * dropped rather than thrown, because a typo in a link must not take the site down.
+ * Referral links from configuration, in the REFERRAL_LINKS variable: a JSON object keyed by venue id,
+ * whose values are either an https URL or `{ "url": "https://…", "code": "ABC123" }`.
+ * Affiliate IDs are configuration, never code (checklist §4 item 9).
+ *
+ * Anything malformed is dropped rather than thrown, because a typo in a link must not take the site
+ * down. A malformed code drops only the code: the link still works, and a code shown wrong would send
+ * people to enter something that fails.
  */
-export function parseReferralLinks(raw: string | undefined): Readonly<Record<string, string>> {
+export function parseReferralLinks(raw: string | undefined): Readonly<Record<string, Referral>> {
   if (!raw) return {};
   let parsed: unknown;
   try {
@@ -161,14 +180,25 @@ export function parseReferralLinks(raw: string | undefined): Readonly<Record<str
     return {};
   }
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-  const links: Record<string, string> = {};
-  for (const [venueId, url] of Object.entries(parsed)) {
-    if (typeof url !== "string") continue;
+  const links: Record<string, Referral> = {};
+  for (const [venueId, value] of Object.entries(parsed)) {
+    const entry =
+      typeof value === "string"
+        ? { url: value, code: undefined }
+        : value !== null && typeof value === "object" && !Array.isArray(value)
+          ? (value as { url?: unknown; code?: unknown })
+          : null;
+    if (!entry || typeof entry.url !== "string") continue;
     try {
-      if (new URL(url).protocol === "https:") links[venueId] = url;
+      if (new URL(entry.url).protocol !== "https:") continue;
     } catch {
-      // Not a URL; dropped.
+      continue; // Not a URL.
     }
+    const code =
+      typeof entry.code === "string" && REFERRAL_CODE.test(entry.code.trim())
+        ? entry.code.trim()
+        : null;
+    links[venueId] = { url: entry.url, code };
   }
   return links;
 }
@@ -182,8 +212,7 @@ export function parseReferralLinks(raw: string | undefined): Readonly<Record<str
  */
 export function geoCacheBucket(geo: Geo, referralsConfigured: boolean): string {
   if (!referralsConfigured) return "any";
-  if (geo.country === null || matches(GLOBAL_CTA_BLOCKLIST, geo)) return "none";
-  return REGION_SENSITIVE.has(geo.country) && geo.region
-    ? `${geo.country}-${geo.region}`
-    : geo.country;
+  const { country } = geo;
+  if (country === null || globallyBlocked(geo)) return "none";
+  return REGION_SENSITIVE.has(country) && geo.region ? `${country}-${geo.region}` : country;
 }

@@ -5,9 +5,10 @@ import type { FundingHistory } from "../web/funding-chart";
 import { legal } from "../web/legal";
 import * as pages from "../web/pages";
 import { referralCta } from "../web/referral";
+import { referralLinks } from "../web/referral-links";
 import { VENUE_BY_ID } from "../web/venues";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
-import { requestGeo } from "./geo";
+import { type Referral, requestGeo } from "./geo";
 import {
   arbitrageToQuery,
   type BacktestParams,
@@ -31,8 +32,8 @@ export interface AppDeps {
    * is the case in tests and in local dev.
    */
   rateLimit?: (key: string) => Promise<boolean>;
-  /** Venue id to referral URL, from REFERRAL_LINKS. Absent or empty means no page shows a CTA. */
-  referrals?: Readonly<Record<string, string>>;
+  /** Venue id to referral link and code, from REFERRAL_LINKS. Absent or empty means no page shows a CTA. */
+  referrals?: Readonly<Record<string, Referral>>;
 }
 
 const PAGE_MAX_AGE = 30;
@@ -175,6 +176,17 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
 
     if (path === "/legal") {
       return page(legal({ overview: await deps.data.overview(), now }));
+    }
+
+    if (path === "/referrals") {
+      return page(
+        referralLinks({
+          overview: await deps.data.overview(),
+          now,
+          geo: requestGeo(request),
+          links: deps.referrals ?? {},
+        }),
+      );
     }
 
     if (path === "/status") {

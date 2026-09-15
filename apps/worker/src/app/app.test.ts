@@ -13,6 +13,7 @@ import type {
   ScreenerPair,
   VenueStatus,
 } from "./data";
+import type { Referral } from "./geo";
 import { DEFAULT_FILTERS } from "./params";
 
 const NOW = Date.parse("2026-09-12T12:00:00Z");
@@ -1324,21 +1325,68 @@ describe("pages", () => {
       if (country) Object.defineProperty(request, "cf", { value: { country } });
       return request;
     };
-    const render = async (request: Request, referrals?: Record<string, string>) => {
+    const render = async (request: Request, referrals?: Record<string, Referral>) => {
+      const res = await handleApp(request, { data, now: () => NOW, referrals });
+      expect(res.status).toBe(200);
+      return res.text();
+    };
+    const links = { hyperliquid: { url, code: null } };
+
+    expect(await render(at("SG"))).not.toContain("Referral link:");
+    // Unknown location, as outside Cloudflare, and a barred country: no CTA even with a link.
+    expect(await render(at(), links)).not.toContain("Referral link:");
+    expect(await render(at("GB"), links)).not.toContain("Referral link:");
+
+    const shown = await render(at("SG"), links);
+    expect(shown).toContain(`href="${url}"`);
+    expect(shown).toContain('rel="sponsored noopener noreferrer"');
+    expect(shown).toContain("may earn a commission");
+  });
+
+  test("the referral links page shows only what the visitor's location allows, disclosed and sorted by name", async () => {
+    const { data } = fakeData();
+    const links: Record<string, Referral> = {
+      hyperliquid: { url: "https://app.hyperliquid.xyz/join/AIRRATES", code: "AIRRATES" },
+      kucoin: { url: "https://www.kucoin.com/r/af/AIR", code: null },
+      // No written restrictions for bybit, so it is never shown anywhere.
+      bybit: { url: "https://www.bybit.com/invite?ref=AIR", code: "AIR" },
+    };
+    const at = (country?: string) => {
+      const request = new Request("https://airates.test/referrals");
+      if (country) Object.defineProperty(request, "cf", { value: { country } });
+      return request;
+    };
+    const render = async (request: Request, referrals?: Record<string, Referral>) => {
       const res = await handleApp(request, { data, now: () => NOW, referrals });
       expect(res.status).toBe(200);
       return res.text();
     };
 
-    expect(await render(at("SG"))).not.toContain("Referral link");
-    // Unknown location, as outside Cloudflare, and a barred country: no CTA even with a link.
-    expect(await render(at(), { hyperliquid: url })).not.toContain("Referral link");
-    expect(await render(at("GB"), { hyperliquid: url })).not.toContain("Referral link");
+    expect(await render(at("SG"))).toContain("No referral links yet.");
+    expect(await render(at(), links)).toContain("Referral links are not shown in your location.");
+    const barred = await render(at("GB"), links);
+    expect(barred).toContain("Referral links are not shown in your location.");
+    expect(barred).not.toContain('rel="sponsored');
 
-    const shown = await render(at("SG"), { hyperliquid: url });
-    expect(shown).toContain(`href="${url}"`);
-    expect(shown).toContain('rel="sponsored noopener noreferrer"');
-    expect(shown).toContain("may earn a commission");
+    // KuCoin bars Singapore, so only Hyperliquid shows there.
+    const singapore = await render(at("SG"), links);
+    expect(singapore).toContain("<b>Disclosure.</b>");
+    expect(singapore).toContain('href="https://app.hyperliquid.xyz/join/AIRRATES"');
+    expect(singapore).toContain("<code>AIRRATES</code>");
+    expect(singapore).not.toContain("kucoin.com");
+    expect(singapore).not.toContain("bybit.com");
+    expect(singapore).toContain("2 more exchanges' links are not available in your location.");
+
+    const thailand = await render(at("TH"), links);
+    expect(thailand.indexOf('data-k="hyperliquid"')).toBeGreaterThan(-1);
+    expect(thailand.indexOf('data-k="hyperliquid"')).toBeLessThan(
+      thailand.indexOf('data-k="kucoin"'),
+    );
+    expect(thailand).toContain("1 more exchange's link is not available in your location.");
+
+    expect(await (await get("/", data)).text()).toContain(
+      '<a href="/referrals">referral links</a>',
+    );
   });
 
   test("database failures render a 503 page, not an exception", async () => {

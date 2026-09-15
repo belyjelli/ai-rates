@@ -3,7 +3,9 @@ import { referralCta } from "../web/referral";
 import {
   type Geo,
   geoCacheBucket,
+  globallyBlocked,
   parseReferralLinks,
+  type Referral,
   referralAllowed,
   requestGeo,
   type VenueCtaRules,
@@ -87,7 +89,24 @@ describe("parseReferralLinks", () => {
           mexc: "not a url",
         }),
       ),
-    ).toEqual({ hyperliquid: "https://app.hyperliquid.xyz/join/AIRRATES" });
+    ).toEqual({ hyperliquid: { url: "https://app.hyperliquid.xyz/join/AIRRATES", code: null } });
+  });
+
+  test("an entry may carry a code, and a malformed code is dropped while the link is kept", () => {
+    expect(
+      parseReferralLinks(
+        JSON.stringify({
+          hyperliquid: { url: "https://app.hyperliquid.xyz/join/AIRRATES", code: " AIRRATES " },
+          kucoin: { url: "https://www.kucoin.com/r/af/AIR", code: "has spaces in it" },
+          gate: { code: "NOURL" },
+          okx: { url: "http://www.okx.com/join/1", code: "OK" },
+          mexc: null,
+        }),
+      ),
+    ).toEqual({
+      hyperliquid: { url: "https://app.hyperliquid.xyz/join/AIRRATES", code: "AIRRATES" },
+      kucoin: { url: "https://www.kucoin.com/r/af/AIR", code: null },
+    });
   });
 
   test("absent or malformed configuration means no links, never an exception", () => {
@@ -112,21 +131,40 @@ describe("geoCacheBucket", () => {
   });
 });
 
+describe("globallyBlocked", () => {
+  test("an unknown or globally blocked location, and nothing else", () => {
+    expect(globallyBlocked(at(null))).toBe(true);
+    expect(globallyBlocked(at("GB"))).toBe(true);
+    expect(globallyBlocked(at("UA", "43"))).toBe(true);
+    expect(globallyBlocked(at("UA", "30"))).toBe(false);
+    // A venue's own exclusion is not global: kucoin bars MY, but MY is not blocked for everyone.
+    expect(globallyBlocked(at("MY"))).toBe(false);
+  });
+});
+
 describe("referralCta", () => {
   const venue = { id: "hyperliquid", name: "Hyperliquid" };
   const url = "https://app.hyperliquid.xyz/join/AIRRATES";
+  const referral: Referral = { url, code: null };
 
   test("renders nothing without a link or where it is not allowed", () => {
     expect(referralCta(venue, undefined, at("SG"))).toBe("");
-    expect(referralCta(venue, url, at("GB"))).toBe("");
-    expect(referralCta(venue, url, at(null))).toBe("");
+    expect(referralCta(venue, referral, at("GB"))).toBe("");
+    expect(referralCta(venue, referral, at(null))).toBe("");
   });
 
   test("where allowed, it is marked sponsored and disclosed beside the link", () => {
-    const html = referralCta(venue, url, at("SG"));
+    const html = referralCta(venue, referral, at("SG"));
     expect(html).toContain(`href="${url}"`);
     expect(html).toContain('rel="sponsored noopener noreferrer"');
     expect(html).toContain("may earn a commission");
     expect(html).toContain('href="/legal#affiliate"');
+    expect(html).not.toContain("<code>");
+  });
+
+  test("a code, when the venue has one, is shown beside the link", () => {
+    expect(referralCta(venue, { url, code: "AIRRATES" }, at("SG"))).toContain(
+      "Code <code>AIRRATES</code>.",
+    );
   });
 });

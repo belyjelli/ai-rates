@@ -1,4 +1,4 @@
-import { type Geo, referralAllowed } from "../app/geo";
+import { type Geo, type Referral, referralAllowed } from "../app/geo";
 import { esc } from "./format";
 
 /**
@@ -11,9 +11,15 @@ import { esc } from "./format";
  */
 export function referralCta(
   venue: { id: string; name: string },
-  url: string | undefined,
+  referral: Referral | undefined,
   geo: Geo,
 ): string {
-  if (!url || !referralAllowed(venue.id, geo)) return "";
-  return `<div class="cta referral"><a class="btn" href="${esc(url)}" rel="sponsored noopener noreferrer" target="_blank">Open a ${esc(venue.name)} account <span aria-hidden="true">↗</span></a><span class="dim">Referral link: airrates may earn a commission if you sign up through it, at no cost to you. <a href="/legal#affiliate">How this works</a></span></div>`;
+  if (!referral || !referralAllowed(venue.id, geo)) return "";
+  const code = referral.code ? ` Code <code>${esc(referral.code)}</code>.` : "";
+  return `<div class="cta referral">${referralButton(venue.name, referral.url)}<span class="dim">Referral link:${code} airrates may earn a commission if you sign up through it, at no cost to you. <a href="/legal#affiliate">How this works</a></span></div>`;
+}
+
+/** The sign-up link itself, marked as paid. Shared by the exchange page and /referrals. */
+export function referralButton(venueName: string, url: string): string {
+  return `<a class="btn" href="${esc(url)}" rel="sponsored noopener noreferrer" target="_blank">Open a ${esc(venueName)} account <span aria-hidden="true">↗</span></a>`;
 }
