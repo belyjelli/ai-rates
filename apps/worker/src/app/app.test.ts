@@ -443,6 +443,34 @@ describe("pages", () => {
     ...overrides,
   });
 
+  test("status splits its two sections into tabs, and serves both panels for a reader without JS", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/status", data)).text();
+
+    // The bar, in the shape the Morpheum component uses.
+    expect(html).toContain('data-tabs="status"');
+    expect(html).toContain('data-tab="collector"');
+    expect(html).toContain('data-tab="verification"');
+    expect(html).toContain('class="tab-underline"');
+    expect(html).toContain('role="tablist"');
+
+    // Both panels are served, and NEITHER is hidden in the HTML: the script hides the inactive one,
+    // so with no JavaScript the page reads exactly as it did before it had tabs.
+    expect(html).toContain('data-tab-panel="collector"');
+    expect(html).toContain('data-tab-panel="verification"');
+    expect(html).not.toContain('data-tab-panel="verification" hidden');
+    expect(html).not.toContain('<div class="tabpanel" hidden');
+
+    // The bar has to sit ahead of every live-swapped region: live.ts replaces those about every 30s,
+    // and a button inside one would be swapped out under the reader and reset the active tab.
+    const bar = html.indexOf('data-tabs="status"');
+    expect(bar).toBeGreaterThan(-1);
+    expect(bar).toBeLessThan(html.indexOf('data-live="status-facts"'));
+    // The tbody specifically: the masthead carries a data-live="status" of its own, which sits
+    // above the bar and is not what this is about.
+    expect(bar).toBeLessThan(html.indexOf('<tbody data-live="status">'));
+  });
+
   test("status separates a venue that answers cleanly from one that delivers data", async () => {
     const { data } = fakeData({
       venueStatus: async () => [
@@ -1309,6 +1337,44 @@ describe("pages", () => {
     expect(html).toContain("4,286 markets");
     // Every page's footer links it, so it is reachable from anywhere.
     expect(await (await get("/", data)).text()).toContain('<a href="/about">about</a>');
+  });
+
+  test("terms of service is reachable from the legal page and scopes itself to this site", async () => {
+    const { data } = fakeData();
+    const res = await get("/tos", data);
+    const html = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(html).toContain("<h1>Terms of service</h1>");
+    for (const id of [
+      "acceptance",
+      "service",
+      "data",
+      "use",
+      "ip",
+      "third-party",
+      "availability",
+      "liability",
+      "changes",
+      "law",
+      "contact",
+    ]) {
+      expect(html).toContain(`id="${id}"`);
+    }
+    // The claims most likely to drift from the code, pinned so a change has to touch this test.
+    expect(html).toContain("20 requests a minute");
+    expect(html).toContain("holds no funds, places no orders");
+    // The member area is a separate service on its own subdomain, and these terms say so rather
+    // than silently covering something this Worker does not serve.
+    expect(html).toContain("separate service");
+    // Counsel still owes the jurisdiction; the page must say so rather than name one.
+    expect(html).toContain("To be completed before launch");
+    // Asked for as reachable from /legal, so that link is the contract.
+    expect(await (await get("/legal", data)).text()).toContain(
+      '<a href="/tos">Terms of service</a>',
+    );
+    // And from every footer, as the other standing pages are.
+    expect(await (await get("/", data)).text()).toContain('<a href="/tos">terms</a>');
   });
 
   test("legal and privacy is linked from every footer and says what is and is not recorded", async () => {
