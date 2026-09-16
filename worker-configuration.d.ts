@@ -8,8 +8,9 @@ interface __BaseEnv_Env {
 	PROBE: DurableObjectNamespace<import("./apps/worker/src/index").ProbeDO>;
 	REFERRALS: DurableObjectNamespace<import("./apps/worker/src/index").ReferralStoreDO>;
 	// Set in the dashboard, not wrangler.jsonc (keep_vars): unset means /admin refuses everyone.
-	ACCESS_TEAM_DOMAIN?: string;
-	ACCESS_AUD?: string;
+	// ADMIN_PASSWORD belongs in Secrets, so it is encrypted and never shown again.
+	ADMIN_USER?: string;
+	ADMIN_PASSWORD?: string;
 }
 declare namespace Cloudflare {
 	interface GlobalProps {
