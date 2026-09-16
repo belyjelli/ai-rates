@@ -19,6 +19,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.13",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
     "@types/bun": "^1.4.2",
     "typescript": "^7.0.2",
     "wrangler": "4.131.1"
