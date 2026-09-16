@@ -1,6 +1,7 @@
 import {
   type AssetClass,
   type BacktestResult,
+  gapCost,
   type IdentityVerdict,
   pairCapitalUsd,
   tierForSize,
@@ -43,6 +44,7 @@ import {
   MAX_TAKER_FEE_BPS,
   VENUE_TYPES,
 } from "../app/params";
+import { RETAIL_TAKER_BPS, retailSchedule } from "../app/retail-fees";
 import {
   aprTone,
   esc,
@@ -785,6 +787,10 @@ export function arbitrage(data: {
     `<td><div class="leg ${kind}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)} · <span data-u="${kind}-price">${formatPrice(price)}</span></span></div></td>
 <td class="num"><span data-u="${kind}-depth">${formatUsd(depth)}</span></td>`;
 
+  // One schedule for the whole page, covering only the venues actually on it. These are assumed fees,
+  // not anyone's real ones, and the lede says so: see app/retail-fees.ts.
+  const fees = retailSchedule(rows.flatMap((r) => [r.buy_venue_id, r.sell_venue_id]));
+
   const body = rows
     .map((r) => {
       // The gap is only good for the smaller of the two sides, so that is what the row is titled
@@ -793,9 +799,19 @@ export function arbitrage(data: {
         r.thinner_depth_usd === null
           ? "One side's resting size is unknown, so the size this gap is good for cannot be stated"
           : `Good for about ${formatUsd(r.thinner_depth_usd)} at these quotes, before fees and before either book moves`;
+      // Two fills, not four: a gap is captured by buying once and selling once, and the gap is already
+      // quoted bid-to-ask, so each venue's own spread is inside it and must not be charged again.
+      const cost = gapCost({
+        gapBps: r.gap_bps,
+        buyVenueId: r.buy_venue_id,
+        sellVenueId: r.sell_venue_id,
+        fees,
+      });
+      const netTitle = `${formatGapBps(r.gap_bps)} less ${formatGapBps(cost.takerBps)} bps of taker fee, one fill on each side. The transfer a real position needs is not counted.`;
       return `<tr data-k="${esc(assetKey(r.asset, r.asset_class))}">
 <td class="asset"><a href="${priceHref(r.asset, r.asset_class)}">${assetName(r.asset, r.asset_class)}</a></td>
 <td class="num spread" title="${esc(title)}"><span data-u="gap"${gapTone(r.gap_bps)}>${formatGapBps(r.gap_bps)}</span></td>
+<td class="num spread" title="${esc(netTitle)}"><span data-u="net"${gapTone(cost.netBps)}>${formatGapBps(cost.netBps)}</span></td>
 <td class="num" title="${esc(title)}">${formatUsd(r.thinner_depth_usd)}</td>
 ${side("buy", r.buy_venue_id, r.buy_symbol, r.buy_price, r.buy_depth_usd)}
 ${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_depth_usd)}
@@ -819,7 +835,7 @@ ${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_depth_usd)}
     rows.length === 0
       ? `<div class="sheet-wrap"><p class="empty">No asset quotes a gap this wide right now. The median comparable asset sits near 1.6 bps, so try a lower floor.</p></div>`
       : `<div class="sheet-wrap"><table class="sheet">
-<thead><tr><th>Asset</th><th class="num" title="Highest bid against lowest ask, across two different exchanges">Gap, bps</th><th class="num" title="The smaller of the two resting sizes: what the gap is actually good for">Good for</th><th>Buy at</th><th class="num">Ask size</th><th>Sell at</th><th class="num">Bid size</th><th class="num" title="Exchanges quoting this asset that survived the mark-agreement check">Venues</th><th>Quoted</th></tr></thead>
+<thead><tr><th>Asset</th><th class="num" title="Highest bid against lowest ask, across two different exchanges">Gap, bps</th><th class="num" title="The gap less one taker fee on each side, at an assumed retail rate. The transfer a real position needs is not counted.">Net, bps</th><th class="num" title="The smaller of the two resting sizes: what the gap is actually good for">Good for</th><th>Buy at</th><th class="num">Ask size</th><th>Sell at</th><th class="num">Bid size</th><th class="num" title="Exchanges quoting this asset that survived the mark-agreement check">Venues</th><th>Quoted</th></tr></thead>
 <tbody data-live="arb">${body}</tbody>
 </table></div>${pager}`;
 
@@ -831,7 +847,7 @@ ${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_depth_usd)}
     overview,
     now,
     body: `<h1>Price gaps</h1>
-<p class="lede">For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps at the size shown</b>, not fillable trades: nothing here reflects the book below level 1, fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size. Read the <b>good for</b> column before the gap.</p>
+<p class="lede">For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps at the size shown</b>, not fillable trades: nothing here reflects the book below level 1, or the two transfers a real position needs. <b>Net</b> charges ${RETAIL_TAKER_BPS} bps of taker fee on each side, one fill to buy and one to sell — a retail rate, not yours, and a VIP tier pays less. The transfer is not in it. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size. Read the <b>good for</b> column before the gap.</p>
 ${filtersForArbitrage(params)}
 ${table}`,
   });

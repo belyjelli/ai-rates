@@ -30,6 +30,16 @@ export interface Venue {
    */
   maxLeverage?: number;
   /**
+   * The venue's published standard taker fee in basis points, for an account with no VIP tier and no
+   * discounts, hand-verified from the venue's own fee schedule with the date in `notes`.
+   *
+   * Absent means **unknown, never free** — the rule `packages/core/src/fees.ts` holds everywhere. A
+   * venue without one falls back to the site's retail assumption, which the page names in words; a
+   * venue with one overrides it. Fees are per account, so this is a published baseline and never a
+   * member's real rate: a signed-in member's own schedule supersedes it (plans/member-fee-settings.md).
+   */
+  takerBps?: number;
+  /**
    * When and why the venue stopped being worth collecting, as "YYYY-MM-DD: evidence". A retired
    * venue is not collected, not probed and not listed as backlog -- but it stays in the catalog,
    * because `venues` rows and anything keyed on its id must keep resolving. Clear it to reinstate.

@@ -1,5 +1,6 @@
 import { type AssetClass, DIVERGENCE_TRIGGER, type IdentityVerdict } from "@ai-rates/core";
 import type postgres from "postgres";
+import { RETAIL_TAKER_BPS } from "./retail-fees";
 
 /** Markets whose latest snapshot is older than this are treated as not live. */
 export const FRESH_INTERVAL = "5 minutes";
@@ -360,8 +361,8 @@ export const HEADLINE_BAR = {
   minThinnerLegOiUsd: 1_000_000,
   maxWorstLegAbsApr: 200,
   minPairStability: 0.7,
-  /** A retail taker fee, charged on every fill. */
-  retailTakerBps: 5,
+  /** A retail taker fee, charged on every fill. One figure, so the hero and /arbitrage cannot drift. */
+  retailTakerBps: RETAIL_TAKER_BPS,
   /** Open and close, on both legs. */
   roundTripFills: 4,
 } as const;
