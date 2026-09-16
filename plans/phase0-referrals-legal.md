@@ -89,17 +89,25 @@ No venue below publishes an attribution requirement. The main question is whethe
 
 ## 3. Compliance checklist (engineering view — counsel to review)
 
-> **Engineering status 2026-09-15.** Items ticked below are built and tested, not legally reviewed.
+> **Engineering status 2026-09-16.** Items ticked below are built and tested, not legally reviewed.
 > Where the code lives:
 > - `apps/worker/src/app/geo.ts` — the global blocklist, EEA rule and per-venue lists, fail-closed.
 > - `apps/worker/src/web/referral.ts` — the CTA component, rendering nothing when blocked.
-> - `REFERRAL_LINKS` (Worker configuration, JSON of venue id to https URL) — where affiliate IDs go.
->   It is unset, so **no page shows a referral link today**.
+> - `apps/worker/src/web/referral-links.ts` — `/referrals`, the public table of every link, footer-linked.
+> - `/admin/referrals` (`apps/worker/src/referrals/`) — the form where links and codes are entered,
+>   behind `ADMIN_USER` and `ADMIN_PASSWORD` on the Worker, stored in a Durable Object. Affiliate IDs
+>   are configuration, never code. **No password is set yet, so no link exists and no page shows one.**
+> - `apps/worker/src/referrals/policy.ts` — who each link is offered to: everyone, members, or VIP
+>   members. Public surfaces ask for the public audience only, so a code reserved for
+>   member.airrates.net never appears on the open site. The tier names are provisional.
 > - `/legal` (`apps/worker/src/web/legal.ts`) — disclaimer, affiliate disclosure, independence notice
 >   and privacy policy. The site-wide footer links it.
 >
 > The edge cache splits by country only once a link is configured, so a CTA rendered for one country
 > is never served from cache in another.
+>
+> Every venue gets a row in the admin form, HIP-3 dexes included. A HIP-3 dex shares Hyperliquid's
+> country rules (it trades under Hyperliquid's terms) but can carry a link of its own.
 
 **Affiliate disclosure (US FTC)**
 - [x] Put a clear, conspicuous disclosure next to every referral CTA, e.g. "We earn a commission if you sign up via this link." A footer-only disclosure is not enough. — [16 CFR Part 255](https://www.ecfr.gov/current/title-16/chapter-I/subchapter-B/part-255)
