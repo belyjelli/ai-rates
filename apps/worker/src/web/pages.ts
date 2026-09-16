@@ -57,6 +57,7 @@ import {
 import { type FundingHistory, renderFundingChart } from "./funding-chart";
 import { layout } from "./layout";
 import { type RailScale, railPosition, railScale, renderRail } from "./rail";
+import { tabBar } from "./tabs";
 import { VENUE_TYPE_LABEL, VENUE_TYPE_SHORT, venueName } from "./venues";
 
 /**
@@ -1148,6 +1149,22 @@ export function status(data: {
     body: `<p class="eyebrow">Collector</p>
 <h1>Status</h1>
 <p class="lede">Whether each exchange is actually delivering data. That is a different question from the <a href="/probe">geo-probe</a>, which asks only whether the endpoint answers: a venue can reply and still return nothing, which is what <b>empty</b> means here and why it is coloured as a fault.</p>
+${tabBar({
+  name: "status",
+  tabs: [
+    { id: "collector", label: "Collector", shortLabel: "Health" },
+    {
+      id: "verification",
+      label: "Price verification",
+      shortLabel: "Prices",
+      // Absent when nothing diverges, and absent when the check has not run: a badge of 0
+      // would claim a clean result the page may not have.
+      badge: checks === null ? 0 : verified.length,
+    },
+  ],
+  activeId: "collector",
+})}
+<div class="tabpanel" role="tabpanel" id="panel-status-collector" data-tab-panel="collector" aria-labelledby="tab-status-collector">
 <p class="facts" data-live="status-facts"><span><b>${running.length}</b> collected</span><span><b>${tally("live")}</b> live</span>${
       tally("empty") ? `<span><b>${tally("empty")}</b> empty</span>` : ""
     }${tally("failing") ? `<span><b>${tally("failing")}</b> failing</span>` : ""}${
@@ -1158,6 +1175,8 @@ export function status(data: {
 <tbody data-live="status">${body}</tbody>
 </table></div>
 ${wrong === 0 ? '<p class="notes">Every collected exchange is live and current.</p>' : ""}
+</div>
+<div class="tabpanel" role="tabpanel" id="panel-status-verification" data-tab-panel="verification" aria-labelledby="tab-status-verification">
 <h2>Price verification</h2>
 <p class="lede">Whether each market really is the asset it is filed under. Every asset is anchored on its deepest market by open interest, and a market disagreeing with that anchor by more than 10% is judged on whether its minute returns follow it. Correlation decides, never the size of the gap: a ratio landing near a clean 10× is a coincidence, not evidence — Gate quotes <b>PURR</b> at 104.6× Hyperliquid's on a correlation of 0.005, and they are simply different assets. <b>mismatch</b> means two unrelated assets share one ticker.</p>
 ${
@@ -1179,6 +1198,7 @@ ${
 <tbody data-checks="identity">${checkBody}</tbody>
 </table></div>`
 }
+</div>
 ${
   planned.length === 0
     ? ""

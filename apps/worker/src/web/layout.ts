@@ -3,6 +3,7 @@ import { BUILD } from "../build-info";
 import { AWAIT_SCRIPT } from "./await";
 import { esc, since } from "./format";
 import { LIVE_SCRIPT } from "./live";
+import { TAB_SCRIPT } from "./tabs";
 
 const NAV = [
   { href: "/", label: "spreads", match: (p: string) => p === "/" },
@@ -258,6 +259,27 @@ input[type=checkbox]{accent-color:var(--accent)}
 .facts{display:flex;flex-wrap:wrap;gap:4px 24px;color:var(--muted);margin:0 0 14px}
 .facts b{font-weight:700;color:var(--ink)}
 .notes{margin-top:14px;color:var(--muted);max-width:100ch;line-height:1.5}
+/* Tab section header, ported from Morpheum's TabLayoutHeaderToolBar. The layout is the original's:
+   tabs left, actions right, one border under the whole row, and an absolute 1px indicator that the
+   script slides. Colours are airrates' own tokens rather than the other system's, so the control
+   reads as part of this terminal instead of a transplant from another one. */
+.tabbar{display:flex;justify-content:space-between;align-items:center;gap:16px;border-bottom:1px solid var(--rule);margin:14px 0 10px}
+.tabbar-tabs{position:relative;display:flex;gap:0;overflow-x:auto;scrollbar-width:none}
+.tabbar-tabs::-webkit-scrollbar{display:none}
+.btn-tab{display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 10px;border:0;border-bottom:1px solid transparent;background:transparent;font:700 12px/1.35 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);white-space:nowrap;transition:color .12s,background .12s}
+.btn-tab:hover{background:var(--band);color:var(--ink)}
+/* Underlined even before the script runs, so a reader with no JavaScript still sees which section
+   is which. .tabbar-tabs--js clears it the moment the sliding indicator takes over. */
+.btn-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tabbar-tabs--js .btn-tab.active{border-bottom-color:transparent}
+.tab-badge{font-weight:400;color:var(--warn)}
+.tab-underline{position:absolute;bottom:0;left:0;height:1px;background:var(--accent);pointer-events:none;opacity:0;transform:translateX(0);transition:transform .18s,width .18s,opacity .12s;will-change:transform,width}
+.tabbar-actions{display:flex;align-items:center;gap:12px;color:var(--muted);white-space:nowrap}
+.tab-label--short{display:none}
+[hidden]{display:none}
+/* The original's own fallback: no sliding, a static underline instead. */
+@media (prefers-reduced-motion:reduce){.tabbar-tabs--js .btn-tab.active{border-bottom-color:var(--accent)}.tab-underline{display:none}}
+@media (max-width:560px){.tab-label--full{display:none}.tab-label--short{display:inline}}
 footer{border-top:1px solid var(--rule);margin-top:24px;padding:8px 0 24px;color:var(--dim);line-height:1.6}
 footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 /* About page: the changelog reads as prose, so it gets a measure and some line height. */
@@ -310,13 +332,14 @@ export function layout(options: {
 </header>
 <main class="wrap">${body}</main>
 <footer><div class="wrap">
-<p class="sig"><span>read only · public venue APIs</span><span><a href="${MEMBER_URL}" target="_blank" rel="noopener">login</a> · <a href="/status">status</a> · <a href="/probe">geo-probe</a> · <a href="/about">about</a> · <a href="/referrals">referral links</a> · <a href="/legal">legal &amp; privacy</a></span><span>airrates</span></p>
+<p class="sig"><span>read only · public venue APIs</span><span><a href="${MEMBER_URL}" target="_blank" rel="noopener">login</a> · <a href="/status">status</a> · <a href="/probe">geo-probe</a> · <a href="/about">about</a> · <a href="/referrals">referral links</a> · <a href="/legal">legal &amp; privacy</a> · <a href="/tos">terms</a></span><span>airrates</span></p>
 <p>Funding rates come from each venue's public API and refresh every minute. They are estimates for each venue's next settlement and change before it. Spreads are before trading fees, slippage and price moves.</p>
 <p>Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.</p>
 </div></footer>
 <script>${SCRIPT}</script>
 <script>${LIVE_SCRIPT}</script>
 <script>${AWAIT_SCRIPT}</script>
+<script>${TAB_SCRIPT}</script>
 </body>
 </html>`;
 }

@@ -6,6 +6,7 @@ import { legal } from "../web/legal";
 import * as pages from "../web/pages";
 import { referralCta } from "../web/referral";
 import { referralLinks } from "../web/referral-links";
+import { tos } from "../web/tos";
 import { VENUE_BY_ID } from "../web/venues";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import { type Referral, requestGeo } from "./geo";
@@ -176,6 +177,10 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
 
     if (path === "/legal") {
       return page(legal({ overview: await deps.data.overview(), now }));
+    }
+
+    if (path === "/tos") {
+      return page(tos({ overview: await deps.data.overview(), now }));
     }
 
     if (path === "/referrals") {

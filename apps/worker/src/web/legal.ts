@@ -23,7 +23,7 @@ export function legal(data: { overview: Overview; now: number }): string {
     overview: data.overview,
     now: data.now,
     body: `<h1>Legal and privacy</h1>
-<p class="lede">Last updated ${UPDATED}.</p>
+<p class="lede">Last updated ${UPDATED}. The agreement for using the site is separate: see the <a href="/tos">Terms of service</a>.</p>
 <div class="about-log">
 <article id="disclaimer">
 <h2>Not advice</h2>
