@@ -89,7 +89,13 @@ describe("parseReferralLinks", () => {
           mexc: "not a url",
         }),
       ),
-    ).toEqual({ hyperliquid: { url: "https://app.hyperliquid.xyz/join/AIRRATES", code: null } });
+    ).toEqual({
+      hyperliquid: {
+        url: "https://app.hyperliquid.xyz/join/AIRRATES",
+        code: null,
+        audience: "public",
+      },
+    });
   });
 
   test("an entry may carry a code, and a malformed code is dropped while the link is kept", () => {
@@ -104,9 +110,29 @@ describe("parseReferralLinks", () => {
         }),
       ),
     ).toEqual({
-      hyperliquid: { url: "https://app.hyperliquid.xyz/join/AIRRATES", code: "AIRRATES" },
-      kucoin: { url: "https://www.kucoin.com/r/af/AIR", code: null },
+      hyperliquid: {
+        url: "https://app.hyperliquid.xyz/join/AIRRATES",
+        code: "AIRRATES",
+        audience: "public",
+      },
+      kucoin: { url: "https://www.kucoin.com/r/af/AIR", code: null, audience: "public" },
     });
+  });
+
+  test("an entry says who it is offered to, and anything we don't recognise is public", () => {
+    const links = parseReferralLinks(
+      JSON.stringify({
+        hyperliquid: { url: "https://app.hyperliquid.xyz/join/AIRRATES", audience: "member" },
+        kucoin: { url: "https://www.kucoin.com/r/af/AIR", audience: "platinum" },
+        // Saved before audiences existed: it was a public offer then, and stays one.
+        okx: { url: "https://www.okx.com/join/1" },
+        gate: "https://www.gate.com/ref/1",
+      }),
+    );
+    expect(links.hyperliquid?.audience).toBe("member");
+    expect(links.kucoin?.audience).toBe("public");
+    expect(links.okx?.audience).toBe("public");
+    expect(links.gate?.audience).toBe("public");
   });
 
   test("absent or malformed configuration means no links, never an exception", () => {
@@ -145,12 +171,17 @@ describe("globallyBlocked", () => {
 describe("referralCta", () => {
   const venue = { id: "hyperliquid", name: "Hyperliquid" };
   const url = "https://app.hyperliquid.xyz/join/AIRRATES";
-  const referral: Referral = { url, code: null };
+  const referral: Referral = { url, code: null, audience: "public" };
 
   test("renders nothing without a link or where it is not allowed", () => {
     expect(referralCta(venue, undefined, at("SG"))).toBe("");
     expect(referralCta(venue, referral, at("GB"))).toBe("");
     expect(referralCta(venue, referral, at(null))).toBe("");
+  });
+
+  test("an offer held back for members renders nothing on a public page", () => {
+    expect(referralCta(venue, { ...referral, audience: "member" }, at("SG"))).toBe("");
+    expect(referralCta(venue, { ...referral, audience: "vip" }, at("SG"))).toBe("");
   });
 
   test("where allowed, it is marked sponsored and disclosed beside the link", () => {
@@ -163,7 +194,7 @@ describe("referralCta", () => {
   });
 
   test("a code, when the venue has one, is shown beside the link", () => {
-    expect(referralCta(venue, { url, code: "AIRRATES" }, at("SG"))).toContain(
+    expect(referralCta(venue, { url, code: "AIRRATES", audience: "public" }, at("SG"))).toContain(
       "Code <code>AIRRATES</code>.",
     );
   });

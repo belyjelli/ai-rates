@@ -10,6 +10,8 @@
  *   - EEA visitors see a CTA only for a venue marked MiCA-authorised, and none is marked yet.
  */
 
+import { type Audience, DEFAULT_AUDIENCE, isAudience } from "../referrals/policy";
+
 export interface Geo {
   /** ISO 3166-1 alpha-2, or null when Cloudflare could not place the request. */
   country: string | null;
@@ -153,10 +155,14 @@ export function referralAllowed(
   return !matches(venue.restricted, geo);
 }
 
-/** One venue's referral: where to sign up, and the code to enter if the venue asks for one. */
+/**
+ * One venue's referral: where to sign up, the code to enter if the venue asks for one, and who it is
+ * offered to (see referrals/policy.ts).
+ */
 export interface Referral {
   url: string;
   code: string | null;
+  audience: Audience;
 }
 
 /** A referral code as venues issue them: letters, digits, dash and underscore. */
@@ -192,9 +198,9 @@ export function parseReferralLinks(raw: string | undefined): Readonly<Record<str
   for (const [venueId, value] of Object.entries(parsed)) {
     const entry =
       typeof value === "string"
-        ? { url: value, code: undefined }
+        ? { url: value, code: undefined, audience: undefined }
         : value !== null && typeof value === "object" && !Array.isArray(value)
-          ? (value as { url?: unknown; code?: unknown })
+          ? (value as { url?: unknown; code?: unknown; audience?: unknown })
           : null;
     if (!entry || typeof entry.url !== "string") continue;
     try {
@@ -206,7 +212,10 @@ export function parseReferralLinks(raw: string | undefined): Readonly<Record<str
       typeof entry.code === "string" && REFERRAL_CODE.test(entry.code.trim())
         ? entry.code.trim()
         : null;
-    links[venueId] = { url: entry.url, code };
+    // An entry saved before audiences existed, or with a name we no longer use, is a public offer:
+    // that is what it was when it was saved, and narrowing it silently would hide a live link.
+    const audience: Audience = isAudience(entry.audience) ? entry.audience : DEFAULT_AUDIENCE;
+    links[venueId] = { url: entry.url, code, audience };
   }
   return links;
 }

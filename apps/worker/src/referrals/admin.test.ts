@@ -104,8 +104,12 @@ describe("handleAdmin", () => {
     expect(html).toContain(`Signed in as ${USER}.`);
     expect(html).toContain('name="url:hyperliquid" value="https://app.hyperliquid.xyz/join/AIR"');
     expect(html).toContain('name="code:hyperliquid" value="AIR"');
-    // HIP-3 dexes share Hyperliquid's programme, so they get no row of their own.
-    expect(html).not.toContain("url:hl-xyz");
+    // A HIP-3 dex trades under Hyperliquid's terms but can carry its own link, so it gets a row.
+    expect(html).toContain('name="url:hl-xyz"');
+    // Every row offers the link to everyone until the owner narrows it.
+    expect(html).toContain('<select name="audience:hyperliquid">');
+    expect(html).toContain('<option value="public" selected>Everyone</option>');
+    expect(html).toContain('<option value="vip">VIP members only</option>');
     // Bybit has no recorded country rules, so the owner is told it will stay hidden.
     expect(html).toMatch(/Bybit<small>bybit<\/small><\/td>[\s\S]*?not recorded/);
     expect(html.indexOf("url:bybit")).toBeLessThan(html.indexOf("url:hyperliquid"));
@@ -143,8 +147,8 @@ describe("handleAdmin", () => {
 
     expect(res.status).toBe(200);
     expect(JSON.parse(saved.writes[0] as string)).toEqual({
-      hyperliquid: { url: "https://app.hyperliquid.xyz/join/AIR", code: "AIR" },
-      okx: { url: "https://www.okx.com/join/X" },
+      hyperliquid: { url: "https://app.hyperliquid.xyz/join/AIR", code: "AIR", audience: "public" },
+      okx: { url: "https://www.okx.com/join/X", audience: "public" },
     });
     expect(saved.forgotten()).toBe(1);
     expect(html).toContain("Saved 2 referral links.");
@@ -154,6 +158,29 @@ describe("handleAdmin", () => {
       "OKX: the code may only use letters, digits, - and _; saved the link without it.",
     );
     expect(html).toContain(`by ${USER}`);
+  });
+
+  test("who a link is offered to is saved, and comes back selected", async () => {
+    const saved = setup();
+    const res = (await handleAdmin(
+      post({
+        "url:hyperliquid": "https://app.hyperliquid.xyz/join/AIR",
+        "audience:hyperliquid": "member",
+        "url:okx": "https://www.okx.com/join/X",
+        // A tier this build does not know: the narrowest offer, never the widest.
+        "audience:okx": "diamond",
+      }),
+      saved.deps,
+    )) as Response;
+
+    expect(JSON.parse(saved.writes[0] as string)).toEqual({
+      hyperliquid: { url: "https://app.hyperliquid.xyz/join/AIR", audience: "member" },
+      okx: { url: "https://www.okx.com/join/X", audience: "vip" },
+    });
+    const html = await res.text();
+    expect(html).toContain(
+      '<select name="audience:hyperliquid"><option value="public">Everyone</option><option value="member" selected>Members only</option>',
+    );
   });
 
   test("other methods are refused", async () => {

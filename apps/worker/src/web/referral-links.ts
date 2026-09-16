@@ -1,6 +1,7 @@
 import { VENUES, type Venue } from "@ai-rates/venues";
 import type { Overview } from "../app/data";
-import { type Geo, globallyBlocked, type Referral, referralAllowed } from "../app/geo";
+import { type Geo, globallyBlocked, type Referral } from "../app/geo";
+import { referralsFor } from "../referrals/policy";
 import { esc } from "./format";
 import { layout } from "./layout";
 import { referralButton } from "./referral";
@@ -29,10 +30,16 @@ export function referralLinks(data: {
 }): string {
   const { overview, now, geo, links, venues = VENUES } = data;
 
+  // This page has no reader identity, so it shows public offers only; a members-only code is held
+  // back for member.airrates.net (referrals/policy.ts).
+  const publicLinks = Object.fromEntries(
+    Object.entries(links).filter(([, referral]) => referral.audience === "public"),
+  );
   const configured = venues
-    .filter((venue) => !venue.aliasOf && !venue.retired && links[venue.id])
+    .filter((venue) => !venue.aliasOf && !venue.retired && publicLinks[venue.id])
     .sort((a, b) => a.name.localeCompare(b.name, "en"));
-  const shown = configured.filter((venue) => referralAllowed(venue.id, geo));
+  const visible = referralsFor(publicLinks, "public", geo);
+  const shown = configured.filter((venue) => visible[venue.id]);
   const blockedHere = globallyBlocked(geo);
 
   const disclosure = `<p class="notes"><b>Disclosure.</b> airrates may earn a commission if you open an account through a link on this page, at no extra cost to you. Referral links never affect which markets appear or how they are ranked. A listing here is not a recommendation: check that an exchange serves where you live before signing up, and remember that perpetual futures are leveraged and can lose more than your margin. <a href="/legal#affiliate">How referral links work</a></p>`;
@@ -47,7 +54,7 @@ export function referralLinks(data: {
   } else {
     const rows = shown
       .map((venue) => {
-        const referral = links[venue.id] as Referral;
+        const referral = publicLinks[venue.id] as Referral;
         const code = referral.code
           ? `<code>${esc(referral.code)}</code>`
           : '<span class="dim" title="The link applies the referral itself">–</span>';

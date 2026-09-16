@@ -2,6 +2,7 @@ import { VENUES, type Venue } from "@ai-rates/venues";
 import { hasCtaRules, parseReferralLinks, REFERRAL_CODE } from "../app/geo";
 import { esc } from "../web/format";
 import { type AdminCredentials, askForCredentials, authorized } from "./auth";
+import { AUDIENCE_LABEL, AUDIENCES, type Audience, DEFAULT_AUDIENCE, isAudience } from "./policy";
 import type { ReferralStore, StoredReferrals } from "./types";
 
 export interface AdminDeps {
@@ -60,8 +61,10 @@ export async function handleAdmin(request: Request, deps: AdminDeps): Promise<Re
   }
   if (!(await authorized(request, deps.credentials))) return askForCredentials();
 
+  // Every venue that can be collected: CEXs, DEXs and HIP-3 dexes alike. A HIP-3 dex trades under
+  // Hyperliquid's terms but can carry its own link, so it gets its own row.
   const venues = (deps.venues ?? VENUES)
-    .filter((venue) => !venue.aliasOf && !venue.retired && venue.type !== "hip3")
+    .filter((venue) => !venue.aliasOf && !venue.retired)
     .sort((a, b) => a.name.localeCompare(b.name, "en"));
 
   if (request.method === "GET" || request.method === "HEAD") {
@@ -85,12 +88,23 @@ export async function handleAdmin(request: Request, deps: AdminDeps): Promise<Re
 export function readForm(
   data: FormData,
   venues: readonly Venue[],
-): { entries: Record<string, { url: string; code?: string }>; problems: string[] } {
-  const entries: Record<string, { url: string; code?: string }> = {};
+): {
+  entries: Record<string, { url: string; code?: string; audience: Audience }>;
+  problems: string[];
+} {
+  const entries: Record<string, { url: string; code?: string; audience: Audience }> = {};
   const problems: string[] = [];
   for (const venue of venues) {
     const link = String(data.get(`url:${venue.id}`) ?? "").trim();
     const code = String(data.get(`code:${venue.id}`) ?? "").trim();
+    const chosen = data.get(`audience:${venue.id}`);
+    // An unknown audience means a stale form or a hand-made post; the safe reading is the narrowest
+    // offer we know, not the widest.
+    const audience: Audience = isAudience(chosen)
+      ? chosen
+      : chosen === null
+        ? DEFAULT_AUDIENCE
+        : (AUDIENCES.at(-1) as Audience);
     if (!link) {
       if (code) problems.push(`${venue.name}: a code without a link was not saved.`);
       continue;
@@ -109,10 +123,10 @@ export function readForm(
       problems.push(
         `${venue.name}: the code may only use letters, digits, - and _; saved the link without it.`,
       );
-      entries[venue.id] = { url: link };
+      entries[venue.id] = { url: link, audience };
       continue;
     }
-    entries[venue.id] = code ? { url: link, code } : { url: link };
+    entries[venue.id] = code ? { url: link, code, audience } : { url: link, audience };
   }
   return { entries, problems };
 }
@@ -136,10 +150,16 @@ function form(data: {
       const rules = hasCtaRules(venue.id)
         ? '<span class="ok">recorded</span>'
         : '<span class="warn">not recorded: hidden on the site until added</span>';
+      const audience = link?.audience ?? DEFAULT_AUDIENCE;
+      const options = AUDIENCES.map(
+        (value) =>
+          `<option value="${value}"${value === audience ? " selected" : ""}>${esc(AUDIENCE_LABEL[value])}</option>`,
+      ).join("");
       return `<tr>
 <td>${esc(venue.name)}<small>${esc(venue.id)}</small></td>
 <td><input type="url" name="url:${esc(venue.id)}" value="${esc(link?.url ?? "")}" placeholder="https://" autocomplete="off"></td>
 <td><input type="text" name="code:${esc(venue.id)}" value="${esc(link?.code ?? "")}" maxlength="64" autocomplete="off"></td>
+<td><select name="audience:${esc(venue.id)}">${options}</select></td>
 <td>${rules}</td>
 </tr>`;
     })
@@ -171,7 +191,8 @@ h1{font-size:16px;margin:0 0 6px}p{margin:6px 0;max-width:100ch}a{color:#c8f5a8}
 th,td{border-bottom:1px solid #242424;padding:5px 8px;text-align:left;vertical-align:middle}
 th{color:#7a7a7a;font-weight:400}small{display:block;color:#494949}
 input{width:100%;box-sizing:border-box;background:#000;color:#d8d8d8;border:1px solid #333;padding:4px 6px;font:inherit}
-td:nth-child(2){min-width:320px}td:nth-child(3){min-width:140px}
+td:nth-child(2){min-width:320px}td:nth-child(3){min-width:140px}td:nth-child(4){min-width:150px}
+select{background:#000;color:#d8d8d8;border:1px solid #333;padding:4px 6px;font:inherit}
 button{margin-top:12px;padding:6px 16px;font:inherit;background:#c8f5a8;color:#000;border:0;cursor:pointer}
 </style>
 </head>
@@ -180,9 +201,10 @@ button{margin-top:12px;padding:6px 16px;font:inherit;background:#c8f5a8;color:#0
 <p>Signed in as ${esc(user)}. ${last}</p>
 ${banner}${issues}
 <p>Add the link, and the code if the exchange uses one, for each exchange you have a referral for. Leave a row empty to skip that exchange. The public <a href="/referrals">referral links page</a> shows a row only for exchanges with a link, and only to visitors whose country allows it.</p>
+<p><b>Offered to</b> decides who sees a link. <i>Everyone</i> shows it on the public page. <i>Members only</i> and <i>VIP members only</i> keep it off the public site and reserve it for member.airrates.net, which will ask for the audience each signed-in person may see.</p>
 <form method="post" action="/admin/referrals">
 <div class="wrap"><table>
-<thead><tr><th>Exchange</th><th>Referral link</th><th>Code (optional)</th><th>Country rules</th></tr></thead>
+<thead><tr><th>Exchange</th><th>Referral link</th><th>Code (optional)</th><th>Offered to</th><th>Country rules</th></tr></thead>
 <tbody>${rows}</tbody>
 </table></div>
 <button type="submit">Save</button>

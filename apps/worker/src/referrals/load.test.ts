@@ -35,7 +35,7 @@ describe("loadReferrals", () => {
       JSON.stringify({ hyperliquid: "https://app.hyperliquid.xyz/join/A" }),
     );
     expect(await loadReferrals(store, T0)).toEqual({
-      hyperliquid: { url: "https://app.hyperliquid.xyz/join/A", code: null },
+      hyperliquid: { url: "https://app.hyperliquid.xyz/join/A", code: null, audience: "public" },
     });
     await loadReferrals(store, T0 + REFERRALS_TTL_MS - 1);
     expect(calls.read).toBe(1);
