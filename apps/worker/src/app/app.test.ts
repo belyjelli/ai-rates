@@ -388,6 +388,24 @@ describe("pages", () => {
     expect(html).not.toContain("Good for about");
   });
 
+  test("the net column charges one taker fee per side and names the assumption", async () => {
+    const { data } = fakeData({ arbitrage: async () => [gap()] });
+    const html = await (await get("/arbitrage", data)).text();
+
+    // 269.64 quoted, less 5 bps on each of the two fills.
+    expect(html).toContain('<span data-u="net" class="gap-pos">259.6</span>');
+    expect(html).toContain("5 bps of taker fee on each side");
+    // fees.ts requires any net that leaves out the transfer to say so.
+    expect(html).toContain("The transfer is not in it.");
+  });
+
+  test("a gap thinner than the fees reads negative, not as a win", async () => {
+    const { data } = fakeData({ arbitrage: async () => [gap({ gap_bps: 4 })] });
+    const html = await (await get("/arbitrage", data)).text();
+
+    expect(html).toContain('<span data-u="net">−6.0</span>');
+  });
+
   test("/v1/arbitrage echoes the parsed params and their canonical query", async () => {
     const { data } = fakeData({ arbitrage: async () => [] });
     const res = await get("/v1/arbitrage?min_bps=25&min_depth=10k", data);
