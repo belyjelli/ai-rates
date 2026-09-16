@@ -1,5 +1,4 @@
 import postgres from "postgres";
-import { accessConfig } from "./app/access";
 import { handleApp } from "./app/app";
 import { createDataSource } from "./app/data";
 import { geoCacheBucket, requestGeo } from "./app/geo";
@@ -7,6 +6,7 @@ import { visitPoint } from "./app/visits";
 import { ProbeDO } from "./probe/probe-do";
 import { handleProbe } from "./probe/routes";
 import { handleAdmin } from "./referrals/admin";
+import { adminCredentials } from "./referrals/auth";
 import { forgetReferrals, loadReferrals } from "./referrals/load";
 import { ReferralStoreDO, referralStore } from "./referrals/store-do";
 
@@ -20,7 +20,11 @@ export default {
     // Before the page cache and the visit count: the admin form is private, never cached, never counted.
     const admin = await handleAdmin(request, {
       store: referralStore(env),
-      access: accessConfig(env.ACCESS_TEAM_DOMAIN, env.ACCESS_AUD),
+      credentials: adminCredentials(env.ADMIN_USER, env.ADMIN_PASSWORD),
+      // The same per-location limiter the backtest uses, under its own key: a password on a public
+      // URL needs guessing to be slow, and 20 attempts a minute per colo is not a guessing rate.
+      rateLimit: async (key: string) => (await env.BACKTEST_LIMITER.limit({ key })).success,
+      clientKey: request.headers.get("cf-connecting-ip") ?? "anonymous",
       onSaved: forgetReferrals,
     });
     if (admin) return admin;

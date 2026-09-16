@@ -1,14 +1,17 @@
 import { VENUES, type Venue } from "@ai-rates/venues";
-import { type AccessConfig, type AccessIdentity, verifyAccessToken } from "../app/access";
 import { hasCtaRules, parseReferralLinks, REFERRAL_CODE } from "../app/geo";
 import { esc } from "../web/format";
+import { type AdminCredentials, askForCredentials, authorized } from "./auth";
 import type { ReferralStore, StoredReferrals } from "./types";
 
 export interface AdminDeps {
   store: ReferralStore;
-  /** Null when ACCESS_TEAM_DOMAIN or ACCESS_AUD is unset: the admin area then refuses everything. */
-  access: AccessConfig | null;
-  verify?: (token: string | null, config: AccessConfig) => Promise<AccessIdentity | null>;
+  /** Null when ADMIN_USER or ADMIN_PASSWORD is unset or too weak: /admin then refuses everyone. */
+  credentials: AdminCredentials | null;
+  /** Throttles login attempts; resolves false when this client has made too many. */
+  rateLimit?: (key: string) => Promise<boolean>;
+  /** Identifies the client for that throttle, usually its IP address. */
+  clientKey?: string;
   /** Called after a save, so this instance's cached links are dropped. */
   onSaved?: () => void;
   venues?: readonly Venue[];
@@ -31,12 +34,12 @@ const text = (message: string, status: number) =>
 /**
  * /admin/referrals: the form the site owner fills in with each exchange's referral link and code.
  *
- * Three layers keep it private, and none trusts the others to exist:
- *   1. Cloudflare Access in front of /admin signs the owner in (configured in the dashboard);
- *   2. this handler verifies the Access token itself, so a hostname Access does not cover still
- *      refuses, and an unconfigured Worker refuses everyone;
- *   3. a POST must come from this site's own origin, so another site cannot submit the form through
- *      the owner's signed-in browser.
+ * A username and password on the Worker (see auth.ts), which is all a one-person admin page needs
+ * over HTTPS. Three things keep it honest:
+ *   1. no credentials configured means nobody gets in, rather than everybody;
+ *   2. attempts are rate-limited by the caller, so the password cannot be guessed at speed;
+ *   3. a POST must carry this site's Origin, so another site cannot submit the form through the
+ *      owner's browser while it holds the login.
  *
  * Standalone HTML, not the site layout: the layout's live refresh reloads pages when a new build
  * ships, which would throw away a half-typed form.
@@ -46,24 +49,23 @@ export async function handleAdmin(request: Request, deps: AdminDeps): Promise<Re
   if (url.pathname !== "/admin" && !url.pathname.startsWith("/admin/")) return null;
   if (url.pathname.replace(/\/+$/, "") !== "/admin/referrals") return text("Not found", 404);
 
-  if (!deps.access) {
+  if (!deps.credentials) {
     return text(
-      "The admin area is not configured. Put Cloudflare Access in front of /admin and set ACCESS_TEAM_DOMAIN and ACCESS_AUD on the Worker.",
+      "The admin area is not configured. Set ADMIN_USER and ADMIN_PASSWORD on the Worker; the password must be at least 12 characters.",
       503,
     );
   }
-  const identity = await (deps.verify ?? verifyAccessToken)(
-    request.headers.get("cf-access-jwt-assertion"),
-    deps.access,
-  );
-  if (!identity) return text("Forbidden", 403);
+  if (deps.rateLimit && !(await deps.rateLimit(`admin:${deps.clientKey ?? "anonymous"}`))) {
+    return text("Too many attempts. Wait a minute and try again.", 429);
+  }
+  if (!(await authorized(request, deps.credentials))) return askForCredentials();
 
   const venues = (deps.venues ?? VENUES)
     .filter((venue) => !venue.aliasOf && !venue.retired && venue.type !== "hip3")
     .sort((a, b) => a.name.localeCompare(b.name, "en"));
 
   if (request.method === "GET" || request.method === "HEAD") {
-    return page(form({ venues, record: await deps.store.read(), identity }));
+    return page(form({ venues, record: await deps.store.read(), user: deps.credentials.user }));
   }
 
   if (request.method === "POST") {
@@ -71,12 +73,9 @@ export async function handleAdmin(request: Request, deps: AdminDeps): Promise<Re
       return text("Forbidden: the form must be submitted from this site", 403);
     }
     const { entries, problems } = readForm(await request.formData(), venues);
-    const record = await deps.store.write(
-      JSON.stringify(entries),
-      identity.email ?? identity.subject,
-    );
+    const record = await deps.store.write(JSON.stringify(entries), deps.credentials.user);
     deps.onSaved?.();
-    return page(form({ venues, record, identity, saved: true, problems }));
+    return page(form({ venues, record, user: deps.credentials.user, saved: true, problems }));
   }
 
   return text("Method not allowed", 405);
@@ -125,11 +124,11 @@ function page(body: string): Response {
 function form(data: {
   venues: readonly Venue[];
   record: StoredReferrals | null;
-  identity: AccessIdentity;
+  user: string;
   saved?: boolean;
   problems?: readonly string[];
 }): string {
-  const { venues, record, identity, saved = false, problems = [] } = data;
+  const { venues, record, user, saved = false, problems = [] } = data;
   const links = parseReferralLinks(record?.json);
   const rows = venues
     .map((venue) => {
@@ -145,16 +144,16 @@ function form(data: {
 </tr>`;
     })
     .join("");
-  const who = esc(identity.email ?? identity.subject);
   const last = record
     ? `Last saved ${esc(new Date(record.updatedAt).toISOString().replace("T", " ").slice(0, 16))} UTC by ${esc(record.updatedBy)}.`
     : "Nothing saved yet.";
+  const count = Object.keys(links).length;
   const banner = saved
-    ? `<p class="saved">Saved ${Object.keys(links).length} referral ${Object.keys(links).length === 1 ? "link" : "links"}. The public page updates within a minute.</p>`
+    ? `<p class="saved">Saved ${count} referral ${count === 1 ? "link" : "links"}. The public page updates within a minute.</p>`
     : "";
   const issues =
     problems.length > 0
-      ? `<ul class="problems">${problems.map((p) => `<li>${esc(p)}</li>`).join("")}</ul>`
+      ? `<ul class="problems">${problems.map((problem) => `<li>${esc(problem)}</li>`).join("")}</ul>`
       : "";
 
   return `<!doctype html>
@@ -178,7 +177,7 @@ button{margin-top:12px;padding:6px 16px;font:inherit;background:#c8f5a8;color:#0
 </head>
 <body>
 <h1>Referral links</h1>
-<p>Signed in as ${who}. ${last}</p>
+<p>Signed in as ${esc(user)}. ${last}</p>
 ${banner}${issues}
 <p>Add the link, and the code if the exchange uses one, for each exchange you have a referral for. Leave a row empty to skip that exchange. The public <a href="/referrals">referral links page</a> shows a row only for exchanges with a link, and only to visitors whose country allows it.</p>
 <form method="post" action="/admin/referrals">
