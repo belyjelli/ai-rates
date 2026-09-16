@@ -1330,9 +1330,15 @@ describe("pages", () => {
       expect(res.status).toBe(200);
       return res.text();
     };
-    const links = { hyperliquid: { url, code: null } };
+    const links: Record<string, Referral> = {
+      hyperliquid: { url, code: null, audience: "public" },
+    };
 
     expect(await render(at("SG"))).not.toContain("Referral link:");
+    // A code reserved for the member area never reaches the open site.
+    expect(
+      await render(at("SG"), { hyperliquid: { url, code: null, audience: "member" } }),
+    ).not.toContain("Referral link:");
     // Unknown location, as outside Cloudflare, and a barred country: no CTA even with a link.
     expect(await render(at(), links)).not.toContain("Referral link:");
     expect(await render(at("GB"), links)).not.toContain("Referral link:");
@@ -1346,10 +1352,14 @@ describe("pages", () => {
   test("the referral links page shows only what the visitor's location allows, disclosed and sorted by name", async () => {
     const { data } = fakeData();
     const links: Record<string, Referral> = {
-      hyperliquid: { url: "https://app.hyperliquid.xyz/join/AIRRATES", code: "AIRRATES" },
-      kucoin: { url: "https://www.kucoin.com/r/af/AIR", code: null },
+      hyperliquid: {
+        url: "https://app.hyperliquid.xyz/join/AIRRATES",
+        code: "AIRRATES",
+        audience: "public",
+      },
+      kucoin: { url: "https://www.kucoin.com/r/af/AIR", code: null, audience: "public" },
       // No written restrictions for bybit, so it is never shown anywhere.
-      bybit: { url: "https://www.bybit.com/invite?ref=AIR", code: "AIR" },
+      bybit: { url: "https://www.bybit.com/invite?ref=AIR", code: "AIR", audience: "public" },
     };
     const at = (country?: string) => {
       const request = new Request("https://airates.test/referrals");
@@ -1383,6 +1393,14 @@ describe("pages", () => {
       thailand.indexOf('data-k="kucoin"'),
     );
     expect(thailand).toContain("1 more exchange's link is not available in your location.");
+
+    // A members-only offer is not a public row, and is not counted as one hidden by location either.
+    const members = await render(at("TH"), {
+      ...links,
+      kucoin: { ...(links.kucoin as Referral), audience: "member" },
+    });
+    expect(members).not.toContain("kucoin.com");
+    expect(members).toContain("1 more exchange's link is not available in your location.");
 
     expect(await (await get("/", data)).text()).toContain(
       '<a href="/referrals">referral links</a>',
