@@ -337,3 +337,60 @@ export function liquidationsToQuery(params: LiquidationParams): string {
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
 }
+
+/**
+ * Price-band width for one asset's liquidation grid, as a percentage of its mark.
+ *
+ * The reference this page's layout comes from carries the same control, and it needs one: assets
+ * disagree about what "near the price" means. Measured over 24 hours on 2026-09-17, the spread of
+ * liquidation fill prices ran from 2.88% (XAU) to 43.24% (ZEC) of the mark, so a single fixed band
+ * would give gold one populated row and Zcash a grid that runs off the page.
+ */
+export const LIQUIDATION_BANDS = [0.25, 0.5, 1, 2, 5] as const;
+export type LiquidationBand = (typeof LIQUIDATION_BANDS)[number];
+
+/**
+ * Bands either side of the mark before a row becomes a catch-all.
+ *
+ * Four each way plus the two tails is nine rows, which is the reference layout's own row count and
+ * about what fits beside a second panel. The tails are what keep the grid honest at any band width:
+ * ETH's widest fill in that window was 12.9% from the mark, and a grid that simply dropped it would
+ * be hiding the most interesting liquidation of the day.
+ */
+export const LIQUIDATION_BAND_REACH = 4;
+
+export interface LiquidationAssetParams {
+  window: LiquidationWindow;
+  /**
+   * Null means "fit it to this asset", which is the default.
+   *
+   * A fixed default cannot serve every asset: at 1% bands and four rows either way the grid spans
+   * 4% of the mark, which is right for ETH's quiet day and leaves gold's entire day in one row and
+   * Zcash's outside the tails. The data layer picks from the asset's own spread when this is null,
+   * and the page says which width it chose -- a reader who wants a different one clicks it.
+   */
+  band: LiquidationBand | null;
+}
+
+export function parseLiquidationAssetParams(params: URLSearchParams): LiquidationAssetParams {
+  const window = (params.get("window") ?? "").trim().toLowerCase();
+  const band = Number(params.get("band") ?? "");
+  return {
+    window: (LIQUIDATION_WINDOW_KEYS as readonly string[]).includes(window)
+      ? (window as LiquidationWindow)
+      : "24h",
+    // Exact match against the allowlist: the band becomes arithmetic inside the query, so an
+    // unrecognised one falls back to fitting rather than reaching it.
+    band: (LIQUIDATION_BANDS as readonly number[]).includes(band)
+      ? (band as LiquidationBand)
+      : null,
+  };
+}
+
+export function liquidationAssetToQuery(params: LiquidationAssetParams): string {
+  const query = new URLSearchParams();
+  if (params.window !== "24h") query.set("window", params.window);
+  if (params.band !== null) query.set("band", String(params.band));
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : "";
+}

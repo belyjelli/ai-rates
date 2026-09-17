@@ -6,6 +6,7 @@ import type {
   DailyFundingRow,
   DataSource,
   HeatmapCell,
+  LiquidationAssetMap,
   LiquidationMap,
   MarketRow,
   Overview,
@@ -116,6 +117,14 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     verifiedPairs: async () => [],
     bestVerifiedPair: async () => null,
     liquidationMap: async () => ({ cells: [], columnTotals: [], totals: [], assets: [] }),
+    liquidationAsset: async () => ({
+      asset_class: "crypto" as const,
+      mark: 2434.7,
+      band_pct: 1,
+      band_fitted: true,
+      cells: [],
+      totals: [],
+    }),
     ...overrides,
   };
   return { data, calls };
@@ -518,6 +527,117 @@ describe("pages", () => {
     // word because "12-hour buckets" CONTAINS "2-hour buckets" -- the first version of this
     // assertion failed on exactly that.
     expect(html).not.toContain("are 2-hour buckets");
+  });
+
+  /**
+   * The per-asset grid, where the row axis becomes the price a position died at. Its failure modes
+   * are different from the map's: a band that means the wrong dollars, a tail that silently drops
+   * the most interesting close of the day, or a mark line drawn in the wrong place.
+   */
+  const liqAsset = (overrides: Partial<LiquidationAssetMap> = {}): LiquidationAssetMap => ({
+    asset_class: "crypto",
+    mark: 2_400,
+    band_pct: 1,
+    band_fitted: false,
+    cells: [
+      {
+        venue_id: "gate",
+        band: 0,
+        bucket_start: new Date(NOW - 2 * 3_600_000),
+        notional_usd: 9_490_000,
+        events: 835,
+        long_usd: 7_974_000,
+        short_usd: 1_516_000,
+      },
+      {
+        venue_id: "okx",
+        band: 4,
+        bucket_start: new Date(NOW - 2 * 3_600_000),
+        notional_usd: 12_000,
+        events: 3,
+        long_usd: 0,
+        short_usd: 12_000,
+      },
+    ],
+    totals: [
+      {
+        venue_id: "gate",
+        notional_usd: 9_490_000,
+        events: 835,
+        long_usd: 7_974_000,
+        short_usd: 1_516_000,
+        markets: 1,
+      },
+      {
+        venue_id: "okx",
+        notional_usd: 12_000,
+        events: 3,
+        long_usd: 0,
+        short_usd: 12_000,
+        markets: 1,
+      },
+    ],
+    ...overrides,
+  });
+
+  test("an asset's grid puts the price it died at on the row axis", async () => {
+    const { data } = fakeData({ liquidationAsset: async () => liqAsset() });
+    const html = await (await get("/liquidations/ETH", data)).text();
+
+    // Bands are 1% of a 2,400 mark by default, so the band at the mark runs 2,400 to 2,424. No
+    // currency symbol: formatPrice never asserts one, because these markets settle in USDT, USDC
+    // and USD and the page does not know which.
+    expect(html).toContain("2,400 – 2,424");
+    expect(html).toContain("Banded from");
+    // Both venues get a panel, banded off the same anchor.
+    expect(html).toContain('data-live="lqa-gate"');
+    expect(html).toContain('data-live="lqa-okx"');
+  });
+
+  test("the outer rows are catch-alls, so a far-out liquidation is not dropped", async () => {
+    const { data } = fakeData({ liquidationAsset: async () => liqAsset() });
+    const html = await (await get("/liquidations/ETH", data)).text();
+
+    // The okx cell sits in band 4, the top catch-all: ">= 2,496" at 1% bands off 2,400.
+    expect(html).toContain("≥ 2,496");
+    expect(html).toContain("$12.0k");
+  });
+
+  test("the mark line marks the band the current price sits in", async () => {
+    const { data } = fakeData({ liquidationAsset: async () => liqAsset() });
+    const html = await (await get("/liquidations/ETH", data)).text();
+
+    expect(html).toContain('class="lq-mark"');
+  });
+
+  test("the band width changes what a row means", async () => {
+    // The width the DATA LAYER used is what the rows mean, so the fixture reports the one the query
+    // was run with -- the page never re-derives it from the query string.
+    const { data } = fakeData({ liquidationAsset: async () => liqAsset({ band_pct: 5 }) });
+    const html = await (await get("/liquidations/ETH?band=5", data)).text();
+
+    // At 5% off 2,400 the band at the mark runs to 2,520, not 2,424.
+    expect(html).toContain("2,400 – 2,520");
+    expect(html).not.toContain("2,400 – 2,424");
+  });
+
+  test("an asset with no mark says so rather than banding against a guess", async () => {
+    const { data } = fakeData({
+      liquidationAsset: async () => liqAsset({ mark: null, cells: [], totals: [] }),
+    });
+    const html = await (await get("/liquidations/ETH", data)).text();
+
+    expect(html).toContain("no price to band liquidations against");
+  });
+
+  test("an asset with no live market at all is a 404, not an empty grid", async () => {
+    const { data } = fakeData({
+      liquidationAsset: async () =>
+        liqAsset({ asset_class: null, mark: null, cells: [], totals: [] }),
+    });
+    const res = await get("/liquidations/NOTATHING", data);
+
+    expect(res.status).toBe(404);
   });
 
   test("a price gap shows the size it is good for, which is the thinner side", async () => {

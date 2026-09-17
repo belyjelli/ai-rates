@@ -471,6 +471,56 @@ export interface LiquidationMap {
   assets: { asset: string; asset_class: AssetClass; notional_usd: number }[];
 }
 
+/**
+ * One cell of a single asset's liquidation grid: what one venue closed, in one price band, in one
+ * time bucket.
+ *
+ * `band` is signed and counted in band-widths from the asset's mark: 0 is the band starting at the
+ * mark, -1 the one below it, and the extremes are catch-alls holding everything further out. The
+ * tails are not optional -- measured over 24 hours, ETH's widest liquidation filled 12.9% from the
+ * mark, and a grid that dropped it would be hiding the most interesting close of the day.
+ */
+export interface LiquidationAssetCell {
+  venue_id: string;
+  band: number;
+  bucket_start: Date;
+  notional_usd: number;
+  events: number;
+  long_usd: number;
+  short_usd: number;
+}
+
+export interface LiquidationAssetOptions {
+  base: string;
+  assetClass: AssetClass | null;
+  windowHours: number;
+  bucketHours: number;
+  /** Band width as a percentage of the mark, or null to fit it to the asset's own spread. */
+  bandPct: number | null;
+  /** The widths a fitted band may take, narrowest first. */
+  bandChoices: readonly number[];
+  /** Bands either side of the mark before a row becomes a catch-all. */
+  reach: number;
+}
+
+export interface LiquidationAssetMap {
+  /** The asset's own class, resolved the way every other asset page resolves it. */
+  asset_class: AssetClass | null;
+  /** The band width actually used, whether it was asked for or fitted. */
+  band_pct: number;
+  /** True when the width was fitted to this asset rather than chosen by the reader. */
+  band_fitted: boolean;
+  /**
+   * The price every band is measured from: the asset's deepest market by open interest, which is
+   * the same anchor the arbitrage guard and the identity checks use. One anchor for both panels,
+   * because rows that meant different prices on the left and the right would not be comparable --
+   * and comparing the two venues is the whole point.
+   */
+  mark: number | null;
+  cells: LiquidationAssetCell[];
+  totals: LiquidationTotals[];
+}
+
 export interface DataSource {
   overview(): Promise<Overview>;
   screener(filters: ScreenerFilters): Promise<ScreenerPair[]>;
@@ -518,6 +568,11 @@ export interface DataSource {
    * two-venue view and the page says so rather than implying the market's whole forced flow.
    */
   liquidationMap(options: LiquidationMapOptions): Promise<LiquidationMap>;
+  /**
+   * One asset's forced closes, by venue, by price band, by time bucket -- the drill-down from the
+   * map, and the only view here where the price a position died at is on an axis.
+   */
+  liquidationAsset(options: LiquidationAssetOptions): Promise<LiquidationAssetMap>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -1038,6 +1093,133 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         columnTotals: [...columnTotals],
         totals: [...totals],
         assets: [...ranked],
+      };
+    },
+
+    async liquidationAsset({
+      base,
+      assetClass,
+      windowHours,
+      bucketHours,
+      bandPct,
+      bandChoices,
+      reach,
+    }) {
+      const sql = connect();
+      const windowInterval = `${windowHours} hours`;
+      const bucketSeconds = bucketHours * 3600;
+
+      // The anchor: the asset's deepest live market by open interest, the same reference the
+      // arbitrage guard and the identity checks measure against. Both venue panels are banded off
+      // this one price, so a row means the same dollars on the left and on the right.
+      const [anchor] = await sql<
+        { asset_class: AssetClass; mark: number | null; reach_pct: number | null }[]
+      >`
+        WITH chosen AS (${chosenClass(sql, base, assetClass)}),
+        anchor AS (
+          SELECT mark_price::float8 AS mark FROM market_latest
+          WHERE base = ${base}
+            AND asset_class = (SELECT asset_class FROM chosen)
+            AND observed_at > now() - ${FRESH_INTERVAL}::interval
+            AND mark_price > 0
+          ORDER BY open_interest_usd DESC NULLS LAST, venue_id, venue_symbol
+          LIMIT 1
+        )
+        SELECT (SELECT asset_class FROM chosen) AS asset_class,
+               (SELECT mark FROM anchor) AS mark,
+               -- How far out the bulk of this asset's closes actually landed, as a percentage of the
+               -- mark. The 90th percentile rather than the maximum: one liquidation 13% away would
+               -- otherwise set the width for a day that happened inside 2%, which is the failure
+               -- this replaces. Used only when the reader has not picked a width.
+               (SELECT (percentile_cont(0.9) WITHIN GROUP (
+                          ORDER BY abs(l.fill_price / (SELECT mark FROM anchor) - 1)
+                        ) * 100)::float8
+                FROM liquidations l
+                JOIN market_latest m2
+                  ON m2.venue_id = l.venue_id AND m2.venue_symbol = l.venue_symbol
+                WHERE l.liquidated_at > now() - ${windowInterval}::interval
+                  AND l.fill_price > 0
+                  AND m2.base = ${base}
+                  AND m2.asset_class = (SELECT asset_class FROM chosen)
+                  AND (SELECT mark FROM anchor) > 0) AS reach_pct`;
+
+      const resolvedClass = anchor?.asset_class ?? null;
+      const mark = anchor?.mark ?? null;
+
+      // Fit the band so the rows either side of the mark hold the bulk of the closes, and the tails
+      // hold the rest. The narrowest width whose full reach covers the 90th percentile wins; if none
+      // does, the widest, and the tails absorb what is left.
+      const fitted =
+        bandPct === null
+          ? (bandChoices.find((choice) => choice * reach >= (anchor?.reach_pct ?? 0)) ??
+            bandChoices[bandChoices.length - 1])
+          : bandPct;
+      const band = fitted ?? 1;
+
+      if (resolvedClass === null || mark === null || !(mark > 0)) {
+        // No live market, or none publishing a mark: there is no price to band against, and a grid
+        // banded off a guess would put every liquidation in a row that means nothing.
+        return {
+          asset_class: resolvedClass,
+          mark,
+          band_pct: band,
+          band_fitted: bandPct === null,
+          cells: [],
+          totals: [],
+        };
+      }
+
+      const closes = sql`
+        SELECT l.venue_id, l.venue_symbol, l.side, l.notional_usd, l.fill_price, l.liquidated_at
+        FROM liquidations l
+        JOIN market_latest m ON m.venue_id = l.venue_id AND m.venue_symbol = l.venue_symbol
+        WHERE l.liquidated_at > now() - ${windowInterval}::interval
+          AND l.notional_usd IS NOT NULL
+          AND l.fill_price > 0
+          AND m.base = ${base}
+          AND m.asset_class = ${resolvedClass}`;
+
+      const [cells, totals] = await Promise.all([
+        sql<LiquidationAssetCell[]>`
+          WITH closes AS (${closes})
+          SELECT venue_id,
+                 -- Signed band index in band-widths from the mark, CLAMPED: the outer rows are
+                 -- catch-alls, which is what keeps one 12.9%-away liquidation from stretching the
+                 -- grid over rows nothing else occupies. Measured: linear bands over the raw
+                 -- min-to-max filled 3 rows of 12 for ETH.
+                 greatest(${-reach}, least(${reach},
+                   floor((fill_price / ${mark}::float8 - 1) * 100 / ${band}::float8)
+                 ))::int AS band,
+                 to_timestamp(floor(extract(epoch FROM liquidated_at) / ${bucketSeconds})
+                              * ${bucketSeconds}) AS bucket_start,
+                 sum(notional_usd)::float8 AS notional_usd,
+                 count(*)::int AS events,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'long'), 0)::float8 AS long_usd,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'short'), 0)::float8 AS short_usd
+          FROM closes
+          GROUP BY 1, 2, 3
+          ORDER BY venue_id, band DESC, bucket_start`,
+
+        sql<LiquidationTotals[]>`
+          WITH closes AS (${closes})
+          SELECT venue_id,
+                 sum(notional_usd)::float8 AS notional_usd,
+                 count(*)::int AS events,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'long'), 0)::float8 AS long_usd,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'short'), 0)::float8 AS short_usd,
+                 -- The venue's own markets in this asset, not a venue count: a venue can list the
+                 -- same asset as a USDT perp and a USDC one, and both die in this grid.
+                 count(DISTINCT venue_symbol)::int AS markets
+          FROM closes GROUP BY 1 ORDER BY 2 DESC NULLS LAST`,
+      ]);
+
+      return {
+        asset_class: resolvedClass,
+        mark,
+        band_pct: band,
+        band_fitted: bandPct === null,
+        cells: [...cells],
+        totals: [...totals],
       };
     },
 
