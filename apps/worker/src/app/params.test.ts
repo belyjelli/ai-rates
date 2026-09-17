@@ -8,17 +8,21 @@ import {
   DEFAULT_BACKTEST_SIZE_USD,
   DEFAULT_FILTERS,
   DEFAULT_HEATMAP_LIMIT,
+  DEFAULT_LIQUIDATION_ASSETS,
   DEFAULT_MIN_GAP_BPS,
   filtersToQuery,
   heatmapToQuery,
+  liquidationsToQuery,
   MAX_ARBITRAGE_LIMIT,
   MAX_BACKTEST_DAYS,
   MAX_BACKTEST_SIZE_USD,
   MAX_HEATMAP_LIMIT,
+  MAX_LIQUIDATION_ASSETS,
   MAX_TAKER_FEE_BPS,
   parseArbitrageParams,
   parseBacktestParams,
   parseHeatmapParams,
+  parseLiquidationParams,
   parseScreenerFilters,
   parseUsd,
 } from "./params";
@@ -290,5 +294,39 @@ describe("filtersToQuery", () => {
     const b = parseScreenerFilters(new URLSearchParams("min_oi=0&types=cex&types=hip3"));
     expect(filtersToQuery(a)).toBe("?min_oi=0&types=cex%2Chip3");
     expect(filtersToQuery(b)).toBe(filtersToQuery(a));
+  });
+});
+
+describe("parseLiquidationParams", () => {
+  test("defaults to 24 hours and clamps a nonsense row count instead of rejecting it", () => {
+    expect(parseLiquidationParams(new URLSearchParams(""))).toEqual({
+      window: "24h",
+      assets: DEFAULT_LIQUIDATION_ASSETS,
+    });
+    // Clamp, never reject: a bad query yields the default view, as every other parser here does.
+    expect(parseLiquidationParams(new URLSearchParams("assets=9999")).assets).toBe(
+      MAX_LIQUIDATION_ASSETS,
+    );
+    expect(parseLiquidationParams(new URLSearchParams("assets=0")).assets).toBe(1);
+    expect(parseLiquidationParams(new URLSearchParams("assets=banana")).assets).toBe(
+      DEFAULT_LIQUIDATION_ASSETS,
+    );
+  });
+
+  test("matches the window against the allowlist, because it picks an interval", () => {
+    expect(parseLiquidationParams(new URLSearchParams("window=7d")).window).toBe("7d");
+    expect(parseLiquidationParams(new URLSearchParams("window=7D")).window).toBe("7d");
+    // A window is interpolated into a SQL interval, so anything unrecognised falls back rather than
+    // reaching the query.
+    expect(parseLiquidationParams(new URLSearchParams("window=1 year'--")).window).toBe("24h");
+  });
+
+  test("round-trips through its own query string", () => {
+    expect(liquidationsToQuery(parseLiquidationParams(new URLSearchParams("")))).toBe("");
+    const params = parseLiquidationParams(new URLSearchParams("window=48h&assets=20"));
+    expect(liquidationsToQuery(params)).toBe("?window=48h&assets=20");
+    expect(parseLiquidationParams(new URLSearchParams(liquidationsToQuery(params)))).toEqual(
+      params,
+    );
   });
 });

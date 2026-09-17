@@ -6,6 +6,7 @@ import type {
   DailyFundingRow,
   DataSource,
   HeatmapCell,
+  LiquidationMap,
   MarketRow,
   Overview,
   PriceQuote,
@@ -114,6 +115,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     hourlyFunding: async () => [],
     verifiedPairs: async () => [],
     bestVerifiedPair: async () => null,
+    liquidationMap: async () => ({ cells: [], columnTotals: [], totals: [], assets: [] }),
     ...overrides,
   };
   return { data, calls };
@@ -360,6 +362,162 @@ describe("pages", () => {
     // refreshed continuously while the funding row behind it is refreshed once a cycle.
     oldest_quoted_at: new Date(NOW - 2_000),
     ...overrides,
+  });
+
+  /**
+   * The liquidation map. Every test below is a way the grid could lie: a zero that was really
+   * silence, a total that does not match its rows, a colour that says the wrong side was squeezed.
+   */
+  const liqMap = (overrides: Partial<LiquidationMap> = {}): LiquidationMap => {
+    const bucket = (hoursAgo: number) => new Date(NOW - hoursAgo * 3_600_000);
+    return {
+      assets: [
+        { asset: "ETH", asset_class: "crypto", notional_usd: 34_780_000 },
+        { asset: "SNDK", asset_class: "equity", notional_usd: 2_740_000 },
+      ],
+      cells: [
+        {
+          venue_id: "gate",
+          asset: "ETH",
+          asset_class: "crypto",
+          bucket_start: bucket(2),
+          notional_usd: 26_610_000,
+          events: 1_681,
+          long_usd: 26_000_000,
+          short_usd: 610_000,
+        },
+        {
+          venue_id: "okx",
+          asset: "SNDK",
+          asset_class: "equity",
+          bucket_start: bucket(2),
+          notional_usd: 2_130_000,
+          events: 395,
+          long_usd: 130_000,
+          short_usd: 2_000_000,
+        },
+      ],
+      columnTotals: [
+        {
+          venue_id: "gate",
+          bucket_start: bucket(2),
+          notional_usd: 30_000_000,
+          events: 2_000,
+          long_usd: 29_000_000,
+          short_usd: 1_000_000,
+        },
+      ],
+      totals: [
+        {
+          venue_id: "gate",
+          notional_usd: 39_760_000,
+          events: 8_701,
+          long_usd: 30_000_000,
+          short_usd: 9_760_000,
+          markets: 312,
+        },
+        {
+          venue_id: "okx",
+          notional_usd: 64_080_000,
+          events: 15_357,
+          long_usd: 30_000_000,
+          short_usd: 34_080_000,
+          markets: 412,
+        },
+      ],
+      ...overrides,
+    };
+  };
+
+  test("the liquidation map gives each venue its own panel, on shared rows", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    const html = await (await get("/liquidations", data)).text();
+
+    // The venue is the split, which is the whole point of the page: two panels, both named.
+    expect(html).toContain("Gate");
+    expect(html).toContain("OKX");
+    expect(html).toContain('data-live="lq-gate"');
+    expect(html).toContain('data-live="lq-okx"');
+    // Shared rows: the same asset appears in both panels even though only one venue liquidated it.
+    expect(html.split('data-live="lq-okx"')[1]).toContain("ETH");
+    // The money and the population, as the reference design pairs them.
+    expect(html).toContain("$26.6M");
+    expect(html).toContain("1,681");
+    expect(html).toContain("8,701 liquidations");
+  });
+
+  test("a long liquidation and a short liquidation are different colours", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    const html = await (await get("/liquidations", data)).text();
+
+    // ETH on gate closed mostly longs, SNDK on okx mostly shorts. Step 6 both: over $5M.
+    expect(html).toContain("lq-l6");
+    expect(html).toContain("lq-s6");
+  });
+
+  test("a quiet bucket renders as silence, never as a zero", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    const html = await (await get("/liquidations", data)).text();
+
+    // Nothing happening and $0 happening are different claims; the grid must not conflate them.
+    expect(html).toContain('class="num none"');
+    expect(html).not.toContain(">$0<");
+  });
+
+  test("the rows that did not fit are summed, so the venue total adds up", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    const html = await (await get("/liquidations", data)).text();
+
+    // gate's column total is $30M and its one visible row is $26.61M, so the tail is $3.39M.
+    expect(html).toContain("other markets");
+    expect(html).toContain("$3.4M");
+  });
+
+  test("a tradfi ticker keeps its class, so SNDK the stock is not SNDK the token", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    const html = await (await get("/liquidations", data)).text();
+
+    expect(html).toContain("SNDK");
+    expect(html).toContain('class="cls">equity');
+  });
+
+  test("the liquidation map escapes an asset that arrives as markup", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () =>
+        liqMap({
+          assets: [{ asset: "<script>", asset_class: "crypto", notional_usd: 1 }],
+          cells: [],
+          columnTotals: [],
+        }),
+    });
+    const html = await (await get("/liquidations", data)).text();
+
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).not.toContain("<script>alert");
+  });
+
+  test("a window with no liquidations says which venues even report them", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap({ totals: [], cells: [], columnTotals: [], assets: [] }),
+    });
+    const html = await (await get("/liquidations", data)).text();
+
+    expect(html).toContain("No liquidations recorded");
+    // The honest caveat: a quiet grid here is two venues being quiet, not the market.
+    expect(html).toContain("not a quiet market");
+    expect(html).not.toContain('<table class="heat lq">');
+  });
+
+  test("the window strip selects the interval and the page states the bucket width", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    const html = await (await get("/liquidations?window=7d", data)).text();
+
+    expect(html).toContain("are 12-hour buckets");
+    expect(html).toContain('href="/liquidations?window=7d"');
+    // A 7-day window must not still claim the 24-hour default's columns. Anchored on the preceding
+    // word because "12-hour buckets" CONTAINS "2-hour buckets" -- the first version of this
+    // assertion failed on exactly that.
+    expect(html).not.toContain("are 2-hour buckets");
   });
 
   test("a price gap shows the size it is good for, which is the thinner side", async () => {

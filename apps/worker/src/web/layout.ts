@@ -10,6 +10,7 @@ const NAV = [
   { href: "/screener", label: "screener", match: (p: string) => p === "/screener" },
   { href: "/rates", label: "rates", match: (p: string) => p === "/rates" },
   { href: "/arbitrage", label: "arbitrage", match: (p: string) => p === "/arbitrage" },
+  { href: "/liquidations", label: "liquidations", match: (p: string) => p === "/liquidations" },
   { href: "/markets", label: "exchanges", match: (p: string) => p.startsWith("/markets") },
 ];
 
@@ -29,6 +30,7 @@ const KEYS: [string, string, string][] = [
   ["s", "screener", "/screener"],
   ["r", "rates", "/rates"],
   ["a", "arbitrage", "/arbitrage"],
+  ["l", "liquidations", "/liquidations"],
   ["e", "exchanges", "/markets"],
 ];
 
@@ -156,6 +158,71 @@ table.heat{border-collapse:collapse;width:auto;min-width:100%}
 .heat td.hm-n1{background:rgba(95,135,255,.08)}.heat td.hm-n2{background:rgba(95,135,255,.16)}
 .heat td.hm-n3{background:rgba(95,135,255,.26)}.heat td.hm-n4{background:rgba(95,135,255,.38)}
 .heat td.hm-n5{background:rgba(95,135,255,.52)}
+/* Liquidation map. Two panels side by side, one per venue, on shared rows and shared columns --
+   the comparison is the page. They stack below 1100px rather than scrolling as one 24-column sheet,
+   because a grid you cannot see both halves of is a list. */
+.lq-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+@media (max-width:1100px){.lq-grid{grid-template-columns:1fr}}
+.lq-panel{min-width:0}
+.lq-venue{font-size:13px;margin:0 0 2px;font-weight:600}
+.lq-sum{color:var(--muted);margin:0 0 6px}
+.lq-sum b{color:var(--ink)}
+.lq-controls{display:flex;flex-wrap:wrap;gap:16px;align-items:baseline;margin-bottom:10px}
+.lq-legend{display:flex;flex-wrap:wrap;gap:10px;align-items:center;color:var(--muted)}
+.lq-legend-title{color:var(--dim)}
+.lq-key{display:inline-flex;align-items:center;gap:3px}
+.lq-key i{width:9px;height:9px;display:inline-block}
+.lq-hue{margin-left:6px}
+.lq-ink-l{color:var(--long)}
+.lq-ink-s{color:var(--short)}
+/* Separate borders, so a cell reads as a TILE rather than as part of a sheet. Collapsed borders made
+   the grid one continuous wash in which a $95k cell and a $1.7M cell beside it were hard to tell
+   apart at a glance, which is the one thing this page exists to do. */
+.heat.lq{border-collapse:separate;border-spacing:2px}
+.heat.lq td,.heat.lq th{border:0}
+/* Six steps, on a LOG scale: the measured cell range is $0 to $12.9M, so even steps would paint one
+   cell and leave the rest black. Hue is the side closed -- blue long, red short, the same tokens the
+   rest of the site uses -- and a cell that closed as much of each takes the neutral ink. The top two
+   steps carry dark text: at this saturation --ink on the fill is the pairing that fails contrast. */
+.heat.lq td.lq-l1{background:rgba(95,135,255,.10)}.heat.lq td.lq-l2{background:rgba(95,135,255,.20)}
+.heat.lq td.lq-l3{background:rgba(95,135,255,.34)}.heat.lq td.lq-l4{background:rgba(95,135,255,.5)}
+.heat.lq td.lq-l5{background:rgba(95,135,255,.72)}.heat.lq td.lq-l6{background:rgba(95,135,255,.95)}
+.heat.lq td.lq-s1{background:rgba(255,95,95,.10)}.heat.lq td.lq-s2{background:rgba(255,95,95,.20)}
+.heat.lq td.lq-s3{background:rgba(255,95,95,.34)}.heat.lq td.lq-s4{background:rgba(255,95,95,.5)}
+.heat.lq td.lq-s5{background:rgba(255,95,95,.72)}.heat.lq td.lq-s6{background:rgba(255,95,95,.95)}
+.heat.lq td.lq-b1,.heat.lq td.lq-b2,.heat.lq td.lq-b3{background:rgba(216,216,216,.12)}
+.heat.lq td.lq-b4,.heat.lq td.lq-b5{background:rgba(216,216,216,.26)}
+.heat.lq td.lq-b6{background:rgba(216,216,216,.42)}
+.heat.lq td.lq-l5,.heat.lq td.lq-l6,.heat.lq td.lq-s5,.heat.lq td.lq-s6{color:#0a0a0a}
+.heat.lq td.lq-l5 .lq-n,.heat.lq td.lq-l6 .lq-n,.heat.lq td.lq-s5 .lq-n,
+.heat.lq td.lq-s6 .lq-n{color:rgba(0,0,0,.62)}
+/* The row hover must not repaint the fill: on every other grid the hover IS the only colour, here it
+   would erase the reading. An outline says the same thing and keeps the cell's value visible. */
+.heat.lq tbody tr:hover td{background:inherit}
+.heat.lq tbody tr:hover td.lq-l1,.heat.lq tbody tr:hover td.lq-l2,.heat.lq tbody tr:hover td.lq-l3,
+.heat.lq tbody tr:hover td.lq-l4,.heat.lq tbody tr:hover td.lq-l5,.heat.lq tbody tr:hover td.lq-l6,
+.heat.lq tbody tr:hover td.lq-s1,.heat.lq tbody tr:hover td.lq-s2,.heat.lq tbody tr:hover td.lq-s3,
+.heat.lq tbody tr:hover td.lq-s4,.heat.lq tbody tr:hover td.lq-s5,.heat.lq tbody tr:hover td.lq-s6,
+.heat.lq tbody tr:hover td.lq-b1,.heat.lq tbody tr:hover td.lq-b2,.heat.lq tbody tr:hover td.lq-b3,
+.heat.lq tbody tr:hover td.lq-b4,.heat.lq tbody tr:hover td.lq-b5,.heat.lq tbody tr:hover td.lq-b6{
+box-shadow:inset 0 0 0 1px var(--ink)}
+.heat.lq tbody tr:hover th.asset{color:var(--accent)}
+.lq-legend i.lq-l1,.lq-legend i.lq-l2,.lq-legend i.lq-l3,.lq-legend i.lq-l4,.lq-legend i.lq-l5,
+.lq-legend i.lq-l6{background:rgba(95,135,255,.7)}
+.lq-legend i.lq-l1{opacity:.14}.lq-legend i.lq-l2{opacity:.28}.lq-legend i.lq-l3{opacity:.45}
+.lq-legend i.lq-l4{opacity:.62}.lq-legend i.lq-l5{opacity:.82}.lq-legend i.lq-l6{opacity:1}
+.lq-legend i.lq-s1,.lq-legend i.lq-s2,.lq-legend i.lq-s3,.lq-legend i.lq-s4,.lq-legend i.lq-s5,
+.lq-legend i.lq-s6{background:rgba(255,95,95,.7)}
+.lq-legend i.lq-s1{opacity:.14}.lq-legend i.lq-s2{opacity:.28}.lq-legend i.lq-s3{opacity:.45}
+.lq-legend i.lq-s4{opacity:.62}.lq-legend i.lq-s5{opacity:.82}.lq-legend i.lq-s6{opacity:1}
+/* The event count under the money, as the reference design carries its address count: the two
+   together are what separate one whale from four hundred small closes. */
+.heat.lq td{padding:2px 5px;line-height:1.15}
+.heat.lq .lq-n{display:block;color:var(--muted);font-size:10px}
+.heat.lq td.none .lq-n{display:none}
+.heat.lq th.lq-now{color:var(--warn)}
+.heat.lq tr.lq-other td,.heat.lq tr.lq-other th{color:var(--muted)}
+.heat.lq tr.lq-total td,.heat.lq tr.lq-total th{border-top:1px solid var(--rule);font-weight:600}
 .tf{display:flex;gap:2px;margin:0 0 8px;color:var(--muted)}
 .tf a{border:0;color:var(--muted);padding:0 6px}
 .tf a[aria-current]{background:var(--ink);color:var(--bg)}

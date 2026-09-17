@@ -3,6 +3,7 @@ import { VENUES } from "@ai-rates/venues";
 import { about } from "../web/about";
 import type { FundingHistory } from "../web/funding-chart";
 import { legal } from "../web/legal";
+import { liquidations } from "../web/liquidations";
 import * as pages from "../web/pages";
 import { referralCta } from "../web/referral";
 import { referralLinks } from "../web/referral-links";
@@ -17,10 +18,13 @@ import {
   filtersToQuery,
   HEATMAP_MIN_VENUES,
   heatmapToQuery,
+  LIQUIDATION_WINDOWS,
+  liquidationsToQuery,
   parseArbitrageParams,
   parseBacktestDays,
   parseBacktestParams,
   parseHeatmapParams,
+  parseLiquidationParams,
   parseScreenerFilters,
 } from "./params";
 
@@ -152,6 +156,16 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         deps.data.arbitrage(params),
       ]);
       return page(pages.arbitrage({ overview, rows, params, now }));
+    }
+
+    if (path === "/liquidations") {
+      const params = parseLiquidationParams(url.searchParams);
+      const { hours, bucketHours } = LIQUIDATION_WINDOWS[params.window];
+      const [overview, map] = await Promise.all([
+        deps.data.overview(),
+        deps.data.liquidationMap({ windowHours: hours, bucketHours, assets: params.assets }),
+      ]);
+      return page(liquidations({ overview, map, params, now }));
     }
 
     if (segments[0] === "price-pair" && (segments.length === 2 || segments.length === 3)) {
@@ -308,6 +322,24 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         deps.data.identityChecks().catch(() => null),
       ]);
       return json({ count: venues.length, venues, identity_checks: checks });
+    }
+
+    if (path === "/v1/liquidations") {
+      const params = parseLiquidationParams(url.searchParams);
+      const { hours, bucketHours } = LIQUIDATION_WINDOWS[params.window];
+      const map = await deps.data.liquidationMap({
+        windowHours: hours,
+        bucketHours,
+        assets: params.assets,
+      });
+      return json({
+        params,
+        query: liquidationsToQuery(params),
+        count: map.cells.length,
+        venues: map.totals,
+        assets: map.assets,
+        cells: map.cells,
+      });
     }
 
     if (path === "/v1/arbitrage") {
