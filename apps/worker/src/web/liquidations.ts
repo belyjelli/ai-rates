@@ -1,18 +1,21 @@
 import type { AssetClass } from "@ai-rates/core";
 import type { LiquidationAssetMap, LiquidationMap, Overview } from "../app/data";
 import {
+  DEFAULT_LIQUIDATION_ASSETS,
   LIQUIDATION_BAND_REACH,
   LIQUIDATION_BANDS,
   LIQUIDATION_WINDOW_KEYS,
   LIQUIDATION_WINDOWS,
   type LiquidationAssetParams,
+  type LiquidationBand,
   type LiquidationParams,
-  liquidationAssetToQuery,
+  type LiquidationWindow,
   liquidationsToQuery,
 } from "../app/params";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
 import { layout } from "./layout";
 import { assetKey, assetName } from "./pages";
+import { tabBar } from "./tabs";
 
 /** The address form every asset page uses: crypto unmarked, every other class in the path. */
 const assetPathFor = (asset: string, assetClass: AssetClass | null) =>
@@ -106,14 +109,61 @@ function columnLabel(column: Column, bucketHours: number): string {
   return `${day}${label}`;
 }
 
-/** The window strip, mirroring the rates page's timeframe control. */
-function windowStrip(params: LiquidationParams): string {
+/**
+ * Every control on the page builds its href through here.
+ *
+ * The window strip sits above the tabs and applies to both panels, the band strip lives inside the
+ * priced one, and the address carries the asset. Each control changes ONE of those and must preserve
+ * the rest: the first version had the window strip pointing at /liquidations, so changing the window
+ * while reading ETH's prices dropped both the asset and the band and bounced the reader to the map.
+ *
+ * The fragment is carried too, because the server picks the active tab from the address: without it,
+ * a band link from the priced tab of /liquidations (where no asset is named) would land back on the
+ * map, which is not where the reader was.
+ */
+function controlHref(
+  state: {
+    /** The asset the ADDRESS names, which is not always the one the priced tab is showing. */
+    addressed: string | null;
+    assetClass: AssetClass | null;
+    params: LiquidationParams;
+    assetParams: LiquidationAssetParams;
+  },
+  overrides: { window?: LiquidationWindow; band?: LiquidationBand | null } = {},
+  hash = "",
+): string {
+  // The ADDRESSED asset, never the primed one: /liquidations primes the busiest asset behind the
+  // second tab, and building the window links off that would send a reader changing the window on
+  // the map tab to /liquidations/ETH -- a different address, and a different active tab.
+  const base =
+    state.addressed === null
+      ? "/liquidations"
+      : `/liquidations/${assetPathFor(state.addressed, state.assetClass)}`;
+  const query = new URLSearchParams();
+  const window = overrides.window ?? state.params.window;
+  if (window !== "24h") query.set("window", window);
+  if (state.params.assets !== DEFAULT_LIQUIDATION_ASSETS) {
+    query.set("assets", String(state.params.assets));
+  }
+  const band = overrides.band === undefined ? state.assetParams.band : overrides.band;
+  if (band !== null) query.set("band", String(band));
+  const encoded = query.toString();
+  return `${base}${encoded ? `?${encoded}` : ""}${hash}`;
+}
+
+/** The window strip, mirroring the rates page's timeframe control. It governs both panels. */
+function windowStrip(state: {
+  addressed: string | null;
+  assetClass: AssetClass | null;
+  params: LiquidationParams;
+  assetParams: LiquidationAssetParams;
+}): string {
   const links = LIQUIDATION_WINDOW_KEYS.map((key) => {
-    const query = liquidationsToQuery({ ...params, window: key });
+    const href = controlHref(state, { window: key });
     const label = esc(key);
-    return key === params.window
-      ? `<a class="on" href="/liquidations${query}" aria-current="page">${label}</a>`
-      : `<a href="/liquidations${query}">${label}</a>`;
+    return key === state.params.window
+      ? `<a class="on" href="${esc(href)}" aria-current="page">${label}</a>`
+      : `<a href="${esc(href)}">${label}</a>`;
   }).join("");
   return `<nav class="tf" aria-label="Window">${links}</nav>`;
 }
@@ -131,13 +181,8 @@ function legend(): string {
 <span class="lq-key lq-hue"><i class="lq-s5"></i>shorts closed</span></div>`;
 }
 
-export function liquidations(data: {
-  overview: Overview;
-  map: LiquidationMap;
-  params: LiquidationParams;
-  now: number;
-}): string {
-  const { overview, map, params, now } = data;
+function mapPanel(data: { map: LiquidationMap; params: LiquidationParams; now: number }): string {
+  const { map, params, now } = data;
   const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
   const cols = columns(params, now);
   const query = liquidationsToQuery(params);
@@ -274,28 +319,13 @@ export function liquidations(data: {
     null,
   );
 
-  return layout({
-    title: "Liquidation map",
-    description:
-      "Forced closes by venue, asset and hour: where liquidations clustered, on which exchange, and in which direction.",
-    path: "/liquidations",
-    overview,
-    now,
-    body: `<h1>Liquidation map</h1>
-<p class="lede">Where positions were force-closed, by exchange. Colour is the side that was closed —
-<span class="lq-ink-l">blue for longs</span>, <span class="lq-ink-s">red for shorts</span> — and
-intensity is the money, on a log scale. Two venues publish a liquidation feed the collector reads,
-so this is gate and okx, not the whole market.</p>
-<div class="lq-controls">${windowStrip(params)}${legend()}</div>
-<p class="notes" data-live="lq-asof">Columns are ${bucketHours}-hour buckets in UTC, newest on the
-right; the last one is still filling. ${
-      newest ? `Newest liquidation ${esc(ageText(newest, now))}.` : ""
-    } Rows are the ${map.assets.length} busiest assets by notional across both venues, and the rest
-are summed into “other markets”, so the totals below the grid are the venue's real totals and add
-up. <a href="/v1/liquidations${esc(query)}">JSON</a>.</p>
-${body}
-<p class="notes">Updated ${since(overview.updated_at, now)}.</p>`,
-  });
+  return `<p class="notes" data-live="lq-asof">Columns are ${bucketHours}-hour buckets in UTC, newest
+on the right; the last one is still filling. ${
+    newest ? `Newest liquidation ${esc(ageText(newest, now))}.` : ""
+  } Rows are the ${map.assets.length} busiest assets by notional across both venues, and the rest are
+summed into “other markets”, so the totals below the grid are the venue's real totals and add up.
+Any row opens that asset at the price it died at. <a href="/v1/liquidations${esc(query)}">JSON</a>.</p>
+${body}`;
 }
 
 /**
@@ -317,14 +347,15 @@ ${body}
  * arbitrage guard already uses. Rows that meant different prices on the left and the right would
  * not be comparable, and comparing the venues is the point.
  */
-export function liquidationAsset(data: {
-  overview: Overview;
+function assetPanel(data: {
   asset: string;
   map: LiquidationAssetMap;
   params: LiquidationAssetParams;
+  /** Pre-rendered by the caller, the only place that knows the whole address and query. */
+  bandStrip: string;
   now: number;
 }): string {
-  const { overview, asset, map, params, now } = data;
+  const { asset, map, params, bandStrip, now } = data;
   const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
   const cols = columns({ window: params.window, assets: 0 }, now);
   const reach = LIQUIDATION_BAND_REACH;
@@ -410,29 +441,6 @@ export function liquidationAsset(data: {
   };
 
   const venues = map.totals.map((total) => total.venue_id);
-  const bandStrip = [
-    // "fit" is the default and is offered explicitly, so a reader who has clicked a width can get
-    // back to the one chosen from the data.
-    `<a${params.band === null ? ' class="on" aria-current="page"' : ""} href="/liquidations/${assetPathFor(
-      asset,
-      map.asset_class,
-    )}${liquidationAssetToQuery({ ...params, band: null })}">fit</a>`,
-    ...LIQUIDATION_BANDS.map((choice) => {
-      const query = liquidationAssetToQuery({ ...params, band: choice });
-      const href = `/liquidations/${assetPathFor(asset, map.asset_class)}${query}`;
-      return choice === params.band
-        ? `<a class="on" href="${href}" aria-current="page">${choice}%</a>`
-        : `<a href="${href}">${choice}%</a>`;
-    }),
-  ].join("");
-  const windowLinks = LIQUIDATION_WINDOW_KEYS.map((key) => {
-    const query = liquidationAssetToQuery({ ...params, window: key });
-    const href = `/liquidations/${assetPathFor(asset, map.asset_class)}${query}`;
-    return key === params.window
-      ? `<a class="on" href="${href}" aria-current="page">${esc(key)}</a>`
-      : `<a href="${href}">${esc(key)}</a>`;
-  }).join("");
-
   const body =
     mark === null
       ? `<p class="empty">No live market for ${label} is publishing a mark, so there is no price to band liquidations against.</p>`
@@ -442,28 +450,111 @@ export function liquidationAsset(data: {
           )}. Only gate and okx publish a feed the collector reads.</p>`
         : `<div class="lq-grid">${venues.map(panel).join("")}</div>`;
 
+  return `<p class="notes">Showing <b>${label}</b>, priced in bands of ${bandPct}% around the mark${
+    map.band_fitted ? ", fitted to where this asset's closes actually landed" : ""
+  }; the outer rows hold everything further out. ${
+    mark === null
+      ? ""
+      : `Banded from <b>${formatPrice(mark)}</b>, the deepest market's mark — the same anchor the
+arbitrage guard uses, so both venues share rows.`
+  }</p>
+<div class="lq-controls"><nav class="tf" aria-label="Band width">${bandStrip}</nav></div>
+${body}`;
+}
+
+/**
+ * /liquidations: both views of the same subject, behind one tab bar.
+ *
+ * They are one category and one page. The map answers "which asset, which hour, which venue" and
+ * the priced grid answers "at what level" for one of them -- the second is the first one's
+ * drill-down, not a separate destination, and splitting them across two addresses put the same
+ * subject in two places in the nav.
+ *
+ * BOTH PANELS SHIP IN EVERY RESPONSE, because that is how tabs.ts works: nothing is `hidden` in the
+ * served HTML and the script hides the inactive panel on load, so a reader without JavaScript sees
+ * both sections instead of one panel and a dead button. The cost is the asset query on every
+ * request, which is one asset over one window -- and in exchange the tab switch is instant and the
+ * hash keeps the choice without adding a second edge-cache key.
+ *
+ * WHICH ASSET the priced panel shows: the one in the address, or the busiest by notional when the
+ * address names none. `/liquidations` therefore opens on the map with the day's biggest asset
+ * already primed behind the second tab, and `/liquidations/ETH` opens on ETH's prices directly.
+ */
+export function liquidations(data: {
+  overview: Overview;
+  map: LiquidationMap;
+  /** The asset the priced tab shows: the addressed one, or the busiest when none was addressed. */
+  asset: string | null;
+  /** True when the ADDRESS named that asset, which is what every control link is built from. */
+  addressed: boolean;
+  assetMap: LiquidationAssetMap | null;
+  params: LiquidationParams;
+  assetParams: LiquidationAssetParams;
+  /** Which tab the server marks active. A hash in the URL still overrides it. */
+  active: "map" | "price";
+  now: number;
+}): string {
+  const { overview, map, asset, addressed, assetMap, params, assetParams, active, now } = data;
+  const state = {
+    addressed: addressed ? asset : null,
+    assetClass: assetMap?.asset_class ?? null,
+    params,
+    assetParams,
+  };
+
+  // "fit" is offered explicitly beside the widths, so a reader who has clicked one can get back to
+  // the width chosen from the asset's own data. Every link keeps the #price fragment, or following
+  // one from /liquidations would land back on the map tab.
+  const bandStrip = [
+    `<a${
+      assetParams.band === null ? ' class="on" aria-current="page"' : ""
+    } href="${esc(controlHref(state, { band: null }, "#price"))}">fit</a>`,
+    ...LIQUIDATION_BANDS.map((choice) => {
+      const href = esc(controlHref(state, { band: choice }, "#price"));
+      return choice === assetParams.band
+        ? `<a class="on" href="${href}" aria-current="page">${choice}%</a>`
+        : `<a href="${href}">${choice}%</a>`;
+    }),
+  ].join("");
+
+  const priced =
+    asset === null || assetMap === null
+      ? `<p class="empty">Nothing has been force-closed in this window, so there is no asset to price.</p>`
+      : assetPanel({ asset, map: assetMap, params: assetParams, bandStrip, now });
+
+  const totalEvents = map.totals.reduce((sum, venue) => sum + venue.events, 0);
+
   return layout({
-    title: `${asset} liquidations`,
-    description: `Where ${asset} positions were force-closed: the price they died at, by exchange and by hour.`,
+    title: "Liquidations",
+    description:
+      "Where positions were force-closed: by venue, asset and hour, and by the price level they died at.",
     path: "/liquidations",
     overview,
     now,
-    body: `<h1>${label} liquidations</h1>
-<p class="lede">The price each position died at, by exchange. Rows are bands of
-${bandPct}% around the mark${
-      map.band_fitted ? ", fitted to where this asset's closes actually landed" : ""
-    }, newest hours on the right; the outer rows hold everything further out. Colour is the side closed — <span class="lq-ink-l">blue for longs</span>,
-<span class="lq-ink-s">red for shorts</span>.</p>
-<div class="lq-controls"><nav class="tf" aria-label="Window">${windowLinks}</nav>
-<nav class="tf" aria-label="Band width">${bandStrip}</nav>
-${legend()}</div>
-<p class="notes">${
-      mark === null
-        ? ""
-        : `Banded from <b>${formatPrice(mark)}</b>, the deepest market's mark — the same anchor the
-arbitrage guard uses, so both panels share rows. `
-    }<a href="/liquidations">All assets →</a></p>
-${body}
+    body: `<h1>Liquidations</h1>
+<p class="lede">Where positions were force-closed, by exchange. Colour is the side that was closed —
+<span class="lq-ink-l">blue for longs</span>, <span class="lq-ink-s">red for shorts</span> — and
+intensity is the money, on a log scale. Two venues publish a liquidation feed the collector reads,
+so this is gate and okx, not the whole market.</p>
+<div class="lq-controls">${windowStrip(state)}${legend()}</div>
+${tabBar({
+  name: "liq",
+  tabs: [
+    { id: "map", label: "By asset and hour", shortLabel: "Assets", badge: totalEvents },
+    {
+      id: "price",
+      label: asset === null ? "By price level" : `${asset} price levels`,
+      shortLabel: "Prices",
+    },
+  ],
+  activeId: active,
+})}
+<div class="tabpanel" role="tabpanel" id="panel-liq-map" data-tab-panel="map" aria-labelledby="tab-liq-map">
+${mapPanel({ map, params, now })}
+</div>
+<div class="tabpanel" role="tabpanel" id="panel-liq-price" data-tab-panel="price" aria-labelledby="tab-liq-price">
+${priced}
+</div>
 <p class="notes">Updated ${since(overview.updated_at, now)}.</p>`,
   });
 }

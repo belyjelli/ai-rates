@@ -3,7 +3,7 @@ import { VENUES } from "@ai-rates/venues";
 import { about } from "../web/about";
 import type { FundingHistory } from "../web/funding-chart";
 import { legal } from "../web/legal";
-import { liquidationAsset, liquidations } from "../web/liquidations";
+import { liquidations } from "../web/liquidations";
 import * as pages from "../web/pages";
 import { referralCta } from "../web/referral";
 import { referralLinks } from "../web/referral-links";
@@ -161,42 +161,63 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(pages.arbitrage({ overview, rows, params, now }));
     }
 
-    if (path === "/liquidations") {
+    // One page, two tabs: the map and the priced grid are the same subject, and the address only
+    // decides which asset the second tab holds and which tab the server marks active.
+    if (
+      path === "/liquidations" ||
+      (segments[0] === "liquidations" && (segments.length === 2 || segments.length === 3))
+    ) {
+      const address = segments.length > 1 ? assetAddress(segments.slice(1)) : null;
+      const asked = segments.length > 1 ? (address?.asset ?? askedAsset(segments)) : null;
+      if (segments.length > 1 && !address) {
+        return page(pages.notFound(path, now, `${asked} is not an asset address.`), 404);
+      }
       const params = parseLiquidationParams(url.searchParams);
+      const assetParams = parseLiquidationAssetParams(url.searchParams);
       const { hours, bucketHours } = LIQUIDATION_WINDOWS[params.window];
       const [overview, map] = await Promise.all([
         deps.data.overview(),
         deps.data.liquidationMap({ windowHours: hours, bucketHours, assets: params.assets }),
       ]);
-      return page(liquidations({ overview, map, params, now }));
-    }
-
-    if (segments[0] === "liquidations" && (segments.length === 2 || segments.length === 3)) {
-      const address = assetAddress(segments.slice(1));
-      const asset = address?.asset ?? askedAsset(segments);
-      const params = parseLiquidationAssetParams(url.searchParams);
-      const { hours, bucketHours } = LIQUIDATION_WINDOWS[params.window];
-      const [overview, map] = await Promise.all([
-        deps.data.overview(),
-        address
-          ? deps.data.liquidationAsset({
-              base: address.asset,
-              assetClass: address.assetClass,
-              windowHours: hours,
-              bucketHours,
-              bandPct: params.band,
-              bandChoices: LIQUIDATION_BANDS,
-              reach: LIQUIDATION_BAND_REACH,
-            })
-          : null,
-      ]);
-      if (!map || map.asset_class === null) {
+      // With no asset in the address the priced tab shows the day's busiest, which is the row a
+      // reader would have clicked anyway. A second query, but the tab has to ship filled: tabs.ts
+      // renders every panel and hides the inactive one, so an empty panel would be a dead tab.
+      const busiest = map.assets[0];
+      const wanted: { asset: string; assetClass: AssetClass | null } | null = address
+        ? { asset: address.asset, assetClass: address.assetClass }
+        : busiest
+          ? { asset: busiest.asset, assetClass: busiest.asset_class }
+          : null;
+      const assetMap = wanted
+        ? await deps.data.liquidationAsset({
+            base: wanted.asset,
+            assetClass: wanted.assetClass,
+            windowHours: hours,
+            bucketHours,
+            bandPct: assetParams.band,
+            bandChoices: LIQUIDATION_BANDS,
+            reach: LIQUIDATION_BAND_REACH,
+          })
+        : null;
+      if (address && (!assetMap || assetMap.asset_class === null)) {
         return page(
-          pages.notFound(path, now, `No live market for ${asset}, so nothing to band against.`),
+          pages.notFound(path, now, `No live market for ${asked}, so nothing to band against.`),
           404,
         );
       }
-      return page(liquidationAsset({ overview, asset, map, params, now }));
+      return page(
+        liquidations({
+          overview,
+          map,
+          asset: wanted?.asset ?? null,
+          addressed: address !== null,
+          assetMap,
+          params,
+          assetParams,
+          active: address ? "price" : "map",
+          now,
+        }),
+      );
     }
 
     if (segments[0] === "price-pair" && (segments.length === 2 || segments.length === 3)) {
