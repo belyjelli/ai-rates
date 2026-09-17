@@ -244,7 +244,15 @@ export interface ArbitrageRow {
   sell_depth_usd: number | null;
   /** The smaller of the two sides, or null when either is unknown. The size the gap is good for. */
   thinner_depth_usd: number | null;
+  /** The older leg's funding-row age: when the mark, rate and open interest were last fetched. */
   oldest_observed_at: Date;
+  /**
+   * The older leg's QUOTE age: when the two prices above were last seen. Distinct from
+   * `oldest_observed_at` since migration 022, and the one a reader of these prices wants — a
+   * streamed leg is seconds old while its funding row is a minute old, and a leg whose funding poll
+   * has died can still be quoting live.
+   */
+  oldest_quoted_at: Date;
 }
 
 /**
@@ -268,7 +276,10 @@ export interface PriceQuote {
   /** The asset's anchor mark — its deepest market by open interest — which the gate measures against. */
   anchor_mark: number | null;
   mark_agrees: boolean;
+  /** When the funding row behind this quote was last fetched. Null `mark_price` means it is stale. */
   observed_at: Date;
+  /** When these two prices were last seen. The age the quote should be rendered with. */
+  quotes_at: Date;
 }
 
 export interface MarketRow {
@@ -604,10 +615,18 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       // It is inlined rather than a SQL function only because it reads different columns.
       const rows = await connect()<ArbitrageRow[]>`
         WITH candidates AS (
-          SELECT venue_id, venue_symbol, asset_class, base, mark_price, observed_at,
-                 best_bid, best_ask, best_bid_size_usd, best_ask_size_usd
+          SELECT venue_id, venue_symbol, asset_class, base, observed_at, quotes_at,
+                 best_bid, best_ask, best_bid_size_usd, best_ask_size_usd,
+                 -- The row now carries two ages (migration 022) and each column is gated by the one
+                 -- that describes it. A quote is admitted on quotes_at; the MARK it is guarded
+                 -- against is a funding-path value, so a row whose poll has died contributes no
+                 -- mark rather than an hours-old one. Null marks already agree by default -- the
+                 -- guard's own escape, since a missing mark is not evidence of a mismatch -- so a
+                 -- venue that is streaming while its poll is dead keeps quoting and stops gating,
+                 -- which is exactly the pair of behaviours this split exists to separate.
+                 CASE WHEN observed_at > now() - ${FRESH_INTERVAL}::interval THEN mark_price END AS mark_price
           FROM market_latest
-          WHERE observed_at > now() - ${FRESH_INTERVAL}::interval
+          WHERE quotes_at > now() - ${FRESH_INTERVAL}::interval
             AND best_bid > 0 AND best_ask > 0
         ),
         -- The anchor is the asset's deepest market by open interest, read from every fresh market
@@ -661,7 +680,13 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
               WHEN a.best_ask_size_usd IS NULL OR b.best_bid_size_usd IS NULL THEN NULL
               ELSE least(a.best_ask_size_usd, b.best_bid_size_usd)
             END AS thinner_depth_usd,
-            least(a.observed_at, b.observed_at) AS oldest_observed_at
+            least(a.observed_at, b.observed_at) AS oldest_observed_at,
+            -- The age of the PRICES in this row, which is not the age of the row. Both are carried
+            -- because after migration 022 they genuinely differ: a streamed leg quotes every few
+            -- milliseconds while its funding row is refreshed once a minute, and a leg whose poll
+            -- has died can still be quoting. The page reads this one, because these are the numbers
+            -- it prints.
+            least(a.quotes_at, b.quotes_at) AS oldest_quoted_at
           FROM cheapest a
           JOIN counts c ON c.asset_class = a.asset_class AND c.base = a.base
           JOIN richest b ON b.asset_class = a.asset_class AND b.base = a.base AND b.venue_id <> a.venue_id
@@ -687,12 +712,18 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       const rows = await connect()<PriceQuote[]>`
         WITH chosen AS (${chosenClass(connect(), base, assetClass)}),
         candidates AS (
-          SELECT venue_id, venue_symbol, asset_class, mark_price, observed_at,
-                 best_bid, best_ask, best_bid_size_usd, best_ask_size_usd
+          SELECT venue_id, venue_symbol, asset_class, observed_at, quotes_at,
+                 best_bid, best_ask, best_bid_size_usd, best_ask_size_usd,
+                 -- Same split as arbitrage(): the quote is admitted on quotes_at, and a mark whose
+                 -- funding poll has gone stale is withheld from the gate rather than used. Here the
+                 -- withheld mark is also VISIBLE as a null in the output, which is the point of a
+                 -- detail page -- "why is this exchange flagged" is answerable when the reason is
+                 -- on the row.
+                 CASE WHEN observed_at > now() - ${FRESH_INTERVAL}::interval THEN mark_price END AS mark_price
           FROM market_latest
           WHERE base = ${base}
             AND asset_class = (SELECT asset_class FROM chosen)
-            AND observed_at > now() - ${FRESH_INTERVAL}::interval
+            AND quotes_at > now() - ${FRESH_INTERVAL}::interval
             AND best_bid > 0 AND best_ask > 0
         ),
         -- Read from every fresh market for this asset, not only from the ones publishing a book:
@@ -708,7 +739,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           LIMIT 1
         )
         SELECT c.venue_id, c.venue_symbol, c.asset_class, c.best_bid, c.best_ask,
-               c.best_bid_size_usd, c.best_ask_size_usd, c.mark_price, c.observed_at,
+               c.best_bid_size_usd, c.best_ask_size_usd, c.mark_price, c.observed_at, c.quotes_at,
                a.anchor_mark,
                -- Unknown marks agree by default, matching the gate's own null escapes: a missing
                -- mark is not evidence of a mismatch, and excluding it would punish a venue for a

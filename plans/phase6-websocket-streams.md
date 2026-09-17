@@ -190,14 +190,20 @@ fresh in one sense and stale in the other, which is the truth and must render as
 > - **The migration backfills it**, `quotes_at = observed_at` wherever a bid or ask is already
 >   stored. Without it `/arbitrage` empties on deploy and refills only as each venue's next cycle
 >   lands — a self-healing outage is still an outage, and this one is avoidable in one statement.
-> - **Neither writer may overwrite a fresher quote with a staler one.** The REST upsert's existing
->   `WHERE EXCLUDED.observed_at >= market_latest.observed_at` does not protect the quote columns from
->   this: on a streamed venue a 60-second-old polled book would clobber a one-second-old streamed one
->   every cycle. So the four quote columns and `quotes_at` move together under
->   `EXCLUDED.observed_at >= coalesce(market_latest.quotes_at, '-infinity')`, and the feed's own
->   partial upsert gates on `quotes_at` the same way. This keeps the two writers ordered by *when the
->   quote was seen* without either one needing to know which venues the other covers — no
->   `STREAM_VENUES` coupling in SQL.
+> - **Neither writer may overwrite a fresher quote with a staler one.** Not because a polled book is
+>   stale — at the instant a poll lands it is exactly as current as the stream, and it should win —
+>   but because *arrival order is not observation order*. A cycle observed at t+60 can commit at
+>   t+66, after a streamed quote observed at t+65 has landed, and the row's own
+>   `WHERE EXCLUDED.observed_at >= market_latest.observed_at` cannot catch it: the stream never
+>   writes `observed_at`, so the cycle is genuinely the newer row and is admitted with a book that
+>   has gone backwards in time. So the four quote columns and `quotes_at` move together under
+>   `EXCLUDED.quotes_at >= coalesce(market_latest.quotes_at, '-infinity')`, and the feed's own write
+>   gates on `quotes_at` the same way — which also makes a reconnect's replayed snapshot a no-op.
+>   The two writers end up ordered by *when the book was seen*, with neither needing to know which
+>   venues the other covers: no `STREAM_VENUES` coupling in SQL.
+>
+>   *An earlier draft of this bullet, and the first test written against it, claimed the polled book
+>   was the stale one. The test failed, correctly, and the claim was wrong rather than the code.*
 
 ## 4. Health: let the flush be the run
 
@@ -275,9 +281,27 @@ backoff, reconnect and heartbeat in `internal/relay/client.go`, which is most of
   core to parse and 18% to service in Bun, and the collector container is idling at 2.57%. This was
   the slice that decides §2 and §6, and both are now decided — §2's starvation premise is withdrawn
   and §6 resolves to Go in-process, for a reason that has nothing to do with CPU.
-- **W1 — migration 022 + the quote-scoped writer**, with `arbitrage()` split across `observed_at`
-  and `quotes_at`. No socket yet; the writer is exercised by tests. Ships the schema change that
-  everything else needs, and is independently reviewable.
+- **W1 — migration 022 + the quote-scoped writer. Done, 2026-09-17.** `022_quotes_at.sql` (column,
+  backfill, no index, with the reasoning for each); `store.WriteQuotes` — a partial UPDATE of five
+  columns that never inserts, never touches `observed_at`, never writes `funding_snapshots`, and
+  reports what it could not write; the funding path stamping `quotes_at` where it carries a book;
+  and both queries split, with `arbitrage()` gaining `oldest_quoted_at` beside `oldest_observed_at`
+  so a row can state its two ages. **10 new store integration tests and 2 new worker integration
+  tests**, run against a throwaway PostgreSQL 14.19 carrying all 22 migrations — the 4 TimescaleDB-
+  only statements elided as `go-collector.md` §6 describes. No socket, as specified.
+
+  Three things W1 learned that the plan did not say:
+  - **A stale mark must be withheld, not inherited.** Gating candidates on `quotes_at` alone leaves
+    the *mark* the deviation guard compares against coming from a funding row that may be hours old.
+    So the candidate's mark is nulled when its `observed_at` is stale, and null marks already agree
+    by default — the guard's own escape, since a missing mark is not evidence of a mismatch. A venue
+    that is streaming while its poll is dead therefore keeps quoting and stops gating. The detail
+    page shows the withheld mark as a null with a reason, which is what a detail page is for.
+  - **Every fixture that writes a quote is now a fixture that must stamp `quotes_at`.** Six existing
+    worker tests failed until they did, which is the schema telling the truth: a row with a
+    `best_bid` and no `quotes_at` is one the collector can no longer produce.
+  - **The guard is about arrival order, not about polled books being stale.** Written up in §3; the
+    first test asserted the wrong thing and failed, and the claim was wrong rather than the code.
 - **W2 — one venue end to end.** Bybit, because it is the only venue with a documented hard limit,
   so the connection-sharding logic is written against a real constraint rather than a guess.
   Verification: a quote visible on `/arbitrage` with `quotes_at` newer than `observed_at`.

@@ -186,6 +186,21 @@ func (s *Store) upsertMarkets(ctx context.Context, tx pgx.Tx, venueID string, sn
 	return nil
 }
 
+// quoteIsNewer decides whether an incoming cycle's book may replace the stored one. It is repeated
+// across five assignments rather than computed once because ON CONFLICT DO UPDATE has nowhere to put
+// a shared expression, and spelling it out five times is better than five chances to spell it
+// differently.
+//
+// NULL semantics carry the two cases that matter. EXCLUDED.quotes_at is null when this cycle carried
+// no book at all: the comparison is then null, the CASE takes its ELSE branch, and the stored book
+// survives with the timestamp it already had. That is a deliberate change from the pre-Phase-6
+// behaviour, where a bookless cycle nulled the stored quote — a venue that drops its book for one
+// cycle no longer flaps the page, and the reader cannot be misled by the retained value because it
+// gates on quotes_at and a quote that stops being refreshed ages out of the gate on its own. The
+// other case is a row that has never held a quote, where market_latest.quotes_at is null and the
+// coalesce to -infinity lets the first book through.
+const quoteIsNewer = `EXCLUDED.quotes_at >= coalesce(market_latest.quotes_at, '-infinity'::timestamptz)`
+
 func (s *Store) upsertLatest(ctx context.Context, tx pgx.Tx, snaps []core.FundingSnapshot) error {
 	// basis_hours > 0 is required to derive an APR at all, and a market with none has nothing to
 	// say on the screener.
@@ -252,17 +267,37 @@ func (s *Store) upsertLatest(ctx context.Context, tx pgx.Tx, snaps []core.Fundin
 
 	// The observed_at guard keeps a slow cycle that lands out of order from overwriting a newer
 	// row with older numbers.
+	//
+	// The quote columns need a SECOND guard of their own, because from Phase 6 they have a second
+	// writer and the outer guard cannot see it. A cycle observed at t+60 can commit at t+66, after a
+	// streamed quote observed at t+65 has already landed: the cycle is genuinely newer by
+	// observed_at, so the outer guard admits it, and the older book then wins on arrival order. So
+	// the four quote columns and quotes_at move together, gated on the timestamp that describes
+	// THEM. Neither writer needs to know which venues the other covers -- they are ordered by when
+	// the book was seen, which is the only thing that actually matters.
+	//
+	// This is NOT a claim that a polled book is stale. At the instant a poll lands it is exactly as
+	// current as the stream, and it wins, as it should. What the guard refuses is time going
+	// backwards on a live row.
+	//
+	// quotes_at is stamped only where this cycle really carries a book. A venue that publishes none
+	// keeps null, as it keeps a null best_bid; 46 of the 56 venues never publish one.
 	const sql = `
 		INSERT INTO market_latest (
 			venue_id, venue_symbol, base, asset_class, quote, observed_at, rate, basis_hours, apr,
 			interval_hours, next_funding_at, kind, mark_price, index_price, open_interest_usd,
-			volume_24h_usd, best_bid, best_bid_size_usd, best_ask, best_ask_size_usd
+			volume_24h_usd, best_bid, best_bid_size_usd, best_ask, best_ask_size_usd, quotes_at
 		)
-		SELECT * FROM unnest(
+		SELECT *, CASE WHEN best_bid IS NOT NULL OR best_ask IS NOT NULL THEN observed_at END
+		FROM unnest(
 			$1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::timestamptz[],
 			$7::float8[], $8::float8[], $9::float8[], $10::float8[], $11::timestamptz[],
 			$12::text[], $13::float8[], $14::float8[], $15::float8[], $16::float8[], $17::float8[],
 			$18::float8[], $19::float8[], $20::float8[]
+		) AS t(
+			venue_id, venue_symbol, base, asset_class, quote, observed_at, rate, basis_hours, apr,
+			interval_hours, next_funding_at, kind, mark_price, index_price, open_interest_usd,
+			volume_24h_usd, best_bid, best_bid_size_usd, best_ask, best_ask_size_usd
 		)
 		ON CONFLICT (venue_id, venue_symbol) DO UPDATE SET
 			base = EXCLUDED.base,
@@ -279,10 +314,11 @@ func (s *Store) upsertLatest(ctx context.Context, tx pgx.Tx, snaps []core.Fundin
 			index_price = EXCLUDED.index_price,
 			open_interest_usd = EXCLUDED.open_interest_usd,
 			volume_24h_usd = EXCLUDED.volume_24h_usd,
-			best_bid = EXCLUDED.best_bid,
-			best_bid_size_usd = EXCLUDED.best_bid_size_usd,
-			best_ask = EXCLUDED.best_ask,
-			best_ask_size_usd = EXCLUDED.best_ask_size_usd
+			best_bid = CASE WHEN ` + quoteIsNewer + ` THEN EXCLUDED.best_bid ELSE market_latest.best_bid END,
+			best_bid_size_usd = CASE WHEN ` + quoteIsNewer + ` THEN EXCLUDED.best_bid_size_usd ELSE market_latest.best_bid_size_usd END,
+			best_ask = CASE WHEN ` + quoteIsNewer + ` THEN EXCLUDED.best_ask ELSE market_latest.best_ask END,
+			best_ask_size_usd = CASE WHEN ` + quoteIsNewer + ` THEN EXCLUDED.best_ask_size_usd ELSE market_latest.best_ask_size_usd END,
+			quotes_at = CASE WHEN ` + quoteIsNewer + ` THEN EXCLUDED.quotes_at ELSE market_latest.quotes_at END
 		WHERE EXCLUDED.observed_at >= market_latest.observed_at`
 
 	if _, err := tx.Exec(ctx, sql, venueIDs, symbols, bases, classes, quotes, observedAt, rates,

@@ -356,6 +356,9 @@ describe("pages", () => {
     sell_depth_usd: 220_004,
     thinner_depth_usd: 2_000,
     oldest_observed_at: new Date(NOW - 20_000),
+    // Newer than observed_at, which is the ordinary case once a feed is running: the book is
+    // refreshed continuously while the funding row behind it is refreshed once a cycle.
+    oldest_quoted_at: new Date(NOW - 2_000),
     ...overrides,
   });
 
