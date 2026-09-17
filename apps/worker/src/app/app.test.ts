@@ -444,9 +444,36 @@ describe("pages", () => {
     };
   };
 
-  test("the liquidation map gives each venue its own panel, on shared rows", async () => {
+  test("the liquidation map adds the feeds up by default, and names them", async () => {
     const { data } = fakeData({ liquidationMap: async () => liqMap() });
     const html = await (await get("/liquidations", data)).text();
+
+    // One grid, summed over the feeds: with the fleet past two venues, "what happened to this asset"
+    // is the question the page opens on. The per-venue panels are one click away.
+    expect(html).toContain('data-live="lq-all"');
+    expect(html).not.toContain('data-live="lq-gate"');
+    // The feeds' own totals, added: the fixture's $88.4M on gate and $15.5M on okx.
+    expect(html).toContain('data-live="lq-sum-all"><b>$104M</b>');
+    // The venues are named from the data, not written into the copy.
+    expect(html).toContain("This is Gate and OKX, the 2 venues whose liquidation feed");
+    expect(html).toContain('href="/liquidations?venue=each#map"');
+  });
+
+  test("one venue can be picked, and an unknown one falls back to the sum", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    const okx = await (await get("/liquidations?venue=okx", data)).text();
+    expect(okx).toContain('data-live="lq-okx"');
+    expect(okx).not.toContain('data-live="lq-gate"');
+    expect(okx).toContain('aria-current="page">okx<');
+
+    // A venue with no rows in this window is not an empty panel: it reads as the combined grid.
+    const gone = await (await get("/liquidations?venue=bybit", data)).text();
+    expect(gone).toContain('data-live="lq-all"');
+  });
+
+  test("the liquidation map gives each venue its own panel, on shared rows", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    const html = await (await get("/liquidations?venue=each", data)).text();
 
     // The venue is the split, which is the whole point of the page: two panels, both named.
     expect(html).toContain("Gate");
@@ -481,7 +508,7 @@ describe("pages", () => {
 
   test("the rows that did not fit are summed, so the venue total adds up", async () => {
     const { data } = fakeData({ liquidationMap: async () => liqMap() });
-    const html = await (await get("/liquidations", data)).text();
+    const html = await (await get("/liquidations?venue=each", data)).text();
 
     // gate's column total is $30M and its one visible row is $26.61M, so the tail is $3.39M.
     expect(html).toContain("other markets");
@@ -621,7 +648,7 @@ describe("pages", () => {
     const bar = html.indexOf('data-tabs="liq"');
     expect(bar).toBeGreaterThan(-1);
     expect(bar).toBeLessThan(html.indexOf('data-live="lq-asof"'));
-    expect(bar).toBeLessThan(html.indexOf('<tbody data-live="lq-gate"'));
+    expect(bar).toBeLessThan(html.indexOf('<tbody data-live="lq-all"'));
   });
 
   test("the address picks the tab: the map by default, prices when an asset is named", async () => {

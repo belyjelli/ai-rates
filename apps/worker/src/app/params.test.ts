@@ -302,7 +302,14 @@ describe("parseLiquidationParams", () => {
     expect(parseLiquidationParams(new URLSearchParams(""))).toEqual({
       window: "24h",
       assets: DEFAULT_LIQUIDATION_ASSETS,
+      venue: "all",
     });
+    // The venue is a page-side selector, never SQL, but it is still bounded to a venue-id shape.
+    expect(parseLiquidationParams(new URLSearchParams("venue=each")).venue).toBe("each");
+    expect(parseLiquidationParams(new URLSearchParams("venue=lighter-rh")).venue).toBe(
+      "lighter-rh",
+    );
+    expect(parseLiquidationParams(new URLSearchParams("venue=DROP TABLE")).venue).toBe("all");
     // Clamp, never reject: a bad query yields the default view, as every other parser here does.
     expect(parseLiquidationParams(new URLSearchParams("assets=9999")).assets).toBe(
       MAX_LIQUIDATION_ASSETS,

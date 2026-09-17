@@ -175,6 +175,12 @@ table.heat{border-collapse:collapse;width:auto;min-width:100%}
    the comparison is the page. They stack below 1100px rather than scrolling as one 24-column sheet,
    because a grid you cannot see both halves of is a list. */
 .lq-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+/* One panel takes the full width rather than half of a two-column grid: the combined view and a
+   single venue are one grid, and half a screen would scroll them for no reason. */
+.lq-grid-one{grid-template-columns:1fr}
+/* Three feeds or more wrap instead of shrinking past readable: each panel keeps a usable minimum. */
+@media (min-width:1101px){.lq-grid{grid-template-columns:repeat(auto-fit,minmax(520px,1fr))}}
+.tf-label{color:var(--dim);padding-right:4px}
 @media (max-width:1100px){.lq-grid{grid-template-columns:1fr}}
 .lq-panel{min-width:0}
 .lq-venue{font-size:13px;margin:0 0 2px;font-weight:600}

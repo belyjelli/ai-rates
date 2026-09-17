@@ -314,14 +314,28 @@ export const LIQUIDATION_WINDOW_KEYS = Object.keys(LIQUIDATION_WINDOWS) as Liqui
 export const DEFAULT_LIQUIDATION_ASSETS = 12;
 export const MAX_LIQUIDATION_ASSETS = 40;
 
+/**
+ * Which venues the map tab draws, as one control.
+ *
+ * "all" sums every venue into one grid and is the default: with two feeds the side-by-side panels
+ * were the point, but the liquidation fleet is growing past that, and "what happened to this asset"
+ * is the question a reader brings. "each" is the old side-by-side view, which answers the narrower
+ * and better question of whether two books broke in the same hour. Anything else is one venue's id.
+ */
+export const LIQUIDATION_VENUE_ALL = "all";
+export const LIQUIDATION_VENUE_EACH = "each";
+
 export interface LiquidationParams {
   window: LiquidationWindow;
   assets: number;
+  /** "all", "each", or a venue id. Never interpolated into SQL; the page matches it against data. */
+  venue: string;
 }
 
 export function parseLiquidationParams(params: URLSearchParams): LiquidationParams {
   const window = (params.get("window") ?? "").trim().toLowerCase();
   const assets = Number.parseInt(params.get("assets") ?? "", 10);
+  const venue = (params.get("venue") ?? LIQUIDATION_VENUE_ALL).trim().toLowerCase();
   return {
     // Exact match against the allowlist: the window decides an interval and a bucket width, so it is
     // never interpolated from what arrived in the query string.
@@ -331,6 +345,9 @@ export function parseLiquidationParams(params: URLSearchParams): LiquidationPara
     assets: Number.isFinite(assets)
       ? Math.min(Math.max(assets, 1), MAX_LIQUIDATION_ASSETS)
       : DEFAULT_LIQUIDATION_ASSETS,
+    // Venue ids are lowercase words with dashes (see packages/venues); anything else falls back to
+    // the combined view rather than being carried into the page as a selector nothing matches.
+    venue: /^[a-z0-9-]{1,24}$/.test(venue) ? venue : LIQUIDATION_VENUE_ALL,
   };
 }
 
@@ -339,6 +356,7 @@ export function liquidationsToQuery(params: LiquidationParams): string {
   const query = new URLSearchParams();
   if (params.window !== "24h") query.set("window", params.window);
   if (params.assets !== DEFAULT_LIQUIDATION_ASSETS) query.set("assets", String(params.assets));
+  if (params.venue !== LIQUIDATION_VENUE_ALL) query.set("venue", params.venue);
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
 }
