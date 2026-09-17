@@ -10,6 +10,7 @@ import {
 import { ageText, esc, formatPrice, formatUsd } from "./format";
 import { layout } from "./layout";
 import { assetKey, assetName } from "./pages";
+import { cvdText, SLOT_BAND, SLOT_CURSOR, SLOT_FORMAT, SLOT_SCRIPT, slotData } from "./slot-chart";
 import { venueName } from "./venues";
 
 /**
@@ -92,11 +93,6 @@ function niceCeil(value: number): number {
     if (value <= multiple * power) return multiple * power;
   }
   return 10 * power;
-}
-
-function when(ms: number): string {
-  const d = new Date(ms);
-  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 /**
@@ -189,20 +185,12 @@ function cvdChart(data: {
   const barWidth = Math.max(slot * 0.72, 1);
   const netBars = slots
     .map((s, i) => {
-      const hit = `<rect class="cvd-hit" x="${(i * slot).toFixed(2)}" y="0" width="${slot.toFixed(2)}" height="1000"></rect>`;
-      if (!s.bar) {
-        return `<g><title>${esc(`${when(s.start)} UTC · no flow recorded`)}</title>${hit}</g>`;
-      }
+      if (!s.bar) return "";
       const flow = net(s.bar);
+      if (flow === 0) return "";
       const h = (Math.abs(flow) / peak) * 500;
       const x = (i * slot + (slot - barWidth) / 2).toFixed(2);
-      const rect =
-        flow === 0
-          ? ""
-          : `<rect class="${flow > 0 ? "cvd-buy" : "cvd-sell"}" x="${x}" y="${(flow > 0 ? 500 - h : 500).toFixed(2)}" width="${barWidth.toFixed(2)}" height="${h.toFixed(2)}"></rect>`;
-      const partial = s.start === current ? " (still filling)" : "";
-      const title = `${when(s.start)} UTC${partial} · net ${signedUsd(flow)} (${formatUsd(s.bar.buy_usd)} bought, ${formatUsd(s.bar.sell_usd)} sold) · CVD ${signedUsd(s.cvd)}${s.price === null ? "" : ` · price ${formatPrice(s.price)}`}`;
-      return `<g class="${s.start === current ? "cvd-now" : ""}"><title>${esc(title)}</title>${hit}${rect}</g>`;
+      return `<rect class="${flow > 0 ? "cvd-buy" : "cvd-sell"}${s.start === current ? " cvd-now" : ""}" x="${x}" y="${(flow > 0 ? 500 - h : 500).toFixed(2)}" width="${barWidth.toFixed(2)}" height="${h.toFixed(2)}"></rect>`;
     })
     .join("");
 
@@ -215,23 +203,53 @@ function cvdChart(data: {
     const text = midnight
       ? `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`
       : `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+    // Every other label is marked so a phone can drop it: at 390px the plot is ~220px wide and six
+    // "HH:MM" labels ran into one string ("16:0020:00Sep 17").
     xLabels.push(
-      `<span class="cvd-x${midnight ? " cvd-day" : ""}" style="left:${(((ms - fromMs) / span) * 100).toFixed(2)}%">${text}</span>`,
+      `<span class="cvd-x${midnight ? " cvd-day" : ""}${xLabels.length % 2 ? " x-alt" : ""}" style="left:${(((ms - fromMs) / span) * 100).toFixed(2)}%">${text}</span>`,
     );
   }
 
   const total = running;
   const grain = barMinutes >= 60 ? `${barMinutes / 60}-hour` : `${barMinutes}-minute`;
 
+  // The readout before any hover is the whole window in the same words a bar is read in, so the line
+  // does not change shape under the pointer, and a reader without JavaScript still gets the sums.
+  const open = prices[0] ?? null;
+  const bought = slots.reduce((sum, s) => sum + (s.bar?.buy_usd ?? 0), 0);
+  const sold = slots.reduce((sum, s) => sum + (s.bar?.sell_usd ?? 0), 0);
+  const idle = cvdText(
+    `Last ${esc(params.window)}`,
+    [bought, sold, prices.at(-1) ?? null],
+    null,
+    open,
+    SLOT_FORMAT,
+  );
+  // Whole dollars are finer than any readout shows; the price keeps its own precision.
+  const payload = slotData({
+    kind: "cvd",
+    from: fromMs,
+    unit: bucketMs,
+    open,
+    slots: slots.map((s) =>
+      s.bar
+        ? [Math.round(s.bar.buy_usd), Math.round(s.bar.sell_usd), Math.round(s.cvd), s.price]
+        : null,
+    ),
+  });
+
   return `<figure class="fchart cvd-chart" data-live="cvd-chart">
-<div class="fchart-head"><p class="fchart-title">${label} · cumulative volume delta · ${grain} bars, UTC</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>Price</span><span><i class="cvd-key-cvd"></i>CVD <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span><span><i class="cvd-key-buy"></i>Net buy</span><span><i class="cvd-key-sell"></i>Net sell</span></div></div>
-<div class="fchart-plot cvd-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} price and cumulative volume delta over the last ${params.window}`)}">${grid}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${
+<div class="fchart-head"><p class="fchart-title">${label} · cumulative volume delta · ${grain} bars, UTC</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>Price</span><span><i class="cvd-key-cvd"></i>CVD <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span><span><i class="cvd-key-buy"></i>Net buy</span><span><i class="cvd-key-sell"></i>Net sell</span></div><p class="fchart-read slot-read" aria-live="polite">${idle} · hover or tap a bar to read it</p></div>
+<div class="slot-area" tabindex="0" role="group" aria-label="${esc(`${label.replace(/<[^>]+>/g, "")} bars; arrow keys read one at a time`)}">
+<div class="fchart-plot cvd-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} price and cumulative volume delta over the last ${params.window}`)}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${
     pricePath.length > 1
       ? `<polyline class="cvd-price" points="${pricePath.join(" ")}"></polyline>`
       : ""
-  }</svg>${leftLabels}${rightLabels}</div>
-<div class="fchart-plot cvd-strip"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} net taker flow per bar`)}"><line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line>${netBars}</svg><span class="cvd-yr" style="top:0%">${signedUsd(peak)}</span><span class="cvd-yr" style="top:100%">${signedUsd(-peak)}</span>${xLabels.join("")}</div>
-<p class="fchart-note">Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover a bar below for its figures.</p>
+  }${SLOT_CURSOR}</svg>${leftLabels}${rightLabels}</div>
+<div class="fchart-plot cvd-strip"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} net taker flow per bar`)}">${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line>${netBars}${SLOT_CURSOR}</svg><span class="cvd-yr" style="top:0%">${signedUsd(peak)}</span><span class="cvd-yr" style="top:100%">${signedUsd(-peak)}</span>${xLabels.join("")}</div>
+</div>
+<p class="fchart-note">Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover or tap either panel to read one bar in the line above the chart.</p>
+${payload}
 </figure>`;
 }
 
@@ -376,6 +394,7 @@ export function cvd(data: {
 <div class="lq-controls">${windowStrip}</div>
 ${tiles}
 <div id="cvd-chart" class="cvd-anchor">${chart}</div>
+<script>${SLOT_SCRIPT}</script>
 <div class="cvd-head"><h2 class="cvd-h2">CVD screener · net buying and selling by asset</h2>${search}</div>
 <p class="notes" data-live="cvd-asof">Click an asset to chart it above. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it, OKX five days and Bitget about two and a half hours, so the oldest bars of a new 7-day window sum fewer venues.${lag}</p>
 ${table}`,
