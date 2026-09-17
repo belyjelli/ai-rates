@@ -717,6 +717,35 @@ describe("pages", () => {
     expect(html).toContain("SOL longs vs shorts");
   });
 
+  test("the sides tab carries an asset picker that keeps the tab and the window", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const html = await (await get("/liquidations/ETH?window=48h", data)).text();
+    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+
+    // Every asset the map lists is offered, as a real address rather than a scripted control.
+    expect(sides).toContain('href="/liquidations/equity/SNDK?window=48h#sides"');
+    // The one being shown is marked, and the fragment keeps a reader on the tab they are reading --
+    // without it the server would pick the tab from the address and land them on the priced one.
+    expect(sides).toContain('aria-current="page"');
+    expect(sides).toContain("#sides");
+    // A tradfi ticker keeps its class in the picker, so SNDK the stock is not SNDK the token.
+    expect(sides).toContain('class="cls">equity');
+  });
+
+  test("the picker on the priced tab points back at the priced tab", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const html = await (await get("/liquidations/ETH", data)).text();
+    const price = html.split('data-tab-panel="price"')[1];
+
+    expect(price).toContain('href="/liquidations/equity/SNDK#price"');
+  });
+
   test("with no asset addressed, the window strip stays on the map's own address", async () => {
     const { data } = fakeData({
       liquidationMap: async () => liqMap(),
