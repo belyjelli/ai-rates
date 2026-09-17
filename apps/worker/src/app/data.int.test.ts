@@ -451,6 +451,11 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       best_ask: ask,
       best_bid_size_usd: bidSize,
       best_ask_size_usd: askSize,
+      // Migration 022: a row carrying a book carries the time its book was seen, and arbitrage()
+      // gates the quote columns on THAT rather than on observed_at. A fixture that fills best_bid
+      // and leaves quotes_at null is a row the collector cannot produce, and the query is right to
+      // ignore it.
+      quotes_at: new Date(),
     });
 
     beforeAll(async () => {
@@ -515,6 +520,66 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         offset: 0,
       });
       expect(floored.some((r) => r.asset === base5)).toBe(false);
+    });
+
+    // Migration 022 split the row's freshness in two, and these are the two halves of that split.
+    // Before it, the second of these tests could not be written at all: one timestamp cannot say
+    // that a book is live and the funding row behind it is not.
+    test("a venue whose funding poll died keeps quoting, with its mark withheld", async () => {
+      const base6 = `ITQ1${tag.toUpperCase()}`;
+      const stale = new Date(Date.now() - 30 * 60_000);
+      await admin`
+        INSERT INTO market_latest ${admin([
+          // A's funding row is half an hour old — dead, by the 5-minute window — but its feed is
+          // still delivering a book. Its mark must stop gating and its quote must keep counting.
+          {
+            ...quoted(venueA, `${base6}-A`, 100, 99.9, 100, 50_000, 20_000),
+            base: base6,
+            observed_at: stale,
+          },
+          { ...quoted(venueB, `${base6}-B`, 100, 100.5, 100.6, 80_000, 90_000), base: base6 },
+        ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
+
+      const [row] = (
+        await data.arbitrage({ minGapBps: 0, minDepthUsd: 0, limit: 50, offset: 0 })
+      ).filter((r) => r.asset === base6);
+      expect(row?.gap_bps).toBeCloseTo(50, 6);
+      expect(row?.buy_venue_id).toBe(venueA);
+      // The prices are current even though one leg's funding row is not, and the row says both.
+      expect(row?.oldest_quoted_at.getTime()).toBeGreaterThan(stale.getTime());
+      expect(row?.oldest_observed_at.getTime()).toBeCloseTo(stale.getTime(), -3);
+
+      const quotes = await data.priceQuotes(base6, "crypto");
+      const legA = quotes.find((q) => q.venue_id === venueA);
+      // Withheld, not stale: the page can say why rather than printing a half-hour-old mark.
+      expect(legA?.mark_price).toBeNull();
+      expect(legA?.mark_agrees).toBe(true);
+      expect(legA?.best_bid).toBeCloseTo(99.9, 6);
+    });
+
+    test("a fresh funding row does not keep a stale quote on the page", async () => {
+      const base7 = `ITQ2${tag.toUpperCase()}`;
+      const stale = new Date(Date.now() - 30 * 60_000);
+      await admin`
+        INSERT INTO market_latest ${admin([
+          // The mirror image: the poll is current, the book is half an hour old. Gating on
+          // observed_at alone would print these prices as if they were live.
+          {
+            ...quoted(venueA, `${base7}-A`, 100, 99.9, 100, 50_000, 20_000),
+            base: base7,
+            quotes_at: stale,
+          },
+          { ...quoted(venueB, `${base7}-B`, 100, 100.5, 100.6, 80_000, 90_000), base: base7 },
+        ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
+
+      const rows = (
+        await data.arbitrage({ minGapBps: 0, minDepthUsd: 0, limit: 50, offset: 0 })
+      ).filter((r) => r.asset === base7);
+      // One leg left, and a gap needs two: the asset drops out entirely rather than pairing a live
+      // quote against a stale one.
+      expect(rows).toEqual([]);
+      const quotes = await data.priceQuotes(base7, "crypto");
+      expect(quotes.map((q) => q.venue_id)).toEqual([venueB]);
     });
 
     test("the gap floor keeps only rows at or above it", async () => {
@@ -724,6 +789,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       best_ask: mark * 1.001,
       best_bid_size_usd: 10_000,
       best_ask_size_usd: 10_000,
+      quotes_at: new Date(),
     });
 
     beforeAll(async () => {

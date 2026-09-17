@@ -816,7 +816,7 @@ export function arbitrage(data: {
 ${side("buy", r.buy_venue_id, r.buy_symbol, r.buy_price, r.buy_depth_usd)}
 ${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_depth_usd)}
 <td class="num dim">${r.venue_count}</td>
-<td class="dim">${since(r.oldest_observed_at, now)}</td>
+<td class="dim" title="${esc(`Quotes seen ${since(r.oldest_quoted_at, now)}; the older leg's funding row fetched ${since(r.oldest_observed_at, now)}`)}">${since(r.oldest_quoted_at, now)}</td>
 </tr>`;
     })
     .join("");
@@ -938,8 +938,8 @@ export function pricePair(data: {
 <td class="num"><span data-u="ask">${formatPrice(q.best_ask)}</span>${q === lowestAsk ? ' <span class="dim">best</span>' : ""}</td>
 <td class="num">${formatUsd(q.best_ask_size_usd)}</td>
 <td class="num" title="This venue's own bid-ask spread, which a taker crosses on entry and again on exit">${formatGapBps(inVenueBps)}</td>
-<td class="num">${formatPrice(q.mark_price)}</td>
-<td class="dim">${since(q.observed_at, now)}</td>
+<td class="num"${q.mark_price === null ? ' title="This venue\'s funding row has not been refreshed within the freshness window, so its mark is withheld rather than shown stale — the quote beside it is live"' : ""}>${formatPrice(q.mark_price)}</td>
+<td class="dim" title="${esc(`Quote seen ${since(q.quotes_at, now)}; funding row fetched ${since(q.observed_at, now)}`)}">${since(q.quotes_at, now)}</td>
 </tr>`;
   };
 
