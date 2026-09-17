@@ -503,7 +503,10 @@ func (f *Feed) Flush(ctx context.Context) {
 		})
 	}
 	f.mu.Unlock()
-	lastErr := f.conn.err()
+	// health() rather than err(), for the reason EventFeed.Flush gives: a venue that keeps hanging
+	// up clears the error on every reconnect, and a feed stuck in that loop must not read as merely
+	// quiet. A quote feed would eventually go stale on zero quotes anyway; this names the cause.
+	lastErr := f.conn.health()
 
 	written := 0
 	var err error

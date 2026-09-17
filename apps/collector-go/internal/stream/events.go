@@ -353,9 +353,14 @@ func (f *EventFeed) flushLoop(ctx context.Context) {
 // A FLUSH WITH NOTHING TO WRITE IS STILL A RUN, and that is the opposite of Feed's rule. A quote
 // feed that goes silent is broken, so Feed lets it go stale. A liquidation feed that goes silent is
 // an ordinary calm market — the probe measured htx at one event every four minutes — so recording
-// the run keeps a healthy, connected, empty feed off /status's stale list. What still shows up is a
-// feed that cannot CONNECT: the connector's last fault rides out on the run's error, and an
-// erroring run is not counted as a success.
+// the run keeps a healthy, connected, empty feed off /status's stale list.
+//
+// THAT RULE HAD A HOLE, and htx fell through it in production on 2026-09-18: the venue hung up every
+// ~30 seconds, each reconnect cleared the error, and /status showed a healthy feed that had never
+// delivered a row. So what is reported is connector.health() rather than its last error — a feed
+// that keeps LOSING connections is reported as faulty even while it is between them, because
+// "connected, delivering nothing" and "reconnecting forever, delivering nothing" are not the same
+// thing and must not look the same.
 func (f *EventFeed) Flush(ctx context.Context) {
 	startedAt := f.opts.Now()
 
@@ -417,7 +422,9 @@ func (f *EventFeed) Flush(ctx context.Context) {
 	}
 	reported := err
 	if reported == nil {
-		reported = f.conn.err()
+		// health(), not err(): a feed the venue keeps hanging up on clears lastErr on every
+		// reconnect and would otherwise look like a calm market. See connector.health.
+		reported = f.conn.health()
 	}
 	f.opts.OnFlush(collector.Run{
 		VenueID:   f.VenueID(),

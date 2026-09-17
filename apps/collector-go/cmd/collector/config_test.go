@@ -112,10 +112,16 @@ func TestConfigDefaultsLiquidationVenuesToTheProvenSet(t *testing.T) {
 	if len(cfg.liquidationVenues) == 0 {
 		t.Fatal("liquidation venues should default to the measured set, not to empty")
 	}
-	for _, want := range []string{"binance", "bybit", "okx", "htx", "dydx", "aster"} {
+	for _, want := range []string{"binance", "bybit", "okx", "htx", "aster"} {
 		if !contains(cfg.liquidationVenues, want) {
 			t.Errorf("default set is missing %q, which was proven to publish on 2026-09-18", want)
 		}
+	}
+	// dydx is NOT a socket feed: it is polled by the ordinary liquidation sweep instead, because its
+	// WebSocket caps subscriptions at 32 per connection and pushed nothing live in 24 minutes.
+	// TestSideLoopsAttachToTheSameVenuesAsTypeScript is what guards that it still runs at all.
+	if contains(cfg.liquidationVenues, "dydx") {
+		t.Error("dydx must be polled, not streamed")
 	}
 	// Gate's socket works but gate is ingested over REST, and the two paths would not agree on a
 	// primary key — see "WHY GATE IS NOT HERE" in internal/stream/events.go.

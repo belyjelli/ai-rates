@@ -79,19 +79,32 @@ func (*BinanceLiquidations) Frames([]string) [][]byte { return nil }
 
 func (*BinanceLiquidations) FramePause() time.Duration { return 0 }
 
-// Ping is nil. Binance sends a protocol-level ping every few minutes and the WebSocket library
-// answers it automatically; there is no application-level keepalive to send.
+// Ping asks the venue to list our subscriptions, purely so that it ANSWERS.
 //
-// ONE CONSEQUENCE WORTH KNOWING. A protocol-level ping is handled inside the library and never
-// surfaces as a read, so unlike okx, bybit, dydx and htx — whose pongs and heartbeats arrive as
-// ordinary messages and keep resetting the clock — this connection's read timeout is satisfied only
-// by actual liquidations. The 20-minute probe measured 54 of them (2.7/min), comfortably inside the
-// 15-minute defaultEventReadTimeout, so in practice the connection never idles out; if the venue
-// ever did fall silent for that long the feed would simply cycle and resubscribe, which costs a
-// reconnect and nothing else.
-func (*BinanceLiquidations) Ping() []byte { return nil }
+// WHY NOT nil, which is what this was. Binance sends a protocol-level ping every few minutes and the
+// WebSocket library answers it inside itself, so it never surfaces as a read. Every other venue here
+// hands us a pong or a heartbeat as an ordinary message, which keeps resetting the read deadline;
+// this family gave us nothing but liquidations. That is survivable on binance, which produced 2.7
+// events a minute when measured, and NOT survivable on aster, which produced 2 events in 24 minutes
+// — it would trip the 15-minute read timeout in any ordinary quiet spell, reconnect, and trip it
+// again, which the churn rule in connector.health would then quite rightly report as a broken feed.
+// A feed that is working perfectly must not look broken because the market is calm.
+//
+// LIST_SUBSCRIPTIONS is the cheapest control message that produces a reply, and the reply is the
+// whole point. Verified live on both hosts, 2026-09-18:
+//
+//	-> {"method":"LIST_SUBSCRIPTIONS","id":1}
+//	<- {"result":["!forceOrder@arr"],"id":1}
+//
+// DecodeEvents ignores it, because it carries no "e":"forceOrder". Binance allows five incoming
+// control messages a second; one every three minutes is not a rate-limit concern.
+func (*BinanceLiquidations) Ping() []byte {
+	return []byte(`{"method":"LIST_SUBSCRIPTIONS","id":1}`)
+}
 
-func (*BinanceLiquidations) PingEvery() time.Duration { return 0 }
+// PingEvery is well inside the 15-minute read timeout, so several keepalives have to be missed
+// before the connection is judged dead.
+func (*BinanceLiquidations) PingEvery() time.Duration { return 3 * time.Minute }
 
 // binanceForceOrder is the !forceOrder@arr payload. Captured live 2026-09-18:
 //

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strconv"
 	"time"
 )
 
@@ -57,30 +56,58 @@ func (HTXLiquidations) Ping() []byte { return nil }
 
 func (HTXLiquidations) PingEvery() time.Duration { return 0 }
 
-// Respond answers htx's server-initiated ping, echoing its timestamp. Returns nil for every other
-// message, which is all of them.
+// Respond answers htx's server-initiated ping by echoing its timestamp back VERBATIM.
+//
+// THE TIMESTAMP IS ECHOED AS RAW JSON, NOT PARSED AND REFORMATTED, and that is the fix for a bug
+// that reached production on 2026-09-18. htx is INCONSISTENT about the type of `ts` between its own
+// message kinds, on one connection, seconds apart:
+//
+//	{"op":"sub","cid":"airates-liq","topic":"...","ts":1789676350590,"err-code":0}   <- number
+//	{"op":"ping","ts":"1789676355591"}                                               <- STRING
+//
+// Declaring ts as an int64 therefore made json.Unmarshal fail on every ping, Respond return nil, and
+// the pong never go out. htx sent five unanswered pings five seconds apart, then {"op":"close"} and
+// a close frame reading "Bye", at almost exactly 30 seconds — forever, on a feed that /health showed
+// as a healthy quiet venue. It was diagnosed by logging the inflated frames rather than by reading
+// the docs, which say ts is a number.
+//
+// Echoing the raw bytes sidesteps the question entirely: whatever shape htx used, it gets back. A
+// value that is neither a number nor a string is not echoed, so a malformed frame cannot be
+// reflected into the connection.
 func (HTXLiquidations) Respond(msg []byte) []byte {
 	body, err := gunzip(msg)
 	if err != nil {
 		return nil
 	}
 	var m struct {
-		Op string `json:"op"`
-		TS int64  `json:"ts"`
+		Op string          `json:"op"`
+		TS json.RawMessage `json:"ts"`
 		// The market endpoints use a bare {"ping": <ts>} instead of {"op":"ping"}; answering both
 		// costs one branch and means a change of endpoint cannot silently kill the connection.
-		Ping *int64 `json:"ping"`
+		Ping json.RawMessage `json:"ping"`
 	}
 	if err := json.Unmarshal(body, &m); err != nil {
 		return nil
 	}
-	if m.Op == "ping" {
-		return []byte(`{"op":"pong","ts":` + strconv.FormatInt(m.TS, 10) + `}`)
+	if m.Op == "ping" && isJSONScalar(m.TS) {
+		return append(append([]byte(`{"op":"pong","ts":`), m.TS...), '}')
 	}
-	if m.Ping != nil {
-		return []byte(`{"pong":` + strconv.FormatInt(*m.Ping, 10) + `}`)
+	if isJSONScalar(m.Ping) {
+		return append(append([]byte(`{"pong":`), m.Ping...), '}')
 	}
 	return nil
+}
+
+// isJSONScalar reports whether raw is a JSON number or string — the only two shapes htx has been
+// seen to use for a timestamp, and the only two safe to echo back into the connection.
+func isJSONScalar(raw json.RawMessage) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	if raw[0] == '"' {
+		return len(raw) >= 2 && raw[len(raw)-1] == '"'
+	}
+	return (raw[0] >= '0' && raw[0] <= '9') || raw[0] == '-'
 }
 
 // gunzip inflates one htx frame. Every frame htx sends is gzipped, including its acks and pings.
@@ -110,15 +137,19 @@ func gunzip(msg []byte) ([]byte, error) {
 // Note the three size fields and what each means: volume 500 is CONTRACTS, amount 5 is the base coin
 // (ETH-USDT is 0.01 ETH per contract, and 500 x 0.01 = 5), and trade_turnover 12,231.3 is already
 // USDT (5 x 2446.26 = 12231.3, reconciled exactly on this record).
+// Every number is json.RawMessage and goes through parseFloat, which reads a quoted and an unquoted
+// number alike. NOT defensive habit — htx demonstrably quotes some numbers and not others (see
+// Respond), and a decoder that assumes one shape here would fail exactly as the ping handler did,
+// only silently: the events would simply stop appearing.
 type htxLiquidation struct {
-	ContractCode  string  `json:"contract_code"`
-	Direction     string  `json:"direction"`
-	Offset        string  `json:"offset"`
-	Volume        float64 `json:"volume"`
-	Price         float64 `json:"price"`
-	CreatedAt     int64   `json:"created_at"`
-	Amount        float64 `json:"amount"`
-	TradeTurnover float64 `json:"trade_turnover"`
+	ContractCode  string          `json:"contract_code"`
+	Direction     string          `json:"direction"`
+	Offset        string          `json:"offset"`
+	Volume        json.RawMessage `json:"volume"`
+	Price         json.RawMessage `json:"price"`
+	CreatedAt     json.RawMessage `json:"created_at"`
+	Amount        json.RawMessage `json:"amount"`
+	TradeTurnover json.RawMessage `json:"trade_turnover"`
 }
 
 // DecodeEvents reads one liquidation notification.
@@ -164,7 +195,8 @@ func (HTXLiquidations) DecodeEvents(msg []byte, now time.Time) ([]LiquidationEve
 
 	events := make([]LiquidationEvent, 0, len(m.Data))
 	for _, row := range m.Data {
-		if row.ContractCode == "" || row.Volume <= 0 || row.Price <= 0 {
+		volume, price := parseFloat(row.Volume), parseFloat(row.Price)
+		if row.ContractCode == "" || volume == nil || *volume <= 0 || price == nil || *price <= 0 {
 			continue
 		}
 		var side string
@@ -177,15 +209,15 @@ func (HTXLiquidations) DecodeEvents(msg []byte, now time.Time) ([]LiquidationEve
 			continue
 		}
 		at := now
-		if row.CreatedAt > 0 {
-			at = time.UnixMilli(row.CreatedAt).UTC()
+		if ms := parseFloat(row.CreatedAt); ms != nil && *ms > 0 {
+			at = time.UnixMilli(int64(*ms)).UTC()
 		}
 		var notional *float64
-		if row.TradeTurnover > 0 {
-			turnover := row.TradeTurnover
-			notional = &turnover
-		} else if row.Amount > 0 {
-			usd := row.Amount * row.Price
+		if turnover := parseFloat(row.TradeTurnover); turnover != nil && *turnover > 0 {
+			usd := *turnover
+			notional = &usd
+		} else if amount := parseFloat(row.Amount); amount != nil && *amount > 0 {
+			usd := *amount * *price
 			notional = &usd
 		}
 		events = append(events, LiquidationEvent{
@@ -195,8 +227,8 @@ func (HTXLiquidations) DecodeEvents(msg []byte, now time.Time) ([]LiquidationEve
 			// The venue's own contract count, kept raw exactly as migration 012 asks: the notional
 			// beside it came from trade_turnover, so a later question about the multiplier is still
 			// answerable from what was stored.
-			SizeContracts: row.Volume,
-			FillPrice:     row.Price,
+			SizeContracts: *volume,
+			FillPrice:     *price,
 			NotionalUSD:   notional,
 		})
 	}

@@ -79,9 +79,22 @@ type connector struct {
 	// connection: a venue rejecting one subscription is still delivering the others.
 	handle func(msg []byte, now time.Time) error
 
-	// mu guards lastErr only. Feed and EventFeed each keep their own lock over their own buffer.
+	// mu guards everything below. Feed and EventFeed each keep their own lock over their own buffer.
 	mu      sync.Mutex
 	lastErr error
+	// connectedAt is when the CURRENT connection finished subscribing, or zero when there is none.
+	connectedAt time.Time
+	// drops counts connections that ended in a fault and have not yet been redeemed by a connection
+	// that stayed up. See health() for why a reconnect does not reset it.
+	drops int
+	// lastDropErr is why the most recent connection ended.
+	lastDropErr error
+	// saidThisConnection remembers the messages already logged on the CURRENT connection, so a venue
+	// that rejects many subscribe frames at once produces one line per distinct complaint rather
+	// than one per frame. Production logged the same dydx subscription-limit message 14 times in a
+	// burst, which is 14 lines saying one thing. Cleared on every (re)connect, so a fault that comes
+	// back after a reconnect is still reported.
+	saidThisConnection map[string]struct{}
 
 	// refresh carries a request to re-subscribe, from SetSubjects to whichever connection is live.
 	// Buffered by one: a request that arrives while the feed is between connections is not lost, and
@@ -112,6 +125,87 @@ func (c *connector) err() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.lastErr
+}
+
+// flapThreshold is how many connections may end in a fault before the feed is called unhealthy.
+//
+// TWO, not one: a single drop is ordinary internet — a venue restarting a node, a blip — and every
+// feed here recovers from it within a second. Two in a row, with no stable connection between them,
+// is a feed that is not working.
+const flapThreshold = 2
+
+// stableConnection is how long the current connection must have been up before earlier drops are
+// forgiven. Longer than any venue's keepalive interval here (htx pings every 5s, okx demands one
+// every 30s), so a connection that survives this has demonstrably satisfied whatever the venue asks
+// of it, rather than merely not having been hung up on yet.
+const stableConnection = 5 * time.Minute
+
+// connected records a connection that has subscribed successfully.
+func (c *connector) connected(at time.Time) {
+	c.mu.Lock()
+	c.connectedAt = at
+	c.lastErr = nil
+	c.saidThisConnection = map[string]struct{}{}
+	c.mu.Unlock()
+}
+
+// logOnce logs a message unless the current connection has already said exactly that.
+func (c *connector) logOnce(message string) {
+	c.mu.Lock()
+	if c.saidThisConnection == nil {
+		c.saidThisConnection = map[string]struct{}{}
+	}
+	_, said := c.saidThisConnection[message]
+	if !said {
+		c.saidThisConnection[message] = struct{}{}
+	}
+	c.mu.Unlock()
+	if said {
+		return
+	}
+	c.logf("%s: %s", c.id, message)
+}
+
+// dropped records a connection that ended in a fault.
+func (c *connector) dropped(err error) {
+	c.mu.Lock()
+	c.drops++
+	c.lastDropErr = err
+	c.connectedAt = time.Time{}
+	c.mu.Unlock()
+}
+
+// health is what the feed reports on /status, and it answers a question err() cannot: is this feed
+// WORKING?
+//
+// WHY THIS EXISTS. A liquidation feed is silent for long stretches by design, so EventFeed.Flush
+// records a run even with nothing to write — otherwise a calm market would page someone. That rule
+// has a hole, and htx fell straight through it in production on 2026-09-18: the venue accepted the
+// subscribe and then hung up with "Bye" every ~30 seconds, forever. Each reconnect cleared lastErr,
+// so most flushes reported no error at all, and /status showed a perfectly healthy feed that had
+// never delivered a single row.
+//
+// The signal that separates the two is NOT how many messages arrived — a calm venue and a broken one
+// both deliver nothing. It is CONNECTION CHURN. A working feed holds one connection for hours; a
+// broken one keeps establishing and losing them. So a reconnect deliberately does not clear the drop
+// count: only a connection that has STAYED UP for stableConnection does.
+func (c *connector) health() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.lastErr != nil {
+		return c.lastErr
+	}
+	if c.drops < flapThreshold {
+		return nil
+	}
+	// A connection that has held for long enough redeems the drops behind it.
+	if !c.connectedAt.IsZero() && c.opts.Now().Sub(c.connectedAt) >= stableConnection {
+		c.drops = 0
+		c.lastDropErr = nil
+		return nil
+	}
+	return fmt.Errorf("connection is cycling: %d drops without a stable connection, last: %w",
+		c.drops, c.lastDropErr)
 }
 
 // signalRefresh asks the live connection to cycle so a changed subscription set takes effect.
@@ -166,6 +260,9 @@ func (c *connector) connectLoop(ctx context.Context) {
 		}
 		failures++
 		c.setErr(err)
+		// Also counted for the health rule, which — unlike this local counter — is not reset by a
+		// reconnect. See health().
+		c.dropped(err)
 		c.logf("%s: connection ended (%d consecutive): %s", c.id, failures, collector.DescribeError(err))
 
 		wait := c.backoff(failures)
@@ -245,7 +342,7 @@ func (c *connector) run(ctx context.Context) error {
 			}
 		}
 	}
-	c.setErr(nil)
+	c.connected(c.opts.Now())
 
 	readCtx, cancelRead := context.WithCancel(ctx)
 	defer cancelRead()
@@ -323,7 +420,9 @@ func (c *connector) run(ctx context.Context) error {
 			// connection that is otherwise delivering: the other topics keep flowing and the error
 			// shows up on the next flush.
 			c.setErr(err)
-			c.logf("%s: %s", c.id, collector.DescribeError(err))
+			// Once per distinct complaint per connection: a rejected subscription usually arrives
+			// once per frame, and fifteen identical lines are not fifteen facts.
+			c.logOnce(collector.DescribeError(err))
 		}
 	}
 }

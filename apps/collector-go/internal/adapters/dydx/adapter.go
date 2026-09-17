@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/belyjelli/ai-rates/collector/internal/core"
@@ -24,14 +26,21 @@ const (
 
 // Adapter fetches dYdX v4 indexer market data.
 //
-// It owns no state beyond its client, so the venue's snapshot, history and tier loops can share one
-// Adapter and therefore one set of request spacing and one circuit breaker.
+// Its only state is the liquidation cursor, so the venue's snapshot, history and tier loops can
+// still share one Adapter and therefore one set of request spacing and one circuit breaker.
 type Adapter struct {
 	client *httpclient.Client
+
+	// mu guards liqCursor, which the liquidation poll writes and reads. The side loops run on their
+	// own goroutines, so this map must not be touched unlocked.
+	mu sync.Mutex
+	// liqCursor is the newest liquidation timestamp seen per market, kept for the process's life.
+	// See FetchLiquidations for why it is memory rather than a stored high-water mark.
+	liqCursor map[string]time.Time
 }
 
 func NewAdapter(client *httpclient.Client) *Adapter {
-	return &Adapter{client: client}
+	return &Adapter{client: client, liqCursor: map[string]time.Time{}}
 }
 
 func (a *Adapter) VenueID() string { return VenueID }
@@ -125,4 +134,108 @@ func oldestSettlement(batch []HistoricalFunding) (int64, bool) {
 		}
 	}
 	return oldest, found
+}
+
+// Liquidation sweep tuning.
+const (
+	// liqDeepPage is what a market is asked for the FIRST time it is polled in this process, and it
+	// is the whole reason this is a poll rather than the WebSocket feed it started as.
+	//
+	// 1,000 trades reaches back a long way, because these books are thin: measured 2026-09-17, one
+	// page spanned 8 hours on BTC-USD, 31 on SOL-USD, 82 on AVAX-USD and 179 on DOGE-USD. So a cold
+	// start — a deploy, a crash, an outage — backfills days of forced closes that a socket could
+	// only have caught live. The v4_trades socket, by contrast, delivered 78 liquidations in its
+	// subscribe snapshot and then NOTHING in 24 minutes, and refused the subscription set outright
+	// past 32 markets on one connection.
+	liqDeepPage = 1000
+	// liqTailPage is what every later poll asks for. The endpoint offers no "created after" filter —
+	// only limit, page and createdBeforeOrAt — so the cursor cannot make the venue send less; it can
+	// only bound what is parsed and handed to the store. A smaller page is how the request itself
+	// gets cheaper, and 100 is a wide margin: BTC-USD's busiest measured stretch was ~2 trades a
+	// minute, so 100 covers roughly fifty minutes against a poll that runs every five.
+	liqTailPage = 100
+)
+
+// FetchLiquidations sweeps every active market's recent trades and keeps the forced closes.
+//
+// WHY A POLL AND NOT A SOCKET. dYdX has no liquidation channel; the only public marker is a `type`
+// on a trade, and it is available both ways. The socket was tried first and failed twice over: it
+// rejects more than 32 subscriptions per connection (which is 78 markets over three connections for
+// a venue that produces a handful of liquidations a day), and in 24 minutes of live listening it
+// pushed none at all. The REST window carries real history instead, so one pass catches what a
+// restart missed. There is no market-wide endpoint, so this is one request per market.
+//
+// WHY THE CURSOR IS IN MEMORY rather than read back from the database. The LiquidationFetcher
+// contract is FetchLiquidations(ctx) with no store handle, and threading one through for this would
+// widen an interface five other venues implement. The cost of losing the cursor on restart is
+// exactly one deep page per market, which is the backfill this venue wants on a cold start anyway —
+// and everything in it that was already stored is absorbed by the table's primary key.
+//
+// MEASURED 2026-09-18 against the live indexer, every active market: the cold sweep returned 475
+// liquidations in 79 requests (33 seconds at this venue's 100ms spacing), spanning 2026-04-15 to
+// 2026-09-17 — five MONTHS of backfill that the socket could never have replayed — and 405 of them
+// were long liquidations against 70 short. The sweep immediately after returned 2, which is the
+// cursor doing its job; without it every poll would hand the store those 475 rows again.
+//
+// complete is true only when every market answered, so a partial sweep is visible as such.
+func (a *Adapter) FetchLiquidations(ctx context.Context) ([]core.Liquidation, bool, error) {
+	markets, err := a.fetchMarkets(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+
+	out := make([]core.Liquidation, 0, 64)
+	complete := true
+	for _, market := range markets {
+		// The market list comes from the venue's own catalog call, so a listing or delisting is
+		// picked up on the next sweep with nothing hardcoded.
+		if market.Ticker == "" || !strings.EqualFold(market.Status, "ACTIVE") {
+			continue
+		}
+		// Shutdown mid-sweep is a stop, not a venue fault: return what was gathered and say it is
+		// partial, rather than reporting an error the circuit breaker would count.
+		if ctx.Err() != nil {
+			return out, false, nil
+		}
+
+		a.mu.Lock()
+		cursor, seen := a.liqCursor[market.Ticker]
+		a.mu.Unlock()
+
+		limit := liqDeepPage
+		if seen {
+			limit = liqTailPage
+		}
+
+		var body TradesResponse
+		endpoint := fmt.Sprintf("%s/trades/perpetualMarket/%s?limit=%d", baseURL, url.PathEscape(market.Ticker), limit)
+		if err := a.client.GetJSON(ctx, endpoint, &body); err != nil {
+			// One market failing must not lose the rest of the sweep; the venue's own circuit
+			// breaker inside the client handles a venue that is failing wholesale.
+			complete = false
+			continue
+		}
+
+		liquidations := ParseLiquidations(market.Ticker, body.Trades, cursor)
+		out = append(out, liquidations...)
+
+		// Advance the cursor from the whole page, not only from the liquidations: the newest trade
+		// seen bounds what a later poll needs to reconsider, and a market with no liquidations at
+		// all must still stop asking for a deep page.
+		newest := cursor
+		for _, trade := range body.Trades {
+			at, err := time.Parse(time.RFC3339Nano, trade.CreatedAt)
+			if err != nil {
+				continue
+			}
+			if at = at.UTC(); at.After(newest) {
+				newest = at
+			}
+		}
+		a.mu.Lock()
+		// Marked as seen even when the page was empty, so an idle market drops to the tail page.
+		a.liqCursor[market.Ticker] = newest
+		a.mu.Unlock()
+	}
+	return out, complete, nil
 }

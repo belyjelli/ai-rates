@@ -39,11 +39,6 @@ const (
 	// HTX, public.*.liquidation_orders. Stored uncompressed here; the test gzips it, because the
 	// venue gzips every frame and the decoder has to inflate.
 	htxLiqBuy = `{"op":"notify","topic":"public.ETH-USDT.liquidation_orders","ts":1789670297217,"data":[{"symbol":"ETH","contract_code":"ETH-USDT","direction":"buy","offset":"close","volume":500,"price":2446.26,"created_at":1789670297212,"amount":5,"trade_turnover":12231.3,"contract_type":"swap","pair":"ETH-USDT","business_type":"swap","trade_partition":"USDT"}]}`
-
-	// dYdX v4 indexer, v4_trades, the LIQUIDATED type among ordinary LIMIT fills.
-	dydxLiqSell = `{"type":"channel_data","connection_id":"x","message_id":7,"id":"BTC-USD","channel":"v4_trades","version":"2.4.0","contents":{"trades":[{"id":"064e89330000000200000002","side":"SELL","size":"0.0004","price":"75974","type":"LIQUIDATED","createdAt":"2026-09-17T13:39:47.542Z","createdAtHeight":"105810227"}]}}`
-	dydxLimit   = `{"type":"channel_data","connection_id":"x","message_id":8,"id":"BTC-USD","channel":"v4_trades","version":"2.4.0","contents":{"trades":[{"id":"064f03900000000200000005","side":"SELL","size":"0.0002","price":"76467","type":"LIMIT","createdAt":"2026-09-17T19:18:42.257Z","createdAtHeight":"105841552"}]}}`
-	dydxDelev   = `{"type":"channel_data","connection_id":"x","message_id":9,"id":"ETH-USD","channel":"v4_trades","version":"2.4.0","contents":{"trades":[{"id":"064e89330000000200000009","side":"BUY","size":"1.5","price":"2460","type":"DELEVERAGED","createdAt":"2026-09-17T13:40:00.000Z","createdAtHeight":"105810230"}]}}`
 )
 
 func gzipFixture(t *testing.T, body string) []byte {
@@ -77,9 +72,11 @@ func nearly(a, b float64) bool { return math.Abs(a-b) < 1e-9 || math.Abs(a-b)/ma
 //
 // `liquidations.side` is the side of the POSITION that was closed (migration 012), and the five
 // venues express that in three different ways: okx names it outright, bybit's `S` names the
-// position (measured against its own book, 30 of 30 — see liqbybit.go), and binance, aster, htx and
-// dydx all report the ORDER, which is always the opposite. A refactor that "tidies" any of these
-// into one shared rule silently inverts a venue, so each direction is pinned against a live capture.
+// position (measured against its own book, 30 of 30 — see liqbybit.go), and binance, aster and htx
+// report the ORDER, which is always the opposite. A refactor that "tidies" any of these into one
+// shared rule silently inverts a venue, so each direction is pinned against a live capture.
+//
+// dYdX's equivalent lives in internal/adapters/dydx, because it is polled rather than streamed.
 func TestLiquidationSidesAreThePositionNotTheOrder(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -100,8 +97,6 @@ func TestLiquidationSidesAreThePositionNotTheOrder(t *testing.T) {
 			"posSide short with side buy: okx states the position and the order separately"},
 		{"htx buy-to-close closes a short", HTXLiquidations{}, gzipFixture(t, htxLiqBuy), "short",
 			"direction buy with offset close can only be closing a short"},
-		{"dydx SELL taker closes a long", DydxLiquidations{}, []byte(dydxLiqSell), "long",
-			"the liquidation order is the taker; selling closes a long"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -156,14 +151,6 @@ func TestLiquidationNotionalsAreRealDollars(t *testing.T) {
 		}
 	})
 
-	t.Run("dydx base asset times price", func(t *testing.T) {
-		got := decodeOne(t, DydxLiquidations{}, []byte(dydxLiqSell))
-		want := 0.0004 * 75974
-		if got.NotionalUSD == nil || !nearly(*got.NotionalUSD, want) {
-			t.Fatalf("notional = %v, want %v", got.NotionalUSD, want)
-		}
-	})
-
 	t.Run("okx without contract metadata stores nil rather than a contract count", func(t *testing.T) {
 		// Prepare has not run, so ctVal is unknown. A raw `sz` of 2137 must NOT be passed off as
 		// dollars: on a real instrument that is wrong by orders of magnitude, and migration 012's
@@ -212,7 +199,6 @@ func TestLiquidationTimestampsComeFromTheVenue(t *testing.T) {
 		{"binance trade time, not event time", NewBinanceLiquidations(""), []byte(binanceLiqBuy), time.UnixMilli(1789672235690).UTC()},
 		{"okx string epoch ms", NewOKXLiquidations(nil), []byte(okxLiqShort), time.UnixMilli(1789669898955).UTC()},
 		{"htx created_at", HTXLiquidations{}, gzipFixture(t, htxLiqBuy), time.UnixMilli(1789670297212).UTC()},
-		{"dydx RFC3339 string", DydxLiquidations{}, []byte(dydxLiqSell), time.Date(2026, 9, 17, 13, 39, 47, 542000000, time.UTC)},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -222,26 +208,6 @@ func TestLiquidationTimestampsComeFromTheVenue(t *testing.T) {
 			}
 			if !got[0].At.Equal(c.want) {
 				t.Fatalf("at = %s, want %s", got[0].At, c.want)
-			}
-		})
-	}
-}
-
-// TestDydxIngestsOnlyLiquidations: an ordinary LIMIT fill is not a forced close, and DELEVERAGED is
-// a different event entirely — the insurance fund closing a PROFITABLE position, not a margin call.
-// Folding either into this table would contaminate the regressor it exists to feed.
-func TestDydxIngestsOnlyLiquidations(t *testing.T) {
-	for _, fixture := range []struct{ name, msg string }{
-		{"LIMIT", dydxLimit},
-		{"DELEVERAGED", dydxDelev},
-	} {
-		t.Run(fixture.name, func(t *testing.T) {
-			got, err := DydxLiquidations{}.DecodeEvents([]byte(fixture.msg), time.Now())
-			if err != nil {
-				t.Fatalf("DecodeEvents: %v", err)
-			}
-			if len(got) != 0 {
-				t.Fatalf("want no events for a %s trade, got %d", fixture.name, len(got))
 			}
 		})
 	}
@@ -262,7 +228,6 @@ func TestLiquidationDecodersIgnoreControlTraffic(t *testing.T) {
 		{"htx subscribe ack", HTXLiquidations{}, gzipFixture(t, `{"op":"sub","cid":"airates-liq","topic":"public.*.liquidation_orders","ts":1789670081489,"err-code":0}`)},
 		{"htx repeated subscription is not a fault", HTXLiquidations{}, gzipFixture(t, `{"op":"sub","cid":"probe-1","topic":"public.BTC-USDT.liquidation_orders","err-code":2014,"err-msg":"Repeated subscription.","ts":1789669865635}`)},
 		{"htx ping", HTXLiquidations{}, gzipFixture(t, `{"op":"ping","ts":1789670081489}`)},
-		{"dydx connected", DydxLiquidations{}, []byte(`{"type":"connected","connection_id":"x","message_id":0}`)},
 		{"binance unrelated event", NewBinanceLiquidations(""), []byte(`{"e":"aggTrade","E":1,"s":"BTCUSDT","p":"1","q":"1"}`)},
 	}
 	for _, c := range cases {
@@ -290,7 +255,6 @@ func TestLiquidationDecodersSurfaceVenueRejections(t *testing.T) {
 		{"bybit rejection", BybitLiquidations{}, []byte(`{"success":false,"ret_msg":"Invalid symbol","op":"subscribe"}`), "Invalid symbol"},
 		{"okx error", NewOKXLiquidations(nil), []byte(`{"event":"error","code":"60012","msg":"Invalid request"}`), "60012"},
 		{"htx rejection", HTXLiquidations{}, gzipFixture(t, `{"op":"sub","topic":"public.*.liquidation_orders","err-code":1002,"err-msg":"not authorized"}`), "not authorized"},
-		{"dydx error", DydxLiquidations{}, []byte(`{"type":"error","message":"Invalid channel","connection_id":"x"}`), "Invalid channel"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -306,9 +270,26 @@ func TestLiquidationDecodersSurfaceVenueRejections(t *testing.T) {
 // connection. The reply has to echo the venue's own timestamp, which is why it is a Responder and
 // not a ticker.
 func TestHTXRespondsToTheVenuesPing(t *testing.T) {
+	// THE STRING CASE IS THE REGRESSION, and it is the whole reason this feed failed in production
+	// on 2026-09-18. htx quotes the ping's timestamp but NOT the subscribe ack's, on one connection,
+	// seconds apart. Declaring ts as an int64 made Unmarshal fail on every ping, so no pong was ever
+	// sent, so htx sent five unanswered pings and hung up with "Bye" at ~30 seconds — forever, on a
+	// feed /health called healthy. Both shapes must be echoed back exactly as they arrived.
+	quoted := HTXLiquidations{}.Respond(gzipFixture(t, `{"op":"ping","ts":"1789676447110"}`))
+	if string(quoted) != `{"op":"pong","ts":"1789676447110"}` {
+		t.Fatalf("a STRING ts must be echoed verbatim, got %s", quoted)
+	}
 	reply := HTXLiquidations{}.Respond(gzipFixture(t, `{"op":"ping","ts":1789670081489}`))
 	if string(reply) != `{"op":"pong","ts":1789670081489}` {
 		t.Fatalf("reply = %s", reply)
+	}
+	// The market endpoints use a bare {"ping": ts} instead.
+	if bare := (HTXLiquidations{}).Respond(gzipFixture(t, `{"ping":1789670081489}`)); string(bare) != `{"pong":1789670081489}` {
+		t.Fatalf("bare ping reply = %s", bare)
+	}
+	// Anything that is not a scalar timestamp is not reflected back into the connection.
+	if odd := (HTXLiquidations{}).Respond(gzipFixture(t, `{"op":"ping","ts":{"nested":1}}`)); odd != nil {
+		t.Fatalf("a non-scalar ts must not be echoed, got %s", odd)
 	}
 	// Parenthesised because Go reads a bare composite literal in an if-header as the start of the
 	// statement's block.
@@ -356,7 +337,6 @@ func TestAllSymbolsVenuesNeedNoSubjects(t *testing.T) {
 		{NewOKXLiquidations(nil), false},
 		{HTXLiquidations{}, false},
 		{BybitLiquidations{}, true},
-		{DydxLiquidations{}, true},
 	} {
 		if got := c.proto.NeedsSymbols(); got != c.want {
 			t.Fatalf("%s NeedsSymbols = %v, want %v", c.proto.VenueID(), got, c.want)
@@ -708,5 +688,123 @@ func TestEventFeedRequeuesAFailedWrite(t *testing.T) {
 
 	if rows := sink.rows(); len(rows) != 1 {
 		t.Fatalf("stored %d rows on the retry, want 1", len(rows))
+	}
+}
+
+// TestEventFeedReportsAVenueThatKeepsHangingUp reproduces the production failure of 2026-09-18.
+//
+// htx accepted the subscribe and then closed the connection every ~30 seconds, forever. Because each
+// reconnect cleared the last error and an empty flush is a legitimate run for a liquidation feed,
+// /status showed a HEALTHY feed that had never written a row. Connection churn is what separates it
+// from a genuinely calm market, and that is what is asserted here.
+func TestEventFeedReportsAVenueThatKeepsHangingUp(t *testing.T) {
+	now := time.Now()
+	feed := NewEventFeed(HTXLiquidations{}, nil, &recordingSink{}, nil, Options{
+		Now: func() time.Time { return now },
+	})
+	var runs []collector.Run
+	feed.opts.OnFlush = func(run collector.Run) { runs = append(runs, run) }
+
+	// One connection, one drop: ordinary internet, and the feed recovers. Still healthy.
+	feed.conn.connected(now)
+	feed.conn.dropped(errors.New(`received close frame: status = StatusNormalClosure and reason = "Bye"`))
+	feed.conn.connected(now)
+	feed.Flush(context.Background())
+	if runs[len(runs)-1].Err != nil {
+		t.Fatalf("a single drop must not be reported as a fault: %v", runs[len(runs)-1].Err)
+	}
+
+	// A second drop with no stable connection between them is a feed that is not working, and it
+	// must keep reporting while it is in that state — not only on the flush that saw the drop.
+	feed.conn.dropped(errors.New(`received close frame: status = StatusNormalClosure and reason = "Bye"`))
+	feed.conn.connected(now)
+	for i := 0; i < 3; i++ {
+		feed.Flush(context.Background())
+		got := runs[len(runs)-1].Err
+		if got == nil {
+			t.Fatalf("flush %d reported healthy while the venue keeps hanging up", i)
+		}
+		if !strings.Contains(got.Error(), "cycling") || !strings.Contains(got.Error(), "Bye") {
+			t.Fatalf("err = %v, want it to name the churn and the venue's reason", got)
+		}
+	}
+
+	// A connection that HOLDS redeems the drops behind it: this is a recovery, not a permanent mark.
+	now = now.Add(stableConnection + time.Second)
+	feed.Flush(context.Background())
+	if got := runs[len(runs)-1].Err; got != nil {
+		t.Fatalf("a connection up for %s should clear the churn, got %v", stableConnection, got)
+	}
+}
+
+// TestConnectorLogsOneLinePerDistinctComplaint. A venue rejecting a subscription usually answers
+// once per FRAME, and production logged the same dydx message 14 times in one burst.
+func TestConnectorLogsOneLinePerDistinctComplaint(t *testing.T) {
+	var lines []string
+	c := newConnector(BybitLiquidations{}, nil, Options{
+		Log: func(message string) { lines = append(lines, message) },
+		Now: time.Now,
+	}, "bybit:liq", true)
+
+	c.connected(time.Now())
+	for i := 0; i < 14; i++ {
+		c.logOnce("subscription limit reached")
+	}
+	if len(lines) != 1 {
+		t.Fatalf("logged %d lines for one repeated complaint, want 1", len(lines))
+	}
+	c.logOnce("a different problem")
+	if len(lines) != 2 {
+		t.Fatalf("a distinct complaint must still be logged, got %d lines", len(lines))
+	}
+	// A reconnect starts the slate clean, so a fault that survives a reconnect is still visible.
+	c.connected(time.Now())
+	c.logOnce("subscription limit reached")
+	if len(lines) != 3 {
+		t.Fatalf("a new connection must report the fault again, got %d lines", len(lines))
+	}
+}
+
+// TestHTXDecodesQuotedNumbers. Same venue, same inconsistency as the ping: if htx ever quotes the
+// numbers in a liquidation the way it quotes its ping timestamp, the events must keep decoding
+// rather than silently stopping.
+func TestHTXDecodesQuotedNumbers(t *testing.T) {
+	quoted := `{"op":"notify","topic":"public.ETH-USDT.liquidation_orders","ts":1789670297217,"data":[{"contract_code":"ETH-USDT","direction":"buy","offset":"close","volume":"500","price":"2446.26","created_at":"1789670297212","amount":"5","trade_turnover":"12231.3"}]}`
+	got := decodeOne(t, HTXLiquidations{}, gzipFixture(t, quoted))
+	if got.Side != "short" || got.SizeContracts != 500 || got.FillPrice != 2446.26 {
+		t.Fatalf("got %+v", got)
+	}
+	if got.NotionalUSD == nil || !nearly(*got.NotionalUSD, 12231.3) {
+		t.Fatalf("notional = %v, want 12231.3", got.NotionalUSD)
+	}
+	if want := time.UnixMilli(1789670297212).UTC(); !got.At.Equal(want) {
+		t.Fatalf("at = %s, want %s", got.At, want)
+	}
+}
+
+// TestBinanceKeepaliveIsIgnoredByTheDecoder. The keepalive exists only to make the venue reply, and
+// the reply must be inert: if LIST_SUBSCRIPTIONS' answer ever decoded as an event or an error, the
+// feed would either invent rows or log a fault every three minutes.
+func TestBinanceKeepaliveIsIgnoredByTheDecoder(t *testing.T) {
+	proto := NewBinanceLiquidations("")
+	if got := string(proto.Ping()); got != `{"method":"LIST_SUBSCRIPTIONS","id":1}` {
+		t.Fatalf("ping = %s", got)
+	}
+	if proto.PingEvery() <= 0 || proto.PingEvery() >= defaultEventReadTimeout {
+		t.Fatalf("PingEvery = %s, must be well inside the %s read timeout",
+			proto.PingEvery(), defaultEventReadTimeout)
+	}
+	// Both hosts' replies, captured live 2026-09-18; they order the keys differently.
+	for _, reply := range []string{
+		`{"result":["!forceOrder@arr"],"id":1}`,
+		`{"id":1,"result":["!forceOrder@arr"]}`,
+	} {
+		got, err := proto.DecodeEvents([]byte(reply), time.Now())
+		if err != nil {
+			t.Fatalf("keepalive reply reported an error: %v", err)
+		}
+		if len(got) != 0 {
+			t.Fatalf("keepalive reply produced %d events", len(got))
+		}
 	}
 }

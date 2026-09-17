@@ -7,7 +7,7 @@ package collector_test
 //
 // Enumerated from `grep -rn "func (a \*Adapter) Fetch" internal/adapters` on 2026-09-15: 35 history,
 // 7 tier and 2 liquidation implementations; the 4 taker-flow implementations were added on
-// 2026-09-17. binancefapi covers aster, binance, weex and bullet;
+// 2026-09-17, and a 3rd liquidation implementation (dydx) on 2026-09-18. binancefapi covers aster, binance, weex and bullet;
 // hyperliquid covers the core dex and every HIP-3 dex; lighter covers mainnet and RH.
 
 import (
@@ -98,6 +98,9 @@ var (
 
 	_ collector.LiquidationFetcher = (*gate.Adapter)(nil)
 	_ collector.LiquidationFetcher = (*okx.Adapter)(nil)
+	// dydx added 2026-09-18: polled rather than streamed, because its socket caps subscriptions at
+	// 32 per connection and its REST trade window carries days of history a socket cannot replay.
+	_ collector.LiquidationFetcher = (*dydx.Adapter)(nil)
 
 	// The four venues of migration 023, in collector.TakerFlowVenues order.
 	_ collector.TakerFlowFetcher = (*binancefapi.BinanceAdapter)(nil)

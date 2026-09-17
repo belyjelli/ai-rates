@@ -241,11 +241,16 @@ func loadConfig(env func(string) string) (config, error) {
 	return cfg, nil
 }
 
-// defaultLiquidationVenues is the measured set, in descending order of what each delivered during
-// the 2026-09-18 probe. Gate is ABSENT on purpose although its socket works: it is already ingested
-// over REST, and its two paths would not agree on a primary key — see "WHY GATE IS NOT HERE" in
-// internal/stream/events.go.
-var defaultLiquidationVenues = []string{"okx", "bybit", "binance", "dydx", "htx", "aster"}
+// defaultLiquidationVenues is the measured set of SOCKET feeds, in descending order of what each
+// delivered during the 2026-09-18 probe.
+//
+// Two venues are absent on purpose. Gate's socket works but gate is already ingested over REST and
+// the two paths would not agree on a primary key — see "WHY GATE IS NOT HERE" in
+// internal/stream/events.go. Dydx is polled instead of streamed: its socket refuses more than 32
+// subscriptions per connection and pushed nothing live in 24 minutes, while its REST trade window
+// carries days of history. It rides the ordinary liquidation poll in startSideTasks, so it needs no
+// entry here.
+var defaultLiquidationVenues = []string{"okx", "bybit", "binance", "htx", "aster"}
 
 func intFromEnv(env func(string) string, name string, fallback int) (int, error) {
 	raw := env(name)
@@ -942,8 +947,6 @@ func liquidationProtocol(cfg config, venueID string) stream.EventProtocol {
 		return stream.NewOKXLiquidations(httpclient.New("okx:liq", httpclient.Options{MinInterval: okx.MinInterval}))
 	case "htx":
 		return stream.HTXLiquidations{}
-	case "dydx":
-		return stream.DydxLiquidations{}
 	default:
 		return nil
 	}
@@ -955,8 +958,8 @@ func liquidationProtocol(cfg config, venueID string) stream.EventProtocol {
 // connection, and unlike a book — which the next tick republishes — a liquidation that fires during
 // the reconnect is LOST, because no venue resends it. Listings do not move fast enough to be worth
 // paying that for often, so this trades a few hours of staleness on the newest markets against not
-// punching a hole in the feed every fifteen minutes. Only bybit and dydx are affected; the other
-// four subscribe to an all-symbols topic and never refresh at all.
+// punching a hole in the feed every fifteen minutes. Only bybit is affected; the other four
+// subscribe to an all-symbols topic and never refresh at all.
 const liquidationSubjectsRefresh = 6 * time.Hour
 
 // liquidationMarketWindow is how recently a market must have been seen to be worth a topic. One day
@@ -974,8 +977,8 @@ const liquidationMarketWindow = 24 * time.Hour
 // listing is still a liquidation, and the illiquid long tail is exactly where the violent ones
 // happen. Worse, market_latest's bid and ask are filled by the QUOTE feeds, which are off by
 // default — so reusing StreamSubjects would have quietly returned nothing at all on a deployment
-// that had not also enabled STREAM_VENUES, and the liquidation feeds for bybit and dydx would have
-// sat waiting for subjects that were never coming.
+// that had not also enabled STREAM_VENUES, and bybit's liquidation feed would have sat waiting for
+// subjects that were never coming.
 func liquidationSymbols(ctx context.Context, db *store.Store, venueID string) ([]string, error) {
 	markets, err := db.ActiveMarkets(ctx, venueID, time.Now().Add(-liquidationMarketWindow))
 	if err != nil {

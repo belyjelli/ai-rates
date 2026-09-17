@@ -31,7 +31,10 @@ func TestSideLoopsAttachToTheSameVenuesAsTypeScript(t *testing.T) {
 		"zero1",
 	}, hip3...))
 	wantTiers := sorted(append([]string{"bybit", "dydx", "gate", "hyperliquid", "kucoin", "mexc", "okx"}, hip3...))
-	wantLiquidations := []string{"gate", "okx"}
+	// dydx joined gate and okx on 2026-09-18. It is polled rather than streamed because its
+	// WebSocket refuses more than 32 subscriptions per connection and pushed nothing live in 24
+	// minutes, while one REST trade page reaches back days — see dydx.Adapter.FetchLiquidations.
+	wantLiquidations := []string{"dydx", "gate", "okx"}
 
 	var history, tiers, liquidations []string
 	for _, c := range registry() {
