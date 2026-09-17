@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { divergence, flowRatio } from "../web/cvd";
 import { bestPair, pivot } from "../web/pages";
 import { handleApp } from "./app";
 import type {
   ArbitrageRow,
+  CvdAssetRow,
+  CvdData,
+  CvdOptions,
   DailyFundingRow,
   DataSource,
   HeatmapCell,
@@ -117,6 +121,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     verifiedPairs: async () => [],
     bestVerifiedPair: async () => null,
     liquidationMap: async () => ({ cells: [], columnTotals: [], totals: [], assets: [] }),
+    cvd: async () => ({ rows: [], asset_class: "crypto" as const, bars: [], newest: null }),
     liquidationAsset: async () => ({
       asset_class: "crypto" as const,
       mark: 2434.7,
@@ -2016,6 +2021,136 @@ describe("pages", () => {
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(await res.text()).toContain("Market data is unavailable");
     expect(logs).toEqual(["/: connection refused"]);
+  });
+});
+
+describe("cvd", () => {
+  const BUCKET = 15 * 60_000;
+  const bucket = (ago: number) => new Date(Math.floor(NOW / BUCKET) * BUCKET - ago * BUCKET);
+  const flow = (overrides: Partial<CvdData> = {}): CvdData => ({
+    rows: [
+      // Price up 2% while takers sold 20% of volume: bearish.
+      {
+        asset: "ZEC",
+        asset_class: "crypto",
+        buy_usd: 40e6,
+        sell_usd: 60e6,
+        venues: 4,
+        price: 51,
+        change_pct: 2,
+      },
+      // Price down 1% while takers bought 30%: bullish.
+      {
+        asset: "BTC",
+        asset_class: "crypto",
+        buy_usd: 65e6,
+        sell_usd: 35e6,
+        venues: 4,
+        price: 76_000,
+        change_pct: -1,
+      },
+      // Price down 0.2%, flow −40%: too small a move to flag.
+      {
+        asset: "SOL",
+        asset_class: "crypto",
+        buy_usd: 3e6,
+        sell_usd: 7e6,
+        venues: 3,
+        price: 140,
+        change_pct: -0.2,
+      },
+      // No price at all: never flagged, and the change reads as a dash rather than 0.00%.
+      {
+        asset: "SNDK",
+        asset_class: "equity",
+        buy_usd: 1e6,
+        sell_usd: 0.5e6,
+        venues: 1,
+        price: null,
+        change_pct: null,
+      },
+    ],
+    asset_class: "crypto",
+    bars: [
+      { bucket_start: bucket(3), buy_usd: 5e6, sell_usd: 2e6, price: 76_100 },
+      { bucket_start: bucket(1), buy_usd: 1e6, sell_usd: 4e6, price: 75_900 },
+    ],
+    newest: bucket(1),
+    ...overrides,
+  });
+
+  test("divergence needs both a real price move and a real flow imbalance", () => {
+    const [zec, btc, sol, sndk] = flow().rows as CvdAssetRow[];
+    expect(divergence(zec as CvdAssetRow)).toBe("bearish");
+    expect(divergence(btc as CvdAssetRow)).toBe("bullish");
+    expect(divergence(sol as CvdAssetRow)).toBeNull();
+    expect(divergence(sndk as CvdAssetRow)).toBeNull();
+    expect(flowRatio({ buy_usd: 0, sell_usd: 0 })).toBeNull();
+  });
+
+  test("/cvd charts BTC by default and counts breadth and divergences over every row", async () => {
+    const seen: CvdOptions[] = [];
+    const { data } = fakeData({
+      cvd: async (options) => {
+        seen.push(options);
+        return flow();
+      },
+    });
+    const response = await get("/cvd", data);
+    expect(response.status).toBe(200);
+    const html = await response.text();
+
+    expect(seen).toEqual([{ windowHours: 24, barMinutes: 15, base: "BTC", assetClass: null }]);
+    // Two of four assets net bought.
+    expect(html).toContain('data-u="breadth">50.0%<');
+    expect(html).toContain('data-u="bullish">1<');
+    expect(html).toContain('data-u="bearish">1<');
+    // Largest net buy and net sell, signed.
+    expect(html).toContain("BTC +$30.0M");
+    expect(html).toContain("ZEC −$20.0M");
+    expect(html).toContain('class="cvd-badge cvd-badge-bearish"');
+    // The running CVD over the two bars: +3M then −3M.
+    expect(html).toContain('data-u="cvd-total" class="">$0<');
+    expect(html).toContain("net +$3.0M ($5.0M bought, $2.0M sold) · CVD +$3.0M");
+    // An asset with no price shows a dash, not a zero change.
+    expect(html).toContain('<span data-u="change">–</span>');
+  });
+
+  test("the address picks the charted asset and the window picks the bar width", async () => {
+    const seen: CvdOptions[] = [];
+    const { data } = fakeData({
+      cvd: async (options) => {
+        seen.push(options);
+        return flow({ asset_class: "equity", bars: [] });
+      },
+    });
+    const html = await (await get("/cvd/equity/SNDK?window=7d&sort=cvd&dir=asc", data)).text();
+    expect(seen).toEqual([
+      { windowHours: 168, barMinutes: 120, base: "SNDK", assetClass: "equity" },
+    ]);
+    // Links keep the window and the sort, and the charted row is marked.
+    expect(html).toContain('href="/cvd/ZEC?window=7d&amp;sort=cvd&amp;dir=asc"');
+    expect(html).toContain('aria-current="true"');
+    // Sorted ascending by CVD, the heaviest net selling comes first.
+    expect(html.indexOf('data-k="ZEC"')).toBeLessThan(html.indexOf('data-k="BTC"'));
+  });
+
+  test("search filters the table without changing the tiles", async () => {
+    const { data } = fakeData({ cvd: async () => flow() });
+    const html = await (await get("/cvd?q=ze", data)).text();
+    const table = html.split('data-live="cvd-rows"')[1] ?? "";
+    expect(table).toContain('data-k="ZEC"');
+    expect(table).not.toContain('data-k="BTC"');
+    expect(html).toContain('data-u="breadth">50.0%<');
+  });
+
+  test("an asset nothing lists is a 404, and an empty window says why", async () => {
+    const { data } = fakeData({ cvd: async () => flow({ asset_class: null, rows: [], bars: [] }) });
+    expect((await get("/cvd/NOSUCH", data)).status).toBe(404);
+    const html = await (
+      await get("/cvd", fakeData({ cvd: async () => flow({ rows: [], bars: [] }) }).data)
+    ).text();
+    expect(html).toContain("No taker flow has been collected");
   });
 });
 
