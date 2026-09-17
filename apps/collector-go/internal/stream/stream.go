@@ -30,9 +30,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/rand/v2"
-	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -56,6 +54,18 @@ const (
 	// readTimeout is how long a connection may be silent before it is considered dead. Every venue
 	// here pushes continuously and answers pings, so silence is a failure rather than a quiet market.
 	defaultReadTimeout = 90 * time.Second
+
+	// The liquidation feeds' equivalents (events.go). Both differ from the quote feeds' on purpose.
+	//
+	// defaultEventFlush is longer because there is nothing to gain from writing sooner: the
+	// liquidations table is read by a study over weeks, not by a page refreshing every 30 seconds,
+	// and a wider window means fewer, larger INSERTs for the same rows.
+	defaultEventFlush = 10 * time.Second
+	// defaultEventReadTimeout is far longer because SILENCE IS THE NORMAL STATE. The busiest feed
+	// measured on 2026-09-18 produced 4.5 events a minute and the quietest one every four minutes,
+	// so a 90-second timeout would tear down healthy connections all afternoon. Every venue here
+	// answers pings, so liveness rides on the keepalive instead of on traffic.
+	defaultEventReadTimeout = 15 * time.Minute
 )
 
 // Conn is the slice of a WebSocket connection a feed needs.
@@ -102,22 +112,13 @@ type Update struct {
 	AskQty *float64
 }
 
-// Protocol is one venue's wire format. The feed owns connection lifetime, backoff, the in-memory
-// book and the flush; a Protocol only says what to send and how to read what comes back.
+// Protocol is one venue's top-of-book wire format. The feed owns connection lifetime, backoff, the
+// in-memory book and the flush; a Protocol only says what to send and how to read what comes back.
+//
+// The connection half lives in Wire, which EventProtocol shares — see conn.go. Embedding it leaves
+// the method set exactly as it was, so every venue implementation here is unchanged.
 type Protocol interface {
-	// VenueID is the venue this protocol speaks for, as the catalog and market_latest key it.
-	VenueID() string
-	URL() string
-	// Frames are the subscribe messages for these symbols, already chunked to the venue's documented
-	// per-request limits. One frame per message; the feed paces them.
-	Frames(symbols []string) [][]byte
-	// FramePause is the gap the feed leaves between subscribe frames, honouring the venue's
-	// requests-per-second limit on the control channel.
-	FramePause() time.Duration
-	// Ping is the keepalive frame, or nil where the venue needs none.
-	Ping() []byte
-	// PingEvery is how often to send it.
-	PingEvery() time.Duration
+	Wire
 	// Decode turns one raw message into book updates, and returns an error only for a message the
 	// venue itself reports as a failure (a rejected subscription, say). A message that is simply not
 	// a book update — an ack, a pong, a heartbeat — yields no updates and no error.
@@ -176,23 +177,19 @@ type Options struct {
 // loops[] and the SIGTERM path in main.go without a special case.
 type Feed struct {
 	proto    Protocol
-	dial     Dialer
 	sink     Sink
 	subjects map[string]Subject
 	opts     Options
+	// conn owns dialling, subscribing, backoff, the circuit breaker and the reconnect. Shared with
+	// EventFeed; its most recent fault is reported on the next flush, so a feed that is
+	// connected-but-empty and a feed that cannot connect are distinguishable on /status.
+	conn *connector
 
 	mu    sync.Mutex
 	books map[string]*book
-	// lastErr is the connection's most recent fault, reported on the next flush so a feed that is
-	// connected-but-empty and a feed that cannot connect are distinguishable on /status.
-	lastErr error
 
 	cancel context.CancelFunc
 	done   chan struct{}
-	// refresh carries a request to re-subscribe, from SetSubjects to whichever connection is live.
-	// Buffered by one: a request that arrives while the feed is between connections is not lost, and
-	// two requests in a row are one re-subscribe.
-	refresh chan struct{}
 }
 
 // errResubscribe ends a connection on purpose, so connectLoop can tell a deliberate cycle from a
@@ -299,10 +296,15 @@ func New(proto Protocol, dial Dialer, sink Sink, subjects []Subject, opts Option
 		byName[s.VenueSymbol] = s
 		books[s.VenueSymbol] = &book{multiplier: multiplier}
 	}
-	return &Feed{
-		proto: proto, dial: dial, sink: sink, subjects: byName, opts: opts, books: books,
-		refresh: make(chan struct{}, 1),
+	feed := &Feed{proto: proto, sink: sink, subjects: byName, opts: opts, books: books}
+	feed.conn = newConnector(proto, dial, opts, proto.VenueID()+":ws", true)
+	feed.conn.subjects = feed.symbolsSnapshot
+	feed.conn.handle = feed.handle
+	// Optional: bybit needs no metadata to convert a size, so it implements no Preparer.
+	if preparer, needs := proto.(Preparer); needs {
+		feed.conn.prepare = preparer.Prepare
 	}
+	return feed
 }
 
 // VenueID is the id this feed records health under. It is the VENUE's id suffixed with ":ws", and
@@ -312,7 +314,7 @@ func New(proto Protocol, dial Dialer, sink Sink, subjects []Subject, opts Option
 // venue whose funding poll had died — the same silent resurrection migration 022 exists to prevent,
 // reappearing in the health model instead of in the row. Two ids means /status shows the poll and
 // the feed failing independently, which is what they do.
-func (f *Feed) VenueID() string { return f.proto.VenueID() + ":ws" }
+func (f *Feed) VenueID() string { return f.conn.id }
 
 // Subjects is how many markets this feed subscribes to.
 func (f *Feed) Subjects() int {
@@ -374,12 +376,7 @@ func (f *Feed) SetSubjects(subjects []Subject) (added, removed int) {
 	if added == 0 && removed == 0 {
 		return 0, 0
 	}
-	// Buffered by one, so a refresh landing while the feed is reconnecting is picked up by the next
-	// connection rather than blocking here.
-	select {
-	case f.refresh <- struct{}{}:
-	default:
-	}
+	f.conn.signalRefresh()
 	return added, removed
 }
 
@@ -393,7 +390,7 @@ func (f *Feed) Start(ctx context.Context) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		f.connectLoop(feedCtx)
+		f.conn.connectLoop(feedCtx)
 	}()
 	go func() {
 		defer wg.Done()
@@ -420,216 +417,25 @@ func (f *Feed) Stop(ctx context.Context) error {
 	}
 }
 
-func (f *Feed) logf(format string, args ...any) {
-	if f.opts.Log != nil {
-		f.opts.Log(fmt.Sprintf(format, args...))
-	}
-}
-
-// connectLoop dials, subscribes, reads until the connection fails, and dials again. It never
-// returns an error and never panics out of the goroutine: a feed that dies silently is worse than
-// one that keeps failing visibly, and /status is where the failure belongs.
-func (f *Feed) connectLoop(ctx context.Context) {
-	failures := 0
-	for {
-		if ctx.Err() != nil {
-			return
-		}
-		err := f.runGuarded(ctx)
-		if ctx.Err() != nil {
-			return
-		}
-		if errors.Is(err, errNoSubjects) {
-			// Nothing to subscribe to yet: a fresh database, or a venue whose funding loop has not
-			// landed a cycle. Wait for the refresh task to hand over a set rather than dialling a
-			// venue we would have nothing to say to. The feed still goes stale on /status, which is
-			// the truth — it is not delivering quotes — but it recovers on its own when the
-			// subjects appear, with no restart and no page.
-			f.setErr(err)
-			// Interruptible, and that is the point: SetSubjects signals refresh, so a feed that was
-			// waiting on a cold start connects the moment it has something to ask for instead of
-			// sitting out the rest of the retry. The timer is only the fallback for a subject set
-			// that arrives some other way.
-			idle := time.NewTimer(idleRetry)
-			select {
-			case <-ctx.Done():
-				idle.Stop()
-				return
-			case <-f.refresh:
-			case <-idle.C:
-			}
-			idle.Stop()
-			continue
-		}
-		if errors.Is(err, errResubscribe) {
-			// Not a fault: the subscription set changed and the connection was cycled to take it.
-			// No backoff, no failure count, and the counter is left where it was so a genuinely
-			// flaky venue cannot be talked out of its circuit breaker by a well-timed refresh.
-			f.setErr(nil)
-			continue
-		}
-		failures++
-		f.setErr(err)
-		f.logf("%s: connection ended (%d consecutive): %s", f.VenueID(), failures, collector.DescribeError(err))
-
-		wait := f.backoff(failures)
-		if failures >= f.opts.FailureThreshold {
-			// Open the circuit: stop dialling for a cooldown, then try exactly once. A venue that
-			// is refusing us is not helped by being dialled every fifteen seconds forever.
-			wait = f.opts.Cooldown
-			failures = 0
-			f.logf("%s: %d consecutive failures, pausing for %s", f.VenueID(), f.opts.FailureThreshold, wait)
-		}
-		if !sleep(ctx, wait) {
-			return
-		}
-	}
-}
-
-// backoff mirrors httpclient's: exponential from 500ms, capped at 15s, multiplied by a random
-// factor so a fleet of feeds does not reconnect in lockstep.
-func (f *Feed) backoff(failures int) time.Duration {
-	shift := failures - 1
-	if shift > 16 {
-		shift = 16
-	}
-	wait := baseBackoff * (1 << shift)
-	if wait > maxBackoff {
-		wait = maxBackoff
-	}
-	return time.Duration(float64(wait) * f.opts.Rand())
-}
-
-func (f *Feed) runGuarded(ctx context.Context) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic: %v", r)
-		}
-	}()
-	return f.run(ctx)
-}
-
-// run holds one connection for as long as it lives, and returns the error that ended it.
-func (f *Feed) run(ctx context.Context) error {
-	// The subject set is read once, under the lock, and the connection is built from that snapshot.
-	// SetSubjects may replace the map at any moment — it runs on the refresh task's goroutine — and
-	// a map ranged over while another goroutine writes it is a crash, not a race to shrug at.
-	symbols := f.symbolsSnapshot()
-	if len(symbols) == 0 {
-		return errNoSubjects
-	}
-	dialCtx, cancel := context.WithTimeout(ctx, f.opts.DialTimeout)
-	conn, err := f.dial(dialCtx, f.proto.URL())
-	cancel()
+// handle folds one decoded message into the in-memory book. The connector calls it for every
+// message; an error is the venue reporting a failure, which is surfaced without dropping a
+// connection that is otherwise delivering.
+func (f *Feed) handle(msg []byte, now time.Time) error {
+	updates, err := f.proto.Decode(msg, now)
 	if err != nil {
-		return fmt.Errorf("dial: %w", err)
+		return err
 	}
-	defer conn.Close()
-
-	// Metadata before subscribing: a venue whose sizes cannot be converted yet would stream a book
-	// whose depth column is null, and depth is half of what /arbitrage prints.
-	if preparer, needs := f.proto.(Preparer); needs {
-		prepCtx, cancelPrep := context.WithTimeout(ctx, f.opts.DialTimeout)
-		err := preparer.Prepare(prepCtx, symbols)
-		cancelPrep()
-		if err != nil {
-			return fmt.Errorf("prepare: %w", err)
+	if len(updates) == 0 {
+		return nil
+	}
+	f.mu.Lock()
+	for _, u := range updates {
+		if b := f.books[u.Symbol]; b != nil {
+			b.apply(u)
 		}
 	}
-
-	frames := f.proto.Frames(symbols)
-	for i, frame := range frames {
-		if err := conn.Write(ctx, frame); err != nil {
-			return fmt.Errorf("subscribe frame %d/%d: %w", i+1, len(frames), err)
-		}
-		if pause := f.proto.FramePause(); pause > 0 && i < len(frames)-1 {
-			if !sleep(ctx, pause) {
-				return ctx.Err()
-			}
-		}
-	}
-	f.setErr(nil)
-
-	readCtx, cancelRead := context.WithCancel(ctx)
-	defer cancelRead()
-
-	// A refresh that arrived while this feed was between connections is already satisfied: the
-	// frames above were built from the current set. Drop it rather than cycling a connection that
-	// is one second old.
-	select {
-	case <-f.refresh:
-	default:
-	}
-
-	// A refresh from here on ends this connection, and connectLoop dials again immediately. The
-	// alternative — sending subscribe and unsubscribe frames on the live socket — needs an
-	// unsubscribe frame per venue, a partially-subscribed state to reason about, and its own path
-	// for re-running Prepare so a newly listed contract gets its size metadata. A reconnect gets all
-	// three from code that already runs on every drop, at the cost of a sub-second gap on a refresh
-	// that happens a few times an hour.
-	cycled := make(chan struct{})
-	go func() {
-		select {
-		case <-readCtx.Done():
-		case <-f.refresh:
-			close(cycled)
-			cancelRead()
-		}
-	}()
-
-	// Keepalive on its own goroutine: okx disconnects after 30 seconds of silence and bybit after
-	// ten minutes, and neither can be satisfied from inside a blocking read.
-	if ping := f.proto.Ping(); ping != nil && f.proto.PingEvery() > 0 {
-		go func() {
-			ticker := time.NewTicker(f.proto.PingEvery())
-			defer ticker.Stop()
-			for {
-				select {
-				case <-readCtx.Done():
-					return
-				case <-ticker.C:
-					if err := conn.Write(readCtx, ping); err != nil {
-						// The read side will fail too and own the reconnect; this goroutine just
-						// stops rather than racing it.
-						return
-					}
-				}
-			}
-		}()
-	}
-
-	for {
-		msgCtx, cancelMsg := context.WithTimeout(readCtx, f.opts.ReadTimeout)
-		msg, err := conn.Read(msgCtx)
-		cancelMsg()
-		if err != nil {
-			select {
-			case <-cycled:
-				return errResubscribe
-			default:
-			}
-			return fmt.Errorf("read: %w", err)
-		}
-		updates, err := f.proto.Decode(msg, f.opts.Now())
-		if err != nil {
-			// A venue rejecting a subscription is a fault worth surfacing, but not worth dropping a
-			// connection that is otherwise delivering: the other topics keep flowing and the error
-			// shows up on the next flush.
-			f.setErr(err)
-			f.logf("%s: %s", f.VenueID(), collector.DescribeError(err))
-			continue
-		}
-		if len(updates) == 0 {
-			continue
-		}
-		f.mu.Lock()
-		for _, u := range updates {
-			if b := f.books[u.Symbol]; b != nil {
-				b.apply(u)
-			}
-		}
-		f.mu.Unlock()
-	}
+	f.mu.Unlock()
+	return nil
 }
 
 // symbolsSnapshot is the current subscription set, sorted. Sorted so a reconnect sends the same
@@ -637,19 +443,8 @@ func (f *Feed) run(ctx context.Context) error {
 // rejected.
 func (f *Feed) symbolsSnapshot() []string {
 	f.mu.Lock()
-	symbols := make([]string, 0, len(f.subjects))
-	for name := range f.subjects {
-		symbols = append(symbols, name)
-	}
-	f.mu.Unlock()
-	sort.Strings(symbols)
-	return symbols
-}
-
-func (f *Feed) setErr(err error) {
-	f.mu.Lock()
-	f.lastErr = err
-	f.mu.Unlock()
+	defer f.mu.Unlock()
+	return sortedKeys(f.subjects)
 }
 
 func (f *Feed) flushLoop(ctx context.Context) {
@@ -707,8 +502,8 @@ func (f *Feed) Flush(ctx context.Context) {
 			BestAskSize: f.sizeUSD(symbol, b.ask, b.askQty),
 		})
 	}
-	lastErr := f.lastErr
 	f.mu.Unlock()
+	lastErr := f.conn.err()
 
 	written := 0
 	var err error
@@ -716,11 +511,11 @@ func (f *Feed) Flush(ctx context.Context) {
 		var unknown int
 		written, unknown, err = f.sink.WriteQuotes(ctx, quotes)
 		if err != nil {
-			f.logf("%s: flush failed: %s", f.VenueID(), collector.DescribeError(err))
+			f.conn.logf("%s: flush failed: %s", f.VenueID(), collector.DescribeError(err))
 		} else if unknown > 0 {
 			// Markets the funding path does not have, or quotes an older write already beat. Worth
 			// logging because a feed drifting away from the catalog shows up here first.
-			f.logf("%s: %d of %d quotes not written", f.VenueID(), unknown, len(quotes))
+			f.conn.logf("%s: %d of %d quotes not written", f.VenueID(), unknown, len(quotes))
 		}
 	}
 

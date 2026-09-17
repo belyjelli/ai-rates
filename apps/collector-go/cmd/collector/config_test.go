@@ -97,3 +97,65 @@ func TestEveryRegisteredVenueIsCatalogued(t *testing.T) {
 		}
 	}
 }
+
+// TestConfigDefaultsLiquidationVenuesToTheProvenSet.
+//
+// This list DEFAULTS TO NON-EMPTY, unlike STREAM_VENUES, and the difference is deliberate: a
+// liquidation feed only ever INSERTs into a table of its own, so it cannot move a number any page
+// already shows the way a quote feed overwrites market_latest. The cost of it being on by default is
+// a socket; the cost of it being off by default is that nobody turns it on.
+func TestConfigDefaultsLiquidationVenuesToTheProvenSet(t *testing.T) {
+	cfg, err := loadConfig(envOf(map[string]string{"DATABASE_URL": "postgres://x"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.liquidationVenues) == 0 {
+		t.Fatal("liquidation venues should default to the measured set, not to empty")
+	}
+	for _, want := range []string{"binance", "bybit", "okx", "htx", "dydx", "aster"} {
+		if !contains(cfg.liquidationVenues, want) {
+			t.Errorf("default set is missing %q, which was proven to publish on 2026-09-18", want)
+		}
+	}
+	// Gate's socket works but gate is ingested over REST, and the two paths would not agree on a
+	// primary key — see "WHY GATE IS NOT HERE" in internal/stream/events.go.
+	if contains(cfg.liquidationVenues, "gate") {
+		t.Error("gate must not stream liquidations while it is also polled over REST")
+	}
+	// Every default must actually resolve to a protocol, or the boot logs a warning for a venue the
+	// operator never asked for.
+	for _, venue := range cfg.liquidationVenues {
+		if liquidationProtocol(cfg, venue) == nil {
+			t.Errorf("default venue %q has no liquidation protocol", venue)
+		}
+	}
+}
+
+func TestConfigLiquidationVenuesCanBeReplacedOrDisabled(t *testing.T) {
+	cfg, err := loadConfig(envOf(map[string]string{"DATABASE_URL": "postgres://x", "LIQUIDATION_VENUES": " bybit , okx "}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.liquidationVenues) != 2 || cfg.liquidationVenues[0] != "bybit" || cfg.liquidationVenues[1] != "okx" {
+		t.Fatalf("venues = %v, want the named set, trimmed", cfg.liquidationVenues)
+	}
+
+	for _, off := range []string{"none", "NONE"} {
+		cfg, err := loadConfig(envOf(map[string]string{"DATABASE_URL": "postgres://x", "LIQUIDATION_VENUES": off}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(cfg.liquidationVenues) != 0 {
+			t.Fatalf("%q should turn the feature off, got %v", off, cfg.liquidationVenues)
+		}
+	}
+}
+
+func contains(haystack []string, needle string) bool {
+	for _, item := range haystack {
+		if item == needle {
+			return true
+		}
+	}
+	return false
+}

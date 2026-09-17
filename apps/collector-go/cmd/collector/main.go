@@ -128,6 +128,16 @@ type config struct {
 	// streamMinOpenInterestUSD drops thin markets from the subscription set. Zero subscribes to
 	// every pairable market on the venue.
 	streamMinOpenInterestUSD float64
+	// liquidationVenues are the venues whose forced closes are ingested over a WebSocket. Unlike
+	// streamVenues this DEFAULTS TO THE PROVEN SET rather than to empty, because it only ever INSERTs
+	// into a table of its own — it cannot move a number any page already shows, the way a quote feed
+	// overwrites market_latest. Set LIQUIDATION_VENUES to "none" to turn it off.
+	liquidationVenues []string
+	// binanceLiquidationURL overrides the forced-close stream host. It exists because
+	// fstream.binance.com accepted the connection and sent nothing from the box this was measured on;
+	// see stream.DefaultBinanceLiquidationURL for the measurement and why the default is the other
+	// host.
+	binanceLiquidationURL string
 }
 
 func loadConfig(env func(string) string) (config, error) {
@@ -210,8 +220,32 @@ func loadConfig(env func(string) string) (config, error) {
 		return cfg, errors.New("STREAM_MIN_OI_USD must not be negative")
 	}
 	cfg.streamMinOpenInterestUSD = float64(minOI)
+
+	// LIQUIDATION_VENUES defaults to every venue PROVEN to publish forced closes publicly on
+	// 2026-09-18 (see the probe table in internal/stream/events.go). The explicit value "none" turns
+	// the feature off; naming venues replaces the default set entirely.
+	liquidations := strings.TrimSpace(env("LIQUIDATION_VENUES"))
+	switch {
+	case liquidations == "":
+		cfg.liquidationVenues = append([]string(nil), defaultLiquidationVenues...)
+	case strings.EqualFold(liquidations, "none"):
+		cfg.liquidationVenues = nil
+	default:
+		for _, venue := range strings.Split(liquidations, ",") {
+			if trimmed := strings.TrimSpace(venue); trimmed != "" {
+				cfg.liquidationVenues = append(cfg.liquidationVenues, trimmed)
+			}
+		}
+	}
+	cfg.binanceLiquidationURL = strings.TrimSpace(env("BINANCE_LIQUIDATION_WS_URL"))
 	return cfg, nil
 }
+
+// defaultLiquidationVenues is the measured set, in descending order of what each delivered during
+// the 2026-09-18 probe. Gate is ABSENT on purpose although its socket works: it is already ingested
+// over REST, and its two paths would not agree on a primary key — see "WHY GATE IS NOT HERE" in
+// internal/stream/events.go.
+var defaultLiquidationVenues = []string{"okx", "bybit", "binance", "dydx", "htx", "aster"}
 
 func intFromEnv(env func(string) string, name string, fallback int) (int, error) {
 	raw := env(name)
@@ -300,6 +334,10 @@ func run(log *slog.Logger) error {
 	// Curated leverage for venues that publish none; a figure a venue states always wins over it.
 	db := store.New(pool, catalog.CuratedMaxLeverage(venues))
 
+	// Resolved before the venues rows are written, because both that and the health registration
+	// need to know which liquidation feeds will actually run.
+	liquidationSpecs := liquidationFeeds(cfg, log)
+
 	// Every catalogued venue gets its row before any loop writes a market that references it.
 	venueRows := make([]store.VenueRow, len(venues))
 	for i, venue := range venues {
@@ -322,6 +360,24 @@ func run(log *slog.Logger) error {
 			Type: venue.Type,
 		})
 	}
+	// The same for the liquidation feeds, under their own ":liq" id. A third id per venue, for the
+	// reason there is a second: a live liquidation socket must not satisfy the staleness check for a
+	// funding poll that has died, and a calm market on one must not make the others look broken.
+	byID := make(map[string]catalog.Venue, len(venues))
+	for _, venue := range venues {
+		byID[venue.ID] = venue
+	}
+	for _, spec := range liquidationSpecs {
+		venue, known := byID[spec.venueID]
+		if !known {
+			continue // not in the catalog, so there is no venues row to hang a ":liq" id off
+		}
+		venueRows = append(venueRows, store.VenueRow{
+			ID:   venue.ID + ":liq",
+			Name: venue.Name + " (liquidations)",
+			Type: venue.Type,
+		})
+	}
 	if err := db.UpsertVenues(ctx, venueRows); err != nil {
 		return err
 	}
@@ -335,6 +391,9 @@ func run(log *slog.Logger) error {
 	// The same ordering trap the comment below describes, one layer out.
 	for _, venue := range cfg.streamVenues {
 		venueIDs = append(venueIDs, venue+":ws")
+	}
+	for _, spec := range liquidationSpecs {
+		venueIDs = append(venueIDs, spec.venueID+":liq")
 	}
 
 	// Status is built BEFORE the loops, and that order is load-bearing. LoopOptions is copied by
@@ -374,9 +433,12 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
+	eventFeeds, eventRefreshers := startEventFeeds(ctx, liquidationSpecs, db, status, log)
+
 	// Tasks beside the venue loops, stopped with them at shutdown.
 	tasks := startSideTasks(ctx, cfg, loops, db, log)
 	tasks = append(tasks, feedRefreshers...)
+	tasks = append(tasks, eventRefreshers...)
 	jobWatch := collector.NewJobWatch(time.Now())
 	tasks = append(tasks, startJobs(ctx, cfg, db, log, jobWatch)...)
 
@@ -423,7 +485,8 @@ func run(log *slog.Logger) error {
 		}
 	}()
 
-	log.Info("collecting", "venues", len(loops), "interval", cfg.interval.String(), "health_port", cfg.healthPort)
+	log.Info("collecting", "venues", len(loops), "interval", cfg.interval.String(),
+		"health_port", cfg.healthPort, "quote_feeds", len(feeds), "liquidation_feeds", len(eventFeeds))
 
 	<-ctx.Done()
 	log.Info("shutting down")
@@ -446,6 +509,14 @@ func run(log *slog.Logger) error {
 	for _, feed := range feeds {
 		if err := feed.Stop(graceCtx); err != nil {
 			log.Warn("feed did not stop within the grace period", "venue", feed.VenueID(), "error", err)
+		}
+	}
+	// The liquidation feeds' final flush is not merely free, it is the only chance: a buffered
+	// forced close that is not written now is gone, because no venue republishes one and only okx
+	// and gate have a REST path that would re-read it.
+	for _, feed := range eventFeeds {
+		if err := feed.Stop(graceCtx); err != nil {
+			log.Warn("liquidation feed did not stop within the grace period", "venue", feed.VenueID(), "error", err)
 		}
 	}
 	_ = server.Shutdown(graceCtx)
@@ -824,6 +895,171 @@ func streamProtocol(venueID string) stream.Protocol {
 	default:
 		return nil
 	}
+}
+
+// liquidationFeed pairs a venue id with the protocol that reads its forced closes. Built ONCE at
+// boot and passed to both the places that need it — the health registration and the feed start —
+// because constructing one has a side effect worth not repeating: okx's carries its own HTTP client.
+type liquidationFeed struct {
+	venueID string
+	proto   stream.EventProtocol
+}
+
+// liquidationFeeds resolves the configured venue list to the ones that actually have a protocol,
+// warning about the rest.
+//
+// A venue this does not know is SKIPPED rather than fatal, the opposite of STREAM_VENUES. That list
+// is empty by default, so naming something unknown there can only be a typo worth failing on; this
+// one ships with a default set, and a default must never be able to stop the process.
+func liquidationFeeds(cfg config, log *slog.Logger) []liquidationFeed {
+	feeds := make([]liquidationFeed, 0, len(cfg.liquidationVenues))
+	for _, venueID := range cfg.liquidationVenues {
+		proto := liquidationProtocol(cfg, venueID)
+		if proto == nil {
+			log.Warn("LIQUIDATION_VENUES names a venue with no liquidation protocol; skipping",
+				"venue", venueID)
+			continue
+		}
+		feeds = append(feeds, liquidationFeed{venueID: venueID, proto: proto})
+	}
+	return feeds
+}
+
+// liquidationProtocol maps a venue id to its forced-close protocol, or nil when it has none.
+//
+// The okx client is its own, separate from the funding loop's: it is the only venue here that needs
+// one at all (for the contract sizes that turn its contracts into dollars), and giving it a separate
+// client means a metadata fetch on reconnect cannot spend the funding poll's rate-limit budget.
+func liquidationProtocol(cfg config, venueID string) stream.EventProtocol {
+	switch venueID {
+	case "binance":
+		return stream.NewBinanceLiquidations(cfg.binanceLiquidationURL)
+	case "aster":
+		return stream.NewAsterLiquidations("")
+	case "bybit":
+		return stream.BybitLiquidations{}
+	case "okx":
+		return stream.NewOKXLiquidations(httpclient.New("okx:liq", httpclient.Options{MinInterval: okx.MinInterval}))
+	case "htx":
+		return stream.HTXLiquidations{}
+	case "dydx":
+		return stream.DydxLiquidations{}
+	default:
+		return nil
+	}
+}
+
+// liquidationSubjectsRefresh is how often a per-symbol liquidation feed re-reads its market list.
+//
+// FAR LONGER THAN THE QUOTE FEEDS' streamSubjectsRefresh, and deliberately. A refresh cycles the
+// connection, and unlike a book — which the next tick republishes — a liquidation that fires during
+// the reconnect is LOST, because no venue resends it. Listings do not move fast enough to be worth
+// paying that for often, so this trades a few hours of staleness on the newest markets against not
+// punching a hole in the feed every fifteen minutes. Only bybit and dydx are affected; the other
+// four subscribe to an all-symbols topic and never refresh at all.
+const liquidationSubjectsRefresh = 6 * time.Hour
+
+// liquidationMarketWindow is how recently a market must have been seen to be worth a topic. One day
+// rather than the funding sweep's window: a market delisted this morning cannot be liquidated this
+// afternoon, and a topic for one costs a slot in bybit's ~850-1,000 per connection.
+const liquidationMarketWindow = 24 * time.Hour
+
+// liquidationSymbols is EVERY market the venue still lists, which is deliberately NOT the set the
+// quote feeds subscribe to.
+//
+// StreamSubjects — the obvious thing to reuse — is shaped for /arbitrage and would be wrong twice
+// over here. It keeps only markets that are quoting RIGHT NOW (best_bid > 0 AND best_ask > 0), and
+// only bases listed on two or more venues, because a book nobody can pair against is a book nobody
+// can trade on. Neither test has anything to do with a forced close: a liquidation on a bybit-only
+// listing is still a liquidation, and the illiquid long tail is exactly where the violent ones
+// happen. Worse, market_latest's bid and ask are filled by the QUOTE feeds, which are off by
+// default — so reusing StreamSubjects would have quietly returned nothing at all on a deployment
+// that had not also enabled STREAM_VENUES, and the liquidation feeds for bybit and dydx would have
+// sat waiting for subjects that were never coming.
+func liquidationSymbols(ctx context.Context, db *store.Store, venueID string) ([]string, error) {
+	markets, err := db.ActiveMarkets(ctx, venueID, time.Now().Add(-liquidationMarketWindow))
+	if err != nil {
+		return nil, err
+	}
+	symbols := make([]string, 0, len(markets))
+	for _, market := range markets {
+		if market.VenueSymbol != "" {
+			symbols = append(symbols, market.VenueSymbol)
+		}
+	}
+	return symbols, nil
+}
+
+// startEventFeeds starts one liquidation feed per venue named in LIQUIDATION_VENUES.
+//
+// WHAT CANNOT DOUBLE-COUNT, stated here because it is the question this feature most invites. Three
+// venues now have two roads into the liquidations table: gate and okx are polled over REST by
+// startSideTasks, and okx is additionally streamed here. That is safe for okx and NOT attempted for
+// gate, for a reason that is about the data rather than about the code — okx's socket payload
+// carries the same fields, names and units as its REST payload, so one event produces one identical
+// primary key by either road and RecordLiquidations' ON CONFLICT DO NOTHING collapses the repeat.
+// See "WHY GATE IS NOT HERE" in internal/stream/events.go for the field-level reason gate's two
+// shapes would not agree.
+//
+// A DEAD FEED CANNOT STALL THE COLLECTOR. Each feed owns its own goroutines, its own backoff and its
+// own circuit breaker (internal/stream/conn.go); nothing here blocks on a connection, a venue that
+// refuses us is dialled on a cooldown rather than in a loop, and a venue that is merely unknown to
+// this switch is skipped with a warning instead of failing the boot — the opposite of STREAM_VENUES,
+// because this list has a non-empty DEFAULT and a default must never be able to stop the process.
+func startEventFeeds(ctx context.Context, specs []liquidationFeed, db *store.Store, status *collector.Status, log *slog.Logger) ([]*stream.EventFeed, []*collector.PeriodicTask) {
+	if len(specs) == 0 {
+		return nil, nil
+	}
+	feeds := make([]*stream.EventFeed, 0, len(specs))
+	refreshers := make([]*collector.PeriodicTask, 0, len(specs))
+	for _, spec := range specs {
+		venueID, proto := spec.venueID, spec.proto
+
+		var symbols []string
+		if proto.NeedsSymbols() {
+			var err error
+			symbols, err = liquidationSymbols(ctx, db, venueID)
+			if err != nil {
+				// Not fatal. The feed starts with nothing, waits, and picks the set up from the
+				// refresh task; a database hiccup at boot must not cost the whole feature.
+				log.Warn("liquidation subjects unavailable at boot", "venue", venueID, "error", err)
+			}
+		}
+
+		feed := stream.NewEventFeed(proto, stream.Dial, db, symbols, stream.Options{
+			OnFlush: status.Record,
+			Log:     func(message string) { log.Info(message) },
+		})
+		feed.Start(ctx)
+		feeds = append(feeds, feed)
+		log.Info("liquidation feed started",
+			"venue", feed.VenueID(), "subjects", feed.Subjects(), "all_symbols", !proto.NeedsSymbols())
+
+		if !proto.NeedsSymbols() {
+			continue // one topic covers the venue; there is nothing to refresh
+		}
+		refresh := collector.NewPeriodicTask("liquidation-subjects:"+venueID, liquidationSubjectsRefresh,
+			func(ctx context.Context) error {
+				next, err := liquidationSymbols(ctx, db, venueID)
+				if err != nil {
+					return err
+				}
+				if added, removed := feed.SetSubjects(next); added > 0 || removed > 0 {
+					log.Info("liquidation subjects changed", "venue", feed.VenueID(),
+						"added", added, "removed", removed, "subjects", feed.Subjects())
+				}
+				return nil
+			}, func(message string) { log.Warn(message) })
+		// A feed that started with nothing looks again in a minute rather than in six hours: a cold
+		// start is waiting on the first collection cycle, not on a listing.
+		first := liquidationSubjectsRefresh
+		if len(symbols) == 0 {
+			first = time.Minute
+		}
+		refresh.Start(ctx, first)
+		refreshers = append(refreshers, refresh)
+	}
+	return feeds, refreshers
 }
 
 // startFeeds starts one quote feed per venue named in STREAM_VENUES.
