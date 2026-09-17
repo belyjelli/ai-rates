@@ -282,7 +282,7 @@ export function cvd(data: {
 
   const topLine = (row: CvdAssetRow | null | undefined) =>
     row
-      ? `<a class="${tone(net(row)).trim()}" href="${esc(cvdPath(row.asset, row.asset_class) + cvdToQuery(params))}">${assetName(row.asset, row.asset_class)} ${signedUsd(net(row))}</a>`
+      ? `<a class="${tone(net(row)).trim()}" href="${esc(`${cvdPath(row.asset, row.asset_class)}${cvdToQuery({ ...params, q: "" })}#cvd-chart`)}">${assetName(row.asset, row.asset_class)} ${signedUsd(net(row))}</a>`
       : `<span class="dim">–</span>`;
 
   const tiles = `<div class="cvd-tiles" data-live="cvd-tiles">
@@ -321,7 +321,7 @@ export function cvd(data: {
       const selected = row.asset === asset && row.asset_class === chartClass;
       return `<tr data-k="${esc(assetKey(row.asset, row.asset_class))}"${selected ? ' class="cvd-on"' : ""}>
 <td class="num dim">${index + 1}</td>
-<td class="asset"><a href="${esc(cvdPath(row.asset, row.asset_class) + cvdToQuery({ ...params, q: "" }))}"${selected ? ' aria-current="true"' : ""}>${assetName(row.asset, row.asset_class)}</a></td>
+<td class="asset"><a href="${esc(`${cvdPath(row.asset, row.asset_class)}${cvdToQuery({ ...params, q: "" })}#cvd-chart`)}"${selected ? ' aria-current="true"' : ""}>${assetName(row.asset, row.asset_class)}</a></td>
 <td class="num"><span data-u="price">${formatPrice(row.price)}</span></td>
 <td class="num${tone(row.change_pct)}"><span data-u="change">${signedPct(row.change_pct)}</span></td>
 <td class="num${tone(net(row))}"><span data-u="cvd">${signedUsd(net(row))}</span></td>
@@ -375,7 +375,7 @@ export function cvd(data: {
 <p class="lede">Cumulative volume delta: <span class="cvd-up">taker buys</span> less <span class="cvd-down">taker sells</span>, in dollars. These are the exchanges' own 5-minute taker statistics from <b>${CVD_VENUES.map(venueName).join(", ")}</b>, summed, for the ~100 assets deepest on them — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.</p>
 <div class="lq-controls">${windowStrip}</div>
 ${tiles}
-${chart}
+<div id="cvd-chart" class="cvd-anchor">${chart}</div>
 <div class="cvd-head"><h2 class="cvd-h2">CVD screener · net buying and selling by asset</h2>${search}</div>
 <p class="notes" data-live="cvd-asof">Click an asset to chart it above. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it, OKX five days and Bitget about two and a half hours, so the oldest bars of a new 7-day window sum fewer venues.${lag}</p>
 ${table}`,

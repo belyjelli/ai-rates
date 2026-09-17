@@ -68,7 +68,12 @@ a:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .bar2{border-top:1px solid var(--rule)}
 .brand{font-weight:700;text-transform:uppercase;letter-spacing:.04em;border:0}
 .brand small{margin-left:8px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0}
-.mast nav{display:flex;gap:2px}
+/* The nav row scrolls sideways instead of clipping. .bar's overflow:hidden cut it at the viewport, and
+   at 390px wide that left "cvd" half drawn and "exchanges" unreachable: a destination a phone reader
+   could not get to at all. No visible scrollbar, since the row is one line and a swipe is the gesture. */
+.bar2{overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.bar2::-webkit-scrollbar{display:none}
+.mast nav{display:flex;gap:2px;flex-shrink:0}
 .mast nav a{border:0;color:var(--muted);text-transform:uppercase;padding:0 6px}
 .mast nav a[aria-current=page]{background:var(--ink);color:var(--bg)}
 .mast nav a:hover{color:var(--accent)}
@@ -251,6 +256,9 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .cvd-big{font:700 clamp(22px,3.4vw,32px)/1.1 var(--mono);margin:0 0 4px}
 .cvd-flows{font-weight:700;margin:0 0 4px;line-height:1.5}
 .cvd-flows a{border:0}
+/* Every asset link targets #cvd-chart, which wraps the chart or the note that replaces it. The offset
+   keeps the sticky masthead from covering the chart's title when the page jumps there. */
+.cvd-anchor{scroll-margin-top:calc(var(--mast) + 8px)}
 .cvd-chart .fchart-plot{margin:6px 64px 0 64px}
 .cvd-chart .fchart-note{margin-top:22px}
 .cvd-chart .cvd-plot{height:260px}
@@ -436,11 +444,14 @@ footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim)
 .about-log li+li{margin-top:4px}
 /* Reduced motion: a still outline in place of the live-refresh fade, cleared on the next refresh. */
 .chg{outline:1px solid var(--muted);outline-offset:-1px}.chg-up{outline-color:#00ff88}.chg-down{outline-color:#ff4757}
-@media (max-width:860px){.keys{display:none}.status{font-size:11px}.legs .short{text-align:left}}
+/* The hotkey legend needs ~1,190px beside the nav since cvd joined it; below that it was clipped
+   mid-word ("lliquidations"), so it goes rather than half-shows. The keys still work. */
+@media (max-width:1240px){.keys{display:none}}
+@media (max-width:860px){.status{font-size:11px}.legs .short{text-align:left}}
 `;
 
 // Live "… ago" and countdowns, a UTC clock, and the hotkeys advertised in the status bar.
-const SCRIPT = `(()=>{const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?s+"s":s<3600?Math.floor(s/60)+"m":Math.floor(s/3600)+"h "+p(Math.floor(s%3600/60))+"m"};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=f((n-e.dataset.since)/1e3)+" ago";for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):"settling"}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const n=e.target&&e.target.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA")return;if(e.key==="/"){const q=document.querySelector("form.filters select,form.filters input");if(q){e.preventDefault();q.focus()}return}const g=${HOTKEY_TARGETS}[e.key];if(g){e.preventDefault();location.href=g}})})();`;
+const SCRIPT = `(()=>{const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?s+"s":s<3600?Math.floor(s/60)+"m":Math.floor(s/3600)+"h "+p(Math.floor(s%3600/60))+"m"};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=f((n-e.dataset.since)/1e3)+" ago";for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):"settling"}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const n=e.target&&e.target.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA")return;if(e.key==="/"){const q=document.querySelector("form.filters select,form.filters input,form.cvd-search input[type=search]");if(q){e.preventDefault();q.focus()}return}const g=${HOTKEY_TARGETS}[e.key];if(g){e.preventDefault();location.href=g}})})();`;
 
 export function layout(options: {
   title: string;
