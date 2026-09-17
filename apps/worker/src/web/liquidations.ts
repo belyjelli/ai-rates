@@ -4,6 +4,8 @@ import {
   DEFAULT_LIQUIDATION_ASSETS,
   LIQUIDATION_BAND_REACH,
   LIQUIDATION_BANDS,
+  LIQUIDATION_VENUE_ALL,
+  LIQUIDATION_VENUE_EACH,
   LIQUIDATION_WINDOW_KEYS,
   LIQUIDATION_WINDOWS,
   type LiquidationAssetParams,
@@ -142,6 +144,7 @@ function controlHref(
   },
   overrides: {
     window?: LiquidationWindow;
+    venue?: string;
     band?: LiquidationBand | null;
     /** Swap the asset the address names. Null returns to the all-assets address. */
     asset?: { name: string; assetClass: AssetClass } | null;
@@ -164,6 +167,8 @@ function controlHref(
   const query = new URLSearchParams();
   const window = overrides.window ?? state.params.window;
   if (window !== "24h") query.set("window", window);
+  const venue = overrides.venue ?? state.params.venue;
+  if (venue !== LIQUIDATION_VENUE_ALL) query.set("venue", venue);
   if (state.params.assets !== DEFAULT_LIQUIDATION_ASSETS) {
     query.set("assets", String(state.params.assets));
   }
@@ -190,6 +195,45 @@ function windowStrip(state: {
   return `<nav class="tf" aria-label="Window">${links}</nav>`;
 }
 
+/**
+ * Which venues the map draws: every feed added up, one venue, or the feeds side by side.
+ *
+ * A strip of links rather than a select, like every other control here: no JavaScript, each entry is
+ * an address, and it disappears entirely on a single-feed window, where a chooser would be a control
+ * with one choice. The venues come from the data, so a feed added to the collector appears here
+ * without this page being edited.
+ */
+function venueStrip(
+  state: {
+    addressed: string | null;
+    assetClass: AssetClass | null;
+    params: LiquidationParams;
+    assetParams: LiquidationAssetParams;
+  },
+  feeds: readonly string[],
+): string {
+  if (feeds.length < 2) return "";
+  const link = (venue: string, label: string) => {
+    const href = esc(controlHref(state, { venue }, "#map"));
+    // A named venue with nothing in this window falls back to the combined grid, so the strip marks
+    // what the page is actually showing rather than what the address asked for.
+    const on =
+      state.params.venue === venue ||
+      (venue === LIQUIDATION_VENUE_ALL &&
+        state.params.venue !== LIQUIDATION_VENUE_EACH &&
+        !feeds.includes(state.params.venue));
+    return on
+      ? `<a class="on" href="${href}" aria-current="page">${label}</a>`
+      : `<a href="${href}">${label}</a>`;
+  };
+  return `<nav class="tf" aria-label="Venue"><span class="tf-label">Venue</span>${link(
+    LIQUIDATION_VENUE_ALL,
+    "all",
+  )}${link(LIQUIDATION_VENUE_EACH, "each")}${feeds
+    .map((venueId) => link(venueId, esc(venueName(venueId).toLowerCase())))
+    .join("")}</nav>`;
+}
+
 function legend(): string {
   const bounds = ["&lt;$1k", "$1k–10k", "$10k–100k", "$100k–1M", "$1M–5M", "≥$5M"];
   const swatches = bounds
@@ -203,8 +247,19 @@ function legend(): string {
 <span class="lq-key lq-hue"><i class="lq-s5"></i>shorts closed</span></div>`;
 }
 
-function mapPanel(data: { map: LiquidationMap; params: LiquidationParams; now: number }): string {
-  const { map, params, now } = data;
+function mapPanel(data: {
+  map: LiquidationMap;
+  params: LiquidationParams;
+  /** The control state, so the venue strip keeps the window and the address. */
+  strip: {
+    addressed: string | null;
+    assetClass: AssetClass | null;
+    params: LiquidationParams;
+    assetParams: LiquidationAssetParams;
+  };
+  now: number;
+}): string {
+  const { map, params, strip, now } = data;
   const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
   const cols = columns(params, now);
   const query = liquidationsToQuery(params);
@@ -242,10 +297,58 @@ function mapPanel(data: { map: LiquidationMap; params: LiquidationParams; now: n
     });
   }
 
-  const venues = map.totals.map((total) => total.venue_id);
+  const feeds = map.totals.map((total) => total.venue_id);
+
+  // The combined view is a pseudo-venue summed over the feeds, built from the same indexes the per
+  // venue panels read rather than from a second query: the cells are already per venue, per asset,
+  // per bucket, so adding them here costs one pass and keeps one arithmetic for both views.
+  //
+  // It is keyed by a name no venue can have (params guarantees a venue id is [a-z0-9-]), so the
+  // panel renderer needs no second code path.
+  for (const cell of map.cells) {
+    const key = `${LIQUIDATION_VENUE_ALL}\0${cell.asset}\0${cell.asset_class}\0${cell.bucket_start.getTime()}`;
+    const held = byCell.get(key) ?? { usd: 0, events: 0, long: 0, short: 0 };
+    held.usd += cell.notional_usd;
+    held.events += cell.events;
+    held.long += cell.long_usd;
+    held.short += cell.short_usd;
+    byCell.set(key, held);
+  }
+  for (const total of map.columnTotals) {
+    const key = `${LIQUIDATION_VENUE_ALL}\0${total.bucket_start.getTime()}`;
+    const held = byColumnTotal.get(key) ?? { usd: 0, events: 0, long: 0, short: 0 };
+    held.usd += total.notional_usd;
+    held.events += total.events;
+    held.long += total.long_usd;
+    held.short += total.short_usd;
+    byColumnTotal.set(key, held);
+  }
+  // Markets are summed rather than counted distinctly: a market is one venue's own listing, so the
+  // same asset on two venues is two markets, which is what each panel's own figure already says.
+  const combinedTotals = map.totals.reduce(
+    (sum, total) => ({
+      venue_id: LIQUIDATION_VENUE_ALL,
+      notional_usd: sum.notional_usd + total.notional_usd,
+      events: sum.events + total.events,
+      long_usd: sum.long_usd + total.long_usd,
+      short_usd: sum.short_usd + total.short_usd,
+      markets: sum.markets + total.markets,
+    }),
+    {
+      venue_id: LIQUIDATION_VENUE_ALL,
+      notional_usd: 0,
+      events: 0,
+      long_usd: 0,
+      short_usd: 0,
+      markets: 0,
+    },
+  );
 
   const panel = (venueId: string): string => {
-    const totals = map.totals.find((total) => total.venue_id === venueId);
+    const totals =
+      venueId === LIQUIDATION_VENUE_ALL
+        ? combinedTotals
+        : map.totals.find((total) => total.venue_id === venueId);
     const head = cols
       .map(
         (column) =>
@@ -319,8 +422,12 @@ function mapPanel(data: { map: LiquidationMap; params: LiquidationParams; now: n
         )} liquidations · ${totals.markets.toLocaleString("en-US")} markets`
       : "no liquidations in this window";
 
+    const title =
+      venueId === LIQUIDATION_VENUE_ALL
+        ? `<h2 class="lq-venue">Every feed${feeds.length > 1 ? `, ${feeds.length} venues` : ""}</h2>`
+        : `<h2 class="lq-venue"><a href="/markets/${esc(venueId)}">${esc(venueName(venueId))}</a></h2>`;
     return `<section class="lq-panel">
-<h2 class="lq-venue"><a href="/markets/${esc(venueId)}">${esc(venueName(venueId))}</a></h2>
+${title}
 <p class="lq-sum" data-live="lq-sum-${esc(venueId)}">${heading}</p>
 <div class="heat-wrap"><table class="heat lq">
 <thead><tr><th class="asset" scope="col">Asset</th>${head}</tr></thead>
@@ -331,21 +438,30 @@ function mapPanel(data: { map: LiquidationMap; params: LiquidationParams; now: n
 </section>`;
   };
 
+  // "each" keeps the side-by-side comparison; a named venue that has no rows in this window falls
+  // back to the combined grid rather than rendering an empty panel the reader did not ask for.
+  const shown =
+    params.venue === LIQUIDATION_VENUE_EACH
+      ? feeds
+      : feeds.includes(params.venue)
+        ? [params.venue]
+        : [LIQUIDATION_VENUE_ALL];
   const body =
-    venues.length === 0
-      ? `<p class="empty">No liquidations recorded in the last ${esc(params.window)}. Only gate and okx publish a feed the collector reads, so a quiet window here is not a quiet market.</p>`
-      : `<div class="lq-grid">${venues.map(panel).join("")}</div>`;
+    feeds.length === 0
+      ? `<p class="empty">No liquidations recorded in the last ${esc(params.window)}. Only the venues that publish a feed the collector reads appear here, so a quiet window is not a quiet market.</p>`
+      : `<div class="lq-grid${shown.length === 1 ? " lq-grid-one" : ""}">${shown.map(panel).join("")}</div>`;
 
   const newest = map.cells.reduce<Date | null>(
     (latest, cell) => (latest === null || cell.bucket_start > latest ? cell.bucket_start : latest),
     null,
   );
 
-  return `<p class="notes" data-live="lq-asof">Columns are ${bucketHours}-hour buckets in UTC, newest
+  return `${venueStrip(strip, feeds)}
+<p class="notes" data-live="lq-asof">Columns are ${bucketHours}-hour buckets in UTC, newest
 on the right; the last one is still filling. ${
     newest ? `Newest liquidation ${esc(ageText(newest, now))}.` : ""
-  } Rows are the ${map.assets.length} busiest assets by notional across both venues, and the rest are
-summed into “other markets”, so the totals below the grid are the venue's real totals and add up.
+  } Rows are the ${map.assets.length} busiest assets by notional across every feed, and the rest are
+summed into “other markets”, so the totals below the grid are real totals and add up.
 Any row opens that asset at the price it died at. <a href="/v1/liquidations${esc(query)}">JSON</a>.</p>
 ${body}`;
 }
@@ -372,7 +488,7 @@ ${body}`;
 function assetPanel(data: {
   asset: string;
   map: LiquidationAssetMap;
-  params: LiquidationAssetParams;
+  params: LiquidationAssetParams & { venue: string };
   /** Pre-rendered by the caller, the only place that knows the whole address and query. */
   bandStrip: string;
   picker: string;
@@ -380,7 +496,7 @@ function assetPanel(data: {
 }): string {
   const { asset, map, params, bandStrip, picker, now } = data;
   const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
-  const cols = columns({ window: params.window, assets: 0 }, now);
+  const cols = columns({ window: params.window, assets: 0, venue: LIQUIDATION_VENUE_ALL }, now);
   const reach = LIQUIDATION_BAND_REACH;
   const mark = map.mark;
   // The width the data layer actually used, which is the fitted one unless the reader picked.
@@ -457,14 +573,18 @@ function assetPanel(data: {
 </section>`;
   };
 
-  const venues = map.totals.map((total) => total.venue_id);
+  // The priced grid cannot sum venues -- comparing where each book broke is the tab's whole question
+  // -- so "all" and "each" both draw every panel here. A named venue still narrows it to one, which
+  // is what makes the strip on the map tab mean the same thing on this one.
+  const all = map.totals.map((total) => total.venue_id);
+  const venues = all.includes(params.venue) ? [params.venue] : all;
   const body =
     mark === null
       ? `<p class="empty">No live market for ${label} is publishing a mark, so there is no price to band liquidations against.</p>`
       : venues.length === 0
         ? `<p class="empty">No liquidations recorded for ${label} in the last ${esc(
             params.window,
-          )}. Only gate and okx publish a feed the collector reads.</p>`
+          )}. Only the venues publishing a feed the collector reads appear here.</p>`
         : `<div class="lq-grid">${venues.map(panel).join("")}</div>`;
 
   return `<p class="notes">Showing <b>${label}</b>, priced in bands of ${bandPct}% around the mark${
@@ -863,13 +983,23 @@ export function liquidations(data: {
       : assetPanel({
           asset,
           map: assetMap,
-          params: assetParams,
+          params: { ...assetParams, venue: params.venue },
           bandStrip,
           picker: assetStrip(state, map.assets, asset, "#price"),
           now,
         });
 
   const totalEvents = map.totals.reduce((sum, venue) => sum + venue.events, 0);
+  // Named from the data rather than written into the copy: the page used to say "gate and okx" in
+  // three places, which is a sentence that goes quietly wrong the day a feed is added.
+  const feeds = map.totals.map((total) => total.venue_id);
+  const feedNames =
+    feeds.length > 1
+      ? `${feeds
+          .slice(0, -1)
+          .map((venueId) => esc(venueName(venueId)))
+          .join(", ")} and ${esc(venueName(feeds[feeds.length - 1] as string))}`
+      : feeds.map((venueId) => esc(venueName(venueId))).join("");
 
   return layout({
     title: "Liquidations",
@@ -881,8 +1011,11 @@ export function liquidations(data: {
     body: `<h1>Liquidations</h1>
 <p class="lede">Where positions were force-closed, by exchange. Colour is the side that was closed —
 <span class="lq-ink-l">blue for longs</span>, <span class="lq-ink-s">red for shorts</span> — and
-intensity is the money, on a log scale. Two venues publish a liquidation feed the collector reads,
-so this is gate and okx, not the whole market.</p>
+intensity is the money, on a log scale. ${
+      feeds.length === 0
+        ? "No venue has reported a liquidation in this window."
+        : `This is ${feedNames}, the ${feeds.length === 1 ? "one venue" : `${feeds.length} venues`} whose liquidation feed the collector reads — not the whole market.`
+    }</p>
 <div class="lq-controls">${windowStrip(state)}${legend()}</div>
 ${tabBar({
   name: "liq",
@@ -902,7 +1035,7 @@ ${tabBar({
   activeId: active,
 })}
 <div class="tabpanel" role="tabpanel" id="panel-liq-map" data-tab-panel="map" aria-labelledby="tab-liq-map">
-${mapPanel({ map, params, now })}
+${mapPanel({ map, params, strip: state, now })}
 </div>
 <div class="tabpanel" role="tabpanel" id="panel-liq-sides" data-tab-panel="sides" aria-labelledby="tab-liq-sides">
 ${
