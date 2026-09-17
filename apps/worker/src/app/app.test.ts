@@ -2129,10 +2129,36 @@ describe("cvd", () => {
       { windowHours: 168, barMinutes: 120, base: "SNDK", assetClass: "equity" },
     ]);
     // Links keep the window and the sort, and the charted row is marked.
-    expect(html).toContain('href="/cvd/ZEC?window=7d&amp;sort=cvd&amp;dir=asc"');
+    // ...and land on the chart, not the top of the page.
+    expect(html).toContain('href="/cvd/ZEC?window=7d&amp;sort=cvd&amp;dir=asc#cvd-chart"');
+    expect(html).toContain('id="cvd-chart"');
     expect(html).toContain('aria-current="true"');
     // Sorted ascending by CVD, the heaviest net selling comes first.
     expect(html.indexOf('data-k="ZEC"')).toBeLessThan(html.indexOf('data-k="BTC"'));
+  });
+
+  test("an asset named in another script has a working address", async () => {
+    const seen: CvdOptions[] = [];
+    const { data } = fakeData({
+      cvd: async (options) => {
+        seen.push(options);
+        return flow();
+      },
+    });
+    // 龙虾 is listed by hotcoin and aster; the ASCII-only address pattern answered it with a 404.
+    const response = await get(`/cvd/${encodeURIComponent("龙虾")}`, data);
+    expect(response.status).toBe(200);
+    expect(seen[0]?.base).toBe("龙虾");
+    // Still one segment of letters and digits: a slash or a space is not an asset.
+    expect((await get(`/cvd/${encodeURIComponent("a b")}`, data)).status).toBe(404);
+  });
+
+  test("the top-flow links drop the search, as the rows do", async () => {
+    const { data } = fakeData({ cvd: async () => flow() });
+    const html = await (await get("/cvd?q=ze", data)).text();
+    const tiles = html.split('data-live="cvd-tiles"')[1]?.split("</div>\n</div>")[0] ?? "";
+    expect(tiles).toContain('href="/cvd/BTC#cvd-chart"');
+    expect(tiles).not.toContain("q=");
   });
 
   test("search filters the table without changing the tiles", async () => {

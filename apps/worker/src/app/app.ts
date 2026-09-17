@@ -49,7 +49,13 @@ export interface AppDeps {
 
 const PAGE_MAX_AGE = 30;
 const API_MAX_AGE = 15;
-const ASSET_PATTERN = /^[A-Za-z0-9._-]{1,40}$/;
+/**
+ * Letters and digits in any script, plus . _ -. It was ASCII-only, which 404ed every asset page for
+ * the tickers venues list in Chinese -- 龙虾, 牛来, 币安人生 -- while the site's own tables linked
+ * to them: measured 2026-09-17, the homepage's /pair/龙虾 and three /cvd rows were dead links.
+ * Still no slash, dot-dot is harmless as a single segment, and the length bound is unchanged.
+ */
+const ASSET_PATTERN = /^[\p{L}\p{N}._-]{1,40}$/u;
 
 interface AssetAddress {
   asset: string;
