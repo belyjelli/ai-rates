@@ -10,7 +10,13 @@ const NAV = [
   { href: "/screener", label: "screener", match: (p: string) => p === "/screener" },
   { href: "/rates", label: "rates", match: (p: string) => p === "/rates" },
   { href: "/arbitrage", label: "arbitrage", match: (p: string) => p === "/arbitrage" },
-  { href: "/liquidations", label: "liquidations", match: (p: string) => p === "/liquidations" },
+  // startsWith, like /markets: an asset's priced grid lives under the same address and must keep
+  // the nav item lit rather than reading as a page outside the site.
+  {
+    href: "/liquidations",
+    label: "liquidations",
+    match: (p: string) => p.startsWith("/liquidations"),
+  },
   { href: "/markets", label: "exchanges", match: (p: string) => p.startsWith("/markets") },
 ];
 

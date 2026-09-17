@@ -580,6 +580,98 @@ describe("pages", () => {
     ...overrides,
   });
 
+  test("liquidations is one page in two tabs, both panels served and neither hidden", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const html = await (await get("/liquidations", data)).text();
+
+    expect(html).toContain('data-tabs="liq"');
+    expect(html).toContain('data-tab="map"');
+    expect(html).toContain('data-tab="price"');
+    // Both panels ship, and neither is hidden in the HTML: the script hides the inactive one, so a
+    // reader without JavaScript gets both grids rather than one and a dead button.
+    expect(html).toContain('data-tab-panel="map"');
+    expect(html).toContain('data-tab-panel="price"');
+    expect(html).not.toContain('<div class="tabpanel" hidden');
+
+    // The bar must sit ahead of every live-swapped region, or live.ts replaces a button under the
+    // reader's cursor about every 30 seconds and the active tab resets itself.
+    const bar = html.indexOf('data-tabs="liq"');
+    expect(bar).toBeGreaterThan(-1);
+    expect(bar).toBeLessThan(html.indexOf('data-live="lq-asof"'));
+    expect(bar).toBeLessThan(html.indexOf('<tbody data-live="lq-gate"'));
+  });
+
+  test("the address picks the tab: the map by default, prices when an asset is named", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+
+    const list = await (await get("/liquidations", data)).text();
+    expect(list).toContain('id="tab-liq-map" class="btn-tab active"');
+    expect(list).not.toContain('id="tab-liq-price" class="btn-tab active"');
+
+    const one = await (await get("/liquidations/ETH", data)).text();
+    expect(one).toContain('id="tab-liq-price" class="btn-tab active"');
+    expect(one).not.toContain('id="tab-liq-map" class="btn-tab active"');
+  });
+
+  test("with no asset named, the priced tab is primed with the busiest one", async () => {
+    const calls: string[] = [];
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async (options) => {
+        calls.push(options.base);
+        return liqAsset();
+      },
+    });
+    const html = await (await get("/liquidations", data)).text();
+
+    // liqMap's busiest asset is ETH, so the tab is filled rather than shipped empty and dead.
+    expect(calls).toEqual(["ETH"]);
+    expect(html).toContain("ETH price levels");
+  });
+
+  test("an address that is not an asset is a 404, not the map with a stray tab", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    const res = await get("/liquidations/not%20an%20asset", data);
+
+    expect(res.status).toBe(404);
+  });
+
+  test("changing the window keeps the asset, the band and the tab", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const html = await (await get("/liquidations/ETH?band=2", data)).text();
+
+    // The window strip sits above the tabs and governs both panels, so its links have to carry the
+    // address and the band with them. The first version pointed every one at /liquidations, which
+    // dropped the asset and bounced the reader to the map.
+    // &amp;, because esc() escapes the attribute -- asserting a raw & would be asserting a bug.
+    expect(html).toContain('href="/liquidations/ETH?window=48h&amp;band=2"');
+    // And the band strip keeps the fragment, or following it from the priced tab of /liquidations
+    // would land back on the map.
+    expect(html).toContain("#price");
+  });
+
+  test("with no asset addressed, the window strip stays on the map's own address", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const html = await (await get("/liquidations", data)).text();
+
+    // The priced tab is primed with ETH, but the address names no asset, so changing the window
+    // must not navigate to /liquidations/ETH and land the reader on a different tab.
+    expect(html).toContain('href="/liquidations?window=48h"');
+    expect(html).not.toContain('href="/liquidations/ETH?window=48h"');
+  });
+
   test("an asset's grid puts the price it died at on the row axis", async () => {
     const { data } = fakeData({ liquidationAsset: async () => liqAsset() });
     const html = await (await get("/liquidations/ETH", data)).text();
