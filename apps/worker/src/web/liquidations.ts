@@ -463,6 +463,149 @@ ${body}`;
 }
 
 /**
+ * Longs on the left, shorts on the right: the same split the reference layout makes, applied to
+ * forced closes rather than to open positions.
+ *
+ * WHY A THIRD VIEW AND NOT A COLOUR. The map's hue already says which side dominated a cell, which
+ * answers "which way did this one go" and hides "how much of each". A cell holding $9M of longs and
+ * $1M of shorts and a cell holding $5M of each both read as one hue at one intensity there. Here the
+ * two sides are separate grids on shared rows and shared columns, so the magnitudes are read off
+ * against each other directly -- which is the question a squeeze actually poses.
+ *
+ * NO EXTRA QUERY. Every cell the map already fetched carries long_usd and short_usd per venue, so
+ * the side split is those columns summed across venues. The page costs what it cost before.
+ *
+ * VENUES ARE MERGED HERE, deliberately: this view's subject is the direction, and the venue split
+ * is one tab to the left. Splitting on both at once would be four grids and no comparison.
+ */
+function sidesPanel(data: { map: LiquidationMap; params: LiquidationParams; now: number }): string {
+  const { map, params, now } = data;
+  const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
+  const cols = columns(params, now);
+
+  // (asset, bucket) -> the two sides, summed over venues.
+  const byCell = new Map<string, { long: number; short: number; events: number }>();
+  for (const cell of map.cells) {
+    const key = `${cell.asset}\0${cell.asset_class}\0${cell.bucket_start.getTime()}`;
+    const held = byCell.get(key) ?? { long: 0, short: 0, events: 0 };
+    held.long += cell.long_usd;
+    held.short += cell.short_usd;
+    held.events += cell.events;
+    byCell.set(key, held);
+  }
+  const byColumn = new Map<number, { long: number; short: number; events: number }>();
+  for (const total of map.columnTotals) {
+    const key = total.bucket_start.getTime();
+    const held = byColumn.get(key) ?? { long: 0, short: 0, events: 0 };
+    held.long += total.long_usd;
+    held.short += total.short_usd;
+    held.events += total.events;
+    byColumn.set(key, held);
+  }
+
+  const totals = map.totals.reduce(
+    (sum, venue) => ({
+      long: sum.long + venue.long_usd,
+      short: sum.short + venue.short_usd,
+      events: sum.events + venue.events,
+    }),
+    { long: 0, short: 0, events: 0 },
+  );
+
+  const panel = (side: "long" | "short"): string => {
+    const head = cols
+      .map(
+        (column) =>
+          `<th class="num${column.partial ? " lq-now" : ""}" scope="col">${esc(
+            columnLabel(column, bucketHours),
+          )}</th>`,
+      )
+      .join("");
+
+    const rows = map.assets
+      .map((asset) => {
+        const cells = cols
+          .map((column) => {
+            const cell = byCell.get(
+              `${asset.asset}\0${asset.asset_class}\0${column.start.getTime()}`,
+            );
+            const usd = side === "long" ? (cell?.long ?? 0) : (cell?.short ?? 0);
+            // Zero on THIS side is still silence for this side, even when the other side traded:
+            // the panel's claim is about long closes, and "no longs were closed" is not "$0".
+            if (!cell || usd <= 0) {
+              return `<td class="num none" data-c="${column.start.getTime()}">·</td>`;
+            }
+            // The hue is the panel here, not the cell, which is what makes the two grids
+            // comparable at a glance -- the reference layout does the same.
+            return `<td class="num lq-${side === "long" ? "l" : "s"}${step(
+              usd,
+            )}" data-c="${column.start.getTime()}" title="${esc(
+              `${money(usd)} of ${side}s closed`,
+            )}"><span data-u="usd">${money(usd)}</span></td>`;
+          })
+          .join("");
+        return `<tr data-k="${esc(assetKey(asset.asset, asset.asset_class))}"><th class="asset" scope="row"><a href="/liquidations/${assetPathFor(
+          asset.asset,
+          asset.asset_class,
+        )}">${assetName(asset.asset, asset.asset_class)}</a></th>${cells}</tr>`;
+      })
+      .join("");
+
+    const other = cols
+      .map((column) => {
+        const total = byColumn.get(column.start.getTime());
+        if (!total) return `<td class="num none">·</td>`;
+        let shown = 0;
+        for (const asset of map.assets) {
+          const cell = byCell.get(
+            `${asset.asset}\0${asset.asset_class}\0${column.start.getTime()}`,
+          );
+          if (cell) shown += side === "long" ? cell.long : cell.short;
+        }
+        const rest = (side === "long" ? total.long : total.short) - shown;
+        return rest > 1 ? `<td class="num dim">${money(rest)}</td>` : `<td class="num none">·</td>`;
+      })
+      .join("");
+
+    const totalRow = cols
+      .map((column) => {
+        const total = byColumn.get(column.start.getTime());
+        const usd = total ? (side === "long" ? total.long : total.short) : 0;
+        return usd > 0
+          ? `<td class="num"><span data-u="total">${money(usd)}</span></td>`
+          : `<td class="num none">·</td>`;
+      })
+      .join("");
+
+    const sum = side === "long" ? totals.long : totals.short;
+    const share = totals.long + totals.short > 0 ? (sum / (totals.long + totals.short)) * 100 : 0;
+
+    return `<section class="lq-panel">
+<h2 class="lq-venue lq-side-${side}">${side === "long" ? "Longs closed" : "Shorts closed"}</h2>
+<p class="lq-sum"><b>${money(sum)}</b> · ${share.toFixed(0)}% of the window's forced flow</p>
+<div class="heat-wrap"><table class="heat lq lq-sides">
+<thead><tr><th class="asset" scope="col">Asset</th>${head}</tr></thead>
+<tbody data-live="lq-side-${side}">${rows}
+<tr class="lq-other"><th class="asset" scope="row">other markets</th>${other}</tr>
+<tr class="lq-total"><th class="asset" scope="row">total</th>${totalRow}</tr></tbody>
+</table></div>
+</section>`;
+  };
+
+  if (map.totals.length === 0) {
+    return `<p class="empty">No liquidations recorded in the last ${esc(
+      params.window,
+    )}, on either side.</p>`;
+  }
+
+  return `<p class="notes">Both venues merged: this view's subject is the direction, and the split by
+exchange is one tab to the left. A long close is a forced SELL and a short close a forced BUY, so the
+heavier side is the one the move ran against. Colour is the panel, not the cell — only the intensity
+varies, so the two grids read against each other.</p>
+<div class="lq-grid">${panel("long")}${panel("short")}</div>`;
+}
+
+/**
  * /liquidations: both views of the same subject, behind one tab bar.
  *
  * They are one category and one page. The map answers "which asset, which hour, which venue" and
@@ -491,7 +634,7 @@ export function liquidations(data: {
   params: LiquidationParams;
   assetParams: LiquidationAssetParams;
   /** Which tab the server marks active. A hash in the URL still overrides it. */
-  active: "map" | "price";
+  active: "map" | "sides" | "price";
   now: number;
 }): string {
   const { overview, map, asset, addressed, assetMap, params, assetParams, active, now } = data;
@@ -541,6 +684,7 @@ ${tabBar({
   name: "liq",
   tabs: [
     { id: "map", label: "By asset and hour", shortLabel: "Assets", badge: totalEvents },
+    { id: "sides", label: "Longs vs shorts", shortLabel: "Sides" },
     {
       id: "price",
       label: asset === null ? "By price level" : `${asset} price levels`,
@@ -551,6 +695,9 @@ ${tabBar({
 })}
 <div class="tabpanel" role="tabpanel" id="panel-liq-map" data-tab-panel="map" aria-labelledby="tab-liq-map">
 ${mapPanel({ map, params, now })}
+</div>
+<div class="tabpanel" role="tabpanel" id="panel-liq-sides" data-tab-panel="sides" aria-labelledby="tab-liq-sides">
+${sidesPanel({ map, params, now })}
 </div>
 <div class="tabpanel" role="tabpanel" id="panel-liq-price" data-tab-panel="price" aria-labelledby="tab-liq-price">
 ${priced}

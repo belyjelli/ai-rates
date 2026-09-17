@@ -218,6 +218,10 @@ box-shadow:inset 0 0 0 1px var(--ink)}
    grid follows draws the same line, and it is the one row boundary that means something. */
 .heat.lq-asset tr.lq-mark td,.heat.lq-asset tr.lq-mark th{border-bottom:1px dashed var(--muted)}
 .heat.lq-asset th.asset{color:var(--muted);white-space:nowrap}
+/* Longs vs shorts: the panel heading carries the side's colour, because in that view the hue is the
+   panel rather than the cell and the heading is what says so. */
+.lq-side-long{color:var(--long)}
+.lq-side-short{color:var(--short)}
 .lq-legend i.lq-l1,.lq-legend i.lq-l2,.lq-legend i.lq-l3,.lq-legend i.lq-l4,.lq-legend i.lq-l5,
 .lq-legend i.lq-l6{background:rgba(95,135,255,.7)}
 .lq-legend i.lq-l1{opacity:.14}.lq-legend i.lq-l2{opacity:.28}.lq-legend i.lq-l3{opacity:.45}

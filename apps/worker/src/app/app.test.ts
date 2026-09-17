@@ -659,6 +659,45 @@ describe("pages", () => {
     expect(html).toContain("#price");
   });
 
+  test("longs and shorts get a panel each, merged across venues", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const html = await (await get("/liquidations", data)).text();
+
+    expect(html).toContain('data-tab="sides"');
+    expect(html).toContain('data-tab-panel="sides"');
+    expect(html).toContain("Longs closed");
+    expect(html).toContain("Shorts closed");
+    expect(html).toContain('data-live="lq-side-long"');
+    expect(html).toContain('data-live="lq-side-short"');
+
+    // To the NEXT panel, not to the first </div>: the grid is nested, and slicing at the first one
+    // ends the extract inside the long panel, before the short one it is meant to check.
+    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    // liqMap's gate/ETH cell is $26.0M long and $0.61M short; okx/SNDK is $0.13M long and $2.0M
+    // short. Merged across venues, the long panel must show ETH's long side alone -- not the cell
+    // total, which is what a view that forgot to split would print.
+    expect(sides).toContain("$26.0M");
+    expect(sides).toContain("$2.0M");
+    expect(sides).not.toContain("$26.6M");
+  });
+
+  test("a side with nothing closed is silence, not a zero beside the other side", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const html = await (await get("/liquidations", data)).text();
+    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+
+    // okx's SNDK cell closed $130k of longs and $2M of shorts; gate's ETH closed both. Every cell
+    // where a side did nothing has to read as nothing on that side.
+    expect(sides).toContain('class="num none"');
+    expect(sides).not.toContain(">$0<");
+  });
+
   test("with no asset addressed, the window strip stays on the map's own address", async () => {
     const { data } = fakeData({
       liquidationMap: async () => liqMap(),
