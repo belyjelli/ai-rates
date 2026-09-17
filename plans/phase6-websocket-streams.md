@@ -13,10 +13,78 @@ figure is absent from the docs it says **UNVERIFIED** rather than carrying a num
 
 ---
 
+## 0. W0 ran on hklab, 2026-09-17. The numbers replace the estimates below.
+
+W0 is the slice §7 describes as "a probe that keeps no code", and it kept none: a single-file Bun
+script mounted into the existing `airates-collector:latest` image on hklab, run twice — once against
+each venue's whole fresh book, once against the pairable subject set — with all three venues
+connected at the same time, because a limit that only appears under concurrent load is still a limit.
+Everything below is measured on the box that would run the feed, not read from a document.
+
+**The subject set is not small, and that question is now closed.** §2 said the three-venue pairable
+set "has not been measured yet and must be before the subscription list is built", and guessed it
+would be "materially smaller" than the book. It is not: **2,105 markets of 2,297** — gate 840, bybit
+792, okx 473 — once `arbitrage()`'s own guards are applied (fresh, `best_bid`/`best_ask` > 0, inside
+the `DIVERGENCE_TRIGGER` = 0.1 band around the deepest-by-OI anchor, asset carried by ≥ 2 venues).
+Restricting the pairing to the three WS venues only takes it to 1,935. An open-interest floor is what
+actually cuts it: 1,690 markets at $100k, **764 at $1M**, 165 at $10M.
+
+**Each venue's whole book fits on one connection. The fleet is three connections, not 6–12.**
+
+| | requested | delivering | frames | msg/s | subscribe errors |
+| --- | --- | --- | --- | --- | --- |
+| bybit `orderbook.1` | 833 | **833** | 5 | 1,104 | none |
+| okx `bbo-tbt` | 483 | **483** | 3 | 787 | none |
+| gate `futures.book_ticker` | 977 | 843 | 10 | 1,036 | none |
+
+Gate's 843 is not a cap: the same run at an 8-second window showed 522 and at 64 seconds 843, so the
+shortfall is illiquid contracts that had not ticked yet, not topics refused. No venue rejected a
+subscription, and bybit's 833 topics — the one documented hard limit in the fleet, 21,000 characters
+of `args` — landed on a single connection. **Shard for failure isolation if you want to; do not
+shard because the venues make you.**
+
+**The CPU premise in §2 is wrong by more than an order of magnitude.** Held on the subject set for
+123 seconds, all three venues at once: **2,320 messages/second**, 53.8 MB, and `JSON.parse` cost
+**1,285 ms — 1.0% of one core**. The whole probe process, frame handling included, cost **18.0% of
+one core**, *in Bun*. §2's "`JSON.parse` at that rate inside the same single-CPU process as the poll
+loops will starve them" does not survive the measurement. The message rate estimate was good (2,300
+predicted, 2,320 measured); the cost of servicing it was not.
+
+**And the container has the headroom.** `docker stats` on the running `airates-collector-go`,
+2026-09-17: **2.57% CPU, 40.7 MiB of 1 GiB**. The Go port dropped the Bun collector's 537 MB peak by
+about thirteen times, and 97% of the core is idle. The `cpus: 1.0` constraint that §2 calls "the
+binding constraint" is not currently binding on anything.
+
+**What W0 did not measure**, so that nothing here is read as more than it is: reconnect behaviour,
+bybit's rumoured 24-hour forced disconnect (the window was two minutes), depth or accuracy of the
+quotes against the REST path, and the cost of the *write* side — the flush in §3 is still unbuilt and
+unmeasured.
+
+### The one finding that changes a different section: ten venues quote, not three
+
+§1 says "only three venues publish top of book at all". That was true of the WebSocket research and
+is **no longer true of the data**. Fresh rows carrying both `best_bid` and `best_ask`, 2026-09-17:
+
+| bingx | gate | bitget | bybit | toobit | pionex | okx | htx | grvt | sodex |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1,026 | 977 | 836 | 833 | 760 | 562 | 483 | 341 | 186 | 91 |
+
+Seven venues beyond the three researched here publish a book over REST and are already on
+`/arbitrage`. They do not change the socket design — they are polled and will stay polled — but they
+**change migration 022 and they are why the freshness split cannot be written as §3 writes it**. If
+`quotes_at` is filled only by the feed, those seven venues get a permanently null `quotes_at`, and
+the moment `arbitrage()` gates bid/ask on it they vanish from the page: a WebSocket slice for three
+venues would silently delete seven venues' quotes. The REST path has to stamp `quotes_at` too,
+whenever the cycle it writes actually carries a quote. See §3.
+
+---
+
 ## 1. What the venues actually publish
 
-Only three venues publish top of book at all, and they are the same three already parsed for it over
-REST (migration 013): gate, okx, bybit.
+Only three venues publish top of book **over WebSocket**, and they are three of the ones already
+parsed for it over REST (migration 013): gate, okx, bybit. *Corrected 2026-09-17: as a claim about
+venues publishing a book at all this was wrong by seven — see §0. It holds for sockets, which is what
+the rest of this section is about.*
 
 | | gate | okx | bybit |
 | --- | --- | --- | --- |
@@ -54,7 +122,13 @@ failure isolation and reconnect-storm control.
   linear. Taking it to halve topic pressure means taking on delta merging. Start with
   `orderbook.1` and treat `tickers` as a later optimisation with its own slice.
 
-## 2. The constraint is CPU, not connections or memory
+## 2. The constraint is CPU, not connections or memory — measured, and it is not binding either
+
+> **Withdrawn 2026-09-17.** The reasoning below is sound and its conclusion is wrong: parsing the
+> full three-venue feed costs 1.0% of one core and servicing it costs 18%, against a collector idling
+> at 2.57% of the same core. §0 has the measurements. The section is kept because its *method* —
+> subscribe to the pairable set rather than to everything — is still the right default, and because
+> the numbers it guessed at are the ones W0 went and got.
 
 The collector container is `mem_limit: 1g`, **`cpus: 1.0`**, already running 56 venue loops plus
 history, backfill, tier and liquidation tasks — and it was OOM-restarting every ~50 minutes at
@@ -105,6 +179,26 @@ and no timestamp). `arbitrage()` gates both its candidates and its anchors on
 and identity keep reading `observed_at`, the bid/ask columns read `quotes_at`. A row may then be
 fresh in one sense and stale in the other, which is the truth and must render as such.
 
+> **Amended 2026-09-17 by W0 (§0): `quotes_at` belongs to every quote, not to the feed.** Ten venues
+> publish a book today and seven of them will never open a socket. Three rules follow, and W1 is not
+> correct without all three:
+>
+> - **The REST path stamps it.** `recordBatch`'s `market_latest` upsert
+>   (`apps/collector-go/internal/store/store.go:255`) sets `quotes_at = EXCLUDED.observed_at` **only
+>   where the cycle actually carries a quote** — a venue that publishes no book keeps a null
+>   `quotes_at`, which is the honest value and the one the page already renders as "no quote".
+> - **The migration backfills it**, `quotes_at = observed_at` wherever a bid or ask is already
+>   stored. Without it `/arbitrage` empties on deploy and refills only as each venue's next cycle
+>   lands — a self-healing outage is still an outage, and this one is avoidable in one statement.
+> - **Neither writer may overwrite a fresher quote with a staler one.** The REST upsert's existing
+>   `WHERE EXCLUDED.observed_at >= market_latest.observed_at` does not protect the quote columns from
+>   this: on a streamed venue a 60-second-old polled book would clobber a one-second-old streamed one
+>   every cycle. So the four quote columns and `quotes_at` move together under
+>   `EXCLUDED.observed_at >= coalesce(market_latest.quotes_at, '-infinity')`, and the feed's own
+>   partial upsert gates on `quotes_at` the same way. This keeps the two writers ordered by *when the
+>   quote was seen* without either one needing to know which venues the other covers — no
+>   `STREAM_VENUES` coupling in SQL.
+
 ## 4. Health: let the flush be the run
 
 `VenueHealth` is `{venueId, lastRunAt, lastSuccessAt, markets, error, stale}` and `stale` derives
@@ -138,7 +232,29 @@ The Go case was argued on per-connection memory. At **6–12 connections that ca
 real risk is CPU contention on a 1.0-CPU container. Both a Bun feed and a Go feed solve that by being
 a separate process with its own limits.
 
-**Recommendation: build it in Bun, in-process, against a selected subset, and measure.** Reasons: the
+> **Resolved 2026-09-17, and not the way this section recommends: build it in Go, in-process.**
+>
+> Every reason below was written on 2026-09-14, the day before the Go cutover, and the cutover
+> falsified all three. The adapters, `core.PerUnitPrice` and the units conversions **are** in Go
+> (`apps/collector-go/internal/{adapters,core}`); `apps/collector-go` **has** a database layer —
+> `go.mod` requires `jackc/pgx/v5` and `internal/store` holds the very `recordBatch` this section's
+> §3 is about; and the collector is no longer split across two languages by adding Go, it is split
+> by adding Bun. `apps/collector` is the deprecated one, kept buildable only as the rollback.
+>
+> W0 removes the remaining objection rather than supplying the new reason: at 1.0% of a core for
+> parsing and 18% to service the whole fleet *in Bun*, with the container idling at 2.57%, both
+> languages fit comfortably and CPU decides nothing. What decides it is that **in-process now means
+> Go**. A Bun feed would be a second process, in a second language, holding a second connection pool,
+> writing the same four columns of the same table — which is the cost this section was trying to
+> avoid when it argued against Go.
+>
+> The escape hatch below survives with its sign flipped: if the feed ever does starve the poll loops,
+> move it **out** of the collector. `profitlock-worker`'s `internal/relay/client.go` — a mature
+> `coder/websocket` client with capped jittered backoff, reconnect and heartbeat — is still the
+> nearest working code, and is now a library to copy from rather than an argument about where to
+> live. `apps/collector-go/go.mod` has no WebSocket dependency yet; W2 adds one.
+
+**Superseded recommendation (2026-09-14): build it in Bun, in-process, against a selected subset, and measure.** Reasons: the
 adapters, units conversions and `perUnitPrice` rescaling already live in TypeScript and a Go feed
 would have to re-derive every one of them — the 10,000× top-of-book size trap across these exact
 three venues is recorded in migration 013's own header; `profitlock-worker` has **no database layer**
@@ -153,9 +269,12 @@ backoff, reconnect and heartbeat in `internal/relay/client.go`, which is most of
 
 ## 7. Slices, riskiest unknown first
 
-- **W0 — probe, no code kept.** Open one connection per venue and measure: how many topics each
-  actually accepts (okx and gate document no cap), real message rate on the pairable subset, and the
-  CPU cost of parsing it. This is the slice that decides §2 and §6, and its output is numbers.
+- **W0 — probe, no code kept. Done, 2026-09-17; the numbers are §0.** One connection per venue, all
+  three at once, against the whole book and against the pairable subject set. Outcome: three
+  connections carry the fleet, the subject set is 2,105 of 2,297 markets, 2,320 msg/s costs 1.0% of a
+  core to parse and 18% to service in Bun, and the collector container is idling at 2.57%. This was
+  the slice that decides §2 and §6, and both are now decided — §2's starvation premise is withdrawn
+  and §6 resolves to Go in-process, for a reason that has nothing to do with CPU.
 - **W1 — migration 022 + the quote-scoped writer**, with `arbitrage()` split across `observed_at`
   and `quotes_at`. No socket yet; the writer is exercised by tests. Ships the schema change that
   everything else needs, and is independently reviewable.
@@ -190,10 +309,15 @@ after W0 returns real message rates — not now, and not by inheritance.
 
 ## 10. What would change these conclusions
 
-- **W0 finds okx or gate caps topics far below their whole book.** Then connection counts rise and
-  the subset selection in §2 becomes mandatory rather than prudent.
-- **The pairable three-venue set turns out to be most of 2,278 markets.** Then in-process Bun is
-  unlikely to hold and §6 resolves toward a separate service earlier.
+- ~~**W0 finds okx or gate caps topics far below their whole book.**~~ **Did not fire, 2026-09-17.**
+  Neither venue capped anything: 483 of 483 and 843 of 977 delivering on one connection each, the
+  gate shortfall being contracts that had not ticked. Subset selection stays prudent, not mandatory.
+- ~~**The pairable three-venue set turns out to be most of 2,278 markets.**~~ **Fired, 2026-09-17,
+  and its conclusion is withdrawn anyway.** The set is 2,105 of 2,297 — 92%, which is "most" by any
+  reading. But the conclusion this trigger drew ("in-process Bun is unlikely to hold") was a CPU
+  prediction, and W0 measured the CPU directly: 1.0% of a core to parse, 18% to service. A trigger
+  that fires on a proxy loses to the measurement it was a proxy for. §6 resolved to Go in-process,
+  on a different argument entirely.
 - **Bybit's undocumented behaviour bites.** The v5 docs contain no 24-hour forced disconnect despite
   that number being widely repeated; the design handles arbitrary drops anyway, and if a periodic
   cut is observed it should be recorded here with its measured interval.
