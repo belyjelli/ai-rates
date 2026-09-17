@@ -124,6 +124,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
       band_fitted: true,
       cells: [],
       totals: [],
+      sides: [],
     }),
     ...overrides,
   };
@@ -577,6 +578,20 @@ describe("pages", () => {
         markets: 1,
       },
     ],
+    sides: [
+      {
+        bucket_start: new Date(Math.floor((NOW - 2 * 3_600_000) / 900_000) * 900_000),
+        long_usd: 7_974_000,
+        short_usd: 1_516_000,
+        events: 835,
+      },
+      {
+        bucket_start: new Date(Math.floor((NOW - 3_600_000) / 900_000) * 900_000),
+        long_usd: 0,
+        short_usd: 12_000,
+        events: 3,
+      },
+    ],
     ...overrides,
   });
 
@@ -700,6 +715,27 @@ describe("pages", () => {
     // because the same band was busy on the other side.
     expect(sides).toContain('class="num none"');
     expect(sides).not.toContain(">$0<");
+  });
+
+  test("the sides tab charts both sides on one zero line across the whole window", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const html = await (await get("/liquidations", data)).text();
+    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+
+    expect(sides).toContain('class="fchart lqc"');
+    // Longs rise and shorts fall from the same line; a bucket with no longs draws no long bar.
+    expect(sides.match(/class="lqc-long"/g)?.length).toBe(1);
+    expect(sides.match(/class="lqc-short"/g)?.length).toBe(2);
+    // Equal scales above and below, rounded to a readable step over the $7.97M peak.
+    expect(sides).toContain(">$10M<");
+    expect(sides).toContain(">−$10M<");
+    // The exact figures ride on the bar, so the chart reads without a script.
+    expect(sides).toContain("$8.0M longs, $1.5M shorts closed across 835 liquidations");
+    // The legend totals the window.
+    expect(sides).toContain('data-u="lqc-long">$8.0M<');
   });
 
   test("the sides tab follows the addressed asset, not the busiest one", async () => {

@@ -222,6 +222,23 @@ box-shadow:inset 0 0 0 1px var(--ink)}
    panel rather than the cell and the heading is what says so. */
 .lq-side-long{color:var(--long)}
 .lq-side-short{color:var(--short)}
+/* Longs vs shorts over time: the funding chart's frame, with bars mirrored around one zero line. */
+.lqc-plot{height:260px}
+.lqc-grid{stroke:var(--rule);stroke-width:1;vector-effect:non-scaling-stroke}
+.lqc-zero{stroke:var(--muted);stroke-dasharray:none}
+.lqc-long{fill:var(--long)}.lqc-short{fill:var(--short)}
+.lqc-hit{fill:transparent}
+.lqc-bar:hover .lqc-hit{fill:rgba(216,216,216,.06)}
+.lqc-now .lqc-long,.lqc-now .lqc-short{opacity:.5}
+.lqc .fchart-keys span{display:flex;align-items:center;gap:5px;color:var(--muted)}
+.lqc .fchart-keys b{color:var(--ink);font-weight:600}
+.lqc .fchart-keys i{width:10px;height:10px}
+.lqc-key-long{background:var(--long)}.lqc-key-short{background:var(--short)}
+.lqc-y,.lqc-x{position:absolute;color:var(--dim);white-space:nowrap;pointer-events:none}
+.lqc-y{left:-56px;width:50px;text-align:right;transform:translateY(-50%)}
+.lqc-x{top:100%;padding-top:3px;transform:translateX(-50%)}
+.lqc-day{color:var(--muted)}
+.lqc .fchart-plot{margin-left:56px}
 /* The row's own total, on the right: with price on the rows, "how much died in this band" is the
    question the grid raises and a reader should not have to add a row up by eye. */
 .heat.lq-sides td.lq-rowsum,.heat.lq-sides th.lq-rowsum{border-left:1px solid var(--rule);color:var(--muted)}

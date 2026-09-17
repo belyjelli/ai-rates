@@ -291,11 +291,16 @@ function listParam(params: URLSearchParams, name: string, allowed: Set<string>):
  * markets and two venues, $88.4M of notional. At 2-hour columns that is a median cell of $1,466 and
  * a busiest of $12.9M -- populated enough to read, sparse enough that the empty cells mean
  * something.
+ *
+ * `sideMinutes` is the bar width of the longs-vs-shorts chart, which is finer than a grid column on
+ * purpose: a chart has no text in its bars, so it can afford ~90 of them, and a two-hour column
+ * hides whether a flush was one violent quarter hour or a slow bleed. Each window lands between 84
+ * and 96 bars.
  */
 export const LIQUIDATION_WINDOWS = {
-  "24h": { hours: 24, bucketHours: 2 },
-  "48h": { hours: 48, bucketHours: 4 },
-  "7d": { hours: 168, bucketHours: 12 },
+  "24h": { hours: 24, bucketHours: 2, sideMinutes: 15 },
+  "48h": { hours: 48, bucketHours: 4, sideMinutes: 30 },
+  "7d": { hours: 168, bucketHours: 12, sideMinutes: 120 },
 } as const;
 
 export type LiquidationWindow = keyof typeof LIQUIDATION_WINDOWS;

@@ -1119,6 +1119,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         bandPct: 1,
         bandChoices: [0.25, 0.5, 1, 2, 5],
         reach: 4,
+        sideMinutes: 15,
       });
 
       expect(map.mark).toBe(100);
@@ -1141,6 +1142,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         bandPct: null,
         bandChoices: [0.25, 0.5, 1, 2, 5],
         reach: 4,
+        sideMinutes: 15,
       });
       expect(map.band_fitted).toBe(true);
       // Nothing narrower than the widest choice can cover a close 40% out, so the fit must fall back
@@ -1157,6 +1159,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         bandPct: 1,
         bandChoices: [0.25, 0.5, 1, 2, 5],
         reach: 4,
+        sideMinutes: 15,
       });
       expect(map.asset_class).toBeNull();
       expect(map.cells).toEqual([]);
