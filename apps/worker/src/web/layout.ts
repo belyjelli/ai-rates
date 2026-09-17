@@ -17,6 +17,7 @@ const NAV = [
     label: "liquidations",
     match: (p: string) => p.startsWith("/liquidations"),
   },
+  { href: "/cvd", label: "cvd", match: (p: string) => p.startsWith("/cvd") },
   { href: "/markets", label: "exchanges", match: (p: string) => p.startsWith("/markets") },
 ];
 
@@ -37,6 +38,7 @@ const KEYS: [string, string, string][] = [
   ["r", "rates", "/rates"],
   ["a", "arbitrage", "/arbitrage"],
   ["l", "liquidations", "/liquidations"],
+  ["c", "cvd", "/cvd"],
   ["e", "exchanges", "/markets"],
 ];
 
@@ -223,7 +225,7 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .lq-side-long{color:var(--long)}
 .lq-side-short{color:var(--short)}
 /* Longs vs shorts over time: the funding chart's frame, with bars mirrored around one zero line. */
-.lqc-plot{height:260px}
+.lqc .lqc-plot{height:260px}
 .lqc-grid{stroke:var(--rule);stroke-width:1;vector-effect:non-scaling-stroke}
 .lqc-zero{stroke:var(--muted);stroke-dasharray:none}
 .lqc-long{fill:var(--long)}.lqc-short{fill:var(--short)}
@@ -239,6 +241,49 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .lqc-x{top:100%;padding-top:3px;transform:translateX(-50%)}
 .lqc-day{color:var(--muted)}
 .lqc .fchart-plot{margin-left:56px}
+/* CVD: buying is the long colour and selling the short one, the same direction-of-pressure reading
+   the liquidation page uses. Price is ink and CVD the accent, so neither can be read as a side. */
+.cvd-up{color:var(--long)}.cvd-down{color:var(--short)}
+.cvd-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 12px}
+@media (max-width:860px){.cvd-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.cvd-tile{border:1px solid var(--rule);background:var(--panel);padding:8px 10px}
+.cvd-tile .eyebrow{margin-bottom:4px}
+.cvd-big{font:700 clamp(22px,3.4vw,32px)/1.1 var(--mono);margin:0 0 4px}
+.cvd-flows{font-weight:700;margin:0 0 4px;line-height:1.5}
+.cvd-flows a{border:0}
+.cvd-chart .fchart-plot{margin:6px 64px 0 64px}
+.cvd-chart .fchart-note{margin-top:22px}
+.cvd-chart .cvd-plot{height:260px}
+.cvd-chart .cvd-strip{height:90px;margin-top:14px;margin-bottom:22px}
+.cvd-grid{stroke:var(--rule);stroke-width:1;vector-effect:non-scaling-stroke}
+.cvd-zero{stroke:var(--dim);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+.cvd-area{fill:rgba(200,245,168,.07)}
+.cvd-line{fill:none;stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke}
+.cvd-price{fill:none;stroke:var(--ink);stroke-width:1.4;vector-effect:non-scaling-stroke}
+.cvd-buy{fill:var(--long)}.cvd-sell{fill:var(--short)}
+.cvd-hit{fill:transparent}
+.cvd-strip g:hover .cvd-hit{fill:rgba(216,216,216,.08)}
+.cvd-now .cvd-buy,.cvd-now .cvd-sell{opacity:.5}
+.cvd-yl,.cvd-yr,.cvd-x{position:absolute;color:var(--dim);white-space:nowrap;pointer-events:none}
+.cvd-yl{left:-64px;width:58px;text-align:right;transform:translateY(-50%)}
+.cvd-yr{right:-64px;width:58px;text-align:left;transform:translateY(-50%)}
+.cvd-x{top:100%;padding-top:3px;transform:translateX(-50%)}
+.cvd-day{color:var(--muted)}
+.cvd-chart .fchart-keys span{display:flex;align-items:center;gap:5px;color:var(--muted)}
+.cvd-chart .fchart-keys b{font-weight:600}
+.cvd-chart .fchart-keys i{display:inline-block;width:12px;height:3px}
+.cvd-key-price{background:var(--ink)}.cvd-key-cvd{background:var(--accent)}
+.cvd-key-buy{background:var(--long);height:10px!important;width:10px!important}
+.cvd-key-sell{background:var(--short);height:10px!important;width:10px!important}
+.cvd-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 16px;margin-top:18px}
+.cvd-h2{font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.04em}
+.cvd-search{display:flex;gap:6px;align-items:center}
+.cvd-search input{font:12px var(--mono);color:var(--ink);background:var(--band);border:1px solid var(--rule);padding:2px 6px;width:160px}
+.cvd-search a{color:var(--muted)}
+.cvd-table tr.cvd-on td{background:#141a10}
+.cvd-table tr.cvd-on .asset a{color:var(--accent)}
+.cvd-badge{font-size:11px;font-weight:700;text-transform:uppercase;padding:0 6px;border:1px solid currentColor}
+.cvd-badge-bullish{color:var(--long)}.cvd-badge-bearish{color:var(--short)}
 /* The row's own total, on the right: with price on the rows, "how much died in this band" is the
    question the grid raises and a reader should not have to add a row up by eye. */
 .heat.lq-sides td.lq-rowsum,.heat.lq-sides th.lq-rowsum{border-left:1px solid var(--rule);color:var(--muted)}

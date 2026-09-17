@@ -533,6 +533,52 @@ export interface LiquidationAssetMap {
   sides: LiquidationSidePoint[];
 }
 
+/**
+ * One asset's taker flow over a CVD window, every polled venue summed (migration 023).
+ *
+ * CVD here is buy_usd − sell_usd: taker buys less taker sells, in dollars, over the window. The
+ * price is ONE market's -- the asset's busiest market that publishes a price -- because averaging
+ * closes across venues would blend a 1000x contract's quote into a plain one. It is scaled by that
+ * market's multiplier so a 1000PEPE close reads as a PEPE price.
+ */
+export interface CvdAssetRow {
+  asset: string;
+  asset_class: AssetClass;
+  buy_usd: number;
+  sell_usd: number;
+  /** Distinct venues whose flow is in the sum. */
+  venues: number;
+  /** The reference market's last close in the window, or null when no polled market has a price. */
+  price: number | null;
+  /** First close to last close in the window, as a percentage. Null without two closes. */
+  change_pct: number | null;
+}
+
+/** One bar of the CVD chart: flow summed over venues, and the reference market's last close. */
+export interface CvdBar {
+  bucket_start: Date;
+  buy_usd: number;
+  sell_usd: number;
+  price: number | null;
+}
+
+export interface CvdOptions {
+  windowHours: number;
+  barMinutes: number;
+  /** The charted asset. */
+  base: string;
+  assetClass: AssetClass | null;
+}
+
+export interface CvdData {
+  rows: CvdAssetRow[];
+  /** The charted asset's class, resolved as every asset page resolves it; null when nothing lists it. */
+  asset_class: AssetClass | null;
+  bars: CvdBar[];
+  /** The newest bucket stored for any asset: how far behind the venues' own statistics run. */
+  newest: Date | null;
+}
+
 export interface DataSource {
   overview(): Promise<Overview>;
   screener(filters: ScreenerFilters): Promise<ScreenerPair[]>;
@@ -585,6 +631,8 @@ export interface DataSource {
    * map, and the only view here where the price a position died at is on an axis.
    */
   liquidationAsset(options: LiquidationAssetOptions): Promise<LiquidationAssetMap>;
+  /** Taker flow for every polled asset over a window, and one asset's bars for the chart. */
+  cvd(options: CvdOptions): Promise<CvdData>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -1248,6 +1296,88 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         cells: [...cells],
         totals: [...totals],
         sides: [...sides],
+      };
+    },
+
+    async cvd({ windowHours, barMinutes, base, assetClass }) {
+      const sql = connect();
+      const windowInterval = `${windowHours} hours`;
+      const barSeconds = barMinutes * 60;
+
+      // Every polled market in the window, with the asset it belongs to. market_latest carries the
+      // canonical base and class; markets carries the multiplier a quoted close has to be divided by.
+      const flow = sql`
+        SELECT t.venue_id, t.venue_symbol, ml.base AS asset, ml.asset_class, t.bucket_start,
+               t.buy_usd, t.sell_usd,
+               CASE WHEN t.close_price > 0 THEN t.close_price / nullif(mk.multiplier, 0) END AS price
+        FROM taker_flow t
+        JOIN market_latest ml ON ml.venue_id = t.venue_id AND ml.venue_symbol = t.venue_symbol
+        JOIN markets mk ON mk.venue_id = t.venue_id AND mk.venue_symbol = t.venue_symbol
+        WHERE t.bucket_start > now() - ${windowInterval}::interval`;
+
+      // The reference market per asset: the busiest one in the window that publishes a price. One
+      // market, so the line and the change are one venue's quotes rather than a blend of books.
+      const reference = sql`
+        SELECT DISTINCT ON (asset, asset_class) asset, asset_class, venue_id, venue_symbol
+        FROM flow WHERE price IS NOT NULL
+        GROUP BY asset, asset_class, venue_id, venue_symbol
+        ORDER BY asset, asset_class, sum(buy_usd + sell_usd) DESC, venue_id, venue_symbol`;
+
+      const [rows, [resolved], newest] = await Promise.all([
+        sql<CvdAssetRow[]>`
+          WITH flow AS (${flow}),
+          reference AS (${reference}),
+          prices AS (
+            SELECT r.asset, r.asset_class,
+                   (array_agg(f.price ORDER BY f.bucket_start ASC))[1] AS first_price,
+                   (array_agg(f.price ORDER BY f.bucket_start DESC))[1] AS last_price,
+                   count(*) AS closes
+            FROM reference r
+            JOIN flow f ON f.venue_id = r.venue_id AND f.venue_symbol = r.venue_symbol
+            WHERE f.price IS NOT NULL
+            GROUP BY r.asset, r.asset_class
+          )
+          SELECT f.asset, f.asset_class,
+                 sum(f.buy_usd)::float8 AS buy_usd,
+                 sum(f.sell_usd)::float8 AS sell_usd,
+                 count(DISTINCT f.venue_id)::int AS venues,
+                 max(p.last_price)::float8 AS price,
+                 CASE WHEN max(p.closes) >= 2 AND max(p.first_price) > 0
+                      THEN ((max(p.last_price) / max(p.first_price) - 1) * 100)::float8 END AS change_pct
+          FROM flow f
+          LEFT JOIN prices p ON p.asset = f.asset AND p.asset_class = f.asset_class
+          GROUP BY f.asset, f.asset_class
+          ORDER BY sum(f.buy_usd + f.sell_usd) DESC, f.asset`,
+        sql<{ asset_class: AssetClass }[]>`${chosenClass(sql, base, assetClass)}`,
+        sql<{ newest: Date | null }[]>`SELECT max(bucket_start) AS newest FROM taker_flow
+          WHERE bucket_start > now() - interval '1 day'`,
+      ]);
+
+      const resolvedClass = resolved?.asset_class ?? null;
+      const bars =
+        resolvedClass === null
+          ? []
+          : await sql<CvdBar[]>`
+              WITH flow AS (${flow}),
+              reference AS (${reference})
+              SELECT to_timestamp(floor(extract(epoch FROM f.bucket_start) / ${barSeconds})
+                                  * ${barSeconds}) AS bucket_start,
+                     sum(f.buy_usd)::float8 AS buy_usd,
+                     sum(f.sell_usd)::float8 AS sell_usd,
+                     ((array_agg(f.price ORDER BY f.bucket_start DESC) FILTER (
+                        WHERE f.price IS NOT NULL AND f.venue_id = r.venue_id
+                          AND f.venue_symbol = r.venue_symbol
+                      ))[1])::float8 AS price
+              FROM flow f
+              LEFT JOIN reference r ON r.asset = f.asset AND r.asset_class = f.asset_class
+              WHERE f.asset = ${base} AND f.asset_class = ${resolvedClass}
+              GROUP BY 1 ORDER BY 1`;
+
+      return {
+        rows: [...rows],
+        asset_class: resolvedClass,
+        bars: [...bars],
+        newest: newest[0]?.newest ?? null,
       };
     },
 

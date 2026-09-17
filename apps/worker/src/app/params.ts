@@ -399,3 +399,58 @@ export function liquidationAssetToQuery(params: LiquidationAssetParams): string 
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
 }
+
+/**
+ * Windows the CVD page offers, and the bar width each one draws at.
+ *
+ * The floor is 5 minutes because that is the grain the venues publish taker flow at (migration 023),
+ * so a 1-hour window is twelve bars and cannot be finer. Longer windows re-bucket to keep each chart
+ * near a hundred bars, the same density the longs-vs-shorts chart settled on.
+ */
+export const CVD_WINDOWS = {
+  "1h": { hours: 1, barMinutes: 5 },
+  "4h": { hours: 4, barMinutes: 5 },
+  "24h": { hours: 24, barMinutes: 15 },
+  "7d": { hours: 168, barMinutes: 120 },
+} as const;
+
+export type CvdWindow = keyof typeof CVD_WINDOWS;
+export const CVD_WINDOW_KEYS = Object.keys(CVD_WINDOWS) as CvdWindow[];
+
+export const CVD_SORTS = ["volume", "cvd", "ratio", "change"] as const;
+export type CvdSort = (typeof CVD_SORTS)[number];
+
+export interface CvdParams {
+  window: CvdWindow;
+  sort: CvdSort;
+  /** Ascending instead of the default descending, so the heaviest selling can be put on top. */
+  asc: boolean;
+  /** A case-insensitive substring of the asset name, or "" for every asset. */
+  q: string;
+}
+
+export function parseCvdParams(params: URLSearchParams): CvdParams {
+  const window = (params.get("window") ?? "").trim().toLowerCase();
+  const sort = (params.get("sort") ?? "").trim().toLowerCase();
+  return {
+    window: (CVD_WINDOW_KEYS as readonly string[]).includes(window) ? (window as CvdWindow) : "24h",
+    sort: (CVD_SORTS as readonly string[]).includes(sort) ? (sort as CvdSort) : "volume",
+    asc: params.get("dir") === "asc",
+    // Matched in the page, never in SQL, and bounded so a pasted paragraph cannot become the key.
+    q: (params.get("q") ?? "")
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9._-]/g, "")
+      .slice(0, 20),
+  };
+}
+
+export function cvdToQuery(params: CvdParams): string {
+  const query = new URLSearchParams();
+  if (params.window !== "24h") query.set("window", params.window);
+  if (params.sort !== "volume") query.set("sort", params.sort);
+  if (params.asc) query.set("dir", "asc");
+  if (params.q) query.set("q", params.q);
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : "";
+}

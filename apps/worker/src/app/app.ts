@@ -1,6 +1,7 @@
 import { ASSET_CLASSES, type AssetClass, backtestDaily, dailyWindowStart } from "@ai-rates/core";
 import { VENUES } from "@ai-rates/venues";
 import { about } from "../web/about";
+import { cvd } from "../web/cvd";
 import type { FundingHistory } from "../web/funding-chart";
 import { legal } from "../web/legal";
 import { liquidations } from "../web/liquidations";
@@ -14,6 +15,7 @@ import { type Referral, requestGeo } from "./geo";
 import {
   arbitrageToQuery,
   type BacktestParams,
+  CVD_WINDOWS,
   DEFAULT_FILTERS,
   filtersToQuery,
   HEATMAP_MIN_VENUES,
@@ -25,6 +27,7 @@ import {
   parseArbitrageParams,
   parseBacktestDays,
   parseBacktestParams,
+  parseCvdParams,
   parseHeatmapParams,
   parseLiquidationAssetParams,
   parseLiquidationParams,
@@ -159,6 +162,37 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         deps.data.arbitrage(params),
       ]);
       return page(pages.arbitrage({ overview, rows, params, now }));
+    }
+
+    // Every polled asset's taker flow in the table, and one asset charted above it -- BTC unless the
+    // address names another, so /cvd opens on the market's reference asset rather than an empty chart.
+    if (
+      path === "/cvd" ||
+      (segments[0] === "cvd" && (segments.length === 2 || segments.length === 3))
+    ) {
+      const address = segments.length > 1 ? assetAddress(segments.slice(1)) : null;
+      if (segments.length > 1 && !address) {
+        return page(
+          pages.notFound(path, now, `${askedAsset(segments)} is not an asset address.`),
+          404,
+        );
+      }
+      const params = parseCvdParams(url.searchParams);
+      const { hours, barMinutes } = CVD_WINDOWS[params.window];
+      const asset = address?.asset ?? "BTC";
+      const [overview, flow] = await Promise.all([
+        deps.data.overview(),
+        deps.data.cvd({
+          windowHours: hours,
+          barMinutes,
+          base: asset,
+          assetClass: address?.assetClass ?? null,
+        }),
+      ]);
+      if (address && flow.asset_class === null) {
+        return page(pages.notFound(path, now, `No live market for ${asset}.`), 404);
+      }
+      return page(cvd({ overview, cvd: flow, asset, params, now }));
     }
 
     // One page, two tabs: the map and the priced grid are the same subject, and the address only
