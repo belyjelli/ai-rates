@@ -248,7 +248,7 @@ function cvdChart(data: {
   }${SLOT_CURSOR}</svg>${leftLabels}${rightLabels}</div>
 <div class="fchart-plot cvd-strip"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} net taker flow per bar`)}">${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line>${netBars}${SLOT_CURSOR}</svg><span class="cvd-yr" style="top:0%">${signedUsd(peak)}</span><span class="cvd-yr" style="top:100%">${signedUsd(-peak)}</span>${xLabels.join("")}</div>
 </div>
-<p class="fchart-note">Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover or tap either panel to read one bar in the line above the chart.</p>
+<p class="fchart-note">Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover either panel to read one bar beside the cursor; on a phone, tap and it reads in the line above the chart.</p>
 ${payload}
 </figure>`;
 }

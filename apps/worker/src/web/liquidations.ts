@@ -659,7 +659,7 @@ function sidesChart(data: {
   return `<figure class="fchart lqc" data-live="lq-side-chart">
 <div class="fchart-head"><p class="fchart-title">${label} longs vs shorts over time · ${sideMinutes >= 60 ? `${sideMinutes / 60}-hour` : `${sideMinutes}-minute`} bars, UTC</p><div class="fchart-keys"><span><i class="lqc-key-long"></i>Longs closed <b data-u="lqc-long">${money(longSum)}</b></span><span><i class="lqc-key-short"></i>Shorts closed <b data-u="lqc-short">${money(shortSum)}</b></span></div><p class="fchart-read slot-read" aria-live="polite">${idle} · hover or tap a bar to read it</p></div>
 <div class="fchart-plot lqc-plot slot-area" tabindex="0" role="group" aria-label="${esc(`${label.replace(/<[^>]+>/g, "")} bars; arrow keys read one at a time`)}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} longs closed above zero and shorts closed below, over the last ${params.window}`)}">${grid}${SLOT_BAND}${bars.join("")}${SLOT_CURSOR}</svg>${yLabels}${xLabels.join("")}</div>
-<p class="fchart-note">Longs closed above the line, shorts closed below, on the same linear scale. Hover or tap a bar to read it in the line above the chart. The last bar is still filling.</p>
+<p class="fchart-note">Longs closed above the line, shorts closed below, on the same linear scale. Hover a bar to read it beside the cursor; on a phone, tap and it reads in the line above the chart. The last bar is still filling.</p>
 ${slotData({ kind: "lqc", from: fromMs, unit: bucketMs, slots })}
 </figure>`;
 }

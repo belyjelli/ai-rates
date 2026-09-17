@@ -72,6 +72,9 @@ describe("SLOT_SCRIPT", () => {
   test("is valid JavaScript once the helpers are embedded, and needs no bundler helper", () => {
     expect(() => new Function(SLOT_SCRIPT)).not.toThrow();
     expect(SLOT_SCRIPT).not.toContain("__name");
+    // A mouse gets a tooltip beside the cursor; everything else keeps the header line.
+    expect(SLOT_SCRIPT).toContain("(hover: hover) and (pointer: fine)");
+    expect(SLOT_SCRIPT).toContain("slot-tip");
   });
 
   test("a value reaching the embedded data cannot close its script tag", () => {
