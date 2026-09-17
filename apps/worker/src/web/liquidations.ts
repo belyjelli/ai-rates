@@ -129,16 +129,27 @@ function controlHref(
     params: LiquidationParams;
     assetParams: LiquidationAssetParams;
   },
-  overrides: { window?: LiquidationWindow; band?: LiquidationBand | null } = {},
+  overrides: {
+    window?: LiquidationWindow;
+    band?: LiquidationBand | null;
+    /** Swap the asset the address names. Null returns to the all-assets address. */
+    asset?: { name: string; assetClass: AssetClass } | null;
+  } = {},
   hash = "",
 ): string {
   // The ADDRESSED asset, never the primed one: /liquidations primes the busiest asset behind the
   // second tab, and building the window links off that would send a reader changing the window on
   // the map tab to /liquidations/ETH -- a different address, and a different active tab.
+  const addressed =
+    overrides.asset === undefined
+      ? state.addressed === null
+        ? null
+        : { name: state.addressed, assetClass: state.assetClass }
+      : overrides.asset;
   const base =
-    state.addressed === null
+    addressed === null
       ? "/liquidations"
-      : `/liquidations/${assetPathFor(state.addressed, state.assetClass)}`;
+      : `/liquidations/${assetPathFor(addressed.name, addressed.assetClass)}`;
   const query = new URLSearchParams();
   const window = overrides.window ?? state.params.window;
   if (window !== "24h") query.set("window", window);
@@ -353,9 +364,10 @@ function assetPanel(data: {
   params: LiquidationAssetParams;
   /** Pre-rendered by the caller, the only place that knows the whole address and query. */
   bandStrip: string;
+  picker: string;
   now: number;
 }): string {
-  const { asset, map, params, bandStrip, now } = data;
+  const { asset, map, params, bandStrip, picker, now } = data;
   const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
   const cols = columns({ window: params.window, assets: 0 }, now);
   const reach = LIQUIDATION_BAND_REACH;
@@ -452,8 +464,46 @@ function assetPanel(data: {
       : `Banded from <b>${formatPrice(mark)}</b>, the deepest market's mark — the same anchor the
 arbitrage guard uses, so both venues share rows.`
   }</p>
-<div class="lq-controls"><nav class="tf" aria-label="Band width">${bandStrip}</nav></div>
+<div class="lq-controls">${picker}<nav class="tf" aria-label="Band width">${bandStrip}</nav></div>
 ${body}`;
+}
+
+/**
+ * The asset picker the two per-asset tabs carry.
+ *
+ * Plain links, not a select: it needs no JavaScript, it is the same `.tf` strip the window and band
+ * controls already use, and every entry is a real address a reader can copy or open in a new tab.
+ * The cost is that it offers the busiest assets rather than all of them -- 724 markets liquidated in
+ * the last day, measured, and a picker holding all of them would be a scrollbar, not a control. The
+ * map tab is the way to any asset outside this list, and the note beside the strip says so.
+ *
+ * The fragment keeps the reader on the tab they are reading: without it, following a link from the
+ * sides tab would land on the priced one, because the server picks the tab from the address.
+ */
+function assetStrip(
+  state: {
+    addressed: string | null;
+    assetClass: AssetClass | null;
+    params: LiquidationParams;
+    assetParams: LiquidationAssetParams;
+  },
+  assets: readonly { asset: string; asset_class: AssetClass }[],
+  current: string | null,
+  hash: string,
+): string {
+  if (assets.length === 0) return "";
+  const links = assets
+    .map((entry) => {
+      const href = esc(
+        controlHref(state, { asset: { name: entry.asset, assetClass: entry.asset_class } }, hash),
+      );
+      const label = assetName(entry.asset, entry.asset_class);
+      return entry.asset === current
+        ? `<a class="on" href="${href}" aria-current="page">${label}</a>`
+        : `<a href="${href}">${label}</a>`;
+    })
+    .join("");
+  return `<nav class="tf lq-assets" aria-label="Asset">${links}</nav>`;
 }
 
 /**
@@ -500,9 +550,11 @@ function sidesPanel(data: {
   asset: string;
   map: LiquidationAssetMap;
   params: LiquidationParams;
+  /** Pre-rendered by the caller, which is the only place that knows the whole address and query. */
+  picker: string;
   now: number;
 }): string {
-  const { asset, map, params, now } = data;
+  const { asset, map, params, picker, now } = data;
   const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
   const cols = columns(params, now);
   const reach = LIQUIDATION_BAND_REACH;
@@ -605,10 +657,11 @@ function sidesPanel(data: {
     )}, on either side.</p>`;
   }
 
-  return `<p class="notes">Showing <b>${label}</b>, every exchange added together — the split by
-exchange is one tab along. Rows are the same ${bandPct}% price bands, banded from
-<b>${formatPrice(mark)}</b>. A long close is a forced SELL and a short close a forced BUY, so the
-heavier side is the one the move ran against.</p>
+  return `<div class="lq-controls">${picker}</div>
+<p class="notes">Showing <b>${label}</b>, every exchange added together — the split by exchange is one
+tab along. Rows are the same ${bandPct}% price bands, banded from <b>${formatPrice(mark)}</b>. A long
+close is a forced SELL and a short close a forced BUY, so the heavier side is the one the move ran
+against. Any asset outside this list opens from a row on the map tab.</p>
 <div class="lq-grid">${panel("long")}${panel("short")}</div>`;
 }
 
@@ -670,7 +723,14 @@ export function liquidations(data: {
   const priced =
     asset === null || assetMap === null
       ? `<p class="empty">Nothing has been force-closed in this window, so there is no asset to price.</p>`
-      : assetPanel({ asset, map: assetMap, params: assetParams, bandStrip, now });
+      : assetPanel({
+          asset,
+          map: assetMap,
+          params: assetParams,
+          bandStrip,
+          picker: assetStrip(state, map.assets, asset, "#price"),
+          now,
+        });
 
   const totalEvents = map.totals.reduce((sum, venue) => sum + venue.events, 0);
 
@@ -711,7 +771,13 @@ ${mapPanel({ map, params, now })}
 ${
   asset === null || assetMap === null
     ? `<p class="empty">Nothing has been force-closed in this window, so there is no asset to split.</p>`
-    : sidesPanel({ asset, map: assetMap, params, now })
+    : sidesPanel({
+        asset,
+        map: assetMap,
+        params,
+        picker: assetStrip(state, map.assets, asset, "#sides"),
+        now,
+      })
 }
 </div>
 <div class="tabpanel" role="tabpanel" id="panel-liq-price" data-tab-panel="price" aria-labelledby="tab-liq-price">
