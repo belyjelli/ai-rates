@@ -207,6 +207,11 @@ table.heat{border-collapse:collapse;width:auto;min-width:100%}
 .heat.lq tbody tr:hover td.lq-b4,.heat.lq tbody tr:hover td.lq-b5,.heat.lq tbody tr:hover td.lq-b6{
 box-shadow:inset 0 0 0 1px var(--ink)}
 .heat.lq tbody tr:hover th.asset{color:var(--accent)}
+/* The mark line: a dotted rule under the band the current price sits in, so a reader can see at a
+   glance which liquidations happened above the price and which below. The reference layout this
+   grid follows draws the same line, and it is the one row boundary that means something. */
+.heat.lq-asset tr.lq-mark td,.heat.lq-asset tr.lq-mark th{border-bottom:1px dashed var(--muted)}
+.heat.lq-asset th.asset{color:var(--muted);white-space:nowrap}
 .lq-legend i.lq-l1,.lq-legend i.lq-l2,.lq-legend i.lq-l3,.lq-legend i.lq-l4,.lq-legend i.lq-l5,
 .lq-legend i.lq-l6{background:rgba(95,135,255,.7)}
 .lq-legend i.lq-l1{opacity:.14}.lq-legend i.lq-l2{opacity:.28}.lq-legend i.lq-l3{opacity:.45}

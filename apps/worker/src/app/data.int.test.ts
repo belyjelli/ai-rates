@@ -1049,6 +1049,118 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       );
       expect(one.totals.length).toBeGreaterThan(0);
     });
+
+    test("bands one asset off its deepest market's mark, with catch-all tails", async () => {
+      // Its OWN asset, because the cells above already sit in band 0 of liqAsset and a test that
+      // asserted a total there would be asserting another test's fixtures. The shared airates_it
+      // schema is exactly where that goes wrong.
+      const bandAsset = `ITB${tag.toUpperCase()}`;
+      const bandSymbol = `${bandAsset}_USDT`;
+      await admin`
+        INSERT INTO market_latest ${admin([
+          {
+            venue_id: venueA,
+            venue_symbol: bandSymbol,
+            base: bandAsset,
+            asset_class: "crypto",
+            quote: "USDT",
+            observed_at: new Date(),
+            rate: 0.0001,
+            basis_hours: 8,
+            apr: 10.95,
+            interval_hours: 8,
+            next_funding_at: new Date(settledAt + HOUR),
+            kind: "predicted",
+            mark_price: 100,
+            index_price: 100,
+            open_interest_usd: 5_000_000,
+            volume_24h_usd: 1_000_000,
+          },
+        ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
+      await admin`
+        INSERT INTO liquidations ${admin([
+          // Just above the mark: band 0.
+          {
+            venue_id: venueA,
+            venue_symbol: bandSymbol,
+            liquidated_at: new Date(bucket + 180_000),
+            side: "short",
+            size_contracts: 1,
+            fill_price: 100.5,
+            notional_usd: 500,
+          },
+          // Miles out: the top catch-all, NOT dropped and not stretching the grid over empty rows.
+          {
+            venue_id: venueA,
+            venue_symbol: bandSymbol,
+            liquidated_at: new Date(bucket + 240_000),
+            side: "short",
+            size_contracts: 1,
+            fill_price: 140,
+            notional_usd: 900,
+          },
+          // Below the mark: band -1.
+          {
+            venue_id: venueA,
+            venue_symbol: bandSymbol,
+            liquidated_at: new Date(bucket + 300_000),
+            side: "long",
+            size_contracts: 1,
+            fill_price: 99.5,
+            notional_usd: 700,
+          },
+        ])} ON CONFLICT DO NOTHING`;
+
+      const map = await data.liquidationAsset({
+        base: bandAsset,
+        assetClass: "crypto",
+        windowHours: 24,
+        bucketHours: 2,
+        bandPct: 1,
+        bandChoices: [0.25, 0.5, 1, 2, 5],
+        reach: 4,
+      });
+
+      expect(map.mark).toBe(100);
+      expect(map.band_pct).toBe(1);
+      expect(map.band_fitted).toBe(false);
+      const bands = new Map(map.cells.map((c) => [c.band, c]));
+      expect(bands.get(0)?.notional_usd).toBe(500);
+      expect(bands.get(-1)?.notional_usd).toBe(700);
+      // 40% away lands in the tail at +4, not in a band of its own and not on the floor.
+      expect(bands.get(4)?.notional_usd).toBe(900);
+      expect(bands.get(4)?.short_usd).toBe(900);
+    });
+
+    test("fits the band width to the asset when none is asked for", async () => {
+      const map = await data.liquidationAsset({
+        base: liqAsset,
+        assetClass: "crypto",
+        windowHours: 24,
+        bucketHours: 2,
+        bandPct: null,
+        bandChoices: [0.25, 0.5, 1, 2, 5],
+        reach: 4,
+      });
+      expect(map.band_fitted).toBe(true);
+      // Nothing narrower than the widest choice can cover a close 40% out, so the fit must fall back
+      // to the widest rather than return nothing.
+      expect([0.25, 0.5, 1, 2, 5]).toContain(map.band_pct);
+    });
+
+    test("an asset with no live market resolves to no class, so the route can 404", async () => {
+      const map = await data.liquidationAsset({
+        base: "NOSUCHASSET",
+        assetClass: null,
+        windowHours: 24,
+        bucketHours: 2,
+        bandPct: 1,
+        bandChoices: [0.25, 0.5, 1, 2, 5],
+        reach: 4,
+      });
+      expect(map.asset_class).toBeNull();
+      expect(map.cells).toEqual([]);
+    });
   });
 
   test("overview and screener run against the real schema", async () => {

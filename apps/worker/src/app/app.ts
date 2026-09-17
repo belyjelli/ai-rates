@@ -3,7 +3,7 @@ import { VENUES } from "@ai-rates/venues";
 import { about } from "../web/about";
 import type { FundingHistory } from "../web/funding-chart";
 import { legal } from "../web/legal";
-import { liquidations } from "../web/liquidations";
+import { liquidationAsset, liquidations } from "../web/liquidations";
 import * as pages from "../web/pages";
 import { referralCta } from "../web/referral";
 import { referralLinks } from "../web/referral-links";
@@ -18,12 +18,15 @@ import {
   filtersToQuery,
   HEATMAP_MIN_VENUES,
   heatmapToQuery,
+  LIQUIDATION_BAND_REACH,
+  LIQUIDATION_BANDS,
   LIQUIDATION_WINDOWS,
   liquidationsToQuery,
   parseArbitrageParams,
   parseBacktestDays,
   parseBacktestParams,
   parseHeatmapParams,
+  parseLiquidationAssetParams,
   parseLiquidationParams,
   parseScreenerFilters,
 } from "./params";
@@ -166,6 +169,34 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         deps.data.liquidationMap({ windowHours: hours, bucketHours, assets: params.assets }),
       ]);
       return page(liquidations({ overview, map, params, now }));
+    }
+
+    if (segments[0] === "liquidations" && (segments.length === 2 || segments.length === 3)) {
+      const address = assetAddress(segments.slice(1));
+      const asset = address?.asset ?? askedAsset(segments);
+      const params = parseLiquidationAssetParams(url.searchParams);
+      const { hours, bucketHours } = LIQUIDATION_WINDOWS[params.window];
+      const [overview, map] = await Promise.all([
+        deps.data.overview(),
+        address
+          ? deps.data.liquidationAsset({
+              base: address.asset,
+              assetClass: address.assetClass,
+              windowHours: hours,
+              bucketHours,
+              bandPct: params.band,
+              bandChoices: LIQUIDATION_BANDS,
+              reach: LIQUIDATION_BAND_REACH,
+            })
+          : null,
+      ]);
+      if (!map || map.asset_class === null) {
+        return page(
+          pages.notFound(path, now, `No live market for ${asset}, so nothing to band against.`),
+          404,
+        );
+      }
+      return page(liquidationAsset({ overview, asset, map, params, now }));
     }
 
     if (segments[0] === "price-pair" && (segments.length === 2 || segments.length === 3)) {
