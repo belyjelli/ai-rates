@@ -659,7 +659,7 @@ describe("pages", () => {
     expect(html).toContain("#price");
   });
 
-  test("longs and shorts get a panel each, merged across venues", async () => {
+  test("longs and shorts get a panel each, for one asset, with the exchanges added up", async () => {
     const { data } = fakeData({
       liquidationMap: async () => liqMap(),
       liquidationAsset: async () => liqAsset(),
@@ -673,15 +673,18 @@ describe("pages", () => {
     expect(html).toContain('data-live="lq-side-long"');
     expect(html).toContain('data-live="lq-side-short"');
 
-    // To the NEXT panel, not to the first </div>: the grid is nested, and slicing at the first one
-    // ends the extract inside the long panel, before the short one it is meant to check.
     const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
-    // liqMap's gate/ETH cell is $26.0M long and $0.61M short; okx/SNDK is $0.13M long and $2.0M
-    // short. Merged across venues, the long panel must show ETH's long side alone -- not the cell
-    // total, which is what a view that forgot to split would print.
-    expect(sides).toContain("$26.0M");
-    expect(sides).toContain("$2.0M");
-    expect(sides).not.toContain("$26.6M");
+    // The rows are PRICE bands, not assets: this view is one asset drilled down, so it carries the
+    // same row vocabulary as the priced tab rather than the map's.
+    expect(sides).toContain("Fill price");
+    expect(sides).toContain("2,400 – 2,424");
+    // liqAsset has gate at band 0 ($7.974M long, $1.516M short) and okx at band 4 ($12k short).
+    // Merged across exchanges the long panel shows $8.0M and the short panel $1.5M and $12.0k.
+    expect(sides).toContain("$8.0M");
+    expect(sides).toContain("$1.5M");
+    expect(sides).toContain("$12.0k");
+    // Never the cell total: a view that forgot to split would print gate's $9.49M.
+    expect(sides).not.toContain("$9.5M");
   });
 
   test("a side with nothing closed is silence, not a zero beside the other side", async () => {
@@ -692,10 +695,26 @@ describe("pages", () => {
     const html = await (await get("/liquidations", data)).text();
     const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
 
-    // okx's SNDK cell closed $130k of longs and $2M of shorts; gate's ETH closed both. Every cell
-    // where a side did nothing has to read as nothing on that side.
+    // okx's band-4 cell closed $12k of shorts and no longs. The long panel's band 4 has to read as
+    // nothing, in a panel whose entire subject is one side -- which is a narrower claim than "$0",
+    // because the same band was busy on the other side.
     expect(sides).toContain('class="num none"');
     expect(sides).not.toContain(">$0<");
+  });
+
+  test("the sides tab follows the addressed asset, not the busiest one", async () => {
+    const seen: string[] = [];
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async (options) => {
+        seen.push(options.base);
+        return liqAsset();
+      },
+    });
+    const html = await (await get("/liquidations/SOL", data)).text();
+
+    expect(seen).toEqual(["SOL"]);
+    expect(html).toContain("SOL longs vs shorts");
   });
 
   test("with no asset addressed, the window strip stays on the map's own address", async () => {
