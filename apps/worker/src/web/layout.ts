@@ -222,6 +222,9 @@ box-shadow:inset 0 0 0 1px var(--ink)}
    panel rather than the cell and the heading is what says so. */
 .lq-side-long{color:var(--long)}
 .lq-side-short{color:var(--short)}
+/* The row's own total, on the right: with price on the rows, "how much died in this band" is the
+   question the grid raises and a reader should not have to add a row up by eye. */
+.heat.lq-sides td.lq-rowsum,.heat.lq-sides th.lq-rowsum{border-left:1px solid var(--rule);color:var(--muted)}
 .lq-legend i.lq-l1,.lq-legend i.lq-l2,.lq-legend i.lq-l3,.lq-legend i.lq-l4,.lq-legend i.lq-l5,
 .lq-legend i.lq-l6{background:rgba(95,135,255,.7)}
 .lq-legend i.lq-l1{opacity:.14}.lq-legend i.lq-l2{opacity:.28}.lq-legend i.lq-l3{opacity:.45}
