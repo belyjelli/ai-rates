@@ -53,6 +53,8 @@ import { venueName } from "./venues";
  */
 
 /** Cell colour steps, in dollars. Chosen from the measured distribution, not from round numbers. */
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
 const STEPS = [1_000, 10_000, 100_000, 1_000_000, 5_000_000] as const;
 
 /** The step a cell's notional falls in, 1..6. */
@@ -528,6 +530,128 @@ function bandRows(reach: number): number[] {
   return bands;
 }
 
+/** The smallest 1-2-5 step at or above `usd`, so the axis reads $10M rather than $9.37M. */
+function niceCeil(usd: number): number {
+  if (!(usd > 0)) return 1_000;
+  const power = 10 ** Math.floor(Math.log10(usd));
+  for (const multiple of [1, 2, 2.5, 5, 10]) {
+    if (usd <= multiple * power) return multiple * power;
+  }
+  return 10 * power;
+}
+
+/**
+ * Longs and shorts on one axis over the window: longs closed rise above zero, shorts closed fall
+ * below it, one bar per `sideMinutes`.
+ *
+ * WHY A CHART ABOVE THE GRIDS. The grids say at which PRICE each side died, in two-hour columns.
+ * What they cannot show is the shape in time -- whether a $30M flush was one quarter hour or a slow
+ * bleed, and whether the shorts got squeezed straight after. Mirroring the two sides around one
+ * zero line makes that the first thing a reader sees, and the bars are finer than the grid's
+ * columns because a bar carries no text.
+ *
+ * LINEAR, NOT LOG, unlike the grid's intensity: here the height IS the comparison, and a log axis
+ * would make a $30M bar look like three times a $30k one.
+ *
+ * THE AXIS SPANS THE WHOLE WINDOW, empty buckets included, for the same reason `columns` does: a
+ * quiet stretch is a fact, and dropping it would put two distant flushes side by side.
+ *
+ * Server-rendered SVG with a native <title> per bar, so the readout needs no script.
+ */
+function sidesChart(data: {
+  label: string;
+  points: LiquidationAssetMap["sides"];
+  params: LiquidationParams;
+  now: number;
+}): string {
+  const { label, points, params, now } = data;
+  const { hours, sideMinutes } = LIQUIDATION_WINDOWS[params.window];
+  const bucketMs = sideMinutes * 60_000;
+  const current = Math.floor(now / bucketMs) * bucketMs;
+  const count = Math.round((hours * 60) / sideMinutes);
+  const fromMs = current - (count - 1) * bucketMs;
+  const toMs = current + bucketMs;
+  const span = toMs - fromMs;
+
+  const byBucket = new Map(points.map((point) => [point.bucket_start.getTime(), point]));
+  let peak = 0;
+  for (const point of points) peak = Math.max(peak, point.long_usd, point.short_usd);
+  const top = niceCeil(peak);
+
+  // viewBox 1000 x 1000 with zero at 500: each side gets half the height and the same scale, so a
+  // long bar and a short bar of equal height are equal money.
+  const slot = 1000 / count;
+  const barWidth = Math.max(slot * 0.72, 1);
+  const height = (usd: number) => (usd / top) * 500;
+  const when = (ms: number) => {
+    const d = new Date(ms);
+    return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  };
+
+  const bars: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const start = fromMs + i * bucketMs;
+    const point = byBucket.get(start);
+    if (!point) continue;
+    const x = (i * slot + (slot - barWidth) / 2).toFixed(2);
+    const partial = start === current ? " lqc-now" : "";
+    const title = esc(
+      `${when(start)} UTC · ${money(point.long_usd)} longs, ${money(point.short_usd)} shorts closed across ${point.events.toLocaleString("en-US")} liquidation${point.events === 1 ? "" : "s"}${partial ? " (still filling)" : ""}`,
+    );
+    // One group per bucket, so the tooltip covers the long bar, the short bar and the gap between.
+    bars.push(
+      `<g class="lqc-bar${partial}"><title>${title}</title><rect class="lqc-hit" x="${(i * slot).toFixed(2)}" y="0" width="${slot.toFixed(2)}" height="1000"></rect>${
+        point.long_usd > 0
+          ? `<rect class="lqc-long" x="${x}" y="${(500 - height(point.long_usd)).toFixed(2)}" width="${barWidth.toFixed(2)}" height="${height(point.long_usd).toFixed(2)}"></rect>`
+          : ""
+      }${
+        point.short_usd > 0
+          ? `<rect class="lqc-short" x="${x}" y="500" width="${barWidth.toFixed(2)}" height="${height(point.short_usd).toFixed(2)}"></rect>`
+          : ""
+      }</g>`,
+    );
+  }
+
+  const levels = [top, top / 2, 0, -top / 2, -top];
+  const grid = levels
+    .map((usd) => {
+      const y = (500 - height(usd)).toFixed(1);
+      return `<line class="lqc-grid${usd === 0 ? " lqc-zero" : ""}" x1="0" x2="1000" y1="${y}" y2="${y}"></line>`;
+    })
+    .join("");
+  const yLabels = levels
+    .map(
+      (usd) =>
+        `<span class="lqc-y" style="top:${((500 - height(usd)) / 10).toFixed(2)}%">${usd === 0 ? "0" : formatUsd(usd).replace(".0", "")}</span>`,
+    )
+    .join("");
+
+  // Ticks on round UTC hours: every 4h over a day, 8h over two, midnight over a week.
+  const tickHours = hours <= 24 ? 4 : hours <= 48 ? 8 : 24;
+  const tickMs = tickHours * 3_600_000;
+  const xLabels: string[] = [];
+  for (let ms = Math.ceil(fromMs / tickMs) * tickMs; ms < toMs; ms += tickMs) {
+    const d = new Date(ms);
+    const hour = d.getUTCHours();
+    const text =
+      hour === 0
+        ? `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`
+        : `${String(hour).padStart(2, "0")}:00`;
+    xLabels.push(
+      `<span class="lqc-x${hour === 0 ? " lqc-day" : ""}" style="left:${(((ms - fromMs) / span) * 100).toFixed(2)}%">${text}</span>`,
+    );
+  }
+
+  const longSum = points.reduce((sum, point) => sum + point.long_usd, 0);
+  const shortSum = points.reduce((sum, point) => sum + point.short_usd, 0);
+
+  return `<figure class="fchart lqc" data-live="lq-side-chart">
+<div class="fchart-head"><p class="fchart-title">${label} longs vs shorts over time · ${sideMinutes >= 60 ? `${sideMinutes / 60}-hour` : `${sideMinutes}-minute`} bars, UTC</p><div class="fchart-keys"><span><i class="lqc-key-long"></i>Longs closed <b data-u="lqc-long">${money(longSum)}</b></span><span><i class="lqc-key-short"></i>Shorts closed <b data-u="lqc-short">${money(shortSum)}</b></span></div></div>
+<div class="fchart-plot lqc-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} longs closed above zero and shorts closed below, over the last ${params.window}`)}">${grid}${bars.join("")}</svg>${yLabels}${xLabels.join("")}</div>
+<p class="fchart-note">Longs closed above the line, shorts closed below, on the same linear scale. Hover a bar for its exact figures. The last bar is still filling.</p>
+</figure>`;
+}
+
 /**
  * One asset, longs on the left and shorts on the right, every exchange aggregated.
  *
@@ -658,6 +782,7 @@ function sidesPanel(data: {
   }
 
   return `<div class="lq-controls">${picker}</div>
+${sidesChart({ label, points: map.sides, params, now })}
 <p class="notes">Showing <b>${label}</b>, every exchange added together — the split by exchange is one
 tab along. Rows are the same ${bandPct}% price bands, banded from <b>${formatPrice(mark)}</b>. A long
 close is a forced SELL and a short close a forced BUY, so the heavier side is the one the move ran

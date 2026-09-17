@@ -174,7 +174,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       }
       const params = parseLiquidationParams(url.searchParams);
       const assetParams = parseLiquidationAssetParams(url.searchParams);
-      const { hours, bucketHours } = LIQUIDATION_WINDOWS[params.window];
+      const { hours, bucketHours, sideMinutes } = LIQUIDATION_WINDOWS[params.window];
       const [overview, map] = await Promise.all([
         deps.data.overview(),
         deps.data.liquidationMap({ windowHours: hours, bucketHours, assets: params.assets }),
@@ -197,6 +197,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
             bandPct: assetParams.band,
             bandChoices: LIQUIDATION_BANDS,
             reach: LIQUIDATION_BAND_REACH,
+            sideMinutes,
           })
         : null;
       if (address && (!assetMap || assetMap.asset_class === null)) {

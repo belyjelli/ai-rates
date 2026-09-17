@@ -501,6 +501,16 @@ export interface LiquidationAssetOptions {
   bandChoices: readonly number[];
   /** Bands either side of the mark before a row becomes a catch-all. */
   reach: number;
+  /** Bar width of the longs-vs-shorts series, in minutes. */
+  sideMinutes: number;
+}
+
+/** One bar of the longs-vs-shorts chart: both sides of one asset in one bucket, every venue summed. */
+export interface LiquidationSidePoint {
+  bucket_start: Date;
+  long_usd: number;
+  short_usd: number;
+  events: number;
 }
 
 export interface LiquidationAssetMap {
@@ -519,6 +529,8 @@ export interface LiquidationAssetMap {
   mark: number | null;
   cells: LiquidationAssetCell[];
   totals: LiquidationTotals[];
+  /** Longs and shorts over time at `sideMinutes` grain, oldest first. Empty buckets are absent. */
+  sides: LiquidationSidePoint[];
 }
 
 export interface DataSource {
@@ -1104,6 +1116,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       bandPct,
       bandChoices,
       reach,
+      sideMinutes,
     }) {
       const sql = connect();
       const windowInterval = `${windowHours} hours`;
@@ -1166,6 +1179,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           band_fitted: bandPct === null,
           cells: [],
           totals: [],
+          sides: [],
         };
       }
 
@@ -1179,7 +1193,8 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           AND m.base = ${base}
           AND m.asset_class = ${resolvedClass}`;
 
-      const [cells, totals] = await Promise.all([
+      const sideSeconds = sideMinutes * 60;
+      const [cells, totals, sides] = await Promise.all([
         sql<LiquidationAssetCell[]>`
           WITH closes AS (${closes})
           SELECT venue_id,
@@ -1211,6 +1226,18 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                  -- same asset as a USDT perp and a USDC one, and both die in this grid.
                  count(DISTINCT venue_symbol)::int AS markets
           FROM closes GROUP BY 1 ORDER BY 2 DESC NULLS LAST`,
+
+        // The same closes on time alone, at the chart's finer grain. No band and no venue: the chart
+        // answers "when did each side get taken out", and the grids below it answer where and on
+        // which book.
+        sql<LiquidationSidePoint[]>`
+          WITH closes AS (${closes})
+          SELECT to_timestamp(floor(extract(epoch FROM liquidated_at) / ${sideSeconds})
+                              * ${sideSeconds}) AS bucket_start,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'long'), 0)::float8 AS long_usd,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'short'), 0)::float8 AS short_usd,
+                 count(*)::int AS events
+          FROM closes GROUP BY 1 ORDER BY 1`,
       ]);
 
       return {
@@ -1220,6 +1247,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         band_fitted: bandPct === null,
         cells: [...cells],
         totals: [...totals],
+        sides: [...sides],
       };
     },
 
