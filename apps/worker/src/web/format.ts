@@ -67,6 +67,18 @@ export function since(date: Date | null, now: number): string {
   return `<time datetime="${date.toISOString()}" data-since="${ms}">${formatDuration((now - ms) / 1000)} ago</time>`;
 }
 
+/**
+ * The same age as `since`, as PLAIN TEXT: "42s ago", "3h 05m ago", "never".
+ *
+ * `since` returns a `<time>` element so the page script can keep it counting, and putting an element
+ * inside a `title=` attribute renders the markup as literal text in the tooltip — which is what
+ * shipped on /arbitrage for one deploy. A tooltip is text, so it gets a text function.
+ */
+export function ageText(date: Date | null, now: number): string {
+  if (!date) return "never";
+  return `${formatDuration((now - date.getTime()) / 1000)} ago`;
+}
+
 /** `<time>` that the page script keeps counting down to the next settlement. */
 export function until(date: Date | null, now: number): string {
   if (!date) return "–";

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  ageText,
   aprTone,
   esc,
   formatApr,
@@ -85,5 +86,22 @@ describe("esc and aprTone", () => {
     expect(aprTone(5)).toBe("shorts-paid");
     expect(aprTone(-5)).toBe("longs-paid");
     expect(aprTone(0)).toBe("flat");
+  });
+});
+
+describe("ageText", () => {
+  const now = Date.UTC(2026, 8, 17, 12, 0, 0);
+
+  test("is plain text, because it goes inside a title attribute", () => {
+    const text = ageText(new Date(now - 42_000), now);
+    expect(text).toBe("42s ago");
+    // The bug this function exists for: `since` returns a <time> element, and an element inside
+    // title= renders as literal markup in the tooltip.
+    expect(text).not.toContain("<");
+    expect(since(new Date(now - 42_000), now)).toContain("<time");
+  });
+
+  test("a missing date says so rather than rendering a dash", () => {
+    expect(ageText(null, now)).toBe("never");
   });
 });
