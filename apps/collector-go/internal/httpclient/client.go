@@ -206,7 +206,20 @@ func (c *Client) Circuit() CircuitState {
 
 // GetJSON fetches url and decodes the response body into out, streaming rather than buffering.
 func (c *Client) GetJSON(ctx context.Context, url string, out any) error {
-	return c.do(ctx, http.MethodGet, url, nil, out, nil)
+	return c.do(ctx, http.MethodGet, url, nil, out, nil, false)
+}
+
+// GetJSONOptional is GetJSON for a per-market resource the venue may simply not have, where a
+// permanent 4xx means "nothing here for this market" rather than "this venue is broken".
+//
+// Such a response is still returned as an error, but it does not count towards the circuit. The
+// circuit is shared with the venue's funding loop, and measured on 2026-09-17 bitget answers HTTP 400
+// code 40054 ("The data fetched by DOGEUSDT is empty") for taker statistics on DOGE, BNB, LINK, ADA,
+// PEPE and more: eleven of those in one taker-flow sweep opened bitget's circuit and paused its
+// funding snapshots for five minutes, every five minutes. 429, 418, 5xx and transport failures are
+// not "nothing here" and still count, so real throttling and outages still open the circuit.
+func (c *Client) GetJSONOptional(ctx context.Context, url string, out any) error {
+	return c.do(ctx, http.MethodGet, url, nil, out, nil, true)
 }
 
 // PostJSON posts body as JSON and decodes the response into out.
@@ -215,10 +228,10 @@ func (c *Client) PostJSON(ctx context.Context, url string, body any, out any) er
 	if err != nil {
 		return &Error{VenueID: c.venueID, URL: url, Message: "encode request: " + err.Error()}
 	}
-	return c.do(ctx, http.MethodPost, url, encoded, out, map[string]string{"content-type": "application/json"})
+	return c.do(ctx, http.MethodPost, url, encoded, out, map[string]string{"content-type": "application/json"}, false)
 }
 
-func (c *Client) do(ctx context.Context, method, url string, body []byte, out any, headers map[string]string) error {
+func (c *Client) do(ctx context.Context, method, url string, body []byte, out any, headers map[string]string, optional bool) error {
 	if err := c.checkCircuit(); err != nil {
 		return err
 	}
@@ -265,6 +278,10 @@ func (c *Client) do(ctx context.Context, method, url string, body []byte, out an
 		lastErr = &Error{VenueID: c.venueID, URL: url, Message: "no request attempted"}
 	}
 
+	if optional && isAbsent(lastErr) {
+		return lastErr
+	}
+
 	c.mu.Lock()
 	c.consecutiveFailures++
 	if c.consecutiveFailures >= c.opts.FailureThreshold {
@@ -272,6 +289,13 @@ func (c *Client) do(ctx context.Context, method, url string, body []byte, out an
 	}
 	c.mu.Unlock()
 	return lastErr
+}
+
+// isAbsent is a permanent client error: a 4xx other than the throttling statuses 429 and 418.
+func isAbsent(err error) bool {
+	httpErr, ok := err.(*Error)
+	return ok && httpErr.Status >= 400 && httpErr.Status < 500 &&
+		httpErr.Status != 429 && httpErr.Status != 418
 }
 
 func (c *Client) checkCircuit() error {

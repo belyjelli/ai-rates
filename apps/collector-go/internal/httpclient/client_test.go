@@ -341,3 +341,32 @@ func TestRetryAfter(t *testing.T) {
 		t.Errorf("future date: got %v, want 5s", got)
 	}
 }
+
+// A market a venue keeps no statistics for answers a permanent 4xx. Fetched as optional, that must
+// not open the circuit the funding loop shares -- the 2026-09-17 bitget incident, where eleven
+// 40054s in one taker-flow sweep paused funding collection -- while a 429 still counts.
+func TestOptionalAbsentResponsesDoNotOpenTheCircuit(t *testing.T) {
+	responses := make([]func() (*http.Response, error), 0, 8)
+	for i := 0; i < 7; i++ {
+		responses = append(responses, respond(400, `{"code":"40054","msg":"The data fetched by DOGEUSDT is empty"}`, nil))
+	}
+	responses = append(responses, respond(429, "slow down", nil))
+	doer := &fakeDoer{responses: responses}
+	client, _, _ := testClient(t, doer, func(o *Options) { o.MaxRetries = -1 })
+
+	for i := 0; i < 7; i++ {
+		var got payload
+		if err := client.GetJSONOptional(context.Background(), "https://example.test/taker", &got); err == nil {
+			t.Fatalf("call %d: want the 400 returned as an error", i)
+		}
+	}
+	if state := client.Circuit(); state.Open || state.ConsecutiveFailures != 0 {
+		t.Fatalf("circuit after absent responses: got %+v, want closed with no failures", state)
+	}
+
+	var got payload
+	_ = client.GetJSONOptional(context.Background(), "https://example.test/taker", &got)
+	if state := client.Circuit(); state.ConsecutiveFailures != 1 {
+		t.Fatalf("a 429 is throttling, not absence: got %+v, want one failure counted", state)
+	}
+}

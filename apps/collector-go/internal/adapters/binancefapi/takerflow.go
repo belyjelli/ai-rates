@@ -72,7 +72,7 @@ func (b *BinanceAdapter) FetchTakerFlow(ctx context.Context, venueSymbol string,
 		var rows []KlineRow
 		endpoint := fmt.Sprintf("/klines?symbol=%s&interval=5m&startTime=%d&limit=%d",
 			url.QueryEscape(venueSymbol), start, limit)
-		if err := b.get(ctx, endpoint, &rows); err != nil {
+		if err := b.getOptional(ctx, endpoint, &rows); err != nil {
 			return nil, err
 		}
 		batch := ParseKlineTakerFlow(b.opts.VenueID, venueSymbol, rows, fromMs, toMs)

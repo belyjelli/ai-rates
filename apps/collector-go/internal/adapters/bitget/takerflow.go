@@ -30,6 +30,7 @@ package bitget
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -37,6 +38,7 @@ import (
 
 	"github.com/belyjelli/ai-rates/collector/internal/adapters"
 	"github.com/belyjelli/ai-rates/collector/internal/core"
+	"github.com/belyjelli/ai-rates/collector/internal/httpclient"
 )
 
 const (
@@ -85,8 +87,14 @@ func (a *Adapter) FetchTakerFlow(ctx context.Context, venueSymbol string, fromMs
 		return nil, err
 	}
 	var taker Envelope[TakerBuySell]
-	if err := a.get(ctx, fmt.Sprintf("/api/v2/mix/market/taker-buy-sell?symbol=%s&period=5m",
+	if err := a.getOptional(ctx, fmt.Sprintf("/api/v2/mix/market/taker-buy-sell?symbol=%s&period=5m",
 		url.QueryEscape(venueSymbol)), &taker); err != nil {
+		// 40054 is bitget saying it keeps no taker statistics for this market -- DOGE, BNB, LINK, ADA
+		// and PEPE among them on 2026-09-17, at every period. That is an answer, not a fault: report no
+		// flow rather than an error the sweep would log for the same markets every five minutes.
+		if noTakerData(err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	rows, err := taker.unwrap("taker buy sell")
@@ -114,7 +122,7 @@ func (a *Adapter) FetchTakerFlow(ctx context.Context, venueSymbol string, fromMs
 	}
 
 	var candles Envelope[Candle]
-	if err := a.get(ctx, fmt.Sprintf(
+	if err := a.getOptional(ctx, fmt.Sprintf(
 		"/api/v2/mix/market/candles?symbol=%s&productType=usdt-futures&granularity=5m&startTime=%d&endTime=%d&limit=%d",
 		url.QueryEscape(venueSymbol), first-1, last, takerCandlesLimit), &candles); err != nil {
 		return nil, err
@@ -166,4 +174,10 @@ func ParseTakerBuySell(venueSymbol string, rows []TakerBuySell, candles []Candle
 		})
 	}
 	return flows
+}
+
+// noTakerData is bitget's HTTP 400 code 40054, "The data fetched by <symbol> is empty".
+func noTakerData(err error) bool {
+	var httpErr *httpclient.Error
+	return errors.As(err, &httpErr) && httpErr.Status == 400 && strings.Contains(httpErr.Message, `"40054"`)
 }

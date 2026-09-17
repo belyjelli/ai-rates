@@ -66,6 +66,13 @@ func (a *Adapter) get(ctx context.Context, path string, out any) error {
 	return a.client.GetJSON(ctx, baseURL+path, out)
 }
 
+// getOptional is get for a per-market statistic the venue may not publish for every market: a
+// permanent 4xx is returned but does not open the circuit the funding loop shares. See
+// httpclient.GetJSONOptional.
+func (a *Adapter) getOptional(ctx context.Context, path string, out any) error {
+	return a.client.GetJSONOptional(ctx, baseURL+path, out)
+}
+
 // FetchSnapshots runs one cycle.
 //
 // FIVE endpoints, and the count is deliberate: /instruments is here only because `ctVal` is the one

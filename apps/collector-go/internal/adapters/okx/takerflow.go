@@ -78,7 +78,7 @@ func (a *Adapter) FetchTakerFlow(ctx context.Context, venueSymbol string, fromMs
 			return nil, err
 		}
 		var env Envelope[TakerVolumeRow]
-		if err := a.get(ctx, fmt.Sprintf(
+		if err := a.getOptional(ctx, fmt.Sprintf(
 			"/api/v5/rubik/stat/taker-volume-contract?instId=%s&period=5m&unit=2&begin=%d&end=%d&limit=%d",
 			url.QueryEscape(venueSymbol), begin, end, takerVolumePage), &env); err != nil {
 			return nil, err

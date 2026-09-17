@@ -128,7 +128,7 @@ func (a *Adapter) FetchTakerFlow(ctx context.Context, venueSymbol string, fromMs
 			return nil, err
 		}
 		var rows []ContractStat
-		if err := a.get(ctx, fmt.Sprintf("/contract_stats?contract=%s&interval=5m&from=%d&limit=%d",
+		if err := a.getOptional(ctx, fmt.Sprintf("/contract_stats?contract=%s&interval=5m&from=%d&limit=%d",
 			url.QueryEscape(venueSymbol), from, contractStatsPage), &rows); err != nil {
 			return nil, err
 		}
