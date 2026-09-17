@@ -310,6 +310,9 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     // the run in the shared airates_it schema, which is the leak screener.int.test.ts warns about.
     await admin`DELETE FROM collector_runs WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM market_funding_stats WHERE venue_id IN (${venueA}, ${venueB})`;
+    // liquidations.venue_id references venues(id), so it has to go before the venue does -- the
+    // liquidationMap fixtures are the first rows this suite ever put in that table.
+    await admin`DELETE FROM liquidations WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM markets WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM venues WHERE id IN (${venueA}, ${venueB})`;
     await admin.close();
@@ -934,6 +937,118 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     expect(none?.pair_stability).toBeNull();
     expect(none?.long_stability).toBeNull();
     expect(none?.short_stability).toBeNull();
+  });
+
+  describe("liquidationMap", () => {
+    const liqAsset = `ITL${tag.toUpperCase()}`;
+    const liqSymbolA = `${liqAsset}_USDT`;
+    const liqSymbolB = `${liqAsset}-USDT-SWAP`;
+    // Aligned to a 2-hour boundary so the bucket a row lands in is not a function of when the test
+    // happens to run.
+    const bucketMs = 2 * 3_600_000;
+    const bucket = Math.floor((Date.now() - bucketMs) / bucketMs) * bucketMs;
+
+    beforeAll(async () => {
+      await admin`
+        INSERT INTO market_latest ${admin([
+          {
+            venue_id: venueA,
+            venue_symbol: liqSymbolA,
+            base: liqAsset,
+            asset_class: "crypto",
+            quote: "USDT",
+            observed_at: new Date(),
+            rate: 0.0001,
+            basis_hours: 8,
+            apr: 10.95,
+            interval_hours: 8,
+            next_funding_at: new Date(settledAt + HOUR),
+            kind: "predicted",
+            mark_price: 100,
+            index_price: 100,
+            open_interest_usd: 1_000_000,
+            volume_24h_usd: 2_000_000,
+          },
+        ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
+      await admin`
+        INSERT INTO liquidations ${admin([
+          // Two closes in the same bucket on one venue: they must fold into one cell.
+          {
+            venue_id: venueA,
+            venue_symbol: liqSymbolA,
+            liquidated_at: new Date(bucket + 60_000),
+            side: "long",
+            size_contracts: 10,
+            fill_price: 100,
+            notional_usd: 1_000,
+          },
+          {
+            venue_id: venueA,
+            venue_symbol: liqSymbolA,
+            liquidated_at: new Date(bucket + 120_000),
+            side: "short",
+            size_contracts: 4,
+            fill_price: 100,
+            notional_usd: 400,
+          },
+          // A second venue, and a symbol market_latest has never seen: it must still appear, under
+          // its raw symbol, because a forced close is a fact whether or not we can name the asset.
+          {
+            venue_id: venueB,
+            venue_symbol: liqSymbolB,
+            liquidated_at: new Date(bucket + 60_000),
+            side: "short",
+            size_contracts: 2,
+            fill_price: 100,
+            notional_usd: 200,
+          },
+        ])} ON CONFLICT DO NOTHING`;
+    });
+
+    const mine = async () =>
+      await data.liquidationMap({ windowHours: 24, bucketHours: 2, assets: 40 });
+
+    test("folds a bucket per venue and keeps the two sides apart", async () => {
+      const map = await mine();
+      const cell = map.cells.find(
+        (c) => c.venue_id === venueA && c.asset === liqAsset && c.notional_usd === 1_400,
+      );
+      expect(cell).toBeDefined();
+      expect(cell?.events).toBe(2);
+      // The side of the POSITION closed, which is the reading the colour encodes.
+      expect(cell?.long_usd).toBe(1_000);
+      expect(cell?.short_usd).toBe(400);
+      expect(cell?.bucket_start.getTime()).toBe(bucket);
+    });
+
+    test("names the asset from market_latest, and falls back to the raw symbol", async () => {
+      const map = await mine();
+      // venueA's row is named by its market; venueB's symbol was never collected, so it keeps it.
+      expect(map.cells.some((c) => c.venue_id === venueA && c.asset === liqAsset)).toBe(true);
+      expect(map.cells.some((c) => c.venue_id === venueB && c.asset === liqSymbolB)).toBe(true);
+    });
+
+    test("totals cover every asset, so the page's total is not the sum of what it shows", async () => {
+      const map = await mine();
+      const totalA = map.totals.find((t) => t.venue_id === venueA);
+      expect(totalA).toBeDefined();
+      expect(totalA?.notional_usd).toBeGreaterThanOrEqual(1_400);
+      expect(totalA?.events).toBeGreaterThanOrEqual(2);
+      const column = map.columnTotals.find(
+        (c) => c.venue_id === venueA && c.bucket_start.getTime() === bucket,
+      );
+      expect(column?.notional_usd).toBeGreaterThanOrEqual(1_400);
+    });
+
+    test("the asset limit bounds the rows without bounding the totals", async () => {
+      const one = await data.liquidationMap({ windowHours: 24, bucketHours: 2, assets: 1 });
+      expect(one.assets.length).toBe(1);
+      // The cells are limited to those assets, and the totals are not.
+      expect(new Set(one.cells.map((c) => `${c.asset}|${c.asset_class}`)).size).toBeLessThanOrEqual(
+        1,
+      );
+      expect(one.totals.length).toBeGreaterThan(0);
+    });
   });
 
   test("overview and screener run against the real schema", async () => {

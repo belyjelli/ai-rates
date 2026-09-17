@@ -79,13 +79,13 @@ export const pairHref = (asset: string, assetClass: AssetClass) =>
 export const priceHref = (asset: string, assetClass: AssetClass) =>
   `/price-pair/${assetPath(asset, assetClass)}`;
 /** A row identity that keeps two same-named assets apart when a live refresh matches rows. */
-const assetKey = (asset: string, assetClass: AssetClass) =>
+export const assetKey = (asset: string, assetClass: AssetClass) =>
   assetClass === "crypto" ? asset : `${assetClass}:${asset}`;
 /**
  * The ticker, tagged with its class unless it is crypto. Tagging only the ~70 tradfi markets keeps
  * 5,900 crypto rows clean, and still tells the two BB rows apart wherever both appear.
  */
-const assetName = (asset: string, assetClass: AssetClass) =>
+export const assetName = (asset: string, assetClass: AssetClass) =>
   `${esc(asset)}${assetClass === "crypto" ? "" : ` <span class="cls">${assetClass}</span>`}`;
 const assetTitle = (asset: string, assetClass: AssetClass) =>
   assetClass === "crypto" ? asset : `${asset} (${assetClass})`;

@@ -403,6 +403,74 @@ export interface VerifiedPair {
   short_charge_days: number;
 }
 
+/**
+ * One cell of the liquidation map: what one venue closed, in one asset, in one time bucket.
+ *
+ * The grid is (venue x asset x bucket) and only populated cells are returned -- an asset that was
+ * quiet for two hours has no row here, and the page renders the gap rather than a zero, for the same
+ * reason the rates grid dashes an absent market: nothing happening and $0 happening look identical
+ * in a table and are not the same claim.
+ *
+ * `long_usd` and `short_usd` are the SIDE OF THE POSITION that was closed, which is the reading that
+ * matters: a long liquidation is a forced sell into a falling book, a short liquidation a forced buy
+ * into a rising one. They sum to `notional_usd`.
+ */
+export interface LiquidationCell {
+  venue_id: string;
+  asset: string;
+  asset_class: AssetClass;
+  /** Start of the bucket, aligned to wall-clock so columns do not drift between refreshes. */
+  bucket_start: Date;
+  notional_usd: number;
+  events: number;
+  long_usd: number;
+  short_usd: number;
+}
+
+/**
+ * One venue's totals over the whole window, including the assets that did not make the row limit.
+ *
+ * Carried separately so the page's total is the REAL total rather than the sum of what is on screen:
+ * the rows show the busiest assets, and a total that quietly meant "of these twelve" would be the
+ * kind of number that looks checkable and is not.
+ */
+export interface LiquidationTotals {
+  venue_id: string;
+  notional_usd: number;
+  events: number;
+  long_usd: number;
+  short_usd: number;
+  markets: number;
+}
+
+export interface LiquidationMapOptions {
+  /** How far back to read, in hours. */
+  windowHours: number;
+  /** Column width, in hours. */
+  bucketHours: number;
+  /** How many assets get a row, ranked by liquidated notional across every venue. */
+  assets: number;
+}
+
+/** One venue's total for one column, across EVERY asset -- including the ones with no row. */
+export interface LiquidationColumnTotal {
+  venue_id: string;
+  bucket_start: Date;
+  notional_usd: number;
+  events: number;
+  long_usd: number;
+  short_usd: number;
+}
+
+export interface LiquidationMap {
+  cells: LiquidationCell[];
+  /** Per venue, per column, over every asset. What makes the "other markets" row arithmetic close. */
+  columnTotals: LiquidationColumnTotal[];
+  totals: LiquidationTotals[];
+  /** The assets that got a row, busiest first. The page renders them in this order. */
+  assets: { asset: string; asset_class: AssetClass; notional_usd: number }[];
+}
+
 export interface DataSource {
   overview(): Promise<Overview>;
   screener(filters: ScreenerFilters): Promise<ScreenerPair[]>;
@@ -443,6 +511,13 @@ export interface DataSource {
    * collector keeps 8 days of it (migration 014), which bounds the windows the pair chart reads.
    */
   hourlyFunding(markets: readonly MarketKey[], fromMs: number): Promise<HourlyFundingRow[]>;
+  /**
+   * Forced closes by venue, asset and time bucket, for the liquidation map.
+   *
+   * Only gate and okx publish a liquidation feed the collector ingests (migration 012), so this is a
+   * two-venue view and the page says so rather than implying the market's whole forced flow.
+   */
+  liquidationMap(options: LiquidationMapOptions): Promise<LiquidationMap>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -877,6 +952,93 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           AND h.hour >= ${new Date(fromMs)}
         ORDER BY h.hour, h.venue_id, h.venue_symbol`;
       return [...rows];
+    },
+
+    async liquidationMap({ windowHours, bucketHours, assets }) {
+      const sql = connect();
+      const windowInterval = `${windowHours} hours`;
+      const bucketSeconds = bucketHours * 3600;
+
+      // The asset a liquidation belongs to comes from market_latest, not from the venue symbol:
+      // ETH_USDT on gate and ETH-USDT-SWAP on okx are one asset and must share a row, which is the
+      // whole point of putting the two venues side by side. A market the funding path has never
+      // recorded keeps its raw symbol rather than being dropped -- a forced close is a fact whether
+      // or not we know what to call it.
+      const named = sql`
+        SELECT l.venue_id, l.side, l.notional_usd, l.liquidated_at,
+               coalesce(m.base, l.venue_symbol) AS asset,
+               coalesce(m.asset_class, 'crypto') AS asset_class
+        FROM liquidations l
+        LEFT JOIN market_latest m
+          ON m.venue_id = l.venue_id AND m.venue_symbol = l.venue_symbol
+        WHERE l.liquidated_at > now() - ${windowInterval}::interval
+          AND l.notional_usd IS NOT NULL`;
+
+      // Three reads of the same window rather than one wide one: the cells, the busiest assets, and
+      // the per-venue totals answer different shapes, and folding them into a single query would
+      // mean the page re-deriving two of them from the third -- which is how a total stops matching
+      // the rows above it.
+      const [cells, ranked, totals, columnTotals] = await Promise.all([
+        sql<LiquidationCell[]>`
+          WITH named AS (${named}),
+          ranked AS (
+            SELECT asset, asset_class
+            FROM named GROUP BY 1, 2
+            ORDER BY sum(notional_usd) DESC NULLS LAST, asset, asset_class
+            LIMIT ${assets}
+          )
+          SELECT n.venue_id, n.asset, n.asset_class,
+                 -- Aligned to wall-clock epoch, not to "now", so the columns are the same boundaries
+                 -- on every refresh. Buckets keyed off the request time would shift by seconds each
+                 -- poll and the live swap would rewrite every cell for nothing.
+                 to_timestamp(floor(extract(epoch FROM n.liquidated_at) / ${bucketSeconds})
+                              * ${bucketSeconds}) AS bucket_start,
+                 sum(n.notional_usd)::float8 AS notional_usd,
+                 count(*)::int AS events,
+                 coalesce(sum(n.notional_usd) FILTER (WHERE n.side = 'long'), 0)::float8 AS long_usd,
+                 coalesce(sum(n.notional_usd) FILTER (WHERE n.side = 'short'), 0)::float8 AS short_usd
+          FROM named n
+          JOIN ranked r ON r.asset = n.asset AND r.asset_class = n.asset_class
+          GROUP BY 1, 2, 3, 4
+          ORDER BY n.venue_id, n.asset, bucket_start`,
+
+        sql<{ asset: string; asset_class: AssetClass; notional_usd: number }[]>`
+          WITH named AS (${named})
+          SELECT asset, asset_class, sum(notional_usd)::float8 AS notional_usd
+          FROM named GROUP BY 1, 2
+          -- Total order: asset and class break the tie, so two assets with identical notional cannot
+          -- swap places between the cell query and this one and leave a row with no cells.
+          ORDER BY sum(notional_usd) DESC NULLS LAST, asset, asset_class
+          LIMIT ${assets}`,
+
+        sql<LiquidationTotals[]>`
+          WITH named AS (${named})
+          SELECT venue_id,
+                 sum(notional_usd)::float8 AS notional_usd,
+                 count(*)::int AS events,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'long'), 0)::float8 AS long_usd,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'short'), 0)::float8 AS short_usd,
+                 count(DISTINCT asset)::int AS markets
+          FROM named GROUP BY 1 ORDER BY 2 DESC NULLS LAST`,
+
+        sql<LiquidationColumnTotal[]>`
+          WITH named AS (${named})
+          SELECT venue_id,
+                 to_timestamp(floor(extract(epoch FROM liquidated_at) / ${bucketSeconds})
+                              * ${bucketSeconds}) AS bucket_start,
+                 sum(notional_usd)::float8 AS notional_usd,
+                 count(*)::int AS events,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'long'), 0)::float8 AS long_usd,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'short'), 0)::float8 AS short_usd
+          FROM named GROUP BY 1, 2 ORDER BY 1, 2`,
+      ]);
+
+      return {
+        cells: [...cells],
+        columnTotals: [...columnTotals],
+        totals: [...totals],
+        assets: [...ranked],
+      };
     },
 
     async exchange(venueId) {

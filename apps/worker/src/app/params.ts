@@ -278,3 +278,62 @@ function listParam(params: URLSearchParams, name: string, allowed: Set<string>):
   const unique = [...new Set(values)].sort();
   return unique.length > 0 ? unique : null;
 }
+
+/**
+ * Windows the liquidation map offers, and the column width each one uses.
+ *
+ * Bucket width is not a separate control because the two are not independent: 24 hours in 2-hour
+ * columns is twelve columns, and the same 2 hours over a week would be eighty-four. One choice sets
+ * both, so every window renders a grid of roughly the same shape and a reader cannot construct one
+ * that is unreadable.
+ *
+ * MEASURED before choosing (production, 2026-09-17): 24,058 liquidations over 24 hours across 724
+ * markets and two venues, $88.4M of notional. At 2-hour columns that is a median cell of $1,466 and
+ * a busiest of $12.9M -- populated enough to read, sparse enough that the empty cells mean
+ * something.
+ */
+export const LIQUIDATION_WINDOWS = {
+  "24h": { hours: 24, bucketHours: 2 },
+  "48h": { hours: 48, bucketHours: 4 },
+  "7d": { hours: 168, bucketHours: 12 },
+} as const;
+
+export type LiquidationWindow = keyof typeof LIQUIDATION_WINDOWS;
+export const LIQUIDATION_WINDOW_KEYS = Object.keys(LIQUIDATION_WINDOWS) as LiquidationWindow[];
+
+/**
+ * Asset rows per venue panel. Twelve is what fits beside a second panel without either scrolling
+ * on its own, and the tail is not dropped: the page carries an "other markets" row so the rows plus
+ * the tail add up to the total, which is what makes the total checkable rather than decorative.
+ */
+export const DEFAULT_LIQUIDATION_ASSETS = 12;
+export const MAX_LIQUIDATION_ASSETS = 40;
+
+export interface LiquidationParams {
+  window: LiquidationWindow;
+  assets: number;
+}
+
+export function parseLiquidationParams(params: URLSearchParams): LiquidationParams {
+  const window = (params.get("window") ?? "").trim().toLowerCase();
+  const assets = Number.parseInt(params.get("assets") ?? "", 10);
+  return {
+    // Exact match against the allowlist: the window decides an interval and a bucket width, so it is
+    // never interpolated from what arrived in the query string.
+    window: (LIQUIDATION_WINDOW_KEYS as readonly string[]).includes(window)
+      ? (window as LiquidationWindow)
+      : "24h",
+    assets: Number.isFinite(assets)
+      ? Math.min(Math.max(assets, 1), MAX_LIQUIDATION_ASSETS)
+      : DEFAULT_LIQUIDATION_ASSETS,
+  };
+}
+
+/** Canonical query string, so the window strip and the row count round-trip and stay cache-keyed. */
+export function liquidationsToQuery(params: LiquidationParams): string {
+  const query = new URLSearchParams();
+  if (params.window !== "24h") query.set("window", params.window);
+  if (params.assets !== DEFAULT_LIQUIDATION_ASSETS) query.set("assets", String(params.assets));
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : "";
+}
