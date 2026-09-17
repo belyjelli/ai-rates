@@ -337,8 +337,47 @@ backoff, reconnect and heartbeat in `internal/relay/client.go`, which is most of
     collector migrates at boot, so W1's schema lands with the first deploy of this code — which is
     also the moment `/arbitrage` starts gating on it. Deploy the collector before, or with, the
     worker.
-- **W3 — gate and okx**, including okx's 30-second idle discipline and the EEA/US endpoint split.
-- **W4 — subscription-set refresh**, so newly listed pairable markets join without a restart.
+- **W3 — gate and okx. Built and verified live, 2026-09-17.** `futures.book_ticker` and `bbo-tbt`,
+  okx pinging every 20 seconds against its 30-second idle cut, both from the hklab endpoint W0
+  measured. Verified against the same markets the REST path had just stored: gate BTC 76,304 against
+  76,264 a minute earlier, PEPE 3.462e-06 against 3.459e-06; okx BTC 76,312 and the **inverse**
+  `BTC-USD-SWAP` sizing at $108,000 and $43,930 — exact multiples of its contract, and *not*
+  multiplied by the price, which would have read as billions.
+
+  **The size conversion had to move into the protocol, and that is the real content of W3.** The
+  feed's original `price × quantity` is bybit's rule and only bybit's: gate quotes contracts against
+  `quanto_multiplier`, okx quotes contracts against `ctVal`, and fifteen okx swaps are inverse, their
+  contracts denominated in dollars so the price plays no part. One shared formula would have been
+  wrong on two venues by four orders of magnitude on one and by the price of the coin on the other —
+  migration 013's trap, reached by a different road. So `Protocol.SizeUSD` is per-venue, and an
+  optional `Preparer` fetches the contract metadata before each subscribe (which also means a
+  contract listed mid-run gets its real scale rather than a null depth). An unknown scale returns
+  **nil, never a raw contract count**: a null fails the depth floor, a fabricated number invites a
+  loss.
+
+  Smaller things the venues required: gate sends sizes as JSON **numbers** while the others send
+  strings, so the parser takes both or gate's depth column would silently have been null; okx answers
+  a ping with the bare string `pong`, which is not JSON and must not be reported as an unreadable
+  message every twenty seconds.
+
+- **W4 — subscription-set refresh. Built and verified live, 2026-09-17.** `Feed.SetSubjects` diffs
+  the set, keeps the books of markets that survive, and cycles the connection when anything actually
+  changed; a `PeriodicTask` re-runs `StreamSubjects` every 15 minutes per feed. Watched on a live
+  gate feed: `+2 -1`, ETH gone and SOL and DOGE quoting in the next flush window, BTC's book
+  untouched, no reconnect logged as a failure.
+
+  Three decisions worth keeping:
+  - **A refresh cycles the connection rather than sending incremental subscribe/unsubscribe
+    frames.** The incremental path needs an unsubscribe frame per venue, a partially-subscribed
+    state to reason about, and its own way to re-run `Prepare` for a newly listed contract's size
+    metadata. A reconnect gets all three from code that already runs on every drop, and costs a
+    sub-second gap a few times an hour.
+  - **A re-subscribe is not a fault.** It returns a sentinel the connect loop recognises, so it skips
+    the backoff and does not touch the failure counter — otherwise a refresh every fifteen minutes
+    would eventually trip the circuit breaker on a feed that had never failed.
+  - **An empty subject set is refused.** A query that returns nothing — a collector cycle that has
+    not landed, a venue mid-outage — would otherwise unsubscribe the whole feed and leave it
+    connected to nothing, which reads on `/status` as a healthy feed with no markets.
 
 ## 8. Deliberately not doing
 

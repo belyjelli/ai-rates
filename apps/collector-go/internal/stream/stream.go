@@ -29,6 +29,7 @@ package stream
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"sort"
@@ -121,6 +122,29 @@ type Protocol interface {
 	// venue itself reports as a failure (a rejected subscription, say). A message that is simply not
 	// a book update — an ack, a pong, a heartbeat — yields no updates and no error.
 	Decode(msg []byte, now time.Time) ([]Update, error)
+	// SizeUSD turns a venue-quoted resting size at a venue-quoted price into money, or nil when the
+	// venue's metadata does not say what that size means.
+	//
+	// THIS IS THE 10,000x TRAP, and it is per-venue because the venues genuinely disagree about what
+	// a size IS. Migration 013 measured all three on one BTC book: gate said 2776, okx 504.48 and
+	// bybit 0.181, for depths of roughly $21.6k, $392k and $14k. Bybit quotes base coin, so money is
+	// price times quantity; gate quotes contracts against a quanto multiplier; okx quotes contracts
+	// against ctVal, with fifteen inverse swaps whose contracts are already denominated in dollars
+	// and must NOT be multiplied by a price. A single shared formula would be wrong on two venues.
+	//
+	// Nil rather than a guess: an unknown size fails the depth floor on /arbitrage, which is the
+	// safe direction, while a fabricated one invites a loss.
+	SizeUSD(symbol string, price, qty float64) *float64
+}
+
+// Preparer is a Protocol that needs venue metadata before it can convert what it receives — the
+// contract scales that turn a resting size into money.
+//
+// Optional, because bybit needs none. Called before every subscribe, INCLUDING on reconnect, so a
+// contract listed while the feed was running gets its real scale rather than being dropped until
+// the next restart.
+type Preparer interface {
+	Prepare(ctx context.Context, symbols []string) error
 }
 
 // Options configures one feed.
@@ -165,7 +189,15 @@ type Feed struct {
 
 	cancel context.CancelFunc
 	done   chan struct{}
+	// refresh carries a request to re-subscribe, from SetSubjects to whichever connection is live.
+	// Buffered by one: a request that arrives while the feed is between connections is not lost, and
+	// two requests in a row are one re-subscribe.
+	refresh chan struct{}
 }
+
+// errResubscribe ends a connection on purpose, so connectLoop can tell a deliberate cycle from a
+// fault: a re-subscribe must not count towards the circuit breaker or wait out a backoff.
+var errResubscribe = errors.New("subscription set changed")
 
 // book is one market's current top of book, in venue units, plus whether it has changed since the
 // last flush.
@@ -257,7 +289,10 @@ func New(proto Protocol, dial Dialer, sink Sink, subjects []Subject, opts Option
 		byName[s.VenueSymbol] = s
 		books[s.VenueSymbol] = &book{multiplier: multiplier}
 	}
-	return &Feed{proto: proto, dial: dial, sink: sink, subjects: byName, opts: opts, books: books}
+	return &Feed{
+		proto: proto, dial: dial, sink: sink, subjects: byName, opts: opts, books: books,
+		refresh: make(chan struct{}, 1),
+	}
 }
 
 // VenueID is the id this feed records health under. It is the VENUE's id suffixed with ":ws", and
@@ -270,7 +305,73 @@ func New(proto Protocol, dial Dialer, sink Sink, subjects []Subject, opts Option
 func (f *Feed) VenueID() string { return f.proto.VenueID() + ":ws" }
 
 // Subjects is how many markets this feed subscribes to.
-func (f *Feed) Subjects() int { return len(f.subjects) }
+func (f *Feed) Subjects() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return len(f.subjects)
+}
+
+// SetSubjects replaces the subscription set and, if it actually changed, cycles the connection so
+// the new set takes effect. It reports what moved.
+//
+// WHY THIS EXISTS. Markets are listed and delisted continuously, and a set fixed at boot goes stale
+// in both directions: a newly listed pairable market streams nothing until the next deploy, and a
+// delisted one holds a topic and a book forever. Neither is visible on /status — the feed keeps
+// flushing, just not the markets a reader is looking at.
+//
+// A market that survives the change keeps its book. Only the ones entering start empty, so a refresh
+// costs a reconnect and nothing else: the quotes already held are flushed by the timer as usual and
+// the guard in WriteQuotes means even a replayed snapshot cannot move anything backwards.
+func (f *Feed) SetSubjects(subjects []Subject) (added, removed int) {
+	next := make(map[string]Subject, len(subjects))
+	for _, s := range subjects {
+		if s.VenueSymbol == "" {
+			continue
+		}
+		if !(s.Multiplier > 0) {
+			s.Multiplier = 1
+		}
+		next[s.VenueSymbol] = s
+	}
+	if len(next) == 0 {
+		// Refusing an empty set is deliberate. A query that returns nothing — a collector cycle that
+		// has not landed yet, a venue mid-outage — would otherwise unsubscribe the whole feed and
+		// leave it connected to nothing, which reads on /status as a healthy feed with no markets.
+		// Keeping the previous set costs staleness; taking the empty one costs the venue.
+		return 0, 0
+	}
+
+	f.mu.Lock()
+	for symbol, subject := range next {
+		if _, held := f.subjects[symbol]; held {
+			// Keep the existing book, but take the new scale: a venue can change a contract's
+			// multiplier, and the book in memory is quoted in whatever the venue is sending now.
+			f.books[symbol].multiplier = subject.Multiplier
+			continue
+		}
+		added++
+		f.books[symbol] = &book{multiplier: subject.Multiplier}
+	}
+	for symbol := range f.subjects {
+		if _, kept := next[symbol]; !kept {
+			removed++
+			delete(f.books, symbol)
+		}
+	}
+	f.subjects = next
+	f.mu.Unlock()
+
+	if added == 0 && removed == 0 {
+		return 0, 0
+	}
+	// Buffered by one, so a refresh landing while the feed is reconnecting is picked up by the next
+	// connection rather than blocking here.
+	select {
+	case f.refresh <- struct{}{}:
+	default:
+	}
+	return added, removed
+}
 
 // Start connects and begins flushing. It returns immediately; Stop waits for both goroutines.
 func (f *Feed) Start(ctx context.Context) {
@@ -328,6 +429,13 @@ func (f *Feed) connectLoop(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+		if errors.Is(err, errResubscribe) {
+			// Not a fault: the subscription set changed and the connection was cycled to take it.
+			// No backoff, no failure count, and the counter is left where it was so a genuinely
+			// flaky venue cannot be talked out of its circuit breaker by a well-timed refresh.
+			f.setErr(nil)
+			continue
+		}
 		failures++
 		f.setErr(err)
 		f.logf("%s: connection ended (%d consecutive): %s", f.VenueID(), failures, collector.DescribeError(err))
@@ -371,7 +479,11 @@ func (f *Feed) runGuarded(ctx context.Context) (err error) {
 
 // run holds one connection for as long as it lives, and returns the error that ended it.
 func (f *Feed) run(ctx context.Context) error {
-	if len(f.subjects) == 0 {
+	// The subject set is read once, under the lock, and the connection is built from that snapshot.
+	// SetSubjects may replace the map at any moment — it runs on the refresh task's goroutine — and
+	// a map ranged over while another goroutine writes it is a crash, not a race to shrug at.
+	symbols := f.symbolsSnapshot()
+	if len(symbols) == 0 {
 		return fmt.Errorf("no subjects to subscribe to")
 	}
 	dialCtx, cancel := context.WithTimeout(ctx, f.opts.DialTimeout)
@@ -382,13 +494,16 @@ func (f *Feed) run(ctx context.Context) error {
 	}
 	defer conn.Close()
 
-	symbols := make([]string, 0, len(f.subjects))
-	for name := range f.subjects {
-		symbols = append(symbols, name)
+	// Metadata before subscribing: a venue whose sizes cannot be converted yet would stream a book
+	// whose depth column is null, and depth is half of what /arbitrage prints.
+	if preparer, needs := f.proto.(Preparer); needs {
+		prepCtx, cancelPrep := context.WithTimeout(ctx, f.opts.DialTimeout)
+		err := preparer.Prepare(prepCtx, symbols)
+		cancelPrep()
+		if err != nil {
+			return fmt.Errorf("prepare: %w", err)
+		}
 	}
-	// Sorted so a reconnect sends the same frames in the same order, which makes a venue's own logs
-	// and ours line up when a subscription is rejected.
-	sort.Strings(symbols)
 
 	frames := f.proto.Frames(symbols)
 	for i, frame := range frames {
@@ -405,6 +520,30 @@ func (f *Feed) run(ctx context.Context) error {
 
 	readCtx, cancelRead := context.WithCancel(ctx)
 	defer cancelRead()
+
+	// A refresh that arrived while this feed was between connections is already satisfied: the
+	// frames above were built from the current set. Drop it rather than cycling a connection that
+	// is one second old.
+	select {
+	case <-f.refresh:
+	default:
+	}
+
+	// A refresh from here on ends this connection, and connectLoop dials again immediately. The
+	// alternative — sending subscribe and unsubscribe frames on the live socket — needs an
+	// unsubscribe frame per venue, a partially-subscribed state to reason about, and its own path
+	// for re-running Prepare so a newly listed contract gets its size metadata. A reconnect gets all
+	// three from code that already runs on every drop, at the cost of a sub-second gap on a refresh
+	// that happens a few times an hour.
+	cycled := make(chan struct{})
+	go func() {
+		select {
+		case <-readCtx.Done():
+		case <-f.refresh:
+			close(cycled)
+			cancelRead()
+		}
+	}()
 
 	// Keepalive on its own goroutine: okx disconnects after 30 seconds of silence and bybit after
 	// ten minutes, and neither can be satisfied from inside a blocking read.
@@ -432,6 +571,11 @@ func (f *Feed) run(ctx context.Context) error {
 		msg, err := conn.Read(msgCtx)
 		cancelMsg()
 		if err != nil {
+			select {
+			case <-cycled:
+				return errResubscribe
+			default:
+			}
 			return fmt.Errorf("read: %w", err)
 		}
 		updates, err := f.proto.Decode(msg, f.opts.Now())
@@ -454,6 +598,20 @@ func (f *Feed) run(ctx context.Context) error {
 		}
 		f.mu.Unlock()
 	}
+}
+
+// symbolsSnapshot is the current subscription set, sorted. Sorted so a reconnect sends the same
+// frames in the same order, which makes a venue's own logs and ours line up when a subscription is
+// rejected.
+func (f *Feed) symbolsSnapshot() []string {
+	f.mu.Lock()
+	symbols := make([]string, 0, len(f.subjects))
+	for name := range f.subjects {
+		symbols = append(symbols, name)
+	}
+	f.mu.Unlock()
+	sort.Strings(symbols)
+	return symbols
 }
 
 func (f *Feed) setErr(err error) {
@@ -510,10 +668,11 @@ func (f *Feed) Flush(ctx context.Context) {
 			// scale would read a thousand times the price of the same asset elsewhere.
 			BestBid: core.PerUnitPrice(b.bid, b.multiplier),
 			BestAsk: core.PerUnitPrice(b.ask, b.multiplier),
-			// Sizes are money and are never rescaled. price x quantity is USD at either scale,
-			// which is exactly why the two conversions differ.
-			BestBidSize: notional(b.bid, b.bidQty),
-			BestAskSize: notional(b.ask, b.askQty),
+			// Sizes are money, and what turns a venue's size into money is the venue's business:
+			// see Protocol.SizeUSD. They are never rescaled by the multiplier — that would be
+			// applying a contract scale twice.
+			BestBidSize: f.sizeUSD(symbol, b.bid, b.bidQty),
+			BestAskSize: f.sizeUSD(symbol, b.ask, b.askQty),
 		})
 	}
 	lastErr := f.lastErr
@@ -552,17 +711,16 @@ func (f *Feed) Flush(ctx context.Context) {
 	})
 }
 
-// notional is price x quantity, in USD, or nil when either side is unknown.
+// sizeUSD asks the protocol what this resting size is worth, once both halves are known.
 //
 // A size without a price is not money, and a null must stay null rather than become a zero: the
-// depth floor on /arbitrage treats an unknown size as failing the floor, and a zero would pass a
-// "$0 or more" filter while claiming a quote is good for nothing.
-func notional(price, qty *float64) *float64 {
+// depth floor on /arbitrage treats an unknown size as failing the floor, while a zero would pass a
+// "$0 or more" filter and claim a quote is good for nothing.
+func (f *Feed) sizeUSD(symbol string, price, qty *float64) *float64 {
 	if price == nil || qty == nil {
 		return nil
 	}
-	usd := *price * *qty
-	return &usd
+	return f.proto.SizeUSD(symbol, *price, *qty)
 }
 
 func sleep(ctx context.Context, d time.Duration) bool {

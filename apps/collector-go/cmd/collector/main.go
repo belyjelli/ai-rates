@@ -94,6 +94,10 @@ const (
 	warmUpMaxAge = 24 * time.Hour
 	// alertCheckEvery matches the Bun collector's ALERT_CHECK_MS.
 	alertCheckEvery = time.Minute
+	// streamSubjectsRefresh is how often a feed's subscription set is re-read. Listings and
+	// delistings are the thing it tracks, and neither is urgent enough to pay a reconnect for more
+	// often than this.
+	streamSubjectsRefresh = 15 * time.Minute
 
 	// Where the Dockerfile puts the two files the binary reads from the repository.
 	defaultMigrationsDir = "/usr/local/share/airates/migrations"
@@ -365,13 +369,14 @@ func run(log *slog.Logger) error {
 
 	// Quote feeds, if any venue was opted in. Started after the venue loops because the subscription
 	// set is read from what those loops have already collected.
-	feeds, err := startFeeds(ctx, cfg, db, status, log)
+	feeds, feedRefreshers, err := startFeeds(ctx, cfg, db, status, log)
 	if err != nil {
 		return err
 	}
 
 	// Tasks beside the venue loops, stopped with them at shutdown.
 	tasks := startSideTasks(ctx, cfg, loops, db, log)
+	tasks = append(tasks, feedRefreshers...)
 	jobWatch := collector.NewJobWatch(time.Now())
 	tasks = append(tasks, startJobs(ctx, cfg, db, log, jobWatch)...)
 
@@ -802,12 +807,20 @@ func selectedVenueIDs(cfg config) []string {
 
 // streamProtocol returns the wire format for a venue, or nil where no feed is written yet.
 //
-// W2 ships bybit alone, deliberately: it is the only venue of the three with a documented hard limit
-// on a subscribe request, so the chunking is written against a real constraint. Gate and okx are W3.
+// Gate and okx take an HTTP client because their sizes are quoted in CONTRACTS and only the venue's
+// own metadata says what a contract holds — one bulk call before each subscribe. It is a client of
+// their own rather than the snapshot loop's: the loop's is built inside buildLoops and sharing it
+// would mean threading it out through a map keyed by rate-limit group, to save one request per
+// reconnect. The spacing constant is the venue's own either way, so the two clients cannot together
+// exceed what one venue asked for by more than that single call.
 func streamProtocol(venueID string) stream.Protocol {
 	switch venueID {
 	case "bybit":
 		return stream.Bybit{}
+	case "gate":
+		return stream.NewGate(httpclient.New("gate:ws", httpclient.Options{MinInterval: gate.MinInterval}))
+	case "okx":
+		return stream.NewOKX(httpclient.New("okx:ws", httpclient.Options{MinInterval: okx.MinInterval}))
 	default:
 		return nil
 	}
@@ -819,19 +832,20 @@ func streamProtocol(venueID string) stream.Protocol {
 // configuration, and silently not running what an operator asked for is how a feature gets believed
 // to be live for a week. A feed with no subjects is the one exception — it means the funding path
 // has not collected that venue yet, which is a state the next cycle fixes on its own.
-func startFeeds(ctx context.Context, cfg config, db *store.Store, status *collector.Status, log *slog.Logger) ([]*stream.Feed, error) {
+func startFeeds(ctx context.Context, cfg config, db *store.Store, status *collector.Status, log *slog.Logger) ([]*stream.Feed, []*collector.PeriodicTask, error) {
 	if len(cfg.streamVenues) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	feeds := make([]*stream.Feed, 0, len(cfg.streamVenues))
+	refreshers := make([]*collector.PeriodicTask, 0, len(cfg.streamVenues))
 	for _, venueID := range cfg.streamVenues {
 		proto := streamProtocol(venueID)
 		if proto == nil {
-			return nil, fmt.Errorf("STREAM_VENUES names %q, which has no stream protocol", venueID)
+			return nil, nil, fmt.Errorf("STREAM_VENUES names %q, which has no stream protocol", venueID)
 		}
 		subjects, err := db.StreamSubjects(ctx, venueID, cfg.streamMinOpenInterestUSD)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if len(subjects) == 0 {
 			log.Warn("stream feed has no subjects yet, not started",
@@ -851,8 +865,31 @@ func startFeeds(ctx context.Context, cfg config, db *store.Store, status *collec
 		feeds = append(feeds, feed)
 		log.Info("stream feed started",
 			"venue", feed.VenueID(), "subjects", feed.Subjects(), "flush", cfg.streamFlush.String())
+
+		// The subscription set is read from what the funding loops have collected, so it goes stale
+		// in both directions as markets are listed and delisted. Refreshed on its own task rather
+		// than at every reconnect: re-running the query on a venue that is dropping connections
+		// would put database load exactly where the trouble already is.
+		refresh := collector.NewPeriodicTask("stream-subjects:"+venueID, streamSubjectsRefresh,
+			func(ctx context.Context) error {
+				subjects, err := db.StreamSubjects(ctx, venueID, cfg.streamMinOpenInterestUSD)
+				if err != nil {
+					return err
+				}
+				picked := make([]stream.Subject, len(subjects))
+				for i, s := range subjects {
+					picked[i] = stream.Subject{VenueSymbol: s.VenueSymbol, Multiplier: s.Multiplier}
+				}
+				if added, removed := feed.SetSubjects(picked); added > 0 || removed > 0 {
+					log.Info("stream subjects changed", "venue", feed.VenueID(),
+						"added", added, "removed", removed, "subjects", feed.Subjects())
+				}
+				return nil
+			}, func(message string) { log.Warn(message) })
+		refresh.Start(ctx, streamSubjectsRefresh)
+		refreshers = append(refreshers, refresh)
 	}
-	return feeds, nil
+	return feeds, refreshers, nil
 }
 
 // buildLoops constructs one snapshot loop per selected venue.

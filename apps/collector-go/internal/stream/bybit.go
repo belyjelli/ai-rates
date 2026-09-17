@@ -62,6 +62,15 @@ func (Bybit) Ping() []byte { return []byte(`{"op":"ping"}`) }
 
 func (Bybit) PingEvery() time.Duration { return 20 * time.Second }
 
+// SizeUSD: bybit quotes resting size in the base coin, so money is simply price times quantity —
+// and it stays right for a scaled contract, because a quantity of 1000PEPE at a price per 1000PEPE
+// multiplies out to the same dollars either way. No metadata, which is why Bybit implements no
+// Preparer.
+func (Bybit) SizeUSD(_ string, price, qty float64) *float64 {
+	usd := price * qty
+	return &usd
+}
+
 // bybitMessage is the envelope, of which three shapes matter: a book update, a subscription result,
 // and everything else (pongs, which we ignore).
 type bybitMessage struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -534,5 +535,145 @@ func TestBybitDecodeIgnoresWhatIsNotABook(t *testing.T) {
 		if len(updates) != 0 {
 			t.Fatalf("Decode(%s) produced %d updates, want none", msg, len(updates))
 		}
+	}
+}
+
+// --- W4: the subscription set changes while the feed is running ---------------------------------
+
+// A market listed after the feed started must join without a process restart, and one that leaves
+// must stop holding a topic and a book.
+func TestSetSubjectsAddsAndRemovesWithoutARestart(t *testing.T) {
+	conn := newConn(bookMsg("BTCUSDT", "100", "1", "101", "1"))
+	sink := &fakeSink{}
+	feed := feedFor(t, conn, sink, []Subject{{VenueSymbol: "BTCUSDT", Multiplier: 1}},
+		Options{FlushEvery: 5 * time.Millisecond})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	feed.Start(ctx)
+	waitFor(t, "the first subscribe", func() bool { return len(conn.writes()) > 0 })
+
+	added, removed := feed.SetSubjects([]Subject{
+		{VenueSymbol: "ETHUSDT", Multiplier: 1},
+		{VenueSymbol: "SOLUSDT", Multiplier: 1},
+	})
+	if added != 2 || removed != 1 {
+		t.Fatalf("added=%d removed=%d, want 2 and 1", added, removed)
+	}
+	if feed.Subjects() != 2 {
+		t.Fatalf("Subjects() = %d, want 2", feed.Subjects())
+	}
+
+	// The connection is cycled so the new set takes effect: a second subscribe frame, naming the
+	// markets that were not there before.
+	waitFor(t, "the re-subscribe", func() bool {
+		for _, frame := range conn.writes() {
+			if strings.Contains(string(frame), "orderbook.1.SOLUSDT") {
+				return true
+			}
+		}
+		return false
+	})
+
+	// A quote for the market that left is no longer stored.
+	conn.messages <- []byte(bookMsg("BTCUSDT", "200", "1", "201", "1"))
+	conn.messages <- []byte(bookMsg("ETHUSDT", "3000", "1", "3001", "1"))
+	waitFor(t, "a quote for the added market", func() bool {
+		for _, q := range sink.all() {
+			if q.VenueSymbol == "ETHUSDT" {
+				return true
+			}
+		}
+		return false
+	})
+	_ = feed.Stop(context.Background())
+
+	for _, q := range sink.all() {
+		if q.VenueSymbol == "BTCUSDT" && q.BestBid != nil && *q.BestBid == 200 {
+			t.Fatal("a quote was stored for a market that had been removed")
+		}
+	}
+}
+
+// A re-subscribe is not a fault. Counting it towards the circuit breaker would let a refresh every
+// fifteen minutes eventually trip a feed that had never actually failed.
+func TestARefreshIsNotCountedAsAConnectionFailure(t *testing.T) {
+	conn := newConn()
+	sink := &fakeSink{}
+	var logs []string
+	var mu sync.Mutex
+	feed := feedFor(t, conn, sink, []Subject{{VenueSymbol: "BTCUSDT", Multiplier: 1}}, Options{
+		FlushEvery: 5 * time.Millisecond,
+		Log: func(message string) {
+			mu.Lock()
+			logs = append(logs, message)
+			mu.Unlock()
+		},
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	feed.Start(ctx)
+	waitFor(t, "the first subscribe", func() bool { return len(conn.writes()) > 0 })
+
+	for i := 0; i < 6; i++ { // more than FailureThreshold, which is 5
+		feed.SetSubjects([]Subject{{VenueSymbol: "SYM" + itoa(int64(i)) + "USDT", Multiplier: 1}})
+		waitFor(t, "the re-subscribe to land", func() bool {
+			for _, frame := range conn.writes() {
+				if strings.Contains(string(frame), "orderbook.1.SYM"+itoa(int64(i))+"USDT") {
+					return true
+				}
+			}
+			return false
+		})
+	}
+	_ = feed.Stop(context.Background())
+
+	mu.Lock()
+	defer mu.Unlock()
+	for _, message := range logs {
+		if strings.Contains(message, "consecutive failures") || strings.Contains(message, "connection ended") {
+			t.Fatalf("a refresh was reported as a connection failure: %q", message)
+		}
+	}
+}
+
+// An empty set is refused. A collector cycle that has not landed, or a venue mid-outage, would
+// otherwise unsubscribe the whole feed and leave it connected to nothing — which reads on /status
+// as a healthy feed with no markets.
+func TestAnEmptySubjectSetIsRefused(t *testing.T) {
+	conn := newConn()
+	feed := feedFor(t, conn, &fakeSink{}, []Subject{{VenueSymbol: "BTCUSDT", Multiplier: 1}},
+		Options{FlushEvery: time.Hour})
+
+	if added, removed := feed.SetSubjects(nil); added != 0 || removed != 0 {
+		t.Fatalf("added=%d removed=%d for an empty set", added, removed)
+	}
+	if feed.Subjects() != 1 {
+		t.Fatalf("Subjects() = %d, want the previous set kept", feed.Subjects())
+	}
+}
+
+// An unchanged set must not cycle the connection: the refresh task runs every fifteen minutes and
+// almost always finds nothing new.
+func TestAnUnchangedSubjectSetDoesNotReconnect(t *testing.T) {
+	conn := newConn()
+	feed := feedFor(t, conn, &fakeSink{}, []Subject{{VenueSymbol: "BTCUSDT", Multiplier: 1}},
+		Options{FlushEvery: time.Hour})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	feed.Start(ctx)
+	waitFor(t, "the first subscribe", func() bool { return len(conn.writes()) > 0 })
+	before := len(conn.writes())
+
+	if added, removed := feed.SetSubjects([]Subject{{VenueSymbol: "BTCUSDT", Multiplier: 1}}); added != 0 || removed != 0 {
+		t.Fatalf("added=%d removed=%d for an identical set", added, removed)
+	}
+	time.Sleep(50 * time.Millisecond)
+	_ = feed.Stop(context.Background())
+
+	if got := len(conn.writes()); got != before {
+		t.Fatalf("%d frames sent after an identical set, was %d -- the connection was cycled for nothing", got, before)
 	}
 }
