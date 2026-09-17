@@ -6,10 +6,13 @@ package collector_test
 // history that stopped growing.
 //
 // Enumerated from `grep -rn "func (a \*Adapter) Fetch" internal/adapters` on 2026-09-15: 35 history,
-// 7 tier and 2 liquidation implementations. binancefapi covers aster, binance, weex and bullet;
+// 7 tier and 2 liquidation implementations; the 4 taker-flow implementations were added on
+// 2026-09-17. binancefapi covers aster, binance, weex and bullet;
 // hyperliquid covers the core dex and every HIP-3 dex; lighter covers mainnet and RH.
 
 import (
+	"testing"
+
 	"github.com/belyjelli/ai-rates/collector/internal/adapters/aevo"
 	"github.com/belyjelli/ai-rates/collector/internal/adapters/apex"
 	"github.com/belyjelli/ai-rates/collector/internal/adapters/arcus"
@@ -95,4 +98,24 @@ var (
 
 	_ collector.LiquidationFetcher = (*gate.Adapter)(nil)
 	_ collector.LiquidationFetcher = (*okx.Adapter)(nil)
+
+	// The four venues of migration 023, in collector.TakerFlowVenues order.
+	_ collector.TakerFlowFetcher = (*binancefapi.BinanceAdapter)(nil)
+	_ collector.TakerFlowFetcher = (*okx.Adapter)(nil)
+	_ collector.TakerFlowFetcher = (*gate.Adapter)(nil)
+	_ collector.TakerFlowFetcher = (*bitget.Adapter)(nil)
 )
+
+// The binance-fapi family shares one Adapter type, and main.go finds side tasks by type assertion.
+// Taker flow is verified for Binance alone, so the shared type must NOT satisfy the interface, or
+// Aster, WEEX and Bullet would each start a sweep against endpoints nobody measured.
+func TestOnlyBinanceInItsFamilyPollsTakerFlow(t *testing.T) {
+	var member collector.Fetcher = binancefapi.Aster(nil)
+	if _, ok := member.(collector.TakerFlowFetcher); ok {
+		t.Error("binancefapi.Adapter satisfies TakerFlowFetcher; every family member would poll taker flow")
+	}
+	var binance collector.Fetcher = binancefapi.Binance(nil)
+	if _, ok := binance.(collector.TakerFlowFetcher); !ok {
+		t.Error("binancefapi.Binance does not satisfy TakerFlowFetcher")
+	}
+}

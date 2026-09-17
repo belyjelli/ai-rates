@@ -50,10 +50,13 @@ type Adapter struct {
 	mu sync.Mutex
 	// liquidationCursor is where the next rotation resumes. A restart simply starts the cycle again.
 	liquidationCursor int
+
+	// takerPace holds rubik to its own 5-per-2-seconds limit; see takerflow.go.
+	takerPace *adapters.Pacer
 }
 
 func NewAdapter(client *httpclient.Client) *Adapter {
-	return &Adapter{client: client}
+	return &Adapter{client: client, takerPace: adapters.NewPacer(TakerFlowPace)}
 }
 
 func (a *Adapter) VenueID() string   { return VenueID }

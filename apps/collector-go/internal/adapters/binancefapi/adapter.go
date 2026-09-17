@@ -367,8 +367,10 @@ func Aster(client *httpclient.Client) *Adapter {
 // Binance: the largest venue on the site. Reachable from the hklab collector (measured 2026-09-13,
 // 0.12-0.21s); the catalog's "HTTP 451 from US IPs" warning applies to where a collector runs, not
 // to the venue, which is why it is recorded rather than assumed stable.
-func Binance(client *httpclient.Client) *Adapter {
-	return NewAdapter(client, Options{
+//
+// It is the one member returned as a *BinanceAdapter, which adds taker flow; see takerflow.go.
+func Binance(client *httpclient.Client) *BinanceAdapter {
+	return newBinanceAdapter(client, Options{
 		VenueID:  "binance",
 		BaseURL:  "https://fapi.binance.com/fapi/v1",
 		Classify: BinanceAssetClass,

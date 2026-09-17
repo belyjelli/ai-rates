@@ -61,10 +61,13 @@ type Adapter struct {
 	instrumentsLoaded     bool
 	instrumentsFetchedAt  int64
 	known                 map[string]knownMarket
+
+	// takerPace holds taker-buy-sell to its own, tighter limit; see takerflow.go.
+	takerPace *adapters.Pacer
 }
 
 func NewAdapter(client *httpclient.Client) *Adapter {
-	return &Adapter{client: client, known: map[string]knownMarket{}}
+	return &Adapter{client: client, known: map[string]knownMarket{}, takerPace: adapters.NewPacer(TakerFlowPace)}
 }
 
 func (a *Adapter) VenueID() string { return VenueID }

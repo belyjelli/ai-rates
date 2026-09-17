@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/belyjelli/ai-rates/collector/internal/adapters"
 	"github.com/belyjelli/ai-rates/collector/internal/core"
 	"github.com/belyjelli/ai-rates/collector/internal/httpclient"
 )
@@ -38,12 +39,16 @@ const (
 // It owns no state beyond its client. Gate answers for its whole book in one liquidations call, so
 // unlike OKX there is no rotation cursor to keep — nothing here would have to become mutex-guarded
 // adapter state to survive the collector running each venue on its own goroutine.
+//
+// The one exception is taker flow, which caches the contract multipliers and paces its own endpoint;
+// that state is mutex-guarded in takerState.
 type Adapter struct {
 	client *httpclient.Client
+	taker  takerState
 }
 
 func NewAdapter(client *httpclient.Client) *Adapter {
-	return &Adapter{client: client}
+	return &Adapter{client: client, taker: takerState{pace: adapters.NewPacer(TakerFlowPace)}}
 }
 
 func (a *Adapter) VenueID() string { return VenueID }

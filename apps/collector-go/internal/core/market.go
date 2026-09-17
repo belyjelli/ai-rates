@@ -154,6 +154,32 @@ type Liquidation struct {
 	NotionalUSD   *float64
 }
 
+// TakerFlowBucketMs is the grain of taker_flow: five minutes, the finest grain all four publishing
+// venues share (migration 023).
+const TakerFlowBucketMs int64 = 5 * 60_000
+
+// TakerFlowBucketStart floors an epoch-millisecond instant to the start of its 5-minute bucket.
+func TakerFlowBucketStart(ms int64) int64 {
+	return ms - ((ms%TakerFlowBucketMs)+TakerFlowBucketMs)%TakerFlowBucketMs
+}
+
+// TakerFlow is one market's aggressor volume for one 5-minute bucket, already in dollars.
+//
+// Dollars rather than the venue's unit because the venues disagree (quote, USD, contracts, base
+// coin) and only the adapter holds the contract scale and the bucket's price that convert them.
+// BucketStart is the START of the bucket in epoch milliseconds, whatever the venue stamps: every
+// adapter normalises, so one bucket_start means the same five minutes on every venue.
+type TakerFlow struct {
+	VenueID     string
+	VenueSymbol string
+	BucketStart int64
+	BuyUSD      float64
+	SellUSD     float64
+	// ClosePrice is the venue's own last price for the bucket, nil where the response carries none
+	// (okx). Never a zero.
+	ClosePrice *float64
+}
+
 // SnapshotBatch is what one collection cycle of a venue produced.
 type SnapshotBatch struct {
 	Snapshots []FundingSnapshot

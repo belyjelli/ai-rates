@@ -1,7 +1,7 @@
 package collector
 
 // The per-venue side loops: settled funding history (forward sweep and backfill), risk-limit
-// ladders, and forced closes.
+// ladders, forced closes, and taker flow.
 //
 // Ported from apps/collector/src/{history,tiers,liquidations}.ts. The arithmetic is deliberately
 // identical — which markets are due, where a request's window starts, what counts as exhausted,
@@ -59,6 +59,15 @@ type LiquidationFetcher interface {
 	FetchLiquidations(ctx context.Context) ([]core.Liquidation, bool, error)
 }
 
+// TakerFlowFetcher is an adapter that publishes per-market taker buy and sell volume at a 5-minute
+// grain (migration 023). It returns every bucket STARTING in [fromMs, toMs] that the venue still
+// holds, in dollars, stamped at the bucket start whatever the venue stamps. Implemented by binance,
+// okx, gate and bitget; the TakerFlowVenues list below is the same four and must stay in step.
+type TakerFlowFetcher interface {
+	VenueID() string
+	FetchTakerFlow(ctx context.Context, venueSymbol string, fromMs, toMs int64) ([]core.TakerFlow, error)
+}
+
 // HistoryStore is the slice of the store the history sweeps need.
 type HistoryStore interface {
 	// ActiveMarkets is the markets seen by the snapshot loop since `since`.
@@ -79,6 +88,16 @@ type TierStore interface {
 // LiquidationStore is the slice of the store the liquidation sweep needs.
 type LiquidationStore interface {
 	RecordLiquidations(ctx context.Context, venueID string, liquidations []core.Liquidation) (int, error)
+}
+
+// TakerFlowStore is the slice of the store the taker-flow sweep needs.
+type TakerFlowStore interface {
+	// TakerFlowSubjects is the venue's markets to poll, largest asset first; see
+	// store.TakerFlowSubjects for the selection.
+	TakerFlowSubjects(ctx context.Context, venueID string) ([]string, error)
+	// LatestTakerFlowByMarket is the newest stored bucket_start per market, epoch ms.
+	LatestTakerFlowByMarket(ctx context.Context, venueID string) (map[string]int64, error)
+	RecordTakerFlow(ctx context.Context, venueID string, flows []core.TakerFlow) (int, error)
 }
 
 // HistorySweepOptions configures SweepVenueHistory. Zero durations take their defaults.
@@ -354,6 +373,121 @@ func RefreshVenueLiquidations(ctx context.Context, fetcher LiquidationFetcher, s
 		markets[liquidation.VenueSymbol] = struct{}{}
 	}
 	return LiquidationSweep{Fetched: len(liquidations), Stored: stored, Markets: len(markets), Complete: complete}, nil
+}
+
+// TakerFlowVenues are the venues whose open interest ranks the taker-flow assets, and the venues
+// that poll them: the four measured on 2026-09-17 to publish taker buy and sell per 5 minutes
+// (migration 023). Ranking across exactly these four, rather than every venue collected, keeps the
+// set tied to where the data comes from -- an asset large only on a venue with no taker endpoint
+// would take a slot and yield nothing.
+var TakerFlowVenues = []string{"binance", "okx", "gate", "bitget"}
+
+const (
+	// TakerFlowTopAssets is how many assets, ranked by open interest summed across TakerFlowVenues,
+	// taker flow is collected for. Each costs one request a market a sweep on up to four venues, and
+	// the /cvd page reads assets someone would trade, so the long tail is left out.
+	TakerFlowTopAssets = 100
+
+	// DefaultTakerFlowLookback is how far back a market with nothing stored is backfilled. The page's
+	// longest window is 7 days. Venues that keep less return what they have: OKX five days, Bitget
+	// two and a half hours.
+	DefaultTakerFlowLookback = 7 * 24 * time.Hour
+
+	// TakerFlowReread is how many buckets behind the newest stored one each sweep starts. The newest
+	// bucket was still filling when it was stored, and two venues publish late: OKX's row appears
+	// ~2.5 minutes into its bucket, and Gate's newest row is an early partial it rewrites ~2.5 minutes
+	// after the bucket closes (both measured 2026-09-17). Two buckets back covers both.
+	TakerFlowReread = 2
+)
+
+// TakerFlowSweepOptions configures SweepVenueTakerFlow. A zero Lookback takes its default.
+//
+// There is no stop flag: cancel ctx. It is checked before each market.
+type TakerFlowSweepOptions struct {
+	Now      func() time.Time
+	Lookback time.Duration
+	// CircuitOpen reports the venue's circuit breaker, typically func() bool { return client.Circuit().Open }.
+	CircuitOpen func() bool
+	Log         func(string)
+}
+
+// TakerFlowSweep is one taker-flow sweep's outcome.
+type TakerFlowSweep struct {
+	// Markets is subjects selected for the venue.
+	Markets int
+	// Fetched is markets whose fetch succeeded, including those that returned nothing.
+	Fetched int
+	// Backfilled is markets that had nothing stored and got buckets back from the lookback. A market
+	// the adapter declines without a request (an OKX or Bitget USDC book) is not one.
+	Backfilled int
+	// Buckets is rows written, re-reads included.
+	Buckets int
+	Errors  int
+}
+
+// SweepVenueTakerFlow polls taker flow for the venue's top assets and upserts it.
+//
+// Incremental by the store, not by memory: each market resumes TakerFlowReread buckets before its
+// newest stored bucket, so a restart costs nothing and the buckets that were still filling are
+// always overwritten with their final figures. A market with nothing stored reads the whole
+// lookback, which the adapter pages and paces. Requests go through the venue's shared HTTP client,
+// so its spacing and circuit breaker also cover the snapshot loop.
+//
+// A nil fetcher does nothing. A failed store read is returned; a failed market is counted, logged
+// and skipped.
+func SweepVenueTakerFlow(ctx context.Context, fetcher TakerFlowFetcher, store TakerFlowStore, opts TakerFlowSweepOptions) (TakerFlowSweep, error) {
+	var result TakerFlowSweep
+	if fetcher == nil {
+		return result, nil
+	}
+
+	now := nowOrDefault(opts.Now)
+	lookbackMs := durationMs(opts.Lookback, DefaultTakerFlowLookback)
+	venueID := fetcher.VenueID()
+
+	subjects, err := store.TakerFlowSubjects(ctx, venueID)
+	if err != nil {
+		return result, err
+	}
+	latest, err := store.LatestTakerFlowByMarket(ctx, venueID)
+	if err != nil {
+		return result, err
+	}
+	result.Markets = len(subjects)
+
+	for _, symbol := range subjects {
+		if ctx.Err() != nil || circuitOpen(opts.CircuitOpen) {
+			break
+		}
+		at := now().UnixMilli()
+		newest, stored := latest[symbol]
+		from := core.TakerFlowBucketStart(at - lookbackMs)
+		if stored {
+			from = core.TakerFlowBucketStart(newest) - TakerFlowReread*core.TakerFlowBucketMs
+		}
+
+		flows, err := fetcher.FetchTakerFlow(ctx, symbol, from, at)
+		// As in the history sweep: a request cancelled by shutdown is not a venue fault.
+		if err != nil && ctx.Err() != nil {
+			break
+		}
+		if err == nil {
+			result.Fetched++
+			if len(flows) > 0 {
+				if !stored {
+					result.Backfilled++
+				}
+				var written int
+				written, err = store.RecordTakerFlow(ctx, venueID, flows)
+				result.Buckets += written
+			}
+		}
+		if err != nil {
+			result.Errors++
+			logf(opts.Log, "%s %s: taker flow failed: %s", venueID, symbol, DescribeError(err))
+		}
+	}
+	return result, nil
 }
 
 // intervalMs is a market's settlement interval in milliseconds, treating an unknown interval as

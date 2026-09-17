@@ -6,6 +6,7 @@ package store
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -202,5 +203,134 @@ func TestRecordLiquidationsCountsOnlyNewRows(t *testing.T) {
 	}
 	if stored != 0 {
 		t.Errorf("repeat poll stored %d, want 0", stored)
+	}
+}
+
+func sweepStoreFlow(venueID, symbol string, bucket time.Time, buy, sell float64, closePrice *float64) core.TakerFlow {
+	return core.TakerFlow{
+		VenueID: venueID, VenueSymbol: symbol, BucketStart: bucket.UnixMilli(),
+		BuyUSD: buy, SellUSD: sell, ClosePrice: closePrice,
+	}
+}
+
+func TestRecordTakerFlowUpsertsTheBucketStillFilling(t *testing.T) {
+	db := freshStore(t)
+	ctx := context.Background()
+	pool := testPool(t)
+	bucket := time.UnixMilli(core.TakerFlowBucketStart(time.Now().UnixMilli())).UTC()
+	earlier := bucket.Add(-5 * time.Minute)
+
+	written, err := db.RecordTakerFlow(ctx, "okx", []core.TakerFlow{
+		sweepStoreFlow("okx", "BTC-USDT-SWAP", earlier, 10, 20, f(77000)),
+		sweepStoreFlow("okx", "BTC-USDT-SWAP", bucket, 1, 2, nil),
+		sweepStoreFlow("okx", "BTC-USDT-SWAP", bucket, 1, 2, nil),  // twice in one batch must not error
+		sweepStoreFlow("okx", "BAD-USDT-SWAP", bucket, -1, 2, nil), // would fail the CHECK: dropped
+		sweepStoreFlow("bybit", "BTCUSDT", bucket, 1, 2, nil),      // another venue's row: ignored
+	})
+	if err != nil {
+		t.Fatalf("first write: %v", err)
+	}
+	if written != 2 {
+		t.Errorf("first write = %d rows, want 2", written)
+	}
+
+	// The re-read: the filling bucket has grown, and a response with no price keeps the stored one.
+	if _, err := db.RecordTakerFlow(ctx, "okx", []core.TakerFlow{
+		sweepStoreFlow("okx", "BTC-USDT-SWAP", earlier, 11, 21, nil),
+		sweepStoreFlow("okx", "BTC-USDT-SWAP", bucket, 5, 6, f(78000)),
+	}); err != nil {
+		t.Fatalf("re-read: %v", err)
+	}
+	var buy, sell float64
+	var closePrice *float64
+	if err := pool.QueryRow(ctx, `select buy_usd, sell_usd, close_price from taker_flow
+		where venue_symbol = 'BTC-USDT-SWAP' and bucket_start = $1`, earlier).Scan(&buy, &sell, &closePrice); err != nil {
+		t.Fatalf("read earlier: %v", err)
+	}
+	if buy != 11 || sell != 21 || closePrice == nil || *closePrice != 77000 {
+		t.Errorf("earlier bucket = %v / %v / %v, want 11 / 21 / 77000", buy, sell, closePrice)
+	}
+	if err := pool.QueryRow(ctx, `select buy_usd, sell_usd, close_price from taker_flow
+		where venue_symbol = 'BTC-USDT-SWAP' and bucket_start = $1`, bucket).Scan(&buy, &sell, &closePrice); err != nil {
+		t.Fatalf("read bucket: %v", err)
+	}
+	if buy != 5 || sell != 6 || closePrice == nil || *closePrice != 78000 {
+		t.Errorf("filling bucket = %v / %v / %v, want 5 / 6 / 78000", buy, sell, closePrice)
+	}
+
+	latest, err := db.LatestTakerFlowByMarket(ctx, "okx")
+	if err != nil {
+		t.Fatalf("LatestTakerFlowByMarket: %v", err)
+	}
+	if len(latest) != 1 || latest["BTC-USDT-SWAP"] != bucket.UnixMilli() {
+		t.Errorf("latest = %v, want BTC-USDT-SWAP at %d", latest, bucket.UnixMilli())
+	}
+}
+
+func TestTakerFlowSubjectsRankAssetsAcrossTheFourVenues(t *testing.T) {
+	db := freshStore(t)
+	ctx := context.Background()
+	pool := testPool(t)
+	if _, err := pool.Exec(ctx, `INSERT INTO venues (id, name, type) VALUES
+		('binance','Binance','cex'), ('gate','Gate','cex'), ('bitget','Bitget','cex')`); err != nil {
+		t.Fatalf("seed venues: %v", err)
+	}
+	at := time.Now().UTC() // the freshness window is five minutes, so these fixtures must be now
+
+	market := func(venue, symbol, base, quote string, oi float64) core.FundingSnapshot {
+		return core.FundingSnapshot{
+			MarketRef: core.MarketRef{
+				VenueID: venue, VenueSymbol: symbol, Base: base,
+				AssetClass: core.ClassCrypto, Quote: s(quote), Multiplier: 1,
+			},
+			ObservedAt: at.UnixMilli(), Rate: 0.0001, BasisHours: 8, Kind: core.KindPredicted,
+			MarkPrice: f(1), OpenInterestUSD: &oi,
+		}
+	}
+	record := func(venue string, observed time.Time, snaps ...core.FundingSnapshot) {
+		t.Helper()
+		if err := db.RecordBatch(ctx, venue, core.SnapshotBatch{Snapshots: snaps}, observed); err != nil {
+			t.Fatalf("RecordBatch(%s): %v", venue, err)
+		}
+	}
+
+	record("okx", at,
+		market("okx", "BTC-USDT-SWAP", "BTC", "USDT", 5e9),
+		market("okx", "BTC-USDC-SWAP", "BTC", "USDC", 1e8),
+		// Inverse: neither polled nor counted toward BTC's rank.
+		market("okx", "BTC-USD-SWAP", "BTC", "USD", 9e12),
+		// Large only on OKX, but summed across venues it is still the smallest.
+		market("okx", "SOLO-USDT-SWAP", "SOLO", "USDT", 3e9),
+	)
+	record("binance", at,
+		market("binance", "BTCUSDT", "BTC", "USDT", 8e9),
+		market("binance", "ETHUSDT", "ETH", "USDT", 4e9),
+		market("binance", "ETHUSDC", "ETH", "USDC", 1e9),
+	)
+	// Collected on a venue outside the four: its open interest must not lift an asset.
+	record("bybit", at, market("bybit", "SOLOUSDT", "SOLO", "USDT", 9e10))
+	// Stale on gate: last seen an hour ago, so it neither ranks nor gets polled.
+	stale := market("gate", "SOLO_USDT", "SOLO", "USDT", 9e10)
+	stale.ObservedAt = at.Add(-time.Hour).UnixMilli()
+	record("gate", at.Add(-time.Hour), stale)
+
+	subjects, err := db.TakerFlowSubjects(ctx, "okx")
+	if err != nil {
+		t.Fatalf("TakerFlowSubjects: %v", err)
+	}
+	want := []string{"BTC-USDT-SWAP", "BTC-USDC-SWAP", "SOLO-USDT-SWAP"}
+	if strings.Join(subjects, " ") != strings.Join(want, " ") {
+		t.Errorf("okx subjects = %v, want %v (largest asset first)", subjects, want)
+	}
+
+	// A venue polls every linear book on a ranked asset, USDC included, in rank order: BTC ($13.1B
+	// summed) before ETH ($5B).
+	subjects, err = db.TakerFlowSubjects(ctx, "binance")
+	if err != nil {
+		t.Fatalf("TakerFlowSubjects: %v", err)
+	}
+	want = []string{"BTCUSDT", "ETHUSDT", "ETHUSDC"}
+	if strings.Join(subjects, " ") != strings.Join(want, " ") {
+		t.Errorf("binance subjects = %v, want %v", subjects, want)
 	}
 }

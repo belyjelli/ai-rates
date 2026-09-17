@@ -330,7 +330,7 @@ func TestMembersCarryTheirOwnReadingOfTheVenue(t *testing.T) {
 	}
 
 	// Aster and Binance take the defaults: fundingInfo, per-symbol rotation, millisecond stamps.
-	for _, member := range []*Adapter{Aster(client), Binance(client)} {
+	for _, member := range []*Adapter{Aster(client), Binance(client).Adapter} {
 		eq(t, member.VenueID()+" open interest", string(member.opts.OpenInterest), string(PerSymbol))
 		if member.opts.IntervalSource != nil {
 			t.Errorf("%s: want the fundingInfo endpoint, not premiumIndex", member.VenueID())

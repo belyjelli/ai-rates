@@ -449,3 +449,178 @@ func TestLiquidationSweepReturnsAFetchError(t *testing.T) {
 		t.Errorf("err = %v, store calls = %d; want the error and no write", err, store.calls)
 	}
 }
+
+const sweepBucket = int64(300_000)
+
+type takerFlowCall struct {
+	symbol   string
+	from, to int64
+}
+
+type fakeTakerFlowFetcher struct {
+	calls []takerFlowCall
+	fetch func(ctx context.Context, symbol string, from, to int64) ([]core.TakerFlow, error)
+}
+
+func (f *fakeTakerFlowFetcher) VenueID() string { return "okx" }
+
+func (f *fakeTakerFlowFetcher) FetchTakerFlow(ctx context.Context, symbol string, from, to int64) ([]core.TakerFlow, error) {
+	f.calls = append(f.calls, takerFlowCall{symbol, from, to})
+	return f.fetch(ctx, symbol, from, to)
+}
+
+type fakeTakerFlowStore struct {
+	subjects []string
+	latest   map[string]int64
+	recorded [][]core.TakerFlow
+}
+
+func (s *fakeTakerFlowStore) TakerFlowSubjects(context.Context, string) ([]string, error) {
+	return s.subjects, nil
+}
+
+func (s *fakeTakerFlowStore) LatestTakerFlowByMarket(context.Context, string) (map[string]int64, error) {
+	return s.latest, nil
+}
+
+func (s *fakeTakerFlowStore) RecordTakerFlow(_ context.Context, _ string, flows []core.TakerFlow) (int, error) {
+	s.recorded = append(s.recorded, append([]core.TakerFlow(nil), flows...))
+	return len(flows), nil
+}
+
+func sweepFlow(symbol string, bucket int64) core.TakerFlow {
+	return core.TakerFlow{VenueID: "okx", VenueSymbol: symbol, BucketStart: bucket, BuyUSD: 2, SellUSD: 1}
+}
+
+// sweepNow is exactly on an hour, so a moment 90 seconds past a bucket boundary is built explicitly.
+var takerNow = sweepNow.Add(90 * time.Second)
+
+func TestTakerFlowSweepRereadsTheNewestBucketsAndBackfillsNewMarkets(t *testing.T) {
+	now := takerNow.UnixMilli()
+	current := now - 90_000 // the bucket in progress
+	fetcher := &fakeTakerFlowFetcher{fetch: func(_ context.Context, symbol string, from, _ int64) ([]core.TakerFlow, error) {
+		return []core.TakerFlow{sweepFlow(symbol, from), sweepFlow(symbol, current)}, nil
+	}}
+	store := &fakeTakerFlowStore{
+		subjects: []string{"BTC-USDT-SWAP", "NEW-USDT-SWAP", "STALE-USDT-SWAP"},
+		latest: map[string]int64{
+			"BTC-USDT-SWAP": current, // stored up to the bucket still filling
+			// A stored value off the grid still resumes on it.
+			"STALE-USDT-SWAP": current - 12*sweepBucket + 7,
+		},
+	}
+
+	result, err := SweepVenueTakerFlow(context.Background(), fetcher, store, TakerFlowSweepOptions{
+		Now: func() time.Time { return takerNow }, Lookback: 24 * time.Hour,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := []takerFlowCall{
+		// Two buckets behind the newest stored: the one still filling is overwritten with its final
+		// figure, and a late publisher's rewrite of the bucket before it is picked up.
+		{"BTC-USDT-SWAP", current - 2*sweepBucket, now},
+		// Nothing stored: the whole lookback, from a bucket boundary.
+		{"NEW-USDT-SWAP", current - 24*12*sweepBucket, now},
+		{"STALE-USDT-SWAP", current - 14*sweepBucket, now},
+	}
+	if !reflect.DeepEqual(fetcher.calls, want) {
+		t.Errorf("calls = %v\nwant    %v", fetcher.calls, want)
+	}
+	if result != (TakerFlowSweep{Markets: 3, Fetched: 3, Backfilled: 1, Buckets: 6}) {
+		t.Errorf("result = %+v", result)
+	}
+	if len(store.recorded) != 3 {
+		t.Errorf("recorded %d batches, want 3", len(store.recorded))
+	}
+}
+
+func TestTakerFlowSweepCountsFailuresAndDeclinedMarkets(t *testing.T) {
+	fetcher := &fakeTakerFlowFetcher{fetch: func(_ context.Context, symbol string, _, _ int64) ([]core.TakerFlow, error) {
+		switch symbol {
+		case "BAD-USDT-SWAP":
+			return nil, errors.New("HTTP 400")
+		case "BTC-USDC-SWAP":
+			return nil, nil // declined by the adapter: no rubik data for USDC swaps
+		}
+		return []core.TakerFlow{sweepFlow(symbol, 0)}, nil
+	}}
+	var logs []string
+	store := &fakeTakerFlowStore{subjects: []string{"BAD-USDT-SWAP", "BTC-USDC-SWAP", "OK-USDT-SWAP"}}
+
+	result, err := SweepVenueTakerFlow(context.Background(), fetcher, store, TakerFlowSweepOptions{
+		Now: func() time.Time { return takerNow }, Log: func(m string) { logs = append(logs, m) },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The declined USDC market is fetched-and-empty, not an error and not a backfill, and never
+	// reaches the store.
+	if result != (TakerFlowSweep{Markets: 3, Fetched: 2, Backfilled: 1, Buckets: 1, Errors: 1}) {
+		t.Errorf("result = %+v", result)
+	}
+	if !reflect.DeepEqual(logs, []string{"okx BAD-USDT-SWAP: taker flow failed: HTTP 400"}) {
+		t.Errorf("logs = %q", logs)
+	}
+	if len(store.recorded) != 1 {
+		t.Errorf("recorded %d batches, want 1", len(store.recorded))
+	}
+}
+
+func TestTakerFlowSweepDefaultsToASevenDayBackfill(t *testing.T) {
+	fetcher := &fakeTakerFlowFetcher{fetch: func(context.Context, string, int64, int64) ([]core.TakerFlow, error) {
+		return nil, nil
+	}}
+	store := &fakeTakerFlowStore{subjects: []string{"BTCUSDT"}}
+	if _, err := SweepVenueTakerFlow(context.Background(), fetcher, store, TakerFlowSweepOptions{
+		Now: func() time.Time { return takerNow },
+	}); err != nil {
+		t.Fatal(err)
+	}
+	now := takerNow.UnixMilli()
+	if len(fetcher.calls) != 1 || fetcher.calls[0].from != now-90_000-7*24*12*sweepBucket {
+		t.Errorf("calls = %v, want one from exactly 7 days of buckets back", fetcher.calls)
+	}
+}
+
+func TestTakerFlowSweepStopsOnAnOpenCircuitOrCancellation(t *testing.T) {
+	fetcher := &fakeTakerFlowFetcher{fetch: func(context.Context, string, int64, int64) ([]core.TakerFlow, error) {
+		return nil, nil
+	}}
+	store := &fakeTakerFlowStore{subjects: []string{"A", "B"}}
+	if _, err := SweepVenueTakerFlow(context.Background(), fetcher, store, TakerFlowSweepOptions{
+		Now: fixedNow, CircuitOpen: func() bool { return true },
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(fetcher.calls) != 0 {
+		t.Errorf("open circuit: calls = %v, want none", fetcher.calls)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var logs []string
+	cancelling := &fakeTakerFlowFetcher{fetch: func(context.Context, string, int64, int64) ([]core.TakerFlow, error) {
+		cancel()
+		return nil, context.Canceled
+	}}
+	result, err := SweepVenueTakerFlow(ctx, cancelling, store, TakerFlowSweepOptions{
+		Now: fixedNow, Log: func(m string) { logs = append(logs, m) },
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Shutdown mid-request is not a venue fault: no error counted, nothing logged, no second market.
+	if len(cancelling.calls) != 1 || result.Errors != 0 || len(logs) != 0 {
+		t.Errorf("cancelled: calls = %v, result = %+v, logs = %q", cancelling.calls, result, logs)
+	}
+}
+
+func TestTakerFlowSweepDoesNothingWithoutAnEndpoint(t *testing.T) {
+	store := &fakeTakerFlowStore{subjects: []string{"A"}}
+	result, err := SweepVenueTakerFlow(context.Background(), nil, store, TakerFlowSweepOptions{})
+	if err != nil || result != (TakerFlowSweep{}) {
+		t.Errorf("sweep = %+v, %v; want zero result", result, err)
+	}
+}

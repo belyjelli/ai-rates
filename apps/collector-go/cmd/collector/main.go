@@ -955,10 +955,12 @@ const (
 	backfillBudget      = 20
 	tiersRefresh        = 24 * time.Hour
 	liquidationsRefresh = 5 * time.Minute
+	// takerFlowRefresh matches the grain of taker_flow: one new bucket every five minutes.
+	takerFlowRefresh = 5 * time.Minute
 )
 
 // startSideTasks starts, for each venue, whichever of the history sweep, the history backfill, the
-// tier sweep and the liquidation poll its adapter supports.
+// tier sweep, the liquidation poll and the taker-flow poll its adapter supports.
 //
 // These ran beside every snapshot loop in the Bun collector and were dropped at the Go cutover, which
 // stopped settled funding — the input to every 7-day average, fold, backtest and ranking — from
@@ -1034,6 +1036,23 @@ func startSideTasks(ctx context.Context, cfg config, loops []*venueLoop, db *sto
 					log.Info("liquidations", "venue", venueID, "stored", sweep.Stored, "fetched", sweep.Fetched,
 						"markets", sweep.Markets, "complete", sweep.Complete)
 				}
+				return nil
+			})
+		}
+
+		// Taker flow reads its subjects from market_latest's open interest, so it waits for the
+		// snapshot loop to have written a fresh cycle, and starts a cycle after the liquidation poll
+		// so the two per-venue sweeps do not open on the same second. The first run on a cold table
+		// is the 7-day backfill; each adapter paces it to its own endpoint's limit.
+		if fetcher, ok := loop.fetcher.(collector.TakerFlowFetcher); ok {
+			start(venueID+" taker flow", takerFlowRefresh, 4*cfg.interval+offset, func(ctx context.Context) error {
+				sweep, err := collector.SweepVenueTakerFlow(ctx, fetcher, db,
+					collector.TakerFlowSweepOptions{CircuitOpen: circuitOpen, Log: logInfo})
+				if err != nil {
+					return err
+				}
+				log.Info("taker flow", "venue", venueID, "markets", sweep.Markets, "fetched", sweep.Fetched,
+					"backfilled", sweep.Backfilled, "buckets", sweep.Buckets, "errors", sweep.Errors)
 				return nil
 			})
 		}

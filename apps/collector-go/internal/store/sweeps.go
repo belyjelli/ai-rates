@@ -1,6 +1,8 @@
 package store
 
-// Store methods for the per-venue side loops: funding history, risk-limit ladders, forced closes.
+// Store methods for the per-venue side loops: funding history, risk-limit ladders, forced closes,
+// and taker flow. The taker-flow methods have no TypeScript twin; they were written for the Go
+// collector on 2026-09-17 against migration 023.
 // Ported from apps/collector/src/store.ts (recordHistory, recordLiquidations, latestSettledByMarket,
 // oldestSettledByMarket, replaceLeverageTiers); the SQL keeps the same conflict targets and the same
 // merge rules.
@@ -8,10 +10,12 @@ package store
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/belyjelli/ai-rates/collector/internal/collector"
 	"github.com/belyjelli/ai-rates/collector/internal/core"
 )
 
@@ -267,4 +271,160 @@ type sweepLiquidationKey struct {
 	at     int64
 	size   float64
 	price  float64
+}
+
+// TakerFlowSubjects is the markets on one venue that taker flow is polled for, largest asset first.
+//
+// An asset qualifies by its open interest summed across collector.TakerFlowVenues, the four venues
+// that publish taker volume, and the top collector.TakerFlowTopAssets assets are taken. The venue then
+// polls every one of its markets on those assets. Ranked on the four together rather than per venue,
+// so the /cvd page compares the same assets on every venue instead of four overlapping lists.
+//
+// Linear USDT and USDC books only. Inverse contracts are margined in the coin and are out of scope,
+// and they are excluded from the ranking too, so an asset's slot is earned on the books that get
+// polled. market_latest is filtered by the same five-minute freshness window every other reader of
+// it uses (StreamSubjects, the identity and ranking jobs): a market the snapshot loop has stopped
+// seeing is delisted or failing, and its open interest is not a current figure.
+//
+// Ordered by the asset's summed open interest, so a sweep cut short by shutdown or an open circuit
+// has spent its requests on the assets that matter most.
+func (s *Store) TakerFlowSubjects(ctx context.Context, venueID string) ([]string, error) {
+	const sql = `
+		WITH fresh AS (
+			SELECT venue_id, venue_symbol, asset_class, base, open_interest_usd
+			FROM market_latest
+			WHERE observed_at > now() - interval '5 minutes'
+			  AND venue_id = ANY($2::text[])
+			  AND quote IN ('USDT', 'USDC')
+		),
+		top_assets AS (
+			SELECT asset_class, base, sum(open_interest_usd) AS open_interest_usd
+			FROM fresh
+			GROUP BY asset_class, base
+			HAVING sum(open_interest_usd) > 0
+			ORDER BY sum(open_interest_usd) DESC, asset_class, base
+			LIMIT $3
+		)
+		SELECT f.venue_symbol
+		FROM fresh f
+		JOIN top_assets t ON t.asset_class = f.asset_class AND t.base = f.base
+		WHERE f.venue_id = $1
+		ORDER BY t.open_interest_usd DESC, f.open_interest_usd DESC NULLS LAST, f.venue_symbol`
+
+	rows, err := s.pool.Query(ctx, sql, venueID, collector.TakerFlowVenues, collector.TakerFlowTopAssets)
+	if err != nil {
+		return nil, fmt.Errorf("taker flow subjects for %s: %w", venueID, err)
+	}
+	defer rows.Close()
+
+	var subjects []string
+	for rows.Next() {
+		var symbol string
+		if err := rows.Scan(&symbol); err != nil {
+			return nil, fmt.Errorf("taker flow subjects for %s: %w", venueID, err)
+		}
+		subjects = append(subjects, symbol)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("taker flow subjects for %s: %w", venueID, err)
+	}
+	return subjects, nil
+}
+
+// LatestTakerFlowByMarket is the newest stored bucket_start per market, as epoch milliseconds.
+//
+// Bounded to eight days: past the 7-day lookback a market is backfilled from scratch anyway, and the
+// bound keeps the scan on the recent chunks of the hypertable.
+func (s *Store) LatestTakerFlowByMarket(ctx context.Context, venueID string) (map[string]int64, error) {
+	const sql = `
+		SELECT venue_symbol, max(bucket_start) FROM taker_flow
+		WHERE venue_id = $1 AND bucket_start > now() - interval '8 days'
+		GROUP BY venue_symbol`
+	rows, err := s.pool.Query(ctx, sql, venueID)
+	if err != nil {
+		return nil, fmt.Errorf("latest taker flow for %s: %w", venueID, err)
+	}
+	defer rows.Close()
+
+	latest := make(map[string]int64)
+	for rows.Next() {
+		var symbol string
+		var at time.Time
+		if err := rows.Scan(&symbol, &at); err != nil {
+			return nil, fmt.Errorf("latest taker flow for %s: %w", venueID, err)
+		}
+		latest[symbol] = at.UnixMilli()
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("latest taker flow for %s: %w", venueID, err)
+	}
+	return latest, nil
+}
+
+// RecordTakerFlow upserts taker buy and sell per bucket and returns the rows written.
+//
+// An UPDATE on conflict, unlike RecordLiquidations: a bucket is not immutable. The newest one is
+// still filling when first read, and Gate publishes an early partial row it rewrites minutes later,
+// so a re-read must replace what was stored. close_price keeps the stored value when a re-read
+// carries none, so a price is never erased by a response that simply lacks one.
+//
+// Rows that would violate the table's CHECKs (a negative or non-finite volume) are dropped here
+// rather than sent: one bad row would otherwise fail the statement and lose the whole market's batch.
+func (s *Store) RecordTakerFlow(ctx context.Context, venueID string, flows []core.TakerFlow) (int, error) {
+	// One row per key within a single INSERT: a statement cannot touch the same conflict key twice.
+	unique := make(map[sweepTakerFlowKey]core.TakerFlow, len(flows))
+	for _, flow := range flows {
+		if flow.VenueID != venueID || !validVolume(flow.BuyUSD) || !validVolume(flow.SellUSD) {
+			continue
+		}
+		unique[sweepTakerFlowKey{symbol: flow.VenueSymbol, bucket: flow.BucketStart}] = flow
+	}
+	if len(unique) == 0 {
+		return 0, nil
+	}
+
+	n := len(unique)
+	venueIDs := make([]string, 0, n)
+	symbols := make([]string, 0, n)
+	buckets := make([]time.Time, 0, n)
+	buys := make([]float64, 0, n)
+	sells := make([]float64, 0, n)
+	closes := make([]*float64, 0, n)
+	for _, flow := range unique {
+		venueIDs = append(venueIDs, flow.VenueID)
+		symbols = append(symbols, flow.VenueSymbol)
+		buckets = append(buckets, time.UnixMilli(flow.BucketStart).UTC())
+		buys = append(buys, flow.BuyUSD)
+		sells = append(sells, flow.SellUSD)
+		var closePrice *float64
+		if flow.ClosePrice != nil && validVolume(*flow.ClosePrice) && *flow.ClosePrice > 0 {
+			closePrice = flow.ClosePrice
+		}
+		closes = append(closes, closePrice)
+	}
+
+	const sql = `
+		INSERT INTO taker_flow (venue_id, venue_symbol, bucket_start, buy_usd, sell_usd, close_price)
+		SELECT * FROM unnest(
+			$1::text[], $2::text[], $3::timestamptz[], $4::float8[], $5::float8[], $6::float8[]
+		)
+		ON CONFLICT (venue_id, venue_symbol, bucket_start) DO UPDATE SET
+			buy_usd = EXCLUDED.buy_usd,
+			sell_usd = EXCLUDED.sell_usd,
+			close_price = COALESCE(EXCLUDED.close_price, taker_flow.close_price)`
+	tag, err := s.pool.Exec(ctx, sql, venueIDs, symbols, buckets, buys, sells, closes)
+	if err != nil {
+		return 0, fmt.Errorf("record taker flow for %s: %w", venueID, err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
+type sweepTakerFlowKey struct {
+	symbol string
+	bucket int64
+}
+
+// validVolume is a finite, non-negative figure: what taker_flow's CHECKs accept.
+func validVolume(v float64) bool {
+	return v >= 0 && !math.IsInf(v, 0) && !math.IsNaN(v)
 }
