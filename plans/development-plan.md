@@ -562,6 +562,21 @@ ai-rates/
 >   per-connection topic cap and the message rate on the pairable subset is unmeasured. It must run
 >   from hklab, not a dev machine: bybit 403s US and Mainland China IPs, and okx enforces an EEA/US
 >   endpoint split.
+>
+> **All five slices are built, 2026-09-17, and none of it is running.** W0 measured, W1 shipped
+> migration 022 and the quote-scoped writer, W2–W4 built the feed and verified it against live bybit,
+> gate and okx from hklab. `STREAM_VENUES` is **empty by default**, so the deployed collector would
+> behave exactly as it does now until someone sets it. What W0 found, in one line each: the fleet is
+> **three connections, not 6–12**; the whole feed costs **18% of one core** against a collector
+> idling at **2.57%**, so §2's starvation premise is withdrawn; the pairable set is **2,105 of 2,297
+> markets**, not "materially smaller"; and **ten venues publish top of book, not three**, which is
+> why `quotes_at` is written by the REST path too. §6 resolved against its own recommendation — Go,
+> in-process — because every reason it gave for Bun was written the day before the Go cutover.
+>
+> **Not yet deployed, and the ordering matters:** the collector applies migrations at boot, so
+> `022_quotes_at.sql` lands with the first deploy of this code, which is also the moment
+> `/arbitrage` starts gating bid/ask on `quotes_at`. Deploy the collector before, or with, the
+> worker.
 
 - Airdrop calendar, points calculator, blog/glossary (MDX), en/ru with hreflang, Telegram spread alerts, public read API.
 
