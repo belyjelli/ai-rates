@@ -298,6 +298,14 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .slot-band{fill:rgba(216,216,216,.08)}
 .slot-mark.fchart-cursor{stroke:var(--ink);stroke-dasharray:3 3}
 .slot-read{flex-basis:100%;color:var(--muted)}
+/* The tooltip beside a mouse cursor (slot-chart.ts). The figure is its positioning box, so it moves
+   with the chart when the page scrolls. pointer-events:none keeps it from stealing the hover it shows. */
+.lqc,.cvd-chart{position:relative}
+.slot-tip{position:absolute;z-index:3;pointer-events:none;padding:5px 8px;background:var(--bg);border:1px solid var(--muted);color:var(--muted);white-space:nowrap;line-height:1.5;box-shadow:0 2px 10px rgba(0,0,0,.6)}
+.slot-tip[hidden]{display:none}
+.slot-tip div:first-child{color:var(--ink);margin-bottom:2px}
+.slot-tip b{font-weight:600;color:var(--ink)}
+.slot-tip b.cvd-up,.slot-tip b.lq-ink-l{color:var(--long)}.slot-tip b.cvd-down,.slot-tip b.lq-ink-s{color:var(--short)}
 .slot-read b{font-weight:600;color:var(--ink)}
 .slot-read b.cvd-up,.slot-read b.lq-ink-l{color:var(--long)}.slot-read b.cvd-down,.slot-read b.lq-ink-s{color:var(--short)}
 @media (max-width:1180px){.fchart .slot-read{min-height:2.7em}}

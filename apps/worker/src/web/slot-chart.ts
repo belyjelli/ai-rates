@@ -205,17 +205,51 @@ export const SLOT_SCRIPT = `(() => {
     for (const el of held.querySelectorAll(".slot-mark")) el.classList.add("off");
     const read = held.querySelector(".slot-read");
     if (read && idle.has(read)) read.innerHTML = idle.get(read);
+    const tip = held.querySelector(".slot-tip");
+    if (tip) tip.hidden = true;
     held = heldRead = null;
     heldIndex = -1;
   };
-  const show = (area, i) => {
+  // A mouse on a device that really hovers gets the reading beside the cursor; a finger, a pen
+  // without hover, or the keyboard gets it in the header line, where a hand cannot cover it.
+  const fine = window.matchMedia ? window.matchMedia("(hover: hover) and (pointer: fine)") : null;
+  const floating = (pointer) => !!pointer && pointer.type === "mouse" && !!fine && fine.matches;
+  const place = (figure, html, pointer) => {
+    let tip = figure.querySelector(".slot-tip");
+    if (!tip) {
+      // Created on first use rather than rendered, so a refresh that swaps the figure's HTML simply
+      // takes it away and the next hover makes a new one.
+      tip = document.createElement("div");
+      tip.className = "slot-tip";
+      tip.setAttribute("aria-hidden", "true");
+      figure.appendChild(tip);
+    }
+    // The text functions join their parts with " · "; the tooltip puts each part on its own line.
+    tip.innerHTML = html.split(" · ").map((part) => "<div>" + part + "</div>").join("");
+    tip.hidden = false;
+    const box = figure.getBoundingClientRect();
+    const gap = 14;
+    let left = pointer.x - box.left + gap;
+    // Flip to the cursor's left when the right side would run out of the figure.
+    if (left + tip.offsetWidth > box.width - 4) left = pointer.x - box.left - gap - tip.offsetWidth;
+    let top = pointer.y - box.top + gap;
+    if (top + tip.offsetHeight > box.height - 4) top = pointer.y - box.top - gap - tip.offsetHeight;
+    tip.style.left = Math.max(4, left) + "px";
+    tip.style.top = Math.max(4, top) + "px";
+  };
+  const show = (area, i, pointer) => {
     const figure = area.closest("figure");
     const d = figure && payload(figure);
     const read = figure && figure.querySelector(".slot-read");
     if (!d || !read || !d.slots.length) return;
     i = Math.min(d.slots.length - 1, Math.max(0, i));
+    const float = floating(pointer);
     // A refresh swaps the readout for a new element, so an unchanged slot still redraws after one.
-    if (figure === held && read === heldRead && i === heldIndex) return;
+    // The tooltip still follows the cursor within a slot, so only its text is spared.
+    if (figure === held && read === heldRead && i === heldIndex) {
+      if (float) place(figure, reading(d, i), pointer);
+      return;
+    }
     if (held !== figure) clear();
     if (!idle.has(read)) idle.set(read, read.innerHTML);
     const w = 1000 / d.slots.length;
@@ -229,7 +263,16 @@ export const SLOT_SCRIPT = `(() => {
       }
       el.classList.remove("off");
     }
-    read.innerHTML = reading(d, i);
+    const text = reading(d, i);
+    if (float) {
+      // Beside the cursor, the header keeps the window's totals rather than repeating the tooltip.
+      read.innerHTML = idle.get(read);
+      place(figure, text, pointer);
+    } else {
+      read.innerHTML = text;
+      const tip = figure.querySelector(".slot-tip");
+      if (tip) tip.hidden = true;
+    }
     held = figure;
     heldRead = read;
     heldIndex = i;
@@ -243,7 +286,13 @@ export const SLOT_SCRIPT = `(() => {
   };
   const track = (event) => {
     const area = event.target.closest ? event.target.closest(".slot-area") : null;
-    if (area) return show(area, indexAt(area, event.clientX));
+    if (area) {
+      return show(area, indexAt(area, event.clientX), {
+        type: event.pointerType,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    }
     if (held && (event.pointerType !== "touch" || event.type === "pointerdown")) clear();
   };
   document.addEventListener("pointermove", track, { passive: true });
