@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/belyjelli/ai-rates/collector/internal/core"
 )
 
 // Quote is one market's top of book as a feed saw it, already converted into the units market_latest
@@ -27,6 +29,77 @@ type Quote struct {
 	BestAskSize *float64
 }
 
+// StreamSubject is one market a feed should subscribe to, with the contract scale its prices need.
+type StreamSubject struct {
+	VenueSymbol string
+	Multiplier  float64
+}
+
+// StreamSubjects picks the markets on one venue that a quote feed is worth running for.
+//
+// NOT EVERY MARKET, and the filter is the same one the reader applies. /arbitrage compares an asset
+// only where two venues quote it and the marks agree, so a market nothing can pair with contributes
+// no row however fast its book is streamed. Measured on 2026-09-17, the three WebSocket venues carry
+// 2,297 markets between them of which 2,105 are pairable — 92%, so this is not the dramatic
+// reduction the plan expected. The open-interest floor is what actually moves the number: 1,690
+// markets at $100k and 764 at $1M.
+//
+// The floor is a parameter rather than a constant because the right value is a judgement about what
+// a reader would trade, not a fact about the venues, and because W0 measured that the whole book
+// fits on one connection either way — this is about write volume and usefulness, not about capacity.
+//
+// Deliberately reads market_latest rather than markets: a market that has not been collected within
+// the freshness window has nothing to pair with and no multiplier we would trust.
+func (s *Store) StreamSubjects(ctx context.Context, venueID string, minOpenInterestUSD float64) ([]StreamSubject, error) {
+	const sql = `
+		WITH fresh AS (
+			SELECT venue_id, venue_symbol, asset_class, base, mark_price, open_interest_usd,
+			       (best_bid > 0 AND best_ask > 0) AS quoting
+			FROM market_latest
+			WHERE observed_at > now() - interval '5 minutes'
+		),
+		anchors AS (
+			SELECT DISTINCT ON (asset_class, base) asset_class, base, mark_price AS anchor_mark
+			FROM fresh WHERE mark_price > 0
+			ORDER BY asset_class, base, open_interest_usd DESC NULLS LAST, venue_id, venue_symbol
+		),
+		-- The mark-agreement band, mirroring arbitrage(): a market whose mark is a different
+		-- instrument's is not a leg, and subscribing to it would stream a book nothing may use.
+		legs AS (
+			SELECT f.* FROM fresh f
+			LEFT JOIN anchors a ON a.asset_class = f.asset_class AND a.base = f.base
+			WHERE f.quoting
+			  AND (a.anchor_mark IS NULL OR f.mark_price IS NULL
+			       OR f.mark_price BETWEEN a.anchor_mark / (1 + $2::float8)
+			                           AND a.anchor_mark * (1 + $2::float8))
+		),
+		pairable AS (
+			SELECT asset_class, base FROM legs GROUP BY 1, 2 HAVING count(DISTINCT venue_id) >= 2
+		)
+		SELECT l.venue_symbol, coalesce(m.multiplier, 1)::float8
+		FROM legs l
+		JOIN pairable p ON p.asset_class = l.asset_class AND p.base = l.base
+		LEFT JOIN markets m ON m.venue_id = l.venue_id AND m.venue_symbol = l.venue_symbol
+		WHERE l.venue_id = $1 AND coalesce(l.open_interest_usd, 0) >= $3::float8
+		ORDER BY l.venue_symbol`
+
+	rows, err := s.pool.Query(ctx, sql, venueID, core.DivergenceTrigger, minOpenInterestUSD)
+	if err != nil {
+		return nil, fmt.Errorf("stream subjects for %s: %w", venueID, err)
+	}
+	defer rows.Close()
+
+	var out []StreamSubject
+	for rows.Next() {
+		var subject StreamSubject
+		if err := rows.Scan(&subject.VenueSymbol, &subject.Multiplier); err != nil {
+			return nil, fmt.Errorf("scan stream subject: %w", err)
+		}
+		out = append(out, subject)
+	}
+	return out, rows.Err()
+}
+
 // WriteQuotes stores top of book for markets that already exist in market_latest.
 //
 // PARTIAL BY DESIGN, and this is the whole point of the function. It touches five columns —
@@ -41,9 +114,10 @@ type Quote struct {
 // subscribed to symbols the collector does not have.
 //
 // The ordering guard is the same one the funding path uses (quoteIsNewer): a quote may only replace
-// a quote that is older. That is what lets both writers run on the same row without coordinating —
-// a poll cycle carrying a 60-second-old book cannot overwrite a 1-second-old streamed one, and a
-// reconnect replaying an old snapshot cannot overwrite what arrived while it was reconnecting.
+// a quote that is older. That is what lets both writers run on the same row without coordinating.
+// It is about arrival order, not about polled books being stale — a cycle observed at t+60 can
+// commit after a streamed quote observed at t+65 — and it makes a reconnect's replayed snapshot a
+// no-op for free.
 func (s *Store) WriteQuotes(ctx context.Context, quotes []Quote) (written int, unknown int, err error) {
 	if len(quotes) == 0 {
 		return 0, 0, nil

@@ -28,6 +28,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -83,6 +84,7 @@ import (
 	"github.com/belyjelli/ai-rates/collector/internal/httpclient"
 	"github.com/belyjelli/ai-rates/collector/internal/migrate"
 	"github.com/belyjelli/ai-rates/collector/internal/store"
+	"github.com/belyjelli/ai-rates/collector/internal/stream"
 )
 
 const (
@@ -112,6 +114,16 @@ type config struct {
 	// it lives only in the server's .env and must never be logged.
 	telegramBotToken string
 	telegramChatID   string
+	// streamVenues are the venues whose top of book is kept current over a WebSocket between polls.
+	// EMPTY BY DEFAULT: the feed is off until someone turns it on, so a deploy of this code changes
+	// nothing about what the collector does.
+	streamVenues []string
+	// streamFlush is how often a feed writes its in-memory book. The floor on how old a streamed
+	// quote can be.
+	streamFlush time.Duration
+	// streamMinOpenInterestUSD drops thin markets from the subscription set. Zero subscribes to
+	// every pairable market on the venue.
+	streamMinOpenInterestUSD float64
 }
 
 func loadConfig(env func(string) string) (config, error) {
@@ -166,6 +178,34 @@ func loadConfig(env func(string) string) (config, error) {
 	if (cfg.telegramBotToken == "") != (cfg.telegramChatID == "") {
 		return cfg, errors.New("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be set together")
 	}
+
+	// STREAM_VENUES follows COLLECT_VENUES' shape, and its default is the opposite: empty means no
+	// feed at all rather than all of them. A quote feed writes to rows the funding path owns, so it
+	// is opt-in per venue and per deploy.
+	for _, venue := range strings.Split(env("STREAM_VENUES"), ",") {
+		if trimmed := strings.TrimSpace(venue); trimmed != "" {
+			cfg.streamVenues = append(cfg.streamVenues, trimmed)
+		}
+	}
+	flushMs, err := intFromEnv(env, "STREAM_FLUSH_MS", 5_000)
+	if err != nil {
+		return cfg, err
+	}
+	// A floor, for the same reason COLLECT_INTERVAL_MS has one: below a second the writes stop being
+	// a flush and start being per-tick inserts on a database shared with sixteen other tenants.
+	if flushMs < 1_000 {
+		return cfg, errors.New("STREAM_FLUSH_MS must be at least 1000")
+	}
+	cfg.streamFlush = time.Duration(flushMs) * time.Millisecond
+
+	minOI, err := intFromEnv(env, "STREAM_MIN_OI_USD", 0)
+	if err != nil {
+		return cfg, err
+	}
+	if minOI < 0 {
+		return cfg, errors.New("STREAM_MIN_OI_USD must not be negative")
+	}
+	cfg.streamMinOpenInterestUSD = float64(minOI)
 	return cfg, nil
 }
 
@@ -261,6 +301,23 @@ func run(log *slog.Logger) error {
 	for i, venue := range venues {
 		venueRows[i] = store.VenueRow{ID: venue.ID, Name: venue.Name, Type: venue.Type}
 	}
+	// A quote feed reports its health under its own id, so it needs its own venues row: /status is
+	// driven from that table rather than from the runs, precisely so a collector that has stopped
+	// running still appears. See stream.Feed.VenueID for why the feed is not "bybit".
+	//
+	// It never writes market_latest rows under this id, so it cannot appear on /exchanges (that
+	// query inner-joins market_latest) or add a market to any count. It appears on /status, which
+	// is where a thing that can fail belongs.
+	for _, venue := range venues {
+		if !slices.Contains(cfg.streamVenues, venue.ID) {
+			continue
+		}
+		venueRows = append(venueRows, store.VenueRow{
+			ID:   venue.ID + ":ws",
+			Name: venue.Name + " (stream)",
+			Type: venue.Type,
+		})
+	}
 	if err := db.UpsertVenues(ctx, venueRows); err != nil {
 		return err
 	}
@@ -268,6 +325,12 @@ func run(log *slog.Logger) error {
 	venueIDs := selectedVenueIDs(cfg)
 	if len(venueIDs) == 0 {
 		return errors.New("no adapters match COLLECT_VENUES")
+	}
+	// The feeds' ids join the health snapshot here, before Status is built: Status renders only the
+	// ids it was constructed with, so one added afterwards would record runs nothing ever displays.
+	// The same ordering trap the comment below describes, one layer out.
+	for _, venue := range cfg.streamVenues {
+		venueIDs = append(venueIDs, venue+":ws")
 	}
 
 	// Status is built BEFORE the loops, and that order is load-bearing. LoopOptions is copied by
@@ -298,6 +361,13 @@ func run(log *slog.Logger) error {
 	for _, loop := range loops {
 		loop.loop.Start(ctx)
 		log.Info("venue loop started", "venue", loop.venueID)
+	}
+
+	// Quote feeds, if any venue was opted in. Started after the venue loops because the subscription
+	// set is read from what those loops have already collected.
+	feeds, err := startFeeds(ctx, cfg, db, status, log)
+	if err != nil {
+		return err
 	}
 
 	// Tasks beside the venue loops, stopped with them at shutdown.
@@ -365,6 +435,12 @@ func run(log *slog.Logger) error {
 	for _, task := range tasks {
 		if err := task.Stop(graceCtx); err != nil {
 			log.Warn("task did not stop within the grace period", "error", err)
+		}
+	}
+	// Feeds last: each one flushes what it is holding on the way out, and those quotes are free.
+	for _, feed := range feeds {
+		if err := feed.Stop(graceCtx); err != nil {
+			log.Warn("feed did not stop within the grace period", "venue", feed.VenueID(), "error", err)
 		}
 	}
 	_ = server.Shutdown(graceCtx)
@@ -722,6 +798,61 @@ func selectedVenueIDs(cfg config) []string {
 		ids = append(ids, c.id)
 	}
 	return ids
+}
+
+// streamProtocol returns the wire format for a venue, or nil where no feed is written yet.
+//
+// W2 ships bybit alone, deliberately: it is the only venue of the three with a documented hard limit
+// on a subscribe request, so the chunking is written against a real constraint. Gate and okx are W3.
+func streamProtocol(venueID string) stream.Protocol {
+	switch venueID {
+	case "bybit":
+		return stream.Bybit{}
+	default:
+		return nil
+	}
+}
+
+// startFeeds starts one quote feed per venue named in STREAM_VENUES.
+//
+// A feed that cannot be built stops the boot rather than being skipped: STREAM_VENUES is explicit
+// configuration, and silently not running what an operator asked for is how a feature gets believed
+// to be live for a week. A feed with no subjects is the one exception — it means the funding path
+// has not collected that venue yet, which is a state the next cycle fixes on its own.
+func startFeeds(ctx context.Context, cfg config, db *store.Store, status *collector.Status, log *slog.Logger) ([]*stream.Feed, error) {
+	if len(cfg.streamVenues) == 0 {
+		return nil, nil
+	}
+	feeds := make([]*stream.Feed, 0, len(cfg.streamVenues))
+	for _, venueID := range cfg.streamVenues {
+		proto := streamProtocol(venueID)
+		if proto == nil {
+			return nil, fmt.Errorf("STREAM_VENUES names %q, which has no stream protocol", venueID)
+		}
+		subjects, err := db.StreamSubjects(ctx, venueID, cfg.streamMinOpenInterestUSD)
+		if err != nil {
+			return nil, err
+		}
+		if len(subjects) == 0 {
+			log.Warn("stream feed has no subjects yet, not started",
+				"venue", venueID, "min_oi_usd", cfg.streamMinOpenInterestUSD)
+			continue
+		}
+		picked := make([]stream.Subject, len(subjects))
+		for i, s := range subjects {
+			picked[i] = stream.Subject{VenueSymbol: s.VenueSymbol, Multiplier: s.Multiplier}
+		}
+		feed := stream.New(proto, stream.Dial, db, picked, stream.Options{
+			FlushEvery: cfg.streamFlush,
+			OnFlush:    status.Record,
+			Log:        func(message string) { log.Info(message) },
+		})
+		feed.Start(ctx)
+		feeds = append(feeds, feed)
+		log.Info("stream feed started",
+			"venue", feed.VenueID(), "subjects", feed.Subjects(), "flush", cfg.streamFlush.String())
+	}
+	return feeds, nil
 }
 
 // buildLoops constructs one snapshot loop per selected venue.

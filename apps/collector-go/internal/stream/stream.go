@@ -1,0 +1,606 @@
+// Package stream keeps top of book current between polls.
+//
+// Phase 6 / W2. The funding loops fetch every market on a 60-second cadence, which is right for a
+// funding rate that settles every one to eight hours and wrong for a bid-ask spread: /arbitrage
+// prints a gap and the size it is good for, and both are stale the moment the book moves. This
+// package holds a socket to a venue, keeps the latest book per market in memory, and flushes it to
+// market_latest on a timer.
+//
+// WHAT IT DELIBERATELY IS NOT.
+//
+//   - It is not a second collector. It writes five columns through store.WriteQuotes and nothing
+//     else: no funding_snapshots (a quote is not a funding observation, and that table already takes
+//     ~324k rows an hour), no observed_at (which would resurrect a dead venue's rate as fresh), and
+//     no INSERTs (a market the funding path has not recorded is not this package's to invent).
+//   - It is not a per-message writer. An in-memory map collapses however many updates arrive into
+//     one row per market per flush window, so a venue pushing 900 messages a second costs one
+//     statement every few seconds rather than 900 round trips.
+//   - It is not a live feed for the site. web/live.ts already polls the page's own URL every 30s and
+//     swaps the changed regions; this is about ingestion, and the page gets fresher numbers from it
+//     without knowing it exists.
+//
+// MEASURED BEFORE BUILDING (W0, 2026-09-17, on hklab). Bybit delivers its whole book — 833 markets —
+// on ONE connection; the three-venue fleet runs at 2,320 messages a second; parsing that costs 1.0%
+// of one core and servicing it 18%, in Bun, against a collector container idling at 2.57% of the
+// same core. The numbers are in plans/phase6-websocket-streams.md section 0, and they are why this
+// runs in-process rather than as a separate service.
+package stream
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"math/rand/v2"
+	"sort"
+	"strconv"
+	"sync"
+	"time"
+
+	"github.com/belyjelli/ai-rates/collector/internal/collector"
+	"github.com/belyjelli/ai-rates/collector/internal/core"
+	"github.com/belyjelli/ai-rates/collector/internal/store"
+)
+
+const (
+	// Mirrors httpclient: jittered exponential from 500ms, capped at 15s. A venue that drops every
+	// connection must not be reconnected to in a tight loop, and a fleet of feeds must not all come
+	// back on the same millisecond after a network blip.
+	baseBackoff = 500 * time.Millisecond
+	maxBackoff  = 15 * time.Second
+
+	defaultFailureThreshold = 5
+	defaultCooldown         = 5 * time.Minute
+	defaultFlush            = 5 * time.Second
+	defaultDialTimeout      = 20 * time.Second
+	// readTimeout is how long a connection may be silent before it is considered dead. Every venue
+	// here pushes continuously and answers pings, so silence is a failure rather than a quiet market.
+	defaultReadTimeout = 90 * time.Second
+)
+
+// Conn is the slice of a WebSocket connection a feed needs.
+//
+// An interface rather than *websocket.Conn for the reason httpclient takes a Doer and the TypeScript
+// adapters take a FetchLike: the tests drive a real feed through a scripted connection instead of
+// patching a global or standing up a server.
+type Conn interface {
+	Read(ctx context.Context) ([]byte, error)
+	Write(ctx context.Context, data []byte) error
+	Close() error
+}
+
+// Dialer opens one connection. Injected for the same reason Conn is.
+type Dialer func(ctx context.Context, url string) (Conn, error)
+
+// Sink is the slice of the store a feed writes through.
+type Sink interface {
+	WriteQuotes(ctx context.Context, quotes []store.Quote) (written int, unknown int, err error)
+}
+
+// Subject is one market the feed subscribes to.
+//
+// Multiplier comes from the markets table and is the venue's contract scale — 1000 for 1000PEPEUSDT
+// and so on. It is carried here rather than looked up at flush time because every quote needs it and
+// looking it up per message would put a map read on the hot path for a value that changes when a
+// market is listed, which is to say almost never.
+type Subject struct {
+	VenueSymbol string
+	Multiplier  float64
+}
+
+// Update is one market's top of book as a venue published it, in the venue's own units.
+//
+// Nil means "this side did not change in this message", which is how every level-1 channel here
+// expresses an unchanged side. A side that was DELETED arrives as a quantity of zero and is stored
+// as a cleared side, not as a zero quote — see (*book).apply.
+type Update struct {
+	Symbol string
+	At     time.Time
+	Bid    *float64
+	BidQty *float64
+	Ask    *float64
+	AskQty *float64
+}
+
+// Protocol is one venue's wire format. The feed owns connection lifetime, backoff, the in-memory
+// book and the flush; a Protocol only says what to send and how to read what comes back.
+type Protocol interface {
+	// VenueID is the venue this protocol speaks for, as the catalog and market_latest key it.
+	VenueID() string
+	URL() string
+	// Frames are the subscribe messages for these symbols, already chunked to the venue's documented
+	// per-request limits. One frame per message; the feed paces them.
+	Frames(symbols []string) [][]byte
+	// FramePause is the gap the feed leaves between subscribe frames, honouring the venue's
+	// requests-per-second limit on the control channel.
+	FramePause() time.Duration
+	// Ping is the keepalive frame, or nil where the venue needs none.
+	Ping() []byte
+	// PingEvery is how often to send it.
+	PingEvery() time.Duration
+	// Decode turns one raw message into book updates, and returns an error only for a message the
+	// venue itself reports as a failure (a rejected subscription, say). A message that is simply not
+	// a book update — an ack, a pong, a heartbeat — yields no updates and no error.
+	Decode(msg []byte, now time.Time) ([]Update, error)
+}
+
+// Options configures one feed.
+type Options struct {
+	// FlushEvery is how often the in-memory book is written. The floor on quote age: at 5 seconds a
+	// reader sees a book at most five seconds old, against sixty from polling alone.
+	FlushEvery time.Duration
+	// FailureThreshold is consecutive connection failures before the feed stops dialling for
+	// Cooldown, then tries once (half-open), exactly as httpclient's breaker does.
+	FailureThreshold int
+	Cooldown         time.Duration
+	DialTimeout      time.Duration
+	// ReadTimeout is how long a connection may go without delivering anything before it is dropped
+	// and redialled. A connected-but-silent socket is the failure mode a reconnect cannot see.
+	ReadTimeout time.Duration
+
+	// OnFlush receives a synthesized collector run per flush window; see Feed.flush.
+	OnFlush func(collector.Run)
+	Log     func(string)
+
+	// Seams for deterministic tests.
+	Now  func() time.Time
+	Rand func() float64
+}
+
+// Feed is one venue's socket, its in-memory book and its flush timer.
+//
+// Implements the { Stop(ctx) error } shape the venue loops and periodic tasks have, so it joins
+// loops[] and the SIGTERM path in main.go without a special case.
+type Feed struct {
+	proto    Protocol
+	dial     Dialer
+	sink     Sink
+	subjects map[string]Subject
+	opts     Options
+
+	mu    sync.Mutex
+	books map[string]*book
+	// lastErr is the connection's most recent fault, reported on the next flush so a feed that is
+	// connected-but-empty and a feed that cannot connect are distinguishable on /status.
+	lastErr error
+
+	cancel context.CancelFunc
+	done   chan struct{}
+}
+
+// book is one market's current top of book, in venue units, plus whether it has changed since the
+// last flush.
+type book struct {
+	multiplier float64
+	at         time.Time
+	bid        *float64
+	bidQty     *float64
+	ask        *float64
+	askQty     *float64
+	dirty      bool
+}
+
+// apply folds one update into the book and reports whether anything changed.
+//
+// A quantity of zero is a DELETION, not a quote of zero size. Bybit's orderbook.1 expresses "the
+// best bid just went away" that way, and storing it as a zero would print a market as quoting at a
+// price nobody is offering. A deleted side becomes unknown, which drops the market from /arbitrage —
+// the query requires best_bid > 0 AND best_ask > 0 — until the next level arrives, usually within
+// milliseconds on the markets this feed subscribes to.
+func (b *book) apply(u Update) bool {
+	changed := false
+	if u.Bid != nil {
+		if u.BidQty != nil && *u.BidQty == 0 {
+			if b.bid != nil {
+				b.bid, b.bidQty, changed = nil, nil, true
+			}
+		} else if b.bid == nil || *b.bid != *u.Bid || !sameQty(b.bidQty, u.BidQty) {
+			b.bid, b.bidQty, changed = u.Bid, u.BidQty, true
+		}
+	}
+	if u.Ask != nil {
+		if u.AskQty != nil && *u.AskQty == 0 {
+			if b.ask != nil {
+				b.ask, b.askQty, changed = nil, nil, true
+			}
+		} else if b.ask == nil || *b.ask != *u.Ask || !sameQty(b.askQty, u.AskQty) {
+			b.ask, b.askQty, changed = u.Ask, u.AskQty, true
+		}
+	}
+	if changed {
+		b.at = u.At
+		b.dirty = true
+	}
+	return changed
+}
+
+func sameQty(a, b *float64) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
+// New builds a feed. The subjects are fixed for the feed's lifetime; refreshing them without a
+// restart is W4.
+func New(proto Protocol, dial Dialer, sink Sink, subjects []Subject, opts Options) *Feed {
+	if opts.FlushEvery <= 0 {
+		opts.FlushEvery = defaultFlush
+	}
+	if opts.FailureThreshold <= 0 {
+		opts.FailureThreshold = defaultFailureThreshold
+	}
+	if opts.Cooldown <= 0 {
+		opts.Cooldown = defaultCooldown
+	}
+	if opts.DialTimeout <= 0 {
+		opts.DialTimeout = defaultDialTimeout
+	}
+	if opts.ReadTimeout <= 0 {
+		opts.ReadTimeout = defaultReadTimeout
+	}
+	if opts.Now == nil {
+		opts.Now = time.Now
+	}
+	if opts.Rand == nil {
+		opts.Rand = rand.Float64
+	}
+	byName := make(map[string]Subject, len(subjects))
+	books := make(map[string]*book, len(subjects))
+	for _, s := range subjects {
+		if s.VenueSymbol == "" {
+			continue
+		}
+		multiplier := s.Multiplier
+		if !(multiplier > 0) {
+			multiplier = 1
+		}
+		byName[s.VenueSymbol] = s
+		books[s.VenueSymbol] = &book{multiplier: multiplier}
+	}
+	return &Feed{proto: proto, dial: dial, sink: sink, subjects: byName, opts: opts, books: books}
+}
+
+// VenueID is the id this feed records health under. It is the VENUE's id suffixed with ":ws", and
+// the suffix is load-bearing rather than cosmetic.
+//
+// Recording flushes as runs for "bybit" would let a live socket satisfy the staleness check for a
+// venue whose funding poll had died — the same silent resurrection migration 022 exists to prevent,
+// reappearing in the health model instead of in the row. Two ids means /status shows the poll and
+// the feed failing independently, which is what they do.
+func (f *Feed) VenueID() string { return f.proto.VenueID() + ":ws" }
+
+// Subjects is how many markets this feed subscribes to.
+func (f *Feed) Subjects() int { return len(f.subjects) }
+
+// Start connects and begins flushing. It returns immediately; Stop waits for both goroutines.
+func (f *Feed) Start(ctx context.Context) {
+	feedCtx, cancel := context.WithCancel(ctx)
+	f.cancel = cancel
+	f.done = make(chan struct{})
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		f.connectLoop(feedCtx)
+	}()
+	go func() {
+		defer wg.Done()
+		f.flushLoop(feedCtx)
+	}()
+	go func() {
+		wg.Wait()
+		close(f.done)
+	}()
+}
+
+// Stop closes the socket and resolves once both goroutines have returned, bounded by ctx — the
+// contract main.go's shutdown path expects, inside SHUTDOWN_GRACE_MS.
+func (f *Feed) Stop(ctx context.Context) error {
+	if f.cancel == nil {
+		return nil
+	}
+	f.cancel()
+	select {
+	case <-f.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (f *Feed) logf(format string, args ...any) {
+	if f.opts.Log != nil {
+		f.opts.Log(fmt.Sprintf(format, args...))
+	}
+}
+
+// connectLoop dials, subscribes, reads until the connection fails, and dials again. It never
+// returns an error and never panics out of the goroutine: a feed that dies silently is worse than
+// one that keeps failing visibly, and /status is where the failure belongs.
+func (f *Feed) connectLoop(ctx context.Context) {
+	failures := 0
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+		err := f.runGuarded(ctx)
+		if ctx.Err() != nil {
+			return
+		}
+		failures++
+		f.setErr(err)
+		f.logf("%s: connection ended (%d consecutive): %s", f.VenueID(), failures, collector.DescribeError(err))
+
+		wait := f.backoff(failures)
+		if failures >= f.opts.FailureThreshold {
+			// Open the circuit: stop dialling for a cooldown, then try exactly once. A venue that
+			// is refusing us is not helped by being dialled every fifteen seconds forever.
+			wait = f.opts.Cooldown
+			failures = 0
+			f.logf("%s: %d consecutive failures, pausing for %s", f.VenueID(), f.opts.FailureThreshold, wait)
+		}
+		if !sleep(ctx, wait) {
+			return
+		}
+	}
+}
+
+// backoff mirrors httpclient's: exponential from 500ms, capped at 15s, multiplied by a random
+// factor so a fleet of feeds does not reconnect in lockstep.
+func (f *Feed) backoff(failures int) time.Duration {
+	shift := failures - 1
+	if shift > 16 {
+		shift = 16
+	}
+	wait := baseBackoff * (1 << shift)
+	if wait > maxBackoff {
+		wait = maxBackoff
+	}
+	return time.Duration(float64(wait) * f.opts.Rand())
+}
+
+func (f *Feed) runGuarded(ctx context.Context) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic: %v", r)
+		}
+	}()
+	return f.run(ctx)
+}
+
+// run holds one connection for as long as it lives, and returns the error that ended it.
+func (f *Feed) run(ctx context.Context) error {
+	if len(f.subjects) == 0 {
+		return fmt.Errorf("no subjects to subscribe to")
+	}
+	dialCtx, cancel := context.WithTimeout(ctx, f.opts.DialTimeout)
+	conn, err := f.dial(dialCtx, f.proto.URL())
+	cancel()
+	if err != nil {
+		return fmt.Errorf("dial: %w", err)
+	}
+	defer conn.Close()
+
+	symbols := make([]string, 0, len(f.subjects))
+	for name := range f.subjects {
+		symbols = append(symbols, name)
+	}
+	// Sorted so a reconnect sends the same frames in the same order, which makes a venue's own logs
+	// and ours line up when a subscription is rejected.
+	sort.Strings(symbols)
+
+	frames := f.proto.Frames(symbols)
+	for i, frame := range frames {
+		if err := conn.Write(ctx, frame); err != nil {
+			return fmt.Errorf("subscribe frame %d/%d: %w", i+1, len(frames), err)
+		}
+		if pause := f.proto.FramePause(); pause > 0 && i < len(frames)-1 {
+			if !sleep(ctx, pause) {
+				return ctx.Err()
+			}
+		}
+	}
+	f.setErr(nil)
+
+	readCtx, cancelRead := context.WithCancel(ctx)
+	defer cancelRead()
+
+	// Keepalive on its own goroutine: okx disconnects after 30 seconds of silence and bybit after
+	// ten minutes, and neither can be satisfied from inside a blocking read.
+	if ping := f.proto.Ping(); ping != nil && f.proto.PingEvery() > 0 {
+		go func() {
+			ticker := time.NewTicker(f.proto.PingEvery())
+			defer ticker.Stop()
+			for {
+				select {
+				case <-readCtx.Done():
+					return
+				case <-ticker.C:
+					if err := conn.Write(readCtx, ping); err != nil {
+						// The read side will fail too and own the reconnect; this goroutine just
+						// stops rather than racing it.
+						return
+					}
+				}
+			}
+		}()
+	}
+
+	for {
+		msgCtx, cancelMsg := context.WithTimeout(readCtx, f.opts.ReadTimeout)
+		msg, err := conn.Read(msgCtx)
+		cancelMsg()
+		if err != nil {
+			return fmt.Errorf("read: %w", err)
+		}
+		updates, err := f.proto.Decode(msg, f.opts.Now())
+		if err != nil {
+			// A venue rejecting a subscription is a fault worth surfacing, but not worth dropping a
+			// connection that is otherwise delivering: the other topics keep flowing and the error
+			// shows up on the next flush.
+			f.setErr(err)
+			f.logf("%s: %s", f.VenueID(), collector.DescribeError(err))
+			continue
+		}
+		if len(updates) == 0 {
+			continue
+		}
+		f.mu.Lock()
+		for _, u := range updates {
+			if b := f.books[u.Symbol]; b != nil {
+				b.apply(u)
+			}
+		}
+		f.mu.Unlock()
+	}
+}
+
+func (f *Feed) setErr(err error) {
+	f.mu.Lock()
+	f.lastErr = err
+	f.mu.Unlock()
+}
+
+func (f *Feed) flushLoop(ctx context.Context) {
+	ticker := time.NewTicker(f.opts.FlushEvery)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			// One last flush on the way out, with a short budget of its own: the quotes already in
+			// memory cost nothing to write and would otherwise be thrown away on every deploy.
+			final, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			f.Flush(final)
+			cancel()
+			return
+		case <-ticker.C:
+			f.Flush(ctx)
+		}
+	}
+}
+
+// Flush writes every book that has changed since the last flush, and synthesizes a collector run
+// describing the window.
+//
+// WHY A RUN. VenueHealth is {lastRunAt, lastSuccessAt, markets, error, stale} and staleness derives
+// from an interval times a count — polling concepts. A connected-but-silent socket has no run to
+// record, so rather than teach /health, /status, the planned/silent/stale states and the
+// stale-venue alerter about sockets, the flush window IS the run: markets = quotes written,
+// requests = 0 (nothing was requested, which is the honest number for a push feed and makes a
+// streamed venue legible as one), duration = the flush's own wall time, error = the connection's
+// last fault. A feed that is connected but receiving nothing flushes zero quotes and goes stale on
+// its own, which is the correct reading.
+func (f *Feed) Flush(ctx context.Context) {
+	startedAt := f.opts.Now()
+
+	f.mu.Lock()
+	quotes := make([]store.Quote, 0, len(f.books))
+	for symbol, b := range f.books {
+		if !b.dirty {
+			continue
+		}
+		b.dirty = false
+		quotes = append(quotes, store.Quote{
+			VenueID:     f.proto.VenueID(),
+			VenueSymbol: symbol,
+			At:          b.at,
+			// Per unit of base, the same rescale mark and index go through: a venue listing
+			// 1000PEPE quotes a price covering a thousand units, and a book stored at contract
+			// scale would read a thousand times the price of the same asset elsewhere.
+			BestBid: core.PerUnitPrice(b.bid, b.multiplier),
+			BestAsk: core.PerUnitPrice(b.ask, b.multiplier),
+			// Sizes are money and are never rescaled. price x quantity is USD at either scale,
+			// which is exactly why the two conversions differ.
+			BestBidSize: notional(b.bid, b.bidQty),
+			BestAskSize: notional(b.ask, b.askQty),
+		})
+	}
+	lastErr := f.lastErr
+	f.mu.Unlock()
+
+	written := 0
+	var err error
+	if len(quotes) > 0 {
+		var unknown int
+		written, unknown, err = f.sink.WriteQuotes(ctx, quotes)
+		if err != nil {
+			f.logf("%s: flush failed: %s", f.VenueID(), collector.DescribeError(err))
+		} else if unknown > 0 {
+			// Markets the funding path does not have, or quotes an older write already beat. Worth
+			// logging because a feed drifting away from the catalog shows up here first.
+			f.logf("%s: %d of %d quotes not written", f.VenueID(), unknown, len(quotes))
+		}
+	}
+
+	if f.opts.OnFlush == nil {
+		return
+	}
+	// The connection's fault outranks a write failure in the reported error only when there is no
+	// write failure: a feed that cannot write is broken whatever the socket is doing.
+	reported := err
+	if reported == nil {
+		reported = lastErr
+	}
+	f.opts.OnFlush(collector.Run{
+		VenueID:   f.VenueID(),
+		StartedAt: startedAt,
+		Duration:  f.opts.Now().Sub(startedAt),
+		Markets:   written,
+		Requests:  0,
+		Err:       reported,
+	})
+}
+
+// notional is price x quantity, in USD, or nil when either side is unknown.
+//
+// A size without a price is not money, and a null must stay null rather than become a zero: the
+// depth floor on /arbitrage treats an unknown size as failing the floor, and a zero would pass a
+// "$0 or more" filter while claiming a quote is good for nothing.
+func notional(price, qty *float64) *float64 {
+	if price == nil || qty == nil {
+		return nil
+	}
+	usd := *price * *qty
+	return &usd
+}
+
+func sleep(ctx context.Context, d time.Duration) bool {
+	if d <= 0 {
+		return ctx.Err() == nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
+	}
+}
+
+// parseFloat reads a venue's number, which arrives as a JSON string on every venue here: they
+// quote "77766.70" rather than 77766.7 so a client cannot lose digits to float64 in transit.
+//
+// strconv rather than Sscanf, and on purpose. This runs four times per message at roughly 900
+// messages a second per venue; Sscanf parses a format string and allocates on every call, which is
+// a tenth of a millisecond nobody should be spending here. A value that will not parse is dropped
+// rather than guessed at.
+func parseFloat(raw json.RawMessage) *float64 {
+	if len(raw) == 0 {
+		return nil
+	}
+	text := string(raw)
+	if text[0] == '"' {
+		var asString string
+		if err := json.Unmarshal(raw, &asString); err != nil {
+			return nil
+		}
+		text = asString
+	}
+	v, err := strconv.ParseFloat(text, 64)
+	if err != nil {
+		return nil
+	}
+	return &v
+}

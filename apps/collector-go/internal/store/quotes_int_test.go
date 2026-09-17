@@ -341,6 +341,109 @@ func TestWriteQuotesKeepsAbsentSizesNull(t *testing.T) {
 	}
 }
 
+// StreamSubjects is the subscription list, and it must be the same filter the reader applies:
+// subscribing to a market /arbitrage can never pair is bandwidth and writes spent on a row nobody
+// will see.
+func TestStreamSubjectsPicksOnlyPairableMarkets(t *testing.T) {
+	db := freshStore(t)
+	ctx := context.Background()
+	at := time.Now().UTC() // the freshness window is five minutes, so these fixtures must be now
+
+	quoted := func(venue, symbol, base string, mark, oi float64) core.FundingSnapshot {
+		return core.FundingSnapshot{
+			MarketRef: core.MarketRef{
+				VenueID: venue, VenueSymbol: symbol, Base: base,
+				AssetClass: core.ClassCrypto, Quote: s("USDT"), Multiplier: 1,
+			},
+			ObservedAt: at.UnixMilli(), Rate: 0.0001, BasisHours: 8, Kind: core.KindPredicted,
+			MarkPrice: &mark, OpenInterestUSD: &oi,
+			BestBid: f(mark * 0.999), BestBidSizeUSD: f(10_000),
+			BestAsk: f(mark * 1.001), BestAskSizeUSD: f(10_000),
+		}
+	}
+	record := func(venue string, snaps ...core.FundingSnapshot) {
+		t.Helper()
+		if err := db.RecordBatch(ctx, venue, core.SnapshotBatch{Snapshots: snaps}, at); err != nil {
+			t.Fatalf("RecordBatch(%s): %v", venue, err)
+		}
+	}
+
+	record("bybit",
+		// Pairable: okx quotes SOL too.
+		quoted("bybit", "SOLUSDT", "SOL", 200, 5_000_000),
+		// Quoted on bybit alone — nothing to compare it against, so nothing to stream it for.
+		quoted("bybit", "LONELYUSDT", "LONELY", 5, 5_000_000),
+		// Pairable but thin, for the open-interest floor below.
+		quoted("bybit", "THINUSDT", "THIN", 1, 50_000),
+		// Marked 1375x out: the mismatched-instrument case migration 005 exists for. It pairs on
+		// paper and must not be subscribed to.
+		quoted("bybit", "WRONGUSDT", "WRONG", 137_550, 5_000_000),
+	)
+	record("okx",
+		quoted("okx", "SOL-USDT-SWAP", "SOL", 200.1, 9_000_000),
+		quoted("okx", "THIN-USDT-SWAP", "THIN", 1.001, 8_000_000),
+		quoted("okx", "WRONG-USDT-SWAP", "WRONG", 100, 9_000_000),
+	)
+
+	subjects, err := db.StreamSubjects(ctx, "bybit", 0)
+	if err != nil {
+		t.Fatalf("StreamSubjects: %v", err)
+	}
+	got := make([]string, len(subjects))
+	for i, s := range subjects {
+		got[i] = s.VenueSymbol
+	}
+	want := []string{"SOLUSDT", "THINUSDT"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("subjects = %v, want %v", got, want)
+	}
+
+	floored, err := db.StreamSubjects(ctx, "bybit", 1_000_000)
+	if err != nil {
+		t.Fatalf("StreamSubjects with a floor: %v", err)
+	}
+	if len(floored) != 1 || floored[0].VenueSymbol != "SOLUSDT" {
+		t.Fatalf("floored subjects = %v, want SOLUSDT alone", floored)
+	}
+}
+
+// The multiplier travels with the subject because every quote needs it and the feed must not look
+// it up per message. A market with no markets row still streams, at scale 1.
+func TestStreamSubjectsCarryTheContractScale(t *testing.T) {
+	db := freshStore(t)
+	ctx := context.Background()
+	at := time.Now().UTC() // the freshness window is five minutes, so these fixtures must be now
+
+	scaled := func(venue, symbol string, multiplier float64) core.FundingSnapshot {
+		return core.FundingSnapshot{
+			MarketRef: core.MarketRef{
+				VenueID: venue, VenueSymbol: symbol, Base: "PEPE",
+				AssetClass: core.ClassCrypto, Quote: s("USDT"), Multiplier: multiplier,
+			},
+			ObservedAt: at.UnixMilli(), Rate: 0.0001, BasisHours: 8, Kind: core.KindPredicted,
+			MarkPrice: f(0.00654 / multiplier * multiplier), OpenInterestUSD: f(5_000_000),
+			BestBid: f(0.00653), BestBidSizeUSD: f(10_000),
+			BestAsk: f(0.00655), BestAskSizeUSD: f(10_000),
+		}
+	}
+	if err := db.RecordBatch(ctx, "bybit",
+		core.SnapshotBatch{Snapshots: []core.FundingSnapshot{scaled("bybit", "1000PEPEUSDT", 1000)}}, at); err != nil {
+		t.Fatalf("RecordBatch: %v", err)
+	}
+	if err := db.RecordBatch(ctx, "okx",
+		core.SnapshotBatch{Snapshots: []core.FundingSnapshot{scaled("okx", "PEPE-USDT-SWAP", 1000)}}, at); err != nil {
+		t.Fatalf("RecordBatch: %v", err)
+	}
+
+	subjects, err := db.StreamSubjects(ctx, "bybit", 0)
+	if err != nil {
+		t.Fatalf("StreamSubjects: %v", err)
+	}
+	if len(subjects) != 1 || subjects[0].Multiplier != 1000 {
+		t.Fatalf("subjects = %+v, want one at multiplier 1000", subjects)
+	}
+}
+
 func TestWriteQuotesOnAnEmptyFlushDoesNothing(t *testing.T) {
 	db := freshStore(t)
 	written, unknown, err := db.WriteQuotes(context.Background(), nil)

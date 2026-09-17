@@ -302,9 +302,41 @@ backoff, reconnect and heartbeat in `internal/relay/client.go`, which is most of
     `best_bid` and no `quotes_at` is one the collector can no longer produce.
   - **The guard is about arrival order, not about polled books being stale.** Written up in §3; the
     first test asserted the wrong thing and failed, and the claim was wrong rather than the code.
-- **W2 — one venue end to end.** Bybit, because it is the only venue with a documented hard limit,
-  so the connection-sharding logic is written against a real constraint rather than a guess.
-  Verification: a quote visible on `/arbitrage` with `quotes_at` newer than `observed_at`.
+- **W2 — one venue end to end. Built and verified against live bybit, 2026-09-17; not yet deployed.**
+  `internal/stream` holds the feed — an injected `Dialer`/`Conn` (so tests script a venue rather than
+  stand up a server), an in-memory book per market, a flush timer, jittered backoff and a breaker
+  mirroring `httpclient`, and a `Stop(ctx) error` that joins main.go's shutdown path and flushes on
+  the way out. `stream.Bybit` speaks v5 `orderbook.1`. `STREAM_VENUES` is **empty by default**, so
+  this code changes nothing until someone turns it on; `STREAM_FLUSH_MS` (5,000, floored at 1,000)
+  and `STREAM_MIN_OI_USD` (0) tune it. **12 unit tests, clean under `-race`, plus 2 store
+  integration tests for the subscription query.**
+
+  **Verified on hklab against the real venue** by a throwaway binary that ran the actual feed with a
+  printing sink — no writes, no restart of the running collector, deleted afterwards. Streamed
+  against what REST had stored for the same markets: `1000000MOGUSDT` bid 9.68e-08 and **$1,216 of
+  size against REST's 9.679999e-08 and $1,215.90**, `10000SATSUSDT` 1.0033e-08 against 1.0033e-08,
+  `1000BONKUSDT` 2.684e-06 against 2.685e-06, BTCUSDT tracking 76,193 → 76,200 while the REST row sat
+  at 76,176. So the 10,000× trap of migration 013 is cleared on all four contract scales, in both
+  directions: prices divided by the multiplier, sizes left as the money they already are. Quote ages
+  ran **21–230 ms** on liquid markets against 60 seconds from polling, flushes cost **37–109 µs**,
+  and each one synthesized a run as `bybit:ws` with `requests=0` and no error.
+
+  Three things the plan did not anticipate:
+  - **`orderbook.1` is snapshot-then-delta after all.** §8 chose it over `tickers` *because* tickers
+    is delta — but orderbook.1 sends a snapshot per topic and deltas thereafter. At depth 1 this
+    needs no U/u resync, only three rules: an empty side means unchanged, a quantity of zero means
+    the level was removed (stored as a cleared side, never as a zero quote), anything else replaces.
+    The live run shows it working: 4 of 5 markets changed per window, not 5.
+  - **The feed reports health as `bybit:ws`, not `bybit`.** §4 says the flush synthesizes a
+    `CollectorRun` so the existing health machinery works untouched — but recording it under the
+    venue's own id would let a live socket satisfy the staleness check for a venue whose funding poll
+    had died. That is migration 022's silent resurrection, reappearing one layer up. Two ids, one
+    extra `venues` row (which cannot reach `/exchanges`: that query inner-joins `market_latest`, and
+    the feed never writes a row under this id), and the poll and the feed fail independently.
+  - **`quotes_at` does not exist in production yet**, confirmed by a query that errored on it. The
+    collector migrates at boot, so W1's schema lands with the first deploy of this code — which is
+    also the moment `/arbitrage` starts gating on it. Deploy the collector before, or with, the
+    worker.
 - **W3 — gate and okx**, including okx's 30-second idle discipline and the EEA/US endpoint split.
 - **W4 — subscription-set refresh**, so newly listed pairable markets join without a restart.
 
