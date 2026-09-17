@@ -377,7 +377,7 @@ export function cvd(data: {
 ${tiles}
 ${chart}
 <div class="cvd-head"><h2 class="cvd-h2">CVD screener · net buying and selling by asset</h2>${search}</div>
-<p class="notes" data-live="cvd-asof">Click an asset to chart it above. Change is the busiest polled market's first to last close in the window.${lag}</p>
+<p class="notes" data-live="cvd-asof">Click an asset to chart it above. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it, OKX five days and Bitget about two and a half hours, so the oldest bars of a new 7-day window sum fewer venues.${lag}</p>
 ${table}`,
   });
 }
