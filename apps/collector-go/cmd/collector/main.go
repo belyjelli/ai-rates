@@ -847,10 +847,14 @@ func startFeeds(ctx context.Context, cfg config, db *store.Store, status *collec
 		if err != nil {
 			return nil, nil, err
 		}
+		// A feed with no subjects still STARTS. The alternative — skipping it — leaves an id
+		// registered in the health snapshot that nothing will ever report against, so /health goes
+		// false three minutes after boot and stays there until someone restarts the process. A
+		// started feed with nothing to subscribe to waits quietly and picks up the set the refresh
+		// task hands it, which on a fresh database is the difference between a cold start and a page.
 		if len(subjects) == 0 {
-			log.Warn("stream feed has no subjects yet, not started",
+			log.Warn("stream feed starting with no subjects yet",
 				"venue", venueID, "min_oi_usd", cfg.streamMinOpenInterestUSD)
-			continue
 		}
 		picked := make([]stream.Subject, len(subjects))
 		for i, s := range subjects {
@@ -886,7 +890,13 @@ func startFeeds(ctx context.Context, cfg config, db *store.Store, status *collec
 				}
 				return nil
 			}, func(message string) { log.Warn(message) })
-		refresh.Start(ctx, streamSubjectsRefresh)
+		// A feed that started empty is refreshed sooner: the ordinary cadence tracks listings, but a
+		// cold start is waiting on the first collection cycle, which is a minute away, not fifteen.
+		firstRefresh := streamSubjectsRefresh
+		if len(subjects) == 0 {
+			firstRefresh = time.Minute
+		}
+		refresh.Start(ctx, firstRefresh)
 		refreshers = append(refreshers, refresh)
 	}
 	return feeds, refreshers, nil

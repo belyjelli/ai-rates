@@ -677,3 +677,45 @@ func TestAnUnchangedSubjectSetDoesNotReconnect(t *testing.T) {
 		t.Fatalf("%d frames sent after an identical set, was %d -- the connection was cycled for nothing", got, before)
 	}
 }
+
+// A feed with nothing to subscribe to waits rather than failing. On a fresh database — or a venue
+// whose funding loop has not landed a cycle — the alternative is a feed that backs off towards its
+// circuit breaker over a condition the venue has no part in, and an id in the health snapshot that
+// nothing will ever report against.
+func TestAFeedWithNoSubjectsWaitsInsteadOfFailing(t *testing.T) {
+	conn := newConn(bookMsg("BTCUSDT", "100", "1", "101", "1"))
+	sink := &fakeSink{}
+	var mu sync.Mutex
+	var logs []string
+	feed := feedFor(t, conn, sink, nil, Options{
+		FlushEvery: 5 * time.Millisecond,
+		Log: func(message string) {
+			mu.Lock()
+			logs = append(logs, message)
+			mu.Unlock()
+		},
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	feed.Start(ctx)
+	time.Sleep(30 * time.Millisecond)
+
+	if len(conn.writes()) != 0 {
+		t.Fatal("a feed with no subjects dialled and subscribed to nothing")
+	}
+	mu.Lock()
+	for _, message := range logs {
+		if strings.Contains(message, "consecutive") {
+			t.Fatalf("an empty subject set was counted as a connection failure: %q", message)
+		}
+	}
+	mu.Unlock()
+
+	// And it starts on its own once subjects arrive, with no restart.
+	feed.SetSubjects([]Subject{{VenueSymbol: "BTCUSDT", Multiplier: 1}})
+	waitFor(t, "the feed to connect once it had something to ask for", func() bool {
+		return len(sink.all()) > 0
+	})
+	_ = feed.Stop(context.Background())
+}

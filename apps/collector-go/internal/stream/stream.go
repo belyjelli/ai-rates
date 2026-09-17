@@ -199,6 +199,16 @@ type Feed struct {
 // fault: a re-subscribe must not count towards the circuit breaker or wait out a backoff.
 var errResubscribe = errors.New("subscription set changed")
 
+// errNoSubjects means there is nothing to subscribe to yet. Also not a fault — it is what a feed
+// sees on a database whose funding loops have not landed a cycle for this venue — so it waits
+// quietly instead of backing off towards a circuit breaker over a condition the venue has no part
+// in. SetSubjects is what ends the wait.
+var errNoSubjects = errors.New("no subjects to subscribe to")
+
+// idleRetry is how often a feed with no subjects looks again. Short enough that a cold start costs
+// seconds rather than a refresh interval, long enough to be invisible.
+const idleRetry = 30 * time.Second
+
 // book is one market's current top of book, in venue units, plus whether it has changed since the
 // last flush.
 type book struct {
@@ -429,6 +439,28 @@ func (f *Feed) connectLoop(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+		if errors.Is(err, errNoSubjects) {
+			// Nothing to subscribe to yet: a fresh database, or a venue whose funding loop has not
+			// landed a cycle. Wait for the refresh task to hand over a set rather than dialling a
+			// venue we would have nothing to say to. The feed still goes stale on /status, which is
+			// the truth — it is not delivering quotes — but it recovers on its own when the
+			// subjects appear, with no restart and no page.
+			f.setErr(err)
+			// Interruptible, and that is the point: SetSubjects signals refresh, so a feed that was
+			// waiting on a cold start connects the moment it has something to ask for instead of
+			// sitting out the rest of the retry. The timer is only the fallback for a subject set
+			// that arrives some other way.
+			idle := time.NewTimer(idleRetry)
+			select {
+			case <-ctx.Done():
+				idle.Stop()
+				return
+			case <-f.refresh:
+			case <-idle.C:
+			}
+			idle.Stop()
+			continue
+		}
 		if errors.Is(err, errResubscribe) {
 			// Not a fault: the subscription set changed and the connection was cycled to take it.
 			// No backoff, no failure count, and the counter is left where it was so a genuinely
@@ -484,7 +516,7 @@ func (f *Feed) run(ctx context.Context) error {
 	// a map ranged over while another goroutine writes it is a crash, not a race to shrug at.
 	symbols := f.symbolsSnapshot()
 	if len(symbols) == 0 {
-		return fmt.Errorf("no subjects to subscribe to")
+		return errNoSubjects
 	}
 	dialCtx, cancel := context.WithTimeout(ctx, f.opts.DialTimeout)
 	conn, err := f.dial(dialCtx, f.proto.URL())
