@@ -234,8 +234,6 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .lqc-grid{stroke:var(--rule);stroke-width:1;vector-effect:non-scaling-stroke}
 .lqc-zero{stroke:var(--muted);stroke-dasharray:none}
 .lqc-long{fill:var(--long)}.lqc-short{fill:var(--short)}
-.lqc-hit{fill:transparent}
-.lqc-bar:hover .lqc-hit{fill:rgba(216,216,216,.06)}
 .lqc-now .lqc-long,.lqc-now .lqc-short{opacity:.5}
 .lqc .fchart-keys span{display:flex;align-items:center;gap:5px;color:var(--muted)}
 .lqc .fchart-keys b{color:var(--ink);font-weight:600}
@@ -269,13 +267,12 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .cvd-line{fill:none;stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke}
 .cvd-price{fill:none;stroke:var(--ink);stroke-width:1.4;vector-effect:non-scaling-stroke}
 .cvd-buy{fill:var(--long)}.cvd-sell{fill:var(--short)}
-.cvd-hit{fill:transparent}
-.cvd-strip g:hover .cvd-hit{fill:rgba(216,216,216,.08)}
-.cvd-now .cvd-buy,.cvd-now .cvd-sell{opacity:.5}
+.cvd-buy.cvd-now,.cvd-sell.cvd-now{opacity:.5}
 .cvd-yl,.cvd-yr,.cvd-x{position:absolute;color:var(--dim);white-space:nowrap;pointer-events:none}
 .cvd-yl{left:-64px;width:58px;text-align:right;transform:translateY(-50%)}
 .cvd-yr{right:-64px;width:58px;text-align:left;transform:translateY(-50%)}
 .cvd-x{top:100%;padding-top:3px;transform:translateX(-50%)}
+@media (max-width:640px){.cvd-x.x-alt,.lqc-x.x-alt{display:none}}
 .cvd-day{color:var(--muted)}
 .cvd-chart .fchart-keys span{display:flex;align-items:center;gap:5px;color:var(--muted)}
 .cvd-chart .fchart-keys b{font-weight:600}
@@ -292,6 +289,20 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .cvd-table tr.cvd-on .asset a{color:var(--accent)}
 .cvd-badge{font-size:11px;font-weight:700;text-transform:uppercase;padding:0 6px;border:1px solid currentColor}
 .cvd-badge-bullish{color:var(--long)}.cvd-badge-bearish{color:var(--short)}
+/* Slot readout (slot-chart.ts), shared by the CVD and longs-vs-shorts charts. The readout sits in the
+   header across the full width, and below desktop width it reserves the two to four lines its longest reading
+   wraps to (measured at 1024, 600 and 390px), so the plot below does not jump while a finger scrubs. pan-y leaves vertical scrolling to the
+   page and gives a sideways drag to the chart. */
+.slot-area{touch-action:pan-y;cursor:crosshair;-webkit-tap-highlight-color:transparent}
+.slot-area:focus{outline:0}.slot-area:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+.slot-band{fill:rgba(216,216,216,.08)}
+.slot-mark.fchart-cursor{stroke:var(--ink);stroke-dasharray:3 3}
+.slot-read{flex-basis:100%;color:var(--muted)}
+.slot-read b{font-weight:600;color:var(--ink)}
+.slot-read b.cvd-up,.slot-read b.lq-ink-l{color:var(--long)}.slot-read b.cvd-down,.slot-read b.lq-ink-s{color:var(--short)}
+@media (max-width:1180px){.fchart .slot-read{min-height:2.7em}}
+@media (max-width:640px){.fchart .slot-read{min-height:4.05em}}
+@media (max-width:420px){.fchart .slot-read{min-height:5.4em}}
 /* The row's own total, on the right: with price on the rows, "how much died in this band" is the
    question the grid raises and a reader should not have to add a row up by eye. */
 .heat.lq-sides td.lq-rowsum,.heat.lq-sides th.lq-rowsum{border-left:1px solid var(--rule);color:var(--muted)}

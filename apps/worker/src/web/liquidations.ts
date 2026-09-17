@@ -15,6 +15,15 @@ import {
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
 import { layout } from "./layout";
 import { assetKey, assetName } from "./pages";
+import {
+  type SidesSlots,
+  SLOT_BAND,
+  SLOT_CURSOR,
+  SLOT_FORMAT,
+  SLOT_SCRIPT,
+  sidesText,
+  slotData,
+} from "./slot-chart";
 import { tabBar } from "./tabs";
 
 /** The address form every asset page uses: crypto unmarked, every other class in the path. */
@@ -556,7 +565,9 @@ function niceCeil(usd: number): number {
  * THE AXIS SPANS THE WHOLE WINDOW, empty buckets included, for the same reason `columns` does: a
  * quiet stretch is a fact, and dropping it would put two distant flushes side by side.
  *
- * Server-rendered SVG with a native <title> per bar, so the readout needs no script.
+ * Server-rendered SVG. The header line reads the whole window without a script; hovering or tapping
+ * a slot reads that slot there instead, through slot-chart.ts, which says why that replaced a native
+ * <title> per bar.
  */
 function sidesChart(data: {
   label: string;
@@ -583,24 +594,20 @@ function sidesChart(data: {
   const slot = 1000 / count;
   const barWidth = Math.max(slot * 0.72, 1);
   const height = (usd: number) => (usd / top) * 500;
-  const when = (ms: number) => {
-    const d = new Date(ms);
-    return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
-  };
 
   const bars: string[] = [];
+  const slots: SidesSlots["slots"] = [];
   for (let i = 0; i < count; i++) {
     const start = fromMs + i * bucketMs;
     const point = byBucket.get(start);
+    slots.push(
+      point ? [Math.round(point.long_usd), Math.round(point.short_usd), point.events] : null,
+    );
     if (!point) continue;
     const x = (i * slot + (slot - barWidth) / 2).toFixed(2);
     const partial = start === current ? " lqc-now" : "";
-    const title = esc(
-      `${when(start)} UTC · ${money(point.long_usd)} longs, ${money(point.short_usd)} shorts closed across ${point.events.toLocaleString("en-US")} liquidation${point.events === 1 ? "" : "s"}${partial ? " (still filling)" : ""}`,
-    );
-    // One group per bucket, so the tooltip covers the long bar, the short bar and the gap between.
     bars.push(
-      `<g class="lqc-bar${partial}"><title>${title}</title><rect class="lqc-hit" x="${(i * slot).toFixed(2)}" y="0" width="${slot.toFixed(2)}" height="1000"></rect>${
+      `<g class="lqc-bar${partial}">${
         point.long_usd > 0
           ? `<rect class="lqc-long" x="${x}" y="${(500 - height(point.long_usd)).toFixed(2)}" width="${barWidth.toFixed(2)}" height="${height(point.long_usd).toFixed(2)}"></rect>`
           : ""
@@ -637,18 +644,23 @@ function sidesChart(data: {
       hour === 0
         ? `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`
         : `${String(hour).padStart(2, "0")}:00`;
+    // Alternate labels drop on a phone, as on the CVD chart, where they otherwise run together.
     xLabels.push(
-      `<span class="lqc-x${hour === 0 ? " lqc-day" : ""}" style="left:${(((ms - fromMs) / span) * 100).toFixed(2)}%">${text}</span>`,
+      `<span class="lqc-x${hour === 0 ? " lqc-day" : ""}${xLabels.length % 2 ? " x-alt" : ""}" style="left:${(((ms - fromMs) / span) * 100).toFixed(2)}%">${text}</span>`,
     );
   }
 
   const longSum = points.reduce((sum, point) => sum + point.long_usd, 0);
   const shortSum = points.reduce((sum, point) => sum + point.short_usd, 0);
+  const events = points.reduce((sum, point) => sum + point.events, 0);
+  // Before a hover the readout is the whole window, in the words a slot is read in.
+  const idle = sidesText(`Last ${esc(params.window)}`, [longSum, shortSum, events], SLOT_FORMAT);
 
   return `<figure class="fchart lqc" data-live="lq-side-chart">
-<div class="fchart-head"><p class="fchart-title">${label} longs vs shorts over time · ${sideMinutes >= 60 ? `${sideMinutes / 60}-hour` : `${sideMinutes}-minute`} bars, UTC</p><div class="fchart-keys"><span><i class="lqc-key-long"></i>Longs closed <b data-u="lqc-long">${money(longSum)}</b></span><span><i class="lqc-key-short"></i>Shorts closed <b data-u="lqc-short">${money(shortSum)}</b></span></div></div>
-<div class="fchart-plot lqc-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} longs closed above zero and shorts closed below, over the last ${params.window}`)}">${grid}${bars.join("")}</svg>${yLabels}${xLabels.join("")}</div>
-<p class="fchart-note">Longs closed above the line, shorts closed below, on the same linear scale. Hover a bar for its exact figures. The last bar is still filling.</p>
+<div class="fchart-head"><p class="fchart-title">${label} longs vs shorts over time · ${sideMinutes >= 60 ? `${sideMinutes / 60}-hour` : `${sideMinutes}-minute`} bars, UTC</p><div class="fchart-keys"><span><i class="lqc-key-long"></i>Longs closed <b data-u="lqc-long">${money(longSum)}</b></span><span><i class="lqc-key-short"></i>Shorts closed <b data-u="lqc-short">${money(shortSum)}</b></span></div><p class="fchart-read slot-read" aria-live="polite">${idle} · hover or tap a bar to read it</p></div>
+<div class="fchart-plot lqc-plot slot-area" tabindex="0" role="group" aria-label="${esc(`${label.replace(/<[^>]+>/g, "")} bars; arrow keys read one at a time`)}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} longs closed above zero and shorts closed below, over the last ${params.window}`)}">${grid}${SLOT_BAND}${bars.join("")}${SLOT_CURSOR}</svg>${yLabels}${xLabels.join("")}</div>
+<p class="fchart-note">Longs closed above the line, shorts closed below, on the same linear scale. Hover or tap a bar to read it in the line above the chart. The last bar is still filling.</p>
+${slotData({ kind: "lqc", from: fromMs, unit: bucketMs, slots })}
 </figure>`;
 }
 
@@ -908,6 +920,7 @@ ${
 <div class="tabpanel" role="tabpanel" id="panel-liq-price" data-tab-panel="price" aria-labelledby="tab-liq-price">
 ${priced}
 </div>
-<p class="notes">Updated ${since(overview.updated_at, now)}.</p>`,
+<p class="notes">Updated ${since(overview.updated_at, now)}.</p>
+<script>${SLOT_SCRIPT}</script>`,
   });
 }

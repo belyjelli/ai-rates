@@ -737,10 +737,50 @@ describe("pages", () => {
     // Equal scales above and below, rounded to a readable step over the $7.97M peak.
     expect(sides).toContain(">$10M<");
     expect(sides).toContain(">−$10M<");
-    // The exact figures ride on the bar, so the chart reads without a script.
-    expect(sides).toContain("$8.0M longs, $1.5M shorts closed across 835 liquidations");
     // The legend totals the window.
     expect(sides).toContain('data-u="lqc-long">$8.0M<');
+  });
+
+  test("the sides chart ships every slot's figures for the hover readout, and no native tooltips", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const html = await (await get("/liquidations", data)).text();
+    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    const figure = sides.slice(
+      sides.indexOf('<figure class="fchart lqc"'),
+      sides.indexOf("</figure>"),
+    );
+
+    // 24 hours of 15-minute slots ending in the one holding NOW (12:00), so slot 0 starts at 12:15 the
+    // day before, liqAsset's 10:00 bucket is slot 87 and its 11:00 bucket slot 91.
+    const payload = JSON.parse(
+      figure.match(
+        /<script type="application\/json" class="slot-data">([\s\S]*?)<\/script>/,
+      )?.[1] ?? "{}",
+    );
+    expect(payload.kind).toBe("lqc");
+    expect(payload.from).toBe(Date.parse("2026-09-11T12:15:00Z"));
+    expect(payload.unit).toBe(900_000);
+    expect(payload.slots).toHaveLength(96);
+    expect(payload.slots[87]).toEqual([7_974_000, 1_516_000, 835]);
+    expect(payload.slots[91]).toEqual([0, 12_000, 3]);
+    expect(payload.slots.filter((slot: unknown) => slot !== null)).toHaveLength(2);
+
+    // The marks the script moves, hidden until a slot is read, inside the area it listens on.
+    expect(figure).toContain('class="fchart-plot lqc-plot slot-area" tabindex="0"');
+    expect(figure).toContain('<line class="slot-mark fchart-cursor off"');
+    expect(figure).toContain('<rect class="slot-mark slot-band off"');
+    // Before a hover the readout is the window: $7.974M less $1.528M of shorts, 838 events.
+    expect(figure).toContain(
+      '<p class="fchart-read slot-read" aria-live="polite">Last 24h · longs closed $8.0M · shorts closed $1.5M · longs − shorts <b class="lq-ink-l">+$6.4M</b> · longs heavier, 84% · 838 liquidations · hover or tap a bar to read it</p>',
+    );
+    // The readout replaces the per-bar tooltips; both would show the same figures twice.
+    expect(figure).not.toContain("<title>");
+    // One copy of the script for the page, outside the live region so a refresh cannot strand it.
+    expect(html.match(/window\.airratesSlots = true/g)).toHaveLength(1);
+    expect(figure).not.toContain("airratesSlots");
   });
 
   test("the sides tab follows the addressed asset, not the busiest one", async () => {
@@ -2111,9 +2151,46 @@ describe("cvd", () => {
     expect(html).toContain('class="cvd-badge cvd-badge-bearish"');
     // The running CVD over the two bars: +3M then −3M.
     expect(html).toContain('data-u="cvd-total" class="">$0<');
-    expect(html).toContain("net +$3.0M ($5.0M bought, $2.0M sold) · CVD +$3.0M");
     // An asset with no price shows a dash, not a zero change.
     expect(html).toContain('<span data-u="change">–</span>');
+  });
+
+  test("the chart ships every slot's figures for the hover readout, with a cursor on both panels", async () => {
+    const { data } = fakeData({ cvd: async () => flow() });
+    const html = await (await get("/cvd", data)).text();
+    const figure = html.slice(
+      html.indexOf('<figure class="fchart cvd-chart"'),
+      html.indexOf("</figure>"),
+    );
+
+    // 96 slots of 15 minutes ending in the one holding NOW (12:00): bucket(3), 11:15, is slot 92 and
+    // bucket(1), 11:45, slot 94. Each is [bought, sold, CVD so far, price].
+    const payload = JSON.parse(
+      figure.match(
+        /<script type="application\/json" class="slot-data">([\s\S]*?)<\/script>/,
+      )?.[1] ?? "{}",
+    );
+    expect(payload.kind).toBe("cvd");
+    expect(payload.from).toBe(Date.parse("2026-09-11T12:15:00Z"));
+    expect(payload.unit).toBe(900_000);
+    expect(payload.open).toBe(76_100);
+    expect(payload.slots).toHaveLength(96);
+    expect(payload.slots[92]).toEqual([5e6, 2e6, 3e6, 76_100]);
+    expect(payload.slots[93]).toBeNull();
+    expect(payload.slots[94]).toEqual([1e6, 4e6, 0, 75_900]);
+
+    // One cursor and one band per panel, so the line runs through the price chart and the strip.
+    expect(figure.match(/<line class="slot-mark fchart-cursor off"/g)).toHaveLength(2);
+    expect(figure.match(/<rect class="slot-mark slot-band off"/g)).toHaveLength(2);
+    expect(figure).toContain('<div class="slot-area" tabindex="0"');
+    // Before a hover the header reads the window: 75,900 is 0.26% under the first close of 76,100.
+    expect(figure).toContain(
+      '<p class="fchart-read slot-read" aria-live="polite">Last 24h · price 75,900 (−0.26% since start) · bought $6.0M · sold $6.0M · net <b class="">$0</b> (0.0% of volume) · hover or tap a bar to read it</p>',
+    );
+    // The readout replaces the per-bar tooltips.
+    expect(figure).not.toContain("<title>");
+    expect(figure).not.toContain("cvd-hit");
+    expect(html.match(/window\.airratesSlots = true/g)).toHaveLength(1);
   });
 
   test("the address picks the charted asset and the window picks the bar width", async () => {
