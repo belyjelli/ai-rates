@@ -13,6 +13,7 @@ import type {
   HeatmapCell,
   IdentityCheckRow,
   LeverageTierRow,
+  LiquidationFeedRow,
   MarketRow,
   Overview,
   PriceQuote,
@@ -59,6 +60,7 @@ import {
 } from "./format";
 import { type FundingHistory, renderFundingChart } from "./funding-chart";
 import { layout } from "./layout";
+import { FEEDS, liquidationFeedTable } from "./liquidation-feeds";
 import { type RailScale, railPosition, railScale, renderRail } from "./rail";
 import { tabBar } from "./tabs";
 import { VENUE_TYPE_LABEL, VENUE_TYPE_SHORT, venueName } from "./venues";
@@ -1079,16 +1081,21 @@ const duration = (ms: number | null): string =>
 export function status(data: {
   overview: Overview;
   venues: VenueStatus[];
+  /** Null when the liquidations table could not be read, which is not the same as no liquidations. */
+  liquidationFeeds: LiquidationFeedRow[] | null;
   /** Null when the verification table could not be read at all, which is not the same as empty. */
   checks: IdentityCheckRow[] | null;
   now: number;
 }): string {
-  const { overview, venues, checks, now } = data;
+  const { overview, venues, checks, liquidationFeeds, now } = data;
   // An alias has no feed of its own; listing it would report another venue's health twice. A retired
   // venue keeps its `venues` row for the foreign keys, but it is neither a fault nor a backlog item.
   const hidden = new Set(VENUES.filter((v) => v.aliasOf || v.retired).map((v) => v.id));
   const rows = venues
-    .filter((v) => !hidden.has(v.venue_id))
+    // A `<venue>:liq` row is one liquidation feed's own health, not a second copy of that exchange's
+    // collection. It belongs in the liquidation tab, where its silence can be read against how often
+    // that venue actually liquidates, instead of sitting here as an exchange listing no markets.
+    .filter((v) => !hidden.has(v.venue_id) && !v.venue_id.endsWith(":liq"))
     .map((v) => ({ status: v, state: venueState(v, now) }))
     .sort(
       (a, b) =>
@@ -1171,6 +1178,12 @@ ${tabBar({
   tabs: [
     { id: "collector", label: "Collector", shortLabel: "Health" },
     {
+      id: "liquidations",
+      label: "Liquidation feeds",
+      shortLabel: "Liq feeds",
+      badge: FEEDS.filter((feed) => feed.verdict === "live").length,
+    },
+    {
       id: "verification",
       label: "Price verification",
       shortLabel: "Prices",
@@ -1192,6 +1205,9 @@ ${tabBar({
 <tbody data-live="status">${body}</tbody>
 </table></div>
 ${wrong === 0 ? '<p class="notes">Every collected exchange is live and current.</p>' : ""}
+</div>
+<div class="tabpanel" role="tabpanel" id="panel-status-liquidations" data-tab-panel="liquidations" aria-labelledby="tab-status-liquidations">
+${liquidationFeedTable({ feeds: liquidationFeeds, venues, now })}
 </div>
 <div class="tabpanel" role="tabpanel" id="panel-status-verification" data-tab-panel="verification" aria-labelledby="tab-status-verification">
 <h2>Price verification</h2>

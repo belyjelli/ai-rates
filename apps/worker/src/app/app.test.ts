@@ -122,6 +122,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     bestVerifiedPair: async () => null,
     liquidationMap: async () => ({ cells: [], columnTotals: [], totals: [], assets: [] }),
     cvd: async () => ({ rows: [], asset_class: "crypto" as const, bars: [], newest: null }),
+    liquidationFeeds: async () => [],
     liquidationAsset: async () => ({
       asset_class: "crypto" as const,
       mark: 2434.7,
@@ -1027,6 +1028,67 @@ describe("pages", () => {
     live_markets: 970,
     freshest: new Date(NOW - 20_000),
     ...overrides,
+  });
+
+  test("the liquidation tab lists the feeds we read and the venues that publish nothing", async () => {
+    const { data } = fakeData({
+      venueStatus: async () => [
+        vstatus({ venue_id: "htx:liq", name: "htx:liq", last_error: "connection cycling" }),
+      ],
+      liquidationFeeds: async () => [
+        {
+          venue_id: "okx",
+          events_24h: 16_513,
+          events_1h: 260,
+          markets_24h: 412,
+          notional_24h: 88_400_000,
+          longs_24h: 5_417,
+          last_at: new Date(NOW - 30_000),
+        },
+        {
+          venue_id: "aster",
+          events_24h: 138,
+          events_1h: 0,
+          markets_24h: 9,
+          notional_24h: 1_200_000,
+          longs_24h: 28,
+          last_at: new Date(NOW - 9 * 3_600_000),
+        },
+      ],
+    });
+    const html = await (await get("/status", data)).text();
+    const panel = html.split('data-tab-panel="liquidations"')[1]?.split("</div>")[0] ?? html;
+
+    // A feed delivering now, with its own figures.
+    expect(html).toContain('data-k="okx"');
+    expect(html).toContain("16,513");
+    // 5,417 of 16,513 closed a long.
+    expect(html).toContain(">33%<");
+    // Nine hours since the last one on a feed that averages one every twelve minutes: quiet, and a
+    // quiet feed is not a failing one — the states have to differ or the table says nothing.
+    expect(html).toContain("st-quiet");
+    // A venue that was probed and publishes nothing is a row, not an omission, and carries why.
+    expect(html).toContain("st-none");
+    expect(html).toContain("acked all 790 USDT-futures symbols");
+    // The feed's own run health decides the fault, not the count: htx:liq is cycling.
+    expect(html).toContain("st-failing");
+    expect(panel).not.toContain('data-k="htx:liq"');
+    // And that pseudo-venue is kept out of the collector table, where it would read as an exchange
+    // listing no markets.
+    expect(html).not.toContain('<tr data-k="htx:liq">');
+  });
+
+  test("the liquidation tab says the counts are missing when the table cannot be read", async () => {
+    const { data } = fakeData({
+      liquidationFeeds: async () => Promise.reject(new Error("no table")),
+    });
+    const response = await get("/status", data);
+
+    // /status is where a reader diagnoses a half-finished deploy, so it must not 503 over one panel.
+    expect(response.status).toBe(200);
+    const html = await response.text();
+    expect(html).toContain("could not be read");
+    expect(html).toContain("st-none");
   });
 
   test("status splits its two sections into tabs, and serves both panels for a reader without JS", async () => {

@@ -365,6 +365,15 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .st-failing{color:var(--short)}
 .st-silent{color:var(--dim)}
 .st-planned{color:var(--dim)}
+/* Liquidation-feed states. A feed with nothing to report is not a fault -- the thinnest measured one
+   averages a close every twelve minutes -- so "quiet" is dim, while a venue that publishes no feed at
+   all is a settled finding rather than a warning. Only "failing" (the socket cycling) is alarming. */
+.st-quiet{color:var(--muted)}
+.st-none{color:var(--dim)}
+.st-partial,.st-unresolved{color:var(--warn)}
+/* The evidence column is prose, so it wraps rather than pushing the table into a horizontal scroll;
+   every other cell on the site is a figure and stays on one line. */
+.sheet td.feed-why{white-space:normal;min-width:34ch;color:var(--muted)}
 /* Price-verification verdicts. "mismatch" gets the alarm colour because it means two different
    assets are sharing one name; "scale" is a real market in different units, which is a correction
    to make rather than a fault; "unverified" is dim because a thin market is not an accusation. */

@@ -302,9 +302,14 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     }
 
     if (path === "/status") {
-      const [overview, venues, checks] = await Promise.all([
+      const [overview, venues, feeds, checks] = await Promise.all([
         deps.data.overview(),
         deps.data.venueStatus(),
+        // Fail-soft for the same reason the identity checks below are: a worker that ships before
+        // the collector has applied migration 012 has no liquidations table, and /status is exactly
+        // where a reader goes to diagnose a half-finished deploy. Null, not [], so the page can say
+        // the counts are missing rather than report every feed as silent.
+        deps.data.liquidationFeeds().catch(() => null),
         // Fail-soft, for the reason the homepage's verified ranking is: a missing
         // market_identity_checks is the state of any deployment where the worker ships before
         // migration 015 has been applied. Verification is a section of this page; collector health
@@ -320,7 +325,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           return null;
         }),
       ]);
-      return page(pages.status({ overview, venues, checks, now }));
+      return page(pages.status({ overview, venues, liquidationFeeds: feeds, checks, now }));
     }
 
     if (path === "/markets") {
