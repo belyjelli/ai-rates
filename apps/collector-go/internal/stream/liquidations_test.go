@@ -808,3 +808,30 @@ func TestBinanceKeepaliveIsIgnoredByTheDecoder(t *testing.T) {
 		}
 	}
 }
+
+// Binance's forced-order stream carries its COIN-MARGINED book too, where a quantity is a count of
+// $100 contracts rather than a quantity of the base asset. Storing one as base x price overstated a
+// $230k liquidation as $177M in production on 2026-09-18, and the collector does not carry that book
+// at all, so those symbols must be dropped rather than converted. A USD-M symbol has no underscore.
+func TestBinanceDropsTheCoinMarginedBook(t *testing.T) {
+	decoder := NewBinanceLiquidations("")
+	inverse := []byte(`{"e":"forceOrder","E":1789693655000,"o":{"s":"BTCUSD_PERP","S":"SELL","q":"2304","p":"76986.8","ap":"76986.8","T":1789693655000}}`)
+	events, err := decoder.DecodeEvents(inverse, time.UnixMilli(1789693655000))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(events) != 0 {
+		t.Fatalf("coin-margined symbol: got %d events, want 0 (notional would be $%.0f)",
+			len(events), *events[0].NotionalUSD)
+	}
+
+	// The USD-M book of the same asset still reads, and still prices as base x price.
+	linear := []byte(`{"e":"forceOrder","E":1789693655000,"o":{"s":"BTCUSDT","S":"SELL","q":"0.5","p":"76986.8","ap":"76986.8","T":1789693655000}}`)
+	events, err = decoder.DecodeEvents(linear, time.UnixMilli(1789693655000))
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(events) != 1 || events[0].NotionalUSD == nil || *events[0].NotionalUSD != 0.5*76986.8 {
+		t.Fatalf("USD-M symbol: got %+v, want one event at $%.2f", events, 0.5*76986.8)
+	}
+}

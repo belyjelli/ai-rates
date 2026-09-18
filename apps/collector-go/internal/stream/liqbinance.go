@@ -152,6 +152,20 @@ func (*BinanceLiquidations) DecodeEvents(msg []byte, now time.Time) ([]Liquidati
 	if m.Event != "forceOrder" || m.Order.Symbol == "" {
 		return nil, nil
 	}
+	// COIN-MARGINED SYMBOLS ARE NOT THIS VENUE, and letting them through was wrong by ~1000x.
+	// Measured in production 2026-09-18: the stream carried BTCUSD_PERP, whose quantity is a count of
+	// $100 CONTRACTS rather than a quantity of BTC, so 2,304 contracts ($230k of notional) was stored
+	// as 2,304 x $76,986 = $177M. Two such rows put binance's 24-hour notional at $1.5B against okx's
+	// $54.9M on seven times the events, which is what made it obvious on /status.
+	//
+	// They are dropped rather than converted, because the collector does not carry this book at all:
+	// the binance venue here is the USD-M one (762 markets), a coin-margined symbol has no row in
+	// market_latest, and a liquidation the rest of the site cannot join to a market is noise in every
+	// figure it reaches. Inverse symbols are BASEUSD_PERP or BASEUSD_<expiry>; a USD-M symbol never
+	// carries an underscore.
+	if strings.Contains(m.Order.Symbol, "_") {
+		return nil, nil
+	}
 
 	var side string
 	switch strings.ToUpper(m.Order.Side) {
@@ -180,7 +194,8 @@ func (*BinanceLiquidations) DecodeEvents(msg []byte, now time.Time) ([]Liquidati
 		at = time.UnixMilli(m.Order.TradeMs).UTC()
 	}
 
-	// NOTIONAL NEEDS NO METADATA HERE, unlike gate, okx and htx. A USD-M futures quantity is in the
+	// NOTIONAL NEEDS NO METADATA HERE, unlike gate, okx and htx, now that the inverse book is filtered
+	// out above. A USD-M futures quantity is in the
 	// BASE ASSET, so dollars are simply quantity times price — and that stays right for a scaled
 	// listing such as 1000PEPEUSDT, where a quantity of 1000PEPE meets a price quoted per 1000PEPE
 	// and the scale cancels. No contract multiplier is involved and none must be applied.
