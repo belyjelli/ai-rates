@@ -579,6 +579,24 @@ export interface CvdData {
   newest: Date | null;
 }
 
+/**
+ * One venue's liquidation ingestion over the last day: what actually landed in the table.
+ *
+ * Separate from VenueStatus, which answers "did the collector run". A feed can run every flush and
+ * store nothing, which is either a calm market or a feed the venue has quietly stopped serving --
+ * the page pairs this with the feed's own run health so the two are told apart rather than blended.
+ */
+export interface LiquidationFeedRow {
+  venue_id: string;
+  events_24h: number;
+  events_1h: number;
+  /** Distinct markets that liquidated in the window: one busy symbol and a whole book differ. */
+  markets_24h: number;
+  notional_24h: number;
+  longs_24h: number;
+  last_at: Date | null;
+}
+
 export interface DataSource {
   overview(): Promise<Overview>;
   screener(filters: ScreenerFilters): Promise<ScreenerPair[]>;
@@ -633,6 +651,8 @@ export interface DataSource {
   liquidationAsset(options: LiquidationAssetOptions): Promise<LiquidationAssetMap>;
   /** Taker flow for every polled asset over a window, and one asset's bars for the chart. */
   cvd(options: CvdOptions): Promise<CvdData>;
+  /** What each liquidation feed actually stored in the last day. */
+  liquidationFeeds(): Promise<LiquidationFeedRow[]>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -1379,6 +1399,21 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         bars: [...bars],
         newest: newest[0]?.newest ?? null,
       };
+    },
+
+    async liquidationFeeds() {
+      const rows = await connect()<LiquidationFeedRow[]>`
+        SELECT venue_id,
+               count(*)::int AS events_24h,
+               count(*) FILTER (WHERE liquidated_at > now() - interval '1 hour')::int AS events_1h,
+               count(DISTINCT venue_symbol)::int AS markets_24h,
+               coalesce(sum(notional_usd), 0)::float8 AS notional_24h,
+               count(*) FILTER (WHERE side = 'long')::int AS longs_24h,
+               max(liquidated_at) AS last_at
+        FROM liquidations
+        WHERE liquidated_at > now() - interval '24 hours'
+        GROUP BY venue_id`;
+      return [...rows];
     },
 
     async exchange(venueId) {
