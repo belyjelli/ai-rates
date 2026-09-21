@@ -3,6 +3,7 @@ import { BUILD } from "../build-info";
 import { AWAIT_SCRIPT } from "./await";
 import { esc, since } from "./format";
 import { LIVE_SCRIPT } from "./live";
+import { SHARE_BAR, SHARE_CSS, SHARE_SCRIPT } from "./share";
 import { TAB_SCRIPT } from "./tabs";
 
 const NAV = [
@@ -30,6 +31,22 @@ const NAV = [
  * mid-screener keeps their filters rather than losing them to an auth redirect.
  */
 const MEMBER_URL = "https://member.airrates.net/";
+
+/**
+ * Google Analytics 4 for airrates.net, first thing in <head> as Google asks. The member area on its
+ * own subdomain reports to a separate property (G-16FWXNVQ9C), so the two audiences stay apart.
+ * The share and cite dialogs report their clicks through the same tag (share.ts).
+ */
+const GA_ID = "G-XCSJH74QFF";
+export const GA_TAG = `<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=${GA_ID}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', '${GA_ID}');
+</script>`;
 
 /** Hotkeys shown in the status bar. They are advertised, so they are implemented. */
 const KEYS: [string, string, string][] = [
@@ -77,7 +94,7 @@ a:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .mast nav a{border:0;color:var(--muted);text-transform:uppercase;padding:0 6px}
 .mast nav a[aria-current=page]{background:var(--ink);color:var(--bg)}
 .mast nav a:hover{color:var(--accent)}
-.status{margin-left:auto;color:var(--muted)}
+.status{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
 .status.stale{color:var(--warn)}
 .clock{color:var(--ink)}
 .keys{margin-left:auto;display:flex;gap:12px;color:var(--dim)}
@@ -215,6 +232,12 @@ table.heat{border-collapse:collapse;width:auto;min-width:100%}
 .heat.lq td.lq-l5,.heat.lq td.lq-l6,.heat.lq td.lq-s5,.heat.lq td.lq-s6{color:#0a0a0a}
 .heat.lq td.lq-l5 .lq-n,.heat.lq td.lq-l6 .lq-n,.heat.lq td.lq-s5 .lq-n,
 .heat.lq td.lq-s6 .lq-n{color:rgba(0,0,0,.62)}
+/* A hovered row's cells go black (below), so the dark text of the top two steps turns back to ink
+   there; otherwise those values vanish into the black exactly while the reader is looking at them. */
+.heat.lq tbody tr:hover td.lq-l5,.heat.lq tbody tr:hover td.lq-l6,
+.heat.lq tbody tr:hover td.lq-s5,.heat.lq tbody tr:hover td.lq-s6{color:var(--ink)}
+.heat.lq tbody tr:hover td.lq-l5 .lq-n,.heat.lq tbody tr:hover td.lq-l6 .lq-n,
+.heat.lq tbody tr:hover td.lq-s5 .lq-n,.heat.lq tbody tr:hover td.lq-s6 .lq-n{color:var(--muted)}
 /* The row hover must not repaint the fill: on every other grid the hover IS the only colour, here it
    would erase the reading. An outline says the same thing and keeps the cell's value visible. */
 .heat.lq tbody tr:hover td{background:inherit}
@@ -509,17 +532,18 @@ export function layout(options: {
   return `<!doctype html>
 <html lang="en">
 <head>
+${GA_TAG}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>${esc(title)} · airrates</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📟</text></svg>">
 <meta name="description" content="${esc(description)}">
-<style>${CSS}</style>
+<style>${CSS}${SHARE_CSS}</style>
 </head>
 <body data-rendered="${now}" data-build="${esc(BUILD.commit ?? "")}">
 <header class="mast">
-<div class="wrap bar"><a class="brand" href="/">airrates<small>funding carry sheet</small></a><span class="status" data-live="status">${status}</span><time class="clock" id="clock">--:--:-- UTC</time></div>
+<div class="wrap bar"><a class="brand" href="/">airrates<small>funding carry sheet</small></a><span class="status" data-live="status">${status}</span>${SHARE_BAR}<time class="clock" id="clock">--:--:-- UTC</time></div>
 <div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><span class="keys">${keys}<span><b>/</b>filter</span></span></div>
 </header>
 <main class="wrap">${body}</main>
@@ -532,6 +556,7 @@ export function layout(options: {
 <script>${LIVE_SCRIPT}</script>
 <script>${AWAIT_SCRIPT}</script>
 <script>${TAB_SCRIPT}</script>
+<script>${SHARE_SCRIPT}</script>
 </body>
 </html>`;
 }

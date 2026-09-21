@@ -62,6 +62,7 @@ import { type FundingHistory, renderFundingChart } from "./funding-chart";
 import { layout } from "./layout";
 import { FEEDS, liquidationFeedTable } from "./liquidation-feeds";
 import { type RailScale, railPosition, railScale, renderRail } from "./rail";
+import { citeMark } from "./share";
 import { tabBar } from "./tabs";
 import { VENUE_TYPE_LABEL, VENUE_TYPE_SHORT, venueName } from "./venues";
 
@@ -93,6 +94,8 @@ const assetTitle = (asset: string, assetClass: AssetClass) =>
   assetClass === "crypto" ? asset : `${asset} (${assetClass})`;
 const exchangeHref = (venueId: string) => `/markets/exchange/${encodeURIComponent(venueId)}`;
 const apr = (value: number | null) => `<span class="${aprTone(value)}">${formatApr(value)}</span>`;
+/** A spread or gap for prose: always positive, so the "+" formatApr signs rates with is noise there. */
+const plainApr = (value: number | null) => formatApr(value).replace(/^\+/, "");
 
 /**
  * Momentum in APR points: the last 7 charging days against the days before them. A plain signed
@@ -135,10 +138,17 @@ function verifiedTable(verified: VerifiedPair[]): string {
     return `<div class="sheet-wrap"><p class="empty">No replay yet: the nightly run needs a week of settled funding on both legs of a pair.</p></div>`;
   }
   const rows = verified
-    .map((v) => {
+    .map((v, i) => {
       const href = `${pairHref(v.asset, v.asset_class)}?long=${encodeURIComponent(v.long_venue_id)}&short=${encodeURIComponent(v.short_venue_id)}`;
+      const cite =
+        i === 0
+          ? citeMark(
+              `Replayed, not forecast: ${assetTitle(v.asset, v.asset_class)} long ${venueName(v.long_venue_id)} / short ${venueName(v.short_venue_id)} settled ${money(v.net_funding_usd)} on ${wholeMoney(v.size_usd)} a leg over 7 days. ${plainApr(v.net_funding_apr_percent)} annualized, ${Math.round(v.win_rate_days * 100)}% of days positive.`,
+              href,
+            )
+          : "";
       return `<tr data-k="${esc(`${assetKey(v.asset, v.asset_class)}|${v.long_venue_id}|${v.short_venue_id}`)}">
-<td class="asset"><a href="${href}">${assetName(v.asset, v.asset_class)}</a></td>
+<td class="asset"><a href="${href}">${assetName(v.asset, v.asset_class)}</a>${cite}</td>
 <td class="num ${v.net_funding_usd >= 0 ? "longs-paid" : "shorts-paid"}">${money(v.net_funding_usd)}</td>
 <td class="num">${formatApr(v.net_funding_apr_percent)}</td>
 <td><div class="leg long-leg"><a class="venue" href="${exchangeHref(v.long_venue_id)}">${esc(venueName(v.long_venue_id))}</a><span class="meta">${esc(v.long_symbol)}</span></div></td>
@@ -214,8 +224,12 @@ function heroVerified(v: VerifiedPair): string {
     shortTakerBps: retailTakerBps,
   });
   const span = v.days === 1 ? "day" : `${v.days} days`;
+  const cite = citeMark(
+    `${assetTitle(v.asset, v.asset_class)} carry, long ${long} / short ${short}: ${money(v.net_funding_usd)} of funding settled on ${wholeMoney(v.size_usd)} a leg over the last ${span}. ${money(net)} after retail fees. Price risk hedged, not guessed.`,
+    `${pairHref(v.asset, v.asset_class)}${query}`,
+  );
   return `<section class="hero" data-live="hero">
-<p class="eyebrow">Best verified carry, last ${span}</p>
+<p class="eyebrow">Best verified carry, last ${span}</p>${cite}
 <div class="hero-head">
 <a class="hero-asset" href="${assetHref(v.asset, v.asset_class)}">${assetName(v.asset, v.asset_class)}</a>
 <p class="hero-spread up"><b>${money(v.net_funding_usd)}</b><span>funding settled on ${wholeMoney(v.size_usd)} per leg</span></p>
@@ -233,8 +247,12 @@ function heroVerified(v: VerifiedPair): string {
 function heroPair(p: ScreenerPair): string {
   const long = venueName(p.long_venue_id);
   const short = venueName(p.short_venue_id);
+  const cite = citeMark(
+    `Widest funding spread across perp exchanges right now: ${assetTitle(p.asset, p.asset_class)} at ${plainApr(p.spread_apr)} a year. Long ${long} at ${formatApr(p.long_apr)}, short ${short} at ${formatApr(p.short_apr)}.`,
+    assetHref(p.asset, p.asset_class),
+  );
   return `<section class="hero" data-live="hero">
-<p class="eyebrow">Widest funding spread right now</p>
+<p class="eyebrow">Widest funding spread right now</p>${cite}
 <div class="hero-head">
 <a class="hero-asset" href="${assetHref(p.asset, p.asset_class)}">${assetName(p.asset, p.asset_class)}</a>
 <p class="hero-spread"><b data-u="spread">${formatApr(p.spread_apr)}</b><span>funding spread, per year</span></p>
@@ -428,10 +446,17 @@ function pairsTable(
   ) =>
     `<td><div class="leg ${side}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)} · ${formatInterval(interval)} · OI <span data-u="${side}-oi">${formatUsd(oi)}</span>${quoteMark(quote, otherQuote)}</span></div></td>`;
 
+  const cite = (p: ScreenerPair, i: number) =>
+    i < 3
+      ? citeMark(
+          `${assetTitle(p.asset, p.asset_class)} pays ${plainApr(p.spread_apr)} a year to hold both sides: long ${venueName(p.long_venue_id)} at ${formatApr(p.long_apr)}, short ${venueName(p.short_venue_id)} at ${formatApr(p.short_apr)}. Same coin, two exchanges, price exposure cancelled.`,
+          assetHref(p.asset, p.asset_class),
+        )
+      : "";
   const rows = pairs
     .map(
-      (p) => `<tr data-k="${esc(assetKey(p.asset, p.asset_class))}">
-<td class="asset"><a href="${assetHref(p.asset, p.asset_class)}">${assetName(p.asset, p.asset_class)}</a></td>
+      (p, i) => `<tr data-k="${esc(assetKey(p.asset, p.asset_class))}">
+<td class="asset"><a href="${assetHref(p.asset, p.asset_class)}">${assetName(p.asset, p.asset_class)}</a>${cite(p, i)}</td>
 <td class="num spread">${formatApr(p.spread_apr)}</td>
 <td class="rail-cell">${renderRail({
         scale,
@@ -521,6 +546,17 @@ export function exchange(data: {
 }): string {
   const { venue, markets, now } = data;
   const oi = markets.reduce((sum, m) => sum + (m.open_interest_usd ?? 0), 0);
+  // The two ends of the venue's funding, which is what a reader quoting a venue wants to say.
+  const byApr = [...markets].sort((a, b) => b.apr - a.apr);
+  const richest = byApr[0];
+  const cheapest = byApr.at(-1);
+  const cite =
+    richest && cheapest
+      ? citeMark(
+          `${venue.name}: ${markets.length.toLocaleString("en-US")} live perp markets, ${formatUsd(oi)} open interest. Richest funding ${richest.venue_symbol} at ${formatApr(richest.apr)} a year; cheapest ${cheapest.venue_symbol} at ${formatApr(cheapest.apr)}.`,
+          exchangeHref(venue.id),
+        )
+      : "";
   const scale = railScale(
     markets.map((m) => m.apr),
     "log",
@@ -554,7 +590,7 @@ ${data.cta ?? ""}
 ${
   markets.length === 0
     ? `<p class="lede">No live markets from ${esc(venue.name)}: it isn't collected yet, or its last update is more than five minutes old.</p>`
-    : `<div class="facts" data-live="facts"><span><b data-u="markets">${markets.length.toLocaleString("en-US")}</b> live markets</span><span><b data-u="oi">${formatUsd(oi)}</b> open interest</span><span>updated <b>${since(markets[0]?.observed_at ?? null, now)}</b></span></div>
+    : `<div class="facts" data-live="facts"><span><b data-u="markets">${markets.length.toLocaleString("en-US")}</b> live markets</span><span><b data-u="oi">${formatUsd(oi)}</b> open interest</span><span>updated <b>${since(markets[0]?.observed_at ?? null, now)}</b></span>${cite}</div>
 <div class="sheet-wrap stick"><table class="sheet"><thead><tr><th>Market</th><th>Asset</th><th class="num">Funding APR</th><th title="Signed log scale, so ordinary rates keep room next to extreme ones">Rate, log scale</th><th class="num">7d settled</th><th class="num">Interval</th><th class="num">Next funding</th><th class="num">Mark price</th><th class="num">Open interest</th><th class="num">24h volume</th></tr></thead><tbody data-live="markets">${rows}</tbody></table></div>`
 }`,
   });
@@ -686,6 +722,7 @@ export function heatmap(data: {
     .map((id) => `<th>${esc(venueName(id))}</th>`)
     .join("")}</tr>`;
 
+  let cited = 0;
   const body = rows
     .map((row) => {
       const values = venueIds.map((id) => {
@@ -703,7 +740,15 @@ export function heatmap(data: {
               const high = Math.max(...present);
               const longId = venueIds[values.indexOf(low)] as string;
               const shortId = venueIds[values.indexOf(high)] as string;
-              return `<a href="${pairHref(row.base, row.assetClass)}?long=${encodeURIComponent(longId)}&short=${encodeURIComponent(shortId)}">${formatApr(high - low)}</a>`;
+              const href = `${pairHref(row.base, row.assetClass)}?long=${encodeURIComponent(longId)}&short=${encodeURIComponent(shortId)}`;
+              const cite =
+                cited++ < 3
+                  ? citeMark(
+                      `${assetTitle(row.base, row.assetClass)} funding runs from ${formatApr(low)} on ${venueName(longId)} to ${formatApr(high)} on ${venueName(shortId)}: ${plainApr(high - low)} a year apart across ${present.length} exchanges.`,
+                      href,
+                    )
+                  : "";
+              return `${cite}<a href="${pairHref(row.base, row.assetClass)}?long=${encodeURIComponent(longId)}&short=${encodeURIComponent(shortId)}">${formatApr(high - low)}</a>`;
             })()
           : `<span class="dim">–</span>`;
 
@@ -795,7 +840,7 @@ export function arbitrage(data: {
   const fees = retailSchedule(rows.flatMap((r) => [r.buy_venue_id, r.sell_venue_id]));
 
   const body = rows
-    .map((r) => {
+    .map((r, i) => {
       // The gap is only good for the smaller of the two sides, so that is what the row is titled
       // with. A null depth says so plainly instead of rendering as a zero.
       const title =
@@ -812,7 +857,14 @@ export function arbitrage(data: {
       });
       const netTitle = `${formatGapBps(r.gap_bps)} less ${formatGapBps(cost.takerBps)} bps of taker fee, one fill on each side. The transfer a real position needs is not counted.`;
       return `<tr data-k="${esc(assetKey(r.asset, r.asset_class))}">
-<td class="asset"><a href="${priceHref(r.asset, r.asset_class)}">${assetName(r.asset, r.asset_class)}</a></td>
+<td class="asset"><a href="${priceHref(r.asset, r.asset_class)}">${assetName(r.asset, r.asset_class)}</a>${
+        i < 3
+          ? citeMark(
+              `${assetTitle(r.asset, r.asset_class)}: buy on ${venueName(r.buy_venue_id)} at ${formatPrice(r.buy_price)}, sell on ${venueName(r.sell_venue_id)} at ${formatPrice(r.sell_price)}. A ${formatGapBps(r.gap_bps)} bps gap, good for ${formatUsd(r.thinner_depth_usd)} at the top of the book.`,
+              priceHref(r.asset, r.asset_class),
+            )
+          : ""
+      }</td>
 <td class="num spread" title="${esc(title)}"><span data-u="gap"${gapTone(r.gap_bps)}>${formatGapBps(r.gap_bps)}</span></td>
 <td class="num spread" title="${esc(netTitle)}"><span data-u="net"${gapTone(cost.netBps)}>${formatGapBps(cost.netBps)}</span></td>
 <td class="num" title="${esc(title)}">${formatUsd(r.thinner_depth_usd)}</td>
@@ -1297,7 +1349,14 @@ export function asset(data: {
     now,
     body: `<p class="eyebrow">Funding by exchange</p>
 <h1>${assetName(data.asset, assetClass)}</h1>
-<p class="lede" data-live="asset-lede">${markets.length} live markets on ${venues} exchanges. ${summary}</p>
+<p class="lede" data-live="asset-lede">${markets.length} live markets on ${venues} exchanges. ${summary}${
+      pair
+        ? citeMark(
+            `${assetTitle(data.asset, assetClass)} funding across ${venues} exchanges: long ${venueName(pair.long.venue_id)} at ${formatApr(pair.long.apr)}, short ${venueName(pair.short.venue_id)} at ${formatApr(pair.short.apr)}. A ${plainApr(pair.short.apr - pair.long.apr)} spread a year on one coin.`,
+            assetHref(data.asset, assetClass),
+          )
+        : ""
+    }</p>
 <div class="cta" data-live="asset-cta">${
       pair
         ? `<a class="btn" href="${pairHref(data.asset, assetClass)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}" data-await>Backtest this pair <span aria-hidden="true">→</span></a><span class="dim">long ${esc(venueName(pair.long.venue_id))} · short ${esc(venueName(pair.short.venue_id))} · <span data-u="cta-spread">${formatApr(pair.short.apr - pair.long.apr)}</span> a year, replayed on settled funding</span>`
@@ -1551,8 +1610,12 @@ function shareOnX(
   const span = params.days === 1 ? "day" : `${params.days} days`;
   const text = `${label} funding carry, long ${venueName(result.long.venueId)} / short ${venueName(result.short.venueId)}: ${money(net)} on ${wholeMoney(params.sizeUsd)} per leg over the last ${span}, ${result.netAfterCostsUsd === null ? "before fees" : "after fees"}. Replayed from settled funding:`;
   const link = `${origin}${pairHref(asset, assetClass)}${backtestToQuery(params)}&ref=x`;
+  const cite = citeMark(
+    text.replace(/:$/, "."),
+    `${pairHref(asset, assetClass)}${backtestToQuery(params)}`,
+  );
   const intent = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`;
-  return `<div class="cta"><a class="btn" href="${esc(intent)}" target="_blank" rel="noopener">Share on X</a><span class="dim">opens a post with this result and a link back to it</span></div>`;
+  return `<div class="cta">${cite}<a class="btn" href="${esc(intent)}" target="_blank" rel="noopener">Share on X</a><span class="dim">opens a post with this result and a link back to it</span></div>`;
 }
 
 /** Trims a bps figure for prose: "4.5" stays, "5.0" reads as "5". */

@@ -10,6 +10,7 @@ import {
 import { ageText, esc, formatPrice, formatUsd } from "./format";
 import { layout } from "./layout";
 import { assetKey, assetName } from "./pages";
+import { citeMark, plainLabel } from "./share";
 import { cvdText, SLOT_BAND, SLOT_CURSOR, SLOT_FORMAT, SLOT_SCRIPT, slotData } from "./slot-chart";
 import { venueName } from "./venues";
 
@@ -218,6 +219,9 @@ function cvdChart(data: {
   const open = prices[0] ?? null;
   const bought = slots.reduce((sum, s) => sum + (s.bar?.buy_usd ?? 0), 0);
   const sold = slots.reduce((sum, s) => sum + (s.bar?.sell_usd ?? 0), 0);
+  const cite = citeMark(
+    `${plainLabel(label)} taker CVD, last ${params.window}: ${signedUsd(total)}. Market buyers ${formatUsd(bought)} vs sellers ${formatUsd(sold)}.`,
+  );
   const idle = cvdText(
     `Last ${esc(params.window)}`,
     [bought, sold, prices.at(-1) ?? null],
@@ -238,7 +242,7 @@ function cvdChart(data: {
     ),
   });
 
-  return `<figure class="fchart cvd-chart" data-live="cvd-chart">
+  return `<figure class="fchart cvd-chart" data-live="cvd-chart">${cite}
 <div class="fchart-head"><p class="fchart-title">${label} · cumulative volume delta · ${grain} bars, UTC</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>Price</span><span><i class="cvd-key-cvd"></i>CVD <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span><span><i class="cvd-key-buy"></i>Net buy</span><span><i class="cvd-key-sell"></i>Net sell</span></div><p class="fchart-read slot-read" aria-live="polite">${idle} · hover or tap a bar to read it</p></div>
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(`${label.replace(/<[^>]+>/g, "")} bars; arrow keys read one at a time`)}">
 <div class="fchart-plot cvd-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} price and cumulative volume delta over the last ${params.window}`)}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${

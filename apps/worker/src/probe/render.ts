@@ -1,4 +1,5 @@
 import type { Venue } from "@ai-rates/venues";
+import { GA_TAG } from "../web/layout";
 import type { Verdict } from "./classify";
 import type { StoredRun } from "./execute";
 import type { ProbeResult } from "./runner";
@@ -52,6 +53,7 @@ export function renderProbePage(
   return `<!doctype html>
 <html lang="en">
 <head>
+${GA_TAG}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
