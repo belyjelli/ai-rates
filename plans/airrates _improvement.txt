@@ -1,0 +1,39 @@
+Airrates Update
+learn a bit more from https://askthetape.com/ where it is fully enhanced for readiability and share the content from the website to x target audience.
+
+You will need to add updates about the share chart image button and the quote cite button
+we will need these two functions. 
+chart image button will able to capture image from the chart with highly optimized for X posts.
+and the cite button have the ability to quote the best viral line that will increase attention span and a back-link to the exact venue and page.
+
+If there is no chart to be found from the page, there is no need to have this function but still simply dim or disable this button. this Share your line modal is very useful and we will need something exactly looks like that.
+
+google analytics integration:
+which this project is located at /Users/hesdx/Documents/profitlock/ai-rates
+using the code G-XCSJH74QFF to track the website that supported by google.
+here is the snipplet and this should be on the header of the html
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XCSJH74QFF"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-XCSJH74QFF');
+</script>
+
+
+for member.airrates.net we will track with different ID which this project is located at /Users/hesdx/Documents/profitlock/profitlock-member
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-16FWXNVQ9C"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-16FWXNVQ9C');
+</script>
+
+
