@@ -41,11 +41,12 @@ export const FEEDS: readonly FeedEntry[] = [
   {
     // Read from 2026-09-18 to 2026-09-23 off fstream.binancefuture.com, which is the TESTNET: play
     // money, with single $85M "liquidations" on KERNEL. Migration 024 deleted every row it wrote.
+    // Production resumed 2026-09-24 on the /market/ route; the legacy /ws/ path sends nothing.
     venueId: "binance",
-    verdict: "blocked",
-    transport: "",
+    verdict: "live",
+    transport: "socket",
     evidence:
-      "!forceOrder@arr publishes, but the production host sends our region nothing. The host that did deliver was Binance's testnet, so its rows were deleted",
+      "!forceOrder@arr on the /market/ route; 15 in 40s measured. Rows before 2026-09-24 came from its testnet and were deleted",
   },
   {
     venueId: "bybit",
