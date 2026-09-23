@@ -27,12 +27,9 @@ SSH="ssh -o BatchMode=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=15 -p
 REMOTE_DIR="\$HOME/airates-app"
 STAGE_DIR="$REMOTE_DIR.staging"
 
-# Everything the Dockerfiles copy, plus the compose file. Keep in sync with
-# apps/collector/Dockerfile and apps/collector-go/Dockerfile.
-#
-# apps/collector-go IS the collector as of 2026-09-15. apps/collector is the deprecated Bun one,
-# still streamed because its compose service is the rollback and has to stay buildable.
-SRC="package.json bun.lock apps/collector apps/collector-go apps/worker/package.json packages deploy/hklab/compose.yml"
+# Everything apps/collector-go/Dockerfile copies, plus the compose file. Keep in sync with it.
+# (The Bun collector, and the package.json/bun.lock its image needed, were removed 2026-09-24.)
+SRC="apps/collector-go packages/db/migrations packages/venues/catalog.json deploy/hklab/compose.yml"
 
 for f in $SRC; do
   [ -e "$f" ] || { echo "deploy: missing '$f'" >&2; exit 1; }
@@ -80,7 +77,7 @@ $SSH "test -f $REMOTE_DIR/deploy/hklab/.env" || {
 echo "==> streaming source to hklab"
 $SSH "rm -rf $STAGE_DIR && mkdir -p $STAGE_DIR"
 # `bin` excluded because apps/collector-go/bin holds a 16 MB locally-built binary that is the wrong
-# architecture for the server anyway -- the image builds its own inside golang:1.26-alpine.
+# architecture for the server anyway -- the image builds its own inside golang:1.27.1-alpine.
 tar czf - --exclude node_modules --exclude .DS_Store --exclude '*.test.ts' --exclude bin $SRC | $SSH "tar xzf - -C $STAGE_DIR"
 
 # Which commit is on the server, readable there without guessing from file dates.

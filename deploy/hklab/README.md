@@ -1,6 +1,6 @@
 # Deploying the collector to hklab
 
-Target: **hklab** (`ssh -p $AIRATES_DEPLOY_SSH_PORT $AIRATES_DEPLOY_USER@$AIRATES_DEPLOY_HOST`, host `epos`). The collector runs as the `airates-collector`
+Target: **hklab** (`ssh -p $AIRATES_DEPLOY_SSH_PORT $AIRATES_DEPLOY_USER@$AIRATES_DEPLOY_HOST`, host `epos`). The collector runs as the `airates-collector-go`
 container on the `postgres_postgres` network. It writes to database **`vaultdeck`** as role **`$AIRATES_PG_ROLE`** in the existing
 `timescaledb_container` (TimescaleDB 2.20.3 / PostgreSQL 17.5), over the internal Docker network.
 
@@ -209,8 +209,9 @@ docker exec airates-collector-go collector version
 what the adapter gets back, without touching the database. `jobs run` repeats the collector's own
 idempotent refreshes, so it is safe beside the running service.
 
-**The collector is `collector-go` as of 2026-09-15.** The Bun collector (`airates-collector`) is
-deprecated and profile-gated, so an ordinary `docker compose up -d` no longer starts it.
+**The collector is `collector-go` as of 2026-09-15.** The Bun collector it replaced was removed from
+the repository on 2026-09-24; an exited `airates-collector` container may still be on the server, and
+`docker rm airates-collector` clears it.
 
 **What it runs.** On boot it applies `packages/db/migrations` (the same `schema_migrations` table the Bun
 runner used) and upserts every venue from `packages/venues/catalog.json`. Beside the 56 snapshot loops:
@@ -231,16 +232,8 @@ before anything else.
 `/health` only. Nothing consumed it — the Worker reads Postgres through Hyperdrive, not this API —
 so it was an operator convenience. Query `market_latest` directly for the same answer.
 
-Rollback, if the Go collector misbehaves:
-
-```sh
-docker compose -f ~/airates-app/deploy/hklab/compose.yml stop collector-go
-docker compose -f ~/airates-app/deploy/hklab/compose.yml --profile bun up -d collector
-```
-
-They cannot run at the same time: both bind 20090, so Docker refuses the second one. That is
-deliberate — two collectors writing `market_latest` and `funding_snapshots` would race over the same
-rows, both writes would succeed, and the loser would be silent.
+Rollback, if the Go collector misbehaves, is to an earlier Go build: check out the last good commit and
+run `./deploy/hklab/deploy.sh` again. There is no longer a second implementation to fall back to.
 
 ## Public site (Cloudflare Worker)
 
@@ -260,9 +253,20 @@ CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE="$DATABASE_URL" npx wra
 
 ## Integration tests
 
-`apps/collector/src/store.int.test.ts` runs in its own schema, `airates_it`, inside `vaultdeck`, through an SSH tunnel:
+Two suites, and they must NOT point at the same database.
 
-```sh
-ssh -f -N -L 55437:127.0.0.1:5437 -p $AIRATES_DEPLOY_SSH_PORT $AIRATES_DEPLOY_USER@$AIRATES_DEPLOY_HOST
-bun --env-file=.env.test.local test apps/collector   # DATABASE_URL=postgres://$AIRATES_PG_ROLE:...@127.0.0.1:55437/vaultdeck
-```
+- **collector-go** (`internal/store`) `TRUNCATE`s `market_latest`, `funding_events`, `markets` and
+  `venues` before each test. Run it only against a **throwaway Postgres**, never `vaultdeck`:
+
+  ```sh
+  AIRATES_TEST_DSN='postgres://postgres@127.0.0.1:55433/airates_it?sslmode=disable' \
+    go -C apps/collector-go test ./internal/store/
+  ```
+
+- **worker** (`apps/worker/src/app/*.int.test.ts`, including the `screener_pairs()` rules) only adds
+  and deletes its own tagged rows, inside schema `airates_it` of `vaultdeck`, through the tunnel:
+
+  ```sh
+  ssh -f -N -L 55437:127.0.0.1:5437 -p $AIRATES_DEPLOY_SSH_PORT $AIRATES_DEPLOY_USER@$AIRATES_DEPLOY_HOST
+  bun --env-file=.env.test.local test apps/worker   # DATABASE_URL=postgres://$AIRATES_PG_ROLE:...@127.0.0.1:55437/vaultdeck
+  ```
