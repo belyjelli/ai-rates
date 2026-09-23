@@ -4,7 +4,7 @@
 # replaces ships a runtime plus node_modules; this one is the binary and a CA bundle, which is most
 # of why the image is small and all of why there is nothing in it to patch.
 
-FROM golang:1.26-alpine AS build
+FROM golang:1.27.1-alpine AS build
 
 WORKDIR /src
 
