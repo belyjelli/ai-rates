@@ -1,0 +1,16 @@
+-- Delete every binance liquidation: all of them came from binance's FUTURES TESTNET.
+--
+-- The binance feed (apps/collector-go/internal/stream/liqbinance.go) read
+-- wss://fstream.binancefuture.com from 2026-09-18, because the production host sends hklab nothing.
+-- That host is the testnet. Its prices mirror production, so the rows looked plausible, but the
+-- positions are play money. Measured 2026-09-23: KERNELUSDT open interest was 60M on production and
+-- 2,384,834M on testnet, and this table held single "liquidations" of $85.1M (KERNEL), $39.8M
+-- (PUNDIX) and $14.9M (PUMPBTC). Binance was $553M of a $761M 24-hour total on /liquidations.
+--
+-- EVERY binance row, not just the absurd ones. None of them is a production liquidation, and a
+-- plausible-looking testnet close is worse than an absurd one, because nothing flags it. No other
+-- path ever wrote binance rows: 012 found its REST allForceOrders already gone. Aster shares the
+-- decoder but reads its own production host, and is untouched.
+--
+-- The chunks are days old and compression starts at 60 days, so this is a plain delete.
+DELETE FROM liquidations WHERE venue_id = 'binance';
