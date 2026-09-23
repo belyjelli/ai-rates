@@ -1098,8 +1098,6 @@ describe("pages", () => {
     // A venue that was probed and publishes nothing is a row, not an omission, and carries why.
     expect(html).toContain("st-none");
     expect(html).toContain("acked all 790 USDT-futures symbols");
-    // Binance publishes, but only its testnet reached us: not a live feed, and not "publishes none".
-    expect(html).toMatch(/data-k="binance">[\s\S]*?st-blocked/);
     // The feed's own run health decides the fault, not the count: htx:liq is cycling.
     expect(html).toContain("st-failing");
     expect(panel).not.toContain('data-k="htx:liq"');

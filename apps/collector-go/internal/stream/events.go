@@ -15,7 +15,7 @@
 //	bybit    allLiquidation.{symbol} x 805 linear USDT symbols               49 events  2.2/min
 //	gate     futures.public_liquidates with the !all payload                 40 events  1.8/min
 //	htx      public.*.liquidation_orders, ONE wildcard topic                  5 events  0.23/min
-//	binance  !forceOrder@arr   production host blocked; the one that delivered was the TESTNET  OFF
+//	binance  !forceOrder@arr on the /market/ route (legacy /ws/ is silent)  15 in 40s, 2026-09-24
 //	bitget   channel "liquidation", instType USDT-FUTURES          see the bitget file
 //	dydx     v4_trades type "LIQUIDATED"           78 in the subscribe snapshot, 0 live in 24 min
 //	aster    !forceOrder@arr on its own host                                  2 events  0.08/min

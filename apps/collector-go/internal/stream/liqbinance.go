@@ -9,14 +9,24 @@ import (
 
 // BinanceLiquidations speaks the USD-M futures !forceOrder@arr stream: ONE topic, every symbol.
 //
-// OFF BY DEFAULT, AND NEVER FROM THE TESTNET HOST. Binance's REST allForceOrders is gone (404, the
-// verdict migration 012 recorded on 2026-09-13), and from hklab the production stream host
-// wss://fstream.binance.com OPENS and then delivers NOTHING: not one forceOrder in 20 minutes, and
-// not one btcusdt@aggTrade either, on a stream that ticks several times a second. That is a silent
-// geo/IP block, not a quiet market. REST fapi.binance.com answers from the same box, so the block is
-// on the stream host alone.
+// THE PATH IS /market/, AND THE OLD ONE FAILS SILENTLY. Binance's REST allForceOrders is gone (404,
+// the verdict migration 012 recorded on 2026-09-13). On 2026-09-18 wss://fstream.binance.com/ws/...
+// OPENED and then delivered NOTHING from hklab — not one forceOrder in 20 minutes, and not one
+// btcusdt@aggTrade either — and that was read as a geo/IP block. It is not one. Binance split its
+// futures streams by route, and the legacy path completes the handshake and then stays silent.
+// Measured 2026-09-24, from hklab, DIRECT (no proxy), with the aggTrade control on each:
 //
-// The workaround shipped on 2026-09-18 was wss://fstream.binancefuture.com, which does deliver. It
+//	/stream?streams=!forceOrder@arr/btcusdt@aggTrade          101, then nothing in 30s
+//	/public/stream?streams=... (same streams)                  101, then nothing in 40s
+//	/market/stream?streams=... (same streams)                  455 aggTrade + 15 forceOrder in 40s
+//	/market/ws/!forceOrder@arr                                 9 forceOrder in 40s
+//
+// The same silence came back through a Singapore proxy on the old path, which is what ruled out
+// geography: two countries, identical nothing. Sizes were ordinary (a sample ONEUSDT close was about
+// $4,100), unlike the testnet's.
+//
+// NEVER FROM THE TESTNET HOST. The workaround shipped on 2026-09-18 was
+// wss://fstream.binancefuture.com, which does deliver. It
 // is Binance's FUTURES TESTNET, not "the same production data" as this comment then claimed. Testnet
 // prices track production because market makers mirror them, so every row LOOKED plausible, but the
 // positions being liquidated are play money. Measured 2026-09-23: KERNELUSDT open interest was 60M
@@ -25,9 +35,8 @@ import (
 // production's entire open interest. Binance had become $553M of a $761M 24-hour total, on fewer
 // events than okx's $106M. Migration 024 deletes every binance row that host wrote.
 //
-// So the default URL is production, binance is out of defaultLiquidationVenues, and loadConfig
-// REFUSES a testnet URL outright (IsBinanceTestnetURL). An operator whose egress reaches production
-// can add binance to LIQUIDATION_VENUES; nobody can point it at play money by accident.
+// So the default URL is production's /market/ route, and loadConfig REFUSES a testnet URL outright
+// (IsBinanceTestnetURL): nobody can point this at play money by accident.
 //
 // UNDERCOUNTING, WHICH IS INHERENT AND NOT A BUG. Binance documents that this stream pushes at most
 // ONE order per symbol per SECOND. A violent minute on a busy symbol is therefore reported short,
@@ -45,9 +54,9 @@ type BinanceLiquidations struct {
 }
 
 const (
-	// DefaultBinanceLiquidationURL is production. See the type comment for why binance is still off
-	// by default, and why the testnet host is refused.
-	DefaultBinanceLiquidationURL = "wss://fstream.binance.com/ws/!forceOrder@arr"
+	// DefaultBinanceLiquidationURL is production, on the /market/ route. See the type comment for why
+	// the legacy /ws/ path is not used and why the testnet host is refused.
+	DefaultBinanceLiquidationURL = "wss://fstream.binance.com/market/ws/!forceOrder@arr"
 	// DefaultAsterLiquidationURL. Aster's own host, reached directly: no block was observed here.
 	DefaultAsterLiquidationURL = "wss://fstream.asterdex.com/ws/!forceOrder@arr"
 )

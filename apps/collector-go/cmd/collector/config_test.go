@@ -113,15 +113,10 @@ func TestConfigDefaultsLiquidationVenuesToTheProvenSet(t *testing.T) {
 	if len(cfg.liquidationVenues) == 0 {
 		t.Fatal("liquidation venues should default to the measured set, not to empty")
 	}
-	for _, want := range []string{"bybit", "okx", "htx", "aster"} {
+	for _, want := range []string{"binance", "bybit", "okx", "htx", "aster"} {
 		if !contains(cfg.liquidationVenues, want) {
-			t.Errorf("default set is missing %q, which was proven to publish on 2026-09-18", want)
+			t.Errorf("default set is missing %q, which was proven to publish", want)
 		}
-	}
-	// Binance's production stream sends hklab nothing, and the testnet host that did was play money:
-	// $85M single "liquidations" on KERNEL, 25x production's open interest (see liqbinance.go).
-	if contains(cfg.liquidationVenues, "binance") {
-		t.Error("binance must not be a default liquidation venue while only its testnet reaches us")
 	}
 	// dydx is NOT a socket feed: it is polled by the ordinary liquidation sweep instead, because its
 	// WebSocket caps subscriptions at 32 per connection and pushed nothing live in 24 minutes.
@@ -184,8 +179,13 @@ func TestConfigRefusesTheBinanceTestnet(t *testing.T) {
 	if got := liquidationProtocol(cfg, "binance").URL(); got != "wss://fstream.binance.com/ws/!forceOrder@arr" {
 		t.Errorf("binance URL = %s", got)
 	}
-	if got := liquidationProtocol(config{}, "binance").URL(); stream.IsBinanceTestnetURL(got) {
+	got := liquidationProtocol(config{}, "binance").URL()
+	if stream.IsBinanceTestnetURL(got) {
 		t.Errorf("the default binance URL is the testnet: %s", got)
+	}
+	// The legacy /ws/ path completes the handshake and then sends nothing (measured 2026-09-24).
+	if !strings.Contains(got, "fstream.binance.com/market/") {
+		t.Errorf("the default binance URL must use the /market/ route: %s", got)
 	}
 }
 

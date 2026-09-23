@@ -133,10 +133,9 @@ type config struct {
 	// into a table of its own — it cannot move a number any page already shows, the way a quote feed
 	// overwrites market_latest. Set LIQUIDATION_VENUES to "none" to turn it off.
 	liquidationVenues []string
-	// binanceLiquidationURL overrides the forced-close stream host. It exists because
-	// fstream.binance.com accepted the connection and sent nothing from the box this was measured on;
-	// see stream.DefaultBinanceLiquidationURL for the measurement and why the default is the other
-	// host.
+	// binanceLiquidationURL overrides the forced-close stream URL. Binance has moved its stream paths
+	// before, and an old path accepts the connection and sends nothing, so this is the escape hatch
+	// when it happens again; see stream.DefaultBinanceLiquidationURL.
 	binanceLiquidationURL string
 }
 
@@ -249,14 +248,14 @@ func loadConfig(env func(string) string) (config, error) {
 // defaultLiquidationVenues is the measured set of SOCKET feeds, in descending order of what each
 // delivered during the 2026-09-18 probe.
 //
-// Three venues are absent on purpose. Binance's production stream host sends nothing to hklab, and
-// the testnet host that did deliver was play money (see liqbinance.go). Gate's socket works but gate
+// Binance was absent from 2026-09-23 to 2026-09-24, while it looked blocked; the fault was the path,
+// not the host (see liqbinance.go). Two venues are absent on purpose. Gate's socket works but gate
 // is already ingested over REST and the two paths would not agree on a primary key — see "WHY GATE
 // IS NOT HERE" in internal/stream/events.go. Dydx is polled instead of streamed: its socket refuses more than 32
 // subscriptions per connection and pushed nothing live in 24 minutes, while its REST trade window
 // carries days of history. It rides the ordinary liquidation poll in startSideTasks, so it needs no
 // entry here.
-var defaultLiquidationVenues = []string{"okx", "bybit", "htx", "aster"}
+var defaultLiquidationVenues = []string{"okx", "bybit", "binance", "htx", "aster"}
 
 func intFromEnv(env func(string) string, name string, fallback int) (int, error) {
 	raw := env(name)
