@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -541,6 +542,56 @@ func historyPage(count int, newest, stepMs int64) []byte {
 	}
 	b.WriteString("]}")
 	return []byte(b.String())
+}
+
+// TestASuspendedSymbolNeitherFailsHistoryNorOpensTheCircuit is the 2026-09-24 BingX outage. The
+// history sweep met six suspended NCSK symbols in a row; each answered HTTP 200 with `data` as an
+// OBJECT, which decoded as "invalid JSON", counted toward the shared circuit, and opened it -- taking
+// the funding snapshots down for five minutes out of every sweep. The body is the live reply.
+func TestASuspendedSymbolNeitherFailsHistoryNorOpensTheCircuit(t *testing.T) {
+	doer := newFixtureDoer(t)
+	doer.history = func(string) []byte {
+		return []byte(`{"code":109415,"msg":"NCSKHIVE2USD-USDT is pause currently,all validted symbols in api:/openApi/swap/v2/quote/contracts, please verify it","data":{}}`)
+	}
+	client := oneAttempt(doer)
+	adapter := NewAdapter(client)
+
+	// More than the circuit's threshold of five, which is what the sweep did.
+	for i := range 8 {
+		events, err := adapter.FetchFundingHistory(context.Background(), "NCSKHIVE2USD-USDT", 0, NOW)
+		if err != nil {
+			t.Fatalf("call %d: a suspended symbol is no history, not a failure: %v", i, err)
+		}
+		if len(events) != 0 {
+			t.Fatalf("call %d: got %d events from a suspended symbol", i, len(events))
+		}
+	}
+	if state := client.Circuit(); state.Open || state.ConsecutiveFailures != 0 {
+		t.Fatalf("circuit after suspended replies: %+v", state)
+	}
+}
+
+// TestAnErrorEnvelopeIsACodeErrorWhateverShapeDataTakes: any other non-zero code still fails, as the
+// venue's error rather than as a decoding failure, and still without touching the circuit.
+func TestAnErrorEnvelopeIsACodeErrorWhateverShapeDataTakes(t *testing.T) {
+	for _, body := range []string{
+		`{"code":100400,"msg":"bad symbol","data":{}}`,
+		`{"code":100400,"msg":"bad symbol","data":"nope"}`,
+		`{"code":100400,"msg":"bad symbol"}`,
+	} {
+		doer := newFixtureDoer(t)
+		doer.history = func(string) []byte { return []byte(body) }
+		client := oneAttempt(doer)
+
+		_, err := NewAdapter(client).FetchFundingHistory(context.Background(), "BTC-USDT", 0, NOW)
+		var code *CodeError
+		if !errors.As(err, &code) || code.Code != 100400 {
+			t.Errorf("%s: got %v, want CodeError 100400", body, err)
+		}
+		if state := client.Circuit(); state.ConsecutiveFailures != 0 {
+			t.Errorf("%s: a clean venue error counted toward the circuit: %+v", body, state)
+		}
+	}
 }
 
 func TestFetchFundingHistoryPagesBackwardsFromTheEndOfTheWindow(t *testing.T) {

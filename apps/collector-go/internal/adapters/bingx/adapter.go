@@ -220,6 +220,13 @@ func (a *Adapter) FetchFundingHistory(ctx context.Context, venueSymbol string, f
 		list, err := fetchList[FundingRate](ctx, a, fmt.Sprintf(
 			"/quote/fundingRate?symbol=%s&startTime=%d&endTime=%d&limit=%d",
 			url.QueryEscape(venueSymbol), fromMs, endTime, historyLimit), "funding history")
+		// A suspended symbol has nothing to read, which is an answer rather than a failure. The sweep
+		// takes its markets from what was seen within a day, so a symbol suspended since then is
+		// still asked for, and without this it logged an error every sweep.
+		var code *CodeError
+		if errors.As(err, &code) && code.Code == codePaused {
+			return []core.FundingEvent{}, nil
+		}
 		if err != nil {
 			return nil, err
 		}

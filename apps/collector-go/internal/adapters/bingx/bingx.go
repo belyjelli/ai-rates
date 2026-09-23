@@ -14,6 +14,7 @@
 package bingx
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
@@ -44,10 +45,50 @@ type Envelope[T any] struct {
 	Data T      `json:"data"`
 }
 
+// UnmarshalJSON reads `code` BEFORE `data`, and decodes `data` only on success.
+//
+// An error reply does not keep data's shape. Measured 2026-09-24, a suspended symbol on the LIST
+// endpoint /quote/fundingRate answers HTTP 200 with
+//
+//	{"code":109415,"msg":"NCSKHIVE2USD-USDT is pause currently,...","data":{}}
+//
+// -- an OBJECT where a list belongs. Decoded naively that is "invalid JSON", which the HTTP client
+// counts toward the venue's circuit like a timeout: the history sweep met six such symbols in a
+// row, the circuit opened for five minutes, and the funding snapshots it shares went dark with it,
+// every sweep, 105 failures a day. Decoded here, the reply is what it is -- a clean response
+// carrying a venue error -- and unwrap reports it without touching the circuit.
+func (e *Envelope[T]) UnmarshalJSON(raw []byte) error {
+	var head struct {
+		Code int             `json:"code"`
+		Msg  string          `json:"msg"`
+		Data json.RawMessage `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &head); err != nil {
+		return err
+	}
+	e.Code, e.Msg = head.Code, head.Msg
+	if head.Code != okCode || len(head.Data) == 0 {
+		return nil
+	}
+	return json.Unmarshal(head.Data, &e.Data)
+}
+
+// codePaused is BingX's reply for a symbol it has suspended (contracts status 25).
+const codePaused = 109415
+
+// CodeError is a reply BingX answered with a non-zero code.
+type CodeError struct {
+	What string
+	Code int
+	Msg  string
+}
+
+func (e *CodeError) Error() string { return fmt.Sprintf("bingx %s: %d %s", e.What, e.Code, e.Msg) }
+
 func (e Envelope[T]) unwrap(what string) (T, error) {
 	if e.Code != okCode {
 		var zero T
-		return zero, fmt.Errorf("bingx %s: %d %s", what, e.Code, e.Msg)
+		return zero, &CodeError{What: what, Code: e.Code, Msg: e.Msg}
 	}
 	return e.Data, nil
 }
