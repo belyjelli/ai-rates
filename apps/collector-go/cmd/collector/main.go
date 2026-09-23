@@ -238,19 +238,25 @@ func loadConfig(env func(string) string) (config, error) {
 		}
 	}
 	cfg.binanceLiquidationURL = strings.TrimSpace(env("BINANCE_LIQUIDATION_WS_URL"))
+	// Fatal rather than skipped: the testnet's forced closes are of play-money positions, and they
+	// look real enough to be stored for days before anyone notices (see liqbinance.go).
+	if stream.IsBinanceTestnetURL(cfg.binanceLiquidationURL) {
+		return cfg, errors.New("BINANCE_LIQUIDATION_WS_URL points at binance's testnet, whose liquidations are not market data")
+	}
 	return cfg, nil
 }
 
 // defaultLiquidationVenues is the measured set of SOCKET feeds, in descending order of what each
 // delivered during the 2026-09-18 probe.
 //
-// Two venues are absent on purpose. Gate's socket works but gate is already ingested over REST and
-// the two paths would not agree on a primary key — see "WHY GATE IS NOT HERE" in
-// internal/stream/events.go. Dydx is polled instead of streamed: its socket refuses more than 32
+// Three venues are absent on purpose. Binance's production stream host sends nothing to hklab, and
+// the testnet host that did deliver was play money (see liqbinance.go). Gate's socket works but gate
+// is already ingested over REST and the two paths would not agree on a primary key — see "WHY GATE
+// IS NOT HERE" in internal/stream/events.go. Dydx is polled instead of streamed: its socket refuses more than 32
 // subscriptions per connection and pushed nothing live in 24 minutes, while its REST trade window
 // carries days of history. It rides the ordinary liquidation poll in startSideTasks, so it needs no
 // entry here.
-var defaultLiquidationVenues = []string{"okx", "bybit", "binance", "htx", "aster"}
+var defaultLiquidationVenues = []string{"okx", "bybit", "htx", "aster"}
 
 func intFromEnv(env func(string) string, name string, fallback int) (int, error) {
 	raw := env(name)

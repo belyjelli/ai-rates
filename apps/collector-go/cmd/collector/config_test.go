@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/belyjelli/ai-rates/collector/internal/catalog"
+	"github.com/belyjelli/ai-rates/collector/internal/stream"
 )
 
 func envOf(values map[string]string) func(string) string {
@@ -112,10 +113,15 @@ func TestConfigDefaultsLiquidationVenuesToTheProvenSet(t *testing.T) {
 	if len(cfg.liquidationVenues) == 0 {
 		t.Fatal("liquidation venues should default to the measured set, not to empty")
 	}
-	for _, want := range []string{"binance", "bybit", "okx", "htx", "aster"} {
+	for _, want := range []string{"bybit", "okx", "htx", "aster"} {
 		if !contains(cfg.liquidationVenues, want) {
 			t.Errorf("default set is missing %q, which was proven to publish on 2026-09-18", want)
 		}
+	}
+	// Binance's production stream sends hklab nothing, and the testnet host that did was play money:
+	// $85M single "liquidations" on KERNEL, 25x production's open interest (see liqbinance.go).
+	if contains(cfg.liquidationVenues, "binance") {
+		t.Error("binance must not be a default liquidation venue while only its testnet reaches us")
 	}
 	// dydx is NOT a socket feed: it is polled by the ordinary liquidation sweep instead, because its
 	// WebSocket caps subscriptions at 32 per connection and pushed nothing live in 24 minutes.
@@ -154,6 +160,32 @@ func TestConfigLiquidationVenuesCanBeReplacedOrDisabled(t *testing.T) {
 		if len(cfg.liquidationVenues) != 0 {
 			t.Fatalf("%q should turn the feature off, got %v", off, cfg.liquidationVenues)
 		}
+	}
+}
+
+// TestConfigRefusesTheBinanceTestnet: the testnet's forced closes are of play-money positions, so a
+// URL pointing there must stop the boot rather than quietly fill the table (see liqbinance.go).
+func TestConfigRefusesTheBinanceTestnet(t *testing.T) {
+	for _, url := range []string{
+		"wss://fstream.binancefuture.com/ws/!forceOrder@arr",
+		"wss://FSTREAM.BINANCEFUTURE.COM/stream?streams=!forceOrder@arr",
+	} {
+		_, err := loadConfig(envOf(map[string]string{"DATABASE_URL": "postgres://x", "BINANCE_LIQUIDATION_WS_URL": url}))
+		if err == nil {
+			t.Errorf("%s was accepted; the testnet must be refused", url)
+		}
+	}
+	cfg, err := loadConfig(envOf(map[string]string{
+		"DATABASE_URL": "postgres://x", "BINANCE_LIQUIDATION_WS_URL": "wss://fstream.binance.com/ws/!forceOrder@arr",
+	}))
+	if err != nil {
+		t.Fatalf("the production host must stay allowed: %v", err)
+	}
+	if got := liquidationProtocol(cfg, "binance").URL(); got != "wss://fstream.binance.com/ws/!forceOrder@arr" {
+		t.Errorf("binance URL = %s", got)
+	}
+	if got := liquidationProtocol(config{}, "binance").URL(); stream.IsBinanceTestnetURL(got) {
+		t.Errorf("the default binance URL is the testnet: %s", got)
 	}
 }
 

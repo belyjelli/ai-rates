@@ -28,7 +28,8 @@ const (
 	bybitLiqBuy  = `{"topic":"allLiquidation.ICPUSDT","type":"snapshot","ts":1789670094412,"data":[{"T":1789670094099,"s":"ICPUSDT","S":"Buy","v":"19.7","p":"2.585"}]}`
 	bybitLiqSell = `{"topic":"allLiquidation.MARSCOINUSDT","type":"snapshot","ts":1789670278264,"data":[{"T":1789670278053,"s":"MARSCOINUSDT","S":"Sell","v":"2380","p":"0.12734"}]}`
 
-	// Binance, !forceOrder@arr, from fstream.binancefuture.com.
+	// Binance, !forceOrder@arr. Captured from fstream.binancefuture.com, which turned out to be the
+	// TESTNET (see liqbinance.go): it pins the payload shape, which the testnet shares, not a real close.
 	binanceLiqBuy = `{"e":"forceOrder","E":1789672236702,"o":{"s":"COTIUSDT","S":"BUY","o":"LIMIT","f":"IOC","q":"288183","p":"0.0220482","ap":"0.0219120","X":"FILLED","l":"288183","z":"288183","T":1789672235690}}`
 	// Aster, same stream shape on its own host — the reason one decoder serves both.
 	asterLiqSell = `{"e":"forceOrder","E":1789672621589,"o":{"s":"PAIRUSDT","S":"SELL","o":"LIMIT","f":"IOC","q":"28448","p":"0.0040681","ap":"0.0044461","X":"FILLED","l":"12417","z":"28448","T":1789672621550}}`

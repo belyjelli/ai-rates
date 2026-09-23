@@ -9,25 +9,25 @@ import (
 
 // BinanceLiquidations speaks the USD-M futures !forceOrder@arr stream: ONE topic, every symbol.
 //
-// MEASURED 2026-09-18 from this box. Binance's own REST allForceOrders is still gone (404, the same
-// verdict migration 012 recorded on 2026-09-13), but the socket is alive — with a host caveat that
-// is the whole reason DefaultBinanceLiquidationURL is not the documented endpoint:
+// OFF BY DEFAULT, AND NEVER FROM THE TESTNET HOST. Binance's REST allForceOrders is gone (404, the
+// verdict migration 012 recorded on 2026-09-13), and from hklab the production stream host
+// wss://fstream.binance.com OPENS and then delivers NOTHING: not one forceOrder in 20 minutes, and
+// not one btcusdt@aggTrade either, on a stream that ticks several times a second. That is a silent
+// geo/IP block, not a quiet market. REST fapi.binance.com answers from the same box, so the block is
+// on the stream host alone.
 //
-//	wss://fstream.binance.com        OPENS, then delivers NOTHING. Not one forceOrder in 20 minutes,
-//	                                 and — decisively — not one btcusdt@aggTrade either, on a stream
-//	                                 that ticks several times a second. A silent accept, i.e. a
-//	                                 geo/IP block, NOT a quiet market.
-//	wss://fstream.binancefuture.com  Same production data, and it delivers: 166 aggTrade control
-//	                                 messages and 3 forceOrder events inside the first two minutes.
+// The workaround shipped on 2026-09-18 was wss://fstream.binancefuture.com, which does deliver. It
+// is Binance's FUTURES TESTNET, not "the same production data" as this comment then claimed. Testnet
+// prices track production because market makers mirror them, so every row LOOKED plausible, but the
+// positions being liquidated are play money. Measured 2026-09-23: KERNELUSDT open interest was 60M
+// on production and 2,384,834M on testnet, and the feed had stored single "liquidations" of $85.1M
+// (KERNEL), $39.8M (PUNDIX) and $14.9M (PUMPBTC) — the KERNEL one 1.53B coins, more than 25x
+// production's entire open interest. Binance had become $553M of a $761M 24-hour total, on fewer
+// events than okx's $106M. Migration 024 deletes every binance row that host wrote.
 //
-// Both hosts were run side by side, each with the aggTrade control alongside, precisely so "the
-// venue is quiet" could be told apart from "this host sends us nothing". REST fapi.binance.com
-// answers fine from the same box, so the block is on the stream host alone.
-//
-// The default is therefore the host PROVEN to deliver, not the one in the documentation: an
-// all-symbols feed that silently delivers nothing is the worst possible failure here, because
-// nothing about it looks broken. An operator whose server reaches the primary host can set
-// BINANCE_LIQUIDATION_WS_URL back to it.
+// So the default URL is production, binance is out of defaultLiquidationVenues, and loadConfig
+// REFUSES a testnet URL outright (IsBinanceTestnetURL). An operator whose egress reaches production
+// can add binance to LIQUIDATION_VENUES; nobody can point it at play money by accident.
 //
 // UNDERCOUNTING, WHICH IS INHERENT AND NOT A BUG. Binance documents that this stream pushes at most
 // ONE order per symbol per SECOND. A violent minute on a busy symbol is therefore reported short,
@@ -45,11 +45,18 @@ type BinanceLiquidations struct {
 }
 
 const (
-	// DefaultBinanceLiquidationURL — see the type comment for why this is not fstream.binance.com.
-	DefaultBinanceLiquidationURL = "wss://fstream.binancefuture.com/ws/!forceOrder@arr"
+	// DefaultBinanceLiquidationURL is production. See the type comment for why binance is still off
+	// by default, and why the testnet host is refused.
+	DefaultBinanceLiquidationURL = "wss://fstream.binance.com/ws/!forceOrder@arr"
 	// DefaultAsterLiquidationURL. Aster's own host, reached directly: no block was observed here.
 	DefaultAsterLiquidationURL = "wss://fstream.asterdex.com/ws/!forceOrder@arr"
 )
+
+// IsBinanceTestnetURL reports whether url is Binance's futures testnet, whose liquidations are of
+// play-money positions and must never be stored as market data.
+func IsBinanceTestnetURL(url string) bool {
+	return strings.Contains(strings.ToLower(url), "binancefuture.com")
+}
 
 func NewBinanceLiquidations(url string) *BinanceLiquidations {
 	if strings.TrimSpace(url) == "" {
