@@ -629,6 +629,7 @@ describe("pages", () => {
         long_usd: 7_974_000,
         short_usd: 1_516_000,
         markets: 1,
+        last_at: new Date(NOW - 2 * 3_600_000),
       },
       {
         venue_id: "okx",
@@ -637,6 +638,7 @@ describe("pages", () => {
         long_usd: 0,
         short_usd: 12_000,
         markets: 1,
+        last_at: new Date(NOW - 2 * 3_600_000),
       },
     ],
     sides: [
@@ -1373,6 +1375,7 @@ describe("pages", () => {
     anchor_mark: 0.01132,
     mark_agrees: true,
     observed_at: new Date(NOW - 20_000),
+    quotes_at: new Date(NOW - 2_000),
     ...overrides,
   });
 

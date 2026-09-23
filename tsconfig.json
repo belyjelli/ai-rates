@@ -5,5 +5,5 @@
   },
   "include": ["apps/*/src/**/*.ts", "packages/*/src/**/*.ts", "worker-configuration.d.ts"],
   // Bun-only code (Bun.serve, bun's SQL) is typechecked by tsconfig.bun.json.
-  "exclude": ["**/*.test.ts", "apps/collector/**", "packages/db/**"]
+  "exclude": ["**/*.test.ts", "packages/db/**"]
 }

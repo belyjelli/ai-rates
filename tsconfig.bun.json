@@ -6,10 +6,6 @@
   },
   // scripts/test-wallet only: the other top-level scripts have never been typechecked, and bringing
   // them in is a separate change from adding this one.
-  "include": [
-    "apps/collector/src/**/*.ts",
-    "packages/db/src/**/*.ts",
-    "scripts/test-wallet/**/*.ts"
-  ],
+  "include": ["packages/db/src/**/*.ts", "scripts/test-wallet/**/*.ts"],
   "exclude": ["**/*.test.ts"]
 }
