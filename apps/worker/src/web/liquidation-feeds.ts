@@ -19,7 +19,7 @@ import { venueName } from "./venues";
  * the htx bug made on 2026-09-18 (connected, subscribed, delivering nothing, reported healthy).
  */
 
-export type FeedVerdict = "live" | "none" | "unresolved" | "partial";
+export type FeedVerdict = "live" | "none" | "unresolved" | "partial" | "blocked";
 
 export interface FeedEntry {
   venueId: string;
@@ -39,10 +39,13 @@ export const FEEDS: readonly FeedEntry[] = [
     evidence: "liquidation-orders, one topic for every swap; 4.5 events/min measured",
   },
   {
+    // Read from 2026-09-18 to 2026-09-23 off fstream.binancefuture.com, which is the TESTNET: play
+    // money, with single $85M "liquidations" on KERNEL. Migration 024 deleted every row it wrote.
     venueId: "binance",
-    verdict: "live",
-    transport: "socket",
-    evidence: "!forceOrder@arr; 2.7/min. One order per symbol per second is the venue's own cap",
+    verdict: "blocked",
+    transport: "",
+    evidence:
+      "!forceOrder@arr publishes, but the production host sends our region nothing. The host that did deliver was Binance's testnet, so its rows were deleted",
   },
   {
     venueId: "bybit",
@@ -144,10 +147,11 @@ const VERDICT_TITLE: Record<FeedVerdict, string> = {
   none: "Probed with a control channel on the same socket, and it publishes nothing",
   unresolved: "The venue documents a liquidation marker that never occurred while we watched",
   partial: "Enough is published to see liquidations, but not enough to map them safely",
+  blocked: "The venue publishes forced closes, but no source we can trust reaches our collector",
 };
 
 /** Feeds first, and within them the busiest, then the venues that publish nothing. */
-const VERDICT_ORDER: FeedVerdict[] = ["live", "partial", "unresolved", "none"];
+const VERDICT_ORDER: FeedVerdict[] = ["live", "blocked", "partial", "unresolved", "none"];
 
 /**
  * How a live feed is doing right now.

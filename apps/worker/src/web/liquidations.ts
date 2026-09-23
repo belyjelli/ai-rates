@@ -452,8 +452,12 @@ ${title}
       ? `<p class="empty">No liquidations recorded in the last ${esc(params.window)}. Only the venues that publish a feed the collector reads appear here, so a quiet window is not a quiet market.</p>`
       : `<div class="lq-grid${shown.length === 1 ? " lq-grid-one" : ""}">${shown.map(panel).join("")}</div>`;
 
-  const newest = map.cells.reduce<Date | null>(
-    (latest, cell) => (latest === null || cell.bucket_start > latest ? cell.bucket_start : latest),
+  // The newest forced close itself, from the per-venue totals. This used to be the newest CELL's
+  // bucket_start, i.e. the start of the last 2-hour column, so it read "1h 11m ago" while a feed had
+  // closed something 16 seconds earlier.
+  const newest = map.totals.reduce<Date | null>(
+    (latest, total) =>
+      total.last_at && (latest === null || total.last_at > latest) ? total.last_at : latest,
     null,
   );
 

@@ -991,8 +991,8 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
             fill_price: 100,
             notional_usd: 400,
           },
-          // A second venue, and a symbol market_latest has never seen: it must still appear, under
-          // its raw symbol, because a forced close is a fact whether or not we can name the asset.
+          // A second venue, and a symbol market_latest has never seen: it must still appear, because
+          // a forced close is a fact whether or not we can name the asset.
           {
             venue_id: venueB,
             venue_symbol: liqSymbolB,
@@ -1021,11 +1021,20 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       expect(cell?.bucket_start.getTime()).toBe(bucket);
     });
 
-    test("names the asset from market_latest, and falls back to the raw symbol", async () => {
+    test("names the asset from market_latest, and falls back to the symbol minus its quote", async () => {
       const map = await mine();
-      // venueA's row is named by its market; venueB's symbol was never collected, so it keeps it.
+      // venueA's row is named by its market. venueB's symbol was never collected, so it is named
+      // by stripping "-USDT-SWAP" -- which lands it on the SAME row as venueA, rather than on a row
+      // of its own called "ITL...-USDT-SWAP" (bybit's delisted ICXUSDT, 2026-09-23).
       expect(map.cells.some((c) => c.venue_id === venueA && c.asset === liqAsset)).toBe(true);
-      expect(map.cells.some((c) => c.venue_id === venueB && c.asset === liqSymbolB)).toBe(true);
+      expect(map.cells.some((c) => c.venue_id === venueB && c.asset === liqAsset)).toBe(true);
+      expect(map.cells.some((c) => c.asset === liqSymbolB)).toBe(false);
+    });
+
+    test("each venue's total carries its newest close, not a bucket boundary", async () => {
+      const map = await mine();
+      const totalB = map.totals.find((t) => t.venue_id === venueB);
+      expect(totalB?.last_at?.getTime()).toBeGreaterThanOrEqual(bucket + 60_000);
     });
 
     test("totals cover every asset, so the page's total is not the sum of what it shows", async () => {
