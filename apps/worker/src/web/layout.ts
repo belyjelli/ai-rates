@@ -393,7 +393,7 @@ box-shadow:inset 0 0 0 1px var(--ink)}
    all is a settled finding rather than a warning. Only "failing" (the socket cycling) is alarming. */
 .st-quiet{color:var(--muted)}
 .st-none{color:var(--dim)}
-.st-partial,.st-unresolved{color:var(--warn)}
+.st-partial,.st-unresolved,.st-blocked{color:var(--warn)}
 /* The evidence column is prose, so it wraps rather than pushing the table into a horizontal scroll;
    every other cell on the site is a figure and stays on one line. */
 .sheet td.feed-why{white-space:normal;min-width:34ch;color:var(--muted)}

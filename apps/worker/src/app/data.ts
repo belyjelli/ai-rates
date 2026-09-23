@@ -441,6 +441,8 @@ export interface LiquidationTotals {
   long_usd: number;
   short_usd: number;
   markets: number;
+  /** This venue's newest forced close in the window: the time itself, not its bucket's start. */
+  last_at: Date | null;
 }
 
 export interface LiquidationMapOptions {
@@ -681,6 +683,13 @@ function chosenClass(sql: postgres.Sql, base: string, assetClass: AssetClass | n
     ORDER BY (asset_class = 'crypto') DESC, sum(open_interest_usd) DESC NULLS LAST, asset_class
     LIMIT 1`;
 }
+
+/**
+ * The quote and contract-type tail of a liquidation feed's symbol, for a market with no
+ * market_latest row: ICXUSDT, ICX_USDT, ICX-USDT-SWAP and ICX-USD all name ICX. A POSIX pattern,
+ * applied to the upper-cased symbol by Postgres, so the same string is what the tests exercise.
+ */
+export const QUOTE_SUFFIX = "[-_]?(USDT|USDC|USD)([-_]?(SWAP|PERP))?$";
 
 /**
  * Read queries against the collector's read models (packages/db/migrations/002_screener.sql).
@@ -1097,11 +1106,14 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       // The asset a liquidation belongs to comes from market_latest, not from the venue symbol:
       // ETH_USDT on gate and ETH-USDT-SWAP on okx are one asset and must share a row, which is the
       // whole point of putting the two venues side by side. A market the funding path has never
-      // recorded keeps its raw symbol rather than being dropped -- a forced close is a fact whether
-      // or not we know what to call it.
+      // recorded is kept rather than dropped -- a forced close is a fact whether or not we know what
+      // to call it -- under its symbol with the quote stripped. Seen 2026-09-23: bybit's delisted
+      // ICXUSDT has no market_latest row and showed as an asset called "ICXUSDT" beside ICX.
       const named = sql`
         SELECT l.venue_id, l.side, l.notional_usd, l.liquidated_at,
-               coalesce(m.base, l.venue_symbol) AS asset,
+               coalesce(m.base,
+                        nullif(regexp_replace(upper(l.venue_symbol), ${QUOTE_SUFFIX}::text, ''), ''),
+                        l.venue_symbol) AS asset,
                coalesce(m.asset_class, 'crypto') AS asset_class
         FROM liquidations l
         LEFT JOIN market_latest m
@@ -1153,7 +1165,8 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                  count(*)::int AS events,
                  coalesce(sum(notional_usd) FILTER (WHERE side = 'long'), 0)::float8 AS long_usd,
                  coalesce(sum(notional_usd) FILTER (WHERE side = 'short'), 0)::float8 AS short_usd,
-                 count(DISTINCT asset)::int AS markets
+                 count(DISTINCT asset)::int AS markets,
+                 max(liquidated_at) AS last_at
           FROM named GROUP BY 1 ORDER BY 2 DESC NULLS LAST`,
 
         sql<LiquidationColumnTotal[]>`

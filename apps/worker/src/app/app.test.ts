@@ -431,6 +431,7 @@ describe("pages", () => {
           long_usd: 30_000_000,
           short_usd: 9_760_000,
           markets: 312,
+          last_at: new Date(NOW - 3_600_000),
         },
         {
           venue_id: "okx",
@@ -439,11 +440,38 @@ describe("pages", () => {
           long_usd: 30_000_000,
           short_usd: 34_080_000,
           markets: 412,
+          last_at: new Date(NOW - 16_000),
         },
       ],
       ...overrides,
     };
   };
+
+  test("the map's freshness is the newest close itself, not the start of its column", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    const html = await (await get("/liquidations", data)).text();
+    // okx closed something 16 seconds ago; the newest cell's bucket_start is two hours back, which
+    // is what the line used to report.
+    expect(html).toContain("Newest liquidation 16s ago.");
+  });
+
+  test("/v1/liquidations applies a named venue instead of only echoing it", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    const body = (await (await get("/v1/liquidations?venue=okx", data)).json()) as {
+      count: number;
+      venues: { venue_id: string }[];
+      assets: { asset: string }[];
+      cells: { venue_id: string }[];
+    };
+    expect(body.cells.map((cell) => cell.venue_id)).toEqual(["okx"]);
+    expect(body.count).toBe(1);
+    expect(body.venues.map((venue) => venue.venue_id)).toEqual(["okx"]);
+    // Only the rows okx has a cell in: gate's ETH is not okx's.
+    expect(body.assets.map((asset) => asset.asset)).toEqual(["SNDK"]);
+
+    const all = (await (await get("/v1/liquidations", data)).json()) as { cells: unknown[] };
+    expect(all.cells).toHaveLength(2);
+  });
 
   test("the liquidation map adds the feeds up by default, and names them", async () => {
     const { data } = fakeData({ liquidationMap: async () => liqMap() });
@@ -1070,6 +1098,8 @@ describe("pages", () => {
     // A venue that was probed and publishes nothing is a row, not an omission, and carries why.
     expect(html).toContain("st-none");
     expect(html).toContain("acked all 790 USDT-futures symbols");
+    // Binance publishes, but only its testnet reached us: not a live feed, and not "publishes none".
+    expect(html).toMatch(/data-k="binance">[\s\S]*?st-blocked/);
     // The feed's own run health decides the fault, not the count: htx:liq is cycling.
     expect(html).toContain("st-failing");
     expect(panel).not.toContain('data-k="htx:liq"');

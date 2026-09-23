@@ -22,6 +22,8 @@ import {
   heatmapToQuery,
   LIQUIDATION_BAND_REACH,
   LIQUIDATION_BANDS,
+  LIQUIDATION_VENUE_ALL,
+  LIQUIDATION_VENUE_EACH,
   LIQUIDATION_WINDOWS,
   liquidationsToQuery,
   parseArbitrageParams,
@@ -430,13 +432,24 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         bucketHours,
         assets: params.assets,
       });
+      // A named venue narrows the response the way it narrows the page. It was parsed and echoed
+      // back in `params` but never applied, so ?venue=okx returned every venue's cells, binance's
+      // included. The rows are still the busiest assets across every feed, as on the page.
+      const one =
+        params.venue !== LIQUIDATION_VENUE_ALL && params.venue !== LIQUIDATION_VENUE_EACH
+          ? params.venue
+          : null;
+      const cells = one ? map.cells.filter((cell) => cell.venue_id === one) : map.cells;
+      const shown = new Set(cells.map((cell) => `${cell.asset_class}:${cell.asset}`));
       return json({
         params,
         query: liquidationsToQuery(params),
-        count: map.cells.length,
-        venues: map.totals,
-        assets: map.assets,
-        cells: map.cells,
+        count: cells.length,
+        venues: one ? map.totals.filter((total) => total.venue_id === one) : map.totals,
+        assets: one
+          ? map.assets.filter((asset) => shown.has(`${asset.asset_class}:${asset.asset}`))
+          : map.assets,
+        cells,
       });
     }
 
