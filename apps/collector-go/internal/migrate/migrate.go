@@ -81,6 +81,37 @@ func Apply(ctx context.Context, db DB, dir fs.FS) (Result, error) {
 	return result, nil
 }
 
+// Pending reports what Apply WOULD do, without changing anything: Applied lists the files still to
+// run, Skipped those already recorded. It creates nothing, so a database that has never been migrated
+// (no schema_migrations table) reports every file as pending rather than failing.
+func Pending(ctx context.Context, db DB, dir fs.FS) (Result, error) {
+	var result Result
+	names, err := fs.Glob(dir, "*.sql")
+	if err != nil {
+		return result, fmt.Errorf("list migrations: %w", err)
+	}
+	if len(names) == 0 {
+		return result, fmt.Errorf("no *.sql migrations found")
+	}
+
+	done := map[string]bool{}
+	rows, err := db.Query(ctx, `SELECT to_regclass('schema_migrations') IS NOT NULL`)
+	if err != nil {
+		return result, fmt.Errorf("look for schema_migrations: %w", err)
+	}
+	exists, err := pgx.CollectExactlyOneRow(rows, pgx.RowTo[bool])
+	if err != nil {
+		return result, fmt.Errorf("look for schema_migrations: %w", err)
+	}
+	if exists {
+		if done, err = appliedVersions(ctx, db); err != nil {
+			return result, err
+		}
+	}
+	result.Applied, result.Skipped = Plan(names, done)
+	return result, nil
+}
+
 // Plan splits migration file names into those to apply, in filename order, and those already done.
 func Plan(names []string, done map[string]bool) (apply, skip []string) {
 	sorted := append([]string(nil), names...)

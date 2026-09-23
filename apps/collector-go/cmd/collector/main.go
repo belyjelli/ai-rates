@@ -142,10 +142,10 @@ type config struct {
 func loadConfig(env func(string) string) (config, error) {
 	cfg := config{}
 
+	// Not required HERE: `venues`, `fetch`, `health` and `version` never touch the database, and a
+	// debugging command that refuses to start without production credentials is one nobody runs. The
+	// commands that do connect check it through requireDatabase.
 	cfg.databaseURL = env("DATABASE_URL")
-	if cfg.databaseURL == "" {
-		return cfg, errors.New("DATABASE_URL is required")
-	}
 
 	intervalMs, err := intFromEnv(env, "COLLECT_INTERVAL_MS", 60_000)
 	if err != nil {
@@ -257,6 +257,15 @@ func loadConfig(env func(string) string) (config, error) {
 // entry here.
 var defaultLiquidationVenues = []string{"okx", "bybit", "binance", "htx", "aster"}
 
+// requireDatabase is the check loadConfig used to make for every command, now made only by the ones
+// that connect.
+func (c config) requireDatabase() error {
+	if c.databaseURL == "" {
+		return errors.New("DATABASE_URL is required")
+	}
+	return nil
+}
+
 func intFromEnv(env func(string) string, name string, fallback int) (int, error) {
 	raw := env(name)
 	if raw == "" {
@@ -270,13 +279,39 @@ func intFromEnv(env func(string) string, name string, fallback int) (int, error)
 }
 
 func main() {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	slog.SetDefault(log)
+	// The command tree is in cli.go. With no arguments it runs the collector, exactly as this binary
+	// did before it had subcommands, so the image's ENTRYPOINT and the compose file are unchanged.
+	os.Exit(execute(os.Args[1:], os.Stdout, os.Stderr))
+}
 
-	if err := run(log); err != nil {
-		log.Error("collector exited", "error", err)
-		os.Exit(1)
+// openPool connects with the settings every command shares, and pings so a bad URL fails here.
+func openPool(ctx context.Context, cfg config) (*pgxpool.Pool, error) {
+	if err := cfg.requireDatabase(); err != nil {
+		return nil, err
 	}
+	poolCfg, err := pgxpool.ParseConfig(cfg.databaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse DATABASE_URL: %w", err)
+	}
+	// Matching the TypeScript collector's pool size. The database is shared with other tenants, so
+	// the ceiling is a courtesy as much as a tuning choice.
+	poolCfg.MaxConns = 10
+	// UTC for every session, whatever the server's own time zone. The jobs fold settlements into UTC
+	// days (`AT TIME ZONE 'UTC'`) but cut their windows with `(now() - interval '7 days')::date`, which
+	// casts in the SESSION zone. On a server at +07 that cutoff lands a day late, the 7-of-7 charging
+	// floor sees six days, and the verified backtests and ranking silently come back empty — found
+	// when exactly that happened against a local PostgreSQL. The TypeScript SQL has the same
+	// dependency; pinning the session makes both halves of the arithmetic agree by construction.
+	poolCfg.ConnConfig.RuntimeParams["timezone"] = "UTC"
+	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+	if err != nil {
+		return nil, fmt.Errorf("connect: %w", err)
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, fmt.Errorf("ping: %w", err)
+	}
+	return pool, nil
 }
 
 func run(log *slog.Logger) error {
@@ -298,6 +333,9 @@ func run(log *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	if err := cfg.requireDatabase(); err != nil {
+		return err
+	}
 
 	// Read before connecting, so a missing or malformed catalog fails the boot before anything is written.
 	venues, err := catalog.Load(cfg.venueCatalog)
@@ -308,29 +346,11 @@ func run(log *slog.Logger) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	poolCfg, err := pgxpool.ParseConfig(cfg.databaseURL)
+	pool, err := openPool(ctx, cfg)
 	if err != nil {
-		return fmt.Errorf("parse DATABASE_URL: %w", err)
-	}
-	// Matching the TypeScript collector's pool size. The database is shared with other tenants, so
-	// the ceiling is a courtesy as much as a tuning choice.
-	poolCfg.MaxConns = 10
-	// UTC for every session, whatever the server's own time zone. The jobs fold settlements into UTC
-	// days (`AT TIME ZONE 'UTC'`) but cut their windows with `(now() - interval '7 days')::date`, which
-	// casts in the SESSION zone. On a server at +07 that cutoff lands a day late, the 7-of-7 charging
-	// floor sees six days, and the verified backtests and ranking silently come back empty — found
-	// when exactly that happened against a local PostgreSQL. The TypeScript SQL has the same
-	// dependency; pinning the session makes both halves of the arithmetic agree by construction.
-	poolCfg.ConnConfig.RuntimeParams["timezone"] = "UTC"
-	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
-	if err != nil {
-		return fmt.Errorf("connect: %w", err)
+		return err
 	}
 	defer pool.Close()
-
-	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("ping: %w", err)
-	}
 
 	// Migrations first, as the Bun collector ran them on every boot: nothing below may touch a table a
 	// pending migration is about to change. A failure stops the boot rather than collecting into an
@@ -1326,7 +1346,7 @@ const (
 // the 7-of-7 charging floor and the first ranking would be empty.
 func startJobs(ctx context.Context, cfg config, db *store.Store, log *slog.Logger, watch *collector.JobWatch) []*collector.PeriodicTask {
 	var tasks []*collector.PeriodicTask
-	start := func(name string, pause, delay time.Duration, job func(context.Context) error) {
+	registerJobs(cfg, db, log, func(name string, pause, delay time.Duration, job func(context.Context) error) {
 		// Every outcome feeds the job watch, which is what reports a job that fails or stops running.
 		// A run cut short by shutdown is not an outcome.
 		watch.Expect(name, delay, pause)
@@ -1340,7 +1360,17 @@ func startJobs(ctx context.Context, cfg config, db *store.Store, log *slog.Logge
 		task := collector.NewPeriodicTask(name, pause, watched, func(message string) { log.Warn(message) })
 		task.Start(ctx, delay)
 		tasks = append(tasks, task)
-	}
+	})
+	return tasks
+}
+
+// jobStarter receives each fleet-wide job as registerJobs declares it.
+type jobStarter func(name string, pause, delay time.Duration, job func(context.Context) error)
+
+// registerJobs declares every fleet-wide job, in order, to start. The scheduler above passes one that
+// runs each on a timer; `collector jobs` passes one that collects them to run on demand. One list
+// serves both, so the manual command cannot drift from what production runs.
+func registerJobs(cfg config, db *store.Store, log *slog.Logger, start jobStarter) {
 
 	start("funding stats refresh", statsRefresh, 3*cfg.interval, func(ctx context.Context) error {
 		markets, err := db.RefreshFundingStats(ctx)
@@ -1407,7 +1437,6 @@ func startJobs(ctx context.Context, cfg config, db *store.Store, log *slog.Logge
 		}
 		return err
 	})
-	return tasks
 }
 
 // jobWatchNames are the fleet-wide jobs startJobs registers with the job watch, for the boot message

@@ -192,6 +192,23 @@ docker compose -f ~/airates-app/deploy/hklab/compose.yml restart collector-go
 docker exec timescaledb_container sh -c 'psql -U "$POSTGRES_USER" -d vaultdeck -c "\dt+"'
 ```
 
+The collector binary has commands of its own. Inside the container they read the same environment
+as the running service, so none needs flags (`collector <command> --help` for each):
+
+```sh
+docker exec airates-collector-go collector health                  # /health as a table, problems first; exit 1 when unhealthy
+docker exec airates-collector-go collector venues                  # every adapter: selected? stream? liquidation feed?
+docker exec airates-collector-go collector fetch bybit --limit 5   # one live snapshot, printed, NOTHING written
+docker exec airates-collector-go collector migrate --status        # applied vs pending; `migrate` applies them
+docker exec airates-collector-go collector jobs list               # the fleet-wide jobs and their schedule
+docker exec airates-collector-go collector jobs run windows ranked # run now instead of waiting; `all` runs every one
+docker exec airates-collector-go collector version
+```
+
+`fetch` is the first thing to try when a venue shows empty or failing on /status: it shows exactly
+what the adapter gets back, without touching the database. `jobs run` repeats the collector's own
+idempotent refreshes, so it is safe beside the running service.
+
 **The collector is `collector-go` as of 2026-09-15.** The Bun collector (`airates-collector`) is
 deprecated and profile-gated, so an ordinary `docker compose up -d` no longer starts it.
 
