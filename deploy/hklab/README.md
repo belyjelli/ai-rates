@@ -205,6 +205,22 @@ docker exec airates-collector-go collector jobs run windows ranked # run now ins
 docker exec airates-collector-go collector version
 ```
 
+For debugging a venue, all read-only (they print; none writes a row):
+
+```sh
+docker exec airates-collector-go collector doctor                  # config, catalog, DB, migrations, feeds, the running process
+docker exec airates-collector-go collector status                  # problem feeds from the DB; --all for every one
+docker exec airates-collector-go collector status gate             # one venue: markets, runs, last error, liquidations
+docker exec airates-collector-go collector runs bingx --errors     # a venue's recent failed runs
+docker exec airates-collector-go collector watch lighter --seconds 60   # a liquidation socket, decoded live
+docker exec airates-collector-go collector liqs orderly            # a polled liquidation fetch, once
+docker exec airates-collector-go collector history bybit BTCUSDT   # one market's settled funding
+```
+
+`status` flags a liquidation feed averaging over $100k a close: honest feeds average $150-$9,000, and
+the Binance testnet leak averaged $611k. `watch` and `liqs` would have shown that leak in their first
+rows. From a laptop, `status`, `runs` and `doctor` need `DATABASE_URL`; the rest need nothing.
+
 `fetch` is the first thing to try when a venue shows empty or failing on /status: it shows exactly
 what the adapter gets back, without touching the database. `jobs run` repeats the collector's own
 idempotent refreshes, so it is safe beside the running service.

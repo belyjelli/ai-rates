@@ -83,6 +83,7 @@ variables the running service reads, so inside the container every command needs
 		newHealthCmd(),
 		newVersionCmd(),
 	)
+	addDebugCommands(root)
 	return root
 }
 

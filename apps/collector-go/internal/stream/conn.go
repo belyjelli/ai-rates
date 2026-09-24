@@ -331,21 +331,37 @@ func (c *connector) run(ctx context.Context) error {
 		}
 	}
 
-	frames := c.wire.Frames(symbols)
-	for i, frame := range frames {
-		if err := conn.Write(ctx, frame); err != nil {
-			return fmt.Errorf("subscribe frame %d/%d: %w", i+1, len(frames), err)
-		}
-		if pause := c.wire.FramePause(); pause > 0 && i < len(frames)-1 {
-			if !sleep(ctx, pause) {
-				return ctx.Err()
-			}
-		}
-	}
-	c.connected(c.opts.Now())
-
 	readCtx, cancelRead := context.WithCancel(ctx)
 	defer cancelRead()
+
+	// SUBSCRIBE WHILE READING. Each subscribe is answered, and a venue that paces subscriptions can
+	// answer with a lot: Lighter's reply to every trade/{id} replays the market's recent trades and
+	// liquidations, and its 211 frames go out at 350 ms, over 74 s. Written before the read loop
+	// started, those replies sat unread until Lighter dropped the connection as a slow reader, at
+	// frame 71-102 on every attempt (2026-09-24). So the frames go out from their own goroutine while
+	// this one reads. coder/websocket allows Write concurrently with Read, and with the keepalive's
+	// Write below.
+	frames := c.wire.Frames(symbols)
+	subscribeErr := make(chan error, 1)
+	go func() {
+		for i, frame := range frames {
+			if err := conn.Write(readCtx, frame); err != nil {
+				subscribeErr <- fmt.Errorf("subscribe frame %d/%d: %w", i+1, len(frames), err)
+				cancelRead()
+				return
+			}
+			if pause := c.wire.FramePause(); pause > 0 && i < len(frames)-1 {
+				if !sleep(readCtx, pause) {
+					return
+				}
+			}
+		}
+		// Only for a connection still being read: one that died as the last frame went out must not
+		// be marked connected after run has already cleared it.
+		if readCtx.Err() == nil {
+			c.connected(c.opts.Now())
+		}
+	}()
 
 	// A refresh that arrived while this feed was between connections is already satisfied: the
 	// frames above were built from the current set. Drop it rather than cycling a connection that
@@ -404,6 +420,9 @@ func (c *connector) run(ctx context.Context) error {
 			select {
 			case <-cycled:
 				return errResubscribe
+			case err := <-subscribeErr:
+				// The subscribe failed and cancelled the read; its error is the real one.
+				return err
 			default:
 			}
 			return fmt.Errorf("read: %w", err)
