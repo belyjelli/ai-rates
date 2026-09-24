@@ -161,6 +161,38 @@ export const FEEDS: readonly FeedEntry[] = [
       "Every trade channel carries a liquidation_trades array; the taker is the liquidated account, on 15 of 15 both ways",
   },
   {
+    // Added 2026-09-24: Lighter's Robinhood Chain deployment, same API and side rule, its own ids.
+    venueId: "lighter-rh",
+    verdict: "live",
+    transport: "socket",
+    evidence:
+      "The Robinhood Chain deployment of Lighter: the same liquidation_trades array, read against its own markets",
+  },
+  {
+    // Added 2026-09-24. Side confirmed against the Solana program log on three transactions.
+    venueId: "phoenix",
+    verdict: "live",
+    transport: "REST",
+    evidence:
+      "Fills marked LiquidateViaMarketOrder; a close that hits several makers is folded into one by transaction",
+  },
+  {
+    // Added 2026-09-24. Side confirmed on the liquidated user's own fill.
+    venueId: "risex",
+    verdict: "live",
+    transport: "socket",
+    evidence:
+      "All-markets trades; a liquidation carries the 1% liquidation fee, and the liquidated account is the taker",
+  },
+  {
+    // Added 2026-09-24. Drift's liquidation records under the Velocity name.
+    venueId: "velocity",
+    verdict: "live",
+    transport: "REST",
+    evidence:
+      "/stats/liquidations lists every perp liquidation with 31 days behind it; a quiet venue, about one every two days",
+  },
+  {
     // Added 2026-09-24. Needs permessage-deflate: the handshake is 403 without it.
     venueId: "nado",
     verdict: "live",

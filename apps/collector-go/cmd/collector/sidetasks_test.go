@@ -36,7 +36,8 @@ func TestSideLoopsAttachToTheSameVenuesAsTypeScript(t *testing.T) {
 	// minutes, while one REST trade page reaches back days — see dydx.Adapter.FetchLiquidations.
 	// bluefin and orderly joined on 2026-09-24: both publish a public REST list of forced closes
 	// (tradeType=LIQUIDATION; /liquidated_positions) with too little volume to need a socket.
-	wantLiquidations := []string{"bluefin", "dydx", "gate", "okx", "orderly"}
+	// phoenix and velocity joined later the same day, polled for the same reason.
+	wantLiquidations := []string{"bluefin", "dydx", "gate", "okx", "orderly", "phoenix", "velocity"}
 
 	var history, tiers, liquidations []string
 	for _, c := range registry() {

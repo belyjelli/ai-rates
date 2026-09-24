@@ -70,6 +70,8 @@ type Adapter struct {
 	// known remembers each market from the markets call, because the history endpoints carry
 	// neither the class nor the interval and would otherwise cost a lookup call every time.
 	known map[string]Market
+	// liqSince is where the last liquidation poll's window ended; zero before the first.
+	liqSince time.Time
 }
 
 func NewAdapter(client *httpclient.Client) *Adapter {

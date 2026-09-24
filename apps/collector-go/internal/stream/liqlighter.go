@@ -34,23 +34,42 @@ import (
 // KEEPALIVE IS REQUIRED: with nothing sent, the server closed the socket at 120 s ("i/o timeout").
 // {"type":"ping"} every 50 s held one open for 200 s, each answered with {"type":"pong"}.
 type LighterLiquidations struct {
-	client *httpclient.Client
+	client     *httpclient.Client
+	deployment lighter.Deployment
+	url        string
 
 	mu       sync.RWMutex
 	idOf     map[string]int64
 	symbolOf map[int64]string
 }
 
-// DefaultLighterLiquidationURL is the Ethereum deployment's stream, the venue "lighter".
-const DefaultLighterLiquidationURL = "wss://mainnet.zklighter.elliot.ai/stream"
+const (
+	// DefaultLighterLiquidationURL is the Ethereum deployment's stream, the venue "lighter".
+	DefaultLighterLiquidationURL = "wss://mainnet.zklighter.elliot.ai/stream"
+	// LighterRHLiquidationURL is the Robinhood Chain deployment's, the venue "lighter-rh": the same API
+	// and message shape with its own markets and ids (probed 2026-09-24, a replayed liquidation on
+	// market 8 with the system client id 0 on the taker side, as on mainnet).
+	LighterRHLiquidationURL = "wss://api.rh.lighter.xyz/stream"
+)
 
 func NewLighterLiquidations(client *httpclient.Client) *LighterLiquidations {
-	return &LighterLiquidations{client: client, idOf: map[string]int64{}, symbolOf: map[int64]string{}}
+	return newLighterLiquidations(client, lighter.Mainnet, DefaultLighterLiquidationURL)
 }
 
-func (*LighterLiquidations) VenueID() string { return lighter.VenueID }
+// NewLighterRHLiquidations reads the Robinhood Chain deployment. Its market ids are its own, so it
+// keeps its own map, read from its own orderBookDetails.
+func NewLighterRHLiquidations(client *httpclient.Client) *LighterLiquidations {
+	return newLighterLiquidations(client, lighter.RH, LighterRHLiquidationURL)
+}
 
-func (*LighterLiquidations) URL() string { return DefaultLighterLiquidationURL }
+func newLighterLiquidations(client *httpclient.Client, deployment lighter.Deployment, url string) *LighterLiquidations {
+	return &LighterLiquidations{client: client, deployment: deployment, url: url,
+		idOf: map[string]int64{}, symbolOf: map[int64]string{}}
+}
+
+func (l *LighterLiquidations) VenueID() string { return l.deployment.VenueID }
+
+func (l *LighterLiquidations) URL() string { return l.url }
 
 // NeedsSymbols is true: there is no all-markets trade channel, so each market is its own topic.
 func (*LighterLiquidations) NeedsSymbols() bool { return true }
@@ -82,8 +101,8 @@ func (*LighterLiquidations) PingEvery() time.Duration { return 50 * time.Second 
 // a market listed while the feed ran gets a name.
 func (l *LighterLiquidations) Prepare(ctx context.Context, _ []string) error {
 	var details lighter.OrderBookDetails
-	if err := l.client.GetJSON(ctx, lighter.API+"/orderBookDetails", &details); err != nil {
-		return fmt.Errorf("lighter orderBookDetails: %w", err)
+	if err := l.client.GetJSON(ctx, l.deployment.API+"/orderBookDetails", &details); err != nil {
+		return fmt.Errorf("%s orderBookDetails: %w", l.deployment.VenueID, err)
 	}
 	idOf := make(map[string]int64, len(details.OrderBookDetails))
 	symbolOf := make(map[int64]string, len(details.OrderBookDetails))
