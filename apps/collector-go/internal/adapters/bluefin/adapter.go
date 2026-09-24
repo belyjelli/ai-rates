@@ -31,6 +31,8 @@ type Adapter struct {
 	info    []MarketInfo
 	infoAt  time.Time
 	hasInfo bool
+	// liqSince is where the last liquidation poll's window ended; zero before the first.
+	liqSince time.Time
 }
 
 func NewAdapter(client *httpclient.Client) *Adapter {

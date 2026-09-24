@@ -34,7 +34,9 @@ func TestSideLoopsAttachToTheSameVenuesAsTypeScript(t *testing.T) {
 	// dydx joined gate and okx on 2026-09-18. It is polled rather than streamed because its
 	// WebSocket refuses more than 32 subscriptions per connection and pushed nothing live in 24
 	// minutes, while one REST trade page reaches back days — see dydx.Adapter.FetchLiquidations.
-	wantLiquidations := []string{"dydx", "gate", "okx"}
+	// bluefin and orderly joined on 2026-09-24: both publish a public REST list of forced closes
+	// (tradeType=LIQUIDATION; /liquidated_positions) with too little volume to need a socket.
+	wantLiquidations := []string{"bluefin", "dydx", "gate", "okx", "orderly"}
 
 	var history, tiers, liquidations []string
 	for _, c := range registry() {

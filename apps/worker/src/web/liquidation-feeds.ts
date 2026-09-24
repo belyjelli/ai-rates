@@ -81,6 +81,24 @@ export const FEEDS: readonly FeedEntry[] = [
       "Public trades carry type LIQUIDATED, with months of history: a cold sweep read back to April",
   },
   {
+    // Added 2026-09-24. The sign of position_qty names the position; the docs are silent, so it was
+    // checked against the price move before 268 rows (257 agreed).
+    venueId: "orderly",
+    verdict: "live",
+    transport: "REST",
+    evidence:
+      "/liquidated_positions lists every forced close on the shared book, about 100 a day, ten days back",
+  },
+  {
+    // Added 2026-09-24. `side` is the closing order (LONG closed a short); 146 of 150 agreed with the
+    // price move before them.
+    venueId: "bluefin",
+    verdict: "live",
+    transport: "REST",
+    evidence:
+      "Trades filtered to tradeType=LIQUIDATION, which the default ORDER filter hides; full history since launch",
+  },
+  {
     venueId: "bitget",
     verdict: "none",
     transport: "",

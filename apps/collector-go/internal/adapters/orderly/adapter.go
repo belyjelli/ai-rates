@@ -43,6 +43,8 @@ type Adapter struct {
 	markets          map[string]Info
 	marketsLoaded    bool
 	marketsFetchedAt int64
+	// liqSince is where the last liquidation poll's window ended; zero before the first.
+	liqSince time.Time
 }
 
 func NewAdapter(client *httpclient.Client) *Adapter {
