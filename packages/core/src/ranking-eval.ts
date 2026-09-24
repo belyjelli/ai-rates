@@ -5,7 +5,11 @@
  * this was ever run on real data; if a choice here is not in the specification, it is a bug.
  *
  * Pure: it takes the stored picks and the daily funding fold, and returns per-variant metrics and the
- * decision. Reading the database is the runner's job (scripts/ranking-eval/).
+ * decision. This file is the reference implementation; the collector that actually reads the
+ * database and runs it (`collector rank-eval`) carries a Go port,
+ * `internal/core/ranking_eval.go` in `belyjelli/profitlock-worker`, tested on these same
+ * hand-computed cases. Reading the database from here was retired 2026-09-24 (see the
+ * pre-registration's §9) along with `scripts/ranking-eval/`.
  */
 
 export const VARIANTS = ["widest", "settled", "shrunk", "hysteresis", "capacity"] as const;

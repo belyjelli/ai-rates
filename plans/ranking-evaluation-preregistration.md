@@ -85,8 +85,8 @@ After the first real run, this file changes only through §9.
 ## 4. The evaluator
 
 `evaluateWindow(start, picks, rates)` computes §3 for one window; `decide(windows)` applies §6. Both are
-pure and tested on hand-computed synthetic cases in `ranking-eval.test.ts`. The extraction queries and
-the runner are in `scripts/ranking-eval/`.
+pure and tested on hand-computed synthetic cases in `ranking-eval.test.ts`. This is the reference
+implementation; the extraction and the runner are ported into the collector itself — see §8.
 
 ## 5. Validity — a window is invalid, not estimated, when
 
@@ -126,9 +126,17 @@ A variant that passes all three in every window is eligible.
 
 ## 8. Reproduction
 
-See `scripts/ranking-eval/README.md`: extract `picks.csv` and `rates.csv` read-only on hklab, then
-`bun scripts/ranking-eval/evaluate.ts picks.csv rates.csv`. The runner refuses to start before
-2026-09-29 06:00Z.
+**Internalized into the collector on 2026-09-24** (see §9): `docker exec airates-collector-go
+collector rank-eval` on hklab. It queries `market_pair_candidates` and `market_funding_daily`
+directly -- no SSH tunnel, no CSV extract, no second language toolchain -- and prints the same
+report the old Bun runner did. It refuses to start before 2026-09-29 06:00Z, with no override, for
+the same reason the runner it replaced did.
+
+The evaluator (`internal/core/ranking_eval.go` in `belyjelli/profitlock-worker`) is a port of
+`packages/core/src/ranking-eval.ts`, which stays here as the reference implementation: both are
+tested on the same hand-computed synthetic cases (`ranking-eval.test.ts` /
+`ranking_eval_test.go`), so the two independent implementations agreeing is itself a check. If
+they ever need to disagree, this document's §3/§5/§6 is the authority, not either program.
 
 ## 9. Amendments
 
@@ -153,3 +161,13 @@ This does not move the earliest evaluation date: 2026-09-28 is still the last da
 2026-09-29 06:00Z stands. No variant's realised funding, cost or turnover has been looked at as of
 this amendment — the runner still refuses to start before that time — so this is a pre-registration
 correction, not a post-hoc change made after seeing a result.
+
+**2026-09-24 — reproduction internalized into the collector, §8 updated.**
+
+`scripts/ranking-eval/{evaluate.ts,extract-picks.sql,extract-rates.sql,README.md}` are removed from
+this repository. What they did — extract over an SSH tunnel, hand off two CSVs, run a Bun script —
+is now `docker exec airates-collector-go collector rank-eval` on hklab: one command, no tunnel, no
+CSV, no second toolchain, run directly against the collector's own database. The evaluator is
+ported to `internal/core/ranking_eval.go` in `belyjelli/profitlock-worker`, tested on the identical
+hand-computed synthetic cases as `packages/core/src/ranking-eval.ts` (which stays here as the
+reference implementation — see §8). Nothing about §3, §5 or §6 changed; only where the check runs.
