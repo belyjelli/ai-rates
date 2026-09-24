@@ -14,8 +14,12 @@ export type Variant = (typeof VARIANTS)[number];
 /** Variant A, today's behaviour. */
 export const CONTROL: Variant = "widest";
 
-/** The two pre-registered windows, by first run day (§3). */
-export const WINDOW_STARTS = ["2026-09-14", "2026-09-21"] as const;
+/**
+ * The two pre-registered windows, by first run day (§3). W2 was substituted from 2026-09-21 to
+ * 2026-09-22 on 2026-09-24, per §9: run day 2026-09-21 has zero candidate rows (a collector outage),
+ * which makes the originally-fixed W2 invalid under §5's own rule.
+ */
+export const WINDOW_STARTS = ["2026-09-14", "2026-09-22"] as const;
 
 /** The runner refuses to start before this: the last held day's fold must be complete (§2, §8). */
 export const EARLIEST_EVALUATION_MS = Date.UTC(2026, 8, 29, 6, 0, 0);

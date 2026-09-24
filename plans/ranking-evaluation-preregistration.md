@@ -56,7 +56,8 @@ After the first real run, this file changes only through §9.
 
 - **Windows.** Two non-overlapping 7-night windows:
   - **W1:** run days 2026-09-14 to 2026-09-20.
-  - **W2:** run days 2026-09-21 to 2026-09-27.
+  - **W2:** run days 2026-09-21 to 2026-09-27. **Substituted 2026-09-24 to 2026-09-22–2026-09-28 — see
+    §9.**
 - **Held day.** A pick made on run day *d* earns the settled funding of UTC day *d + 1*. The job runs
   within day *d*, so no settlement it could not have seen is used to choose.
 - **Position size.** `deployable_usd` of the picked row. A row with unknown depth has size 0.
@@ -131,4 +132,24 @@ See `scripts/ranking-eval/README.md`: extract `picks.csv` and `rates.csv` read-o
 
 ## 9. Amendments
 
-None.
+**2026-09-24 — W2 substituted to 2026-09-22–2026-09-28, per §5's own rule, before any evaluation ran.**
+
+Checked coverage of `market_pair_candidates` ahead of the 2026-09-29 run: run day **2026-09-21 has
+zero rows** — no picks for any variant, any asset. That is the exact condition §5 names ("a run day
+has no picks for any variant (a missed nightly run)"), and W2 as originally fixed above starts on
+that day, so W2 as written is invalid.
+
+**Cause, confirmed from `collector_runs`:** the collector stopped writing venue snapshots from
+2026-09-21 21:00Z to 2026-09-22 04:00Z (a ~6.5h gap; runs/hour dropped from a steady 3,360 to 1,548
+then to 0 before recovering), spanning the moment `refreshRankedPairs` runs for that day. Every other
+run day from 2026-09-14 to 2026-09-24 has a complete set of rows.
+
+**Substitution, applying §5 mechanically ("moves to the next complete 7-night window"):**
+- **W1** is unchanged: 2026-09-14 to 2026-09-20 (complete, no gaps).
+- **W2** becomes **2026-09-22 to 2026-09-28** — the next 7 consecutive complete run days after the
+  gap, non-overlapping with W1.
+
+This does not move the earliest evaluation date: 2026-09-28 is still the last day W2 needs, so
+2026-09-29 06:00Z stands. No variant's realised funding, cost or turnover has been looked at as of
+this amendment — the runner still refuses to start before that time — so this is a pre-registration
+correction, not a post-hoc change made after seeing a result.
