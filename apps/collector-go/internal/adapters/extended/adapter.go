@@ -19,6 +19,10 @@ const (
 	// minIntervalMs of 100. Exported because the spacing lives on the client the caller builds, not
 	// on the adapter. The published limit is 1,000 requests/minute per IP.
 	MinInterval = 100 * time.Millisecond
+
+	// marketsTimeout is how long the one snapshot request may take; see FetchSnapshots. Under the
+	// collector's 45 s cycle, so a read that never finishes still fails the cycle it belongs to.
+	marketsTimeout = 40 * time.Second
 )
 
 // Adapter fetches Extended's perpetual market data.
@@ -49,7 +53,12 @@ func (a *Adapter) RequestCount() int { return a.client.RequestCount() }
 // this call states. No extra headers: the shared client sends the User-Agent Extended requires.
 func (a *Adapter) FetchSnapshots(ctx context.Context, now time.Time) (core.SnapshotBatch, error) {
 	var body Response[[]Market]
-	if err := a.client.GetJSON(ctx, API+"/info/markets", &body); err != nil {
+	// ONE REQUEST, GIVEN THE CYCLE'S TIME. /info/markets is ~1 MB, uncompressed whatever is asked, and
+	// 54% of it is tradingConfig -- static risk tiers -- but no bulk endpoint leaves that out and the
+	// per-market stats call would be 326 requests a cycle. From hklab on 2026-09-24 it took 0.66-1.6 s
+	// usually and 28-30 s at times; under the client's 15 s each slow read failed three attempts in a
+	// row and the 45 s cycle with them, 266 of 1,434 runs in a day. 40 s lets a slow read finish.
+	if err := a.client.GetJSON(httpclient.WithRequestTimeout(ctx, marketsTimeout), API+"/info/markets", &body); err != nil {
 		return core.SnapshotBatch{}, err
 	}
 	if body.Data == nil {
