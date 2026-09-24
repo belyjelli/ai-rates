@@ -82,7 +82,8 @@ type connector struct {
 	// mu guards everything below. Feed and EventFeed each keep their own lock over their own buffer.
 	mu      sync.Mutex
 	lastErr error
-	// connectedAt is when the CURRENT connection finished subscribing, or zero when there is none.
+	// connectedAt is when the CURRENT connection began reading (its subscribe frames go out alongside),
+	// or zero when there is none.
 	connectedAt time.Time
 	// drops counts connections that ended in a fault and have not yet been redeemed by a connection
 	// that stayed up. See health() for why a reconnect does not reset it.
@@ -140,7 +141,7 @@ const flapThreshold = 2
 // of it, rather than merely not having been hung up on yet.
 const stableConnection = 5 * time.Minute
 
-// connected records a connection that has subscribed successfully.
+// connected records a connection that is up and about to read; its subscribe frames go out alongside.
 func (c *connector) connected(at time.Time) {
 	c.mu.Lock()
 	c.connectedAt = at
@@ -342,6 +343,11 @@ func (c *connector) run(ctx context.Context) error {
 	// this one reads. coder/websocket allows Write concurrently with Read, and with the keepalive's
 	// Write below.
 	frames := c.wire.Frames(symbols)
+	// Connected BEFORE the first read, not after the last frame. connected() clears the connection's
+	// error, and with subscribing now concurrent with reading, a rejection the read loop records while
+	// frames are still going out would otherwise be wiped by a connected() that runs after it —
+	// TestARejectedSubscriptionSurfacesWithoutKillingTheConnection failed 3 runs in 20 on exactly that.
+	c.connected(c.opts.Now())
 	subscribeErr := make(chan error, 1)
 	go func() {
 		for i, frame := range frames {
@@ -355,11 +361,6 @@ func (c *connector) run(ctx context.Context) error {
 					return
 				}
 			}
-		}
-		// Only for a connection still being read: one that died as the last frame went out must not
-		// be marked connected after run has already cleared it.
-		if readCtx.Err() == nil {
-			c.connected(c.opts.Now())
 		}
 	}()
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/belyjelli/ai-rates/collector/internal/core"
+	"github.com/belyjelli/ai-rates/collector/internal/httpclient"
 )
 
 // Fetcher is the slice of a venue adapter the snapshot loop needs.
@@ -108,6 +109,13 @@ func (l *VenueLoop) RunOnce(ctx context.Context) *Run {
 	run := Run{VenueID: venueID, StartedAt: startedAt}
 
 	cycleCtx, cancel := context.WithTimeout(ctx, l.opts.Timeout)
+	// A SNAPSHOT REQUEST MAY USE THE CYCLE'S TIME, not only the client's 15 s. From hklab the bulk
+	// calls slow to 20-40 s at times while still arriving: Gate's 1.3 MB contract list and 480 KB
+	// tickers, Extended's 1 MB markets (2026-09-24). Cut at 15 s, each such read failed its attempts
+	// and the cycle with them, a venue at a time: Extended 266 of 1,434 runs, then Gate twice. The
+	// cycle's own deadline still bounds it, and a request that fails fast (refused, 5xx, 429) retries
+	// as before; only a read that is still arriving is given longer.
+	cycleCtx = httpclient.WithRequestTimeout(cycleCtx, l.opts.Timeout)
 	batch, err := l.fetchGuarded(cycleCtx, startedAt)
 	cancel()
 

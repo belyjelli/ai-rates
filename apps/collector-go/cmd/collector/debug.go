@@ -52,12 +52,17 @@ type venueStatus struct {
 	liqAvgUSD, liqSumUS float64
 }
 
-// state classifies a feed the way /status does, from its own runs: a feed whose newest run failed is
-// failing; one with no success in the stale window is stale; one with no runs at all is silent.
+// state classifies a feed from its own runs. A feed whose newest run failed is failing, unless it also
+// succeeded inside the stale window: then it is flaky, a one-off like toobit's occasional "Too many
+// requests" (10 in 1,434 runs a day), and not something to wake anyone for. One with no success in
+// the stale window is stale; one with no runs at all is silent.
 func (v venueStatus) state(now time.Time, staleAfter time.Duration) string {
+	recentOK := v.lastOK != nil && now.Sub(*v.lastOK) <= staleAfter
 	switch {
 	case v.lastRun == nil:
 		return "silent"
+	case v.lastRunFailed && recentOK:
+		return "flaky"
 	case v.lastRunFailed:
 		return "failing"
 	case v.lastOK == nil || now.Sub(*v.lastOK) > staleAfter:
@@ -216,7 +221,7 @@ $150-$9,000, and an outlier average has so far always meant wrong units or a wro
 			for id := range statuses {
 				ids = append(ids, id)
 			}
-			rank := map[string]int{"failing": 0, "stale": 1, "silent": 2, "ok": 3}
+			rank := map[string]int{"failing": 0, "stale": 1, "silent": 2, "flaky": 2, "ok": 3}
 			sort.Slice(ids, func(i, j int) bool {
 				a, b := statuses[ids[i]], statuses[ids[j]]
 				ra, rb := rank[a.state(now, staleAfter)], rank[b.state(now, staleAfter)]
@@ -247,8 +252,8 @@ $150-$9,000, and an outlier average has so far always meant wrong units or a wro
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d/%d\t%s\t%s\t%s\n", id, state, markets(v), ago(v.lastOK, now),
 					v.runsOK, v.runsOK+v.runsFailed, liqCount(v), liqAvg(v), v.note())
 			}
-			fmt.Fprintf(out, "%d feeds: %d ok, %d failing, %d stale, %d silent\n",
-				len(ids), counts["ok"], counts["failing"], counts["stale"], counts["silent"])
+			fmt.Fprintf(out, "%d feeds: %d ok, %d flaky, %d failing, %d stale, %d silent\n",
+				len(ids), counts["ok"], counts["flaky"], counts["failing"], counts["stale"], counts["silent"])
 			if shown == 0 {
 				fmt.Fprintln(out, "nothing to report; --all lists every feed")
 				return nil

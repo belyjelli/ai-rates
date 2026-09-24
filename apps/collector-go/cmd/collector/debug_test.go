@@ -15,11 +15,13 @@ func TestStatusStateFollowsTheNewestRun(t *testing.T) {
 		v    venueStatus
 		want string
 	}{
-		"never ran":                {venueStatus{}, "silent"},
-		"newest run failed":        {venueStatus{lastRun: ago(time.Minute), lastOK: ago(2 * time.Minute), lastRunFailed: true}, "failing"},
-		"ok but too long ago":      {venueStatus{lastRun: ago(10 * time.Minute), lastOK: ago(10 * time.Minute)}, "stale"},
-		"ran recently and fine":    {venueStatus{lastRun: ago(30 * time.Second), lastOK: ago(30 * time.Second)}, "ok"},
-		"runs but never succeeded": {venueStatus{lastRun: ago(time.Minute)}, "stale"},
+		"never ran":                 {venueStatus{}, "silent"},
+		"newest failed, none since": {venueStatus{lastRun: ago(time.Minute), lastOK: ago(10 * time.Minute), lastRunFailed: true}, "failing"},
+		// toobit: one "Too many requests" between successes is flaky, not failing.
+		"newest failed, ok recently": {venueStatus{lastRun: ago(30 * time.Second), lastOK: ago(90 * time.Second), lastRunFailed: true}, "flaky"},
+		"ok but too long ago":        {venueStatus{lastRun: ago(10 * time.Minute), lastOK: ago(10 * time.Minute)}, "stale"},
+		"ran recently and fine":      {venueStatus{lastRun: ago(30 * time.Second), lastOK: ago(30 * time.Second)}, "ok"},
+		"runs but never succeeded":   {venueStatus{lastRun: ago(time.Minute)}, "stale"},
 	} {
 		if got := tc.v.state(now, stale); got != tc.want {
 			t.Errorf("%s: got %s, want %s", name, got, tc.want)
