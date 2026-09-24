@@ -138,6 +138,24 @@ export interface Overview {
   assets: number;
   open_interest_usd: number;
   updated_at: Date | null;
+  /** The book's latest fear/greed reading (migration 026), null before the job has ever run. */
+  sentiment_score: number | null;
+  sentiment_label: string | null;
+}
+
+/** One market_sentiment row: the combined score plus each component's raw value and percentile. */
+export interface SentimentPoint {
+  computed_at: Date;
+  score: number;
+  label: string;
+  funding_raw: number | null;
+  funding_component: number | null;
+  oi_raw: number | null;
+  oi_component: number | null;
+  liquidation_raw: number | null;
+  liquidation_component: number | null;
+  taker_flow_raw: number | null;
+  taker_flow_component: number | null;
 }
 
 export interface HeatmapOptions {
@@ -655,6 +673,8 @@ export interface DataSource {
   cvd(options: CvdOptions): Promise<CvdData>;
   /** What each liquidation feed actually stored in the last day. */
   liquidationFeeds(): Promise<LiquidationFeedRow[]>;
+  /** Fear/greed readings over the trailing window, oldest first, for the /sentiment chart. */
+  sentimentHistory(hours: number): Promise<SentimentPoint[]>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -663,6 +683,8 @@ const EMPTY_OVERVIEW: Overview = {
   assets: 0,
   open_interest_usd: 0,
   updated_at: null,
+  sentiment_score: null,
+  sentiment_label: null,
 };
 
 /**
@@ -698,15 +720,27 @@ export const QUOTE_SUFFIX = "[-_]?(USDT|USDC|USD)([-_]?(SWAP|PERP))?$";
 export function createDataSource(connect: () => postgres.Sql): DataSource {
   return {
     async overview() {
-      const [row] = await connect()<Overview[]>`
-        SELECT count(*)::int AS markets,
-               count(DISTINCT venue_id)::int AS venues,
-               count(DISTINCT base)::int AS assets,
-               coalesce(sum(open_interest_usd), 0)::float8 AS open_interest_usd,
-               max(observed_at) AS updated_at
-        FROM market_latest
-        WHERE observed_at > now() - ${FRESH_INTERVAL}::interval`;
-      return row ?? EMPTY_OVERVIEW;
+      const sql = connect();
+      // Two independent single-row reads, not a join: market_sentiment writes every 30 minutes
+      // while market_latest writes every cycle, so joining them would tie the header's freshness to
+      // whichever table happened to be older.
+      const [[row], [sentiment]] = await Promise.all([
+        sql<Overview[]>`
+          SELECT count(*)::int AS markets,
+                 count(DISTINCT venue_id)::int AS venues,
+                 count(DISTINCT base)::int AS assets,
+                 coalesce(sum(open_interest_usd), 0)::float8 AS open_interest_usd,
+                 max(observed_at) AS updated_at
+          FROM market_latest
+          WHERE observed_at > now() - ${FRESH_INTERVAL}::interval`,
+        sql<{ score: number; label: string }[]>`
+          SELECT score::float8, label FROM market_sentiment ORDER BY computed_at DESC LIMIT 1`,
+      ]);
+      return {
+        ...(row ?? EMPTY_OVERVIEW),
+        sentiment_score: sentiment?.score ?? null,
+        sentiment_label: sentiment?.label ?? null,
+      };
     },
 
     async screener(f) {
@@ -1426,6 +1460,19 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         FROM liquidations
         WHERE liquidated_at > now() - interval '24 hours'
         GROUP BY venue_id`;
+      return [...rows];
+    },
+
+    async sentimentHistory(hours) {
+      const rows = await connect()<SentimentPoint[]>`
+        SELECT computed_at, score::float8, label,
+               funding_raw::float8, funding_component::float8,
+               oi_raw::float8, oi_component::float8,
+               liquidation_raw::float8, liquidation_component::float8,
+               taker_flow_raw::float8, taker_flow_component::float8
+        FROM market_sentiment
+        WHERE computed_at > now() - (${hours} || ' hours')::interval
+        ORDER BY computed_at`;
       return [...rows];
     },
 

@@ -113,3 +113,15 @@ export function aprTone(apr: number | null): string {
   if (apr === null || apr === 0) return "flat";
   return apr > 0 ? "shorts-paid" : "longs-paid";
 }
+
+/**
+ * "long"/"short"/"ink" for a fear/greed score, 0-100 -- shared between layout.ts's header badge and
+ * sentiment.ts's page so the two never drift onto different band cuts. The cuts themselves match the
+ * collector's CASE in migration 026 exactly: <25 extreme fear, <45 fear, <=55 neutral, <=75 greed,
+ * else extreme greed.
+ */
+export function sentimentTone(score: number): string {
+  if (score < 45) return "short";
+  if (score > 55) return "long";
+  return "ink";
+}

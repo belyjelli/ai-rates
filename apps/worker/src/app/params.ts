@@ -472,3 +472,38 @@ export function cvdToQuery(params: CvdParams): string {
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
 }
+
+/**
+ * Windows the sentiment chart offers. market_sentiment (migration 026) keeps 90 days and writes
+ * every 30 minutes, so 7d is ~336 points and 90d is ~4,320 -- both fine for one SVG polyline -- and
+ * the default is 7d, wide enough to show the score moving without drowning a single day's reading.
+ */
+export const SENTIMENT_WINDOWS = {
+  "24h": { hours: 24 },
+  "7d": { hours: 24 * 7 },
+  "30d": { hours: 24 * 30 },
+  "90d": { hours: 24 * 90 },
+} as const;
+
+export type SentimentWindow = keyof typeof SENTIMENT_WINDOWS;
+export const SENTIMENT_WINDOW_KEYS = Object.keys(SENTIMENT_WINDOWS) as SentimentWindow[];
+
+export interface SentimentParams {
+  window: SentimentWindow;
+}
+
+export function parseSentimentParams(params: URLSearchParams): SentimentParams {
+  const window = (params.get("window") ?? "").trim().toLowerCase();
+  return {
+    window: (SENTIMENT_WINDOW_KEYS as readonly string[]).includes(window)
+      ? (window as SentimentWindow)
+      : "7d",
+  };
+}
+
+export function sentimentToQuery(params: SentimentParams): string {
+  const query = new URLSearchParams();
+  if (params.window !== "7d") query.set("window", params.window);
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : "";
+}

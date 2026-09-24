@@ -30,6 +30,8 @@ const overview: Overview = {
   assets: 1200,
   open_interest_usd: 9e10,
   updated_at: new Date(NOW - 12_000),
+  sentiment_score: 62,
+  sentiment_label: "greed",
 };
 
 const pair: ScreenerPair = {
@@ -123,6 +125,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     liquidationMap: async () => ({ cells: [], columnTotals: [], totals: [], assets: [] }),
     cvd: async () => ({ rows: [], asset_class: "crypto" as const, bars: [], newest: null }),
     liquidationFeeds: async () => [],
+    sentimentHistory: async () => [],
     liquidationAsset: async () => ({
       asset_class: "crypto" as const,
       mark: 2434.7,
