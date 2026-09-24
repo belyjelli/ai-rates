@@ -24,12 +24,6 @@
         "@ai-rates/db": "workspace:*",
       },
     },
-    "packages/adapters": {
-      "name": "@ai-rates/adapters",
-      "dependencies": {
-        "@ai-rates/core": "workspace:*",
-      },
-    },
     "packages/core": {
       "name": "@ai-rates/core",
     },
@@ -41,8 +35,6 @@
     },
   },
   "packages": {
-    "@ai-rates/adapters": ["@ai-rates/adapters@workspace:packages/adapters"],
-
     "@ai-rates/core": ["@ai-rates/core@workspace:packages/core"],
 
     "@ai-rates/db": ["@ai-rates/db@workspace:packages/db"],
