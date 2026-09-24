@@ -28,6 +28,9 @@ type Adapter struct {
 
 	markets          *Results[Market]
 	marketsFetchedAt time.Time
+
+	// liq is the liquidation poll's cursor, which runs on its own goroutine (see liquidations.go).
+	liq liqState
 }
 
 func NewAdapter(client *httpclient.Client) *Adapter {

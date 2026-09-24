@@ -146,11 +146,12 @@ export const FEEDS: readonly FeedEntry[] = [
     evidence: "648 trades delivered, with no type, cause or event field on any of them",
   },
   {
+    // Resolved 2026-09-24: LIQUIDATION trades are real, just rare (~one per market every two hours).
     venueId: "paradex",
-    verdict: "unresolved",
-    transport: "",
+    verdict: "live",
+    transport: "REST",
     evidence:
-      "Its trades carry a trade_type, but only FILL and RPI occurred in 24 min; the documented LIQUIDATION value was never seen",
+      "Trades marked LIQUIDATION, rare enough that 24 minutes of the socket missed them; the REST history holds hundreds per market",
   },
   {
     // Resolved 2026-09-24: the liquidated account is always the taker, checked on 7 long and 8 short.

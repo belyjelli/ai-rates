@@ -37,7 +37,7 @@ func TestSideLoopsAttachToTheSameVenuesAsTypeScript(t *testing.T) {
 	// bluefin and orderly joined on 2026-09-24: both publish a public REST list of forced closes
 	// (tradeType=LIQUIDATION; /liquidated_positions) with too little volume to need a socket.
 	// phoenix and velocity joined later the same day, polled for the same reason.
-	wantLiquidations := []string{"bluefin", "dydx", "gate", "okx", "orderly", "phoenix", "velocity"}
+	wantLiquidations := []string{"bluefin", "dydx", "gate", "okx", "orderly", "paradex", "phoenix", "velocity"}
 
 	var history, tiers, liquidations []string
 	for _, c := range registry() {
