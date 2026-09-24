@@ -10,7 +10,7 @@ Extraction is deliberately separate from estimation, so the query cannot quietly
 
 ```sh
 # 1. Extract. No host, user or password lives in this repo -- the connection comes from the
-#    environment, following deploy/hklab/deploy.sh, because this repository is public.
+#    environment, following deploy/hklab/README.md, because this repository is public.
 psql "$DATABASE_URL" -f py/l3/extract.sql > /tmp/l3-events.csv
 
 # 2. Estimate.
