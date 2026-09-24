@@ -82,6 +82,44 @@ type Ticker struct {
 	HighestSize adapters.Num `json:"highest_size"`
 	LowestAsk   adapters.Num `json:"lowest_ask"`
 	LowestSize  adapters.Num `json:"lowest_size"`
+	// The per-cycle fields /contracts also carries, so the contract list can be cached (see
+	// withLiveFunding). Measured 2026-09-24: funding_rate equal to /contracts' on all 1,013 markets,
+	// mark_price within 0.2% on 1,005.
+	FundingRate adapters.Num `json:"funding_rate"`
+	MarkPrice   adapters.Num `json:"mark_price"`
+	IndexPrice  adapters.Num `json:"index_price"`
+}
+
+// withLiveFunding overlays one cycle's tickers onto a cached contract list: the funding rate, mark
+// and index are taken from the ticker, and the next settlement is rolled forward by whole intervals
+// from the cached one, which is the only per-cycle field the tickers do not carry. A contract with no
+// ticker keeps its cached values; ParseSnapshots already leaves such a market's book and volume null.
+func withLiveFunding(cached []Contract, tickers []Ticker, nowMs int64) []Contract {
+	byName := make(map[string]Ticker, len(tickers))
+	for _, ticker := range tickers {
+		byName[ticker.Contract] = ticker
+	}
+	nowSec := nowMs / 1000
+	out := make([]Contract, len(cached))
+	for i, contract := range cached {
+		if ticker, ok := byName[contract.Name]; ok {
+			if ticker.FundingRate.OK {
+				contract.FundingRate = ticker.FundingRate
+			}
+			if ticker.MarkPrice.OK {
+				contract.MarkPrice = ticker.MarkPrice
+			}
+			if ticker.IndexPrice.OK {
+				contract.IndexPrice = ticker.IndexPrice
+			}
+		}
+		if contract.FundingInterval > 0 && contract.FundingNextApply > 0 && contract.FundingNextApply <= nowSec {
+			behind := (nowSec-contract.FundingNextApply)/contract.FundingInterval + 1
+			contract.FundingNextApply += behind * contract.FundingInterval
+		}
+		out[i] = contract
+	}
+	return out
 }
 
 type FundingHistoryItem struct {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/belyjelli/ai-rates/collector/internal/adapters"
@@ -34,17 +35,29 @@ const (
 	liquidationPage = 1000
 )
 
+// ContractsMaxAge is how long a fetched /contracts list is reused before it is read again.
+//
+// The list is 1.3 MB and changes on a listing or a delisting; the fields that move every cycle (the
+// funding rate, mark and index) come from /tickers instead, see withLiveFunding. Measured
+// 2026-09-24 from hklab, the same 1.3 MB took 0.65 s on one request and 31-43 s on the next, and
+// the HTTP client allows 15 s: Gate did not complete one cycle for the first eight minutes after a
+// restart, and every cycle then was a coin toss. Reading it hourly leaves the 480 KB tickers as the
+// only large download a cycle makes.
+const ContractsMaxAge = time.Hour
+
 // Adapter collects Gate's USDT-margined futures.
 //
-// It owns no state beyond its client. Gate answers for its whole book in one liquidations call, so
-// unlike OKX there is no rotation cursor to keep — nothing here would have to become mutex-guarded
-// adapter state to survive the collector running each venue on its own goroutine.
-//
-// The one exception is taker flow, which caches the contract multipliers and paces its own endpoint;
-// that state is mutex-guarded in takerState.
+// Gate answers for its whole book in one liquidations call, so unlike OKX there is no rotation cursor
+// to keep. Its state is the cached contract list (below) and taker flow's multipliers and pacing
+// (takerState), each mutex-guarded, because the collector runs each venue's loops on their own
+// goroutines.
 type Adapter struct {
 	client *httpclient.Client
 	taker  takerState
+
+	mu                 sync.Mutex
+	contracts          []Contract
+	contractsFetchedAt int64
 }
 
 func NewAdapter(client *httpclient.Client) *Adapter {
@@ -67,18 +80,45 @@ func (a *Adapter) getOptional(ctx context.Context, path string, out any) error {
 	return a.client.GetJSONOptional(ctx, baseURL+path, out)
 }
 
-// FetchSnapshots runs one cycle: the contract list, which carries funding and the multipliers, and
-// the tickers, which carry the book and the volumes.
+// FetchSnapshots runs one cycle: the tickers, which carry funding, the prices, the book and the
+// volumes, over the contract list, which carries the multipliers and intervals and is read at most
+// once per ContractsMaxAge.
 func (a *Adapter) FetchSnapshots(ctx context.Context, now time.Time) (core.SnapshotBatch, error) {
-	var contracts []Contract
-	if err := a.get(ctx, "/contracts", &contracts); err != nil {
+	contracts, err := a.contractList(ctx, now.UnixMilli())
+	if err != nil {
 		return core.SnapshotBatch{}, err
 	}
 	var tickers []Ticker
 	if err := a.get(ctx, "/tickers", &tickers); err != nil {
 		return core.SnapshotBatch{}, err
 	}
-	return ParseSnapshots(contracts, tickers, now.UnixMilli()), nil
+	return ParseSnapshots(withLiveFunding(contracts, tickers, now.UnixMilli()), tickers, now.UnixMilli()), nil
+}
+
+// contractList returns the cached /contracts, refreshing it once it is ContractsMaxAge old.
+//
+// A failed refresh with a list in hand keeps the old one and tries again next cycle: a listing an
+// hour late costs far less than a cycle lost to a slow download. Only a failure with nothing cached
+// (the first cycle) fails the cycle.
+func (a *Adapter) contractList(ctx context.Context, nowMs int64) ([]Contract, error) {
+	a.mu.Lock()
+	cached, fetchedAt := a.contracts, a.contractsFetchedAt
+	a.mu.Unlock()
+	if cached != nil && nowMs-fetchedAt < ContractsMaxAge.Milliseconds() {
+		return cached, nil
+	}
+
+	var fresh []Contract
+	if err := a.get(ctx, "/contracts", &fresh); err != nil {
+		if cached != nil {
+			return cached, nil
+		}
+		return nil, err
+	}
+	a.mu.Lock()
+	a.contracts, a.contractsFetchedAt = fresh, nowMs
+	a.mu.Unlock()
+	return fresh, nil
 }
 
 // FetchLeverageTiers sweeps the whole venue's ladders in ten-ish pages, since `offset` advances by
@@ -147,8 +187,10 @@ func (a *Adapter) FetchLiquidations(ctx context.Context) ([]core.Liquidation, bo
 	if err := a.get(ctx, fmt.Sprintf("/liq_orders?limit=%d", liquidationPage), &rows); err != nil {
 		return nil, false, err
 	}
-	var contracts []Contract
-	if err := a.get(ctx, "/contracts", &contracts); err != nil {
+	// The multipliers only, so the snapshot loop's hourly cache serves: re-reading 1.3 MB every five
+	// minutes for them was the same slow download that was failing the snapshot cycles.
+	contracts, err := a.contractList(ctx, time.Now().UnixMilli())
+	if err != nil {
 		return nil, false, err
 	}
 
