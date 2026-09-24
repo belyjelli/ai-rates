@@ -204,6 +204,15 @@ func (c *Client) Circuit() CircuitState {
 	return state
 }
 
+type requestTimeoutKey struct{}
+
+// WithRequestTimeout returns a context under which each request this client makes may take up to d,
+// instead of the client's Timeout. For the rare large response that is worth waiting for: Gate's
+// 1.3 MB contract list, read hourly, took 31-43 s over a slow link against the default 15 s.
+func WithRequestTimeout(ctx context.Context, d time.Duration) context.Context {
+	return context.WithValue(ctx, requestTimeoutKey{}, d)
+}
+
 // GetJSON fetches url and decodes the response body into out, streaming rather than buffering.
 func (c *Client) GetJSON(ctx context.Context, url string, out any) error {
 	return c.do(ctx, http.MethodGet, url, nil, out, nil, false)
@@ -320,7 +329,11 @@ func (c *Client) attempt(ctx context.Context, method, url string, body []byte, o
 		return nil, err
 	}
 
-	reqCtx, cancel := context.WithTimeout(ctx, c.opts.Timeout)
+	timeout := c.opts.Timeout
+	if override, ok := ctx.Value(requestTimeoutKey{}).(time.Duration); ok && override > 0 {
+		timeout = override
+	}
+	reqCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	var reader io.Reader

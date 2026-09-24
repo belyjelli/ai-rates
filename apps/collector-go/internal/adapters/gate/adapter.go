@@ -45,6 +45,16 @@ const (
 // only large download a cycle makes.
 const ContractsMaxAge = time.Hour
 
+const (
+	// contractsRequestTimeout replaces the client's 15 s for this one download, which is worth waiting
+	// for: the slowest measured was 43 s.
+	contractsRequestTimeout = 2 * time.Minute
+	// contractsRefreshBudget bounds one background refresh, retries included.
+	contractsRefreshBudget = 5 * time.Minute
+	// staleWait is how long a cycle holding a cached list waits for a refresh before using the cache.
+	staleWait = 5 * time.Second
+)
+
 // Adapter collects Gate's USDT-margined futures.
 //
 // Gate answers for its whole book in one liquidations call, so unlike OKX there is no rotation cursor
@@ -58,6 +68,9 @@ type Adapter struct {
 	mu                 sync.Mutex
 	contracts          []Contract
 	contractsFetchedAt int64
+	// refreshing is the in-flight /contracts download, closed when it ends; nil when none is running.
+	refreshing chan struct{}
+	refreshErr error
 }
 
 func NewAdapter(client *httpclient.Client) *Adapter {
@@ -97,28 +110,72 @@ func (a *Adapter) FetchSnapshots(ctx context.Context, now time.Time) (core.Snaps
 
 // contractList returns the cached /contracts, refreshing it once it is ContractsMaxAge old.
 //
-// A failed refresh with a list in hand keeps the old one and tries again next cycle: a listing an
-// hour late costs far less than a cycle lost to a slow download. Only a failure with nothing cached
-// (the first cycle) fails the cycle.
+// THE DOWNLOAD RUNS ON ITS OWN, not inside the cycle that asked for it. Deployed first as a plain
+// in-cycle read, the cache never filled: the 1.3 MB took longer than the 15 s request limit, so the
+// first read failed, and every later cycle started it again from nothing. Now a refresh runs in the
+// background with a 2-minute request limit, one at a time, and outlives the cycle that began it.
+//
+// A cycle with nothing cached waits for it for as long as its own deadline allows, and fails if it
+// is not done; the next cycle waits on the SAME download rather than starting another. A cycle with
+// a list in hand waits at most staleWait, then uses the old list: a listing an hour late costs far
+// less than a lost cycle. A failed refresh leaves the old list, and the next stale cycle retries.
 func (a *Adapter) contractList(ctx context.Context, nowMs int64) ([]Contract, error) {
 	a.mu.Lock()
 	cached, fetchedAt := a.contracts, a.contractsFetchedAt
-	a.mu.Unlock()
 	if cached != nil && nowMs-fetchedAt < ContractsMaxAge.Milliseconds() {
+		a.mu.Unlock()
 		return cached, nil
 	}
+	done := a.refreshing
+	if done == nil {
+		done = make(chan struct{})
+		a.refreshing = done
+		go a.refreshContracts(done, nowMs)
+	}
+	a.mu.Unlock()
 
-	var fresh []Contract
-	if err := a.get(ctx, "/contracts", &fresh); err != nil {
-		if cached != nil {
+	wait := ctx.Done()
+	if cached != nil {
+		timer := time.NewTimer(staleWait)
+		defer timer.Stop()
+		select {
+		case <-done:
+		case <-timer.C:
+			return cached, nil
+		case <-wait:
 			return cached, nil
 		}
-		return nil, err
+	} else {
+		select {
+		case <-done:
+		case <-wait:
+			return nil, fmt.Errorf("gate contract list still downloading: %w", ctx.Err())
+		}
 	}
+
 	a.mu.Lock()
-	a.contracts, a.contractsFetchedAt = fresh, nowMs
+	defer a.mu.Unlock()
+	if a.contracts != nil {
+		return a.contracts, nil
+	}
+	return nil, a.refreshErr
+}
+
+// refreshContracts downloads /contracts once and stores it, then clears the in-flight marker.
+func (a *Adapter) refreshContracts(done chan struct{}, nowMs int64) {
+	ctx, cancel := context.WithTimeout(context.Background(), contractsRefreshBudget)
+	defer cancel()
+	var fresh []Contract
+	err := a.get(httpclient.WithRequestTimeout(ctx, contractsRequestTimeout), "/contracts", &fresh)
+
+	a.mu.Lock()
+	if err == nil {
+		a.contracts, a.contractsFetchedAt = fresh, nowMs
+	}
+	a.refreshErr = err
+	a.refreshing = nil
 	a.mu.Unlock()
-	return fresh, nil
+	close(done)
 }
 
 // FetchLeverageTiers sweeps the whole venue's ladders in ten-ish pages, since `offset` advances by

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -101,6 +102,54 @@ func TestTheNextSettlementRollsForwardFromTheCachedList(t *testing.T) {
 	eq(t, "rolled forward one interval", rolled[0].FundingNextApply, int64(1790265600))
 	rolled = withLiveFunding([]Contract{{Name: "X", FundingInterval: 28800, FundingNextApply: 1790236800}}, nil, (1790236800+3*28800+5)*1000)
 	eq(t, "rolled forward four intervals", rolled[0].FundingNextApply, int64(1790236800+4*28800))
+}
+
+// slowDoer holds /contracts for a while, as the Hong Kong link did, and counts the downloads.
+type slowDoer struct {
+	snapshotDoer
+	delay     time.Duration
+	downloads atomic.Int32
+}
+
+func (d *slowDoer) Do(req *http.Request) (*http.Response, error) {
+	if strings.HasSuffix(req.URL.Path, "/contracts") {
+		d.downloads.Add(1)
+		select {
+		case <-time.After(d.delay):
+		case <-req.Context().Done():
+			return nil, req.Context().Err()
+		}
+	}
+	return d.snapshotDoer.Do(req)
+}
+
+// TestASlowFirstDownloadIsNotRestartedEveryCycle is the cold start that failed in production after the
+// first version of this fix: the download outlived each cycle, was cancelled with it, and began again
+// from nothing. Now cycles that time out wait on the same download, and a later one gets the list.
+func TestASlowFirstDownloadIsNotRestartedEveryCycle(t *testing.T) {
+	doer := &slowDoer{snapshotDoer: snapshotDoer{fundingRate: "0.0001"}, delay: 300 * time.Millisecond}
+	// A 50 ms client timeout: without WithRequestTimeout the 300 ms download could never finish.
+	adapter := NewAdapter(httpclient.New(VenueID, httpclient.Options{Doer: doer, MaxRetries: -1, Timeout: 50 * time.Millisecond}))
+	now := time.Unix(1790222400, 0)
+
+	for range 2 {
+		cycle, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		_, err := adapter.FetchSnapshots(cycle, now)
+		cancel()
+		if err == nil {
+			t.Fatal("a cycle shorter than the download should fail while nothing is cached")
+		}
+	}
+	batch, err := adapter.FetchSnapshots(context.Background(), now)
+	if err != nil {
+		t.Fatalf("the download should have completed across cycles: %v", err)
+	}
+	if len(batch.Snapshots) != 1 {
+		t.Errorf("snapshots: got %d, want 1", len(batch.Snapshots))
+	}
+	if got := doer.downloads.Load(); got != 1 {
+		t.Errorf("downloads: got %d, want 1 -- the cycles must share one download", got)
+	}
 }
 
 // TestAFailedRefreshKeepsTheCachedList: once a list is in hand, a slow download costs an hour-late
