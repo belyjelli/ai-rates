@@ -38,6 +38,28 @@ for f in $SRC; do
   [ -e "$f" ] || { echo "deploy: missing '$f'" >&2; exit 1; }
 done
 
+# REFUSE TO DEPLOY BACKWARDS. On 2026-09-23 at 20:40 UTC this script ran from a checkout that was
+# behind origin/main. It streamed that older tree, and the collector went back to reading Binance's
+# TESTNET for nine hours, writing play-money liquidations into production (migration 025 deleted
+# them). Nothing here noticed, because the script deploys whatever the working tree holds. So the
+# checkout must contain origin/main: ahead of it (a branch being tried) is fine, behind it is not.
+# AIRATES_DEPLOY_ALLOW_STALE=1 is for a deliberate rollback.
+git fetch --quiet origin main || { echo "deploy: cannot fetch origin/main to check this checkout is current" >&2; exit 1; }
+REV="$(git rev-parse --short HEAD)"
+if ! git merge-base --is-ancestor origin/main HEAD && [ "${AIRATES_DEPLOY_ALLOW_STALE:-}" != "1" ]; then
+  echo "deploy: this checkout ($REV, $(git rev-parse --abbrev-ref HEAD)) does not contain origin/main ($(git rev-parse --short origin/main))." >&2
+  echo "  Deploying it would roll the collector BACK. Run 'git checkout main && git pull' first," >&2
+  echo "  or set AIRATES_DEPLOY_ALLOW_STALE=1 if a rollback is what you mean." >&2
+  exit 1
+fi
+# The tree is streamed as it sits on disk, so an uncommitted edit ships too. Say so, since REV
+# would otherwise claim a commit that is not what is running.
+if [ -n "$(git status --porcelain -- $SRC)" ]; then
+  echo "deploy: warning: uncommitted changes under the deployed paths will ship with $REV" >&2
+  REV="$REV+dirty"
+fi
+echo "==> deploying $REV"
+
 # Reachability first, and separately, because these are different failures with different fixes.
 # Previously one `test -f` over ssh covered both: when ssh itself could not start -- a broken
 # ~/.ssh/config aborts every connection before any network call -- the script reported a missing
@@ -60,6 +82,9 @@ $SSH "rm -rf $STAGE_DIR && mkdir -p $STAGE_DIR"
 # `bin` excluded because apps/collector-go/bin holds a 16 MB locally-built binary that is the wrong
 # architecture for the server anyway -- the image builds its own inside golang:1.26-alpine.
 tar czf - --exclude node_modules --exclude .DS_Store --exclude '*.test.ts' --exclude bin $SRC | $SSH "tar xzf - -C $STAGE_DIR"
+
+# Which commit is on the server, readable there without guessing from file dates.
+$SSH "echo '$REV' > $STAGE_DIR/DEPLOYED_REVISION"
 
 echo "==> swapping remote tree (keeping .env)"
 $SSH "cp $REMOTE_DIR/deploy/hklab/.env $STAGE_DIR/deploy/hklab/.env && chmod 600 $STAGE_DIR/deploy/hklab/.env && rm -rf $REMOTE_DIR && mv $STAGE_DIR $REMOTE_DIR"
