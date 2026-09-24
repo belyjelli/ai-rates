@@ -47,9 +47,12 @@ func TestLiveLiquidationFeed(t *testing.T) {
 		"bybit":   BybitLiquidations{},
 		"okx":     NewOKXLiquidations(httpclient.New("okx:liq", httpclient.Options{MinInterval: 100 * time.Millisecond})),
 		"htx":     HTXLiquidations{},
+		"lighter": NewLighterLiquidations(httpclient.New("lighter:liq", httpclient.Options{MinInterval: time.Second})),
+		"nado":    NewNadoLiquidations(httpclient.New("nado:liq", httpclient.Options{MinInterval: time.Second})),
 	}
 	symbols := map[string][]string{
-		"bybit": {"BTCUSDT", "ETHUSDT", "SOLUSDT", "DOGEUSDT"},
+		"bybit":   {"BTCUSDT", "ETHUSDT", "SOLUSDT", "DOGEUSDT"},
+		"lighter": {"BTC", "ETH", "SOL", "DOGE"},
 	}
 
 	for name, proto := range venues {
@@ -57,7 +60,7 @@ func TestLiveLiquidationFeed(t *testing.T) {
 			var mu sync.Mutex
 			var runs []collector.Run
 
-			feed := NewEventFeed(proto, Dial, liveSink{}, symbols[name], Options{
+			feed := NewEventFeed(proto, DialerFor(proto), liveSink{}, symbols[name], Options{
 				FlushEvery: 5 * time.Second,
 				OnFlush: func(run collector.Run) {
 					mu.Lock()

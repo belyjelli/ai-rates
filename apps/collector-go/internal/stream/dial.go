@@ -16,8 +16,33 @@ import (
 // chosen there for a context-aware Read and a Close that does not require a separate goroutine, and
 // the same two properties are what let Feed.run be an ordinary loop here.
 func Dial(ctx context.Context, url string) (Conn, error) {
+	return dial(ctx, url, websocket.CompressionDisabled)
+}
+
+// DialCompressed is Dial with permessage-deflate offered. Nado refuses a handshake without it:
+// 403 Forbidden without the extension header, 101 with it, from hklab on 2026-09-24.
+func DialCompressed(ctx context.Context, url string) (Conn, error) {
+	return dial(ctx, url, websocket.CompressionNoContextTakeover)
+}
+
+// Compressor is a Wire whose venue requires permessage-deflate.
+type Compressor interface {
+	Compresses() bool
+}
+
+// DialerFor is DialCompressed for a protocol that asks for compression, and Dial for every other:
+// the extension is opt-in, so no venue that works today is offered something it never negotiated.
+func DialerFor(proto Wire) Dialer {
+	if c, ok := proto.(Compressor); ok && c.Compresses() {
+		return DialCompressed
+	}
+	return Dial
+}
+
+func dial(ctx context.Context, url string, compression websocket.CompressionMode) (Conn, error) {
 	conn, _, err := websocket.Dial(ctx, url, &websocket.DialOptions{
-		HTTPHeader: http.Header{"User-Agent": []string{httpclient.UserAgent}},
+		HTTPHeader:      http.Header{"User-Agent": []string{httpclient.UserAgent}},
+		CompressionMode: compression,
 	})
 	if err != nil {
 		return nil, err

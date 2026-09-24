@@ -113,7 +113,7 @@ func TestConfigDefaultsLiquidationVenuesToTheProvenSet(t *testing.T) {
 	if len(cfg.liquidationVenues) == 0 {
 		t.Fatal("liquidation venues should default to the measured set, not to empty")
 	}
-	for _, want := range []string{"binance", "bybit", "okx", "htx", "aster"} {
+	for _, want := range []string{"binance", "bybit", "okx", "htx", "aster", "lighter", "nado"} {
 		if !contains(cfg.liquidationVenues, want) {
 			t.Errorf("default set is missing %q, which was proven to publish", want)
 		}

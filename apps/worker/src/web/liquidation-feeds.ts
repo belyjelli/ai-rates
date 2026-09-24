@@ -153,11 +153,20 @@ export const FEEDS: readonly FeedEntry[] = [
       "Its trades carry a trade_type, but only FILL and RPI occurred in 24 min; the documented LIQUIDATION value was never seen",
   },
   {
+    // Resolved 2026-09-24: the liquidated account is always the taker, checked on 7 long and 8 short.
     venueId: "lighter",
-    verdict: "partial",
-    transport: "",
+    verdict: "live",
+    transport: "socket",
     evidence:
-      "Its trades do mark liquidations and carry a ready-made USD size, but only long closes were ever observed, so the short side is unmapped",
+      "Every trade channel carries a liquidation_trades array; the taker is the liquidated account, on 15 of 15 both ways",
+  },
+  {
+    // Added 2026-09-24. Needs permessage-deflate: the handshake is 403 without it.
+    venueId: "nado",
+    verdict: "live",
+    transport: "socket",
+    evidence:
+      "A public liquidation stream for every product; amount's sign names the position, 50 of 50 against the archive",
   },
 ];
 

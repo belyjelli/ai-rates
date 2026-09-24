@@ -255,7 +255,7 @@ func loadConfig(env func(string) string) (config, error) {
 // subscriptions per connection and pushed nothing live in 24 minutes, while its REST trade window
 // carries days of history. It rides the ordinary liquidation poll in startSideTasks, so it needs no
 // entry here.
-var defaultLiquidationVenues = []string{"okx", "bybit", "binance", "htx", "aster"}
+var defaultLiquidationVenues = []string{"okx", "bybit", "binance", "htx", "aster", "lighter", "nado"}
 
 // requireDatabase is the check loadConfig used to make for every command, now made only by the ones
 // that connect.
@@ -972,6 +972,12 @@ func liquidationProtocol(cfg config, venueID string) stream.EventProtocol {
 		return stream.NewOKXLiquidations(httpclient.New("okx:liq", httpclient.Options{MinInterval: okx.MinInterval}))
 	case "htx":
 		return stream.HTXLiquidations{}
+	case lighter.VenueID:
+		// Its own client, like okx's, so reading orderBookDetails on reconnect cannot spend the
+		// funding poll's budget.
+		return stream.NewLighterLiquidations(httpclient.New("lighter:liq", httpclient.Options{MinInterval: lighter.MinInterval}))
+	case nado.VenueID:
+		return stream.NewNadoLiquidations(httpclient.New("nado:liq", httpclient.Options{MinInterval: nado.MinInterval}))
 	default:
 		return nil
 	}
@@ -1054,7 +1060,7 @@ func startEventFeeds(ctx context.Context, specs []liquidationFeed, db *store.Sto
 			}
 		}
 
-		feed := stream.NewEventFeed(proto, stream.Dial, db, symbols, stream.Options{
+		feed := stream.NewEventFeed(proto, stream.DialerFor(proto), db, symbols, stream.Options{
 			OnFlush: status.Record,
 			Log:     func(message string) { log.Info(message) },
 		})
