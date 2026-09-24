@@ -8,6 +8,7 @@ import { liquidations } from "../web/liquidations";
 import * as pages from "../web/pages";
 import { referralCta } from "../web/referral";
 import { referralLinks } from "../web/referral-links";
+import { sentiment } from "../web/sentiment";
 import { tos } from "../web/tos";
 import { VENUE_BY_ID } from "../web/venues";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
@@ -34,6 +35,8 @@ import {
   parseLiquidationAssetParams,
   parseLiquidationParams,
   parseScreenerFilters,
+  parseSentimentParams,
+  SENTIMENT_WINDOWS,
 } from "./params";
 
 export interface AppDeps {
@@ -278,6 +281,16 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         );
       }
       return page(pages.pricePair({ asset, assetClass: first.asset_class, quotes, overview, now }));
+    }
+
+    if (path === "/sentiment") {
+      const params = parseSentimentParams(url.searchParams);
+      const { hours } = SENTIMENT_WINDOWS[params.window];
+      const [overview, history] = await Promise.all([
+        deps.data.overview(),
+        deps.data.sentimentHistory(hours),
+      ]);
+      return page(sentiment({ overview, history, params, now }));
     }
 
     if (path === "/about") {

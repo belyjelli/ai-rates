@@ -1,7 +1,7 @@
 import type { Overview } from "../app/data";
 import { BUILD } from "../build-info";
 import { AWAIT_SCRIPT } from "./await";
-import { esc, since } from "./format";
+import { esc, sentimentTone, since } from "./format";
 import { LIVE_SCRIPT } from "./live";
 import { SHARE_BAR, SHARE_CSS, SHARE_SCRIPT } from "./share";
 import { TAB_SCRIPT } from "./tabs";
@@ -96,6 +96,12 @@ a:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .mast nav a:hover{color:var(--accent)}
 .status{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
 .status.stale{color:var(--warn)}
+/* The header's fear/greed badge, and the same tones used on /sentiment's headline and chart. */
+.sent-badge{flex-shrink:0;border:1px solid var(--rule);padding:0 6px;text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.sent-badge:hover{border-color:var(--accent)}
+.sent-long{color:var(--long)}
+.sent-short{color:var(--short)}
+.sent-ink{color:var(--ink)}
 .clock{color:var(--ink)}
 .keys{margin-left:auto;display:flex;gap:12px;color:var(--dim)}
 .keys b{margin-right:5px;padding:0 4px;background:var(--dim);color:var(--bg);font-weight:700}
@@ -445,6 +451,12 @@ input[type=checkbox]{accent-color:var(--accent)}
 .curve.down .curve-line{stroke:var(--short)}
 .curve-zero{stroke:var(--zero);stroke-width:1;stroke-dasharray:2 3;vector-effect:non-scaling-stroke}
 .curve figcaption{color:var(--muted);padding-top:6px}
+.sent-guide{stroke:var(--rule);stroke-width:1;stroke-dasharray:2 3;vector-effect:non-scaling-stroke}
+.sent-label{text-transform:uppercase;letter-spacing:.04em;font-size:.5em;vertical-align:middle;color:var(--muted)}
+.sent-table{width:100%;border-collapse:collapse;margin:0 0 14px;color:var(--muted)}
+.sent-table th{text-align:left;color:var(--dim);text-transform:uppercase;letter-spacing:.04em;font-weight:400;padding:4px 12px 4px 0;border-bottom:1px solid var(--rule)}
+.sent-table td{padding:4px 12px 4px 0;border-bottom:1px solid var(--rule);color:var(--ink)}
+.sent-table td:first-child{color:var(--muted)}
 /* Pair page funding comparison. The plot stretches its SVG to the box, so strokes stay hairline with
    non-scaling-stroke and the axis labels are HTML placed by percentage rather than SVG text. */
 .fchart{margin:0 0 12px;padding:8px 10px 6px;border:1px solid var(--rule);background:var(--panel)}
@@ -528,6 +540,10 @@ export function layout(options: {
     overview && overview.markets > 0
       ? `${overview.markets.toLocaleString("en-US")} markets · ${overview.venues} venues · updated ${since(overview.updated_at, now)}`
       : "no venue has reported in five minutes";
+  const sentimentBadge =
+    overview && overview.sentiment_score !== null
+      ? `<a class="sent-badge sent-${sentimentTone(overview.sentiment_score)}" href="/sentiment" title="Fear &amp; greed: click for the chart">${overview.sentiment_score.toFixed(0)} ${esc(overview.sentiment_label ?? "")}</a>`
+      : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -543,7 +559,7 @@ ${GA_TAG}
 </head>
 <body data-rendered="${now}" data-build="${esc(BUILD.commit ?? "")}">
 <header class="mast">
-<div class="wrap bar"><a class="brand" href="/">airrates<small>funding carry sheet</small></a><span class="status" data-live="status">${status}</span>${SHARE_BAR}<time class="clock" id="clock">--:--:-- UTC</time></div>
+<div class="wrap bar"><a class="brand" href="/">airrates<small>funding carry sheet</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${SHARE_BAR}<time class="clock" id="clock">--:--:-- UTC</time></div>
 <div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><span class="keys">${keys}<span><b>/</b>filter</span></span></div>
 </header>
 <main class="wrap">${body}</main>

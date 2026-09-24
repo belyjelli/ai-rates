@@ -9,6 +9,8 @@ const overview: Overview = {
   assets: 1200,
   open_interest_usd: 1e10,
   updated_at: new Date(NOW - 10_000),
+  sentiment_score: null,
+  sentiment_label: null,
 };
 
 describe("about", () => {
@@ -55,5 +57,21 @@ describe("about", () => {
     // Dates are UTC: Binance and the price check went live at 18:41 UTC on the 13th.
     expect(html).toContain('<p class="eyebrow">Sep 13, 2026</p>');
     expect(html).toContain("Binance, and a price check on every market");
+  });
+
+  // The header's fear/greed badge is layout.ts's, exercised here since about() is a plain call into
+  // it with no page-specific header logic of its own.
+  test("the header shows the fear/greed badge when the overview has a reading, and omits it otherwise", () => {
+    const withReading = about({
+      overview: { ...overview, sentiment_score: 71, sentiment_label: "greed" },
+      now: NOW,
+    });
+    expect(withReading).toContain('<a class="sent-badge sent-long" href="/sentiment"');
+    expect(withReading).toContain("71 greed</a>");
+
+    // The fixture overview() carries no reading (sentiment_score: null); the badge must not appear
+    // as a broken or empty link rather than not appearing at all.
+    const withoutReading = about({ overview, now: NOW });
+    expect(withoutReading).not.toContain('class="sent-badge');
   });
 });
