@@ -186,6 +186,8 @@ const cex: Venue[] = [
     id: "bitmart",
     name: "BitMart",
     type: "cex",
+    retired:
+      "2026-09-27: retired on counterparty risk -- BitMart's hot wallets were drained in December 2021; the site does not want to point readers at an exchange with that history.",
     ccxt: "bitmart",
     verified: true,
     probes: [get("details", "https://api-cloud-v2.bitmart.com/contract/public/details")],
