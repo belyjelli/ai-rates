@@ -23,6 +23,13 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-09-27",
+    title: "BitMart is no longer collected",
+    changes: [
+      "BitMart has been removed from the screener, rates, spreads and every other live view. Its hot wallets were drained in December 2021, and the site would rather not point readers at an exchange with that history. Its past funding stays in the database; it just stops updating.",
+    ],
+  },
+  {
     date: "2026-09-15",
     title: "A headline that already paid, and results you can share",
     changes: [
