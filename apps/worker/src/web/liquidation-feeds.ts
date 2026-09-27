@@ -99,13 +99,6 @@ export const FEEDS: readonly FeedEntry[] = [
       "Trades filtered to tradeType=LIQUIDATION, which the default ORDER filter hides; full history since launch",
   },
   {
-    venueId: "bitget",
-    verdict: "none",
-    transport: "",
-    evidence:
-      "Its liquidation channel acked all 790 USDT-futures symbols with no error, then pushed nothing in 22 min while the control delivered 2,247 trades",
-  },
-  {
     venueId: "mexc",
     verdict: "none",
     transport: "",

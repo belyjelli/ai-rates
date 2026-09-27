@@ -115,6 +115,8 @@ const cex: Venue[] = [
     id: "bitget",
     name: "Bitget",
     type: "cex",
+    retired:
+      "2026-09-27: retired on counterparty risk -- about $352M was drained from Bitget's hot and warm wallets on 2026-09-24 and withdrawals were suspended; same grounds as BitMart.",
     ccxt: "bitget",
     verified: true,
     probes: [

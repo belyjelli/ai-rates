@@ -24,9 +24,10 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-09-27",
-    title: "BitMart is no longer collected",
+    title: "BitMart and Bitget are no longer collected",
     changes: [
       "BitMart has been removed from the screener, rates, spreads and every other live view. Its hot wallets were drained in December 2021, and the site would rather not point readers at an exchange with that history. Its past funding stays in the database; it just stops updating.",
+      "Bitget is removed on the same grounds: about $352M was drained from its hot and warm wallets on September 24, 2026, and withdrawals were suspended. The CVD page now sums taker flow from Binance, OKX and Gate.",
     ],
   },
   {
