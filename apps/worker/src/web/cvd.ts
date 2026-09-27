@@ -18,8 +18,8 @@ import { venueName } from "./venues";
  * /cvd: cumulative volume delta -- who initiated the volume, taker buys against taker sells.
  *
  * WHAT THE NUMBER IS, and it is narrower than the name suggests. Every figure is the venues' OWN
- * 5-minute taker statistics (migration 023), summed across the venues polled: binance, okx, gate and
- * bitget, for the ~100 assets deepest by open interest on them. It is not every exchange, it is not
+ * 5-minute taker statistics (migration 023), summed across the venues polled: binance, okx and gate
+ * (bitget too, until its retirement on 2026-09-27), for the ~100 assets deepest by open interest on them. It is not every exchange, it is not
  * finer than five minutes, and it is not our count of trades. The lede says all three.
  *
  * A DIVERGENCE IS A FLAG, NOT A CALL. "Price up while takers sold" is a description of the window,
@@ -28,7 +28,7 @@ import { venueName } from "./venues";
  */
 
 /** The venues whose taker statistics are collected. Listed in the lede, so it cannot drift. */
-export const CVD_VENUES = ["binance", "okx", "gate", "bitget"] as const;
+export const CVD_VENUES = ["binance", "okx", "gate"] as const;
 
 /**
  * A divergence needs both a real price move and a real flow imbalance. Below these, "price up 0.02%
@@ -400,7 +400,7 @@ ${tiles}
 <div id="cvd-chart" class="cvd-anchor">${chart}</div>
 <script>${SLOT_SCRIPT}</script>
 <div class="cvd-head"><h2 class="cvd-h2">CVD screener · net buying and selling by asset</h2>${search}</div>
-<p class="notes" data-live="cvd-asof">Click an asset to chart it above. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it, OKX five days and Bitget about two and a half hours, so the oldest bars of a new 7-day window sum fewer venues.${lag}</p>
+<p class="notes" data-live="cvd-asof">Click an asset to chart it above. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.${lag}</p>
 ${table}`,
   });
 }

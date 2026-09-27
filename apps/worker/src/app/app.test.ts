@@ -1102,7 +1102,7 @@ describe("pages", () => {
     expect(html).toContain("st-quiet");
     // A venue that was probed and publishes nothing is a row, not an omission, and carries why.
     expect(html).toContain("st-none");
-    expect(html).toContain("acked all 790 USDT-futures symbols");
+    expect(html).toContain("No liquidation channel answers at all");
     // The feed's own run health decides the fault, not the count: htx:liq is cycling.
     expect(html).toContain("st-failing");
     expect(panel).not.toContain('data-k="htx:liq"');
@@ -1199,7 +1199,7 @@ describe("pages", () => {
       venueStatus: async () => [
         vstatus(),
         vstatus({ venue_id: "binance", name: "Binance", last_run_at: null, last_run_ever: null }),
-        vstatus({ venue_id: "bitget", name: "Bitget", last_run_at: null, last_run_ever: null }),
+        vstatus({ venue_id: "txflow", name: "TxFlow", last_run_at: null, last_run_ever: null }),
         // Retired in the catalog: its `venues` row survives for the foreign keys, but it is no backlog.
         vstatus({ venue_id: "ethereal", name: "Ethereal", last_run_at: null, last_run_ever: null }),
       ],
@@ -1209,11 +1209,11 @@ describe("pages", () => {
 
     // 41 of 61 catalogued venues are unbuilt; as rows they would bury the ones that can break.
     expect(rows).not.toContain("Binance");
-    expect(rows).not.toContain("Bitget");
+    expect(rows).not.toContain("TxFlow");
     expect(rows).toContain("Gate");
     // Still visible, as a backlog rather than an alarm.
     expect(html).toContain("<b>2</b> more exchanges are catalogued but not collected yet");
-    expect(html).toContain("Binance, Bitget");
+    expect(html).toContain("Binance, TxFlow");
     expect(html).not.toContain("Ethereal");
     // One collected venue, so the summary counts what is collected rather than the catalog.
     expect(html).toContain("<b>1</b> collected");
