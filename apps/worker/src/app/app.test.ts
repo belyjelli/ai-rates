@@ -2182,7 +2182,7 @@ describe("pages", () => {
     });
     expect(res.status).toBe(503);
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(await res.text()).toContain("Market data is unavailable");
+    expect(await res.text()).toContain("The data center is getting too busy");
     expect(logs).toEqual(["/: connection refused"]);
   });
 });
