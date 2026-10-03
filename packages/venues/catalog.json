@@ -292,6 +292,12 @@
     "retired": "2026-09-15: /v1/product lists 18 markets, all DELISTED, with zero open interest and 24h volume; funding last updated 2026-08-26T01:00Z."
   },
   {
+    "id": "bitkub",
+    "name": "Bitkub",
+    "type": "cex",
+    "retired": "2026-09-30: spot only -- /api/v3/market/symbols lists 474 markets, all `market_segment: SPOT`; no futures, funding or liquidation endpoints exist (404) and the official API docs cover none."
+  },
+  {
     "id": "aevo",
     "name": "Aevo",
     "type": "dex"
