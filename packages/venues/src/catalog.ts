@@ -588,6 +588,16 @@ const dex: Venue[] = [
   },
   // Not on ORBIT's list, found during research.
   {
+    id: "bitkub",
+    name: "Bitkub",
+    type: "cex",
+    retired:
+      "2026-09-30: spot only -- /api/v3/market/symbols lists 474 markets, all `market_segment: SPOT`; no futures, funding or liquidation endpoints exist (404) and the official API docs cover none.",
+    verified: true,
+    probes: [get("symbols", "https://api.bitkub.com/api/v3/market/symbols")],
+    notes: "Thai spot exchange (THB pairs). Revisit only if it launches derivatives.",
+  },
+  {
     id: "aevo",
     name: "Aevo",
     type: "dex",
