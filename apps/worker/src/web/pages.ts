@@ -1798,13 +1798,34 @@ export function notFound(path: string, now: number, message?: string): string {
   });
 }
 
+/** A stick-figure runner; the legs and arms swing in CSS (layout.ts), so it needs no script. */
+const RUNNER_SVG = `<svg class="runner" viewBox="0 0 120 90" role="img" aria-label="A runner sprinting">
+<line class="ground" x1="0" y1="84" x2="120" y2="84"/>
+<g class="body">
+<circle class="head" cx="62" cy="14" r="7"/>
+<line x1="62" y1="22" x2="58" y2="46"/>
+<g class="limb" style="transform-origin:61px 26px">
+<line x1="61" y1="26" x2="61" y2="38"/><g class="shin" style="transform-origin:61px 38px"><line x1="61" y1="38" x2="61" y2="50"/></g>
+</g>
+<g class="limb lag" style="transform-origin:61px 26px">
+<line x1="61" y1="26" x2="61" y2="38"/><g class="shin" style="transform-origin:61px 38px"><line x1="61" y1="38" x2="61" y2="50"/></g>
+</g>
+<g class="limb" style="transform-origin:58px 46px">
+<line x1="58" y1="46" x2="58" y2="62"/><g class="shin" style="transform-origin:58px 62px"><line x1="58" y1="62" x2="58" y2="78"/></g>
+</g>
+<g class="limb lag" style="transform-origin:58px 46px">
+<line x1="58" y1="46" x2="58" y2="62"/><g class="shin" style="transform-origin:58px 62px"><line x1="58" y1="62" x2="58" y2="78"/></g>
+</g>
+</g>
+</svg>`;
+
 export function unavailable(path: string, now: number): string {
   return layout({
-    title: "Data unavailable",
-    description: "Market data is temporarily unavailable.",
+    title: "Data center busy",
+    description: "The data center is too busy and a runner is on it. Try again later.",
     path,
     now,
-    body: `<h1>Market data is unavailable</h1><p class="lede">The funding database didn't answer. Pages load again as soon as it does, usually within a minute.</p>`,
+    body: `<div class="busy" role="status">${RUNNER_SVG}<h1>The data center is getting too busy and is currently sprinting in circles</h1><p class="lede" style="margin-inline:auto">Every server is screaming, the funding rates are on fire, and one intern is running the whole thing on foot. Go touch grass and try again later.</p><p><a href="${esc(path)}">Try again</a></p></div>`,
   });
 }
 

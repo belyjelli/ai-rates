@@ -436,6 +436,22 @@ a.btn[aria-busy=true],button[aria-busy=true]{color:var(--bg);background:var(--ac
 .spin{display:inline-block;box-sizing:border-box;width:1em;height:1em;margin-right:7px;vertical-align:-.15em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.spin{animation:none;border-right-color:currentColor;opacity:.55}}
+/* The "data center is busy" page (pages.unavailable): a stick-figure runner, all CSS-driven. */
+.busy{text-align:center;padding:28px 0}
+.runner{width:200px;max-width:70%;height:auto;color:var(--accent);overflow:visible}
+.runner *{fill:none;stroke:currentColor;stroke-width:3.5;stroke-linecap:round;stroke-linejoin:round}
+.runner .head{fill:currentColor;stroke:none}
+.runner .limb{animation:run-swing .6s ease-in-out infinite alternate}
+.runner .shin{animation:run-knee .6s ease-in-out infinite alternate}
+.runner .lag{animation-delay:-.6s;animation-direction:alternate-reverse}
+.runner .lag .shin,.runner .lag.shin{animation-direction:alternate-reverse}
+.runner .body{animation:run-bob .3s ease-in-out infinite alternate}
+.runner .ground{stroke:var(--dim);stroke-width:2;stroke-dasharray:10 14;animation:run-ground .45s linear infinite}
+@keyframes run-swing{from{transform:rotate(-45deg)}to{transform:rotate(45deg)}}
+@keyframes run-knee{from{transform:rotate(5deg)}to{transform:rotate(70deg)}}
+@keyframes run-bob{to{transform:translateY(-2px)}}
+@keyframes run-ground{to{stroke-dashoffset:-24}}
+@media (prefers-reduced-motion:reduce){.runner *{animation:none!important}}
 input[type=checkbox]{accent-color:var(--accent)}
 .actions a:not(.btn){color:var(--muted)}
 .headline{font:700 clamp(24px,5vw,44px)/1 var(--mono);margin:0}
