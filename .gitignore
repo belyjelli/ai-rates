@@ -19,3 +19,6 @@ __pycache__/
 .venv-workers/
 python_modules/
 .pytest_cache/
+# Kept local only; removed from the repo and its history.
+plans/
+deploy/
