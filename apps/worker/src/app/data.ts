@@ -492,6 +492,24 @@ export interface LiquidationMap {
 }
 
 /**
+ * One row of liquidationMap's single result. `kind` says which of the four answers it belongs to, and
+ * the columns a kind does not carry are null: a cell has no `markets`, a venue total has no bucket.
+ */
+interface LiquidationMapRow {
+  kind: "cell" | "asset" | "venue" | "column";
+  venue_id: string | null;
+  asset: string | null;
+  asset_class: string | null;
+  bucket_start: Date | null;
+  notional_usd: number;
+  events: number | null;
+  long_usd: number | null;
+  short_usd: number | null;
+  markets: number | null;
+  last_at: Date | null;
+}
+
+/**
  * One cell of a single asset's liquidation grid: what one venue closed, in one price band, in one
  * time bucket.
  *
@@ -1137,90 +1155,139 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       const windowInterval = `${windowHours} hours`;
       const bucketSeconds = bucketHours * 3600;
 
+      // ONE SCAN, FOUR ANSWERS. The map needs the cells, the busiest assets, the per-venue totals and
+      // the per-column totals. They used to be four queries over the same window, each reading every
+      // liquidation in it (550k rows at 7 days) and joining each row to market_latest: four full
+      // scans per page view, which is what made the page slow under any traffic. Now the window is
+      // read once, collapsed to one row per market and time bucket BEFORE the join to market_latest
+      // (a few thousand rows to name, not half a million), and the four answers are cut from that.
+      // They come back in one result tagged by `kind` and are split below, so a total is still a sum
+      // of the very rows shown above it, now by construction rather than by two queries agreeing.
+      //
       // The asset a liquidation belongs to comes from market_latest, not from the venue symbol:
       // ETH_USDT on gate and ETH-USDT-SWAP on okx are one asset and must share a row, which is the
       // whole point of putting the two venues side by side. A market the funding path has never
       // recorded is kept rather than dropped -- a forced close is a fact whether or not we know what
       // to call it -- under its symbol with the quote stripped. Seen 2026-09-23: bybit's delisted
       // ICXUSDT has no market_latest row and showed as an asset called "ICXUSDT" beside ICX.
-      const named = sql`
-        SELECT l.venue_id, l.side, l.notional_usd, l.liquidated_at,
-               coalesce(m.base,
-                        nullif(regexp_replace(upper(l.venue_symbol), ${QUOTE_SUFFIX}::text, ''), ''),
-                        l.venue_symbol) AS asset,
-               coalesce(m.asset_class, 'crypto') AS asset_class
-        FROM liquidations l
-        LEFT JOIN market_latest m
-          ON m.venue_id = l.venue_id AND m.venue_symbol = l.venue_symbol
-        WHERE l.liquidated_at > now() - ${windowInterval}::interval
-          AND l.notional_usd IS NOT NULL`;
-
-      // Three reads of the same window rather than one wide one: the cells, the busiest assets, and
-      // the per-venue totals answer different shapes, and folding them into a single query would
-      // mean the page re-deriving two of them from the third -- which is how a total stops matching
-      // the rows above it.
-      const [cells, ranked, totals, columnTotals] = await Promise.all([
-        sql<LiquidationCell[]>`
-          WITH named AS (${named}),
-          ranked AS (
-            SELECT asset, asset_class
-            FROM named GROUP BY 1, 2
-            ORDER BY sum(notional_usd) DESC NULLS LAST, asset, asset_class
-            LIMIT ${assets}
-          )
-          SELECT n.venue_id, n.asset, n.asset_class,
+      const rows = await sql<LiquidationMapRow[]>`
+        WITH raw AS (
+          SELECT venue_id, venue_symbol,
                  -- Aligned to wall-clock epoch, not to "now", so the columns are the same boundaries
                  -- on every refresh. Buckets keyed off the request time would shift by seconds each
                  -- poll and the live swap would rewrite every cell for nothing.
-                 to_timestamp(floor(extract(epoch FROM n.liquidated_at) / ${bucketSeconds})
-                              * ${bucketSeconds}) AS bucket_start,
-                 sum(n.notional_usd)::float8 AS notional_usd,
-                 count(*)::int AS events,
-                 coalesce(sum(n.notional_usd) FILTER (WHERE n.side = 'long'), 0)::float8 AS long_usd,
-                 coalesce(sum(n.notional_usd) FILTER (WHERE n.side = 'short'), 0)::float8 AS short_usd
-          FROM named n
-          JOIN ranked r ON r.asset = n.asset AND r.asset_class = n.asset_class
-          GROUP BY 1, 2, 3, 4
-          ORDER BY n.venue_id, n.asset, bucket_start`,
-
-        sql<{ asset: string; asset_class: AssetClass; notional_usd: number }[]>`
-          WITH named AS (${named})
-          SELECT asset, asset_class, sum(notional_usd)::float8 AS notional_usd
-          FROM named GROUP BY 1, 2
-          -- Total order: asset and class break the tie, so two assets with identical notional cannot
-          -- swap places between the cell query and this one and leave a row with no cells.
-          ORDER BY sum(notional_usd) DESC NULLS LAST, asset, asset_class
-          LIMIT ${assets}`,
-
-        sql<LiquidationTotals[]>`
-          WITH named AS (${named})
-          SELECT venue_id,
-                 sum(notional_usd)::float8 AS notional_usd,
-                 count(*)::int AS events,
-                 coalesce(sum(notional_usd) FILTER (WHERE side = 'long'), 0)::float8 AS long_usd,
-                 coalesce(sum(notional_usd) FILTER (WHERE side = 'short'), 0)::float8 AS short_usd,
-                 count(DISTINCT asset)::int AS markets,
-                 max(liquidated_at) AS last_at
-          FROM named GROUP BY 1 ORDER BY 2 DESC NULLS LAST`,
-
-        sql<LiquidationColumnTotal[]>`
-          WITH named AS (${named})
-          SELECT venue_id,
                  to_timestamp(floor(extract(epoch FROM liquidated_at) / ${bucketSeconds})
                               * ${bucketSeconds}) AS bucket_start,
-                 sum(notional_usd)::float8 AS notional_usd,
-                 count(*)::int AS events,
-                 coalesce(sum(notional_usd) FILTER (WHERE side = 'long'), 0)::float8 AS long_usd,
-                 coalesce(sum(notional_usd) FILTER (WHERE side = 'short'), 0)::float8 AS short_usd
-          FROM named GROUP BY 1, 2 ORDER BY 1, 2`,
-      ]);
+                 sum(notional_usd) AS notional_usd,
+                 count(*) AS events,
+                 sum(notional_usd) FILTER (WHERE side = 'long') AS long_usd,
+                 sum(notional_usd) FILTER (WHERE side = 'short') AS short_usd,
+                 max(liquidated_at) AS last_at
+          FROM liquidations
+          WHERE liquidated_at > now() - ${windowInterval}::interval
+            AND notional_usd IS NOT NULL
+          GROUP BY 1, 2, 3
+        ),
+        named AS (
+          SELECT r.venue_id, r.bucket_start, r.notional_usd, r.events, r.long_usd, r.short_usd,
+                 r.last_at,
+                 coalesce(m.base,
+                          nullif(regexp_replace(upper(r.venue_symbol), ${QUOTE_SUFFIX}::text, ''), ''),
+                          r.venue_symbol) AS asset,
+                 coalesce(m.asset_class, 'crypto') AS asset_class
+          FROM raw r
+          LEFT JOIN market_latest m
+            ON m.venue_id = r.venue_id AND m.venue_symbol = r.venue_symbol
+        ),
+        -- The finest grain the page draws. Two markets of one asset on one venue (a USDT perp and a
+        -- USDC one) merge here, which is what the cell, the asset and the totals all want.
+        cell AS (
+          SELECT venue_id, asset, asset_class, bucket_start,
+                 sum(notional_usd) AS notional_usd,
+                 sum(events) AS events,
+                 sum(long_usd) AS long_usd,
+                 sum(short_usd) AS short_usd,
+                 max(last_at) AS last_at
+          FROM named
+          GROUP BY 1, 2, 3, 4
+        ),
+        ranked AS (
+          SELECT asset, asset_class, sum(notional_usd) AS notional_usd
+          FROM cell GROUP BY 1, 2
+          -- Total order: asset and class break the tie, so two assets with identical notional cannot
+          -- swap places between the rows and the cells and leave a row with no cells.
+          ORDER BY 3 DESC NULLS LAST, asset, asset_class
+          LIMIT ${assets}
+        )
+        SELECT * FROM (
+          SELECT 'cell' AS kind, c.venue_id, c.asset, c.asset_class, c.bucket_start,
+                 c.notional_usd::float8 AS notional_usd, c.events::int AS events,
+                 coalesce(c.long_usd, 0)::float8 AS long_usd,
+                 coalesce(c.short_usd, 0)::float8 AS short_usd,
+                 NULL::int AS markets, NULL::timestamptz AS last_at
+          FROM cell c
+          JOIN ranked r ON r.asset = c.asset AND r.asset_class = c.asset_class
+          UNION ALL
+          SELECT 'asset', NULL, asset, asset_class, NULL, notional_usd::float8,
+                 NULL, NULL, NULL, NULL, NULL
+          FROM ranked
+          UNION ALL
+          SELECT 'venue', venue_id, NULL, NULL, NULL, sum(notional_usd)::float8, sum(events)::int,
+                 coalesce(sum(long_usd), 0)::float8, coalesce(sum(short_usd), 0)::float8,
+                 count(DISTINCT asset)::int, max(last_at)
+          FROM cell GROUP BY venue_id
+          UNION ALL
+          SELECT 'column', venue_id, NULL, NULL, bucket_start, sum(notional_usd)::float8,
+                 sum(events)::int, coalesce(sum(long_usd), 0)::float8,
+                 coalesce(sum(short_usd), 0)::float8, NULL, NULL
+          FROM cell GROUP BY venue_id, bucket_start
+        ) u
+        ORDER BY kind,
+                 CASE WHEN kind IN ('asset', 'venue') THEN notional_usd END DESC NULLS LAST,
+                 venue_id, asset, asset_class, bucket_start`;
 
-      return {
-        cells: [...cells],
-        columnTotals: [...columnTotals],
-        totals: [...totals],
-        assets: [...ranked],
-      };
+      const map: LiquidationMap = { cells: [], columnTotals: [], totals: [], assets: [] };
+      for (const row of rows) {
+        // venue_id and bucket_start are null only on the kinds that do not carry them.
+        if (row.kind === "cell") {
+          map.cells.push({
+            venue_id: row.venue_id as string,
+            asset: row.asset as string,
+            asset_class: row.asset_class as AssetClass,
+            bucket_start: row.bucket_start as Date,
+            notional_usd: row.notional_usd,
+            events: row.events as number,
+            long_usd: row.long_usd as number,
+            short_usd: row.short_usd as number,
+          });
+        } else if (row.kind === "column") {
+          map.columnTotals.push({
+            venue_id: row.venue_id as string,
+            bucket_start: row.bucket_start as Date,
+            notional_usd: row.notional_usd,
+            events: row.events as number,
+            long_usd: row.long_usd as number,
+            short_usd: row.short_usd as number,
+          });
+        } else if (row.kind === "venue") {
+          map.totals.push({
+            venue_id: row.venue_id as string,
+            notional_usd: row.notional_usd,
+            events: row.events as number,
+            long_usd: row.long_usd as number,
+            short_usd: row.short_usd as number,
+            markets: row.markets as number,
+            last_at: row.last_at,
+          });
+        } else {
+          map.assets.push({
+            asset: row.asset as string,
+            asset_class: row.asset_class as AssetClass,
+            notional_usd: row.notional_usd,
+          });
+        }
+      }
+      return map;
     },
 
     async liquidationAsset({
@@ -1371,78 +1438,121 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       const windowInterval = `${windowHours} hours`;
       const barSeconds = barMinutes * 60;
 
-      // Every polled market in the window, with the asset it belongs to. market_latest carries the
-      // canonical base and class; markets carries the multiplier a quoted close has to be divided by.
-      const flow = sql`
-        SELECT t.venue_id, t.venue_symbol, ml.base AS asset, ml.asset_class, t.bucket_start,
-               t.buy_usd, t.sell_usd,
-               CASE WHEN t.close_price > 0 THEN t.close_price / nullif(mk.multiplier, 0) END AS price
-        FROM taker_flow t
-        JOIN market_latest ml ON ml.venue_id = t.venue_id AND ml.venue_symbol = t.venue_symbol
-        JOIN markets mk ON mk.venue_id = t.venue_id AND mk.venue_symbol = t.venue_symbol
-        WHERE t.bucket_start > now() - ${windowInterval}::interval`;
+      // WHY THIS IS SHAPED AROUND ONE PASS AND NO JOIN ON THE RAW ROWS. The first version built a
+      // `flow` CTE of every taker_flow row in the window and then joined the reference markets back
+      // to it. taker_flow is a hypertable whose newest chunk is ascending-key: its statistics trail
+      // the data between autoanalyzes, and the planner priced the 24h window at ~1 row against ~95k
+      // real ones. Believing that, it chose a nested loop over the materialised CTE -- one scan of
+      // 95k rows per reference market -- and the page's query ran for 10+ minutes. Hyperdrive gives
+      // up on the request at 15s but the origin keeps executing, so every reload of /cvd left
+      // another one running, the pool filled, and every other page answered "data center busy".
+      //
+      // So: collapse taker_flow to one row per market inside the aggregate, and only then join
+      // market_latest and markets (hundreds of rows, not hundreds of thousands). Nothing after that
+      // step can go quadratic whatever the planner believes about the first.
+      //
+      // The first and last close come from a primary-key lookup of the market's earliest and latest
+      // priced bucket, not from an ordered array_agg: that sorts every group and cost twice as much.
+      const rowsQuery = sql<CvdAssetRow[]>`
+        WITH per_market AS (
+          SELECT t.venue_id, t.venue_symbol,
+                 sum(t.buy_usd) AS buy_usd,
+                 sum(t.sell_usd) AS sell_usd,
+                 -- The volume of the buckets that carry a price: what ranks a market as the reference.
+                 sum(t.buy_usd + t.sell_usd) FILTER (WHERE t.close_price > 0) AS priced_usd,
+                 min(t.bucket_start) FILTER (WHERE t.close_price > 0) AS first_at,
+                 max(t.bucket_start) FILTER (WHERE t.close_price > 0) AS last_at,
+                 count(*) FILTER (WHERE t.close_price > 0) AS closes
+          FROM taker_flow t
+          WHERE t.bucket_start > now() - ${windowInterval}::interval
+          GROUP BY t.venue_id, t.venue_symbol
+        ),
+        -- market_latest carries the canonical base and class; markets carries the multiplier a quoted
+        -- close has to be divided by. A zero or missing multiplier leaves the market without a price.
+        named AS (
+          SELECT p.*, ml.base AS asset, ml.asset_class, nullif(mk.multiplier, 0) AS mult
+          FROM per_market p
+          JOIN market_latest ml ON ml.venue_id = p.venue_id AND ml.venue_symbol = p.venue_symbol
+          JOIN markets mk ON mk.venue_id = p.venue_id AND mk.venue_symbol = p.venue_symbol
+        ),
+        -- The reference market per asset: the busiest one in the window that publishes a price. One
+        -- market, so the line and the change are one venue's quotes rather than a blend of books.
+        reference AS (
+          SELECT DISTINCT ON (n.asset, n.asset_class) n.asset, n.asset_class,
+                 a.close_price / n.mult AS first_price,
+                 z.close_price / n.mult AS last_price,
+                 n.closes
+          FROM named n
+          JOIN taker_flow a ON a.venue_id = n.venue_id AND a.venue_symbol = n.venue_symbol
+                           AND a.bucket_start = n.first_at
+          JOIN taker_flow z ON z.venue_id = n.venue_id AND z.venue_symbol = n.venue_symbol
+                           AND z.bucket_start = n.last_at
+          WHERE n.mult IS NOT NULL AND n.closes > 0
+          ORDER BY n.asset, n.asset_class, n.priced_usd DESC, n.venue_id, n.venue_symbol
+        )
+        SELECT n.asset, n.asset_class,
+               sum(n.buy_usd)::float8 AS buy_usd,
+               sum(n.sell_usd)::float8 AS sell_usd,
+               count(DISTINCT n.venue_id)::int AS venues,
+               max(r.last_price)::float8 AS price,
+               CASE WHEN max(r.closes) >= 2 AND max(r.first_price) > 0
+                    THEN ((max(r.last_price) / max(r.first_price) - 1) * 100)::float8 END AS change_pct
+        FROM named n
+        LEFT JOIN reference r ON r.asset = n.asset AND r.asset_class = n.asset_class
+        GROUP BY n.asset, n.asset_class
+        ORDER BY sum(n.buy_usd + n.sell_usd) DESC, n.asset`;
 
-      // The reference market per asset: the busiest one in the window that publishes a price. One
-      // market, so the line and the change are one venue's quotes rather than a blend of books.
-      const reference = sql`
-        SELECT DISTINCT ON (asset, asset_class) asset, asset_class, venue_id, venue_symbol
-        FROM flow WHERE price IS NOT NULL
-        GROUP BY asset, asset_class, venue_id, venue_symbol
-        ORDER BY asset, asset_class, sum(buy_usd + sell_usd) DESC, venue_id, venue_symbol`;
+      // The chart reads one asset, so it starts from that asset's markets (market_latest_class_base)
+      // and walks taker_flow's primary key for each, instead of building every asset's flow and
+      // throwing all but one away. Same reference rule as above, within the asset.
+      const barsQuery = sql<CvdBar[]>`
+        WITH chosen AS (${chosenClass(sql, base, assetClass)}),
+        mk AS (
+          SELECT ml.venue_id, ml.venue_symbol, nullif(k.multiplier, 0) AS mult
+          FROM market_latest ml
+          JOIN markets k ON k.venue_id = ml.venue_id AND k.venue_symbol = ml.venue_symbol
+          WHERE ml.base = ${base} AND ml.asset_class = (SELECT asset_class FROM chosen)
+        ),
+        flow AS (
+          SELECT t.venue_id, t.venue_symbol, t.bucket_start, t.buy_usd, t.sell_usd,
+                 CASE WHEN t.close_price > 0 THEN t.close_price / mk.mult END AS price
+          FROM mk
+          JOIN taker_flow t ON t.venue_id = mk.venue_id AND t.venue_symbol = mk.venue_symbol
+          WHERE t.bucket_start > now() - ${windowInterval}::interval
+        ),
+        reference AS (
+          SELECT venue_id, venue_symbol
+          FROM flow WHERE price IS NOT NULL
+          GROUP BY venue_id, venue_symbol
+          ORDER BY sum(buy_usd + sell_usd) DESC, venue_id, venue_symbol
+          LIMIT 1
+        )
+        SELECT to_timestamp(floor(extract(epoch FROM f.bucket_start) / ${barSeconds})
+                            * ${barSeconds}) AS bucket_start,
+               sum(f.buy_usd)::float8 AS buy_usd,
+               sum(f.sell_usd)::float8 AS sell_usd,
+               ((array_agg(f.price ORDER BY f.bucket_start DESC) FILTER (
+                  WHERE f.price IS NOT NULL AND f.venue_id = r.venue_id
+                    AND f.venue_symbol = r.venue_symbol
+                ))[1])::float8 AS price
+        FROM flow f
+        LEFT JOIN reference r ON true
+        GROUP BY 1 ORDER BY 1`;
 
-      const [rows, [resolved], newest] = await Promise.all([
-        sql<CvdAssetRow[]>`
-          WITH flow AS (${flow}),
-          reference AS (${reference}),
-          prices AS (
-            SELECT r.asset, r.asset_class,
-                   (array_agg(f.price ORDER BY f.bucket_start ASC))[1] AS first_price,
-                   (array_agg(f.price ORDER BY f.bucket_start DESC))[1] AS last_price,
-                   count(*) AS closes
-            FROM reference r
-            JOIN flow f ON f.venue_id = r.venue_id AND f.venue_symbol = r.venue_symbol
-            WHERE f.price IS NOT NULL
-            GROUP BY r.asset, r.asset_class
-          )
-          SELECT f.asset, f.asset_class,
-                 sum(f.buy_usd)::float8 AS buy_usd,
-                 sum(f.sell_usd)::float8 AS sell_usd,
-                 count(DISTINCT f.venue_id)::int AS venues,
-                 max(p.last_price)::float8 AS price,
-                 CASE WHEN max(p.closes) >= 2 AND max(p.first_price) > 0
-                      THEN ((max(p.last_price) / max(p.first_price) - 1) * 100)::float8 END AS change_pct
-          FROM flow f
-          LEFT JOIN prices p ON p.asset = f.asset AND p.asset_class = f.asset_class
-          GROUP BY f.asset, f.asset_class
-          ORDER BY sum(f.buy_usd + f.sell_usd) DESC, f.asset`,
+      // Four independent reads at once: the chart no longer waits on the class lookup, which it only
+      // used to learn whether to run. With no live market the class is null, the chart's market list
+      // is empty, and it comes back with no bars -- the same answer the early return gave.
+      const [rows, [resolved], newest, bars] = await Promise.all([
+        rowsQuery,
         sql<{ asset_class: AssetClass }[]>`${chosenClass(sql, base, assetClass)}`,
         sql<{ newest: Date | null }[]>`SELECT max(bucket_start) AS newest FROM taker_flow
           WHERE bucket_start > now() - interval '1 day'`,
+        barsQuery,
       ]);
-
-      const resolvedClass = resolved?.asset_class ?? null;
-      const bars =
-        resolvedClass === null
-          ? []
-          : await sql<CvdBar[]>`
-              WITH flow AS (${flow}),
-              reference AS (${reference})
-              SELECT to_timestamp(floor(extract(epoch FROM f.bucket_start) / ${barSeconds})
-                                  * ${barSeconds}) AS bucket_start,
-                     sum(f.buy_usd)::float8 AS buy_usd,
-                     sum(f.sell_usd)::float8 AS sell_usd,
-                     ((array_agg(f.price ORDER BY f.bucket_start DESC) FILTER (
-                        WHERE f.price IS NOT NULL AND f.venue_id = r.venue_id
-                          AND f.venue_symbol = r.venue_symbol
-                      ))[1])::float8 AS price
-              FROM flow f
-              LEFT JOIN reference r ON r.asset = f.asset AND r.asset_class = f.asset_class
-              WHERE f.asset = ${base} AND f.asset_class = ${resolvedClass}
-              GROUP BY 1 ORDER BY 1`;
 
       return {
         rows: [...rows],
-        asset_class: resolvedClass,
+        asset_class: resolved?.asset_class ?? null,
         bars: [...bars],
         newest: newest[0]?.newest ?? null,
       };

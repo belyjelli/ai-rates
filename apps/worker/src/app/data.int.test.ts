@@ -313,6 +313,8 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     // liquidations.venue_id references venues(id), so it has to go before the venue does -- the
     // liquidationMap fixtures are the first rows this suite ever put in that table.
     await admin`DELETE FROM liquidations WHERE venue_id IN (${venueA}, ${venueB})`;
+    // Same for taker_flow: the cvd fixtures are the first rows this suite put in it.
+    await admin`DELETE FROM taker_flow WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM markets WHERE venue_id IN (${venueA}, ${venueB})`;
     await admin`DELETE FROM venues WHERE id IN (${venueA}, ${venueB})`;
     await admin.close();
@@ -1172,6 +1174,166 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       });
       expect(map.asset_class).toBeNull();
       expect(map.cells).toEqual([]);
+    });
+  });
+
+  describe("cvd", () => {
+    const cvdAsset = `ITC${tag.toUpperCase()}`;
+    // A 1000x contract: its quoted close is 1000 times the asset's price, so it has to be divided.
+    const scaled = `${cvdAsset}_1000`;
+    // By far the busiest, and publishes no price at all.
+    const unpriced = `${cvdAsset}-PERP`;
+    // Has closes but a zero multiplier, so no usable scale: it carries flow, never the price.
+    const zeroScale = `${cvdAsset}_ZERO`;
+    // Flow with no market_latest row (a delisted market): it must stay out of every figure.
+    const ghost = `${cvdAsset}_GHOST`;
+    const FIVE = 300_000;
+    const slot = Math.floor((Date.now() - HOUR) / FIVE) * FIVE;
+
+    beforeAll(async () => {
+      const listed = [
+        { venue_id: venueA, venue_symbol: scaled, multiplier: 1000 },
+        { venue_id: venueB, venue_symbol: unpriced, multiplier: 1 },
+        { venue_id: venueA, venue_symbol: zeroScale, multiplier: 0 },
+      ];
+      await admin`
+        INSERT INTO markets ${admin(
+          listed.map((m) => ({
+            ...m,
+            base: cvdAsset,
+            quote: "USDT",
+            dex: null,
+            interval_hours: 8,
+            max_leverage: null,
+            last_seen: new Date(),
+          })),
+        )} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
+      // The ghost has a markets row (the join would find it) but no market_latest row.
+      await admin`
+        INSERT INTO markets ${admin([
+          {
+            venue_id: venueB,
+            venue_symbol: ghost,
+            base: cvdAsset,
+            quote: "USDT",
+            multiplier: 1,
+            dex: null,
+            interval_hours: 8,
+            max_leverage: null,
+            last_seen: new Date(),
+          },
+        ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
+      await admin`
+        INSERT INTO market_latest ${admin(
+          listed.map(({ venue_id, venue_symbol }) => ({
+            venue_id,
+            venue_symbol,
+            base: cvdAsset,
+            asset_class: "crypto",
+            quote: "USDT",
+            observed_at: new Date(),
+            rate: 0.0001,
+            basis_hours: 8,
+            apr: 10.95,
+            interval_hours: 8,
+            next_funding_at: new Date(settledAt + HOUR),
+            kind: "predicted",
+            mark_price: 50,
+            index_price: 50,
+            open_interest_usd: 1_000_000,
+            volume_24h_usd: 2_000_000,
+          })),
+        )} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
+
+      const flow = (
+        venue_id: string,
+        venue_symbol: string,
+        slotsAhead: number,
+        buy_usd: number,
+        sell_usd: number,
+        close_price: number | null,
+      ) => ({
+        venue_id,
+        venue_symbol,
+        bucket_start: new Date(slot + slotsAhead * FIVE),
+        buy_usd,
+        sell_usd,
+        close_price,
+      });
+      await admin`
+        INSERT INTO taker_flow ${admin([
+          // The only market that publishes a usable price: 50, 50.5 then 51 once divided by 1000.
+          flow(venueA, scaled, 0, 100, 50, 50_000),
+          flow(venueA, scaled, 1, 100, 50, 50_500),
+          flow(venueA, scaled, 2, 100, 50, 51_000),
+          // Busiest by volume, but with no close to draw.
+          flow(venueB, unpriced, 3, 10_000, 20_000, null),
+          flow(venueB, unpriced, 4, 10_000, 20_000, null),
+          // A close, a zero multiplier, and enough volume to win any ranking on volume alone.
+          flow(venueA, zeroScale, 5, 5_000_000, 5_000_000, 7),
+          flow(venueB, ghost, 6, 999_999_999, 999_999_999, 1),
+        ])} ON CONFLICT DO NOTHING`;
+    });
+
+    const mine = async (windowHours = 24, barMinutes = 5) =>
+      await data.cvd({ windowHours, barMinutes, base: cvdAsset, assetClass: null });
+
+    test("sums every listed market's flow, and leaves out a market nothing lists", async () => {
+      const { rows } = await mine();
+      const row = rows.find((r) => r.asset === cvdAsset);
+      expect(row?.asset_class).toBe("crypto");
+      // 3 x 100 + 2 x 10,000 + 5,000,000 on the buy side; the ghost's billion is not in it.
+      expect(row?.buy_usd).toBe(5_020_300);
+      expect(row?.sell_usd).toBe(5_040_150);
+      expect(row?.venues).toBe(2);
+    });
+
+    test("prices the asset from the busiest market that has a usable price, divided by its multiplier", async () => {
+      const { rows } = await mine();
+      const row = rows.find((r) => r.asset === cvdAsset);
+      // The unpriced market and the zero-multiplier one both out-trade the scaled one, and neither
+      // can be the reference: one has no close, the other no scale to divide it by.
+      expect(row?.price).toBeCloseTo(51, 9);
+      expect(row?.change_pct).toBeCloseTo(2, 9);
+    });
+
+    test("charts one asset's flow by bar, with the reference market's close and nothing else's", async () => {
+      const { bars, asset_class } = await mine();
+      expect(asset_class).toBe("crypto");
+      const at = (slotsAhead: number) =>
+        bars.find((b) => b.bucket_start.getTime() === slot + slotsAhead * FIVE);
+      expect(at(0)?.price).toBeCloseTo(50, 9);
+      expect(at(2)?.price).toBeCloseTo(51, 9);
+      expect(at(2)?.buy_usd).toBe(100);
+      expect(at(2)?.sell_usd).toBe(50);
+      // Flow in a bar where the reference market printed nothing is drawn without a price.
+      expect(at(3)?.buy_usd).toBe(10_000);
+      expect(at(3)?.price).toBeNull();
+      expect(at(5)?.buy_usd).toBe(5_000_000);
+      expect(at(5)?.price).toBeNull();
+      // The delisted market's bucket is not on the chart.
+      expect(at(6)).toBeUndefined();
+    });
+
+    test("groups bars at the requested width", async () => {
+      const { bars } = await mine(24, 120);
+      const width = 120 * 60_000;
+      expect(bars.every((b) => b.bucket_start.getTime() % width === 0)).toBe(true);
+      // Every five-minute bucket above lands in one of at most two two-hour bars.
+      expect(bars.length).toBeLessThanOrEqual(2);
+      expect(bars.reduce((sum, b) => sum + b.sell_usd, 0)).toBe(5_040_150);
+    });
+
+    test("an asset nothing lists has no class and no bars, but the table still reads", async () => {
+      const none = await data.cvd({
+        windowHours: 24,
+        barMinutes: 5,
+        base: "NOSUCHASSET",
+        assetClass: null,
+      });
+      expect(none.asset_class).toBeNull();
+      expect(none.bars).toEqual([]);
+      expect(none.rows.some((r) => r.asset === cvdAsset)).toBe(true);
     });
   });
 
