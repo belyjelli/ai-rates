@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { divergence, flowRatio } from "../web/cvd";
 import { bestPair, pivot } from "../web/pages";
-import { handleApp } from "./app";
+import { handleApp, unavailableResponse } from "./app";
 import type {
   ArbitrageRow,
   CvdAssetRow,
@@ -2182,8 +2182,38 @@ describe("pages", () => {
     });
     expect(res.status).toBe(503);
     expect(res.headers.get("cache-control")).toBe("no-store");
+    // Told when to come back, so a client does not retry in a loop against a database that is down.
+    expect(res.headers.get("retry-after")).toBe("10");
     expect(await res.text()).toContain("The data center is getting too busy");
     expect(logs).toEqual(["/: connection refused"]);
+  });
+
+  test("the API answers a database failure with JSON and the same retry hint", async () => {
+    const { data } = fakeData({
+      overview: async () => {
+        throw new Error("connection refused");
+      },
+    });
+    const res = await handleApp(new Request("https://airates.test/v1/health"), {
+      data,
+      now: () => NOW,
+    });
+    expect(res.status).toBe(503);
+    expect(res.headers.get("retry-after")).toBe("10");
+    expect(await res.json()).toEqual({ error: "data_unavailable" });
+  });
+
+  test("the answer for a reader whose render timed out is the same busy page, by path", async () => {
+    const page = unavailableResponse("/cvd", NOW);
+    expect(page.status).toBe(503);
+    expect(page.headers.get("retry-after")).toBe("10");
+    expect(await page.text()).toContain("The data center is getting too busy");
+    const api = unavailableResponse("/v1/screener", NOW);
+    expect(api.headers.get("content-type")).toContain("application/json");
+    // "/v1x" is a page, not the API: the prefix is a path segment, not a string prefix.
+    expect((await unavailableResponse("/v1x", NOW).text()).startsWith("<!doctype html>")).toBe(
+      true,
+    );
   });
 });
 

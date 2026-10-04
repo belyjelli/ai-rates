@@ -614,10 +614,24 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     return page(pages.notFound(path, now), 404);
   } catch (error) {
     deps.log?.(`${path}: ${error instanceof Error ? error.message : String(error)}`);
-    return segments[0] === "v1"
+    return unavailableResponse(path, now);
+  }
+}
+
+/** Seconds a client is told to wait after a 503. Past the cooldown the edge cache applies to a failed render. */
+const UNAVAILABLE_RETRY_SECONDS = 10;
+
+/**
+ * The answer when the data cannot be read: the busy page, or a JSON error for the API. Exported
+ * because the edge cache needs the same answer for a reader whose render did not finish in time.
+ */
+export function unavailableResponse(path: string, now: number): Response {
+  const response =
+    path === "/v1" || path.startsWith("/v1/")
       ? json({ error: "data_unavailable" }, 503, 0)
       : page(pages.unavailable(path, now), 503);
-  }
+  response.headers.set("retry-after", String(UNAVAILABLE_RETRY_SECONDS));
+  return response;
 }
 
 /**

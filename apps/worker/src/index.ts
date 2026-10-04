@@ -1,6 +1,7 @@
 import postgres from "postgres";
-import { handleApp } from "./app/app";
+import { handleApp, unavailableResponse } from "./app/app";
 import { createDataSource } from "./app/data";
+import { EdgeCache } from "./app/edge-cache";
 import { geoCacheBucket, requestGeo } from "./app/geo";
 import { visitPoint } from "./app/visits";
 import { ProbeDO } from "./probe/probe-do";
@@ -11,6 +12,10 @@ import { forgetReferrals, loadReferrals } from "./referrals/load";
 import { ReferralStoreDO, referralStore } from "./referrals/store-do";
 
 export { ProbeDO, ReferralStoreDO };
+
+// Module scope, so the renders in flight and the cooldowns are shared by every request this isolate
+// serves. That sharing is the point: it is what stops N readers of one cold page becoming N renders.
+const edge = new EdgeCache();
 
 export default {
   async fetch(request, env, ctx): Promise<Response> {
@@ -48,39 +53,55 @@ export default {
       keyed.searchParams.set("__cta", bucket);
       cacheKey = new Request(keyed.toString(), request);
     }
-    if (request.method === "GET") {
-      const hit = await cache.match(cacheKey);
-      if (hit) return hit;
-    }
-
-    // One connection per request, opened only if a route needs data; Hyperdrive pools the real ones.
-    let sql: postgres.Sql | null = null;
-    const data = createDataSource(() => {
-      sql ??= postgres(env.HYPERDRIVE.connectionString, {
-        max: 5,
-        fetch_types: false,
-        prepare: true,
+    // What the page needs from the database is rendered at most once per URL at a time, served stale
+    // while it refreshes, and replaced by the last good copy if it fails (app/edge-cache.ts).
+    const render = async (): Promise<Response> => {
+      // One connection per render, opened only if a route needs data; Hyperdrive pools the real ones.
+      let sql: postgres.Sql | null = null;
+      const data = createDataSource(() => {
+        sql ??= postgres(env.HYPERDRIVE.connectionString, {
+          // ONE connection per render. A page runs three to five queries at once, and with `max: 5`
+          // each took a pooled connection of its own: Hyperdrive allows about 20 per config on the
+          // free plan, so four or five simultaneous page loads were enough to leave the next one
+          // waiting 15 s for a connection and answering "data center busy" -- measured 2026-10-04
+          // with five concurrent requests and no slow query in sight. Over one connection the
+          // queries are pipelined and run back to back (each is tens of milliseconds now), a failing
+          // one still leaves the others alone (the homepage's fail-soft sections rely on that), and
+          // a render costs one slot of the pool instead of five.
+          max: 1,
+          // Under Hyperdrive's own 15 s: a pool that cannot hand out a connection fails here.
+          connect_timeout: 10,
+          fetch_types: false,
+          prepare: true,
+        });
+        return sql;
       });
-      return sql;
-    });
-
-    try {
-      const response = await handleApp(request, {
-        data,
-        now: Date.now,
-        log: console.error,
-        // Per-colo, so a blunt filter against one client hammering one location. Backtests read
-        // the collector's daily rollup, so nothing behind it is expensive enough to need more.
-        rateLimit: async (key: string) => (await env.BACKTEST_LIMITER.limit({ key })).success,
-        referrals,
-      });
-      if (request.method === "GET" && response.status === 200) {
-        ctx.waitUntil(cache.put(cacheKey, response.clone()));
+      try {
+        return await handleApp(request, {
+          data,
+          now: Date.now,
+          log: console.error,
+          // Per-colo, so a blunt filter against one client hammering one location. Backtests read
+          // the collector's daily rollup, so nothing behind it is expensive enough to need more.
+          rateLimit: async (key: string) => (await env.BACKTEST_LIMITER.limit({ key })).success,
+          referrals,
+        });
+      } finally {
+        const open = sql as postgres.Sql | null;
+        // A render that outlived its readers can leave a query running: give it five seconds to
+        // finish and then cut the connections, rather than wait on it for as long as it takes.
+        if (open) ctx.waitUntil(open.end({ timeout: 5 }));
       }
-      return response;
-    } finally {
-      const open = sql as postgres.Sql | null;
-      if (open) ctx.waitUntil(open.end());
-    }
+    };
+
+    return edge.serve({
+      cache,
+      key: cacheKey,
+      request,
+      waitUntil: (promise) => ctx.waitUntil(promise),
+      render,
+      unavailable: () => unavailableResponse(new URL(request.url).pathname, Date.now()),
+      log: console.error,
+    });
   },
 } satisfies ExportedHandler<Env>;
