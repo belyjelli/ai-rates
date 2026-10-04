@@ -61,13 +61,14 @@ export default {
       const data = createDataSource(() => {
         sql ??= postgres(env.HYPERDRIVE.connectionString, {
           // ONE connection per render. A page runs three to five queries at once, and with `max: 5`
-          // each took a pooled connection of its own: Hyperdrive allows about 20 per config on the
-          // free plan, so four or five simultaneous page loads were enough to leave the next one
-          // waiting 15 s for a connection and answering "data center busy" -- measured 2026-10-04
-          // with five concurrent requests and no slow query in sight. Over one connection the
-          // queries are pipelined and run back to back (each is tens of milliseconds now), a failing
-          // one still leaves the others alone (the homepage's fail-soft sections rely on that), and
-          // a render costs one slot of the pool instead of five.
+          // each took a pooled connection of its own. The Hyperdrive config allows only
+          // `origin_connection_limit` of them -- 5 when this was written, the minimum; the plan allows
+          // about 20 -- so one page load could take the whole pool, and the next waited 15 s for a
+          // connection and answered "data center busy". Measured 2026-10-04 with five concurrent
+          // requests and no slow query in sight. Over one connection the queries are pipelined and
+          // run back to back (each is tens of milliseconds now), a failing one still leaves the
+          // others alone (the homepage's fail-soft sections rely on that), and a render costs one
+          // slot of the pool instead of five.
           max: 1,
           // Under Hyperdrive's own 15 s: a pool that cannot hand out a connection fails here.
           connect_timeout: 10,

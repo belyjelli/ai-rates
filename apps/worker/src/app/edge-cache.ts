@@ -7,7 +7,7 @@
  * failed exactly when it was needed. Every copy expired 30 s after it was stored, and the next
  * request to arrive had to wait for the database; so did every other request that arrived before
  * that one finished. One slow render therefore became a pile of them, each holding a Hyperdrive
- * connection (about 20 on the free plan), and once the pool was full every page -- including the
+ * connection (the config allows 5), and once the pool was full every page -- including the
  * ones that read nothing heavy -- waited 15 s and answered "data center busy". A failed render
  * stored nothing, so the reader got the busy page even when a good copy from 31 seconds earlier had
  * just expired from the cache.
