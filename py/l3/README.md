@@ -17,8 +17,9 @@ psql "$DATABASE_URL" -f py/l3/extract.sql > /tmp/l3-events.csv
 python3 py/l3/analyse.py /tmp/l3-events.csv
 ```
 
-`DATABASE_URL` reaches the database through the SSH tunnel documented in `.env.test.local`
-(`-L 55437:127.0.0.1:5437`). Note that hklab runs **two** Postgres containers — `timescaledb_container`
+`DATABASE_URL` reaches the database through the SSH tunnel (`-L 55437:127.0.0.1:5437`). Set it for
+this script on the command line. The integration suites' `.env.integration` (formerly
+`.env.test.local`) is meant for a throwaway database, not this one. Note that hklab runs **two** Postgres containers — `timescaledb_container`
 publishes 5437 and is ours; a separate `postgres_container` publishes 5432 and is not.
 
 Requires `numpy`, `pandas`, `scipy`. Not `statsmodels`: the estimator is a bootstrap over markets,

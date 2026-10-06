@@ -4,13 +4,19 @@ import { SQL } from "bun";
 import postgres from "postgres";
 import { createDataSource, type ScreenerFilters, type ScreenerSort, venueState } from "./data";
 
-// Runs only with a database: `bun --env-file=.env.test.local test apps/worker`.
+// Runs only with a database, and only when asked for twice:
+//   AIRATES_INTEGRATION=1 bun --env-file=.env.integration test apps/worker
+// Point DATABASE_URL at a THROWAWAY database, never production `vaultdeck`. The env file used to be
+// `.env.test.local`, which `bun test` loads by itself (it sets NODE_ENV=test), so a plain `bun test`
+// aimed these suites at production whenever the SSH tunnel happened to be open. `.env.integration`
+// is a name Bun never loads on its own, and the AIRATES_INTEGRATION flag, given on the command line
+// rather than in the file, means a stray env file can no longer arm them by itself.
 //
 // The unit tests fake the DataSource, so nothing there ever executes its SQL. That is how a query
 // using an array parameter reached production and failed on every call: Hyperdrive requires
 // fetch_types: false, and without type introspection postgres.js sends text[] as the bare string
 // "a,b". These tests drive the real queries with the real client options.
-const url = process.env.DATABASE_URL;
+const url = process.env.AIRATES_INTEGRATION === "1" ? process.env.DATABASE_URL : undefined;
 const TEST_SCHEMA = "airates_it";
 const HOUR = 3_600_000;
 

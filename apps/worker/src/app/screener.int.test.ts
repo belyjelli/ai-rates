@@ -2,13 +2,16 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { migrate } from "@ai-rates/db";
 import { SQL } from "bun";
 
-// Runs only with a database: `bun --env-file=.env.test.local test apps/worker`.
+// Runs only with a database, and only when asked for twice:
+//   AIRATES_INTEGRATION=1 bun --env-file=.env.integration test apps/worker
+// Point DATABASE_URL at a THROWAWAY database, never production `vaultdeck`; see data.int.test.ts for
+// why the file is not `.env.test.local` and why the flag is required as well.
 //
 // The pairing rules of `screener_pairs`, which every screener read goes through. These lived in the
 // Bun collector's tests until that collector was removed (2026-09-24); they test the SQL function,
 // not the writer, so rows are inserted into market_latest directly. The writer's own guarantees --
 // market_latest only moving forward, the refresh jobs -- are covered by collector-go's store tests.
-const url = process.env.DATABASE_URL;
+const url = process.env.AIRATES_INTEGRATION === "1" ? process.env.DATABASE_URL : undefined;
 const TEST_SCHEMA = "airates_it";
 const MIN = 60_000;
 
