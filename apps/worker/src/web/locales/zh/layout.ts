@@ -34,7 +34,6 @@ export const layout: Catalog = {
   "Fear &amp; greed: click for the chart": "恐惧与贪婪：点击查看图表",
   "funding carry sheet": "资金费率套利表",
   filter: "筛选",
-  "read only · public venue APIs": "只读 · 交易所公开 API",
   login: "登录",
   status: "状态",
   "geo-probe": "地域探测",
@@ -44,8 +43,6 @@ export const layout: Catalog = {
   terms: "服务条款",
   Language: "语言",
   "language:": "语言：",
-  "Funding rates come from each venue's public API and refresh every minute. They are estimates for each venue's next settlement and change before it. Spreads are before trading fees, slippage and price moves.":
-    "资金费率取自各交易所的公开 API，每分钟刷新一次。它们是对各交易所下一次结算的预估，结算前仍会变动。价差未计入交易手续费、滑点和价格波动。",
   "Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.":
     "不构成投资建议。数据可能延迟或不准确。本站与任何交易所均无关联，也未获任何交易所认可。",
 
