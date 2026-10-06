@@ -31,14 +31,25 @@ describe("the screener's sheet scrolls to suit the screen", () => {
 
   test("with room for it, the page scrolls sideways as before; on a phone the page never widens", () => {
     const wide = media("min-width:861px");
-    expect(wide).toContain("body:has(.sheet-wrap.stick){width:max-content;min-width:100%}");
-    // Nothing outside that block widens the page for the sheet.
+    expect(wide).toContain(
+      "body:has(.heat-wrap,.sheet-wrap.stick){width:max-content;min-width:100%}",
+    );
+    expect(wide).toContain("body:has(.heat-wrap,.sheet-wrap.stick) .mast{top:0}");
+    // Nothing outside that block widens the page for either grid.
     const outside = css.replace(wide, "");
-    expect(outside).not.toMatch(/body:has\([^)]*sheet-wrap\.stick[^)]*\)\{width:max-content/);
+    expect(outside).not.toMatch(/body:has\([^)]*(sheet|heat)-wrap[^)]*\)/);
   });
 
-  test("the heatmap keeps scrolling the page, at every width", () => {
-    expect(css).toContain("body:has(.heat-wrap){width:max-content;min-width:100%}");
-    expect(css).toContain("body:has(.heat-wrap) .mast{top:0}");
+  test("the heatmap scrolls in a box of its own on a phone too, its header at the box's top", () => {
+    const phone = media("max-width:860px");
+    expect(phone).toContain(".heat-wrap,.sheet-wrap.stick{overflow:auto;width:auto;min-width:0;");
+    // .heat th sets top:var(--mast) later in the sheet, so the override has to outrank it.
+    expect(phone).toContain(".heat-wrap .heat th,");
+    // The asset column is stuck at every width, so on a phone it stays put inside the box.
+    expect(css).toMatch(/\.heat td\.asset\{[^}]*position:sticky;left:0/);
+  });
+
+  test("a long strip of links wraps rather than widening a phone's page", () => {
+    expect(css).toMatch(/\n\.tf\{[^}]*flex-wrap:wrap/);
   });
 });

@@ -165,34 +165,33 @@ table.sheet{border-collapse:collapse;width:100%}
 .sheet-wrap.stick{overflow:visible;width:max-content;min-width:100%}
 .sheet-wrap.stick th{position:sticky;top:var(--mast);z-index:2;background:var(--bg);border-bottom:0;box-shadow:inset 0 -1px 0 var(--rule)}
 /* The heatmap is a wide matrix, so it sizes to its content rather than the 100% table.sheet uses.
-   Like .sheet-wrap.stick above, it scrolls with the page rather than in a box of its own: the header
-   row sticks under the masthead, the asset column sticks to the left edge, and a grid wider than the
-   screen scrolls the page sideways. No overflow on the wrapper, for the reason given there. */
+   Like .sheet-wrap.stick above, on a wide screen it scrolls with the page rather than in a box of its
+   own: the header row sticks under the masthead, the asset column sticks to the left edge, and a grid
+   wider than the screen scrolls the page sideways. No overflow on the wrapper, for the reason given
+   there. Phones are the exception, below. */
 .heat-wrap{border:1px solid var(--rule);width:max-content;min-width:100%}
 /* A grid wider than the screen widens the page, so the page scrolls sideways. Only the grid should move:
    on pages holding one, the page and its main column grow to the grid's width, and everything outside
    the grid (masthead, title, controls, pager, footer) sticks to the left edge at the viewport's width.
    Sticky rather than a scroll box around the grid, so the column header still sticks under the masthead
-   on the one page scroll; --vw is the viewport width without its scrollbar, set by the script below. */
-body:has(.heat-wrap){width:max-content;min-width:100%}
-body:has(.heat-wrap) .mast,body:has(.heat-wrap) footer{position:sticky;left:0;width:var(--vw,100vw);box-sizing:border-box}
-body:has(.heat-wrap) .mast{top:0}
-body:has(.heat-wrap) main.wrap{max-width:none;margin:0;width:max-content;min-width:100%;box-sizing:border-box}
-body:has(.heat-wrap) main.wrap>:not(.heat-wrap):not(.sheet-wrap){position:sticky;left:10px;max-width:calc(var(--vw,100vw) - 20px);box-sizing:border-box}
-/* The same for the screener's sheet, but only where there is room for it. On a phone a page that is
-   1,500px wide is a poor thing: some browsers shrink it to fit, and the rest pan the masthead, title and
-   filters along with the table. Below 861px the sheet scrolls in a box of its own instead, both ways, with
-   its header row and its asset column stuck inside the box. */
+   on the one page scroll; --vw is the viewport width without its scrollbar, set by the script below.
+   The screener's sheet does the same.
+   Only where there is room for it, though. On a phone a page that is 1,500px wide is a poor thing (the
+   rates grid alone is over 3,000px): some browsers shrink it to fit, and the rest pan the masthead, title
+   and controls along with the table. Below 861px the sheet and the heatmap each scroll in a box of their
+   own instead, both ways, with the header row and the asset column stuck inside the box. */
 @media (min-width:861px){
-body:has(.sheet-wrap.stick){width:max-content;min-width:100%}
-body:has(.sheet-wrap.stick) .mast,body:has(.sheet-wrap.stick) footer{position:sticky;left:0;width:var(--vw,100vw);box-sizing:border-box}
-body:has(.sheet-wrap.stick) .mast{top:0}
-body:has(.sheet-wrap.stick) main.wrap{max-width:none;margin:0;width:max-content;min-width:100%;box-sizing:border-box}
-body:has(.sheet-wrap.stick) main.wrap>:not(.heat-wrap):not(.sheet-wrap){position:sticky;left:10px;max-width:calc(var(--vw,100vw) - 20px);box-sizing:border-box}
+body:has(.heat-wrap,.sheet-wrap.stick){width:max-content;min-width:100%}
+body:has(.heat-wrap,.sheet-wrap.stick) .mast,body:has(.heat-wrap,.sheet-wrap.stick) footer{position:sticky;left:0;width:var(--vw,100vw);box-sizing:border-box}
+body:has(.heat-wrap,.sheet-wrap.stick) .mast{top:0}
+body:has(.heat-wrap,.sheet-wrap.stick) main.wrap{max-width:none;margin:0;width:max-content;min-width:100%;box-sizing:border-box}
+body:has(.heat-wrap,.sheet-wrap.stick) main.wrap>:not(.heat-wrap):not(.sheet-wrap){position:sticky;left:10px;max-width:calc(var(--vw,100vw) - 20px);box-sizing:border-box}
 }
 @media (max-width:860px){
-.sheet-wrap.stick{overflow:auto;width:auto;min-width:0;max-height:calc(100vh - var(--mast) - 8px);max-height:calc(100dvh - var(--mast) - 8px);-webkit-overflow-scrolling:touch}
-.sheet-wrap.stick th{top:0}
+.heat-wrap,.sheet-wrap.stick{overflow:auto;width:auto;min-width:0;max-height:calc(100vh - var(--mast) - 8px);max-height:calc(100dvh - var(--mast) - 8px);-webkit-overflow-scrolling:touch}
+/* The heatmap's asset column is stuck at every width (.heat td.asset below); only its header moves to the
+   box's top. The extra class outranks .heat th, which comes later. */
+.heat-wrap .heat th,.sheet-wrap.stick th{top:0}
 .sheet-wrap.stick th:first-child,.sheet-wrap.stick td:first-child{position:sticky;left:0;background:var(--bg)}
 .sheet-wrap.stick td:first-child{z-index:1}
 .sheet-wrap.stick th:first-child{z-index:3}
@@ -389,7 +388,9 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .heat.lq th.lq-now{color:var(--warn)}
 .heat.lq tr.lq-other td,.heat.lq tr.lq-other th{color:var(--muted)}
 .heat.lq tr.lq-total td,.heat.lq tr.lq-total th{border-top:1px solid var(--rule);font-weight:600}
-.tf{display:flex;gap:2px;margin:0 0 8px;color:var(--muted)}
+/* Wraps, so a long strip (the liquidation map's fifteen venues) breaks onto a second line rather than
+   widening a phone's page past the screen. */
+.tf{display:flex;flex-wrap:wrap;gap:2px;margin:0 0 8px;color:var(--muted)}
 .tf a{border:0;color:var(--muted);padding:0 6px}
 .tf a[aria-current]{background:var(--ink);color:var(--bg)}
 .tf a:hover{color:var(--accent)}
