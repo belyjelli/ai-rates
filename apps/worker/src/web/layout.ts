@@ -173,11 +173,34 @@ table.sheet{border-collapse:collapse;width:100%}
    the grid (masthead, title, controls, pager, footer) sticks to the left edge at the viewport's width.
    Sticky rather than a scroll box around the grid, so the column header still sticks under the masthead
    on the one page scroll; --vw is the viewport width without its scrollbar, set by the script below. */
-body:has(.heat-wrap,.sheet-wrap.stick){width:max-content;min-width:100%}
-body:has(.heat-wrap,.sheet-wrap.stick) .mast,body:has(.heat-wrap,.sheet-wrap.stick) footer{position:sticky;left:0;width:var(--vw,100vw);box-sizing:border-box}
-body:has(.heat-wrap,.sheet-wrap.stick) .mast{top:0}
-body:has(.heat-wrap,.sheet-wrap.stick) main.wrap{max-width:none;margin:0;width:max-content;min-width:100%;box-sizing:border-box}
-body:has(.heat-wrap,.sheet-wrap.stick) main.wrap>:not(.heat-wrap):not(.sheet-wrap){position:sticky;left:10px;max-width:calc(var(--vw,100vw) - 20px);box-sizing:border-box}
+body:has(.heat-wrap){width:max-content;min-width:100%}
+body:has(.heat-wrap) .mast,body:has(.heat-wrap) footer{position:sticky;left:0;width:var(--vw,100vw);box-sizing:border-box}
+body:has(.heat-wrap) .mast{top:0}
+body:has(.heat-wrap) main.wrap{max-width:none;margin:0;width:max-content;min-width:100%;box-sizing:border-box}
+body:has(.heat-wrap) main.wrap>:not(.heat-wrap):not(.sheet-wrap){position:sticky;left:10px;max-width:calc(var(--vw,100vw) - 20px);box-sizing:border-box}
+/* The same for the screener's sheet, but only where there is room for it. On a phone a page that is
+   1,500px wide is a poor thing: some browsers shrink it to fit, and the rest pan the masthead, title and
+   filters along with the table. Below 861px the sheet scrolls in a box of its own instead, both ways, with
+   its header row and its asset column stuck inside the box. */
+@media (min-width:861px){
+body:has(.sheet-wrap.stick){width:max-content;min-width:100%}
+body:has(.sheet-wrap.stick) .mast,body:has(.sheet-wrap.stick) footer{position:sticky;left:0;width:var(--vw,100vw);box-sizing:border-box}
+body:has(.sheet-wrap.stick) .mast{top:0}
+body:has(.sheet-wrap.stick) main.wrap{max-width:none;margin:0;width:max-content;min-width:100%;box-sizing:border-box}
+body:has(.sheet-wrap.stick) main.wrap>:not(.heat-wrap):not(.sheet-wrap){position:sticky;left:10px;max-width:calc(var(--vw,100vw) - 20px);box-sizing:border-box}
+}
+@media (max-width:860px){
+.sheet-wrap.stick{overflow:auto;width:auto;min-width:0;max-height:calc(100vh - var(--mast) - 8px);max-height:calc(100dvh - var(--mast) - 8px);-webkit-overflow-scrolling:touch}
+.sheet-wrap.stick th{top:0}
+.sheet-wrap.stick th:first-child,.sheet-wrap.stick td:first-child{position:sticky;left:0;background:var(--bg)}
+.sheet-wrap.stick td:first-child{z-index:1}
+.sheet-wrap.stick th:first-child{z-index:3}
+.sheet-wrap.stick tbody tr:nth-child(4n+3) td:first-child,.sheet-wrap.stick tbody tr:nth-child(4n+4) td:first-child{background:var(--band)}
+.sheet-wrap.stick tbody tr:hover td:first-child{background:#161616}
+/* A hairline for the column that stays put, as the grid's collapsed border has scrolled away. */
+.sheet-wrap.stick th:first-child,.sheet-wrap.stick td:first-child{box-shadow:inset -1px 0 0 var(--rule)}
+.sheet-wrap.stick th:first-child{box-shadow:inset -1px 0 0 var(--rule),inset 0 -1px 0 var(--rule)}
+}
 table.heat{border-collapse:collapse;width:auto;min-width:100%}
 .heat th{font-weight:400;text-transform:lowercase;letter-spacing:0;color:var(--muted);text-align:right;padding:3px 6px;border-bottom:0;box-shadow:inset 0 -1px 0 var(--rule);white-space:nowrap;position:sticky;top:var(--mast);background:var(--bg);z-index:2}
 .heat td{padding:2px 6px;text-align:right;white-space:nowrap;color:var(--ink)}
