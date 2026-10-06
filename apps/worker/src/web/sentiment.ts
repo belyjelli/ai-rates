@@ -34,7 +34,13 @@ function sentimentChart(points: readonly SentimentPoint[], now: number): string 
     .join("");
 
   const first = points[0] as SentimentPoint;
-  return `<figure class="curve ${tone === "long" ? "up" : tone === "short" ? "down" : ""}">
+  // What the masthead's chart button draws onto its card (share.ts): a title that names the reading, since
+  // the caption is only a count, and the score axis, at the heights the band lines sit at in the plot.
+  const shareTitle = `Fear & greed: ${latest.score.toFixed(0)}, ${latest.label}`;
+  const shareY = [100, 75, 55, 45, 25, 0]
+    .map((score) => `${(y(score) / height).toFixed(4)}:${score}`)
+    .join("|");
+  return `<figure class="curve ${tone === "long" ? "up" : tone === "short" ? "down" : ""}" data-share-title="${esc(shareTitle)}" data-share-y="${shareY}">
 <svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Fear and greed score reaches ${latest.score.toFixed(0)} (${esc(latest.label)})">
 ${guides}
 <polygon class="curve-area" points="${area}"></polygon>

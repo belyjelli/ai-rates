@@ -93,9 +93,11 @@ export const SHARE_SCRIPT = String.raw`(() => {
   const ga = (name, params) => { try { if (window.gtag) window.gtag("event", name, params || {}); } catch (e) {} };
   const escH = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const text = (el) => (el ? el.textContent.replace(/\s+/g, " ").trim() : "");
-  const shown = (el) => !!el && el.getClientRects().length > 0 && el.offsetWidth > 0;
+  // SVG elements have no offsetWidth, so a bare <svg> chart would read as hidden: measure the box instead.
+  const shown = (el) => { if (!el || el.getClientRects().length === 0) return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const W = 1600, H = 900, PAD = 64;
   const MONO = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+  const labelsOf = (p) => $$(":scope > :not(svg)", p).filter((l) => l instanceof HTMLElement);
   const css = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
   // Every figure in main drawing an SVG and visible now; the one nearest the middle of the viewport
@@ -275,7 +277,8 @@ export const SHARE_SCRIPT = String.raw`(() => {
     g.textAlign = "right"; g.fillText(stamp(), W - PAD, 58); g.textAlign = "left";
 
     // Title: the chart's own, else its caption, else the page heading.
-    const title = text($(".fchart-title", fig)) || text($("figcaption", fig)) || text($("main h1")) || document.title;
+    const own = fig.dataset.shareTitle || text($(".fchart-title", fig));
+    const title = own || text($("figcaption", fig)) || text($("main h1")) || document.title;
     g.font = "700 38px " + MONO; g.fillStyle = C.ink;
     g.fillText(fit(g, title, W - 2 * PAD), PAD, 118);
 
@@ -283,6 +286,10 @@ export const SHARE_SCRIPT = String.raw`(() => {
     let lx = PAD, ly = 160;
     g.font = "400 18px " + MONO;
     const keys = $$(".fchart-keys > *", fig).filter((k) => { const box = $("input[type=checkbox]", k); return !(box && !box.checked) && text(k); });
+    if (fig.dataset.shareTitle && keys.length === 0) {
+      const sub = text($("figcaption", fig));
+      if (sub) { g.fillStyle = C.mut; g.fillText(fit(g, sub, W - 2 * PAD), PAD, ly); }
+    }
     for (let ki = 0; ki < keys.length; ki++) {
       const k = keys[ki];
       const label = text(k);
@@ -309,9 +316,11 @@ export const SHARE_SCRIPT = String.raw`(() => {
     const plots = $$(".fchart-plot", fig).filter(shown);
     const parts = plots.length ? plots : $$("svg", fig).filter(shown);
     const top = ly + 34, bottom = H - 96;
-    const hasLeft = parts.some((p) => $$(":scope > :not(svg)", p).some((l) => { const r = l.getBoundingClientRect(), R = p.getBoundingClientRect(); return shown(l) && r.right <= R.left + 2; }));
-    const hasRight = parts.some((p) => $$(":scope > :not(svg)", p).some((l) => { const r = l.getBoundingClientRect(), R = p.getBoundingClientRect(); return shown(l) && r.left >= R.right - 2; }));
-    const x0 = PAD + (hasLeft ? 110 : 0), x1 = W - PAD - (hasRight ? 110 : 0);
+    const hasLeft = parts.some((p) => labelsOf(p).some((l) => { const r = l.getBoundingClientRect(), R = p.getBoundingClientRect(); return shown(l) && r.right <= R.left + 2; }));
+    const hasRight = parts.some((p) => labelsOf(p).some((l) => { const r = l.getBoundingClientRect(), R = p.getBoundingClientRect(); return shown(l) && r.left >= R.right - 2; }));
+    // A chart with no HTML labels of its own can hand over its y-axis: "fraction of its height:label", pipe-separated.
+    const yAxis = (fig.dataset.shareY || "").split("|").map((a) => a.split(":")).filter((a) => a.length === 2 && Number.isFinite(Number(a[0])));
+    const x0 = PAD + (hasLeft || yAxis.length ? 110 : 0), x1 = W - PAD - (hasRight ? 110 : 0);
     const heights = parts.map((p) => p.getBoundingClientRect().height || 1);
     const gaps = 40 * (parts.length - 1) + 30;
     const scale = (bottom - top - gaps) / heights.reduce((a, b) => a + b, 0);
@@ -327,7 +336,7 @@ export const SHARE_SCRIPT = String.raw`(() => {
         if (img) g.drawImage(img, x0, y, w, h);
       }
       g.font = "400 16px " + MONO;
-      for (const l of $$(":scope > :not(svg)", p)) {
+      for (const l of labelsOf(p)) {
         if (!shown(l)) continue;
         const t = text(l);
         if (!t) continue;
@@ -339,6 +348,11 @@ export const SHARE_SCRIPT = String.raw`(() => {
         else if (r.left >= R.right - 2) { g.textAlign = "left"; g.fillText(t, x1 + 12, y + fy * h + 6); }
         else if (fy > 1) { g.textAlign = "center"; g.fillText(t, x0 + fx * w, y + h + 24); }
         else { g.textAlign = "center"; g.fillText(t, x0 + fx * w, y + fy * h + 6); }
+        g.textAlign = "left";
+      }
+      if (i === 0) {
+        g.font = "400 16px " + MONO; g.fillStyle = C.mut; g.textAlign = "right";
+        for (const [f, label] of yAxis) g.fillText(label, x0 - 12, y + Number(f) * h + 6);
         g.textAlign = "left";
       }
       y += h + 40;
@@ -359,7 +373,7 @@ export const SHARE_SCRIPT = String.raw`(() => {
     if (!fig) { sync(); return; }
     ga("share_chart_open", { page: location.pathname });
     const link = backLink();
-    const title = text($(".fchart-title", fig)) || text($("main h1")) || document.title;
+    const title = fig.dataset.shareTitle || text($(".fchart-title", fig)) || text($("main h1")) || document.title;
     const cite = lines()[0];
     const line = cite ? cite.text : title;
     const dlg = dialog("Share your line",

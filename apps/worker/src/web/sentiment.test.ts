@@ -110,4 +110,24 @@ describe("sentiment", () => {
     // The site's minus is U+2212, not a hyphen, everywhere a number can go negative (format.ts).
     expect(html).toContain("−1.18% net buy");
   });
+
+  test("the chart hands the share card its own title and score axis, at the heights the band lines sit at", () => {
+    const html = sentiment({
+      overview,
+      history: [point({ score: 27, label: "fear" }), point({ score: 30, label: "fear" })],
+      params: { window: "7d" },
+      now: NOW,
+    });
+    // The caption is only a count of readings; the card is titled by the reading itself.
+    expect(html).toContain('data-share-title="Fear &amp; greed: 30, fear"');
+    // 160-high plot, 8 padding: 100 sits at 8/160, 0 at 152/160, and the guides between.
+    expect(html).toContain(
+      'data-share-y="0.0500:100|0.2750:75|0.4550:55|0.5450:45|0.7250:25|0.9500:0"',
+    );
+    // Each labelled height is where the matching dashed guide is drawn.
+    for (const score of [25, 45, 55, 75]) {
+      const y = 160 - 8 - (score / 100) * (160 - 16);
+      expect(html).toContain(`y1="${y}"`);
+    }
+  });
 });
