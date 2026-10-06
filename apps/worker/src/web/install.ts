@@ -17,7 +17,7 @@ import { tr } from "./i18n";
  * render and cached for an hour, so it has no reader's language to follow.
  */
 export const MANIFEST = {
-  name: "airrates · funding carry sheet",
+  name: "airrates · What settled. Not what might.",
   short_name: "airrates",
   description:
     "Funding-rate screener for perpetual futures: where holding the same asset long on one exchange and short on another collects funding.",

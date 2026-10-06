@@ -645,7 +645,7 @@ ${INSTALL_HEAD}
 </head>
 <body data-rendered="${now}" data-build="${esc(BUILD.commit ?? "")}">
 <header class="mast">
-<div class="wrap bar"><a class="brand" href="/">airrates<small>${tr("funding carry sheet")}</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${shareBar()}<time class="clock" id="clock">--:--:-- UTC</time></div>
+<div class="wrap bar"><a class="brand" href="/">airrates<small>${tr("What settled. Not what might.")}</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${shareBar()}<time class="clock" id="clock">--:--:-- UTC</time></div>
 <div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><span class="keys">${keys}<span><b>/</b>${tr("filter")}</span></span></div>
 </header>
 <main class="wrap">${body}</main>

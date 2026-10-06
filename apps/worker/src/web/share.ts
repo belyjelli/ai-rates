@@ -75,7 +75,7 @@ const shareStrings = () =>
       "Quote the number, link back to where it was read. Funding moves every minute, so the line says when it was true: {stamp}. Not financial advice.",
     ),
     left: tr("{count} characters left with the link"),
-    sheet: tr("funding carry sheet"),
+    sheet: tr("What settled. Not what might."),
     more: tr("+{count} more"),
     source: tr("public venue APIs · not financial advice"),
     shareTitle: tr("Share your line"),

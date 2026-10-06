@@ -32,7 +32,7 @@ export const layout: Catalog = {
     "{markets} 个市场 · {venues} 家交易所 · {ago}更新",
   "no venue has reported in five minutes": "五分钟内没有交易所上报数据",
   "Fear &amp; greed: click for the chart": "恐惧与贪婪：点击查看图表",
-  "funding carry sheet": "资金费率套利表",
+  "What settled. Not what might.": "只看已结算，不猜可能。",
   filter: "筛选",
   login: "登录",
   status: "状态",
