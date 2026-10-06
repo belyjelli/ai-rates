@@ -1,6 +1,7 @@
 import type { Overview } from "../app/data";
 import { BUILD, type BuildInfo } from "../build-info";
 import { esc } from "./format";
+import { INSTALL_BLOCK } from "./install";
 import { layout } from "./layout";
 
 const REPOSITORY = "https://github.com/belyjelli/ai-rates";
@@ -22,6 +23,15 @@ export interface Release {
  * work that is merged but not deployed would describe a site nobody can see.
  */
 export const CHANGELOG: readonly Release[] = [
+  {
+    date: "2026-10-06",
+    title: "Install it as an app, and charts that share properly",
+    changes: [
+      "In Chrome, airrates can be installed as an app that opens in its own window, from your home screen or dock. On a phone the about page shows an install banner across the top; on a tablet or a computer it shows an Install app button above the title. Browsers that cannot install a site never show either.",
+      "The chart button on the fear and greed page puts the score line on the shared image, titled with the reading and with the 0 to 100 scale beside it. The image was blank before. The backtest's equity curve now appears on its shared image too.",
+      "On a phone, the screener and the exchange tables scroll in a box of their own, sideways and down, with the header row and the first column kept in view, instead of widening the whole page.",
+    ],
+  },
   {
     date: "2026-09-27",
     title: "BitMart and Bitget are no longer collected",
@@ -219,7 +229,9 @@ export function about(data: {
     path: "/about",
     overview,
     now,
-    body: `<h1>About airrates</h1>
+    // The install offer sits on top of the title: a button on a tablet or wider, a banner on a phone.
+    body: `${INSTALL_BLOCK}
+<h1>About airrates</h1>
 <p class="lede">airrates is a funding-rate screener for perpetual futures. It reads funding from each exchange's public API every minute and shows where holding the same asset long on one exchange and short on another collects the gap between their rates, and what that has actually paid.</p>
 <section>
 <div class="section-head"><h2>This version</h2></div>

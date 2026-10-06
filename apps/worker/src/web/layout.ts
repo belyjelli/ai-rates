@@ -2,6 +2,7 @@ import type { Overview } from "../app/data";
 import { BUILD } from "../build-info";
 import { AWAIT_SCRIPT } from "./await";
 import { esc, sentimentTone, since } from "./format";
+import { INSTALL_CSS, INSTALL_HEAD } from "./install";
 import { LIVE_SCRIPT } from "./live";
 import { SHARE_BAR, SHARE_CSS, SHARE_SCRIPT } from "./share";
 import { TAB_SCRIPT } from "./tabs";
@@ -594,7 +595,8 @@ ${GA_TAG}
 <title>${esc(title)} · airrates</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📟</text></svg>">
 <meta name="description" content="${esc(description)}">
-<style>${CSS}${SHARE_CSS}</style>
+${INSTALL_HEAD}
+<style>${CSS}${SHARE_CSS}${INSTALL_CSS}</style>
 </head>
 <body data-rendered="${now}" data-build="${esc(BUILD.commit ?? "")}">
 <header class="mast">

@@ -3,6 +3,7 @@ import { VENUES } from "@ai-rates/venues";
 import { about } from "../web/about";
 import { cvd } from "../web/cvd";
 import type { FundingHistory } from "../web/funding-chart";
+import { installAsset } from "../web/install";
 import { legal } from "../web/legal";
 import { liquidations } from "../web/liquidations";
 import * as pages from "../web/pages";
@@ -107,6 +108,10 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
   }
 
   try {
+    // The app manifest and its icons: no data, so ahead of every route that reads any.
+    const installable = installAsset(path);
+    if (installable) return installable;
+
     if (path === "/") {
       const [overview, pairs, verified, best] = await Promise.all([
         deps.data.overview(),
