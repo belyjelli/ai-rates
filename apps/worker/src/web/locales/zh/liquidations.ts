@@ -94,8 +94,8 @@ export const liquidations: Catalog = {
     "零线以上为多头爆仓，以下为空头爆仓，两者使用同一线性刻度。将鼠标悬停在柱形上即可在光标旁查看数值；在手机上点击柱形，数值会显示在图表上方的那一行中。最后一根柱仍在累计中。",
   "{usd} of longs closed between {band}": "{band} 区间内多头爆仓 {usd}",
   "{usd} of shorts closed between {band}": "{band} 区间内空头爆仓 {usd}",
-  "<b>{usd}</b> · {share}% of this asset's forced flow":
-    "<b>{usd}</b> · 占该资产强平总额的 {share}%",
+  "Longs closed <b>{usd}</b> · {share}%": "多头爆仓 <b>{usd}</b> · {share}%",
+  "Shorts closed <b>{usd}</b> · {share}%": "空头爆仓 <b>{usd}</b> · {share}%",
   All: "全部",
   "Nothing was force-closed in {asset} in the last {window}, on either side.":
     "最近 {window} 内 {asset} 的多空双方均没有被强制平仓。",

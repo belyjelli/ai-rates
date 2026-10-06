@@ -740,7 +740,7 @@ describe("pages", () => {
     expect(html).toContain("#price");
   });
 
-  test("longs and shorts get a panel each, for one asset, with the exchanges added up", async () => {
+  test("longs and shorts share one table, for one asset, with the exchanges added up", async () => {
     const { data } = fakeData({
       liquidationMap: async () => liqMap(),
       liquidationAsset: async () => liqAsset(),
@@ -749,12 +749,16 @@ describe("pages", () => {
 
     expect(html).toContain('data-tab="sides"');
     expect(html).toContain('data-tab-panel="sides"');
-    expect(html).toContain("Longs closed");
-    expect(html).toContain("Shorts closed");
-    expect(html).toContain('data-live="lq-side-long"');
-    expect(html).toContain('data-live="lq-side-short"');
+    expect(html).toContain("Longs closed <b>$8.0M</b>");
+    expect(html).toContain("Shorts closed <b>$1.5M</b>");
+    expect(html).toContain('data-live="lq-sides"');
 
     const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    // ONE price column: the two sides share their rows, so the labels are printed once. Two grids
+    // that each repeated them did not fit side by side and were drawn over each other.
+    expect(sides.split("<table").length - 1).toBe(1);
+    expect(sides.split("Fill price").length - 1).toBe(1);
+    expect(sides.split('scope="row">2,400 – 2,424<').length - 1).toBe(1);
     // The rows are PRICE bands, not assets: this view is one asset drilled down, so it carries the
     // same row vocabulary as the priced tab rather than the map's.
     expect(sides).toContain("Fill price");

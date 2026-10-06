@@ -229,18 +229,16 @@ table.heat{border-collapse:collapse;width:auto;min-width:100%}
 .heat td.hm-n1{background:rgba(95,135,255,.08)}.heat td.hm-n2{background:rgba(95,135,255,.16)}
 .heat td.hm-n3{background:rgba(95,135,255,.26)}.heat td.hm-n4{background:rgba(95,135,255,.38)}
 .heat td.hm-n5{background:rgba(95,135,255,.52)}
-/* Liquidation map. Two panels side by side, one per venue, on shared rows and shared columns --
-   the comparison is the page. They stack below 1100px rather than scrolling as one 24-column sheet,
-   because a grid you cannot see both halves of is a list. */
-.lq-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
-/* One panel takes the full width rather than half of a two-column grid: the combined view and a
-   single venue are one grid, and half a screen would scroll them for no reason. */
-.lq-grid-one{grid-template-columns:1fr}
-/* Three feeds or more wrap instead of shrinking past readable: each panel keeps a usable minimum. */
-@media (min-width:1101px){.lq-grid{grid-template-columns:repeat(auto-fit,minmax(520px,1fr))}}
+/* Liquidation panels, one per venue, on shared rows and shared columns -- the comparison is the page.
+   Side by side only where two whole grids fit, and stacked otherwise: flex-wrap places each panel at
+   its own width, so a pair goes on one line only when both fit there. This was a two-column grid of
+   1fr halves, which held a 12-column grid (about 850px) in half of a 1340px screen; the grid spilled
+   out of its half and the next venue's panel was drawn on top of its newest columns. The grid's
+   container is capped at the viewport (main.wrap's sticky children above), which is what makes the
+   wrap happen. A lone panel, or the combined view, grows to the full width. */
+.lq-grid{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start}
 .tf-label{color:var(--dim);padding-right:4px}
-@media (max-width:1100px){.lq-grid{grid-template-columns:1fr}}
-.lq-panel{min-width:0}
+.lq-panel{flex:1 1 auto;min-width:0}
 .lq-venue{font-size:13px;margin:0 0 2px;font-weight:600}
 .lq-sum{color:var(--muted);margin:0 0 6px}
 .lq-sum b{color:var(--ink)}
@@ -295,10 +293,27 @@ box-shadow:inset 0 0 0 1px var(--ink)}
    grid follows draws the same line, and it is the one row boundary that means something. */
 .heat.lq-asset tr.lq-mark td,.heat.lq-asset tr.lq-mark th{border-bottom:1px dashed var(--muted)}
 .heat.lq-asset th.asset{color:var(--muted);white-space:nowrap}
-/* Longs vs shorts: the panel heading carries the side's colour, because in that view the hue is the
-   panel rather than the cell and the heading is what says so. */
+/* Longs vs shorts: one table, the price column once on the left, longs then shorts. Each half's
+   heading spans its columns and carries the side's colour, because in that view the hue is the half
+   rather than the cell and the heading is what says so. The heading row scrolls away rather than
+   sticking: two sticky header rows would land on the same line under the masthead, and the column row
+   below it is the one a reader needs while scrolling. */
 .lq-side-long{color:var(--long)}
 .lq-side-short{color:var(--short)}
+.heat.lq-sides tr.lq-grp th{position:static;text-align:left;text-transform:none;font-weight:600;padding:4px 6px 3px}
+.heat.lq-sides tr.lq-grp th.asset{position:sticky;top:auto}
+.heat.lq-sides tr.lq-grp th.lq-side-long{box-shadow:inset 0 -2px 0 var(--long)}
+.heat.lq-sides tr.lq-grp th.lq-side-short{box-shadow:inset 0 -2px 0 var(--short)}
+.heat.lq-sides tr.lq-grp b{color:var(--ink)}
+/* The rule between the halves: the short half's first column. */
+.heat.lq-sides .lq-split{border-left:2px solid var(--rule)}
+/* Two halves of 13 columns run to about 1,530px, wider than a laptop screen, and the table sits in a
+   tab panel capped at the viewport, so the page cannot grow sideways around it the way it does for a
+   grid that is main's own child: the page scrolled, masthead and chart with it. It scrolls in a box
+   of its own instead, the price column stuck inside it. The header then sticks to the box, not under
+   the masthead, so its offset is zero; at eleven rows the table never needs it to stick anyway. */
+.heat-wrap.lq-box{overflow-x:auto;width:auto;min-width:0}
+.heat-wrap.lq-box .heat th{top:0}
 /* Longs vs shorts over time: the funding chart's frame, with bars mirrored around one zero line. */
 .lqc .lqc-plot{height:260px}
 .lqc-grid{stroke:var(--rule);stroke-width:1;vector-effect:non-scaling-stroke}

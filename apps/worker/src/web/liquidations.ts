@@ -485,7 +485,7 @@ ${title}
           "No liquidations recorded in the last {window}. Only the venues that publish a feed the collector reads appear here, so a quiet window is not a quiet market.",
           { window: esc(params.window) },
         )}</p>`
-      : `<div class="lq-grid${shown.length === 1 ? " lq-grid-one" : ""}">${shown.map(panel).join("")}</div>`;
+      : `<div class="lq-grid">${shown.map(panel).join("")}</div>`;
 
   // The newest forced close itself, from the per-venue totals. This used to be the newest CELL's
   // bucket_start, i.e. the start of the last 2-hour column, so it read "1h 11m ago" while a feed had
@@ -885,7 +885,8 @@ ${slotData({ kind: "lqc", from: fromMs, unit: bucketMs, slots })}
  * One asset, longs on the left and shorts on the right, every exchange aggregated.
  *
  * This is the reference layout at its closest: price bands down the side, the two sides as two
- * panels on shared rows, and the hue carried by the panel so only intensity varies within it.
+ * halves of one table on shared rows, and the hue carried by the half so only intensity varies
+ * within it.
  *
  * ONE ASSET, NOT ALL OF THEM, because the rows are prices. A price band across twelve different
  * assets is meaningless -- that view is the map, one tab to the left, where the rows are the assets
@@ -935,80 +936,100 @@ function sidesPanel(data: {
     { long: 0, short: 0, events: 0 },
   );
   const both = totals.long + totals.short;
+  const sides = ["long", "short"] as const;
 
-  const panel = (side: "long" | "short"): string => {
-    const head = cols
+  // ONE TABLE, ONE PRICE COLUMN. The two sides share their rows -- the same bands from the same
+  // anchor -- so they used to be two grids that each repeated the price labels, and at 12 columns a
+  // side the pair did not fit beside each other: the shorts grid was drawn over the longs grid's
+  // newest columns. As one table the labels are printed once, a row is one price level read across
+  // both sides, and a grid wider than the screen scrolls with the price column stuck to the left.
+  //
+  // The first column of the short half carries `lq-split`, the rule that divides the two halves.
+  const head = (side: "long" | "short") =>
+    `${cols
       .map(
-        (column) =>
-          `<th class="num${column.partial ? " lq-now" : ""}" scope="col">${esc(
-            columnLabel(column, bucketHours),
-          )}</th>`,
+        (column, i) =>
+          `<th class="num${column.partial ? " lq-now" : ""}${
+            side === "short" && i === 0 ? " lq-split" : ""
+          }" scope="col">${esc(columnLabel(column, bucketHours))}</th>`,
       )
-      .join("");
+      .join("")}<th class="num lq-rowsum" scope="col">${tr("All")}</th>`;
 
-    const rows = bandRows(reach)
-      .map((band) => {
-        let rowTotal = 0;
-        const cells = cols
-          .map((column) => {
-            const cell = byCell.get(`${band}\0${column.start.getTime()}`);
-            const usd = side === "long" ? (cell?.long ?? 0) : (cell?.short ?? 0);
-            if (!cell || usd <= 0) return `<td class="num none">·</td>`;
-            rowTotal += usd;
-            // The hue is the panel, not the cell: within one grid every fill means the same side,
-            // so intensity alone carries the money and the two grids compare directly.
-            const range = {
-              usd: money(usd),
-              band: bandLabel(mark, bandPct, reach, band).replace("&lt;", "<"),
-            };
-            return `<td class="num lq-${side === "long" ? "l" : "s"}${step(usd)}" title="${esc(
-              side === "long"
-                ? tr("{usd} of longs closed between {band}", range)
-                : tr("{usd} of shorts closed between {band}", range),
-            )}"><span data-u="usd">${money(usd)}</span></td>`;
-          })
-          .join("");
-        const atMark = band === 0 ? ' class="lq-mark"' : "";
-        return `<tr${atMark} data-k="${band}"><th class="asset" scope="row">${bandLabel(
-          mark,
-          bandPct,
-          reach,
-          band,
-        )}</th>${cells}<td class="num lq-rowsum">${rowTotal > 0 ? money(rowTotal) : "·"}</td></tr>`;
+  const sideCells = (side: "long" | "short", band: number): string => {
+    let rowTotal = 0;
+    const cells = cols
+      .map((column, i) => {
+        const split = side === "short" && i === 0 ? " lq-split" : "";
+        const cell = byCell.get(`${band}\0${column.start.getTime()}`);
+        const usd = side === "long" ? (cell?.long ?? 0) : (cell?.short ?? 0);
+        if (!cell || usd <= 0) return `<td class="num none${split}">·</td>`;
+        rowTotal += usd;
+        // The hue is the half, not the cell: within one half every fill means the same side, so
+        // intensity alone carries the money and the two halves compare directly.
+        const range = {
+          usd: money(usd),
+          band: bandLabel(mark, bandPct, reach, band).replace("&lt;", "<"),
+        };
+        return `<td class="num lq-${side === "long" ? "l" : "s"}${step(usd)}${split}" title="${esc(
+          side === "long"
+            ? tr("{usd} of longs closed between {band}", range)
+            : tr("{usd} of shorts closed between {band}", range),
+        )}"><span data-u="usd">${money(usd)}</span></td>`;
       })
       .join("");
+    return `${cells}<td class="num lq-rowsum">${rowTotal > 0 ? money(rowTotal) : "·"}</td>`;
+  };
 
-    const totalRow = cols
-      .map((column) => {
+  const sideTotals = (side: "long" | "short"): string => {
+    const cells = cols
+      .map((column, i) => {
+        const split = side === "short" && i === 0 ? " lq-split" : "";
         let usd = 0;
         for (const band of bandRows(reach)) {
           const cell = byCell.get(`${band}\0${column.start.getTime()}`);
           if (cell) usd += side === "long" ? cell.long : cell.short;
         }
         return usd > 0
-          ? `<td class="num"><span data-u="total">${money(usd)}</span></td>`
-          : `<td class="num none">·</td>`;
+          ? `<td class="num${split}"><span data-u="total">${money(usd)}</span></td>`
+          : `<td class="num none${split}">·</td>`;
       })
       .join("");
+    const sum = side === "long" ? totals.long : totals.short;
+    return `${cells}<td class="num lq-rowsum">${sum > 0 ? money(sum) : "·"}</td>`;
+  };
 
+  // Each half's heading spans its columns: the side, its money, and its share of both.
+  const group = (side: "long" | "short"): string => {
     const sum = side === "long" ? totals.long : totals.short;
     const share = both > 0 ? (sum / both) * 100 : 0;
-
-    return `<section class="lq-panel">
-<h2 class="lq-venue lq-side-${side}">${side === "long" ? tr("Longs closed") : tr("Shorts closed")}</h2>
-<p class="lq-sum">${tr("<b>{usd}</b> · {share}% of this asset's forced flow", {
-      usd: money(sum),
-      share: share.toFixed(0),
-    })}</p>
-<div class="heat-wrap"><table class="heat lq lq-asset lq-sides">
-<thead><tr><th class="asset" scope="col">${tr("Fill price")}</th>${head}<th class="num">${tr("All")}</th></tr></thead>
-<tbody data-live="lq-side-${side}">${rows}
-<tr class="lq-total"><th class="asset" scope="row">${tr("total")}</th>${totalRow}<td class="num lq-rowsum">${
-      sum > 0 ? money(sum) : "·"
-    }</td></tr></tbody>
-</table></div>
-</section>`;
+    const values = { usd: money(sum), share: share.toFixed(0) };
+    return `<th class="lq-side lq-side-${side}${side === "short" ? " lq-split" : ""}" scope="colgroup" colspan="${
+      cols.length + 1
+    }">${
+      side === "long"
+        ? tr("Longs closed <b>{usd}</b> · {share}%", values)
+        : tr("Shorts closed <b>{usd}</b> · {share}%", values)
+    }</th>`;
   };
+
+  const rows = bandRows(reach)
+    .map((band) => {
+      const atMark = band === 0 ? ' class="lq-mark"' : "";
+      return `<tr${atMark} data-k="${band}"><th class="asset" scope="row">${bandLabel(
+        mark,
+        bandPct,
+        reach,
+        band,
+      )}</th>${sides.map((side) => sideCells(side, band)).join("")}</tr>`;
+    })
+    .join("");
+
+  const table = `<div class="heat-wrap lq-box"><table class="heat lq lq-asset lq-sides">
+<thead data-live="lq-sides-head"><tr class="lq-grp"><th class="asset"></th>${sides.map(group).join("")}</tr>
+<tr><th class="asset" scope="col">${tr("Fill price")}</th>${sides.map(head).join("")}</tr></thead>
+<tbody data-live="lq-sides">${rows}
+<tr class="lq-total"><th class="asset" scope="row">${tr("total")}</th>${sides.map(sideTotals).join("")}</tr></tbody>
+</table></div>`;
 
   if (mark === null) {
     return `<p class="empty">${tr(
@@ -1033,7 +1054,7 @@ ${helpPanel(
   )}</p><p>${tr("Longs closed above the line, shorts closed below, on the same linear scale. Hover a bar to read it beside the cursor; on a phone, tap and it reads in the line above the chart. The last bar is still filling.")}</p>`,
 )}
 ${sidesChart({ label, points: map.sides, params, now })}
-<div class="lq-grid">${panel("long")}${panel("short")}</div>`;
+${table}`;
 }
 
 /**
