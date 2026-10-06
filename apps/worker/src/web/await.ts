@@ -1,3 +1,5 @@
+import { scriptStrings, tr } from "./i18n";
+
 /**
  * Links and forms that start a report the server builds on request (the pair backtest): the button
  * shows that it is working, and the page stays put until the report is ready, instead of the reader
@@ -33,9 +35,13 @@ export function retryDelay(
   return Math.min(8e3, 1e3 * 2 ** attempt);
 }
 
-/** The browser half. No escapes or regexes, so unlike LIVE_SCRIPT it needs no String.raw. */
-export const AWAIT_SCRIPT = `(() => {
+/**
+ * The browser half, built at render time so the button's words are in the reader's language. No
+ * escapes or regexes, so unlike LIVE_SCRIPT it needs no String.raw.
+ */
+export const awaitScript = (): string => `(() => {
   const retryDelay = ${retryDelay};
+  const T = ${scriptStrings({ building: tr("Building report"), still: tr("Still building") })};
   if (!window.fetch || !window.AbortController) return;
 
   const GIVE_UP = 90e3; // past this, show whatever the server has, its error page included
@@ -66,7 +72,7 @@ export const AWAIT_SCRIPT = `(() => {
     // Held at its current width so the row beside it does not jump as the label changes.
     el.style.minWidth = el.offsetWidth + "px";
     el.setAttribute("aria-busy", "true");
-    label(el, "Building report");
+    label(el, T.building);
     const started = Date.now();
     for (let attempt = 0; ; attempt++) {
       const controller = new AbortController();
@@ -86,7 +92,7 @@ export const AWAIT_SCRIPT = `(() => {
       if (token !== run) return;
       const delay = retryDelay(status, attempt, retryAfter);
       if (delay === null || Date.now() - started + delay > GIVE_UP) return void location.assign(url);
-      label(el, "Still building");
+      label(el, T.still);
       await new Promise((done) => setTimeout(done, delay));
       if (token !== run) return;
     }

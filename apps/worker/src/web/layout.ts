@@ -1,26 +1,38 @@
 import type { Overview } from "../app/data";
 import { BUILD } from "../build-info";
-import { AWAIT_SCRIPT } from "./await";
-import { esc, sentimentTone, since } from "./format";
+import { awaitScript } from "./await";
+import { durationStrings, esc, sentimentLabel, sentimentTone, since } from "./format";
+import { HELP_CSS, HELP_SCRIPT } from "./help";
+import {
+  currentLocale,
+  htmlLang,
+  LOCALE_INFO,
+  LOCALES,
+  msg,
+  scriptStrings,
+  switchHref,
+  tr,
+  trMsg,
+} from "./i18n";
 import { INSTALL_CSS, INSTALL_HEAD } from "./install";
 import { LIVE_SCRIPT } from "./live";
-import { SHARE_BAR, SHARE_CSS, SHARE_SCRIPT } from "./share";
+import { SHARE_CSS, shareBar, shareScript } from "./share";
 import { TAB_SCRIPT } from "./tabs";
 
 const NAV = [
-  { href: "/", label: "spreads", match: (p: string) => p === "/" },
-  { href: "/screener", label: "screener", match: (p: string) => p === "/screener" },
-  { href: "/rates", label: "rates", match: (p: string) => p === "/rates" },
-  { href: "/arbitrage", label: "arbitrage", match: (p: string) => p === "/arbitrage" },
+  { href: "/", label: msg("spreads"), match: (p: string) => p === "/" },
+  { href: "/screener", label: msg("screener"), match: (p: string) => p === "/screener" },
+  { href: "/rates", label: msg("rates"), match: (p: string) => p === "/rates" },
+  { href: "/arbitrage", label: msg("arbitrage"), match: (p: string) => p === "/arbitrage" },
   // startsWith, like /markets: an asset's priced grid lives under the same address and must keep
   // the nav item lit rather than reading as a page outside the site.
   {
     href: "/liquidations",
-    label: "liquidations",
+    label: msg("liquidations"),
     match: (p: string) => p.startsWith("/liquidations"),
   },
-  { href: "/cvd", label: "cvd", match: (p: string) => p.startsWith("/cvd") },
-  { href: "/markets", label: "exchanges", match: (p: string) => p.startsWith("/markets") },
+  { href: "/cvd", label: msg("cvd"), match: (p: string) => p.startsWith("/cvd") },
+  { href: "/markets", label: msg("exchanges"), match: (p: string) => p.startsWith("/markets") },
 ];
 
 /**
@@ -51,18 +63,18 @@ export const GA_TAG = `<!-- Google tag (gtag.js) -->
 
 /** Hotkeys shown in the status bar. They are advertised, so they are implemented. */
 const KEYS: [string, string, string][] = [
-  ["h", "spreads", "/"],
-  ["s", "screener", "/screener"],
-  ["r", "rates", "/rates"],
-  ["a", "arbitrage", "/arbitrage"],
-  ["l", "liquidations", "/liquidations"],
-  ["c", "cvd", "/cvd"],
-  ["e", "exchanges", "/markets"],
+  ["h", msg("spreads"), "/"],
+  ["s", msg("screener"), "/screener"],
+  ["r", msg("rates"), "/rates"],
+  ["a", msg("arbitrage"), "/arbitrage"],
+  ["l", msg("liquidations"), "/liquidations"],
+  ["c", msg("cvd"), "/cvd"],
+  ["e", msg("exchanges"), "/markets"],
 ];
 
 /**
  * The key-to-destination map the inline script jumps with, built from KEYS rather than repeated.
- * It used to be written out a second time inside SCRIPT, so a key could be advertised in the
+ * It used to be written out a second time inside the page script, so a key could be advertised in the
  * status bar and do nothing, or work without being advertised.
  */
 const HOTKEY_TARGETS = JSON.stringify(Object.fromEntries(KEYS.map(([key, , href]) => [key, href])));
@@ -547,6 +559,11 @@ input[type=checkbox]{accent-color:var(--accent)}
 @media (max-width:560px){.tab-label--full{display:none}.tab-label--short{display:inline}}
 footer{border-top:1px solid var(--rule);margin-top:24px;padding:8px 0 24px;color:var(--dim);line-height:1.6}
 footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+/* The language switch: each language in its own script, the one in use lit as the nav's current page is. */
+.langs{display:flex;flex-wrap:wrap;gap:2px 4px;align-items:baseline;margin-bottom:6px;color:var(--dim)}
+.langs a{border:0;color:var(--muted);padding:0 6px}
+.langs a[aria-current]{background:var(--ink);color:var(--bg)}
+.langs a:hover{color:var(--accent)}
 /* About page: the changelog reads as prose, so it gets a measure and some line height. */
 .about-log{display:grid;gap:16px;max-width:96ch;margin-top:6px}
 .about-log h2{margin:0 0 6px}
@@ -560,8 +577,11 @@ footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim)
 @media (max-width:860px){.status{font-size:11px}.legs .short{text-align:left}}
 `;
 
-// Live "… ago" and countdowns, a UTC clock, and the hotkeys advertised in the status bar.
-const SCRIPT = `(()=>{const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?s+"s":s<3600?Math.floor(s/60)+"m":Math.floor(s/3600)+"h "+p(Math.floor(s%3600/60))+"m"};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=f((n-e.dataset.since)/1e3)+" ago";for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):"settling"}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const n=e.target&&e.target.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA")return;if(e.key==="/"){const q=document.querySelector("form.filters select,form.filters input,form.cvd-search input[type=search]");if(q){e.preventDefault();q.focus()}return}const g=${HOTKEY_TARGETS}[e.key];if(g){e.preventDefault();location.href=g}})})();`;
+// Live "… ago" and countdowns, a UTC clock, and the hotkeys advertised in the status bar. The
+// duration words come from format.ts in the page's language, so a ticking age reads as the server
+// wrote it. The language links get the page's query string, so switching keeps a screener's filters.
+const pageScript = () =>
+  `(()=>{const L=${scriptStrings(durationStrings())};for(const a of document.querySelectorAll("a[data-lang]"))a.href=a.pathname+"?back="+encodeURIComponent(location.pathname+location.search);const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?L.s.replace("{s}",s):s<3600?L.m.replace("{m}",Math.floor(s/60)):L.hm.replace("{h}",Math.floor(s/3600)).replace("{m}",p(Math.floor(s%3600/60)))};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=L.ago.replace("{time}",f((n-e.dataset.since)/1e3));for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):L.settling}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const n=e.target&&e.target.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA")return;if(e.key==="/"){const q=document.querySelector("form.filters select,form.filters input,form.cvd-search input[type=search]");if(q){e.preventDefault();q.focus()}return}const g=${HOTKEY_TARGETS}[e.key];if(g){e.preventDefault();location.href=g}})})();`;
 
 export function layout(options: {
   title: string;
@@ -574,20 +594,29 @@ export function layout(options: {
   const { title, description, path, body, overview, now } = options;
   const nav = NAV.map(
     (item) =>
-      `<a href="${item.href}"${item.match(path) ? ' aria-current="page"' : ""}>${item.label}</a>`,
+      `<a href="${item.href}"${item.match(path) ? ' aria-current="page"' : ""}>${trMsg(item.label)}</a>`,
   ).join("");
-  const keys = KEYS.map(([key, label]) => `<span><b>${key}</b>${label}</span>`).join("");
+  const keys = KEYS.map(([key, label]) => `<span><b>${key}</b>${trMsg(label)}</span>`).join("");
   const status =
     overview && overview.markets > 0
-      ? `${overview.markets.toLocaleString("en-US")} markets · ${overview.venues} venues · updated ${since(overview.updated_at, now)}`
-      : "no venue has reported in five minutes";
+      ? tr("{markets} markets · {venues} venues · updated {ago}", {
+          markets: overview.markets.toLocaleString("en-US"),
+          venues: overview.venues,
+          ago: since(overview.updated_at, now),
+        })
+      : tr("no venue has reported in five minutes");
   const sentimentBadge =
     overview && overview.sentiment_score !== null
-      ? `<a class="sent-badge sent-${sentimentTone(overview.sentiment_score)}" href="/sentiment" title="Fear &amp; greed: click for the chart">${overview.sentiment_score.toFixed(0)} ${esc(overview.sentiment_label ?? "")}</a>`
+      ? `<a class="sent-badge sent-${sentimentTone(overview.sentiment_score)}" href="/sentiment" title="${tr("Fear &amp; greed: click for the chart")}">${overview.sentiment_score.toFixed(0)} ${sentimentLabel(overview.sentiment_label)}</a>`
       : "";
+  // Every language by its own name, the one in use marked; a plain link each, so it needs no script.
+  const languages = LOCALES.map(
+    (locale) =>
+      `<a href="${switchHref(locale, path)}" data-lang hreflang="${LOCALE_INFO[locale].htmlLang}" lang="${LOCALE_INFO[locale].htmlLang}"${locale === currentLocale() ? ' aria-current="true"' : ""}>${LOCALE_INFO[locale].name}</a>`,
+  ).join("");
 
   return `<!doctype html>
-<html lang="en">
+<html lang="${htmlLang()}">
 <head>
 ${GA_TAG}
 <meta charset="utf-8">
@@ -597,24 +626,26 @@ ${GA_TAG}
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📟</text></svg>">
 <meta name="description" content="${esc(description)}">
 ${INSTALL_HEAD}
-<style>${CSS}${SHARE_CSS}${INSTALL_CSS}</style>
+<style>${CSS}${SHARE_CSS}${INSTALL_CSS}${HELP_CSS}</style>
 </head>
 <body data-rendered="${now}" data-build="${esc(BUILD.commit ?? "")}">
 <header class="mast">
-<div class="wrap bar"><a class="brand" href="/">airrates<small>funding carry sheet</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${SHARE_BAR}<time class="clock" id="clock">--:--:-- UTC</time></div>
-<div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><span class="keys">${keys}<span><b>/</b>filter</span></span></div>
+<div class="wrap bar"><a class="brand" href="/">airrates<small>${tr("funding carry sheet")}</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${shareBar()}<time class="clock" id="clock">--:--:-- UTC</time></div>
+<div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><span class="keys">${keys}<span><b>/</b>${tr("filter")}</span></span></div>
 </header>
 <main class="wrap">${body}</main>
 <footer><div class="wrap">
-<p class="sig"><span>read only · public venue APIs</span><span><a href="${MEMBER_URL}" target="_blank" rel="noopener">login</a> · <a href="/status">status</a> · <a href="/probe">geo-probe</a> · <a href="/about">about</a> · <a href="/referrals">referral links</a> · <a href="/legal">legal &amp; privacy</a> · <a href="/tos">terms</a></span><span>airrates</span></p>
-<p>Funding rates come from each venue's public API and refresh every minute. They are estimates for each venue's next settlement and change before it. Spreads are before trading fees, slippage and price moves.</p>
-<p>Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.</p>
+<p class="sig"><span>${tr("read only · public venue APIs")}</span><span><a href="${MEMBER_URL}" target="_blank" rel="noopener">${tr("login")}</a> · <a href="/status">${tr("status")}</a> · <a href="/probe">${tr("geo-probe")}</a> · <a href="/about">${tr("about")}</a> · <a href="/referrals">${tr("referral links")}</a> · <a href="/legal">${tr("legal &amp; privacy")}</a> · <a href="/tos">${tr("terms")}</a></span><span>airrates</span></p>
+<nav class="langs" aria-label="${tr("Language")}"><span>${tr("language:")}</span>${languages}</nav>
+<p>${tr("Funding rates come from each venue's public API and refresh every minute. They are estimates for each venue's next settlement and change before it. Spreads are before trading fees, slippage and price moves.")}</p>
+<p>${tr("Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.")}</p>
 </div></footer>
-<script>${SCRIPT}</script>
+<script>${pageScript()}</script>
+<script>${HELP_SCRIPT}</script>
 <script>${LIVE_SCRIPT}</script>
-<script>${AWAIT_SCRIPT}</script>
+<script>${awaitScript()}</script>
 <script>${TAB_SCRIPT}</script>
-<script>${SHARE_SCRIPT}</script>
+<script>${shareScript()}</script>
 </body>
 </html>`;
 }

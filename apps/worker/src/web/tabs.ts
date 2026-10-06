@@ -1,4 +1,5 @@
 import { esc } from "./format";
+import { tr } from "./i18n";
 
 /**
  * The tab section header: tab buttons on the left, optional actions on the right, and one absolute
@@ -72,7 +73,7 @@ export function tabBar({ name, tabs, activeId, actions }: TabBarOptions): string
     .join("");
 
   return `<div class="tabbar" data-tabs="${esc(name)}">
-<div class="tabbar-tabs" role="tablist" aria-label="Sections">${buttons}<span class="tab-underline" aria-hidden="true"></span></div>${
+<div class="tabbar-tabs" role="tablist" aria-label="${tr("Sections")}">${buttons}<span class="tab-underline" aria-hidden="true"></span></div>${
     actions ? `<div class="tabbar-actions">${actions}</div>` : ""
   }
 </div>`;

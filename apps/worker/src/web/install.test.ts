@@ -4,7 +4,10 @@ import { handleApp } from "../app/app";
 import type { DataSource } from "../app/data";
 import { about } from "./about";
 import { APP_ICONS, drawIcon } from "./app-icon";
-import { DISMISS_DAYS, INSTALL_BLOCK, INSTALL_HEAD, installAsset, MANIFEST } from "./install";
+import { withLocale } from "./i18n";
+import { DISMISS_DAYS, INSTALL_HEAD, installAsset, installBlock, MANIFEST } from "./install";
+
+const INSTALL_BLOCK = installBlock();
 
 const NOW = Date.parse("2026-10-06T10:00:00Z");
 const overview = {
@@ -128,7 +131,7 @@ describe("the about page's install offer", () => {
   test("sits on top of the title, and is hidden until the browser offers an install", () => {
     const block = html.indexOf('<div class="install" data-install hidden>');
     expect(block).toBeGreaterThan(-1);
-    expect(block).toBeLessThan(html.indexOf("<h1>About airrates</h1>"));
+    expect(block).toBeLessThan(html.indexOf('<h1 class="has-help">About airrates<'));
   });
 
   test("carries the button, and on a phone a line of explanation and a way to dismiss it", () => {
@@ -136,6 +139,13 @@ describe("the about page's install offer", () => {
     expect(INSTALL_BLOCK).toContain('data-install-dismiss aria-label="Not now"');
     expect(html).toContain(".install-text,.install-x{display:none}");
     expect(html).toContain("@media (max-width:640px){\n.install{margin:-12px -10px 12px}");
+  });
+
+  test("its words follow the page's language; the script is the same in every one", () => {
+    const zh = withLocale("zh", installBlock);
+    expect(zh).not.toContain(">Install app</button>");
+    const script = (html: string) => /<script>([\s\S]*?)<\/script>/.exec(html)?.[1] ?? "";
+    expect(script(zh)).toBe(script(INSTALL_BLOCK));
   });
 
   test("its script parses, waits for beforeinstallprompt, and never shows in an installed app", () => {

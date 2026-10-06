@@ -1,3 +1,5 @@
+import { msg, tr, trMsg } from "./i18n";
+
 const MINUS = "−";
 
 export function esc(text: string): string {
@@ -52,19 +54,34 @@ export function formatInterval(hours: number | null): string {
   return hours >= 1 ? `${Number(hours.toFixed(2))}h` : `${Math.round(hours * 60)}m`;
 }
 
-/** Duration in seconds as "42s", "12m", "3h 05m". Mirrored by the page script. */
+/**
+ * Duration in seconds as "42s", "12m", "3h 05m", in the current language. Mirrored by the page
+ * script, which is handed these same patterns (`durationStrings`) so the two never read differently.
+ */
 export function formatDuration(seconds: number): string {
   const s = Math.max(0, Math.round(seconds));
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.floor(s / 60)}m`;
-  return `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).padStart(2, "0")}m`;
+  if (s < 60) return tr("{s}s", { s });
+  if (s < 3600) return tr("{m}m", { m: Math.floor(s / 60) });
+  return tr("{h}h {m}m", {
+    h: Math.floor(s / 3600),
+    m: String(Math.floor((s % 3600) / 60)).padStart(2, "0"),
+  });
 }
+
+/** The patterns `formatDuration`, `since` and `until` use, for the page script that keeps them ticking. */
+export const durationStrings = () => ({
+  s: tr("{s}s"),
+  m: tr("{m}m"),
+  hm: tr("{h}h {m}m"),
+  ago: tr("{time} ago"),
+  settling: tr("settling"),
+});
 
 /** `<time>` that the page script keeps ticking as "12s ago". */
 export function since(date: Date | null, now: number): string {
   if (!date) return "–";
   const ms = date.getTime();
-  return `<time datetime="${date.toISOString()}" data-since="${ms}">${formatDuration((now - ms) / 1000)} ago</time>`;
+  return `<time datetime="${date.toISOString()}" data-since="${ms}">${tr("{time} ago", { time: formatDuration((now - ms) / 1000) })}</time>`;
 }
 
 /**
@@ -75,15 +92,15 @@ export function since(date: Date | null, now: number): string {
  * shipped on /arbitrage for one deploy. A tooltip is text, so it gets a text function.
  */
 export function ageText(date: Date | null, now: number): string {
-  if (!date) return "never";
-  return `${formatDuration((now - date.getTime()) / 1000)} ago`;
+  if (!date) return tr("never");
+  return tr("{time} ago", { time: formatDuration((now - date.getTime()) / 1000) });
 }
 
 /** `<time>` that the page script keeps counting down to the next settlement. */
 export function until(date: Date | null, now: number): string {
   if (!date) return "–";
   const ms = date.getTime();
-  const label = ms > now ? formatDuration((ms - now) / 1000) : "settling";
+  const label = ms > now ? formatDuration((ms - now) / 1000) : tr("settling");
   return `<time datetime="${date.toISOString()}" data-until="${ms}">${label}</time>`;
 }
 
@@ -124,4 +141,19 @@ export function sentimentTone(score: number): string {
   if (score < 45) return "short";
   if (score > 55) return "long";
   return "ink";
+}
+
+/** The five labels migration 026's CHECK allows, marked here so each language translates them. */
+const SENTIMENT_LABELS = new Set([
+  msg("extreme fear"),
+  msg("fear"),
+  msg("neutral"),
+  msg("greed"),
+  msg("extreme greed"),
+]);
+
+/** A fear/greed label from the database, in the current language. Escaped: it is read from a table. */
+export function sentimentLabel(label: string | null): string {
+  if (!label) return "";
+  return esc(SENTIMENT_LABELS.has(label) ? trMsg(label) : label);
 }

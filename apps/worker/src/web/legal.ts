@@ -1,8 +1,22 @@
 import type { Overview } from "../app/data";
+import { currentLocale, tr } from "./i18n";
 import { layout } from "./layout";
 
 /** When the text below last changed. Update it with any edit a reader would notice. */
 const UPDATED = "15 September 2026";
+
+/**
+ * The body of a page that stays in English whatever the reader's language: legal text binds in one
+ * language, and a translation would need counsel's review in every language it was offered in (owner's
+ * decision, 2026-10-06). A reader in another language gets one line in theirs saying so above it, and
+ * the English is marked `lang="en"` so a screen reader and the font fallback read it as English. An
+ * English reader gets the body untouched. Shared with tos.ts.
+ */
+export function englishOnly(body: string): string {
+  if (currentLocale() === "en") return body;
+  return `<p class="notes">${tr("This page is available in English only. The English text is the binding version.")}</p>
+<div lang="en">${body}</div>`;
+}
 
 /**
  * Disclaimer, affiliate disclosure, independence notice and privacy policy, on one page so the footer
@@ -22,7 +36,7 @@ export function legal(data: { overview: Overview; now: number }): string {
     path: "/legal",
     overview: data.overview,
     now: data.now,
-    body: `<h1>Legal and privacy</h1>
+    body: englishOnly(`<h1>Legal and privacy</h1>
 <p class="lede">Last updated ${UPDATED}. The agreement for using the site is separate: see the <a href="/tos">Terms of service</a>.</p>
 <div class="about-log">
 <article id="disclaimer">
@@ -72,6 +86,6 @@ export function legal(data: { overview: Overview; now: number }): string {
 <li>Open an issue at the <a href="https://github.com/belyjelli/ai-rates/issues">project's repository</a>.</li>
 </ul>
 </article>
-</div>`,
+</div>`),
   });
 }

@@ -1,4 +1,5 @@
 import { APP_ICON_PNG } from "./app-icons.generated";
+import { tr } from "./i18n";
 
 /**
  * Installing the site as an app, in browsers that offer it (Chrome, and the other Chromium browsers).
@@ -11,6 +12,9 @@ import { APP_ICON_PNG } from "./app-icons.generated";
  *
  * No service worker: Chrome stopped requiring one to install a site, and a cache in front of live funding
  * rates would only ever show old numbers.
+ *
+ * The manifest stays English in every language: it is served at its own address, outside any page
+ * render and cached for an hour, so it has no reader's language to follow.
  */
 export const MANIFEST = {
   name: "airrates · funding carry sheet",
@@ -90,15 +94,18 @@ export const DISMISS_DAYS = 30;
 /**
  * Hidden until the browser says it can install the site. Wide screens show the button alone; phones
  * show it inside a full-width banner with a line of explanation and a way to dismiss it (INSTALL_CSS).
+ * Built at render time, in the reader's language.
  */
-export const INSTALL_BLOCK = `<div class="install" data-install hidden>
-<div class="install-nag" role="region" aria-label="Install the app">
-<p class="install-text"><b>Install airrates</b><small>Opens in its own window, from your home screen.</small></p>
-<button type="button" class="install-btn" data-install-go>Install app</button>
-<button type="button" class="install-x" data-install-dismiss aria-label="Not now">×</button>
+export function installBlock(): string {
+  return `<div class="install" data-install hidden>
+<div class="install-nag" role="region" aria-label="${tr("Install the app")}">
+<p class="install-text"><b>${tr("Install airrates")}</b><small>${tr("Opens in its own window, from your home screen.")}</small></p>
+<button type="button" class="install-btn" data-install-go>${tr("Install app")}</button>
+<button type="button" class="install-x" data-install-dismiss aria-label="${tr("Not now")}">×</button>
 </div>
 </div>
 <script>${installScript()}</script>`;
+}
 
 function installScript(): string {
   return `(() => {

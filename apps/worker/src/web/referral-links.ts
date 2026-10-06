@@ -3,6 +3,8 @@ import type { Overview } from "../app/data";
 import { type Geo, globallyBlocked, type Referral } from "../app/geo";
 import { referralsFor } from "../referrals/policy";
 import { esc } from "./format";
+import { helpHeading } from "./help";
+import { tr } from "./i18n";
 import { layout } from "./layout";
 import { referralButton } from "./referral";
 
@@ -42,22 +44,25 @@ export function referralLinks(data: {
   const shown = configured.filter((venue) => visible[venue.id]);
   const blockedHere = globallyBlocked(geo);
 
-  const disclosure = `<p class="notes"><b>Disclosure.</b> airrates may earn a commission if you open an account through a link on this page, at no extra cost to you. Referral links never affect which markets appear or how they are ranked. A listing here is not a recommendation: check that an exchange serves where you live before signing up, and remember that perpetual futures are leveraged and can lose more than your margin. <a href="/legal#affiliate">How referral links work</a></p>`;
+  const disclosure = `<p class="notes">${tr(
+    "<b>Disclosure.</b> airrates may earn a commission if you open an account through a link on this page, at no extra cost to you. Referral links never affect which markets appear or how they are ranked. A listing here is not a recommendation: check that an exchange serves where you live before signing up, and remember that perpetual futures are leveraged and can lose more than your margin. {link}",
+    { link: `<a href="/legal#affiliate">${tr("How referral links work")}</a>` },
+  )}</p>`;
 
   let content: string;
   if (configured.length === 0) {
-    content = `<div class="sheet-wrap"><p class="empty">No referral links yet.</p></div>`;
+    content = `<div class="sheet-wrap"><p class="empty">${tr("No referral links yet.")}</p></div>`;
   } else if (blockedHere) {
-    content = `<div class="sheet-wrap"><p class="empty">Referral links are not shown in your location.</p></div>`;
+    content = `<div class="sheet-wrap"><p class="empty">${tr("Referral links are not shown in your location.")}</p></div>`;
   } else if (shown.length === 0) {
-    content = `<div class="sheet-wrap"><p class="empty">None of these exchanges' referral links can be shown in your location.</p></div>`;
+    content = `<div class="sheet-wrap"><p class="empty">${tr("None of these exchanges' referral links can be shown in your location.")}</p></div>`;
   } else {
     const rows = shown
       .map((venue) => {
         const referral = publicLinks[venue.id] as Referral;
         const code = referral.code
           ? `<code>${esc(referral.code)}</code>`
-          : '<span class="dim" title="The link applies the referral itself">–</span>';
+          : `<span class="dim" title="${tr("The link applies the referral itself")}">–</span>`;
         return `<tr data-k="${esc(venue.id)}">
 <td><a href="/markets/exchange/${encodeURIComponent(venue.id)}">${esc(venue.name)}</a></td>
 <td class="dim">${TYPE_LABEL[venue.type] ?? esc(venue.type)}</td>
@@ -67,22 +72,31 @@ export function referralLinks(data: {
       })
       .join("");
     const hidden = configured.length - shown.length;
-    content = `<div class="sheet-wrap"><table class="sheet"><thead><tr><th>Exchange</th><th>Type</th><th>Referral code</th><th>Sign up</th></tr></thead><tbody>${rows}</tbody></table></div>${
+    content = `<div class="sheet-wrap"><table class="sheet"><thead><tr><th>${tr("Exchange")}</th><th>${tr("Type")}</th><th>${tr("Referral code")}</th><th>${tr("Sign up")}</th></tr></thead><tbody>${rows}</tbody></table></div>${
       hidden > 0
-        ? `<p class="notes">${hidden} more ${hidden === 1 ? "exchange's link is" : "exchanges' links are"} not available in your location.</p>`
+        ? `<p class="notes">${
+            hidden === 1
+              ? tr("{count} more exchange's link is not available in your location.", {
+                  count: hidden,
+                })
+              : tr("{count} more exchanges' links are not available in your location.", {
+                  count: hidden,
+                })
+          }</p>`
         : ""
     }`;
   }
 
   return layout({
-    title: "Referral links",
-    description:
+    title: tr("Referral links"),
+    description: tr(
       "Referral links for the exchanges airrates tracks, for readers opening a new account.",
+    ),
     path: "/referrals",
     overview,
     now,
-    body: `<h1>Referral links</h1>
-<p class="lede">The exchanges airrates has a referral link for. If you don't have an account on one yet, you can open it through the link.</p>
+    // The intro is behind the "?"; the disclosure stays in the page, where a reader cannot miss it.
+    body: `${helpHeading("h1", tr("Referral links"), "referrals", `<p>${tr("The exchanges airrates has a referral link for. If you don't have an account on one yet, you can open it through the link.")}</p>`)}
 ${disclosure}
 ${content}`,
   });

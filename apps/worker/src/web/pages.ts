@@ -59,12 +59,24 @@ import {
   until,
 } from "./format";
 import { type FundingHistory, renderFundingChart } from "./funding-chart";
+import { helpButton, helpHeading, helpPanel } from "./help";
+import { msg, tr, trMsg, withLocale } from "./i18n";
 import { layout } from "./layout";
 import { FEEDS, liquidationFeedTable } from "./liquidation-feeds";
 import { type RailScale, railPosition, railScale, renderRail } from "./rail";
 import { citeMark } from "./share";
 import { tabBar } from "./tabs";
 import { VENUE_TYPE_LABEL, VENUE_TYPE_SHORT, venueName } from "./venues";
+
+/** Each class's tag, marked for translation; the class itself stays the English code in every URL. */
+const ASSET_CLASS_LABELS: Readonly<Record<AssetClass, string>> = {
+  crypto: msg("crypto"),
+  equity: msg("equity"),
+  commodity: msg("commodity"),
+  fx: msg("fx"),
+  index: msg("index"),
+};
+export const assetClassLabel = (assetClass: AssetClass) => trMsg(ASSET_CLASS_LABELS[assetClass]);
 
 /**
  * An asset's address. Crypto is the unmarked default; every other class is part of the path, so BB
@@ -89,9 +101,9 @@ export const assetKey = (asset: string, assetClass: AssetClass) =>
  * 5,900 crypto rows clean, and still tells the two BB rows apart wherever both appear.
  */
 export const assetName = (asset: string, assetClass: AssetClass) =>
-  `${esc(asset)}${assetClass === "crypto" ? "" : ` <span class="cls">${assetClass}</span>`}`;
+  `${esc(asset)}${assetClass === "crypto" ? "" : ` <span class="cls">${assetClassLabel(assetClass)}</span>`}`;
 const assetTitle = (asset: string, assetClass: AssetClass) =>
-  assetClass === "crypto" ? asset : `${asset} (${assetClass})`;
+  assetClass === "crypto" ? asset : `${asset} (${assetClassLabel(assetClass)})`;
 const exchangeHref = (venueId: string) => `/markets/exchange/${encodeURIComponent(venueId)}`;
 const apr = (value: number | null) => `<span class="${aprTone(value)}">${formatApr(value)}</span>`;
 /** A spread or gap for prose: always positive, so the "+" formatApr signs rates with is noise there. */
@@ -111,7 +123,7 @@ const plainApr = (value: number | null) => formatApr(value).replace(/^\+/, "");
 const momentum = (points: number | null): string => {
   if (points === null) return '<span class="dim">–</span>';
   const rounded = Math.round(points * 10) / 10;
-  if (rounded === 0) return '<span class="dim">flat</span>';
+  if (rounded === 0) return `<span class="dim">${tr("flat")}</span>`;
   return `<span class="dim">${rounded > 0 ? "↑" : "↓"}</span> ${Math.abs(rounded).toFixed(1)}`;
 };
 
@@ -119,7 +131,7 @@ const momentum = (points: number | null): string => {
 const stability = (score: number | null, days: number | null): string =>
   score === null
     ? '<span class="dim">–</span>'
-    : `<span title="${days ?? 0} charging days in the last 30">${score.toFixed(2)}</span>`;
+    : `<span title="${tr("{days} charging days in the last 30", { days: days ?? 0 })}">${score.toFixed(2)}</span>`;
 
 /**
  * Last night's replay of what each pair actually settled, ranked by realised funding.
@@ -135,7 +147,7 @@ const stability = (score: number | null, days: number | null): string =>
  */
 function verifiedTable(verified: VerifiedPair[]): string {
   if (verified.length === 0) {
-    return `<div class="sheet-wrap"><p class="empty">No replay yet: the nightly run needs a week of settled funding on both legs of a pair.</p></div>`;
+    return `<div class="sheet-wrap"><p class="empty">${tr("No replay yet: the nightly run needs a week of settled funding on both legs of a pair.")}</p></div>`;
   }
   const rows = verified
     .map((v, i) => {
@@ -143,7 +155,18 @@ function verifiedTable(verified: VerifiedPair[]): string {
       const cite =
         i === 0
           ? citeMark(
-              `Replayed, not forecast: ${assetTitle(v.asset, v.asset_class)} long ${venueName(v.long_venue_id)} / short ${venueName(v.short_venue_id)} settled ${money(v.net_funding_usd)} on ${wholeMoney(v.size_usd)} a leg over 7 days. ${plainApr(v.net_funding_apr_percent)} annualized, ${Math.round(v.win_rate_days * 100)}% of days positive.`,
+              tr(
+                "Replayed, not forecast: {asset} long {long} / short {short} settled {net} on {size} a leg over 7 days. {apr} annualized, {win}% of days positive.",
+                {
+                  asset: assetTitle(v.asset, v.asset_class),
+                  long: venueName(v.long_venue_id),
+                  short: venueName(v.short_venue_id),
+                  net: money(v.net_funding_usd),
+                  size: wholeMoney(v.size_usd),
+                  apr: plainApr(v.net_funding_apr_percent),
+                  win: Math.round(v.win_rate_days * 100),
+                },
+              ),
               href,
             )
           : "";
@@ -154,15 +177,15 @@ function verifiedTable(verified: VerifiedPair[]): string {
 <td><div class="leg long-leg"><a class="venue" href="${exchangeHref(v.long_venue_id)}">${esc(venueName(v.long_venue_id))}</a><span class="meta">${esc(v.long_symbol)}</span></div></td>
 <td><div class="leg short-leg"><a class="venue" href="${exchangeHref(v.short_venue_id)}">${esc(venueName(v.short_venue_id))}</a><span class="meta">${esc(v.short_symbol)}</span></div></td>
 <td class="num">${Math.round(v.win_rate_days * 100)}%</td>
-<td class="num" title="Open interest on the thinner of the two legs. A big figure earned on a shallow market is not a trade you can size into">${formatUsd(v.thinner_leg_oi_usd)}</td>
-<td class="num" title="The more extreme leg's funding, absolute. Rates past a few hundred percent usually mean a delisting or a distressed listing rather than carry">${v.worst_leg_abs_apr === null ? '<span class="dim">–</span>' : formatApr(v.worst_leg_abs_apr)}</td>
+<td class="num" title="${tr("Open interest on the thinner of the two legs. A big figure earned on a shallow market is not a trade you can size into")}">${formatUsd(v.thinner_leg_oi_usd)}</td>
+<td class="num" title="${tr("The more extreme leg's funding, absolute. Rates past a few hundred percent usually mean a delisting or a distressed listing rather than carry")}">${v.worst_leg_abs_apr === null ? '<span class="dim">–</span>' : formatApr(v.worst_leg_abs_apr)}</td>
 <td class="num">${stability(v.pair_stability, Math.min(v.long_charge_days, v.short_charge_days))}</td>
 </tr>`;
     })
     .join("");
 
   return `<div class="sheet-wrap"><table class="sheet">
-<thead><tr><th>Asset</th><th class="num" title="Funding both legs actually settled over the last 7 days, per $10,000 of notional on each leg">7d settled</th><th class="num">Annualized</th><th>Long leg</th><th>Short leg</th><th class="num" title="Days the pair was net positive, as a share of days that settled at all">Win rate</th><th class="num">Thinner leg OI</th><th class="num">Worst leg APR</th><th class="num" title="How often the weaker leg held its funding direction over 30 days">Stability</th></tr></thead>
+<thead><tr><th>${tr("Asset")}</th><th class="num" title="${tr("Funding both legs actually settled over the last 7 days, per $10,000 of notional on each leg")}">${tr("7d settled")}</th><th class="num">${tr("Annualized")}</th><th>${tr("Long leg")}</th><th>${tr("Short leg")}</th><th class="num" title="${tr("Days the pair was net positive, as a share of days that settled at all")}">${tr("Win rate")}</th><th class="num">${tr("Thinner leg OI")}</th><th class="num">${tr("Worst leg APR")}</th><th class="num" title="${tr("How often the weaker leg held its funding direction over 30 days")}">${tr("Stability")}</th></tr></thead>
 <tbody data-live="verified">${rows}</tbody>
 </table></div>`;
 }
@@ -176,28 +199,31 @@ export function home(data: {
   now: number;
 }): string {
   const [top] = data.pairs;
+  // The hero is a live region, so its explanation sits in a panel just after it; the badge inside it
+  // only names the panel by id, which survives a refresh swapping the hero's children.
   const hero = data.best
-    ? heroVerified(data.best)
+    ? `${heroVerified(data.best)}\n${helpPanel("hero", `<p>${heroVerifiedNote()}</p>`)}`
     : top
-      ? heroPair(top)
-      : `<section class="hero" data-live="hero"><p class="eyebrow">Widest funding spread right now</p><p class="lede">No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.</p></section>`;
+      ? `${heroPair(top)}\n${helpPanel("hero", `<p>${heroPairNote()}</p>`)}`
+      : `<section class="hero" data-live="hero"><p class="eyebrow">${tr("Widest funding spread right now")}</p><p class="lede">${tr("No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.")}</p></section>`;
   const runDay = data.verified[0]?.run_day;
 
   return layout({
-    title: "Funding spreads across perp exchanges",
-    description:
+    title: tr("Funding spreads across perp exchanges"),
+    description: tr(
       "Live funding rate spreads between perpetual futures exchanges, refreshed every minute.",
+    ),
     path: "/",
     overview: data.overview,
     now: data.now,
     body: `${hero}
 <section>
-<div class="section-head"><h2>Widest spreads</h2><a href="/screener">Open the screener</a></div>
-${pairsTable(data.pairs, "No pairs yet: an asset needs live markets on at least two venues.")}
+<div class="section-head"><h2>${tr("Widest spreads")}</h2><a href="/screener">${tr("Open the screener")}</a></div>
+${pairsTable(data.pairs, tr("No pairs yet: an asset needs live markets on at least two venues."))}
 </section>
 <section>
-<div class="section-head"><h2>What actually paid, last 7 days</h2>${runDay ? `<span class="dim">replayed ${esc(runDay.toISOString().slice(0, 10))}</span>` : ""}</div>
-<p class="lede">Not a forecast: both legs replayed at their own settlement times from stored funding, on $10,000 per leg. Ranked by what settled, with nothing filtered out — so check the thinner leg's depth and the worse leg's rate before reading a big number as a trade.</p>
+<div class="section-head"><h2 class="has-help">${tr("What actually paid, last 7 days")}${helpButton("paid")}</h2>${runDay ? `<span class="dim">${tr("replayed {date}", { date: esc(runDay.toISOString().slice(0, 10)) })}</span>` : ""}</div>
+${helpPanel("paid", `<p>${tr("Not a forecast: both legs replayed at their own settlement times from stored funding, on $10,000 per leg. Ranked by what settled, with nothing filtered out — so check the thinner leg's depth and the worse leg's rate before reading a big number as a trade.")}</p>`)}
 ${verifiedTable(data.verified)}
 </section>`,
   });
@@ -223,54 +249,99 @@ function heroVerified(v: VerifiedPair): string {
     longTakerBps: retailTakerBps,
     shortTakerBps: retailTakerBps,
   });
-  const span = v.days === 1 ? "day" : `${v.days} days`;
+  const span = v.days === 1 ? tr("day") : tr("{n} days", { n: v.days });
   const cite = citeMark(
-    `${assetTitle(v.asset, v.asset_class)} carry, long ${long} / short ${short}: ${money(v.net_funding_usd)} of funding settled on ${wholeMoney(v.size_usd)} a leg over the last ${span}. ${money(net)} after retail fees. Price risk hedged, not guessed.`,
+    tr(
+      "{asset} carry, long {long} / short {short}: {funding} of funding settled on {size} a leg over the last {span}. {net} after retail fees. Price risk hedged, not guessed.",
+      {
+        asset: assetTitle(v.asset, v.asset_class),
+        long,
+        short,
+        funding: money(v.net_funding_usd),
+        size: wholeMoney(v.size_usd),
+        span,
+        net: money(net),
+      },
+    ),
     `${pairHref(v.asset, v.asset_class)}${query}`,
   );
   return `<section class="hero" data-live="hero">
-<p class="eyebrow">Best verified carry, last ${span}</p>${cite}
+<p class="eyebrow has-help">${tr("Best verified carry, last {span}", { span })}${helpButton("hero")}</p>${cite}
 <div class="hero-head">
 <a class="hero-asset" href="${assetHref(v.asset, v.asset_class)}">${assetName(v.asset, v.asset_class)}</a>
-<p class="hero-spread up"><b>${money(v.net_funding_usd)}</b><span>funding settled on ${wholeMoney(v.size_usd)} per leg</span></p>
+<p class="hero-spread up"><b>${money(v.net_funding_usd)}</b><span>${tr("funding settled on {size} per leg", { size: wholeMoney(v.size_usd) })}</span></p>
 </div>
 <div class="legs">
-<p class="long"><b>Long on <a href="${exchangeHref(v.long_venue_id)}">${esc(long)}</a></b> ${esc(v.long_symbol)}</p>
-<p class="short"><b>Short on <a href="${exchangeHref(v.short_venue_id)}">${esc(short)}</a></b> ${esc(v.short_symbol)}</p>
+<p class="long"><b>${tr("Long on {venue}", { venue: `<a href="${exchangeHref(v.long_venue_id)}">${esc(long)}</a>` })}</b> ${esc(v.long_symbol)}</p>
+<p class="short"><b>${tr("Short on {venue}", { venue: `<a href="${exchangeHref(v.short_venue_id)}">${esc(short)}</a>` })}</b> ${esc(v.short_symbol)}</p>
 </div>
-<div class="facts"><span>after retail fees <b class="${net >= 0 ? "up" : "down"}">${money(net)}</b></span><span>annualized <b>${formatApr(v.net_funding_apr_percent)}</b> before fees</span><span>win rate <b>${Math.round(v.win_rate_days * 100)}%</b> of days</span><span>thinner leg <b>${formatUsd(v.thinner_leg_oi_usd)}</b> open interest</span><span>stability <b>${stability(v.pair_stability, Math.min(v.long_charge_days, v.short_charge_days))}</b></span></div>
-<div class="cta"><a class="btn" href="${pairHref(v.asset, v.asset_class)}${query}" data-await>Open this backtest <span aria-hidden="true">→</span></a><span class="dim">replayed ${esc(v.run_day.toISOString().slice(0, 10))}</span></div>
-<p class="lede">Settled, not forecast: both legs replayed at their own settlement times. This is the best pair in the newest nightly run with at least ${formatUsd(HEADLINE_BAR.minThinnerLegOiUsd)} of open interest on its thinner leg, neither leg past ${HEADLINE_BAR.maxWorstLegAbsApr}% a year, stability of ${HEADLINE_BAR.minPairStability} or better and no missed settlements. Retail fees are ${retailTakerBps} bps on each of ${roundTripFills} fills, opening and closing both legs. Last week's funding is not a promise about next week's.</p>
+<div class="facts"><span>${tr("after retail fees {value}", { value: `<b class="${net >= 0 ? "up" : "down"}">${money(net)}</b>` })}</span><span>${tr("annualized {value} before fees", { value: `<b>${formatApr(v.net_funding_apr_percent)}</b>` })}</span><span>${tr("win rate {value} of days", { value: `<b>${Math.round(v.win_rate_days * 100)}%</b>` })}</span><span>${tr("thinner leg {value} open interest", { value: `<b>${formatUsd(v.thinner_leg_oi_usd)}</b>` })}</span><span>${tr("stability {value}", { value: `<b>${stability(v.pair_stability, Math.min(v.long_charge_days, v.short_charge_days))}</b>` })}</span></div>
+<div class="cta"><a class="btn" href="${pairHref(v.asset, v.asset_class)}${query}" data-await>${tr("Open this backtest")} <span aria-hidden="true">→</span></a><span class="dim">${tr("replayed {date}", { date: esc(v.run_day.toISOString().slice(0, 10)) })}</span></div>
 </section>`;
+}
+
+/** What the verified hero is, for its "?" panel. */
+function heroVerifiedNote(): string {
+  return tr(
+    "Settled, not forecast: both legs replayed at their own settlement times. This is the best pair in the newest nightly run with at least {oi} of open interest on its thinner leg, neither leg past {apr}% a year, stability of {stability} or better and no missed settlements. Retail fees are {bps} bps on each of {fills} fills, opening and closing both legs. Last week's funding is not a promise about next week's.",
+    {
+      oi: formatUsd(HEADLINE_BAR.minThinnerLegOiUsd),
+      apr: HEADLINE_BAR.maxWorstLegAbsApr,
+      stability: HEADLINE_BAR.minPairStability,
+      bps: HEADLINE_BAR.retailTakerBps,
+      fills: HEADLINE_BAR.roundTripFills,
+    },
+  );
+}
+
+/** What the live-spread hero is, for its "?" panel. */
+function heroPairNote(): string {
+  return tr(
+    "Holding equal size on both legs cancels the price exposure; the gap between the two funding rates is what the pair collects over a year, before trading fees and before either rate moves.",
+  );
 }
 
 function heroPair(p: ScreenerPair): string {
   const long = venueName(p.long_venue_id);
   const short = venueName(p.short_venue_id);
   const cite = citeMark(
-    `Widest funding spread across perp exchanges right now: ${assetTitle(p.asset, p.asset_class)} at ${plainApr(p.spread_apr)} a year. Long ${long} at ${formatApr(p.long_apr)}, short ${short} at ${formatApr(p.short_apr)}.`,
+    tr(
+      "Widest funding spread across perp exchanges right now: {asset} at {spread} a year. Long {long} at {longApr}, short {short} at {shortApr}.",
+      {
+        asset: assetTitle(p.asset, p.asset_class),
+        spread: plainApr(p.spread_apr),
+        long,
+        longApr: formatApr(p.long_apr),
+        short,
+        shortApr: formatApr(p.short_apr),
+      },
+    ),
     assetHref(p.asset, p.asset_class),
   );
   return `<section class="hero" data-live="hero">
-<p class="eyebrow">Widest funding spread right now</p>${cite}
+<p class="eyebrow has-help">${tr("Widest funding spread right now")}${helpButton("hero")}</p>${cite}
 <div class="hero-head">
 <a class="hero-asset" href="${assetHref(p.asset, p.asset_class)}">${assetName(p.asset, p.asset_class)}</a>
-<p class="hero-spread"><b data-u="spread">${formatApr(p.spread_apr)}</b><span>funding spread, per year</span></p>
+<p class="hero-spread"><b data-u="spread">${formatApr(p.spread_apr)}</b><span>${tr("funding spread, per year")}</span></p>
 </div>
 ${renderRail({
   scale: railScale([p.long_apr, p.short_apr]),
   marks: [
-    { apr: p.long_apr, tone: "long", label: `Long on ${long}`, key: "long" },
-    { apr: p.short_apr, tone: "short", label: `Short on ${short}`, key: "short" },
+    { apr: p.long_apr, tone: "long", label: tr("Long on {venue}", { venue: long }), key: "long" },
+    {
+      apr: p.short_apr,
+      tone: "short",
+      label: tr("Short on {venue}", { venue: short }),
+      key: "short",
+    },
   ],
   bar: [p.long_apr, p.short_apr],
   size: "big",
 })}
 <div class="legs">
-<p class="long" data-u="long"><b>Long on <a href="${exchangeHref(p.long_venue_id)}">${esc(long)}</a></b> ${esc(p.long_symbol)} at <span data-u="long-apr">${formatApr(p.long_apr)}</span></p>
-<p class="short" data-u="short"><b>Short on <a href="${exchangeHref(p.short_venue_id)}">${esc(short)}</a></b> ${esc(p.short_symbol)} at <span data-u="short-apr">${formatApr(p.short_apr)}</span></p>
+<p class="long" data-u="long"><b>${tr("Long on {venue}", { venue: `<a href="${exchangeHref(p.long_venue_id)}">${esc(long)}</a>` })}</b> ${tr("{symbol} at {apr}", { symbol: esc(p.long_symbol), apr: `<span data-u="long-apr">${formatApr(p.long_apr)}</span>` })}</p>
+<p class="short" data-u="short"><b>${tr("Short on {venue}", { venue: `<a href="${exchangeHref(p.short_venue_id)}">${esc(short)}</a>` })}</b> ${tr("{symbol} at {apr}", { symbol: esc(p.short_symbol), apr: `<span data-u="short-apr">${formatApr(p.short_apr)}</span>` })}</p>
 </div>
-<p class="lede">Holding equal size on both legs cancels the price exposure; the gap between the two funding rates is what the pair collects over a year, before trading fees and before either rate moves.</p>
 </section>`;
 }
 
@@ -281,16 +352,16 @@ export function screener(data: {
   now: number;
 }): string {
   return layout({
-    title: "Funding spread screener",
-    description:
+    title: tr("Funding spread screener"),
+    description: tr(
       "Filter live cross-exchange funding spreads by open interest, volume and exchange type.",
+    ),
     path: "/screener",
     overview: data.overview,
     now: data.now,
-    body: `<h1>Funding spread screener</h1>
-<p class="lede">For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.</p>
+    body: `${helpHeading("h1", tr("Funding spread screener"), "screener", `<p>${tr("For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.")}</p>`)}
 ${filtersForm(data.filters)}
-${pairsTable(data.pairs, "No pairs match these filters. Lower the minimum open interest or include more exchange types.", data.filters)}`,
+${pairsTable(data.pairs, tr("No pairs match these filters. Lower the minimum open interest or include more exchange types."), data.filters)}`,
   });
 }
 
@@ -311,39 +382,39 @@ function filtersForm(f: ScreenerFilters): string {
     : "";
 
   return `<form class="filters" method="get" action="/screener">
-${select("min_oi", "Min open interest, each leg", f.minOpenInterestUsd, [
-  [0, "Any"],
+${select("min_oi", tr("Min open interest, each leg"), f.minOpenInterestUsd, [
+  [0, tr("Any")],
   [100_000, "$100k"],
   [250_000, "$250k"],
   [1_000_000, "$1M"],
   [10_000_000, "$10M"],
   [50_000_000, "$50M"],
 ])}
-${select("min_vol", "Min 24h volume, each leg", f.minVolume24hUsd, [
-  [0, "Any"],
+${select("min_vol", tr("Min 24h volume, each leg"), f.minVolume24hUsd, [
+  [0, tr("Any")],
   [100_000, "$100k"],
   [1_000_000, "$1M"],
   [10_000_000, "$10M"],
 ])}
-<fieldset class="field"><legend>Exchange types</legend><div class="checks">${types}</div></fieldset>
-<fieldset class="field"><legend>Settlement</legend><div class="checks"><label title="A USDT leg against a USDC leg carries the basis between the two stablecoins and needs collateral in both. Ticked, each asset is paired only within one quote currency"><input type="checkbox" name="quote" value="same"${f.sameQuote ? " checked" : ""}> Same quote currency on both legs</label></div></fieldset>
-<fieldset class="field"><legend>Distressed markets</legend><div class="checks"><label title="Delisting and distressed listings can pay beyond ±2000% APR and crowd out tradeable spreads"><input type="checkbox" name="extremes" value="1"${f.maxAbsApr === null ? " checked" : ""}> Include beyond ±1000% APR</label></div></fieldset>
-${select("limit", "Rows", f.limit, [
+<fieldset class="field"><legend>${tr("Exchange types")}</legend><div class="checks">${types}</div></fieldset>
+<fieldset class="field"><legend>${tr("Settlement")}</legend><div class="checks"><label title="${tr("A USDT leg against a USDC leg carries the basis between the two stablecoins and needs collateral in both. Ticked, each asset is paired only within one quote currency")}"><input type="checkbox" name="quote" value="same"${f.sameQuote ? " checked" : ""}> ${tr("Same quote currency on both legs")}</label></div></fieldset>
+<fieldset class="field"><legend>${tr("Distressed markets")}</legend><div class="checks"><label title="${tr("Delisting and distressed listings can pay beyond ±2000% APR and crowd out tradeable spreads")}"><input type="checkbox" name="extremes" value="1"${f.maxAbsApr === null ? " checked" : ""}> ${tr("Include beyond ±1000% APR")}</label></div></fieldset>
+${select("limit", tr("Rows"), f.limit, [
   [50, "50"],
   [100, "100"],
   [250, "250"],
   [500, "500"],
 ])}
 ${venues}
-<div class="actions"><button type="submit">Apply filters</button><a href="/screener">Reset</a></div>
+<div class="actions"><button type="submit">${tr("Apply filters")}</button><a href="/screener">${tr("Reset")}</a></div>
 </form>`;
 }
 
 const SORT_LABELS: Record<ScreenerSort, string> = {
-  spread: "Spread",
-  settled_7d: "7d settled",
-  venues: "Venues",
-  stability: "Stability",
+  spread: msg("Spread"),
+  settled_7d: msg("7d settled"),
+  venues: msg("Venues"),
+  stability: msg("Stability"),
 };
 
 /**
@@ -367,10 +438,10 @@ function sortableTh(
   filters: ScreenerFilters | undefined,
 ): string {
   const head = `<th class="num" title="${esc(title)}"`;
-  if (!filters) return `${head}>${SORT_LABELS[sort]}</th>`;
+  if (!filters) return `${head}>${trMsg(SORT_LABELS[sort])}</th>`;
   const active = filters.sort === sort;
   const href = `/screener${filtersToQuery({ ...filters, sort })}`;
-  return `${head}${active ? ' aria-sort="descending"' : ""}><a href="${href}">${SORT_LABELS[sort]}</a></th>`;
+  return `${head}${active ? ' aria-sort="descending"' : ""}><a href="${href}">${trMsg(SORT_LABELS[sort])}</a></th>`;
 }
 
 /**
@@ -383,18 +454,18 @@ function stabilityTitle(p: ScreenerPair): string {
   if (p.pair_stability === null) {
     const which =
       p.long_stability === null && p.short_stability === null
-        ? "Neither leg has"
+        ? tr("Neither leg has settled funding to score yet")
         : p.long_stability === null
-          ? "The long leg has no"
-          : "The short leg has no";
-    return ` title="${esc(`${which} settled funding to score yet`)}"`;
+          ? tr("The long leg has no settled funding to score yet")
+          : tr("The short leg has no settled funding to score yet");
+    return ` title="${esc(which)}"`;
   }
   const days = Math.min(
     p.long_stability_days ?? Number.POSITIVE_INFINITY,
     p.short_stability_days ?? Number.POSITIVE_INFINITY,
   );
   if (!Number.isFinite(days)) return "";
-  return ` title="${esc(`Weaker leg held its direction on ${days} of its charging days in the last 30`)}"`;
+  return ` title="${esc(tr("Weaker leg held its direction on {days} of its charging days in the last 30", { days }))}"`;
 }
 
 /**
@@ -419,9 +490,14 @@ function quoteMark(quote: string | null, otherQuote: string | null): string {
   if (quote === otherQuote) return "";
   const title =
     quote === null
-      ? "This exchange does not say what the leg settles in, so it cannot be shown to match the other leg"
-      : `Settles in ${quote} while the other leg settles in ${otherQuote ?? "an undeclared currency"}: the pair carries the basis between them`;
-  return ` · <span class="qmix" title="${esc(title)}">${esc(quote ?? "quote ?")}</span>`;
+      ? tr(
+          "This exchange does not say what the leg settles in, so it cannot be shown to match the other leg",
+        )
+      : tr(
+          "Settles in {quote} while the other leg settles in {other}: the pair carries the basis between them",
+          { quote, other: otherQuote ?? tr("an undeclared currency") },
+        );
+  return ` · <span class="qmix" title="${esc(title)}">${esc(quote ?? tr("quote ?"))}</span>`;
 }
 
 function pairsTable(
@@ -444,12 +520,22 @@ function pairsTable(
     quote: string | null,
     otherQuote: string | null,
   ) =>
-    `<td><div class="leg ${side}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)} · ${formatInterval(interval)} · OI <span data-u="${side}-oi">${formatUsd(oi)}</span>${quoteMark(quote, otherQuote)}</span></div></td>`;
+    `<td><div class="leg ${side}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)} · ${formatInterval(interval)} · ${tr("OI")} <span data-u="${side}-oi">${formatUsd(oi)}</span>${quoteMark(quote, otherQuote)}</span></div></td>`;
 
   const cite = (p: ScreenerPair, i: number) =>
     i < 3
       ? citeMark(
-          `${assetTitle(p.asset, p.asset_class)} pays ${plainApr(p.spread_apr)} a year to hold both sides: long ${venueName(p.long_venue_id)} at ${formatApr(p.long_apr)}, short ${venueName(p.short_venue_id)} at ${formatApr(p.short_apr)}. Same coin, two exchanges, price exposure cancelled.`,
+          tr(
+            "{asset} pays {spread} a year to hold both sides: long {long} at {longApr}, short {short} at {shortApr}. Same coin, two exchanges, price exposure cancelled.",
+            {
+              asset: assetTitle(p.asset, p.asset_class),
+              spread: plainApr(p.spread_apr),
+              long: venueName(p.long_venue_id),
+              longApr: formatApr(p.long_apr),
+              short: venueName(p.short_venue_id),
+              shortApr: formatApr(p.short_apr),
+            },
+          ),
           assetHref(p.asset, p.asset_class),
         )
       : "";
@@ -464,13 +550,13 @@ function pairsTable(
           {
             apr: p.long_apr,
             tone: "long",
-            label: `Long on ${venueName(p.long_venue_id)}`,
+            label: tr("Long on {venue}", { venue: venueName(p.long_venue_id) }),
             key: "long",
           },
           {
             apr: p.short_apr,
             tone: "short",
-            label: `Short on ${venueName(p.short_venue_id)}`,
+            label: tr("Short on {venue}", { venue: venueName(p.short_venue_id) }),
             key: "short",
           },
         ],
@@ -490,7 +576,7 @@ ${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short
   // The screener's table runs to hundreds of rows, so its header sticks under the masthead; the
   // homepage's twelve-row teaser, the other caller, has nothing to stick through.
   return `<div class="sheet-wrap${filters ? " stick" : ""}"><table class="sheet">
-<thead><tr><th>Asset</th>${sortableTh("spread", "Widest funding gap between two exchanges", filters)}<th title="Signed log scale, so ordinary rates keep room next to extreme ones">Long − short, log scale</th><th>Long leg</th><th class="num">Long APR</th><th>Short leg</th><th class="num">Short APR</th>${sortableTh("settled_7d", "Same two markets, averaged over the settlements of the last 7 days", filters)}${sortableTh("venues", "Exchanges with a live market for this asset", filters)}${sortableTh("stability", "How often the weaker leg held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score", filters)}</tr></thead>
+<thead><tr><th>${tr("Asset")}</th>${sortableTh("spread", tr("Widest funding gap between two exchanges"), filters)}<th title="${tr("Signed log scale, so ordinary rates keep room next to extreme ones")}">${tr("Long − short, log scale")}</th><th>${tr("Long leg")}</th><th class="num">${tr("Long APR")}</th><th>${tr("Short leg")}</th><th class="num">${tr("Short APR")}</th>${sortableTh("settled_7d", tr("Same two markets, averaged over the settlements of the last 7 days"), filters)}${sortableTh("venues", tr("Exchanges with a live market for this asset"), filters)}${sortableTh("stability", tr("How often the weaker leg held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score"), filters)}</tr></thead>
 <tbody data-live="pairs">${rows}</tbody>
 </table></div>`;
 }
@@ -518,20 +604,23 @@ export function exchanges(data: {
     .join("");
 
   return layout({
-    title: "Exchanges",
-    description:
+    title: tr("Exchanges"),
+    description: tr(
       "Perpetual futures exchanges tracked by airrates, with live market counts, open interest and volume.",
+    ),
     path: "/markets",
     overview: data.overview,
     now: data.now,
-    body: `<h1>Exchanges</h1>
-<p class="lede">Every exchange with markets reported in the last five minutes. Open interest and volume are summed across its perpetual markets, where the exchange reports them.</p>
+    body: `${helpHeading("h1", tr("Exchanges"), "exchanges", `<p>${tr("Every exchange with markets reported in the last five minutes. Open interest and volume are summed across its perpetual markets, where the exchange reports them.")}</p>`)}
 ${
   data.exchanges.length === 0
-    ? `<div class="sheet-wrap"><p class="empty">No exchange has reported in the last five minutes.</p></div>`
-    : `<div class="sheet-wrap"><table class="sheet"><thead><tr><th>Exchange</th><th>Type</th><th class="num">Live markets</th><th class="num">Open interest</th><th class="num">24h volume</th><th class="num">Updated</th></tr></thead><tbody data-live="exchanges">${rows}</tbody></table></div>`
+    ? `<div class="sheet-wrap"><p class="empty">${tr("No exchange has reported in the last five minutes.")}</p></div>`
+    : `<div class="sheet-wrap"><table class="sheet"><thead><tr><th>${tr("Exchange")}</th><th>${tr("Type")}</th><th class="num">${tr("Live markets")}</th><th class="num">${tr("Open interest")}</th><th class="num">${tr("24h volume")}</th><th class="num">${tr("Updated")}</th></tr></thead><tbody data-live="exchanges">${rows}</tbody></table></div>`
 }
-<p class="notes">Not collected yet: ${esc(notCollected.join(", "))}. Some block access from our data location or don't publish a usable funding API.</p>`,
+<p class="notes">${tr(
+      "Not collected yet: {venues}. Some block access from our data location or don't publish a usable funding API.",
+      { venues: esc(notCollected.join(", ")) },
+    )}</p>`,
   });
 }
 
@@ -553,7 +642,18 @@ export function exchange(data: {
   const cite =
     richest && cheapest
       ? citeMark(
-          `${venue.name}: ${markets.length.toLocaleString("en-US")} live perp markets, ${formatUsd(oi)} open interest. Richest funding ${richest.venue_symbol} at ${formatApr(richest.apr)} a year; cheapest ${cheapest.venue_symbol} at ${formatApr(cheapest.apr)}.`,
+          tr(
+            "{venue}: {count} live perp markets, {oi} open interest. Richest funding {richest} at {richestApr} a year; cheapest {cheapest} at {cheapestApr}.",
+            {
+              venue: venue.name,
+              count: markets.length.toLocaleString("en-US"),
+              oi: formatUsd(oi),
+              richest: richest.venue_symbol,
+              richestApr: formatApr(richest.apr),
+              cheapest: cheapest.venue_symbol,
+              cheapestApr: formatApr(cheapest.apr),
+            },
+          ),
           exchangeHref(venue.id),
         )
       : "";
@@ -579,19 +679,25 @@ export function exchange(data: {
     .join("");
 
   return layout({
-    title: `${venue.name} funding rates`,
-    description: `Live funding rates, open interest and volume for every ${venue.name} perpetual market.`,
+    title: tr("{venue} funding rates", { venue: venue.name }),
+    description: tr(
+      "Live funding rates, open interest and volume for every {venue} perpetual market.",
+      { venue: venue.name },
+    ),
     path: exchangeHref(venue.id),
     overview: data.overview,
     now,
-    body: `<p class="eyebrow"><a href="/markets">Exchanges</a> / ${esc(VENUE_TYPE_LABEL[venue.type] ?? venue.type)}</p>
+    body: `<p class="eyebrow"><a href="/markets">${tr("Exchanges")}</a> / ${esc(trMsg(VENUE_TYPE_LABEL[venue.type] ?? venue.type))}</p>
 <h1>${esc(venue.name)}</h1>
 ${data.cta ?? ""}
 ${
   markets.length === 0
-    ? `<p class="lede">No live markets from ${esc(venue.name)}: it isn't collected yet, or its last update is more than five minutes old.</p>`
-    : `<div class="facts" data-live="facts"><span><b data-u="markets">${markets.length.toLocaleString("en-US")}</b> live markets</span><span><b data-u="oi">${formatUsd(oi)}</b> open interest</span><span>updated <b>${since(markets[0]?.observed_at ?? null, now)}</b></span>${cite}</div>
-<div class="sheet-wrap stick"><table class="sheet"><thead><tr><th>Market</th><th>Asset</th><th class="num">Funding APR</th><th title="Signed log scale, so ordinary rates keep room next to extreme ones">Rate, log scale</th><th class="num">7d settled</th><th class="num">Interval</th><th class="num">Next funding</th><th class="num">Mark price</th><th class="num">Open interest</th><th class="num">24h volume</th></tr></thead><tbody data-live="markets">${rows}</tbody></table></div>`
+    ? `<p class="lede">${tr(
+        "No live markets from {venue}: it isn't collected yet, or its last update is more than five minutes old.",
+        { venue: esc(venue.name) },
+      )}</p>`
+    : `<div class="facts" data-live="facts"><span>${tr("{count} live markets", { count: `<b data-u="markets">${markets.length.toLocaleString("en-US")}</b>` })}</span><span>${tr("{value} open interest", { value: `<b data-u="oi">${formatUsd(oi)}</b>` })}</span><span>${tr("updated {value}", { value: `<b>${since(markets[0]?.observed_at ?? null, now)}</b>` })}</span>${cite}</div>
+<div class="sheet-wrap stick"><table class="sheet"><thead><tr><th>${tr("Market")}</th><th>${tr("Asset")}</th><th class="num">${tr("Funding APR")}</th><th title="${tr("Signed log scale, so ordinary rates keep room next to extreme ones")}">${tr("Rate, log scale")}</th><th class="num">${tr("7d settled")}</th><th class="num">${tr("Interval")}</th><th class="num">${tr("Next funding")}</th><th class="num">${tr("Mark price")}</th><th class="num">${tr("Open interest")}</th><th class="num">${tr("24h volume")}</th></tr></thead><tbody data-live="markets">${rows}</tbody></table></div>`
 }`,
   });
 }
@@ -714,11 +820,11 @@ export function heatmap(data: {
   // selections share one highlight.
   const strip = HEATMAP_TIMEFRAMES.map((tf) =>
     tf === params.tf
-      ? `<a href="/rates${heatmapToQuery({ ...params, tf })}" aria-current="true">${tf}</a>`
-      : link({ tf }, tf),
+      ? `<a href="/rates${heatmapToQuery({ ...params, tf })}" aria-current="true">${tf === "now" ? tr("now") : tf}</a>`
+      : link({ tf }, tf === "now" ? tr("now") : tf),
   ).join("");
 
-  const header = `<tr><th class="asset">asset</th><th>open interest</th><th>spread</th>${venueIds
+  const header = `<tr><th class="asset">${tr("asset")}</th><th>${tr("open interest")}</th><th>${tr("spread")}</th>${venueIds
     .map((id) => `<th>${esc(venueName(id))}</th>`)
     .join("")}</tr>`;
 
@@ -744,7 +850,18 @@ export function heatmap(data: {
               const cite =
                 cited++ < 3
                   ? citeMark(
-                      `${assetTitle(row.base, row.assetClass)} funding runs from ${formatApr(low)} on ${venueName(longId)} to ${formatApr(high)} on ${venueName(shortId)}: ${plainApr(high - low)} a year apart across ${present.length} exchanges.`,
+                      tr(
+                        "{asset} funding runs from {low} on {lowVenue} to {high} on {highVenue}: {gap} a year apart across {count} exchanges.",
+                        {
+                          asset: assetTitle(row.base, row.assetClass),
+                          low: formatApr(low),
+                          lowVenue: venueName(longId),
+                          high: formatApr(high),
+                          highVenue: venueName(shortId),
+                          gap: plainApr(high - low),
+                          count: present.length,
+                        },
+                      ),
                       href,
                     )
                   : "";
@@ -770,27 +887,26 @@ export function heatmap(data: {
 
   const pager = `<div class="pager" data-live="pager">${link(
     { offset: Math.max(0, params.offset - params.limit) },
-    "← previous",
+    tr("← previous"),
     params.offset > 0,
-  )}<span class="dim">assets ${params.offset + 1}–${params.offset + rows.length}</span>${link(
+  )}<span class="dim">${tr("assets {from}–{to}", { from: params.offset + 1, to: params.offset + rows.length })}</span>${link(
     { offset: params.offset + params.limit },
-    "next →",
+    tr("next →"),
     rows.length >= params.limit,
   )}</div>`;
 
   const grid =
     rows.length === 0
-      ? `<div class="sheet-wrap"><p class="empty">No asset has live markets on two or more venues right now.</p></div>`
+      ? `<div class="sheet-wrap"><p class="empty">${tr("No asset has live markets on two or more venues right now.")}</p></div>`
       : `<div class="heat-wrap"><table class="heat"><thead data-live="rates-head">${header}</thead><tbody data-live="rates">${body}</tbody></table></div>${pager}`;
 
   return layout({
-    title: "Rates",
-    description: "Funding APR for every asset across every perpetual exchange, in one grid.",
+    title: tr("Rates"),
+    description: tr("Funding APR for every asset across every perpetual exchange, in one grid."),
     path: "/rates",
     overview,
     now,
-    body: `<h1>Rates</h1>
-<p class="lede">Every exchange's funding for the deepest assets at once. Positive means longs pay, so a short collects; an empty cell means that exchange has no market for the asset, not that funding is flat.</p>
+    body: `${helpHeading("h1", tr("Rates"), "rates", `<p>${tr("Every exchange's funding for the deepest assets at once. Positive means longs pay, so a short collects; an empty cell means that exchange has no market for the asset, not that funding is flat.")}</p>`)}
 <div class="tf">${strip}</div>
 ${grid}`,
   });
@@ -845,8 +961,12 @@ export function arbitrage(data: {
       // with. A null depth says so plainly instead of rendering as a zero.
       const title =
         r.thinner_depth_usd === null
-          ? "One side's resting size is unknown, so the size this gap is good for cannot be stated"
-          : `Good for about ${formatUsd(r.thinner_depth_usd)} at these quotes, before fees and before either book moves`;
+          ? tr(
+              "One side's resting size is unknown, so the size this gap is good for cannot be stated",
+            )
+          : tr("Good for about {size} at these quotes, before fees and before either book moves", {
+              size: formatUsd(r.thinner_depth_usd),
+            });
       // Two fills, not four: a gap is captured by buying once and selling once, and the gap is already
       // quoted bid-to-ask, so each venue's own spread is inside it and must not be charged again.
       const cost = gapCost({
@@ -855,12 +975,26 @@ export function arbitrage(data: {
         sellVenueId: r.sell_venue_id,
         fees,
       });
-      const netTitle = `${formatGapBps(r.gap_bps)} less ${formatGapBps(cost.takerBps)} bps of taker fee, one fill on each side. The transfer a real position needs is not counted.`;
+      const netTitle = tr(
+        "{gap} less {fee} bps of taker fee, one fill on each side. The transfer a real position needs is not counted.",
+        { gap: formatGapBps(r.gap_bps), fee: formatGapBps(cost.takerBps) },
+      );
       return `<tr data-k="${esc(assetKey(r.asset, r.asset_class))}">
 <td class="asset"><a href="${priceHref(r.asset, r.asset_class)}">${assetName(r.asset, r.asset_class)}</a>${
         i < 3
           ? citeMark(
-              `${assetTitle(r.asset, r.asset_class)}: buy on ${venueName(r.buy_venue_id)} at ${formatPrice(r.buy_price)}, sell on ${venueName(r.sell_venue_id)} at ${formatPrice(r.sell_price)}. A ${formatGapBps(r.gap_bps)} bps gap, good for ${formatUsd(r.thinner_depth_usd)} at the top of the book.`,
+              tr(
+                "{asset}: buy on {buyVenue} at {buyPrice}, sell on {sellVenue} at {sellPrice}. A {gap} bps gap, good for {size} at the top of the book.",
+                {
+                  asset: assetTitle(r.asset, r.asset_class),
+                  buyVenue: venueName(r.buy_venue_id),
+                  buyPrice: formatPrice(r.buy_price),
+                  sellVenue: venueName(r.sell_venue_id),
+                  sellPrice: formatPrice(r.sell_price),
+                  gap: formatGapBps(r.gap_bps),
+                  size: formatUsd(r.thinner_depth_usd),
+                },
+              ),
               priceHref(r.asset, r.asset_class),
             )
           : ""
@@ -871,38 +1005,46 @@ export function arbitrage(data: {
 ${side("buy", r.buy_venue_id, r.buy_symbol, r.buy_price, r.buy_depth_usd)}
 ${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_depth_usd)}
 <td class="num dim">${r.venue_count}</td>
-<td class="dim" title="${esc(`Quotes seen ${ageText(r.oldest_quoted_at, now)}; the older leg's funding row fetched ${ageText(r.oldest_observed_at, now)}`)}">${since(r.oldest_quoted_at, now)}</td>
+<td class="dim" title="${esc(tr("Quotes seen {quoted}; the older leg's funding row fetched {fetched}", { quoted: ageText(r.oldest_quoted_at, now), fetched: ageText(r.oldest_observed_at, now) }))}">${since(r.oldest_quoted_at, now)}</td>
 </tr>`;
     })
     .join("");
 
   const pager = `<div class="pager" data-live="arb-pager">${link(
     { offset: Math.max(0, params.offset - params.limit) },
-    "← previous",
+    tr("← previous"),
     params.offset > 0,
-  )}<span class="dim">assets ${params.offset + 1}–${params.offset + rows.length}</span>${link(
+  )}<span class="dim">${tr("assets {from}–{to}", { from: params.offset + 1, to: params.offset + rows.length })}</span>${link(
     { offset: params.offset + params.limit },
-    "next →",
+    tr("next →"),
     rows.length >= params.limit,
   )}</div>`;
 
   const table =
     rows.length === 0
-      ? `<div class="sheet-wrap"><p class="empty">No asset quotes a gap this wide right now. The median comparable asset sits near 1.6 bps, so try a lower floor.</p></div>`
+      ? `<div class="sheet-wrap"><p class="empty">${tr("No asset quotes a gap this wide right now. The median comparable asset sits near 1.6 bps, so try a lower floor.")}</p></div>`
       : `<div class="sheet-wrap"><table class="sheet">
-<thead><tr><th>Asset</th><th class="num" title="Highest bid against lowest ask, across two different exchanges">Gap, bps</th><th class="num" title="The gap less one taker fee on each side, at an assumed retail rate. The transfer a real position needs is not counted.">Net, bps</th><th class="num" title="The smaller of the two resting sizes: what the gap is actually good for">Good for</th><th>Buy at</th><th class="num">Ask size</th><th>Sell at</th><th class="num">Bid size</th><th class="num" title="Exchanges quoting this asset that survived the mark-agreement check">Venues</th><th>Quoted</th></tr></thead>
+<thead><tr><th>${tr("Asset")}</th><th class="num" title="${tr("Highest bid against lowest ask, across two different exchanges")}">${tr("Gap, bps")}</th><th class="num" title="${tr("The gap less one taker fee on each side, at an assumed retail rate. The transfer a real position needs is not counted.")}">${tr("Net, bps")}</th><th class="num" title="${tr("The smaller of the two resting sizes: what the gap is actually good for")}">${tr("Good for")}</th><th>${tr("Buy at")}</th><th class="num">${tr("Ask size")}</th><th>${tr("Sell at")}</th><th class="num">${tr("Bid size")}</th><th class="num" title="${tr("Exchanges quoting this asset that survived the mark-agreement check")}">${tr("Venues")}</th><th>${tr("Quoted")}</th></tr></thead>
 <tbody data-live="arb">${body}</tbody>
 </table></div>${pager}`;
 
   return layout({
-    title: "Price gaps across exchanges",
-    description:
+    title: tr("Price gaps across exchanges"),
+    description: tr(
       "Where one exchange's bid sits above another's ask, with the size resting at each quote.",
+    ),
     path: "/arbitrage",
     overview,
     now,
-    body: `<h1>Price gaps</h1>
-<p class="lede">For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps at the size shown</b>, not fillable trades: nothing here reflects the book below level 1, or the two transfers a real position needs. <b>Net</b> charges ${RETAIL_TAKER_BPS} bps of taker fee on each side, one fill to buy and one to sell — a retail rate, not yours, and a VIP tier pays less. The transfer is not in it. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size. Read the <b>good for</b> column before the gap.</p>
+    body: `${helpHeading(
+      "h1",
+      tr("Price gaps"),
+      "arbitrage",
+      `<p>${tr(
+        "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps at the size shown</b>, not fillable trades: nothing here reflects the book below level 1, or the two transfers a real position needs. <b>Net</b> charges {bps} bps of taker fee on each side, one fill to buy and one to sell — a retail rate, not yours, and a VIP tier pays less. The transfer is not in it. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size. Read the <b>good for</b> column before the gap.",
+        { bps: RETAIL_TAKER_BPS },
+      )}</p>`,
+    )}
 ${filtersForArbitrage(params)}
 ${table}`,
   });
@@ -913,8 +1055,8 @@ function filtersForArbitrage(params: ArbitrageParams): string {
   const option = (value: number, label: string, current: number) =>
     `<option value="${value}"${value === current ? " selected" : ""}>${label}</option>`;
   return `<form class="filters" method="get" action="/arbitrage">
-<label class="field">Min gap, bps<select name="min_bps">${[
-    [0, "Any, including 0.0"],
+<label class="field">${tr("Min gap, bps")}<select name="min_bps">${[
+    [0, tr("Any, including 0.0")],
     [1, "1"],
     [5, "5"],
     [25, "25"],
@@ -922,15 +1064,15 @@ function filtersForArbitrage(params: ArbitrageParams): string {
   ]
     .map(([value, label]) => option(value as number, label as string, params.minGapBps))
     .join("")}</select></label>
-<label class="field">Min resting size<select name="min_depth">${[
-    [0, "Any"],
+<label class="field">${tr("Min resting size")}<select name="min_depth">${[
+    [0, tr("Any")],
     [1_000, "$1k"],
     [10_000, "$10k"],
     [100_000, "$100k"],
   ]
     .map(([value, label]) => option(value as number, label as string, params.minDepthUsd))
     .join("")}</select></label>
-<div class="actions"><button type="submit">Apply</button><a href="/arbitrage">Reset</a></div>
+<div class="actions"><button type="submit">${tr("Apply")}</button><a href="/arbitrage">${tr("Reset")}</a></div>
 </form>`;
 }
 
@@ -984,17 +1126,25 @@ export function pricePair(data: {
         : q.mark_price / q.anchor_mark;
     const why =
       off === null
-        ? "This venue's mark disagrees with the rest, so it is excluded from the gap"
-        : `Marked ${off >= 1 ? off.toFixed(1) : (1 / off).toFixed(1)}× ${off >= 1 ? "above" : "below"} this asset's deepest market, so it is a different instrument, not a price gap`;
+        ? tr("This venue's mark disagrees with the rest, so it is excluded from the gap")
+        : off >= 1
+          ? tr(
+              "Marked {ratio}× above this asset's deepest market, so it is a different instrument, not a price gap",
+              { ratio: off.toFixed(1) },
+            )
+          : tr(
+              "Marked {ratio}× below this asset's deepest market, so it is a different instrument, not a price gap",
+              { ratio: (1 / off).toFixed(1) },
+            );
     return `<tr data-k="${esc(`${q.venue_id}|${q.venue_symbol}`)}"${q.mark_agrees ? "" : ` class="dim" title="${esc(why)}"`}>
 <td><div class="leg${q === lowestAsk ? " buy-leg" : q === highestBid ? " sell-leg" : ""}"><a class="venue" href="${exchangeHref(q.venue_id)}">${esc(venueName(q.venue_id))}</a><span class="meta">${esc(q.venue_symbol)}</span></div></td>
-<td class="num"><span data-u="bid">${formatPrice(q.best_bid)}</span>${q === highestBid ? ' <span class="dim">best</span>' : ""}</td>
+<td class="num"><span data-u="bid">${formatPrice(q.best_bid)}</span>${q === highestBid ? ` <span class="dim">${tr("best")}</span>` : ""}</td>
 <td class="num">${formatUsd(q.best_bid_size_usd)}</td>
-<td class="num"><span data-u="ask">${formatPrice(q.best_ask)}</span>${q === lowestAsk ? ' <span class="dim">best</span>' : ""}</td>
+<td class="num"><span data-u="ask">${formatPrice(q.best_ask)}</span>${q === lowestAsk ? ` <span class="dim">${tr("best")}</span>` : ""}</td>
 <td class="num">${formatUsd(q.best_ask_size_usd)}</td>
-<td class="num" title="This venue's own bid-ask spread, which a taker crosses on entry and again on exit">${formatGapBps(inVenueBps)}</td>
-<td class="num"${q.mark_price === null ? ' title="This venue\'s funding row has not been refreshed within the freshness window, so its mark is withheld rather than shown stale — the quote beside it is live"' : ""}>${formatPrice(q.mark_price)}</td>
-<td class="dim" title="${esc(`Quote seen ${ageText(q.quotes_at, now)}; funding row fetched ${ageText(q.observed_at, now)}`)}">${since(q.quotes_at, now)}</td>
+<td class="num" title="${tr("This venue's own bid-ask spread, which a taker crosses on entry and again on exit")}">${formatGapBps(inVenueBps)}</td>
+<td class="num"${q.mark_price === null ? ` title="${tr("This venue's funding row has not been refreshed within the freshness window, so its mark is withheld rather than shown stale — the quote beside it is live")}"` : ""}>${formatPrice(q.mark_price)}</td>
+<td class="dim" title="${esc(tr("Quote seen {quoted}; funding row fetched {fetched}", { quoted: ageText(q.quotes_at, now), fetched: ageText(q.observed_at, now) }))}">${since(q.quotes_at, now)}</td>
 </tr>`;
   };
 
@@ -1028,10 +1178,10 @@ export function pricePair(data: {
   const pairsTable =
     pairs.length === 0
       ? ""
-      : `<div class="section-head"><h2>Every pair</h2></div>
-<p class="lede">One row per direction: buy at the first exchange, sell at the second. The widest gap is often not the one to take — a narrower pair can rest far more size behind it, and most directions lose outright.</p>
+      : `<div class="section-head"><h2 class="has-help">${tr("Every pair")}${helpButton("pairs")}</h2></div>
+${helpPanel("pairs", `<p>${tr("One row per direction: buy at the first exchange, sell at the second. The widest gap is often not the one to take — a narrower pair can rest far more size behind it, and most directions lose outright.")}</p>`)}
 <div class="sheet-wrap"><table class="sheet">
-<thead><tr><th>Buy at</th><th>Sell at</th><th class="num">Gap, bps</th><th class="num" title="The smaller of the buying side's ask size and the selling side's bid size — what this direction is good for">Good for</th></tr></thead>
+<thead><tr><th>${tr("Buy at")}</th><th>${tr("Sell at")}</th><th class="num">${tr("Gap, bps")}</th><th class="num" title="${tr("The smaller of the buying side's ask size and the selling side's bid size — what this direction is good for")}">${tr("Good for")}</th></tr></thead>
 <tbody data-live="pp-pairs">${pairs
           .map(
             (p) => `<tr data-k="${esc(`pair:${p.buy.venue_id}|${p.sell.venue_id}`)}"${
@@ -1039,7 +1189,7 @@ export function pricePair(data: {
             }>
 <td><div class="leg buy-leg"><a class="venue" href="${exchangeHref(p.buy.venue_id)}">${esc(venueName(p.buy.venue_id))}</a></div></td>
 <td><div class="leg sell-leg"><a class="venue" href="${exchangeHref(p.sell.venue_id)}">${esc(venueName(p.sell.venue_id))}</a></div></td>
-<td class="num spread"><span data-u="pair-gap"${gapTone(p.gapBps)}>${formatGapBps(p.gapBps)}</span>${p.buy === lowestAsk && p.sell === highestBid ? ' <span class="dim">best</span>' : ""}</td>
+<td class="num spread"><span data-u="pair-gap"${gapTone(p.gapBps)}>${formatGapBps(p.gapBps)}</span>${p.buy === lowestAsk && p.sell === highestBid ? ` <span class="dim">${tr("best")}</span>` : ""}</td>
 <td class="num"><span data-u="pair-depth">${formatUsd(p.goodForUsd)}</span></td>
 </tr>`,
           )
@@ -1048,35 +1198,65 @@ export function pricePair(data: {
 
   const headline =
     crossVenue === null
-      ? `<p class="lede" data-live="pp-lede">No two exchanges quote ${esc(name)} in a way that can be compared right now.</p>`
-      : `<p class="lede" data-live="pp-lede">Buying on <b>${esc(venueName((lowestAsk as PriceQuote).venue_id))}</b> and selling on <b>${esc(venueName((highestBid as PriceQuote).venue_id))}</b> quotes <b data-u="pp-gap">${formatGapBps(crossVenue)} bps</b>${goodFor === null ? ", though one side's resting size is unknown" : `, good for about <b>${formatUsd(goodFor)}</b>`}. That is a quote at the size shown, not a fillable trade: it is before fees, before the book below level 1, and before the transfer between two exchanges.</p>`;
+      ? `<p class="lede" data-live="pp-lede">${tr("No two exchanges quote {asset} in a way that can be compared right now.", { asset: esc(name) })}</p>`
+      : `<p class="lede" data-live="pp-lede">${(() => {
+          const values = {
+            buy: `<b>${esc(venueName((lowestAsk as PriceQuote).venue_id))}</b>`,
+            sell: `<b>${esc(venueName((highestBid as PriceQuote).venue_id))}</b>`,
+            gap: `<b data-u="pp-gap">${formatGapBps(crossVenue)} bps</b>`,
+            size: `<b>${formatUsd(goodFor)}</b>`,
+          };
+          return goodFor === null
+            ? tr(
+                "Buying on {buy} and selling on {sell} quotes {gap}, though one side's resting size is unknown.",
+                values,
+              )
+            : tr(
+                "Buying on {buy} and selling on {sell} quotes {gap}, good for about {size}.",
+                values,
+              );
+        })()}</p>`;
 
   const excluded =
     rejected.length === 0
       ? ""
-      : `<p class="notes">${rejected.length} ${rejected.length === 1 ? "venue is" : "venues are"} shown dimmed and left out of the gap: ${rejected
-          .map((q) => esc(venueName(q.venue_id)))
-          .join(
-            ", ",
-          )}. Their marks disagree by more than 10% with this asset's deepest market by open interest, which means a differently-sized or differently-named instrument rather than a price difference — the check that stops a 1375× mismatch being published as a 13,660,780 bps opportunity. <a href="/status">Status</a> names the reason for each one.</p>`;
+      : `<p class="notes">${(() => {
+          const values = {
+            count: rejected.length,
+            venues: rejected.map((q) => esc(venueName(q.venue_id))).join(", "),
+            status: `<a href="/status">${tr("Status")}</a>`,
+          };
+          return rejected.length === 1
+            ? tr(
+                "{count} venue is shown dimmed and left out of the gap: {venues}. Their marks disagree by more than 10% with this asset's deepest market by open interest, which means a differently-sized or differently-named instrument rather than a price difference — the check that stops a 1375× mismatch being published as a 13,660,780 bps opportunity. {status} names the reason for each one.",
+                values,
+              )
+            : tr(
+                "{count} venues are shown dimmed and left out of the gap: {venues}. Their marks disagree by more than 10% with this asset's deepest market by open interest, which means a differently-sized or differently-named instrument rather than a price difference — the check that stops a 1375× mismatch being published as a 13,660,780 bps opportunity. {status} names the reason for each one.",
+                values,
+              );
+        })()}</p>`;
 
   return layout({
-    title: `${assetTitle(name, assetClass)} price gaps by exchange`,
-    description: `${name} best bid and ask on every exchange that quotes it, with the size resting at each.`,
+    title: tr("{asset} price gaps by exchange", { asset: assetTitle(name, assetClass) }),
+    description: tr(
+      "{asset} best bid and ask on every exchange that quotes it, with the size resting at each.",
+      { asset: name },
+    ),
     path: priceHref(name, assetClass),
     overview: data.overview,
     now,
-    body: `<p class="eyebrow"><a href="/arbitrage">Price gaps</a></p>
-<h1>${assetName(name, assetClass)}</h1>
+    body: `<p class="eyebrow"><a href="/arbitrage">${tr("Price gaps")}</a></p>
+${helpHeading("h1", assetName(name, assetClass), "price-pair", `<p>${tr("That is a quote at the size shown, not a fillable trade: it is before fees, before the book below level 1, and before the transfer between two exchanges.")}</p>`)}
 ${headline}
 ${pairsTable}
-<div class="section-head"><h2>Every exchange</h2></div>
+<div class="section-head"><h2 class="has-help">${tr("Every exchange")}${helpButton("quotes")}</h2></div>
+${helpPanel("quotes", `<p>${tr("Sizes are the money resting at the very top of each book, converted to USD because the three venues that publish depth count it differently — Gate in contracts, OKX in contracts against <code>ctVal</code>, Bybit in base coin. Reading those raw, side by side, is a 10,000× error.")}</p>`)}
 <div class="sheet-wrap"><table class="sheet">
-<thead><tr><th>Exchange</th><th class="num">Best bid</th><th class="num">Bid size</th><th class="num">Best ask</th><th class="num">Ask size</th><th class="num" title="The venue's own bid-ask spread in basis points">Own spread</th><th class="num">Mark</th><th>Quoted</th></tr></thead>
+<thead><tr><th>${tr("Exchange")}</th><th class="num">${tr("Best bid")}</th><th class="num">${tr("Bid size")}</th><th class="num">${tr("Best ask")}</th><th class="num">${tr("Ask size")}</th><th class="num" title="${tr("The venue's own bid-ask spread in basis points")}">${tr("Own spread")}</th><th class="num">${tr("Mark")}</th><th>${tr("Quoted")}</th></tr></thead>
 <tbody data-live="pp-quotes">${quotes.map(row).join("")}</tbody>
 </table></div>
-${excluded}
-<p class="notes">Sizes are the money resting at the very top of each book, converted to USD because the three venues that publish depth count it differently — Gate in contracts, OKX in contracts against <code>ctVal</code>, Bybit in base coin. Reading those raw, side by side, is a 10,000× error.</p>`,
+${excluded}`,
   });
 }
 
@@ -1139,7 +1319,26 @@ export function status(data: {
   checks: IdentityCheckRow[] | null;
   now: number;
 }): string {
-  const { overview, venues, checks, liquidationFeeds, now } = data;
+  // The body stays in English for every reader, by the owner's choice: it is an operator's page, and
+  // its verdicts and evidence are read against the collector's own logs. The masthead and footer
+  // around it still follow the reader's language, so the site does not change language underneath them.
+  return layout({
+    title: "Collector status",
+    description: "Whether each exchange is delivering data right now, and what failed if not.",
+    path: "/status",
+    overview: data.overview,
+    now: data.now,
+    body: withLocale("en", () => statusBody(data)),
+  });
+}
+
+function statusBody(data: {
+  venues: VenueStatus[];
+  liquidationFeeds: LiquidationFeedRow[] | null;
+  checks: IdentityCheckRow[] | null;
+  now: number;
+}): string {
+  const { venues, checks, liquidationFeeds, now } = data;
   // An alias has no feed of its own; listing it would report another venue's health twice. A retired
   // venue keeps its `venues` row for the foreign keys, but it is neither a fault nor a backlog item.
   const hidden = new Set(VENUES.filter((v) => v.aliasOf || v.retired).map((v) => v.id));
@@ -1216,15 +1415,8 @@ export function status(data: {
     })
     .join("");
 
-  return layout({
-    title: "Collector status",
-    description: "Whether each exchange is delivering data right now, and what failed if not.",
-    path: "/status",
-    overview,
-    now,
-    body: `<p class="eyebrow">Collector</p>
-<h1>Status</h1>
-<p class="lede">Whether each exchange is actually delivering data. That is a different question from the <a href="/probe">geo-probe</a>, which asks only whether the endpoint answers: a venue can reply and still return nothing, which is what <b>empty</b> means here and why it is coloured as a fault.</p>
+  return `<p class="eyebrow">Collector</p>
+${helpHeading("h1", "Status", "status", '<p>Whether each exchange is actually delivering data. That is a different question from the <a href="/probe">geo-probe</a>, which asks only whether the endpoint answers: a venue can reply and still return nothing, which is what <b>empty</b> means here and why it is coloured as a fault.</p>')}
 ${tabBar({
   name: "status",
   tabs: [
@@ -1248,10 +1440,10 @@ ${tabBar({
 })}
 <div class="tabpanel" role="tabpanel" id="panel-status-collector" data-tab-panel="collector" aria-labelledby="tab-status-collector">
 <p class="facts" data-live="status-facts"><span><b>${running.length}</b> collected</span><span><b>${tally("live")}</b> live</span>${
-      tally("empty") ? `<span><b>${tally("empty")}</b> empty</span>` : ""
-    }${tally("failing") ? `<span><b>${tally("failing")}</b> failing</span>` : ""}${
-      tally("stale") ? `<span><b>${tally("stale")}</b> stale</span>` : ""
-    }${tally("silent") ? `<span><b>${tally("silent")}</b> silent</span>` : ""}<span><b>${failures.toLocaleString("en-US")}</b> failed runs of ${runs.toLocaleString("en-US")} in 24h</span></p>
+    tally("empty") ? `<span><b>${tally("empty")}</b> empty</span>` : ""
+  }${tally("failing") ? `<span><b>${tally("failing")}</b> failing</span>` : ""}${
+    tally("stale") ? `<span><b>${tally("stale")}</b> stale</span>` : ""
+  }${tally("silent") ? `<span><b>${tally("silent")}</b> silent</span>` : ""}<span><b>${failures.toLocaleString("en-US")}</b> failed runs of ${runs.toLocaleString("en-US")} in 24h</span></p>
 <div class="sheet-wrap"><table class="sheet">
 <thead><tr><th>Exchange</th><th>State</th><th class="num">Live markets</th><th>Last success</th><th class="num" title="Runs that returned an error in the last 24 hours. One blip and a venue that is down look identical without this">Failures 24h</th><th class="num" title="The last run's wall time and request count">Cost</th></tr></thead>
 <tbody data-live="status">${body}</tbody>
@@ -1262,8 +1454,7 @@ ${wrong === 0 ? '<p class="notes">Every collected exchange is live and current.<
 ${liquidationFeedTable({ feeds: liquidationFeeds, venues, now })}
 </div>
 <div class="tabpanel" role="tabpanel" id="panel-status-verification" data-tab-panel="verification" aria-labelledby="tab-status-verification">
-<h2>Price verification</h2>
-<p class="lede">Whether each market really is the asset it is filed under. Every asset is anchored on its deepest market by open interest, and a market disagreeing with that anchor by more than 10% is judged on whether its minute returns follow it. Correlation decides, never the size of the gap: a ratio landing near a clean 10× is a coincidence, not evidence — Gate quotes <b>PURR</b> at 104.6× Hyperliquid's on a correlation of 0.005, and they are simply different assets. <b>mismatch</b> means two unrelated assets share one ticker.</p>
+${helpHeading("h2", "Price verification", "verification", `<p>Whether each market really is the asset it is filed under. Every asset is anchored on its deepest market by open interest, and a market disagreeing with that anchor by more than 10% is judged on whether its minute returns follow it. Correlation decides, never the size of the gap: a ratio landing near a clean 10× is a coincidence, not evidence — Gate quotes <b>PURR</b> at 104.6× Hyperliquid's on a correlation of 0.005, and they are simply different assets. <b>mismatch</b> means two unrelated assets share one ticker.</p>`)}
 ${
   checks === null
     ? '<p class="notes">Verification has not run yet, so nothing below is confirmed either way. This is what a deployment looks like before the collector has checked its first asset.</p>'
@@ -1290,8 +1481,7 @@ ${
     : `<p class="notes"><b>${planned.length}</b> more exchanges are catalogued but not collected yet — either no adapter has been built for them, or one exists and is deliberately held back, so they are a backlog rather than a fault: ${planned
         .map((r) => esc(r.status.name))
         .join(", ")}.</p>`
-}`,
-  });
+}`;
 }
 
 export function asset(data: {
@@ -1336,34 +1526,67 @@ export function asset(data: {
     .join("");
 
   const summary = pair
-    ? `Best pair: long on ${esc(venueName(pair.long.venue_id))} at <span data-u="best-long">${formatApr(pair.long.apr)}</span>, short on ${esc(venueName(pair.short.venue_id))} at <span data-u="best-short">${formatApr(pair.short.apr)}</span>, a <span data-u="best-spread">${formatApr(pair.short.apr - pair.long.apr)}</span> spread per year. Only markets with at least ${formatUsd(minOi)} open interest are paired.`
+    ? tr(
+        "Best pair: long on {long} at {longApr}, short on {short} at {shortApr}, a {spread} spread per year.",
+        {
+          long: esc(venueName(pair.long.venue_id)),
+          longApr: `<span data-u="best-long">${formatApr(pair.long.apr)}</span>`,
+          short: esc(venueName(pair.short.venue_id)),
+          shortApr: `<span data-u="best-short">${formatApr(pair.short.apr)}</span>`,
+          spread: `<span data-u="best-spread">${formatApr(pair.short.apr - pair.long.apr)}</span>`,
+        },
+      )
     : venues < 2
-      ? "Only one exchange lists it right now, so there's no cross-exchange pair."
-      : `No two exchanges have at least ${formatUsd(minOi)} open interest in it, so there's no pair to show.`;
+      ? tr("Only one exchange lists it right now, so there's no cross-exchange pair.")
+      : tr(
+          "No two exchanges have at least {minOi} open interest in it, so there's no pair to show.",
+          { minOi: formatUsd(minOi) },
+        );
 
   return layout({
-    title: `${assetTitle(data.asset, assetClass)} funding rates by exchange`,
-    description: `${assetTitle(data.asset, assetClass)} perpetual funding rates across ${venues} exchanges, with the widest long/short spread.`,
+    title: tr("{asset} funding rates by exchange", { asset: assetTitle(data.asset, assetClass) }),
+    description: tr(
+      "{asset} perpetual funding rates across {count} exchanges, with the widest long/short spread.",
+      { asset: assetTitle(data.asset, assetClass), count: venues },
+    ),
     path: assetHref(data.asset, assetClass),
     overview: data.overview,
     now,
-    body: `<p class="eyebrow">Funding by exchange</p>
-<h1>${assetName(data.asset, assetClass)}</h1>
-<p class="lede" data-live="asset-lede">${markets.length} live markets on ${venues} exchanges. ${summary}${
+    body: `<p class="eyebrow">${tr("Funding by exchange")}</p>
+${helpHeading("h1", assetName(data.asset, assetClass), "asset", `<p>${tr("Only markets with at least {minOi} open interest are paired.", { minOi: formatUsd(minOi) })}</p>`)}
+<p class="lede" data-live="asset-lede">${tr("{markets} live markets on {venues} exchanges.", { markets: markets.length, venues })} ${summary}${
       pair
         ? citeMark(
-            `${assetTitle(data.asset, assetClass)} funding across ${venues} exchanges: long ${venueName(pair.long.venue_id)} at ${formatApr(pair.long.apr)}, short ${venueName(pair.short.venue_id)} at ${formatApr(pair.short.apr)}. A ${plainApr(pair.short.apr - pair.long.apr)} spread a year on one coin.`,
+            tr(
+              "{asset} funding across {count} exchanges: long {long} at {longApr}, short {short} at {shortApr}. A {spread} spread a year on one coin.",
+              {
+                asset: assetTitle(data.asset, assetClass),
+                count: venues,
+                long: venueName(pair.long.venue_id),
+                longApr: formatApr(pair.long.apr),
+                short: venueName(pair.short.venue_id),
+                shortApr: formatApr(pair.short.apr),
+                spread: plainApr(pair.short.apr - pair.long.apr),
+              },
+            ),
             assetHref(data.asset, assetClass),
           )
         : ""
     }</p>
 <div class="cta" data-live="asset-cta">${
       pair
-        ? `<a class="btn" href="${pairHref(data.asset, assetClass)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}" data-await>Backtest this pair <span aria-hidden="true">→</span></a><span class="dim">long ${esc(venueName(pair.long.venue_id))} · short ${esc(venueName(pair.short.venue_id))} · <span data-u="cta-spread">${formatApr(pair.short.apr - pair.long.apr)}</span> a year, replayed on settled funding</span>`
+        ? `<a class="btn" href="${pairHref(data.asset, assetClass)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}" data-await>${tr("Backtest this pair")} <span aria-hidden="true">→</span></a><span class="dim">${tr(
+            "long {long} · short {short} · {spread} a year, replayed on settled funding",
+            {
+              long: esc(venueName(pair.long.venue_id)),
+              short: esc(venueName(pair.short.venue_id)),
+              spread: `<span data-u="cta-spread">${formatApr(pair.short.apr - pair.long.apr)}</span>`,
+            },
+          )}</span>`
         : ""
     }</div>
 <div class="asset-rail" data-live="asset-rail">${renderRail({ scale, marks, bar: pair ? [pair.long.apr, pair.short.apr] : undefined, size: "big" })}</div>
-<div class="sheet-wrap"><table class="sheet"><thead><tr><th>Exchange</th><th class="num">Funding APR</th><th class="num">24h settled</th><th class="num">7d settled</th><th class="num" title="How often this market held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score">Stability</th><th class="num" title="Last 7 charging days against the days before them, in APR points. Up means funding is widening in the direction it already had">30d trend</th><th class="num">Interval</th><th class="num">Next funding</th><th class="num">Mark price</th><th class="num">Open interest</th><th class="num">24h volume</th></tr></thead><tbody data-live="asset-markets">${rows}</tbody></table></div>`,
+<div class="sheet-wrap"><table class="sheet"><thead><tr><th>${tr("Exchange")}</th><th class="num">${tr("Funding APR")}</th><th class="num">${tr("24h settled")}</th><th class="num">${tr("7d settled")}</th><th class="num" title="${tr("How often this market held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score")}">${tr("Stability")}</th><th class="num" title="${tr("Last 7 charging days against the days before them, in APR points. Up means funding is widening in the direction it already had")}">${tr("30d trend")}</th><th class="num">${tr("Interval")}</th><th class="num">${tr("Next funding")}</th><th class="num">${tr("Mark price")}</th><th class="num">${tr("Open interest")}</th><th class="num">${tr("24h volume")}</th></tr></thead><tbody data-live="asset-markets">${rows}</tbody></table></div>`,
   });
 }
 
@@ -1467,17 +1690,29 @@ function pairCapital(
 /** The capital line, phrased so it never claims more precision than the tier data supports. */
 function capitalFact(capital: PairCapital): string {
   if (capital.kind === "unopenable") {
-    return `capital <b>–</b> — ${esc(venueName(capital.venueId))} will not open a position above ${wholeMoney(capital.maxNotionalUsd)} on ${esc(capital.venueSymbol)}`;
+    return tr("capital {amount} — {venue} will not open a position above {max} on {symbol}", {
+      amount: "<b>–</b>",
+      venue: esc(venueName(capital.venueId)),
+      max: wholeMoney(capital.maxNotionalUsd),
+      symbol: esc(capital.venueSymbol),
+    });
   }
-  const amount = wholeMoney(capital.capitalUsd);
+  const amount = `<b>${wholeMoney(capital.capitalUsd)}</b>`;
   if (capital.kind === "tiered") {
-    return `capital <b>${amount}</b> across both legs at ${formatLeverage(capital.leverage)}`;
+    return tr("capital {amount} across both legs at {leverage}", {
+      amount,
+      leverage: formatLeverage(capital.leverage),
+    });
   }
-  if (capital.leverage === null) return `capital <b>${amount}</b> across both legs, unleveraged`;
+  if (capital.leverage === null)
+    return tr("capital {amount} across both legs, unleveraged", { amount });
   const leverage = formatLeverage(capital.leverage);
   return capital.beyondHeadline
-    ? `capital at least <b>${amount}</b> across both legs — ${leverage} is the small-size maximum`
-    : `capital <b>${amount}</b> across both legs at ${leverage} (small size)`;
+    ? tr("capital at least {amount} across both legs — {leverage} is the small-size maximum", {
+        amount,
+        leverage,
+      })
+    : tr("capital {amount} across both legs at {leverage} (small size)", { amount, leverage });
 }
 
 /**
@@ -1506,12 +1741,12 @@ function equityCurve(result: BacktestResult, sizeUsd: number): string {
   const last = result.perDay.at(-1)?.date ?? "";
 
   return `<figure class="curve ${end >= 0 ? "up" : "down"}">
-<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="Cumulative funding reaches ${money(end)} after ${points.length} days">
+<svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" role="img" aria-label="${tr("Cumulative funding reaches {amount} after {days} days", { amount: money(end), days: points.length })}">
 <polygon class="curve-area" points="${area}"></polygon>
 <line class="curve-zero" x1="${pad}" x2="${width - pad}" y1="${zero}" y2="${zero}"></line>
 <polyline class="curve-line" points="${line}"></polyline>
 </svg>
-<figcaption>Cumulative funding on ${wholeMoney(sizeUsd)} per leg · ${esc(first)} to ${esc(last)}</figcaption>
+<figcaption>${tr("Cumulative funding on {size} per leg · {from} to {to}", { size: wholeMoney(sizeUsd), from: esc(first), to: esc(last) })}</figcaption>
 </figure>`;
 }
 
@@ -1523,7 +1758,7 @@ function equityCurve(result: BacktestResult, sizeUsd: number): string {
  */
 function feeField(name: string, label: string, current: number | null): string {
   const value = current === null ? "" : String(current);
-  return `<label class="field" title="Taker fee in basis points, per fill. Both legs must be filled in before costs are charged.">${label} (bps)<input type="number" name="${name}" value="${esc(value)}" min="0" max="${MAX_TAKER_FEE_BPS}" step="0.1" placeholder="blank = ignore" inputmode="decimal"></label>`;
+  return `<label class="field" title="${tr("Taker fee in basis points, per fill. Both legs must be filled in before costs are charged.")}">${label} (bps)<input type="number" name="${name}" value="${esc(value)}" min="0" max="${MAX_TAKER_FEE_BPS}" step="0.1" placeholder="${tr("blank = ignore")}" inputmode="decimal"></label>`;
 }
 
 /**
@@ -1544,7 +1779,7 @@ function windowStrip(
         : `?days=${n}`;
     return `<a href="${pairHref(asset, assetClass)}${query}"${n === days ? ' aria-current="true"' : ""}>${n}d</a>`;
   }).join("");
-  return `<div class="tf" aria-label="Window">${links}</div>`;
+  return `<div class="tf" aria-label="${tr("Window")}">${links}</div>`;
 }
 
 function backtestForm(
@@ -1558,7 +1793,7 @@ function backtestForm(
     venueName(a).localeCompare(venueName(b)),
   );
   const venueField = (name: "long" | "short", current: string | undefined) =>
-    `<label class="field">${name === "long" ? "Long on" : "Short on"}<select name="${name}">${venues
+    `<label class="field">${name === "long" ? tr("Long on") : tr("Short on")}<select name="${name}">${venues
       .map(
         (id) =>
           `<option value="${esc(id)}"${id === current ? " selected" : ""}>${esc(venueName(id))}</option>`,
@@ -1575,7 +1810,7 @@ function backtestForm(
   return `<form class="filters" method="get" action="${pairHref(asset, assetClass)}" data-await>
 ${venueField("long", params?.longVenueId)}
 ${venueField("short", params?.shortVenueId)}
-${numberField("size", "Size per leg", params?.sizeUsd ?? 10_000, [
+${numberField("size", tr("Size per leg"), params?.sizeUsd ?? 10_000, [
   [1_000, "$1k"],
   [10_000, "$10k"],
   [25_000, "$25k"],
@@ -1583,13 +1818,13 @@ ${numberField("size", "Size per leg", params?.sizeUsd ?? 10_000, [
   [1_000_000, "$1M"],
 ])}
 <input type="hidden" name="days" value="${days}">
-${feeField("fee_long", "Long taker fee", params?.longTakerBps ?? null)}
-${feeField("fee_short", "Short taker fee", params?.shortTakerBps ?? null)}
-<div class="actions"><button type="submit">Run backtest</button>${
+${feeField("fee_long", tr("Long taker fee"), params?.longTakerBps ?? null)}
+${feeField("fee_short", tr("Short taker fee"), params?.shortTakerBps ?? null)}
+<div class="actions"><button type="submit">${tr("Run backtest")}</button>${
     params
-      ? `<a class="btn" href="${pairHref(asset, assetClass)}${backtestToQuery({ ...params, longVenueId: params.shortVenueId, shortVenueId: params.longVenueId })}" data-await>⇄ swap legs</a>`
+      ? `<a class="btn" href="${pairHref(asset, assetClass)}${backtestToQuery({ ...params, longVenueId: params.shortVenueId, shortVenueId: params.longVenueId })}" data-await>⇄ ${tr("swap legs")}</a>`
       : ""
-  }<a class="btn" href="${priceHref(asset, assetClass)}" title="What entering and exiting would cost at each exchange's top of book">price gap</a></div>
+  }<a class="btn" href="${priceHref(asset, assetClass)}" title="${tr("What entering and exiting would cost at each exchange's top of book")}">${tr("price gap")}</a></div>
 </form>`;
 }
 
@@ -1607,15 +1842,34 @@ function shareOnX(
 ): string {
   const net = result.netAfterCostsUsd ?? result.netFundingUsd;
   const label = assetClass === "crypto" ? asset : `${asset} (${assetClass})`;
-  const span = params.days === 1 ? "day" : `${params.days} days`;
-  const text = `${label} funding carry, long ${venueName(result.long.venueId)} / short ${venueName(result.short.venueId)}: ${money(net)} on ${wholeMoney(params.sizeUsd)} per leg over the last ${span}, ${result.netAfterCostsUsd === null ? "before fees" : "after fees"}. Replayed from settled funding:`;
+  const span = params.days === 1 ? tr("day") : tr("{n} days", { n: params.days });
+  const values = {
+    asset: label,
+    long: venueName(result.long.venueId),
+    short: venueName(result.short.venueId),
+    net: money(net),
+    size: wholeMoney(params.sizeUsd),
+    span,
+  };
+  const text =
+    result.netAfterCostsUsd === null
+      ? tr(
+          "{asset} funding carry, long {long} / short {short}: {net} on {size} per leg over the last {span}, before fees. Replayed from settled funding:",
+          values,
+        )
+      : tr(
+          "{asset} funding carry, long {long} / short {short}: {net} on {size} per leg over the last {span}, after fees. Replayed from settled funding:",
+          values,
+        );
   const link = `${origin}${pairHref(asset, assetClass)}${backtestToQuery(params)}&ref=x`;
   const cite = citeMark(
-    text.replace(/:$/, "."),
+    // The post ends on a colon that leads into the link; the quoted line stands alone, so it ends on
+    // a full stop -- in either script.
+    text.replace(/:$/, ".").replace(/：$/, "。"),
     `${pairHref(asset, assetClass)}${backtestToQuery(params)}`,
   );
   const intent = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`;
-  return `<div class="cta">${cite}<a class="btn" href="${esc(intent)}" target="_blank" rel="noopener">Share on X</a><span class="dim">opens a post with this result and a link back to it</span></div>`;
+  return `<div class="cta">${cite}<a class="btn" href="${esc(intent)}" target="_blank" rel="noopener">${tr("Share on X")}</a><span class="dim">${tr("opens a post with this result and a link back to it")}</span></div>`;
 }
 
 /** Trims a bps figure for prose: "4.5" stays, "5.0" reads as "5". */
@@ -1630,11 +1884,16 @@ const formatBps = (bps: number | null): string => (bps === null ? "–" : String
  */
 function costsFact(result: BacktestResult): string {
   if (result.costsUsd === null || result.netAfterCostsUsd === null) return "";
-  const net = `<span>after costs <b class="${result.netAfterCostsUsd >= 0 ? "up" : "down"}">${money(result.netAfterCostsUsd)}</b> on ${money(result.costsUsd)} of fees</span>`;
+  const net = `<span>${tr("after costs {net} on {fees} of fees", {
+    net: `<b class="${result.netAfterCostsUsd >= 0 ? "up" : "down"}">${money(result.netAfterCostsUsd)}</b>`,
+    fees: money(result.costsUsd),
+  })}</span>`;
   const payback =
     result.paybackDays === null
-      ? `<span class="dim">never repays the fees at this rate</span>`
-      : `<span>fees repay in <b>${result.paybackDays < 1 ? "under a day" : `${Math.round(result.paybackDays)} days`}</b></span>`;
+      ? `<span class="dim">${tr("never repays the fees at this rate")}</span>`
+      : `<span>${tr("fees repay in {days}", {
+          days: `<b>${result.paybackDays < 1 ? tr("under a day") : tr("{n} days", { n: Math.round(result.paybackDays) })}</b>`,
+        })}</span>`;
   return `${net}${payback}`;
 }
 
@@ -1647,25 +1906,28 @@ function rangeFacts(result: BacktestResult): string {
   const { bestDay, worstDay } = result;
   if (!bestDay || !worstDay) return "";
   const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
+    msg("Jan"),
+    msg("Feb"),
+    msg("Mar"),
+    msg("Apr"),
+    msg("May"),
+    msg("Jun"),
+    msg("Jul"),
+    msg("Aug"),
+    msg("Sep"),
+    msg("Oct"),
+    msg("Nov"),
+    msg("Dec"),
   ];
   const when = (date: string) => {
     const [, month, day] = date.split("-");
-    return `${months[Number(month) - 1]} ${Number(day)}`;
+    return tr("{month} {day}", {
+      month: trMsg(months[Number(month) - 1] ?? ""),
+      day: Number(day),
+    });
   };
   const drawdown = result.maxDrawdownUsd > 0 ? money(-result.maxDrawdownUsd) : money(0);
-  return `<span>best day <b>${money(bestDay.netUsd)}</b> ${when(bestDay.date)}</span><span>worst day <b>${money(worstDay.netUsd)}</b> ${when(worstDay.date)}</span><span title="The largest fall in cumulative funding from a previous high, before costs">max drawdown <b>${drawdown}</b></span>`;
+  return `<span>${tr("best day {amount} {date}", { amount: `<b>${money(bestDay.netUsd)}</b>`, date: when(bestDay.date) })}</span><span>${tr("worst day {amount} {date}", { amount: `<b>${money(worstDay.netUsd)}</b>`, date: when(worstDay.date) })}</span><span title="${tr("The largest fall in cumulative funding from a previous high, before costs")}">${tr("max drawdown {amount}", { amount: `<b>${drawdown}</b>` })}</span>`;
 }
 
 export function pair(data: {
@@ -1707,9 +1969,20 @@ export function pair(data: {
   const legRates = (leg: BacktestResult["long"]) => {
     const market = legMarket(leg.venueId, leg.venueSymbol);
     const average =
-      leg.averageAprPercent === null ? "" : `${days}d avg ${apr(leg.averageAprPercent)}`;
+      leg.averageAprPercent === null
+        ? ""
+        : tr("{days}d avg {apr}", { days, apr: apr(leg.averageAprPercent) });
     if (!market) return average ? ` · ${average}` : "";
-    return ` · now ${apr(market.apr)}${average ? `, ${average}` : ""}, every ${formatInterval(market.interval_hours)}`;
+    const values = {
+      apr: apr(market.apr),
+      average,
+      interval: formatInterval(market.interval_hours),
+    };
+    return ` · ${
+      average
+        ? tr("now {apr}, {average}, every {interval}", values)
+        : tr("now {apr}, every {interval}", values)
+    }`;
   };
   const legs = result
     ? {
@@ -1730,44 +2003,59 @@ export function pair(data: {
   const body =
     result && params
       ? `<p class="headline ${result.netFundingUsd >= 0 ? "up" : "down"}">${money(result.netFundingUsd)}</p>
-<p class="eyebrow">net funding over the last ${params.days === 1 ? "day" : `${params.days} days`} · ${formatApr(result.netFundingAprPercent)} annualized</p>
+<p class="eyebrow has-help">${tr("net funding over the last {span} · {apr} annualized", {
+          span: params.days === 1 ? tr("day") : tr("{n} days", { n: params.days }),
+          apr: formatApr(result.netFundingAprPercent),
+        })}${helpButton("result")}</p>
+${helpPanel("result", `<p>${costsNote(result, params)}</p>`)}
 <div class="pair-legs">
-<span class="long"><b>Long ${esc(venueName(result.long.venueId))}</b> ${esc(result.long.venueSymbol)} · ${result.long.settlements} settlements · ${money(result.long.fundingUsd)}${legRates(result.long)}</span>
-<span class="short"><b>Short ${esc(venueName(result.short.venueId))}</b> ${esc(result.short.venueSymbol)} · ${result.short.settlements} settlements · ${money(result.short.fundingUsd)}${legRates(result.short)}</span>
+<span class="long"><b>${tr("Long {venue}", { venue: esc(venueName(result.long.venueId)) })}</b> ${esc(result.long.venueSymbol)} · ${tr("{n} settlements", { n: result.long.settlements })} · ${money(result.long.fundingUsd)}${legRates(result.long)}</span>
+<span class="short"><b>${tr("Short {venue}", { venue: esc(venueName(result.short.venueId)) })}</b> ${esc(result.short.venueSymbol)} · ${tr("{n} settlements", { n: result.short.settlements })} · ${money(result.short.fundingUsd)}${legRates(result.short)}</span>
 </div>
 ${equityCurve(result, params.sizeUsd)}
-<div class="facts"><span>win rate <b>${Math.round(result.winRateDays * 100)}%</b> of ${result.perDay.length} days</span><span>average <b>${money(result.avgDailyUsd)}</b> a day</span>${rangeFacts(result)}<span>${capitalFact(capital ?? pairCapital(params.sizeUsd, undefined, undefined, tiers))}</span>${costsFact(result)}</div>
+<div class="facts"><span>${tr("win rate {value} of {days} days", { value: `<b>${Math.round(result.winRateDays * 100)}%</b>`, days: result.perDay.length })}</span><span>${tr("average {value} a day", { value: `<b>${money(result.avgDailyUsd)}</b>` })}</span>${rangeFacts(result)}<span>${capitalFact(capital ?? pairCapital(params.sizeUsd, undefined, undefined, tiers))}</span>${costsFact(result)}</div>
 ${shareOnX(asset, assetClass, params, result, origin)}
 ${
   result.long.missedSettlements > 0 || result.short.missedSettlements > 0
-    ? `<p class="notes">Missed settlements: ${result.long.missedSettlements} on ${esc(venueName(result.long.venueId))}, ${result.short.missedSettlements} on ${esc(venueName(result.short.venueId))}. A gap is reported rather than counted as zero, so this total covers only the settlements actually recorded.</p>`
+    ? `<p class="notes">${tr(
+        "Missed settlements: {long} on {longVenue}, {short} on {shortVenue}. A gap is reported rather than counted as zero, so this total covers only the settlements actually recorded.",
+        {
+          long: result.long.missedSettlements,
+          longVenue: esc(venueName(result.long.venueId)),
+          short: result.short.missedSettlements,
+          shortVenue: esc(venueName(result.short.venueId)),
+        },
+      )}</p>`
     : ""
 }
 ${
   result.perDay.length > 0 && result.perDay.length < params.days - 1
-    ? `<p class="notes">Only ${result.perDay.length} of the ${params.days} days asked for have stored settlements. The annualized figure still divides by the whole window, so it reads low. The daily rollup keeps 70 days, and history is still filling on some venues.</p>`
+    ? `<p class="notes">${tr(
+        "Only {have} of the {asked} days asked for have stored settlements. The annualized figure still divides by the whole window, so it reads low. The daily rollup keeps 70 days, and history is still filling on some venues.",
+        { have: result.perDay.length, asked: params.days },
+      )}</p>`
     : ""
 }
-${
-  result.costsUsd === null
-    ? `<p class="notes">Funding only, on a position kept at ${wholeMoney(params.sizeUsd)} per leg. Trading fees are excluded because none were given: taker fees depend on your own volume tier and discounts, so fill in both legs' fees above to see this net of costs. Price moves between settlements aren't modelled either, because venue funding history gives a rate and a time, and almost never a mark price.</p>`
-    : `<p class="notes">Net of the fees you entered, on a position kept at ${wholeMoney(params.sizeUsd)} per leg: ${formatBps(params.longTakerBps)} bps long and ${formatBps(params.shortTakerBps)} bps short, charged on four fills — entry and exit on both legs. Opening and closing once is assumed; rolling the position would cost this again each time. Price moves between settlements still aren't modelled, because venue funding history gives a rate and a time, and almost never a mark price.</p>`
-}`
+${result.costsUsd === null ? `<p class="notes">${tr("Funding only, before trading fees: none were entered.")}</p>` : ""}`
       : `<p class="lede">${
           venues < 2
-            ? `Only one exchange lists ${esc(asset)} right now, so there's no pair to hold.`
-            : "Pick two exchanges to hold against each other."
+            ? tr("Only one exchange lists {asset} right now, so there's no pair to hold.", {
+                asset: esc(asset),
+              })
+            : tr("Pick two exchanges to hold against each other.")
         }</p>`;
 
   return layout({
-    title: `${assetTitle(asset, assetClass)} funding carry backtest`,
-    description: `What holding ${assetTitle(asset, assetClass)} long on one exchange and short on another would have paid in funding.`,
+    title: tr("{asset} funding carry backtest", { asset: assetTitle(asset, assetClass) }),
+    description: tr(
+      "What holding {asset} long on one exchange and short on another would have paid in funding.",
+      { asset: assetTitle(asset, assetClass) },
+    ),
     path: pairHref(asset, assetClass),
     overview,
     now,
-    body: `<p class="eyebrow"><a href="${assetHref(asset, assetClass)}">${assetName(asset, assetClass)}</a> / backtest</p>
-<h1>${assetName(asset, assetClass)} carry</h1>
-<p class="lede">Every exchange's funding over one window, and what the two legs you pick actually settled, summed per UTC day. Windows are whole calendar days ending today, and the figures refresh hourly.</p>
+    body: `<p class="eyebrow"><a href="${assetHref(asset, assetClass)}">${assetName(asset, assetClass)}</a> / ${tr("backtest")}</p>
+${helpHeading("h1", tr("{asset} carry", { asset: assetName(asset, assetClass) }), "pair", `<p>${tr("Every exchange's funding over one window, and what the two legs you pick actually settled, summed per UTC day. Windows are whole calendar days ending today, and the figures refresh hourly.")}</p>`)}
 ${backtestForm(asset, assetClass, markets, params, days)}
 ${windowStrip(asset, assetClass, params, days)}
 ${renderFundingChart(history, legs)}
@@ -1775,31 +2063,49 @@ ${body}`,
   });
 }
 
+/** How the result was costed, for its "?" panel: what is charged, and what is not modelled. */
+function costsNote(result: BacktestResult, params: BacktestParams): string {
+  return result.costsUsd === null
+    ? tr(
+        "Funding only, on a position kept at {size} per leg. Trading fees are excluded because none were given: taker fees depend on your own volume tier and discounts, so fill in both legs' fees above to see this net of costs. Price moves between settlements aren't modelled either, because venue funding history gives a rate and a time, and almost never a mark price.",
+        { size: wholeMoney(params.sizeUsd) },
+      )
+    : tr(
+        "Net of the fees you entered, on a position kept at {size} per leg: {long} bps long and {short} bps short, charged on four fills — entry and exit on both legs. Opening and closing once is assumed; rolling the position would cost this again each time. Price moves between settlements still aren't modelled, because venue funding history gives a rate and a time, and almost never a mark price.",
+        {
+          size: wholeMoney(params.sizeUsd),
+          long: formatBps(params.longTakerBps),
+          short: formatBps(params.shortTakerBps),
+        },
+      );
+}
+
 /** Rate limited. Says plainly that cached results are never limited, so the advice is actionable. */
 export function tooMany(path: string, now: number): string {
   return layout({
-    title: "Too many requests",
-    description: "Too many backtests from this address.",
+    title: tr("Too many requests"),
+    description: tr("Too many backtests from this address."),
     path,
     now,
-    body: `<h1>Too many requests</h1>
-<p class="lede">That is more backtests than one address may run in a minute. Wait a moment and try again. Results already computed are served from the cache and are never limited, so a combination someone has run before still loads immediately.</p>
-<p><a href="/screener">Back to the screener</a></p>`,
+    body: `<h1>${tr("Too many requests")}</h1>
+<p class="lede">${tr("That is more backtests than one address may run in a minute. Wait a moment and try again. Results already computed are served from the cache and are never limited, so a combination someone has run before still loads immediately.")}</p>
+<p><a href="/screener">${tr("Back to the screener")}</a></p>`,
   });
 }
 
 export function notFound(path: string, now: number, message?: string): string {
   return layout({
-    title: "Not found",
-    description: "Page not found.",
+    title: tr("Not found"),
+    description: tr("Page not found."),
     path,
     now,
-    body: `<h1>Not found</h1><p class="lede">${esc(message ?? `Nothing lives at ${path}.`)}</p><p><a href="/">See today's widest spreads</a></p>`,
+    body: `<h1>${tr("Not found")}</h1><p class="lede">${esc(message ?? tr("Nothing lives at {path}.", { path }))}</p><p><a href="/">${tr("See today's widest spreads")}</a></p>`,
   });
 }
 
 /** A stick-figure runner; the legs and arms swing in CSS (layout.ts), so it needs no script. */
-const RUNNER_SVG = `<svg class="runner" viewBox="0 0 120 90" role="img" aria-label="A runner sprinting">
+const runnerSvg =
+  () => `<svg class="runner" viewBox="0 0 120 90" role="img" aria-label="${tr("A runner sprinting")}">
 <line class="ground" x1="0" y1="84" x2="120" y2="84"/>
 <g class="body">
 <circle class="head" cx="62" cy="14" r="7"/>
@@ -1821,11 +2127,11 @@ const RUNNER_SVG = `<svg class="runner" viewBox="0 0 120 90" role="img" aria-lab
 
 export function unavailable(path: string, now: number): string {
   return layout({
-    title: "Data center busy",
-    description: "The data center is too busy and a runner is on it. Try again later.",
+    title: tr("Data center busy"),
+    description: tr("The data center is too busy and a runner is on it. Try again later."),
     path,
     now,
-    body: `<div class="busy" role="status">${RUNNER_SVG}<h1>The data center is getting too busy and is currently sprinting in circles</h1><p class="lede" style="margin-inline:auto">Every server is screaming, the funding rates are on fire, and one intern is running the whole thing on foot. Go touch grass and try again later.</p><p><a href="${esc(path)}">Try again</a></p></div>`,
+    body: `<div class="busy" role="status">${runnerSvg()}<h1>${tr("The data center is getting too busy and is currently sprinting in circles")}</h1><p class="lede" style="margin-inline:auto">${tr("Every server is screaming, the funding rates are on fire, and one intern is running the whole thing on foot. Go touch grass and try again later.")}</p><p><a href="${esc(path)}">${tr("Try again")}</a></p></div>`,
   });
 }
 

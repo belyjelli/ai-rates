@@ -8,10 +8,20 @@ import {
   cvdToQuery,
 } from "../app/params";
 import { ageText, esc, formatPrice, formatUsd } from "./format";
+import { helpButton, helpHeading, helpPanel } from "./help";
+import { msg, tr, trMsg } from "./i18n";
 import { layout } from "./layout";
 import { assetKey, assetName } from "./pages";
 import { citeMark, plainLabel } from "./share";
-import { cvdText, SLOT_BAND, SLOT_CURSOR, SLOT_FORMAT, SLOT_SCRIPT, slotData } from "./slot-chart";
+import {
+  cvdText,
+  MONTHS,
+  SLOT_BAND,
+  SLOT_CURSOR,
+  SLOT_FORMAT,
+  SLOT_SCRIPT,
+  slotData,
+} from "./slot-chart";
 import { venueName } from "./venues";
 
 /**
@@ -38,7 +48,6 @@ export const CVD_VENUES = ["binance", "okx", "gate"] as const;
 export const DIVERGENCE_PRICE_PCT = 0.5;
 export const DIVERGENCE_FLOW_PCT = 5;
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MINUS = "−";
 
 export type Divergence = "bullish" | "bearish" | null;
@@ -202,7 +211,7 @@ function cvdChart(data: {
     const d = new Date(ms);
     const midnight = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
     const text = midnight
-      ? `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`
+      ? tr("{month} {day}", { month: trMsg(MONTHS[d.getUTCMonth()] ?? ""), day: d.getUTCDate() })
       : `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
     // Every other label is marked so a phone can drop it: at 390px the plot is ~220px wide and six
     // "HH:MM" labels ran into one string ("16:0020:00Sep 17").
@@ -212,7 +221,16 @@ function cvdChart(data: {
   }
 
   const total = running;
-  const grain = barMinutes >= 60 ? `${barMinutes / 60}-hour` : `${barMinutes}-minute`;
+  const title =
+    barMinutes >= 60
+      ? tr("{asset} · cumulative volume delta · {n}-hour bars, UTC", {
+          asset: label,
+          n: barMinutes / 60,
+        })
+      : tr("{asset} · cumulative volume delta · {n}-minute bars, UTC", {
+          asset: label,
+          n: barMinutes,
+        });
 
   // The readout before any hover is the whole window in the same words a bar is read in, so the line
   // does not change shape under the pointer, and a reader without JavaScript still gets the sums.
@@ -220,10 +238,16 @@ function cvdChart(data: {
   const bought = slots.reduce((sum, s) => sum + (s.bar?.buy_usd ?? 0), 0);
   const sold = slots.reduce((sum, s) => sum + (s.bar?.sell_usd ?? 0), 0);
   const cite = citeMark(
-    `${plainLabel(label)} taker CVD, last ${params.window}: ${signedUsd(total)}. Market buyers ${formatUsd(bought)} vs sellers ${formatUsd(sold)}.`,
+    tr("{asset} taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.", {
+      asset: plainLabel(label),
+      window: params.window,
+      cvd: signedUsd(total),
+      bought: formatUsd(bought),
+      sold: formatUsd(sold),
+    }),
   );
   const idle = cvdText(
-    `Last ${esc(params.window)}`,
+    tr("Last {window}", { window: esc(params.window) }),
     [bought, sold, prices.at(-1) ?? null],
     null,
     open,
@@ -243,25 +267,24 @@ function cvdChart(data: {
   });
 
   return `<figure class="fchart cvd-chart" data-live="cvd-chart">${cite}
-<div class="fchart-head"><p class="fchart-title">${label} · cumulative volume delta · ${grain} bars, UTC</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>Price</span><span><i class="cvd-key-cvd"></i>CVD <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span><span><i class="cvd-key-buy"></i>Net buy</span><span><i class="cvd-key-sell"></i>Net sell</span></div><p class="fchart-read slot-read" aria-live="polite">${idle} · hover or tap a bar to read it</p></div>
-<div class="slot-area" tabindex="0" role="group" aria-label="${esc(`${label.replace(/<[^>]+>/g, "")} bars; arrow keys read one at a time`)}">
-<div class="fchart-plot cvd-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} price and cumulative volume delta over the last ${params.window}`)}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${
+<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>${tr("Price")}</span><span><i class="cvd-key-cvd"></i>CVD <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span><span><i class="cvd-key-buy"></i>${tr("Net buy")}</span><span><i class="cvd-key-sell"></i>${tr("Net sell")}</span></div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
+<div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}">
+<div class="fchart-plot cvd-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} price and cumulative volume delta over the last {window}", { asset: label, window: params.window }))}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${
     pricePath.length > 1
       ? `<polyline class="cvd-price" points="${pricePath.join(" ")}"></polyline>`
       : ""
   }${SLOT_CURSOR}</svg>${leftLabels}${rightLabels}</div>
-<div class="fchart-plot cvd-strip"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} net taker flow per bar`)}">${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line>${netBars}${SLOT_CURSOR}</svg><span class="cvd-yr" style="top:0%">${signedUsd(peak)}</span><span class="cvd-yr" style="top:100%">${signedUsd(-peak)}</span>${xLabels.join("")}</div>
+<div class="fchart-plot cvd-strip"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} net taker flow per bar", { asset: label }))}">${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line>${netBars}${SLOT_CURSOR}</svg><span class="cvd-yr" style="top:0%">${signedUsd(peak)}</span><span class="cvd-yr" style="top:100%">${signedUsd(-peak)}</span>${xLabels.join("")}</div>
 </div>
-<p class="fchart-note">Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover either panel to read one bar beside the cursor; on a phone, tap and it reads in the line above the chart.</p>
 ${payload}
 </figure>`;
 }
 
 const SORT_LABELS: Record<CvdSort, string> = {
-  volume: "Volume",
-  cvd: "CVD",
-  ratio: "CVD / volume",
-  change: "Change",
+  volume: msg("Volume"),
+  cvd: msg("CVD"),
+  ratio: msg("CVD / volume"),
+  change: msg("Change"),
 };
 
 function sortKey(row: CvdAssetRow, sort: CvdSort): number {
@@ -308,14 +331,14 @@ export function cvd(data: {
       : `<span class="dim">–</span>`;
 
   const tiles = `<div class="cvd-tiles" data-live="cvd-tiles">
-<div class="cvd-tile"><p class="eyebrow">CVD breadth</p><p class="cvd-big"><span data-u="breadth">${breadth === null ? "–" : `${breadth.toFixed(1)}%`}</span></p><p class="dim">of ${rows.length} assets with net taker buying</p></div>
-<div class="cvd-tile"><p class="eyebrow">Bullish divergences</p><p class="cvd-big cvd-up"><span data-u="bullish">${bullish}</span></p><p class="dim">price down ≥${DIVERGENCE_PRICE_PCT}%, takers net buying ≥${DIVERGENCE_FLOW_PCT}% of volume</p></div>
-<div class="cvd-tile"><p class="eyebrow">Bearish divergences</p><p class="cvd-big cvd-down"><span data-u="bearish">${bearish}</span></p><p class="dim">price up ≥${DIVERGENCE_PRICE_PCT}%, takers net selling ≥${DIVERGENCE_FLOW_PCT}% of volume</p></div>
-<div class="cvd-tile"><p class="eyebrow">Top CVD flows</p><p class="cvd-flows">${topLine(topBuy)}<br>${topLine(topSell)}</p><p class="dim">largest net buy / net sell</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("CVD breadth")}</p><p class="cvd-big"><span data-u="breadth">${breadth === null ? "–" : `${breadth.toFixed(1)}%`}</span></p><p class="dim">${tr("of {n} assets with net taker buying", { n: rows.length })}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("Bullish divergences")}</p><p class="cvd-big cvd-up"><span data-u="bullish">${bullish}</span></p><p class="dim">${tr("price down ≥{price}%, takers net buying ≥{flow}% of volume", { price: DIVERGENCE_PRICE_PCT, flow: DIVERGENCE_FLOW_PCT })}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("Bearish divergences")}</p><p class="cvd-big cvd-down"><span data-u="bearish">${bearish}</span></p><p class="dim">${tr("price up ≥{price}%, takers net selling ≥{flow}% of volume", { price: DIVERGENCE_PRICE_PCT, flow: DIVERGENCE_FLOW_PCT })}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("Top CVD flows")}</p><p class="cvd-flows">${topLine(topBuy)}<br>${topLine(topSell)}</p><p class="dim">${tr("largest net buy / net sell")}</p></div>
 </div>`;
 
   // --- controls ---------------------------------------------------------------------------------
-  const windowStrip = `<nav class="tf" aria-label="Window">${CVD_WINDOW_KEYS.map((key) => {
+  const windowStrip = `<nav class="tf" aria-label="${tr("Window")}">${CVD_WINDOW_KEYS.map((key) => {
     const href = esc((assetInAddress ? selfPath : "/cvd") + cvdToQuery({ ...params, window: key }));
     return key === params.window
       ? `<a class="on" href="${href}" aria-current="page">${key}</a>`
@@ -333,7 +356,7 @@ export function cvd(data: {
     const active = params.sort === sort;
     const next = { ...params, sort, asc: active ? !params.asc : false };
     const href = esc((assetInAddress ? selfPath : "/cvd") + cvdToQuery(next));
-    return `<th class="num" title="${esc(title)}"${active ? ` aria-sort="${params.asc ? "ascending" : "descending"}"` : ""}><a href="${href}">${SORT_LABELS[sort]}${active && params.asc ? " ↑" : ""}</a></th>`;
+    return `<th class="num" title="${esc(title)}"${active ? ` aria-sort="${params.asc ? "ascending" : "descending"}"` : ""}><a href="${href}">${trMsg(SORT_LABELS[sort])}${active && params.asc ? " ↑" : ""}</a></th>`;
   };
 
   const body = sorted
@@ -350,7 +373,7 @@ export function cvd(data: {
 <td class="num${tone(ratio)}"><span data-u="ratio">${signedPct(ratio)}</span></td>
 <td class="num"><span data-u="volume">${formatUsd(volume(row))}</span></td>
 <td class="num dim">${row.venues}</td>
-<td>${signal === null ? "" : `<span class="cvd-badge cvd-badge-${signal}">${signal} div</span>`}</td>
+<td>${signal === null ? "" : `<span class="cvd-badge cvd-badge-${signal}">${signal === "bullish" ? tr("bullish div") : tr("bearish div")}</span>`}</td>
 </tr>`;
     })
     .join("");
@@ -361,46 +384,59 @@ export function cvd(data: {
       : ""
   }${params.sort !== "volume" ? `<input type="hidden" name="sort" value="${esc(params.sort)}">` : ""}${
     params.asc ? '<input type="hidden" name="dir" value="asc">' : ""
-  }<input type="search" name="q" value="${esc(params.q)}" placeholder="Search symbol" aria-label="Search symbol"><button type="submit">Find</button>${
+  }<input type="search" name="q" value="${esc(params.q)}" placeholder="${tr("Search symbol")}" aria-label="${tr("Search symbol")}"><button type="submit">${tr("Find")}</button>${
     params.q
-      ? `<a href="${esc((assetInAddress ? selfPath : "/cvd") + cvdToQuery({ ...params, q: "" }))}">clear</a>`
+      ? `<a href="${esc((assetInAddress ? selfPath : "/cvd") + cvdToQuery({ ...params, q: "" }))}">${tr("clear")}</a>`
       : ""
   }</form>`;
 
   const table =
     rows.length === 0
-      ? `<p class="empty">No taker flow has been collected in the last ${esc(params.window)}. Collection polls each venue every five minutes; a new deployment backfills about a week within its first hour.</p>`
+      ? `<p class="empty">${tr("No taker flow has been collected in the last {window}. Collection polls each venue every five minutes; a new deployment backfills about a week within its first hour.", { window: esc(params.window) })}</p>`
       : `<div class="sheet-wrap"><table class="sheet cvd-table">
-<thead><tr><th class="num">#</th><th>Asset</th><th class="num">Price</th>${sortTh("change", "Reference market's first close to last close in the window")}${sortTh("cvd", "Taker buys less taker sells, in dollars, summed over the polled venues")}${sortTh("ratio", "CVD as a share of the window's taker volume")}${sortTh("volume", "Taker buys plus taker sells, in dollars")}<th class="num" title="Polled venues with flow for this asset">Venues</th><th title="Price and flow disagreeing by more than the thresholds above the table">Signal</th></tr></thead>
-<tbody data-live="cvd-rows">${body || `<tr><td colspan="9" class="dim">No asset matches “${esc(params.q)}”.</td></tr>`}</tbody>
+<thead><tr><th class="num">#</th><th>${tr("Asset")}</th><th class="num">${tr("Price")}</th>${sortTh("change", tr("Reference market's first close to last close in the window"))}${sortTh("cvd", tr("Taker buys less taker sells, in dollars, summed over the polled venues"))}${sortTh("ratio", tr("CVD as a share of the window's taker volume"))}${sortTh("volume", tr("Taker buys plus taker sells, in dollars"))}<th class="num" title="${tr("Polled venues with flow for this asset")}">${tr("Venues")}</th><th title="${tr("Price and flow disagreeing by more than the thresholds above the table")}">${tr("Signal")}</th></tr></thead>
+<tbody data-live="cvd-rows">${body || `<tr><td colspan="9" class="dim">${tr("No asset matches “{q}”.", { q: esc(params.q) })}</td></tr>`}</tbody>
 </table></div>`;
 
   const chart =
     flow.asset_class === null
-      ? `<p class="empty">No live market lists ${esc(asset)}, so there is no flow to chart.</p>`
+      ? `<p class="empty">${tr("No live market lists {asset}, so there is no flow to chart.", { asset: esc(asset) })}</p>`
       : flow.bars.length === 0
-        ? `<p class="empty">No taker flow for ${label} in the last ${esc(params.window)}. Only the ~100 assets deepest on ${CVD_VENUES.map(venueName).join(", ")} are polled; pick one from the table below.</p>`
+        ? `<p class="empty">${tr("No taker flow for {asset} in the last {window}. Only the ~100 assets deepest on {venues} are polled; pick one from the table below.", { asset: label, window: esc(params.window), venues: CVD_VENUES.map(venueName).join(", ") })}</p>`
         : cvdChart({ label, bars: flow.bars, params, now });
 
   const lag = flow.newest
-    ? ` Newest bucket ${esc(ageText(flow.newest, now))}; venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.`
+    ? tr("Newest bucket {age}.", { age: esc(ageText(flow.newest, now)) })
     : "";
 
   return layout({
     title: assetInAddress ? `${label.replace(/<[^>]+>/g, "")} CVD` : "CVD",
-    description:
+    description: tr(
       "Cumulative volume delta: taker buying against taker selling across exchanges, and where price and order flow disagree.",
+    ),
     path: "/cvd",
     overview,
     now,
-    body: `<h1>CVD</h1>
-<p class="lede">Cumulative volume delta: <span class="cvd-up">taker buys</span> less <span class="cvd-down">taker sells</span>, in dollars. These are the exchanges' own 5-minute taker statistics from <b>${CVD_VENUES.map(venueName).join(", ")}</b>, summed, for the ~100 assets deepest on them — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.</p>
+    body: `${helpHeading(
+      "h1",
+      "CVD",
+      "cvd",
+      `<p>${tr(
+        "Cumulative volume delta: {buys} less {sells}, in dollars. These are the exchanges' own 5-minute taker statistics from <b>{venues}</b>, summed, for the ~100 assets deepest on them — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.",
+        {
+          buys: `<span class="cvd-up">${tr("taker buys")}</span>`,
+          sells: `<span class="cvd-down">${tr("taker sells")}</span>`,
+          venues: CVD_VENUES.map(venueName).join(", "),
+        },
+      )}</p><p>${tr("Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover either panel to read one bar beside the cursor; on a phone, tap and it reads in the line above the chart.")}</p>`,
+    )}
 <div class="lq-controls">${windowStrip}</div>
 ${tiles}
 <div id="cvd-chart" class="cvd-anchor">${chart}</div>
 <script>${SLOT_SCRIPT}</script>
-<div class="cvd-head"><h2 class="cvd-h2">CVD screener · net buying and selling by asset</h2>${search}</div>
-<p class="notes" data-live="cvd-asof">Click an asset to chart it above. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.${lag}</p>
+<div class="cvd-head"><h2 class="cvd-h2 has-help">${tr("CVD screener · net buying and selling by asset")}${helpButton("cvd-screener")}</h2>${search}</div>
+${helpPanel("cvd-screener", `<p>${tr("Click an asset to chart it above. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.")}</p><p>${tr("Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.")}</p>`)}
+<p class="notes" data-live="cvd-asof">${lag}</p>
 ${table}`,
   });
 }

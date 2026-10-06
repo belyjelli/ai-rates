@@ -15,6 +15,8 @@ import {
   liquidationsToQuery,
 } from "../app/params";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
+import { helpButton, helpHeading, helpPanel } from "./help";
+import { msg, tr, trMsg } from "./i18n";
 import { layout } from "./layout";
 import { assetKey, assetName } from "./pages";
 import { citeMark, plainLabel } from "./share";
@@ -65,7 +67,20 @@ import { venueName } from "./venues";
  */
 
 /** Cell colour steps, in dollars. Chosen from the measured distribution, not from round numbers. */
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [
+  msg("Jan"),
+  msg("Feb"),
+  msg("Mar"),
+  msg("Apr"),
+  msg("May"),
+  msg("Jun"),
+  msg("Jul"),
+  msg("Aug"),
+  msg("Sep"),
+  msg("Oct"),
+  msg("Nov"),
+  msg("Dec"),
+];
 
 const STEPS = [1_000, 10_000, 100_000, 1_000_000, 5_000_000] as const;
 
@@ -90,6 +105,19 @@ function money(usd: number): string {
   // formatUsd renders a dash for nothing, which is right in a column of figures and wrong inside a
   // cell that only exists because something happened.
   return usd > 0 ? formatUsd(usd) : "$0";
+}
+
+/** A cell's tooltip: its money, how many closes made it, and how much of each side. Plain text. */
+function cellTitle(cell: { usd: number; events: number; long: number; short: number }): string {
+  const values = {
+    usd: money(cell.usd),
+    count: cell.events.toLocaleString("en-US"),
+    long: money(cell.long),
+    short: money(cell.short),
+  };
+  return cell.events === 1
+    ? tr("{usd} across {count} liquidation — {long} long, {short} short", values)
+    : tr("{usd} across {count} liquidations — {long} long, {short} short", values);
 }
 
 interface Column {
@@ -193,7 +221,7 @@ function windowStrip(state: {
       ? `<a class="on" href="${esc(href)}" aria-current="page">${label}</a>`
       : `<a href="${esc(href)}">${label}</a>`;
   }).join("");
-  return `<nav class="tf" aria-label="Window">${links}</nav>`;
+  return `<nav class="tf" aria-label="${tr("Window")}">${links}</nav>`;
 }
 
 /**
@@ -227,10 +255,10 @@ function venueStrip(
       ? `<a class="on" href="${href}" aria-current="page">${label}</a>`
       : `<a href="${href}">${label}</a>`;
   };
-  return `<nav class="tf" aria-label="Venue"><span class="tf-label">Venue</span>${link(
+  return `<nav class="tf" aria-label="${tr("Venue")}"><span class="tf-label">${tr("Venue")}</span>${link(
     LIQUIDATION_VENUE_ALL,
-    "all",
-  )}${link(LIQUIDATION_VENUE_EACH, "each")}${feeds
+    tr("all"),
+  )}${link(LIQUIDATION_VENUE_EACH, tr("each"))}${feeds
     .map((venueId) => link(venueId, esc(venueName(venueId).toLowerCase())))
     .join("")}</nav>`;
 }
@@ -243,9 +271,9 @@ function legend(): string {
         `<span class="lq-key"><i class="lq-l${i + 1}"></i><i class="lq-s${i + 1}"></i>${label}</span>`,
     )
     .join("");
-  return `<div class="lq-legend"><span class="lq-legend-title">Cell</span>${swatches}
-<span class="lq-key lq-hue"><i class="lq-l5"></i>longs closed</span>
-<span class="lq-key lq-hue"><i class="lq-s5"></i>shorts closed</span></div>`;
+  return `<div class="lq-legend"><span class="lq-legend-title">${tr("Cell")}</span>${swatches}
+<span class="lq-key lq-hue"><i class="lq-l5"></i>${tr("longs closed")}</span>
+<span class="lq-key lq-hue"><i class="lq-s5"></i>${tr("shorts closed")}</span></div>`;
 }
 
 function mapPanel(data: {
@@ -354,7 +382,7 @@ function mapPanel(data: {
       .map(
         (column) =>
           `<th class="num${column.partial ? " lq-now" : ""}" scope="col"${
-            column.partial ? ' title="This column is still filling"' : ""
+            column.partial ? ` title="${tr("This column is still filling")}"` : ""
           }>${esc(columnLabel(column, bucketHours))}</th>`,
       )
       .join("");
@@ -368,9 +396,7 @@ function mapPanel(data: {
               `${venueId}\0${asset.asset}\0${asset.asset_class}\0${column.start.getTime()}`,
             );
             if (!cell) return `<td class="num none" data-c="${column.start.getTime()}">·</td>`;
-            const title = `${money(cell.usd)} across ${cell.events.toLocaleString("en-US")} liquidation${
-              cell.events === 1 ? "" : "s"
-            } — ${money(cell.long)} long, ${money(cell.short)} short`;
+            const title = cellTitle(cell);
             return `<td class="num ${cellClass(cell.usd, cell.long, cell.short)}" data-c="${column.start.getTime()}" title="${esc(
               title,
             )}"><span data-u="usd">${money(cell.usd)}</span><span class="lq-n">${cell.events.toLocaleString(
@@ -418,23 +444,29 @@ function mapPanel(data: {
       .join("");
 
     const heading = totals
-      ? `<b>${money(totals.notional_usd)}</b> · ${totals.events.toLocaleString(
-          "en-US",
-        )} liquidations · ${totals.markets.toLocaleString("en-US")} markets`
-      : "no liquidations in this window";
+      ? tr("<b>{usd}</b> · {events} liquidations · {markets} markets", {
+          usd: money(totals.notional_usd),
+          events: totals.events.toLocaleString("en-US"),
+          markets: totals.markets.toLocaleString("en-US"),
+        })
+      : tr("no liquidations in this window");
 
     const title =
       venueId === LIQUIDATION_VENUE_ALL
-        ? `<h2 class="lq-venue">Every feed${feeds.length > 1 ? `, ${feeds.length} venues` : ""}</h2>`
+        ? `<h2 class="lq-venue">${
+            feeds.length > 1
+              ? tr("Every feed, {count} venues", { count: feeds.length })
+              : tr("Every feed")
+          }</h2>`
         : `<h2 class="lq-venue"><a href="/markets/${esc(venueId)}">${esc(venueName(venueId))}</a></h2>`;
     return `<section class="lq-panel">
 ${title}
 <p class="lq-sum" data-live="lq-sum-${esc(venueId)}">${heading}</p>
 <div class="heat-wrap"><table class="heat lq">
-<thead><tr><th class="asset" scope="col">Asset</th>${head}</tr></thead>
+<thead><tr><th class="asset" scope="col">${tr("Asset")}</th>${head}</tr></thead>
 <tbody data-live="lq-${esc(venueId)}">${rows}
-<tr class="lq-other"><th class="asset" scope="row">other markets</th>${other}</tr>
-<tr class="lq-total"><th class="asset" scope="row">total</th>${totalRow}</tr></tbody>
+<tr class="lq-other"><th class="asset" scope="row">${tr("other markets")}</th>${other}</tr>
+<tr class="lq-total"><th class="asset" scope="row">${tr("total")}</th>${totalRow}</tr></tbody>
 </table></div>
 </section>`;
   };
@@ -449,7 +481,10 @@ ${title}
         : [LIQUIDATION_VENUE_ALL];
   const body =
     feeds.length === 0
-      ? `<p class="empty">No liquidations recorded in the last ${esc(params.window)}. Only the venues that publish a feed the collector reads appear here, so a quiet window is not a quiet market.</p>`
+      ? `<p class="empty">${tr(
+          "No liquidations recorded in the last {window}. Only the venues that publish a feed the collector reads appear here, so a quiet window is not a quiet market.",
+          { window: esc(params.window) },
+        )}</p>`
       : `<div class="lq-grid${shown.length === 1 ? " lq-grid-one" : ""}">${shown.map(panel).join("")}</div>`;
 
   // The newest forced close itself, from the per-venue totals. This used to be the newest CELL's
@@ -461,13 +496,19 @@ ${title}
     null,
   );
 
+  // The explanation sits behind the badge; the line beside it keeps only what refreshes (help.ts).
   return `${venueStrip(strip, feeds)}
-<p class="notes" data-live="lq-asof">Columns are ${bucketHours}-hour buckets in UTC, newest
-on the right; the last one is still filling. ${
-    newest ? `Newest liquidation ${esc(ageText(newest, now))}.` : ""
-  } Rows are the ${map.assets.length} busiest assets by notional across every feed, and the rest are
-summed into “other markets”, so the totals below the grid are real totals and add up.
-Any row opens that asset at the price it died at. <a href="/v1/liquidations${esc(query)}">JSON</a>.</p>
+<p class="notes lq-note">${helpButton("liq-map")} <span data-live="lq-asof">${newest ? tr("Newest liquidation {age}.", { age: esc(ageText(newest, now)) }) : ""}</span> <a href="/v1/liquidations${esc(query)}">JSON</a></p>
+${helpPanel(
+  "liq-map",
+  `<p>${tr(
+    "Columns are {hours}-hour buckets in UTC, newest on the right; the last one is still filling.",
+    { hours: bucketHours },
+  )}</p><p>${tr(
+    "Rows are the {count} busiest assets by notional across every feed, and the rest are summed into “other markets”, so the totals below the grid are real totals and add up.",
+    { count: map.assets.length },
+  )} ${tr("Any row opens that asset at the price it died at.")}</p>`,
+)}
 ${body}`;
 }
 
@@ -540,9 +581,7 @@ function assetPanel(data: {
           .map((column) => {
             const cell = byCell.get(`${venueId} ${band} ${column.start.getTime()}`);
             if (!cell) return `<td class="num none">·</td>`;
-            const title = `${money(cell.usd)} across ${cell.events.toLocaleString("en-US")} liquidation${
-              cell.events === 1 ? "" : "s"
-            } — ${money(cell.long)} long, ${money(cell.short)} short`;
+            const title = cellTitle(cell);
             return `<td class="num ${cellClass(cell.usd, cell.long, cell.short)}" title="${esc(
               title,
             )}"><span data-u="usd">${money(cell.usd)}</span><span class="lq-n">${cell.events.toLocaleString(
@@ -563,16 +602,19 @@ function assetPanel(data: {
       .join("");
 
     const heading = totals
-      ? `<b>${money(totals.notional_usd)}</b> · ${totals.events.toLocaleString(
-          "en-US",
-        )} liquidations · ${money(totals.long_usd)} long / ${money(totals.short_usd)} short`
-      : "nothing force-closed here in this window";
+      ? tr("<b>{usd}</b> · {events} liquidations · {long} long / {short} short", {
+          usd: money(totals.notional_usd),
+          events: totals.events.toLocaleString("en-US"),
+          long: money(totals.long_usd),
+          short: money(totals.short_usd),
+        })
+      : tr("nothing force-closed here in this window");
 
     return `<section class="lq-panel">
 <h2 class="lq-venue"><a href="/markets/${esc(venueId)}">${esc(venueName(venueId))}</a></h2>
 <p class="lq-sum">${heading}</p>
 <div class="heat-wrap"><table class="heat lq lq-asset">
-<thead><tr><th class="asset" scope="col">Fill price</th>${head}</tr></thead>
+<thead><tr><th class="asset" scope="col">${tr("Fill price")}</th>${head}</tr></thead>
 <tbody data-live="lqa-${esc(venueId)}">${rows}</tbody>
 </table></div>
 </section>`;
@@ -585,22 +627,38 @@ function assetPanel(data: {
   const venues = all.includes(params.venue) ? [params.venue] : all;
   const body =
     mark === null
-      ? `<p class="empty">No live market for ${label} is publishing a mark, so there is no price to band liquidations against.</p>`
+      ? `<p class="empty">${tr(
+          "No live market for {asset} is publishing a mark, so there is no price to band liquidations against.",
+          { asset: label },
+        )}</p>`
       : venues.length === 0
-        ? `<p class="empty">No liquidations recorded for ${label} in the last ${esc(
-            params.window,
-          )}. Only the venues publishing a feed the collector reads appear here.</p>`
+        ? `<p class="empty">${tr(
+            "No liquidations recorded for {asset} in the last {window}. Only the venues publishing a feed the collector reads appear here.",
+            { asset: label, window: esc(params.window) },
+          )}</p>`
         : `<div class="lq-grid">${venues.map(panel).join("")}</div>`;
 
-  return `<p class="notes">Showing <b>${label}</b>, priced in bands of ${bandPct}% around the mark${
-    map.band_fitted ? ", fitted to where this asset's closes actually landed" : ""
-  }; the outer rows hold everything further out. ${
+  const showing = { asset: label, pct: bandPct };
+  const explained = `<p>${
+    map.band_fitted
+      ? tr(
+          "Showing <b>{asset}</b>, priced in bands of {pct}% around the mark, fitted to where this asset's closes actually landed; the outer rows hold everything further out.",
+          showing,
+        )
+      : tr(
+          "Showing <b>{asset}</b>, priced in bands of {pct}% around the mark; the outer rows hold everything further out.",
+          showing,
+        )
+  } ${
     mark === null
       ? ""
-      : `Banded from <b>${formatPrice(mark)}</b>, the deepest market's mark — the same anchor the
-arbitrage guard uses, so both venues share rows.`
-  }</p>
-<div class="lq-controls">${picker}<nav class="tf" aria-label="Band width">${bandStrip}</nav></div>
+      : tr(
+          "Banded from <b>{mark}</b>, the deepest market's mark — the same anchor the arbitrage guard uses, so both venues share rows.",
+          { mark: formatPrice(mark) },
+        )
+  }</p>`;
+  return `<div class="lq-controls">${picker}<nav class="tf" aria-label="${tr("Band width")}">${bandStrip}</nav>${helpButton("liq-price")}</div>
+${helpPanel("liq-price", explained)}
 ${body}`;
 }
 
@@ -639,7 +697,7 @@ function assetStrip(
         : `<a href="${href}">${label}</a>`;
     })
     .join("");
-  return `<nav class="tf lq-assets" aria-label="Asset">${links}</nav>`;
+  return `<nav class="tf lq-assets" aria-label="${tr("Asset")}">${links}</nav>`;
 }
 
 /**
@@ -767,7 +825,10 @@ function sidesChart(data: {
     const hour = d.getUTCHours();
     const text =
       hour === 0
-        ? `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`
+        ? tr("{month} {day}", {
+            month: trMsg(MONTHS[d.getUTCMonth()] as string),
+            day: d.getUTCDate(),
+          })
         : `${String(hour).padStart(2, "0")}:00`;
     // Alternate labels drop on a phone, as on the CVD chart, where they otherwise run together.
     xLabels.push(
@@ -779,15 +840,43 @@ function sidesChart(data: {
   const shortSum = points.reduce((sum, point) => sum + point.short_usd, 0);
   const events = points.reduce((sum, point) => sum + point.events, 0);
   // Before a hover the readout is the whole window, in the words a slot is read in.
-  const idle = sidesText(`Last ${esc(params.window)}`, [longSum, shortSum, events], SLOT_FORMAT);
-  const cite = citeMark(
-    `${plainLabel(label)} liquidations, last ${params.window}: ${money(longSum)} of longs and ${money(shortSum)} of shorts force-closed, ${events.toLocaleString("en-US")} events. ${longSum >= shortSum ? "Longs" : "Shorts"} took the beating.`,
+  const idle = sidesText(
+    tr("Last {window}", { window: esc(params.window) }),
+    [longSum, shortSum, events],
+    SLOT_FORMAT,
   );
+  const summary = {
+    asset: plainLabel(label),
+    window: params.window,
+    long: money(longSum),
+    short: money(shortSum),
+    events: events.toLocaleString("en-US"),
+  };
+  const cite = citeMark(
+    longSum >= shortSum
+      ? tr(
+          "{asset} liquidations, last {window}: {long} of longs and {short} of shorts force-closed, {events} events. Longs took the beating.",
+          summary,
+        )
+      : tr(
+          "{asset} liquidations, last {window}: {long} of longs and {short} of shorts force-closed, {events} events. Shorts took the beating.",
+          summary,
+        ),
+  );
+  const chartTitle =
+    sideMinutes >= 60
+      ? tr("{asset} longs vs shorts over time · {hours}-hour bars, UTC", {
+          asset: label,
+          hours: sideMinutes / 60,
+        })
+      : tr("{asset} longs vs shorts over time · {minutes}-minute bars, UTC", {
+          asset: label,
+          minutes: sideMinutes,
+        });
 
   return `<figure class="fchart lqc" data-live="lq-side-chart">${cite}
-<div class="fchart-head"><p class="fchart-title">${label} longs vs shorts over time · ${sideMinutes >= 60 ? `${sideMinutes / 60}-hour` : `${sideMinutes}-minute`} bars, UTC</p><div class="fchart-keys"><span><i class="lqc-key-long"></i>Longs closed <b data-u="lqc-long">${money(longSum)}</b></span><span><i class="lqc-key-short"></i>Shorts closed <b data-u="lqc-short">${money(shortSum)}</b></span></div><p class="fchart-read slot-read" aria-live="polite">${idle} · hover or tap a bar to read it</p></div>
-<div class="fchart-plot lqc-plot slot-area" tabindex="0" role="group" aria-label="${esc(`${label.replace(/<[^>]+>/g, "")} bars; arrow keys read one at a time`)}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(`${label} longs closed above zero and shorts closed below, over the last ${params.window}`)}">${grid}${SLOT_BAND}${bars.join("")}${SLOT_CURSOR}</svg>${yLabels}${xLabels.join("")}</div>
-<p class="fchart-note">Longs closed above the line, shorts closed below, on the same linear scale. Hover a bar to read it beside the cursor; on a phone, tap and it reads in the line above the chart. The last bar is still filling.</p>
+<div class="fchart-head"><p class="fchart-title">${chartTitle}</p><div class="fchart-keys"><span><i class="lqc-key-long"></i>${tr("Longs closed")} <b data-u="lqc-long">${money(longSum)}</b></span><span><i class="lqc-key-short"></i>${tr("Shorts closed")} <b data-u="lqc-short">${money(shortSum)}</b></span></div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
+<div class="fchart-plot lqc-plot slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} longs closed above zero and shorts closed below, over the last {window}", { asset: label, window: params.window }))}">${grid}${SLOT_BAND}${bars.join("")}${SLOT_CURSOR}</svg>${yLabels}${xLabels.join("")}</div>
 ${slotData({ kind: "lqc", from: fromMs, unit: bucketMs, slots })}
 </figure>`;
 }
@@ -868,8 +957,14 @@ function sidesPanel(data: {
             rowTotal += usd;
             // The hue is the panel, not the cell: within one grid every fill means the same side,
             // so intensity alone carries the money and the two grids compare directly.
+            const range = {
+              usd: money(usd),
+              band: bandLabel(mark, bandPct, reach, band).replace("&lt;", "<"),
+            };
             return `<td class="num lq-${side === "long" ? "l" : "s"}${step(usd)}" title="${esc(
-              `${money(usd)} of ${side}s closed between ${bandLabel(mark, bandPct, reach, band).replace("&lt;", "<")}`,
+              side === "long"
+                ? tr("{usd} of longs closed between {band}", range)
+                : tr("{usd} of shorts closed between {band}", range),
             )}"><span data-u="usd">${money(usd)}</span></td>`;
           })
           .join("");
@@ -900,12 +995,15 @@ function sidesPanel(data: {
     const share = both > 0 ? (sum / both) * 100 : 0;
 
     return `<section class="lq-panel">
-<h2 class="lq-venue lq-side-${side}">${side === "long" ? "Longs closed" : "Shorts closed"}</h2>
-<p class="lq-sum"><b>${money(sum)}</b> · ${share.toFixed(0)}% of this asset's forced flow</p>
+<h2 class="lq-venue lq-side-${side}">${side === "long" ? tr("Longs closed") : tr("Shorts closed")}</h2>
+<p class="lq-sum">${tr("<b>{usd}</b> · {share}% of this asset's forced flow", {
+      usd: money(sum),
+      share: share.toFixed(0),
+    })}</p>
 <div class="heat-wrap"><table class="heat lq lq-asset lq-sides">
-<thead><tr><th class="asset" scope="col">Fill price</th>${head}<th class="num">All</th></tr></thead>
+<thead><tr><th class="asset" scope="col">${tr("Fill price")}</th>${head}<th class="num">${tr("All")}</th></tr></thead>
 <tbody data-live="lq-side-${side}">${rows}
-<tr class="lq-total"><th class="asset" scope="row">total</th>${totalRow}<td class="num lq-rowsum">${
+<tr class="lq-total"><th class="asset" scope="row">${tr("total")}</th>${totalRow}<td class="num lq-rowsum">${
       sum > 0 ? money(sum) : "·"
     }</td></tr></tbody>
 </table></div>
@@ -913,20 +1011,28 @@ function sidesPanel(data: {
   };
 
   if (mark === null) {
-    return `<p class="empty">No live market for ${label} is publishing a mark, so there is no price to band liquidations against.</p>`;
+    return `<p class="empty">${tr(
+      "No live market for {asset} is publishing a mark, so there is no price to band liquidations against.",
+      { asset: label },
+    )}</p>`;
   }
   if (map.totals.length === 0) {
-    return `<p class="empty">Nothing was force-closed in ${label} in the last ${esc(
-      params.window,
-    )}, on either side.</p>`;
+    return `<p class="empty">${tr(
+      "Nothing was force-closed in {asset} in the last {window}, on either side.",
+      { asset: label, window: esc(params.window) },
+    )}</p>`;
   }
 
-  return `<div class="lq-controls">${picker}</div>
+  // The chart's own note joins the panel's: the figure refreshes live, so no panel may sit in it.
+  return `<div class="lq-controls">${picker}${helpButton("liq-sides")}</div>
+${helpPanel(
+  "liq-sides",
+  `<p>${tr(
+    "Showing <b>{asset}</b>, every exchange added together — the split by exchange is one tab along. Rows are the same {pct}% price bands, banded from <b>{mark}</b>. A long close is a forced SELL and a short close a forced BUY, so the heavier side is the one the move ran against. Any asset outside this list opens from a row on the map tab.",
+    { asset: label, pct: bandPct, mark: formatPrice(mark) },
+  )}</p><p>${tr("Longs closed above the line, shorts closed below, on the same linear scale. Hover a bar to read it beside the cursor; on a phone, tap and it reads in the line above the chart. The last bar is still filling.")}</p>`,
+)}
 ${sidesChart({ label, points: map.sides, params, now })}
-<p class="notes">Showing <b>${label}</b>, every exchange added together — the split by exchange is one
-tab along. Rows are the same ${bandPct}% price bands, banded from <b>${formatPrice(mark)}</b>. A long
-close is a forced SELL and a short close a forced BUY, so the heavier side is the one the move ran
-against. Any asset outside this list opens from a row on the map tab.</p>
 <div class="lq-grid">${panel("long")}${panel("short")}</div>`;
 }
 
@@ -976,7 +1082,7 @@ export function liquidations(data: {
   const bandStrip = [
     `<a${
       assetParams.band === null ? ' class="on" aria-current="page"' : ""
-    } href="${esc(controlHref(state, { band: null }, "#price"))}">fit</a>`,
+    } href="${esc(controlHref(state, { band: null }, "#price"))}">${tr("fit")}</a>`,
     ...LIQUIDATION_BANDS.map((choice) => {
       const href = esc(controlHref(state, { band: choice }, "#price"));
       return choice === assetParams.band
@@ -987,7 +1093,7 @@ export function liquidations(data: {
 
   const priced =
     asset === null || assetMap === null
-      ? `<p class="empty">Nothing has been force-closed in this window, so there is no asset to price.</p>`
+      ? `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to price.")}</p>`
       : assetPanel({
           asset,
           map: assetMap,
@@ -1003,41 +1109,66 @@ export function liquidations(data: {
   const feeds = map.totals.map((total) => total.venue_id);
   const feedNames =
     feeds.length > 1
-      ? `${feeds
-          .slice(0, -1)
-          .map((venueId) => esc(venueName(venueId)))
-          .join(", ")} and ${esc(venueName(feeds[feeds.length - 1] as string))}`
+      ? tr("{first} and {last}", {
+          first: feeds
+            .slice(0, -1)
+            .map((venueId) => esc(venueName(venueId)))
+            .join(tr(", ")),
+          last: esc(venueName(feeds[feeds.length - 1] as string)),
+        })
       : feeds.map((venueId) => esc(venueName(venueId))).join("");
 
   return layout({
-    title: "Liquidations",
-    description:
+    title: tr("Liquidations"),
+    description: tr(
       "Where positions were force-closed: by venue, asset and hour, and by the price level they died at.",
+    ),
     path: "/liquidations",
     overview,
     now,
-    body: `<h1>Liquidations</h1>
-<p class="lede">Where positions were force-closed, by exchange. Colour is the side that was closed —
-<span class="lq-ink-l">blue for longs</span>, <span class="lq-ink-s">red for shorts</span> — and
-intensity is the money, on a log scale. ${
-      feeds.length === 0
-        ? "No venue has reported a liquidation in this window."
-        : `This is ${feedNames}, the ${feeds.length === 1 ? "one venue" : `${feeds.length} venues`} whose liquidation feed the collector reads — not the whole market.`
-    }</p>
+    body: `${helpHeading(
+      "h1",
+      tr("Liquidations"),
+      "liq",
+      `<p>${tr(
+        "Where positions were force-closed, by exchange. Colour is the side that was closed — {longs}, {shorts} — and intensity is the money, on a log scale.",
+        {
+          longs: `<span class="lq-ink-l">${tr("blue for longs")}</span>`,
+          shorts: `<span class="lq-ink-s">${tr("red for shorts")}</span>`,
+        },
+      )} ${
+        feeds.length === 0
+          ? tr("No venue has reported a liquidation in this window.")
+          : feeds.length === 1
+            ? tr(
+                "This is {venues}, the one venue whose liquidation feed the collector reads — not the whole market.",
+                { venues: feedNames },
+              )
+            : tr(
+                "This is {venues}, the {count} venues whose liquidation feed the collector reads — not the whole market.",
+                { venues: feedNames, count: feeds.length },
+              )
+      }</p>`,
+    )}
 <div class="lq-controls">${windowStrip(state)}${legend()}</div>
 ${tabBar({
   name: "liq",
   tabs: [
-    { id: "map", label: "By asset and hour", shortLabel: "Assets", badge: totalEvents },
+    {
+      id: "map",
+      label: tr("By asset and hour"),
+      shortLabel: tr("Assets"),
+      badge: totalEvents,
+    },
     {
       id: "sides",
-      label: asset === null ? "Longs vs shorts" : `${asset} longs vs shorts`,
-      shortLabel: "Sides",
+      label: asset === null ? tr("Longs vs shorts") : tr("{asset} longs vs shorts", { asset }),
+      shortLabel: tr("Sides"),
     },
     {
       id: "price",
-      label: asset === null ? "By price level" : `${asset} price levels`,
-      shortLabel: "Prices",
+      label: asset === null ? tr("By price level") : tr("{asset} price levels", { asset }),
+      shortLabel: tr("Prices"),
     },
   ],
   activeId: active,
@@ -1048,7 +1179,7 @@ ${mapPanel({ map, params, strip: state, now })}
 <div class="tabpanel" role="tabpanel" id="panel-liq-sides" data-tab-panel="sides" aria-labelledby="tab-liq-sides">
 ${
   asset === null || assetMap === null
-    ? `<p class="empty">Nothing has been force-closed in this window, so there is no asset to split.</p>`
+    ? `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to split.")}</p>`
     : sidesPanel({
         asset,
         map: assetMap,
@@ -1061,7 +1192,7 @@ ${
 <div class="tabpanel" role="tabpanel" id="panel-liq-price" data-tab-panel="price" aria-labelledby="tab-liq-price">
 ${priced}
 </div>
-<p class="notes">Updated ${since(overview.updated_at, now)}.</p>
+<p class="notes">${tr("Updated {ago}.", { ago: since(overview.updated_at, now) })}</p>
 <script>${SLOT_SCRIPT}</script>`,
   });
 }

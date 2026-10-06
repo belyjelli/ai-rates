@@ -1,11 +1,27 @@
 import type { Overview } from "../app/data";
 import { BUILD, type BuildInfo } from "../build-info";
 import { esc } from "./format";
-import { INSTALL_BLOCK } from "./install";
+import { helpHeading } from "./help";
+import { currentLocale, msg, tr, trMsg } from "./i18n";
+import { installBlock } from "./install";
 import { layout } from "./layout";
 
 const REPOSITORY = "https://github.com/belyjelli/ai-rates";
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** English, as the changelog is; marked so the version stamp can show them in the reader's language. */
+const MONTHS = [
+  msg("Jan"),
+  msg("Feb"),
+  msg("Mar"),
+  msg("Apr"),
+  msg("May"),
+  msg("Jun"),
+  msg("Jul"),
+  msg("Aug"),
+  msg("Sep"),
+  msg("Oct"),
+  msg("Nov"),
+  msg("Dec"),
+];
 
 export interface Release {
   /** UTC date the changes went live, YYYY-MM-DD. */
@@ -180,25 +196,39 @@ export const CHANGELOG: readonly Release[] = [
   },
 ];
 
+/**
+ * A changelog date. Always English: the release notes are kept in English only (owner's decision,
+ * 2026-10-06), so the date heading each one stays in the same language as the entry beneath it.
+ */
 function day(date: string): string {
   const [year, month, dayOfMonth] = date.split("-");
   return `${MONTHS[Number(month) - 1]} ${Number(dayOfMonth)}, ${year}`;
+}
+
+/** The same date for the version stamp, which is the reader's and follows their language. */
+function localDay(date: string): string {
+  const [year = "", month, dayOfMonth] = date.split("-");
+  return tr("{month} {day}, {year}", {
+    month: trMsg(MONTHS[Number(month) - 1] ?? ""),
+    day: Number(dayOfMonth),
+    year,
+  });
 }
 
 function moment(iso: string | null): string {
   if (!iso) return "–";
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return "–";
-  return `${day(at.toISOString().slice(0, 10))} ${at.toISOString().slice(11, 16)} UTC`;
+  return `${localDay(at.toISOString().slice(0, 10))} ${at.toISOString().slice(11, 16)} UTC`;
 }
 
 function version(build: BuildInfo): string {
   if (!build.commit) {
-    return `<div class="facts"><span>project <b>airrates</b></span><span>commit <b>not recorded</b></span></div>
-<p class="notes">This build did not record its commit. Deployed builds stamp the commit they were built from here.</p>`;
+    return `<div class="facts"><span>${tr("project")} <b>airrates</b></span><span>${tr("commit")} <b>${tr("not recorded")}</b></span></div>
+<p class="notes">${tr("This build did not record its commit. Deployed builds stamp the commit they were built from here.")}</p>`;
   }
   const short = build.commit.slice(0, 7);
-  return `<div class="facts"><span>project <b>airrates</b></span><span>commit <b><a href="${REPOSITORY}/commit/${esc(build.commit)}">${esc(short)}</a></b></span><span>committed <b>${moment(build.committedAt)}</b></span><span>deployed <b>${moment(build.builtAt)}</b></span></div>
+  return `<div class="facts"><span>${tr("project")} <b>airrates</b></span><span>${tr("commit")} <b><a href="${REPOSITORY}/commit/${esc(build.commit)}">${esc(short)}</a></b></span><span>${tr("committed")} <b>${moment(build.committedAt)}</b></span><span>${tr("deployed")} <b>${moment(build.builtAt)}</b></span></div>
 ${build.subject ? `<p class="notes">${esc(build.subject)}</p>` : ""}`;
 }
 
@@ -222,24 +252,29 @@ export function about(data: {
 </article>`,
     )
     .join("");
+  // The entries stay English in every language; a reader in another one is told so, and the log is
+  // marked English for screen readers. An English page is unchanged.
+  const english = currentLocale() === "en";
+  const logNote = english
+    ? ""
+    : `<p class="notes">${tr("Release notes are written in English.")}</p>`;
 
   return layout({
-    title: "About",
-    description: "What airrates is, which version is running, and what has changed recently.",
+    title: tr("About"),
+    description: tr("What airrates is, which version is running, and what has changed recently."),
     path: "/about",
     overview,
     now,
     // The install offer sits on top of the title: a button on a tablet or wider, a banner on a phone.
-    body: `${INSTALL_BLOCK}
-<h1>About airrates</h1>
-<p class="lede">airrates is a funding-rate screener for perpetual futures. It reads funding from each exchange's public API every minute and shows where holding the same asset long on one exchange and short on another collects the gap between their rates, and what that has actually paid.</p>
+    body: `${installBlock()}
+${helpHeading("h1", tr("About airrates"), "about", `<p>${tr("airrates is a funding-rate screener for perpetual futures. It reads funding from each exchange's public API every minute and shows where holding the same asset long on one exchange and short on another collects the gap between their rates, and what that has actually paid.")}</p>`)}
 <section>
-<div class="section-head"><h2>This version</h2></div>
+<div class="section-head"><h2>${tr("This version")}</h2></div>
 ${version(build)}
 </section>
 <section>
-<div class="section-head"><h2>Recent changes</h2></div>
-<div class="about-log">${releases}</div>
+<div class="section-head"><h2>${tr("Recent changes")}</h2></div>
+${logNote}<div class="about-log"${english ? "" : ' lang="en"'}>${releases}</div>
 </section>`,
   });
 }

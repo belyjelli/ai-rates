@@ -2012,7 +2012,7 @@ describe("pages", () => {
     const html = await res.text();
 
     expect(res.status).toBe(200);
-    expect(html).toContain("<h1>About airrates</h1>");
+    expect(html).toContain('<h1 class="has-help">About airrates<');
     expect(html).toContain("Recent changes");
     // The tests run on the committed placeholder, which says so rather than inventing a commit.
     expect(html).toContain("commit <b>not recorded</b>");
@@ -2666,5 +2666,46 @@ describe("bestPair", () => {
     expect(best?.long.venue_symbol).toBe("C");
     expect(best?.short.venue_symbol).toBe("B");
     expect(bestPair([rows[0] as MarketRow])).toBeNull();
+  });
+});
+
+describe("language", () => {
+  const getIn = (path: string, locale: "en" | "zh") =>
+    handleApp(new Request(`https://airates.test${path}`), {
+      data: fakeData().data,
+      now: () => NOW,
+      locale,
+    });
+
+  test("a page renders in the reader's language, frame and all", async () => {
+    const html = await (await getIn("/", "zh")).text();
+    expect(html).toContain('<html lang="zh-Hans">');
+    expect(html).toContain('aria-current="true">中文</a>');
+    expect(html).toContain(">筛选器</a>");
+  });
+
+  test("English is the default, and its switch points back at the page", async () => {
+    const html = await (await get("/screener", fakeData().data)).text();
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain('aria-current="true">English</a>');
+    expect(html).toContain('href="/lang/zh?back=%2Fscreener"');
+  });
+
+  test("a not-found message is translated too", async () => {
+    const res = await getIn("/markets/exchange/nope", "zh");
+    expect(res.status).toBe(404);
+    expect(await res.text()).toContain("没有这个名称的交易所。");
+  });
+
+  test("the JSON API reads the same in every language", async () => {
+    const en = await (await getIn("/v1/venues", "en")).text();
+    const zh = await (await getIn("/v1/venues", "zh")).text();
+    expect(zh).toBe(en);
+  });
+
+  test("the busy page follows the language", async () => {
+    expect(await unavailableResponse("/rates", NOW, "zh").text()).toContain(
+      '<html lang="zh-Hans">',
+    );
   });
 });

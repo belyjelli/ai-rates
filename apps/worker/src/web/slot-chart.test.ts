@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { formatPrice, formatUsd } from "./format";
+import { withLocale } from "./i18n";
 import {
   cvdText,
   SLOT_FORMAT,
@@ -65,6 +66,22 @@ describe("sidesText", () => {
       't · longs closed $5.0k · shorts closed $5.0k · longs − shorts <b class="">$0</b> · even · 1 liquidation',
     );
     expect(sidesText("t", null, SLOT_FORMAT)).toBe("t · nothing force-closed");
+  });
+});
+
+describe("the readout's language", () => {
+  test("the payload carries the page's words, and the browser copy reads them unaided", () => {
+    const html = withLocale("zh", () =>
+      slotData({ kind: "lqc", from: Date.parse("2026-09-17T14:15:00Z"), unit: 1, slots: [] }),
+    );
+    const { from, words } = JSON.parse(html.slice(html.indexOf(">") + 1, html.lastIndexOf("<")));
+    // Rebuilt from source, as the page script embeds them: nothing outside their own bodies.
+    const isolated = <T>(fn: T): T => new Function(`return ${String(fn)}`)();
+    const f = { ...SLOT_FORMAT, when: isolated(slotWhen), words };
+    expect(f.when(from, words)).toBe("9月17日 14:15 UTC");
+    expect(isolated(sidesText)("t", [5_000, 5_000, 1], f)).toBe(
+      't · 多头爆仓 $5.0k · 空头爆仓 $5.0k · 多头 − 空头 <b class="">$0</b> · 持平 · 1 笔爆仓',
+    );
   });
 });
 

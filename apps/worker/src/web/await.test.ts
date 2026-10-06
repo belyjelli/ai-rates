@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { AWAIT_SCRIPT, retryDelay } from "./await";
+import { awaitScript, retryDelay } from "./await";
+import { withLocale } from "./i18n";
+
+const AWAIT_SCRIPT = awaitScript();
 
 describe("retryDelay", () => {
   test("a ready report, or an answer waiting cannot change, is shown now", () => {
@@ -29,9 +32,16 @@ describe("retryDelay", () => {
   });
 });
 
-describe("AWAIT_SCRIPT", () => {
+describe("awaitScript", () => {
   test("is valid JavaScript once the helper is embedded", () => {
     expect(() => new Function(AWAIT_SCRIPT)).not.toThrow();
+  });
+
+  test("labels the button in the page's language, and still parses", () => {
+    expect(AWAIT_SCRIPT).toContain('"Building report"');
+    const zh = withLocale("zh", awaitScript);
+    expect(() => new Function(zh)).not.toThrow();
+    expect(zh).not.toContain('"Building report"');
   });
 
   test("cannot close its own script tag", () => {

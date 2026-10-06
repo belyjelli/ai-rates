@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { SHARE_SCRIPT } from "./share";
+import { withLocale } from "./i18n";
+import { shareScript } from "./share";
+
+const SHARE_SCRIPT = shareScript();
 
 /**
  * The share script runs in the browser, so these read it as text. What each guards was a real fault: the
@@ -9,6 +12,15 @@ describe("the masthead's chart button", () => {
   test("parses, and holds no template literal for the page to interpolate by accident", () => {
     expect(() => new Function(SHARE_SCRIPT)).not.toThrow();
     expect(SHARE_SCRIPT).not.toContain("${");
+  });
+
+  test("its words follow the page's language, and the script still parses in every one", () => {
+    const zh = withLocale("zh", shareScript);
+    expect(() => new Function(zh)).not.toThrow();
+    expect(zh).not.toContain("${");
+    expect(zh.toLowerCase()).not.toContain("</script");
+    expect(SHARE_SCRIPT).toContain('"Cite this page"');
+    expect(zh).not.toContain('"Cite this page"');
   });
 
   test("judges an element visible by its box, since an SVG has no offsetWidth", () => {

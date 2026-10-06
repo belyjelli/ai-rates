@@ -23,6 +23,7 @@
  */
 
 import { esc } from "./format";
+import { scriptStrings, tr } from "./i18n";
 
 /**
  * A quotable line, hidden, for the cite dialog to find. `text` is plain text: it is escaped here,
@@ -49,7 +50,48 @@ export const plainLabel = (html: string): string =>
     .trim();
 
 /** The masthead's two buttons. The chart one starts disabled; the script enables it on a chart. */
-export const SHARE_BAR = `<span class="share-acts"><button type="button" class="share-btn" data-share-chart disabled title="Share the chart in view as an image sized for X">⇪ chart</button><button type="button" class="share-btn" data-share-cite title="Quote this page's best line, with a link back to it">❝ cite</button></span>`;
+export const shareBar = (): string =>
+  `<span class="share-acts"><button type="button" class="share-btn" data-share-chart disabled title="${tr("Share the chart in view as an image sized for X")}">⇪ ${tr("chart")}</button><button type="button" class="share-btn" data-share-cite title="${tr("Quote this page's best line, with a link back to it")}">❝ ${tr("cite")}</button></span>`;
+
+/**
+ * Every word the script shows, in the reader's language. Handed in as one object at render time,
+ * so the script itself stays free of interpolation apart from this one deliberate line.
+ */
+const shareStrings = () =>
+  scriptStrings({
+    chartTitle: tr("Share the chart in view as an image sized for X"),
+    noChart: tr("No chart on this view"),
+    close: tr("close"),
+    copied: tr("Copied"),
+    selectCopy: tr("Select + copy"),
+    citeTitle: tr("Cite this page"),
+    pick: tr("Pick the line · the page's own numbers, as they read now"),
+    yourPost: tr("Your post · edit it freely"),
+    backLink: tr("Back-link · this exact page, venue and filters"),
+    copy: tr("Copy"),
+    postX: tr("Post on X"),
+    copyAll: tr("Copy line + link"),
+    citeNote: tr(
+      "Quote the number, link back to where it was read. Funding moves every minute, so the line says when it was true: {stamp}. Not financial advice.",
+    ),
+    left: tr("{count} characters left with the link"),
+    sheet: tr("funding carry sheet"),
+    more: tr("+{count} more"),
+    source: tr("public venue APIs · not financial advice"),
+    shareTitle: tr("Share your line"),
+    imageAlt: tr("chart image"),
+    imageNote: tr(
+      "Image · 1600 × 900, X's own 16:9 — shows uncropped in the timeline. Right-click or long-press to save.",
+    ),
+    copyImage: tr("Copy image"),
+    download: tr("Download PNG"),
+    viewLink: tr("Link · this exact view"),
+    shareNote: tr(
+      "Copy the image, press Post on X, paste it into the post. The card carries the address it came from; the link opens the same view. We never call direction — the numbers are the venues', the call is yours.",
+    ),
+    noImage: tr("the image could not be drawn in this browser"),
+    blocked: tr("Copy blocked — download instead"),
+  });
 
 export const SHARE_CSS = `
 .share-acts{display:flex;gap:4px;flex-shrink:0}
@@ -81,10 +123,12 @@ export const SHARE_CSS = `
 `;
 
 /**
- * The browser half. String.raw so the regexes reach the page as written; no template literals
- * inside, so nothing in it is interpolated by accident.
+ * The browser half, built at render time. String.raw so the regexes reach the page as written; no
+ * template literals inside, so nothing in it is interpolated by accident -- except the one line that
+ * hands over the words (shareStrings), which is JSON and carries no "${" of its own.
  */
-export const SHARE_SCRIPT = String.raw`(() => {
+export const shareScript = (): string => String.raw`(() => {
+  const T = ${shareStrings()};
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
   const chartBtn = $("[data-share-chart]");
@@ -116,7 +160,7 @@ export const SHARE_SCRIPT = String.raw`(() => {
   const sync = () => {
     const n = charts().length;
     chartBtn.disabled = n === 0;
-    chartBtn.title = n ? "Share the chart in view as an image sized for X" : "No chart on this view";
+    chartBtn.title = n ? T.chartTitle : T.noChart;
   };
   let queued = false;
   const later = () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; sync(); }); } };
@@ -139,7 +183,7 @@ export const SHARE_SCRIPT = String.raw`(() => {
     if (old) old.remove();
     const dlg = document.createElement("div");
     dlg.className = "dlg";
-    dlg.innerHTML = '<div class="box" role="dialog" aria-modal="true" aria-label="' + escH(label) + '"><div class="hd"><b>' + escH(label) + '</b><button type="button" class="btn ghost" data-x>close</button></div>' + inner + "</div>";
+    dlg.innerHTML = '<div class="box" role="dialog" aria-modal="true" aria-label="' + escH(label) + '"><div class="hd"><b>' + escH(label) + '</b><button type="button" class="btn ghost" data-x>' + escH(T.close) + "</button></div>" + inner + "</div>";
     document.body.appendChild(dlg);
     const close = () => { dlg.remove(); removeEventListener("keydown", onKey); };
     const onKey = (e) => { if (e.key === "Escape") close(); };
@@ -151,11 +195,11 @@ export const SHARE_SCRIPT = String.raw`(() => {
   };
   const copyText = async (button, value, kind) => {
     ga("share_copy", { kind });
-    try { await navigator.clipboard.writeText(value); button.textContent = "Copied"; }
+    try { await navigator.clipboard.writeText(value); button.textContent = T.copied; }
     catch (e) {
       const t = button.parentElement.querySelector(".url,textarea");
       if (t) { const r = document.createRange(); r.selectNodeContents(t); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
-      button.textContent = "Select + copy";
+      button.textContent = T.selectCopy;
     }
   };
   const postOnX = (line, link, kind) => {
@@ -176,7 +220,8 @@ export const SHARE_SCRIPT = String.raw`(() => {
     }
     if (out.length === 0) {
       const h = text($("main h1"));
-      const lede = text($("main .lede")).split(/(?<=\.)\s/)[0] || "";
+      // The page's explanation: under its title, or in the "?" panel beside it (help.ts).
+      const lede = text($("main .lede") || $("main .help-body p")).split(/(?<=\.)\s|(?<=。)/)[0] || "";
       const t = h && lede ? h + ": " + lede : h || lede || document.title;
       out.push({ text: t, href: "" });
     }
@@ -189,12 +234,12 @@ export const SHARE_SCRIPT = String.raw`(() => {
     const picks = lines();
     ga("cite_open", { lines: picks.length });
     const list = picks.map((p, i) => '<label><input type="radio" name="cite" value="' + i + '"' + (i === 0 ? " checked" : "") + "><span>" + escH(p.text) + "</span></label>").join("");
-    const dlg = dialog("Cite this page",
-      (picks.length > 1 ? '<div><small>Pick the line · the page' + "'" + 's own numbers, as they read now</small></div><div class="picks">' + list + "</div>" : "") +
-      '<div><small>Your post · edit it freely</small><textarea data-line></textarea><div class="count"><small data-count></small></div></div>' +
-      '<div><small>Back-link · this exact page, venue and filters</small><div class="row"><span class="url" data-link></span><button type="button" class="btn ghost" data-copy-link>Copy</button></div></div>' +
-      '<div class="acts"><button type="button" class="btn x" data-post>Post on X</button><button type="button" class="btn" data-copy-all>Copy line + link</button></div>' +
-      "<p>Quote the number, link back to where it was read. Funding moves every minute, so the line says when it was true: " + escH(stamp()) + ". Not financial advice.</p>");
+    const dlg = dialog(T.citeTitle,
+      (picks.length > 1 ? "<div><small>" + escH(T.pick) + '</small></div><div class="picks">' + list + "</div>" : "") +
+      "<div><small>" + escH(T.yourPost) + '</small><textarea data-line></textarea><div class="count"><small data-count></small></div></div>' +
+      "<div><small>" + escH(T.backLink) + '</small><div class="row"><span class="url" data-link></span><button type="button" class="btn ghost" data-copy-link>' + escH(T.copy) + "</button></div></div>" +
+      '<div class="acts"><button type="button" class="btn x" data-post>' + escH(T.postX) + '</button><button type="button" class="btn" data-copy-all>' + escH(T.copyAll) + "</button></div>" +
+      "<p>" + escH(T.citeNote).replace("{stamp}", escH(stamp())) + "</p>");
     const area = $("[data-line]", dlg), count = $("[data-count]", dlg), linkEl = $("[data-link]", dlg);
     let link = "";
     const choose = (i) => {
@@ -206,7 +251,7 @@ export const SHARE_SCRIPT = String.raw`(() => {
     };
     const recount = () => {
       const left = room(area.value);
-      count.textContent = left + " characters left with the link";
+      count.textContent = T.left.replace("{count}", left);
       count.parentElement.classList.toggle("over", left < 0);
     };
     area.addEventListener("input", recount);
@@ -273,7 +318,7 @@ export const SHARE_SCRIPT = String.raw`(() => {
     // Masthead: the brand left, the moment right.
     g.font = "700 22px " + MONO; g.fillStyle = C.ink; g.fillText("AIRRATES", PAD, 58);
     const bw = g.measureText("AIRRATES").width;
-    g.font = "400 18px " + MONO; g.fillStyle = C.mut; g.fillText("funding carry sheet", PAD + bw + 14, 58);
+    g.font = "400 18px " + MONO; g.fillStyle = C.mut; g.fillText(T.sheet, PAD + bw + 14, 58);
     g.textAlign = "right"; g.fillText(stamp(), W - PAD, 58); g.textAlign = "left";
 
     // Title: the chart's own, else its caption, else the page heading.
@@ -297,8 +342,8 @@ export const SHARE_SCRIPT = String.raw`(() => {
       const w = g.measureText(label).width + (sw ? 26 : 0);
       if (lx + w > W - PAD) { lx = PAD; ly += 28; }
       // Three rows at most; say how many were left off rather than dropping them silently.
-      if (ly > 216 || (ly > 188 && lx + w + g.measureText("+99 more").width + 28 > W - PAD && ki < keys.length - 1)) {
-        g.fillStyle = C.dim; g.fillText("+" + (keys.length - ki) + " more", lx, ly);
+      if (ly > 216 || (ly > 188 && lx + w + g.measureText(T.more.replace("{count}", "99")).width + 28 > W - PAD && ki < keys.length - 1)) {
+        g.fillStyle = C.dim; g.fillText(T.more.replace("{count}", keys.length - ki), lx, ly);
         break;
       }
       if (sw) {
@@ -363,7 +408,7 @@ export const SHARE_SCRIPT = String.raw`(() => {
     g.font = "700 18px " + MONO; g.fillStyle = C.acc;
     g.fillText(fit(g, location.host + location.pathname, W / 2), PAD, H - 30);
     g.font = "400 16px " + MONO; g.fillStyle = C.dim; g.textAlign = "right";
-    g.fillText("public venue APIs · not financial advice", W - PAD, H - 30);
+    g.fillText(T.source, W - PAD, H - 30);
     g.textAlign = "left";
     return cv;
   };
@@ -376,17 +421,17 @@ export const SHARE_SCRIPT = String.raw`(() => {
     const title = fig.dataset.shareTitle || text($(".fchart-title", fig)) || text($("main h1")) || document.title;
     const cite = lines()[0];
     const line = cite ? cite.text : title;
-    const dlg = dialog("Share your line",
-      '<img alt="chart image" data-img>' +
-      "<small>Image · 1600 × 900, X" + "'" + "s own 16:9 — shows uncropped in the timeline. Right-click or long-press to save.</small>" +
-      '<div class="acts"><button type="button" class="btn x" data-post>Post on X</button><button type="button" class="btn" data-copy-img>Copy image</button><button type="button" class="btn ghost" data-dl>Download PNG</button></div>' +
-      '<div><small>Link · this exact view</small><div class="row"><span class="url">' + escH(link) + '</span><button type="button" class="btn ghost" data-copy-link>Copy</button></div></div>' +
-      "<p>Copy the image, press Post on X, paste it into the post. The card carries the address it came from; the link opens the same view. We never call direction — the numbers are the venues" + "'" + ", the call is yours.</p>");
+    const dlg = dialog(T.shareTitle,
+      '<img alt="' + escH(T.imageAlt) + '" data-img>' +
+      "<small>" + escH(T.imageNote) + "</small>" +
+      '<div class="acts"><button type="button" class="btn x" data-post>' + escH(T.postX) + '</button><button type="button" class="btn" data-copy-img>' + escH(T.copyImage) + '</button><button type="button" class="btn ghost" data-dl>' + escH(T.download) + "</button></div>" +
+      "<div><small>" + escH(T.viewLink) + '</small><div class="row"><span class="url">' + escH(link) + '</span><button type="button" class="btn ghost" data-copy-link>' + escH(T.copy) + "</button></div></div>" +
+      "<p>" + escH(T.shareNote) + "</p>");
     const imgEl = $("[data-img]", dlg);
     let blob = null;
     const cv = await render(fig);
     const ready = new Promise((ok) => cv.toBlob((b) => ok(b), "image/png"));
-    ready.then((b) => { blob = b; if (b) imgEl.src = URL.createObjectURL(b); else imgEl.alt = "the image could not be drawn in this browser"; });
+    ready.then((b) => { blob = b; if (b) imgEl.src = URL.createObjectURL(b); else imgEl.alt = T.noImage; });
     $("[data-copy-link]", dlg).onclick = (e) => copyText(e.currentTarget, link, "chart_link");
     $("[data-post]", dlg).onclick = () => postOnX(line, link, "chart");
     $("[data-dl]", dlg).onclick = async () => {
@@ -404,8 +449,8 @@ export const SHARE_SCRIPT = String.raw`(() => {
       try {
         // A promise, not a blob: Safari only allows the write inside the click's own task.
         await navigator.clipboard.write([new ClipboardItem({ "image/png": ready })]);
-        button.textContent = "Copied";
-      } catch (err) { button.textContent = "Copy blocked — download instead"; }
+        button.textContent = T.copied;
+      } catch (err) { button.textContent = T.blocked; }
     };
   });
 })();`;

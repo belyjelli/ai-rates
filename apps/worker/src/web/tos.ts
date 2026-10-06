@@ -1,5 +1,6 @@
 import type { Overview } from "../app/data";
 import { layout } from "./layout";
+import { englishOnly } from "./legal";
 
 /** When the text below last changed. Update it with any edit a reader would notice. */
 const UPDATED = "16 September 2026";
@@ -28,7 +29,7 @@ export function tos(data: { overview: Overview; now: number }): string {
     path: "/tos",
     overview: data.overview,
     now: data.now,
-    body: `<h1>Terms of service</h1>
+    body: englishOnly(`<h1>Terms of service</h1>
 <p class="lede">Last updated ${UPDATED}. These terms cover your use of this site. What airrates records about you, and how it earns money, are set out separately on <a href="/legal">Legal and privacy</a>.</p>
 <div class="about-log">
 <article id="acceptance">
@@ -113,6 +114,6 @@ export function tos(data: { overview: Overview; now: number }): string {
 <li>Open an issue at the <a href="https://github.com/belyjelli/ai-rates/issues">project's repository</a>.</li>
 </ul>
 </article>
-</div>`,
+</div>`),
   });
 }

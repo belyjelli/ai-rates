@@ -27,7 +27,10 @@ export type Change = "up" | "down" | "text" | "new";
  */
 export function parseShown(text: string): number | null {
   const shown = text.replace(/,/g, "").trim();
-  if (shown === "flat") return 0;
+  // The momentum column's word for no change, in every language the site has (pages.ts's "flat");
+  // i18n.test.ts fails if a catalog's word is missing here. A list, because this runs in the browser
+  // through toString and cannot look a translation up.
+  if (shown === "flat" || shown === "持平") return 0;
   const match = /^([+−↑↓-])?\s*\$?(\d+(?:\.\d+)?)\s*([kMB])?[%h×m]?$/.exec(shown);
   if (!match) return null;
   const scale = match[3] === "B" ? 1e9 : match[3] === "M" ? 1e6 : match[3] === "k" ? 1e3 : 1;

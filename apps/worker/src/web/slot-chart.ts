@@ -19,15 +19,85 @@
  * the browser, for one slot. They reach the page through toString, as live.ts's helpers do, so they
  * must not reference anything outside their own bodies and must not declare inner named functions,
  * which a bundler's keep-names pass would wrap in a helper the page does not have.
+ *
+ * THE WORDS ARE HANDED IN TOO, for the same reason: the browser copy cannot call `tr`. `slotWords`
+ * builds them in the page's language on the server; the server's readout gets them through
+ * SLOT_FORMAT, the browser's through the payload `slotData` writes, so both read in one language.
  */
 
-/** The formatters the readout uses, handed in so the text functions stay self-contained. */
+import { msg, tr, trMsg } from "./i18n";
+
+/** Month names for every chart's date labels, marked once so each language translates them once. */
+export const MONTHS = [
+  msg("Jan"),
+  msg("Feb"),
+  msg("Mar"),
+  msg("Apr"),
+  msg("May"),
+  msg("Jun"),
+  msg("Jul"),
+  msg("Aug"),
+  msg("Sep"),
+  msg("Oct"),
+  msg("Nov"),
+  msg("Dec"),
+];
+
+/** The formatters and words the readout uses, handed in so the text functions stay self-contained. */
 export interface SlotFormat {
   usd: (value: number) => string;
   price: (value: number) => string;
   pct: (value: number, digits: number) => string;
-  when: (ms: number) => string;
+  when: (ms: number, words?: SlotWords) => string;
+  words: SlotWords;
 }
+
+/** The readout's words, as patterns whose `{name}` placeholders the text functions fill. */
+export interface SlotWords {
+  noFlow: string;
+  price: string;
+  priceSince: string;
+  bought: string;
+  sold: string;
+  net: string;
+  netShare: string;
+  nothing: string;
+  longsClosed: string;
+  shortsClosed: string;
+  diff: string;
+  even: string;
+  longsHeavier: string;
+  shortsHeavier: string;
+  liquidation: string;
+  liquidations: string;
+  filling: string;
+  /** The twelve month names, "|"-joined, and the slot's date pattern. */
+  months: string;
+  when: string;
+}
+
+/** The words in the current render's language. */
+export const slotWords = (): SlotWords => ({
+  noFlow: tr("no flow recorded"),
+  price: tr("price {price}"),
+  priceSince: tr("price {price} ({pct} since start)"),
+  bought: tr("bought {usd}"),
+  sold: tr("sold {usd}"),
+  net: tr("net {net}"),
+  netShare: tr("net {net} ({pct} of volume)"),
+  nothing: tr("nothing force-closed"),
+  longsClosed: tr("longs closed {usd}"),
+  shortsClosed: tr("shorts closed {usd}"),
+  diff: tr("longs − shorts {diff}"),
+  even: tr("even"),
+  longsHeavier: tr("longs heavier, {pct}%"),
+  shortsHeavier: tr("shorts heavier, {pct}%"),
+  liquidation: tr("{n} liquidation"),
+  liquidations: tr("{n} liquidations"),
+  filling: tr("{when} (still filling)"),
+  months: MONTHS.map((month) => trMsg(month)).join("|"),
+  when: tr("{month} {day} {time} UTC"),
+});
 
 /** Compact dollars, identical to format.ts's `formatUsd` for any finite number (a test holds them). */
 export function slotUsd(value: number): string {
@@ -55,14 +125,17 @@ export function slotPct(value: number, digits: number): string {
   return `${value < 0 ? "−" : "+"}${text}%`;
 }
 
-/** "Sep 17 14:15 UTC". */
-export function slotWhen(ms: number): string {
+/** "Sep 17 14:15 UTC", or the same moment in the words' language when they are handed in. */
+export function slotWhen(ms: number, words?: { months: string; when: string }): string {
   const d = new Date(ms);
-  const month = "JanFebMarAprMayJunJulAugSepOctNovDec".slice(
-    d.getUTCMonth() * 3,
-    d.getUTCMonth() * 3 + 3,
-  );
-  return `${month} ${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")} UTC`;
+  const month = (words ? words.months : "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec").split(
+    "|",
+  )[d.getUTCMonth()];
+  const time = `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+  return (words ? words.when : "{month} {day} {time} UTC")
+    .replace("{month}", () => month ?? "")
+    .replace("{day}", () => String(d.getUTCDate()))
+    .replace("{time}", () => time);
 }
 
 export const SLOT_FORMAT: SlotFormat = {
@@ -70,6 +143,11 @@ export const SLOT_FORMAT: SlotFormat = {
   price: slotPrice,
   pct: slotPct,
   when: slotWhen,
+  // A getter, so a readout built inside a render reads that render's language, not the one the
+  // module happened to load in.
+  get words() {
+    return slotWords();
+  },
 };
 
 /**
@@ -85,25 +163,36 @@ export function cvdText(
   open: number | null,
   f: SlotFormat,
 ): string {
+  const w = f.words;
+  // Values go in through a function, so a "$" in a dollar figure is never read as a replace pattern.
   const tail =
     cvd === null
       ? ""
       : ` · CVD <b class="${cvd > 0 ? "cvd-up" : cvd < 0 ? "cvd-down" : ""}">${cvd > 0 ? "+" : ""}${f.usd(cvd)}</b>`;
-  if (bar === null) return `${head} · no flow recorded${tail}`;
+  if (bar === null) return `${head} · ${w.noFlow}${tail}`;
   const [bought, sold, price] = bar;
   const net = bought - sold;
   const volume = bought + sold;
   const parts = [head];
   if (price !== null) {
     parts.push(
-      `price ${f.price(price)}${open ? ` (${f.pct((price / open - 1) * 100, 2)} since start)` : ""}`,
+      (open ? w.priceSince : w.price)
+        .replace("{price}", () => f.price(price))
+        .replace("{pct}", () => (open ? f.pct((price / open - 1) * 100, 2) : "")),
     );
   }
-  parts.push(`bought ${f.usd(bought)}`, `sold ${f.usd(sold)}`);
   parts.push(
-    `net <b class="${net > 0 ? "cvd-up" : net < 0 ? "cvd-down" : ""}">${net > 0 ? "+" : ""}${f.usd(net)}</b>${
-      volume > 0 ? ` (${f.pct((net / volume) * 100, 1)} of volume)` : ""
-    }`,
+    w.bought.replace("{usd}", () => f.usd(bought)),
+    w.sold.replace("{usd}", () => f.usd(sold)),
+  );
+  parts.push(
+    (volume > 0 ? w.netShare : w.net)
+      .replace(
+        "{net}",
+        () =>
+          `<b class="${net > 0 ? "cvd-up" : net < 0 ? "cvd-down" : ""}">${net > 0 ? "+" : ""}${f.usd(net)}</b>`,
+      )
+      .replace("{pct}", () => (volume > 0 ? f.pct((net / volume) * 100, 1) : "")),
   );
   return parts.join(" · ") + tail;
 }
@@ -118,20 +207,29 @@ export function sidesText(
   sides: readonly [number, number, number] | null,
   f: SlotFormat,
 ): string {
-  if (sides === null) return `${head} · nothing force-closed`;
+  const w = f.words;
+  if (sides === null) return `${head} · ${w.nothing}`;
   const [longs, shorts, events] = sides;
   const diff = longs - shorts;
   const heavier =
     diff === 0
-      ? "even"
-      : `${diff > 0 ? "longs" : "shorts"} heavier, ${Math.round((Math.max(longs, shorts) / (longs + shorts)) * 100)}%`;
+      ? w.even
+      : (diff > 0 ? w.longsHeavier : w.shortsHeavier).replace("{pct}", () =>
+          String(Math.round((Math.max(longs, shorts) / (longs + shorts)) * 100)),
+        );
   return [
     head,
-    `longs closed ${f.usd(longs)}`,
-    `shorts closed ${f.usd(shorts)}`,
-    `longs − shorts <b class="${diff > 0 ? "lq-ink-l" : diff < 0 ? "lq-ink-s" : ""}">${diff > 0 ? "+" : ""}${f.usd(diff)}</b>`,
+    w.longsClosed.replace("{usd}", () => f.usd(longs)),
+    w.shortsClosed.replace("{usd}", () => f.usd(shorts)),
+    w.diff.replace(
+      "{diff}",
+      () =>
+        `<b class="${diff > 0 ? "lq-ink-l" : diff < 0 ? "lq-ink-s" : ""}">${diff > 0 ? "+" : ""}${f.usd(diff)}</b>`,
+    ),
     heavier,
-    `${events.toLocaleString("en-US")} liquidation${events === 1 ? "" : "s"}`,
+    (events === 1 ? w.liquidation : w.liquidations).replace("{n}", () =>
+      events.toLocaleString("en-US"),
+    ),
   ].join(" · ");
 }
 
@@ -154,9 +252,12 @@ export interface SidesSlots {
   slots: ([number, number, number] | null)[];
 }
 
-/** The payload as a JSON script tag, `<` escaped so no value can close it. */
+/**
+ * The payload as a JSON script tag, `<` escaped so no value can close it. It carries the readout's
+ * words in the render's language, which the browser copy of the text functions reads them from.
+ */
 export function slotData(payload: CvdSlots | SidesSlots): string {
-  return `<script type="application/json" class="slot-data">${JSON.stringify(payload).replace(/</g, "\\u003c")}</script>`;
+  return `<script type="application/json" class="slot-data">${JSON.stringify({ ...payload, words: slotWords() }).replace(/</g, "\\u003c")}</script>`;
 }
 
 /**
@@ -193,12 +294,14 @@ export const SLOT_SCRIPT = `(() => {
     return parsed.get(el);
   };
   const reading = (d, i) => {
-    const head = f.when(d.from + i * d.unit) + (i === d.slots.length - 1 ? " (still filling)" : "");
+    const fw = Object.assign({ words: d.words }, f);
+    const when = f.when(d.from + i * d.unit, d.words);
+    const head = i === d.slots.length - 1 ? d.words.filling.replace("{when}", () => when) : when;
     const slot = d.slots[i];
-    if (d.kind === "lqc") return sidesText(head, slot, f);
+    if (d.kind === "lqc") return sidesText(head, slot, fw);
     let cvd = 0;
     for (let j = i; j >= 0; j--) if (d.slots[j]) { cvd = d.slots[j][2]; break; }
-    return cvdText(head, slot && [slot[0], slot[1], slot[3]], cvd, d.open, f);
+    return cvdText(head, slot && [slot[0], slot[1], slot[3]], cvd, d.open, fw);
   };
   const clear = () => {
     if (!held) return;

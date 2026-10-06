@@ -1,11 +1,13 @@
 import { esc } from "./format";
+import { helpButton, helpPanel } from "./help";
+import { scriptStrings, tr, trMsg } from "./i18n";
 import { railPosition, railScale } from "./rail";
+import { MONTHS } from "./slot-chart";
 import { venueName } from "./venues";
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 86_400_000;
 const HOURS_PER_YEAR = 8_760;
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /**
  * Colours for the exchanges that are not a leg. Long and short keep the site's blue and red, and
@@ -161,7 +163,10 @@ const tickLabel = (apr: number) =>
 
 function dayLabel(ms: number): string {
   const date = new Date(ms);
-  return `${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}`;
+  return tr("{month} {day}", {
+    month: trMsg(MONTHS[date.getUTCMonth()] ?? ""),
+    day: date.getUTCDate(),
+  });
 }
 
 /** Time labels along the bottom: hours across a single day, whole days otherwise. */
@@ -185,16 +190,18 @@ function timeTicks(fromMs: number, toMs: number): { ms: number; label: string }[
 /**
  * Hover readout and toggles. Points travel as [bucket offset, APR] so the payload stays small, and
  * each visible line reports the rate it holds at the cursor, the same hold-last rule the lines use.
+ * Built per render, so the month names and the date's word order are the page's language.
  */
-const CHART_SCRIPT = `(() => {
+const chartScript = () => `(() => {
   const MINUS = "−";
-  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const W = ${scriptStrings({ months: MONTHS.map((month) => trMsg(month)).join("|"), day: tr("{month} {day}") })};
+  const MONTHS = W.months.split("|");
   const pct = (v) => {
     const a = Math.abs(v), d = a >= 100 ? 0 : a >= 10 ? 1 : 2;
     return Number(a.toFixed(d)) === 0 ? "0." + "0".repeat(d) + "%" : (v < 0 ? MINUS : "+") + a.toFixed(d) + "%";
   };
   const when = (ms, hourly) => {
-    const d = new Date(ms), day = MONTHS[d.getUTCMonth()] + " " + d.getUTCDate();
+    const d = new Date(ms), day = W.day.replace("{month}", () => MONTHS[d.getUTCMonth()]).replace("{day}", () => d.getUTCDate());
     return hourly ? day + " " + String(d.getUTCHours()).padStart(2, "0") + ":00 UTC" : day;
   };
   const holding = (points, offset) => {
@@ -255,18 +262,18 @@ export function renderFundingChart(
   legs: { long?: MarketKey; short?: MarketKey },
 ): string {
   if (!history) {
-    return `<p class="notes">The funding chart is unavailable right now. The backtest below is unaffected.</p>`;
+    return `<p class="notes">${tr("The funding chart is unavailable right now. The backtest below is unaffected.")}</p>`;
   }
   const markets = fundingSeries(history, legs);
   if (markets.length === 0) {
-    return `<p class="notes">No stored funding for this window yet.</p>`;
+    return `<p class="notes">${tr("No stored funding for this window yet.")}</p>`;
   }
 
   const long = markets.find((series) => series.role === "long");
   const short = markets.find((series) => series.role === "short");
   const spread: FundingSeries | null =
     long && short
-      ? { key: "spread", label: "Spread", role: "spread", points: spreadPoints(long, short) }
+      ? { key: "spread", label: tr("Spread"), role: "spread", points: spreadPoints(long, short) }
       : null;
   const all = spread ? [...markets, spread] : markets;
   const paired = Boolean(long && short);
@@ -362,11 +369,11 @@ export function renderFundingChart(
   }).replace(/</g, "\\u003c");
 
   return `<figure class="fchart">
-<div class="fchart-head"><p class="fchart-title">Funding by exchange, annualized · ${grain === "hour" ? "hourly" : "daily"}</p><div class="fchart-keys">${keys}</div></div>
-<div class="fchart-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="Funding APR by exchange over the window">${grid}${lines}<line class="fchart-cursor off" x1="0" x2="0" y1="0" y2="1000"></line></svg>${yLabels}${xLabels}</div>
-<p class="fchart-read">Hover the chart to read every visible line at one moment.</p>
-<p class="fchart-note">Signed log scale, so ordinary rates keep room beside extreme ones. Each line holds a rate until that exchange's next settlement; a break is time with no recorded funding, not a zero.</p>
+<div class="fchart-head"><div class="has-help"><p class="fchart-title">${grain === "hour" ? tr("Funding by exchange, annualized · hourly") : tr("Funding by exchange, annualized · daily")}</p>${helpButton("funding-chart")}</div><div class="fchart-keys">${keys}</div></div>
+${helpPanel("funding-chart", `<p>${tr("Signed log scale, so ordinary rates keep room beside extreme ones. Each line holds a rate until that exchange's next settlement; a break is time with no recorded funding, not a zero.")}</p>`)}
+<div class="fchart-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${tr("Funding APR by exchange over the window")}">${grid}${lines}<line class="fchart-cursor off" x1="0" x2="0" y1="0" y2="1000"></line></svg>${yLabels}${xLabels}</div>
+<p class="fchart-read">${tr("Hover the chart to read every visible line at one moment.")}</p>
 <script type="application/json" class="fchart-data">${payload}</script>
-<script>${CHART_SCRIPT}</script>
+<script>${chartScript()}</script>
 </figure>`;
 }

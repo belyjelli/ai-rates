@@ -53,7 +53,7 @@ describe("about", () => {
       expect(release.changes.length).toBeGreaterThan(0);
     }
     const html = about({ overview, now: NOW });
-    expect(html).toContain("<h1>About airrates</h1>");
+    expect(html).toContain('<h1 class="has-help">About airrates<');
     // Dates are UTC: Binance and the price check went live at 18:41 UTC on the 13th.
     expect(html).toContain('<p class="eyebrow">Sep 13, 2026</p>');
     expect(html).toContain("Binance, and a price check on every market");

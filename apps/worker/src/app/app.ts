@@ -3,6 +3,7 @@ import { VENUES } from "@ai-rates/venues";
 import { about } from "../web/about";
 import { cvd } from "../web/cvd";
 import type { FundingHistory } from "../web/funding-chart";
+import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
 import { installAsset } from "../web/install";
 import { legal } from "../web/legal";
 import { liquidations } from "../web/liquidations";
@@ -51,6 +52,11 @@ export interface AppDeps {
   rateLimit?: (key: string) => Promise<boolean>;
   /** Venue id to referral link and code, from REFERRAL_LINKS. Absent or empty means no page shows a CTA. */
   referrals?: Readonly<Record<string, Referral>>;
+  /**
+   * The language pages render in, chosen in index.ts before the cache is consulted because it is part
+   * of the cache key. Absent means English. The JSON API is never translated.
+   */
+  locale?: Locale;
 }
 
 const PAGE_MAX_AGE = 30;
@@ -101,6 +107,11 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
   const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : "/";
   const now = deps.now();
   const segments = path.split("/").filter(Boolean).map(decodeURIComponent);
+  const locale = deps.locale ?? DEFAULT_LOCALE;
+  // A render is handed over rather than its result, so that every string in it -- the not-found
+  // messages built below included -- is produced inside the reader's language (web/i18n.ts).
+  const page = (render: () => string, status = 200) =>
+    htmlResponse(withLocale(locale, render), status);
 
   // Read-only: nothing on the site or the API accepts a write.
   if (request.method !== "GET" && request.method !== "HEAD") {
@@ -137,7 +148,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           return null;
         }),
       ]);
-      return page(pages.home({ overview, pairs, verified, best, now }));
+      return page(() => pages.home({ overview, pairs, verified, best, now }));
     }
 
     if (path === "/screener") {
@@ -146,7 +157,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         deps.data.overview(),
         deps.data.screener(filters),
       ]);
-      return page(pages.screener({ overview, pairs, filters, now }));
+      return page(() => pages.screener({ overview, pairs, filters, now }));
     }
 
     // Renamed from /heatmap: every other nav item is a plain noun naming its contents, and
@@ -166,7 +177,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           minVenues: HEATMAP_MIN_VENUES,
         }),
       ]);
-      return page(pages.heatmap({ overview, cells, params, now }));
+      return page(() => pages.heatmap({ overview, cells, params, now }));
     }
 
     // The phase's actual title: where one venue's bid sits above another's ask. Only three venues
@@ -177,7 +188,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         deps.data.overview(),
         deps.data.arbitrage(params),
       ]);
-      return page(pages.arbitrage({ overview, rows, params, now }));
+      return page(() => pages.arbitrage({ overview, rows, params, now }));
     }
 
     // Every polled asset's taker flow in the table, and one asset charted above it -- BTC unless the
@@ -189,7 +200,12 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const address = segments.length > 1 ? assetAddress(segments.slice(1)) : null;
       if (segments.length > 1 && !address) {
         return page(
-          pages.notFound(path, now, `${askedAsset(segments)} is not an asset address.`),
+          () =>
+            pages.notFound(
+              path,
+              now,
+              tr("{asset} is not an asset address.", { asset: askedAsset(segments) }),
+            ),
           404,
         );
       }
@@ -206,9 +222,12 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         }),
       ]);
       if (address && flow.asset_class === null) {
-        return page(pages.notFound(path, now, `No live market for ${asset}.`), 404);
+        return page(
+          () => pages.notFound(path, now, tr("No live market for {asset}.", { asset })),
+          404,
+        );
       }
-      return page(cvd({ overview, cvd: flow, asset, params, now }));
+      return page(() => cvd({ overview, cvd: flow, asset, params, now }));
     }
 
     // One page, two tabs: the map and the priced grid are the same subject, and the address only
@@ -220,7 +239,15 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const address = segments.length > 1 ? assetAddress(segments.slice(1)) : null;
       const asked = segments.length > 1 ? (address?.asset ?? askedAsset(segments)) : null;
       if (segments.length > 1 && !address) {
-        return page(pages.notFound(path, now, `${asked} is not an asset address.`), 404);
+        return page(
+          () =>
+            pages.notFound(
+              path,
+              now,
+              tr("{asset} is not an asset address.", { asset: asked ?? "" }),
+            ),
+          404,
+        );
       }
       const params = parseLiquidationParams(url.searchParams);
       const assetParams = parseLiquidationAssetParams(url.searchParams);
@@ -252,11 +279,16 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         : null;
       if (address && (!assetMap || assetMap.asset_class === null)) {
         return page(
-          pages.notFound(path, now, `No live market for ${asked}, so nothing to band against.`),
+          () =>
+            pages.notFound(
+              path,
+              now,
+              tr("No live market for {asset}, so nothing to band against.", { asset: asked ?? "" }),
+            ),
           404,
         );
       }
-      return page(
+      return page(() =>
         liquidations({
           overview,
           map,
@@ -281,11 +313,18 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const [first] = quotes;
       if (!first) {
         return page(
-          pages.notFound(path, now, `No exchange is quoting a ${asset} book right now.`),
+          () =>
+            pages.notFound(
+              path,
+              now,
+              tr("No exchange is quoting a {asset} book right now.", { asset }),
+            ),
           404,
         );
       }
-      return page(pages.pricePair({ asset, assetClass: first.asset_class, quotes, overview, now }));
+      return page(() =>
+        pages.pricePair({ asset, assetClass: first.asset_class, quotes, overview, now }),
+      );
     }
 
     if (path === "/sentiment") {
@@ -295,25 +334,29 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         deps.data.overview(),
         deps.data.sentimentHistory(hours),
       ]);
-      return page(sentiment({ overview, history, params, now }));
+      return page(() => sentiment({ overview, history, params, now }));
     }
 
     if (path === "/about") {
-      return page(about({ overview: await deps.data.overview(), now }));
+      const overview = await deps.data.overview();
+      return page(() => about({ overview, now }));
     }
 
     if (path === "/legal") {
-      return page(legal({ overview: await deps.data.overview(), now }));
+      const overview = await deps.data.overview();
+      return page(() => legal({ overview, now }));
     }
 
     if (path === "/tos") {
-      return page(tos({ overview: await deps.data.overview(), now }));
+      const overview = await deps.data.overview();
+      return page(() => tos({ overview, now }));
     }
 
     if (path === "/referrals") {
-      return page(
+      const overview = await deps.data.overview();
+      return page(() =>
         referralLinks({
-          overview: await deps.data.overview(),
+          overview,
           now,
           geo: requestGeo(request),
           links: deps.referrals ?? {},
@@ -345,7 +388,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           return null;
         }),
       ]);
-      return page(pages.status({ overview, venues, liquidationFeeds: feeds, checks, now }));
+      return page(() => pages.status({ overview, venues, liquidationFeeds: feeds, checks, now }));
     }
 
     if (path === "/markets") {
@@ -353,20 +396,23 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         deps.data.overview(),
         deps.data.exchanges(),
       ]);
-      return page(pages.exchanges({ overview, exchanges, now }));
+      return page(() => pages.exchanges({ overview, exchanges, now }));
     }
 
     if (segments[0] === "markets" && segments[1] === "exchange" && segments.length === 3) {
       const venue = VENUE_BY_ID.get((segments[2] as string).toLowerCase());
       if (!venue)
-        return page(pages.notFound(path, now, "There's no exchange with that name."), 404);
+        return page(
+          () => pages.notFound(path, now, tr("There's no exchange with that name.")),
+          404,
+        );
       // The status line reads the overview; without it the page claimed no venue had reported.
       const [overview, markets] = await Promise.all([
         deps.data.overview(),
         deps.data.exchange(venue.id),
       ]);
       const cta = referralCta(venue, deps.referrals?.[venue.id], requestGeo(request));
-      return page(pages.exchange({ venue, markets, overview, now, cta }));
+      return page(() => pages.exchange({ venue, markets, overview, now, cta }));
     }
 
     if (
@@ -383,11 +429,18 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const [first] = markets;
       if (!first) {
         return page(
-          pages.notFound(path, now, `No exchange has a live ${asset} perpetual right now.`),
+          () =>
+            pages.notFound(
+              path,
+              now,
+              tr("No exchange has a live {asset} perpetual right now.", { asset }),
+            ),
           404,
         );
       }
-      return page(pages.asset({ asset, assetClass: first.asset_class, markets, overview, now }));
+      return page(() =>
+        pages.asset({ asset, assetClass: first.asset_class, markets, overview, now }),
+      );
     }
 
     if (path === "/v1/health") {
@@ -565,13 +618,18 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       // Only a request that computes a backtest is limited; browsing /pair/:asset to pick two legs
       // stays free.
       if (requested && !(await withinRate(deps, request, "pair"))) {
-        return retryLater(page(pages.tooMany(path, now), 429));
+        return retryLater(page(() => pages.tooMany(path, now), 429));
       }
       const markets = address ? await deps.data.asset(address.asset, address.assetClass) : [];
       const [first] = markets;
       if (!first) {
         return page(
-          pages.notFound(path, now, `No exchange has a live ${asset} perpetual right now.`),
+          () =>
+            pages.notFound(
+              path,
+              now,
+              tr("No exchange has a live {asset} perpetual right now.", { asset }),
+            ),
           404,
         );
       }
@@ -588,7 +646,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         // The status line reads it; without it the page claimed no venue had reported.
         deps.data.overview(),
       ]);
-      return page(
+      return page(() =>
         pages.pair({
           asset,
           assetClass,
@@ -616,10 +674,10 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     }
 
     if (segments[0] === "v1") return json({ error: "not_found" }, 404);
-    return page(pages.notFound(path, now), 404);
+    return page(() => pages.notFound(path, now), 404);
   } catch (error) {
     deps.log?.(`${path}: ${error instanceof Error ? error.message : String(error)}`);
-    return unavailableResponse(path, now);
+    return unavailableResponse(path, now, locale);
   }
 }
 
@@ -630,11 +688,18 @@ const UNAVAILABLE_RETRY_SECONDS = 10;
  * The answer when the data cannot be read: the busy page, or a JSON error for the API. Exported
  * because the edge cache needs the same answer for a reader whose render did not finish in time.
  */
-export function unavailableResponse(path: string, now: number): Response {
+export function unavailableResponse(
+  path: string,
+  now: number,
+  locale: Locale = DEFAULT_LOCALE,
+): Response {
   const response =
     path === "/v1" || path.startsWith("/v1/")
       ? json({ error: "data_unavailable" }, 503, 0)
-      : page(pages.unavailable(path, now), 503);
+      : htmlResponse(
+          withLocale(locale, () => pages.unavailable(path, now)),
+          503,
+        );
   response.headers.set("retry-after", String(UNAVAILABLE_RETRY_SECONDS));
   return response;
 }
@@ -787,7 +852,7 @@ function pickMarket(markets: readonly MarketRow[], venueId: string): MarketRow |
     .sort((a, b) => (b.open_interest_usd ?? 0) - (a.open_interest_usd ?? 0))[0];
 }
 
-function page(html: string, status = 200): Response {
+function htmlResponse(html: string, status = 200): Response {
   return new Response(html, {
     status,
     headers: {

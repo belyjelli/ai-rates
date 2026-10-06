@@ -10,6 +10,7 @@ import { handleAdmin } from "./referrals/admin";
 import { adminCredentials } from "./referrals/auth";
 import { forgetReferrals, loadReferrals } from "./referrals/load";
 import { ReferralStoreDO, referralStore } from "./referrals/store-do";
+import { DEFAULT_LOCALE, languageSwitch, requestLocale } from "./web/i18n";
 
 export { ProbeDO, ReferralStoreDO };
 
@@ -34,6 +35,10 @@ export default {
     });
     if (admin) return admin;
 
+    // The footer's language switch sets a cookie and goes back: never cached, and not a page view.
+    const switched = languageSwitch(request);
+    if (switched) return switched;
+
     // Ahead of the cache: a page served from it never reaches the app, and would go uncounted.
     const visit = visitPoint(request, request.cf?.country);
     if (visit) env.ANAL.writeDataPoint(visit);
@@ -45,12 +50,17 @@ export default {
     // Keyed by the visitor's CTA bucket as well as the URL once referral links exist, or a page
     // rendered with a CTA for one country would be served from cache to a visitor where it is barred.
     // While none is configured the bucket is constant and the key stays the bare URL.
+    //
+    // Keyed by language for the same reason: a page rendered in Chinese must never reach a reader who
+    // chose English. English keeps the bare URL, so its existing copies stay valid across this change.
     const cache = caches.default;
     const bucket = geoCacheBucket(requestGeo(request), Object.keys(referrals).length > 0);
+    const locale = requestLocale(request);
     let cacheKey: Request = request;
-    if (bucket !== "any") {
+    if (bucket !== "any" || locale !== DEFAULT_LOCALE) {
       const keyed = new URL(request.url);
-      keyed.searchParams.set("__cta", bucket);
+      if (bucket !== "any") keyed.searchParams.set("__cta", bucket);
+      if (locale !== DEFAULT_LOCALE) keyed.searchParams.set("__lang", locale);
       cacheKey = new Request(keyed.toString(), request);
     }
     // What the page needs from the database is rendered at most once per URL at a time, served stale
@@ -86,6 +96,7 @@ export default {
           // the collector's daily rollup, so nothing behind it is expensive enough to need more.
           rateLimit: async (key: string) => (await env.BACKTEST_LIMITER.limit({ key })).success,
           referrals,
+          locale,
         });
       } finally {
         const open = sql as postgres.Sql | null;
@@ -95,14 +106,29 @@ export default {
       }
     };
 
-    return edge.serve({
+    const response = await edge.serve({
       cache,
       key: cacheKey,
       request,
       waitUntil: (promise) => ctx.waitUntil(promise),
       render,
-      unavailable: () => unavailableResponse(new URL(request.url).pathname, Date.now()),
+      unavailable: () => unavailableResponse(new URL(request.url).pathname, Date.now(), locale),
       log: console.error,
     });
+    return varyByLanguage(response);
   },
 } satisfies ExportedHandler<Env>;
+
+/**
+ * Tells the BROWSER that a page depends on the language cookie and Accept-Language. A page may sit in
+ * the browser's cache for its max-age; without this, switching language and landing back on the same
+ * address could show the copy from before the switch. Added here, after the edge cache, so the copies
+ * that cache stores never carry it -- that cache is keyed by language explicitly (above). Pages only:
+ * the JSON API reads the same in every language.
+ */
+function varyByLanguage(response: Response): Response {
+  if (!response.headers.get("content-type")?.startsWith("text/html")) return response;
+  const out = new Response(response.body, response);
+  out.headers.append("vary", "Cookie, Accept-Language");
+  return out;
+}
