@@ -452,9 +452,34 @@ export const CVD_INTERVALS = {
 
 export type CvdInterval = keyof typeof CVD_INTERVALS;
 export const CVD_INTERVAL_KEYS = Object.keys(CVD_INTERVALS) as CvdInterval[];
-/** Shown on the strip with a lock: not enough history yet to draw it. */
-export const CVD_LOCKED_INTERVALS = ["7d"] as const;
+/**
+ * Shown on the strip with a lock, and never selectable: `?interval=` naming one falls back to the
+ * default like any unknown value, so a pasted address cannot reach a chart the page does not offer.
+ * 7d is locked because there is not enough history yet to draw it; 2h is planned but not offered yet.
+ */
+export const CVD_LOCKED_INTERVALS = ["2h", "7d"] as const;
+export type CvdLockedInterval = (typeof CVD_LOCKED_INTERVALS)[number];
 export const CVD_DEFAULT_INTERVAL: CvdInterval = "15m";
+
+/**
+ * The strip, shortest bar first, with each locked interval where its duration puts it rather than
+ * trailing at the end: a reader scanning for a bar size finds it in its place, open or not.
+ */
+export const CVD_STRIP: readonly (CvdInterval | CvdLockedInterval)[] = [
+  "5m",
+  "15m",
+  "1h",
+  "2h",
+  "4h",
+  "24h",
+  "7d",
+];
+
+export function isCvdLockedInterval(
+  key: CvdInterval | CvdLockedInterval,
+): key is CvdLockedInterval {
+  return (CVD_LOCKED_INTERVALS as readonly string[]).includes(key);
+}
 
 /**
  * The old `?window=` addresses, kept working: each lands on the interval that draws the closest

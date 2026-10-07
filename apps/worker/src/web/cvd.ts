@@ -2,12 +2,12 @@ import type { AssetClass } from "@ai-rates/core";
 import type { CvdAssetRow, CvdBar, CvdData, Overview } from "../app/data";
 import {
   CVD_DEFAULT_INTERVAL,
-  CVD_INTERVAL_KEYS,
   CVD_INTERVALS,
-  CVD_LOCKED_INTERVALS,
+  CVD_STRIP,
   type CvdParams,
   type CvdSort,
   cvdToQuery,
+  isCvdLockedInterval,
 } from "../app/params";
 import { ageText, esc, formatPrice, formatUsd } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
@@ -486,11 +486,14 @@ export function cvd(data: {
 </div>`;
 
   // --- controls ---------------------------------------------------------------------------------
-  // The interval strip. Each link is an ordinary address (the page works without the script), and
-  // CVD_SWITCH_SCRIPT turns a click into an in-place swap behind a loading placeholder. The locked
-  // interval is not a link at all: there is nowhere for it to go yet.
-  const intervalStrip = `<nav class="tf cvd-intervals" aria-label="${tr("Interval")}" data-loading="${esc(tr("Loading {interval} bars…"))}" data-loading-asset="${esc(tr("Loading {asset}…"))}">${CVD_INTERVAL_KEYS.map(
+  // The interval strip, in CVD_STRIP's order of duration. Each link is an ordinary address (the page
+  // works without the script), and CVD_SWITCH_SCRIPT turns a click into an in-place swap behind a
+  // loading placeholder. A locked interval is not a link at all: there is nowhere for it to go yet.
+  const intervalStrip = `<nav class="tf cvd-intervals" aria-label="${tr("Interval")}" data-loading="${esc(tr("Loading {interval} bars…"))}" data-loading-asset="${esc(tr("Loading {asset}…"))}">${CVD_STRIP.map(
     (key) => {
+      if (isCvdLockedInterval(key)) {
+        return `<span class="tf-locked" aria-disabled="true" title="${esc(tr("Not available yet: there is not enough history for {interval} bars", { interval: key }))}">${key}${LOCK_ICON}</span>`;
+      }
       const href = esc(
         (assetInAddress ? selfPath : "/cvd") + cvdToQuery({ ...params, interval: key }),
       );
@@ -498,9 +501,6 @@ export function cvd(data: {
         ? `<a class="on" href="${href}" aria-current="page" data-cvd-switch="${key}">${key}</a>`
         : `<a href="${href}" data-cvd-switch="${key}">${key}</a>`;
     },
-  ).join("")}${CVD_LOCKED_INTERVALS.map(
-    (key) =>
-      `<span class="tf-locked" aria-disabled="true" title="${esc(tr("Not available yet: there is not enough history for {interval} bars", { interval: key }))}">${key}${LOCK_ICON}</span>`,
   ).join("")}</nav>`;
 
   // --- the screener table -----------------------------------------------------------------------

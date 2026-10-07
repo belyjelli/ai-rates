@@ -2621,7 +2621,7 @@ describe("cvd", () => {
     expect(html.indexOf('data-k="ZEC"')).toBeLessThan(html.indexOf('data-k="BTC"'));
   });
 
-  test("the interval strip offers five bar sizes and shows 7d locked", async () => {
+  test("the interval strip offers five bar sizes and shows 2h and 7d locked, in order of duration", async () => {
     const seen: CvdOptions[] = [];
     const { data } = fakeData({
       cvd: async (options) => {
@@ -2634,13 +2634,20 @@ describe("cvd", () => {
     for (const key of ["5m", "15m", "1h", "4h", "24h"]) {
       expect(strip).toContain(`data-cvd-switch="${key}">${key}<`);
     }
+    // Shortest bar first, the locked ones in their place rather than trailing at the end.
+    const entries = [
+      ...strip.matchAll(/<a [^>]*data-cvd-switch="([^"]+)"|<span class="tf-locked"[^>]*>([^<]+)</g),
+    ].map((m) => (m[1] ? m[1] : `${m[2]} locked`));
+    expect(entries).toEqual(["5m", "15m", "1h", "2h locked", "4h", "24h", "7d locked"]);
     // 15m is the default: the bare address, marked current, and it reads a day of 15-minute bars.
     expect(strip).toContain('href="/cvd" aria-current="page" data-cvd-switch="15m"');
     expect(strip).toContain('href="/cvd?interval=24h" data-cvd-switch="24h"');
     expect(seen[0]).toMatchObject({ windowHours: 24, barMinutes: 15 });
-    // 7d is shown with a lock and is not a link anywhere.
-    expect(strip).toContain('<span class="tf-locked" aria-disabled="true"');
+    // 2h and 7d are shown with a lock and are not links anywhere.
+    expect(strip.match(/<span class="tf-locked" aria-disabled="true"/g)).toHaveLength(2);
+    expect(strip).toContain("2h<svg");
     expect(strip).toContain("7d<svg");
+    expect(html).not.toContain("interval=2h");
     expect(html).not.toContain("interval=7d");
     // The switch script ships with the page (and is allowed by its CSP hash like any other).
     expect(html).toContain("a[data-cvd-switch]");
@@ -2655,8 +2662,12 @@ describe("cvd", () => {
     ]);
     // A locked or unknown interval is the default, not an error.
     seen.length = 0;
-    await get("/cvd?interval=7d", data);
-    expect(seen[0]).toMatchObject({ barMinutes: 15 });
+    for (const key of ["2h", "7d", "3m"]) await get(`/cvd?interval=${key}`, data);
+    expect(seen.map((o) => [o.barMinutes, o.windowHours])).toEqual([
+      [15, 24],
+      [15, 24],
+      [15, 24],
+    ]);
   });
 
   test("every screener row selects its asset, through the symbol's own link", async () => {
