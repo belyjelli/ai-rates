@@ -176,7 +176,7 @@ describe("pages", () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/html");
-    expect(res.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    expect(res.headers.get("x-robots-tag")).toBeNull();
     expect(html).toContain('class="hero-asset" href="/markets/asset/BTC">BTC<');
     expect(html).toContain("Long on <a");
     expect(html).toContain("Gate");
@@ -2134,8 +2134,9 @@ describe("pages", () => {
       expect(html).toContain(`id="${id}"`);
     }
     // The claims most likely to drift from the code, pinned so a change has to touch this test.
-    expect(html).toContain("sets no cookies");
-    expect(html).toContain("does not record your IP address");
+    expect(html).toContain("Google Analytics");
+    expect(html).toContain("<code>_ga</code>");
+    expect(html).toContain("it does not record your IP address");
     expect(html).toContain("keeps them for three months");
     expect(await (await get("/", data)).text()).toContain(
       '<a href="/legal">legal &amp; privacy</a>',
@@ -2669,11 +2670,23 @@ describe("api", () => {
     expect((await get("/v1/pairs/NOPE/backtest?long=gate&short=okx", data)).status).toBe(404);
   });
 
-  test("robots.txt blocks crawlers before launch", async () => {
+  test("robots.txt allows crawlers and names the sitemap", async () => {
     const res = await get("/robots.txt", fakeData().data);
     expect(await res.text()).toBe(
-      "User-agent: *\nContent-Signal: ai-train=no, search=yes, ai-input=no\nDisallow: /\n\nSitemap: https://airrates.net/sitemap.xml\n",
+      "User-agent: *\nContent-Signal: ai-train=no, search=yes, ai-input=yes\nAllow: /\n\nSitemap: https://airrates.net/sitemap.xml\n",
     );
+  });
+
+  test("pages name their canonical address and publisher, and API answers credit the source", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/rates?tf=60d", data)).text();
+    expect(html).toContain('<link rel="canonical" href="https://airrates.net/rates">');
+    expect(html).toContain('"@type":"Dataset"');
+    expect(html).toContain('<meta property="og:url" content="https://airrates.net/rates">');
+    const api = await get("/v1/venues", data);
+    expect(api.headers.get("x-attribution")).toContain("airrates.net");
+    const body = (await (await get("/v1/health", data)).json()) as Record<string, unknown>;
+    expect(body.source).toBe("https://airrates.net");
   });
 
   test("sitemap.xml lists canonical page URLs as XML", async () => {
@@ -2684,6 +2697,35 @@ describe("api", () => {
     expect(body).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
     expect(body).toContain("<loc>https://airrates.net/</loc>");
     expect(body).toContain("<loc>https://airrates.net/about</loc>");
+    expect(body).not.toContain("/markets/asset/");
+    const cell = (venue_id: string) => ({
+      asset_class: "crypto" as const,
+      base: "BTC",
+      venue_id,
+      venue_symbol: `BTC-${venue_id}`,
+      apr: 1,
+      apr_7d: null,
+      apr_30d: null,
+      apr_60d: null,
+      open_interest_usd: 1_000,
+      asset_oi_usd: 2_000,
+    });
+    const withAssets = await get(
+      "/sitemap.xml",
+      fakeData({ heatmap: async () => [cell("gate"), cell("bybit")] }).data,
+    );
+    const listed = await withAssets.text();
+    expect(listed).toContain("<loc>https://airrates.net/markets/asset/BTC</loc>");
+    expect(listed.match(/markets\/asset\/BTC/g)).toHaveLength(1);
+    const broken = await get(
+      "/sitemap.xml",
+      fakeData({
+        heatmap: async () => {
+          throw new Error("down");
+        },
+      }).data,
+    );
+    expect(broken.status).toBe(200);
   });
 });
 

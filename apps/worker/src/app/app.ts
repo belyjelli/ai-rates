@@ -2,12 +2,15 @@ import { ASSET_CLASSES, type AssetClass, backtestDaily, dailyWindowStart } from 
 import { VENUES } from "@ai-rates/venues";
 import { about } from "../web/about";
 import { cvd } from "../web/cvd";
+import { esc } from "../web/format";
 import type { FundingHistory } from "../web/funding-chart";
 import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
 import { installAsset } from "../web/install";
+import { SITE_ORIGIN } from "../web/layout";
 import { legal } from "../web/legal";
 import { liquidations } from "../web/liquidations";
 import * as pages from "../web/pages";
+import { assetHref } from "../web/pages";
 import { referralCta } from "../web/referral";
 import { referralLinks } from "../web/referral-links";
 import { sentiment } from "../web/sentiment";
@@ -35,6 +38,7 @@ import {
   LIQUIDATION_VENUE_EACH,
   LIQUIDATION_WINDOWS,
   liquidationsToQuery,
+  MAX_HEATMAP_LIMIT,
   parseArbitrageParams,
   parseBacktestDays,
   parseBacktestParams,
@@ -696,7 +700,14 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     }
 
     if (path === "/sitemap.xml") {
-      const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${SITEMAP_PATHS.map((p) => `  <url><loc>${SITE_ORIGIN}${p}</loc></url>`).join("\n")}\n</urlset>\n`;
+      // The assets with the most open interest, one page of the rates grid. The fixed pages must
+      // still list when the database is busy, so a failed read costs only the asset pages.
+      const cells = await deps.data
+        .heatmap({ limit: MAX_HEATMAP_LIMIT, offset: 0, minVenues: HEATMAP_MIN_VENUES })
+        .catch(() => []);
+      const assets = [...new Map(cells.map((c) => [assetHref(c.base, c.asset_class), c])).keys()];
+      const paths = [...SITEMAP_PATHS, ...assets];
+      const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paths.map((p) => `  <url><loc>${SITE_ORIGIN}${esc(p)}</loc></url>`).join("\n")}\n</urlset>\n`;
       return new Response(body, {
         headers: {
           "content-type": "application/xml; charset=utf-8",
@@ -706,9 +717,8 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     }
 
     if (path === "/robots.txt") {
-      // Pre-launch: keep the site out of search engines until the legal checklist is done.
       return new Response(
-        `User-agent: *\nContent-Signal: ai-train=no, search=yes, ai-input=no\nDisallow: /\n\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`,
+        `User-agent: *\nContent-Signal: ai-train=no, search=yes, ai-input=yes\nAllow: /\n\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`,
         {
           headers: {
             "content-type": "text/plain; charset=utf-8",
@@ -726,10 +736,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
   }
 }
 
-/** The canonical origin, for the sitemap: a URL there must not depend on the host that was asked. */
-const SITE_ORIGIN = "https://airrates.net";
-
-/** The public pages with a fixed address. Per-asset pages are left out; they are reached by link. */
+/** The public pages with a fixed address. The busiest assets are added from the data. */
 const SITEMAP_PATHS = [
   "/",
   "/screener",
@@ -922,15 +929,26 @@ function htmlResponse(html: string, status = 200): Response {
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": status === 200 ? `public, max-age=${PAGE_MAX_AGE}` : "no-store",
-      "x-robots-tag": "noindex, nofollow",
+      // Pages are for search engines; the not-found and busy pages are not.
+      ...(status === 200 ? {} : { "x-robots-tag": "noindex" }),
     },
   });
 }
 
+/** Said in every successful API answer, as a field and a header, so a copy of the data names its source. */
+const ATTRIBUTION =
+  "Data from airrates.net. Please credit and link https://airrates.net when you reuse it.";
+
 function json(body: unknown, status = 200, maxAge = API_MAX_AGE): Response {
-  return Response.json(body, {
+  const credited =
+    status === 200 && body !== null && typeof body === "object" && !Array.isArray(body)
+      ? { ...body, attribution: ATTRIBUTION, source: SITE_ORIGIN }
+      : body;
+  return Response.json(credited, {
     status,
     headers: {
+      link: `<${SITE_ORIGIN}>; rel="canonical"`,
+      "x-attribution": ATTRIBUTION,
       "cache-control": status === 200 && maxAge > 0 ? `public, max-age=${maxAge}` : "no-store",
       "x-robots-tag": "noindex, nofollow",
     },

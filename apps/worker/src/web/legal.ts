@@ -3,7 +3,7 @@ import { currentLocale, tr } from "./i18n";
 import { layout } from "./layout";
 
 /** When the text below last changed. Update it with any edit a reader would notice. */
-const UPDATED = "15 September 2026";
+const UPDATED = "7 October 2026";
 
 /**
  * The body of a page that stays in English whatever the reader's language: legal text binds in one
@@ -24,7 +24,8 @@ export function englishOnly(body: string): string {
  *
  * Every factual claim about data handling here must stay true of the code, and changes with it:
  *   - what a page view records: app/visits.ts;
- *   - the one sessionStorage value: web/live.ts;
+ *   - the Google Analytics tag: GA_TAG in web/layout.ts (and probe/render.ts), plus the events in share.ts and install.ts;
+ *   - the sessionStorage value in web/live.ts and the localStorage value in web/install.ts;
  *   - the IP-keyed backtest limiter: withinRate in app/app.ts and BACKTEST_LIMITER in wrangler.jsonc;
  *   - where referral links can appear: app/geo.ts and web/referral.ts.
  * Drafted from plans/phase0-referrals-legal.md §3 for counsel to review; it is not legal advice.
@@ -67,17 +68,18 @@ export function legal(data: { overview: Overview; now: number }): string {
 <article id="privacy">
 <h2>Privacy</h2>
 <ul>
-<li>airrates has no accounts and sets no cookies. It loads no advertising, tracking or third-party scripts, fonts or images.</li>
-<li><b>Page views.</b> When you open a page, airrates records the page's path, the country Cloudflare associates with the request, and the short source tag in the link you followed if it has one (for example <code>?ref=x</code>). It does not record your IP address or any identifier, so it cannot tell visitors apart or follow anyone from page to page. These counts are stored in Cloudflare Workers Analytics Engine, which keeps them for three months.</li>
+<li>airrates has no accounts and shows no advertising. It loads no third-party fonts or images. It loads one third-party script: Google Analytics, described below.</li>
+<li><b>Google Analytics.</b> To see how the site is used, every page loads Google Analytics 4 (Google Ireland Limited and Google LLC). It sets cookies in your browser (<code>_ga</code> and <code>_ga_*</code>, kept for up to two years), and it receives your IP address, your browser and device details, the page you opened, where you came from, and a few events such as using the share or install buttons. Google uses a cookie identifier to recognise a returning browser, and may process this data in the United States. airrates uses it only for aggregate statistics: it does not use it for advertising, and does not link it to any person. You can block it with your browser's tracking protection, a content blocker or Google's <a href="https://tools.google.com/dlpage/gaoptout">opt-out add-on</a>, and the site works the same without it. See <a href="https://policies.google.com/technologies/partner-sites">how Google uses data from sites that use its services</a>.</li>
+<li><b>Page views.</b> Separately from Google Analytics, when you open a page airrates records the page's path, the country Cloudflare associates with the request, and the short source tag in the link you followed if it has one (for example <code>?ref=x</code>). In this count it does not record your IP address or any identifier, so it cannot tell visitors apart or follow anyone from page to page. These counts are stored in Cloudflare Workers Analytics Engine, which keeps them for three months.</li>
 <li><b>Backtest limits.</b> To stop one client overloading the backtester, its requests are counted per IP address for one minute at the Cloudflare location that served them. airrates does not store these counts.</li>
-<li><b>Location.</b> Your country, as Cloudflare reports it, also decides whether a referral link may be shown to you. It is not kept beyond the page-view count above.</li>
+<li><b>Location.</b> Your country, as Cloudflare reports it, also decides whether a referral link may be shown to you. airrates keeps it only in the page-view count above; Google Analytics works out its own location from your IP address.</li>
 <li><b>Hosting.</b> The site runs on Cloudflare, which processes requests, including IP addresses, to deliver and protect it, under <a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a>.</li>
 </ul>
 </article>
 <article id="storage">
 <h2>Storage in your browser</h2>
 <ul>
-<li>airrates keeps one value in your browser's session storage: the version of the site it last loaded, so that a page reloads once, rather than repeatedly, after a new version is released. It is deleted when you close the tab and is never sent to airrates or anyone else.</li>
+<li>Beyond the Google Analytics cookies above, airrates keeps two values in your browser, neither sent to anyone. In session storage: the version of the site it last loaded, so that a page reloads once, rather than repeatedly, after a new version is released; it is deleted when you close the tab. In local storage: the time you dismissed the offer to install the site as an app, so the offer does not return for a while; it stays until you clear your site data.</li>
 </ul>
 </article>
 <article id="contact">

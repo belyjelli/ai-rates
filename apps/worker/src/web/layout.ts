@@ -61,6 +61,60 @@ export const GA_TAG = `<!-- Google tag (gtag.js) -->
   gtag('config', '${GA_ID}');
 </script>`;
 
+/** The one origin pages name as their own, so a copy found elsewhere points back here. */
+export const SITE_ORIGIN = "https://airrates.net";
+
+/** Pages that are a dataset in their own right, for the structured data below. */
+const DATASET_PATHS = ["/rates", "/arbitrage", "/cvd", "/liquidations", "/sentiment", "/markets"];
+
+/**
+ * What a crawler needs to credit the page: its canonical address (the path alone, so ?tf= and ?ref=
+ * variants fold into one), social-card tags, and JSON-LD naming the site and its publisher. The
+ * data pages also declare a Dataset with this site as creator and a citation line.
+ */
+function discoverability(title: string, description: string, path: string): string {
+  const url = `${SITE_ORIGIN}${path === "/" ? "/" : path.replace(/\/$/, "")}`;
+  const graph: Record<string, unknown>[] = [
+    {
+      "@type": "WebSite",
+      "@id": `${SITE_ORIGIN}/#site`,
+      url: `${SITE_ORIGIN}/`,
+      name: "airrates",
+      publisher: { "@id": `${SITE_ORIGIN}/#org` },
+    },
+    {
+      "@type": "Organization",
+      "@id": `${SITE_ORIGIN}/#org`,
+      name: "airrates",
+      url: `${SITE_ORIGIN}/`,
+    },
+  ];
+  if (DATASET_PATHS.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+    graph.push({
+      "@type": "Dataset",
+      name: `${title} · airrates`,
+      description,
+      url,
+      creator: { "@id": `${SITE_ORIGIN}/#org` },
+      isAccessibleForFree: true,
+      citation: `airrates, ${url}`,
+    });
+  }
+  // "<" is escaped so no field can close the script element.
+  const ld = JSON.stringify({ "@context": "https://schema.org", "@graph": graph }).replace(
+    /</g,
+    "\\u003c",
+  );
+  return `<link rel="canonical" href="${esc(url)}">
+<meta property="og:site_name" content="airrates">
+<meta property="og:type" content="website">
+<meta property="og:title" content="${esc(title)} · airrates">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:url" content="${esc(url)}">
+<meta name="twitter:card" content="summary">
+<script type="application/ld+json">${ld}</script>`;
+}
+
 /** Hotkeys shown in the status bar. They are advertised, so they are implemented. */
 const KEYS: [string, string, string][] = [
   ["h", msg("spreads"), "/"],
@@ -659,10 +713,10 @@ export function layout(options: {
 ${GA_TAG}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
 <title>${esc(title)} · airrates</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📟</text></svg>">
 <meta name="description" content="${esc(description)}">
+${discoverability(title, description, path)}
 ${INSTALL_HEAD}
 <style>${CSS}${SHARE_CSS}${INSTALL_CSS}${HELP_CSS}</style>
 </head>
