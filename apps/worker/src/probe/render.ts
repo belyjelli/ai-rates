@@ -1,12 +1,16 @@
 import type { Venue } from "@ai-rates/venues";
-import { GA_TAG } from "../web/layout";
+import { helpHeading } from "../web/help";
+import { layout } from "../web/layout";
 import type { Verdict } from "./classify";
 import type { StoredRun } from "./execute";
 import type { ProbeResult } from "./runner";
-import type { RunnerDef } from "./runners";
 
 export interface RunnerSnapshot {
-  runner: RunnerDef;
+  /**
+   * Only what the page prints. Described here rather than imported from runners.ts, which leans on
+   * Worker-only globals (Env, DurableObjectLocationHint) that the test build does not load.
+   */
+  runner: { name: string; description: string };
   run: StoredRun | null;
 }
 
@@ -50,71 +54,24 @@ export function renderProbePage(
     })
     .join("");
 
-  return `<!doctype html>
-<html lang="en">
-<head>
-${GA_TAG}
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex">
-<title>airrates · venue geo-probe</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📟</text></svg>">
-<style>
-  /* Same terminal as the public pages: black ground, one monospace stack, no radius, tight rows.
-     Verdicts borrow the site tokens rather than a palette of their own, so green reads healthy
-     here exactly as it does everywhere else. */
-  :root { color-scheme: dark;
-    --bg:#000; --band:#0e0e0e; --ink:#d8d8d8; --muted:#7a7a7a; --dim:#494949; --rule:#242424;
-    --long:#5f87ff; --short:#ff5f5f; --accent:#c8f5a8; --warn:#e5e500;
-    --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace; }
-  * { box-sizing:border-box; border-radius:0; }
-  body { margin:0; background:var(--bg); color:var(--ink); font:12px/1.35 var(--mono);
-    font-variant-numeric:tabular-nums; -webkit-font-smoothing:antialiased; }
-  header { padding:12px 10px 10px; display:flex; gap:0 16px; align-items:baseline; flex-wrap:wrap; }
-  h1 { font:700 15px/1.2 var(--mono); text-transform:uppercase; letter-spacing:.04em; margin:0; }
-  p { margin:0; color:var(--muted); max-width:96ch; }
-  button { font:700 12px var(--mono); text-transform:uppercase; letter-spacing:.04em;
-    color:var(--bg); background:var(--ink); border:1px solid var(--ink); padding:2px 10px; cursor:pointer; }
-  button:hover { background:var(--accent); border-color:var(--accent); }
-  :focus-visible { outline:1px solid var(--accent); outline-offset:1px; }
-  .wrap { overflow:auto; max-height:calc(100vh - 110px); margin:0 10px 24px; border:1px solid var(--rule); }
-  table { border-collapse:collapse; width:auto; min-width:100%; }
-  th, td { padding:2px 8px; text-align:left; white-space:nowrap; }
-  th { position:sticky; top:0; z-index:2; background:var(--bg); font-weight:400;
-    text-transform:lowercase; letter-spacing:0; color:var(--muted);
-    border-bottom:1px solid var(--rule); vertical-align:bottom; }
-  td.venue, th:first-child { position:sticky; left:0; z-index:3; background:var(--bg); }
-  thead th:first-child { z-index:4; }
-  tbody tr:nth-child(4n+3), tbody tr:nth-child(4n+4) { background:var(--band); }
-  tbody tr:nth-child(4n+3) td.venue, tbody tr:nth-child(4n+4) td.venue { background:var(--band); }
-  tbody tr:hover td, tbody tr:hover td.venue { background:#161616; }
-  th > div:first-child { color:var(--ink); }
-  .sub { color:var(--dim); }
-  #msg { color:var(--muted); }
-  .type { display:inline-block; width:38px; color:var(--dim); text-transform:uppercase; }
-  .unverified { color:var(--warn); }
-  .cell { cursor:help; }
-  .n { color:var(--dim); }
-  .v-ok { color:var(--accent); }
-  .v-geo_blocked { color:var(--short); font-weight:700; }
-  .v-waf_challenge { color:var(--warn); font-weight:700; }
-  .v-rate_limited { color:var(--warn); }
-  .v-timeout, .v-network_error { color:var(--muted); }
-  .v-http_error, .v-not_found, .v-bad_body { color:var(--long); }
-  .v-unconfigured, .none { color:var(--dim); }
-</style>
-</head>
-<body>
-<header>
-  <p class="sub"><a href="/">← airrates</a></p>
-  <h1>Venue geo-probe</h1>
-  <p>Which Cloudflare locations can reach each venue's public API. Hover a cell for per-endpoint detail.</p>
-  <p class="sub">Reachability, not data: a venue can answer here and still return no markets. This page renders on its own, so it carries no site navigation beyond the link above.</p>
-  <button id="run" type="button">Run probes now</button>
-  <span id="msg" class="sub"></span>
-</header>
-<div class="wrap">
-<table>
+  // The site's own layout, so the brand, the nav and the clock sit exactly where they do on every
+  // other page. The page stays English and unindexed (the route sends noindex), and it reads no
+  // database, so the layout is given no overview and its status line stays empty.
+  return layout({
+    title: "Venue geo-probe",
+    description: "Which Cloudflare locations can reach each venue's public API.",
+    path: "/probe",
+    now,
+    body: `${helpHeading(
+      "h1",
+      "Venue geo-probe",
+      "probe",
+      `<p>Which Cloudflare locations can reach each venue's public API. Hover a cell for per-endpoint detail.</p><p>Reachability, not data: a venue can answer here and still return no markets.</p>`,
+    )}
+<div class="probe-controls"><button id="run" type="button">Run probes now</button><span id="msg" class="dim"></span></div>
+<style>${PROBE_CSS}</style>
+<div class="probe-wrap">
+<table class="probe">
 <thead><tr><th>Venue</th>${header}</tr></thead>
 <tbody>${rows}</tbody>
 </table>
@@ -125,10 +82,41 @@ ${GA_TAG}
     const res = await fetch("/v1/probe/run", { method: "POST" });
     msg.textContent = res.ok ? "Scheduled. Results appear in a minute or two; reload." : "Cooldown active, try again later.";
   });
-</script>
-</body>
-</html>`;
+</script>`,
+  });
 }
+
+/**
+ * The grid's own styles, scoped under .probe so nothing leaks into the site's: sticky venue column
+ * and header, banded rows, and verdicts in the site's tokens, so green reads healthy here exactly as
+ * it does everywhere else. Shipped with this page only.
+ */
+const PROBE_CSS = `
+.probe-controls{display:flex;align-items:baseline;gap:12px;margin:0 0 10px}
+.probe-controls button{font:700 12px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--bg);background:var(--ink);border:1px solid var(--ink);padding:2px 10px;cursor:pointer}
+.probe-controls button:hover{background:var(--accent);border-color:var(--accent)}
+.probe-wrap{overflow:auto;max-height:calc(100vh - 170px);border:1px solid var(--rule)}
+.probe{border-collapse:collapse;width:auto;min-width:100%}
+.probe th,.probe td{padding:2px 8px;text-align:left;white-space:nowrap}
+.probe th{position:sticky;top:0;z-index:2;background:var(--bg);font-weight:400;text-transform:lowercase;color:var(--muted);border-bottom:1px solid var(--rule);vertical-align:bottom}
+.probe td.venue,.probe th:first-child{position:sticky;left:0;z-index:3;background:var(--bg)}
+.probe thead th:first-child{z-index:4}
+.probe tbody tr:nth-child(4n+3),.probe tbody tr:nth-child(4n+4),.probe tbody tr:nth-child(4n+3) td.venue,.probe tbody tr:nth-child(4n+4) td.venue{background:#0e0e0e}
+.probe tbody tr:hover td{background:#161616}
+.probe th>div:first-child{color:var(--ink)}
+.probe .sub{color:var(--dim)}
+.probe .type{display:inline-block;width:38px;color:var(--dim);text-transform:uppercase}
+.probe .unverified{color:var(--warn)}
+.probe .cell{cursor:help}
+.probe .n{color:var(--dim)}
+.probe .v-ok{color:var(--accent)}
+.probe .v-geo_blocked{color:var(--short);font-weight:700}
+.probe .v-waf_challenge{color:var(--warn);font-weight:700}
+.probe .v-rate_limited{color:var(--warn)}
+.probe .v-timeout,.probe .v-network_error{color:var(--muted)}
+.probe .v-http_error,.probe .v-not_found,.probe .v-bad_body{color:var(--long)}
+.probe .v-unconfigured,.probe .none{color:var(--dim)}
+`;
 
 function cell(results: readonly ProbeResult[] | undefined): string {
   if (!results || results.length === 0) return `<td class="none">–</td>`;

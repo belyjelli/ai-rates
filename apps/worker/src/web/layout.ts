@@ -753,14 +753,18 @@ export function layout(options: {
       `<a href="${item.href}"${item.match(path) ? ' aria-current="page"' : ""}>${trMsg(item.label)}</a>`,
   ).join("");
   const keys = KEYS.map(([key, label]) => `<span><b>${key}</b>${trMsg(label)}</span>`).join("");
+  // A page that reads no database (the geo-probe, the error pages) passes no overview: it has no
+  // status to report, which is not the same as "no venue has reported".
   const status =
-    overview && overview.markets > 0
-      ? tr("{markets} markets · {venues} venues · updated {ago}", {
-          markets: overview.markets.toLocaleString("en-US"),
-          venues: overview.venues,
-          ago: since(overview.updated_at, now),
-        })
-      : tr("no venue has reported in five minutes");
+    overview === undefined
+      ? ""
+      : overview && overview.markets > 0
+        ? tr("{markets} markets · {venues} venues · updated {ago}", {
+            markets: overview.markets.toLocaleString("en-US"),
+            venues: overview.venues,
+            ago: since(overview.updated_at, now),
+          })
+        : tr("no venue has reported in five minutes");
   const sentimentBadge =
     overview && overview.sentiment_score !== null
       ? `<a class="sent-badge sent-${sentimentTone(overview.sentiment_score)}" href="/sentiment" title="${tr("Fear &amp; greed: click for the chart")}">${overview.sentiment_score.toFixed(0)} ${sentimentLabel(overview.sentiment_label)}</a>`
