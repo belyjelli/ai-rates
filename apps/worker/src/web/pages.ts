@@ -980,7 +980,7 @@ export function arbitrage(data: {
         { gap: formatGapBps(r.gap_bps), fee: formatGapBps(cost.takerBps) },
       );
       return `<tr data-k="${esc(assetKey(r.asset, r.asset_class))}">
-<td class="asset"><a href="${priceHref(r.asset, r.asset_class)}">${assetName(r.asset, r.asset_class)}</a>${
+<td class="asset"><a href="${priceHref(r.asset, r.asset_class)}" data-row-link>${assetName(r.asset, r.asset_class)}</a>${
         i < 3
           ? citeMark(
               tr(

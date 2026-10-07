@@ -16,6 +16,7 @@ import {
 } from "./i18n";
 import { INSTALL_CSS, INSTALL_HEAD } from "./install";
 import { LIVE_SCRIPT } from "./live";
+import { ROW_LINK_SCRIPT } from "./row-link";
 import { SHARE_CSS, shareBar, shareScript } from "./share";
 import { TAB_SCRIPT } from "./tabs";
 import { WEBMCP_SCRIPT } from "./webmcp";
@@ -217,6 +218,8 @@ table.sheet{border-collapse:collapse;width:100%}
 .sheet td{padding:2px 8px;white-space:nowrap}
 .sheet tbody tr:nth-child(4n+3),.sheet tbody tr:nth-child(4n+4){background:var(--band)}
 .sheet tbody tr:hover{background:#161616}
+/* A row that opens as a whole (row-link.ts) shows it before it is clicked. */
+.sheet tbody tr:has(a[data-row-link]){cursor:pointer}
 .sheet .num{text-align:right}
 .sheet th a{border:0;color:inherit}
 .sheet th a:hover{color:var(--accent)}
@@ -797,6 +800,7 @@ ${INSTALL_HEAD}
 <script>${LIVE_SCRIPT}</script>
 <script>${awaitScript()}</script>
 <script>${TAB_SCRIPT}</script>
+<script>${ROW_LINK_SCRIPT}</script>
 <script>${shareScript()}</script>
 <script>${WEBMCP_SCRIPT}</script>
 </body>

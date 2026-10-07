@@ -1250,6 +1250,17 @@ describe("pages", () => {
     expect(html).toContain('<span data-u="net">−6.0</span>');
   });
 
+  test("an arbitrage row opens its asset from anywhere on the row, through the asset's own link", async () => {
+    const { data } = fakeData({ arbitrage: async () => [gap()] });
+    const html = await (await get("/arbitrage", data)).text();
+    // The asset link is the row's target; the venue links keep their own.
+    expect(html).toMatch(/<td class="asset"><a href="\/price-pair\/[^"]+" data-row-link>/);
+    expect(html).not.toMatch(/class="venue"[^>]*data-row-link/);
+    // The script ships site-wide, once.
+    expect(html.split('a[data-row-link]").').length - 1).toBeLessThanOrEqual(1);
+    expect(html).toContain('row.querySelector("a[data-row-link]")');
+  });
+
   test("/v1/arbitrage echoes the parsed params and their canonical query", async () => {
     const { data } = fakeData({ arbitrage: async () => [] });
     const res = await get("/v1/arbitrage?min_bps=25&min_depth=10k", data);
