@@ -2704,6 +2704,10 @@ describe("api", () => {
     };
     expect(spec.openapi).toBe("3.1.0");
     expect(Object.keys(spec.paths)).toContain("/v1/rates");
+    const home = (await get("/", data)).headers.get("link") ?? "";
+    for (const rel of ["api-catalog", "service-desc", "service-doc", "describedby"]) {
+      expect(home).toContain(`rel="${rel}"`);
+    }
     const page = await (await get("/docs", data)).text();
     expect(page).toContain("GET /v1/rates");
   });

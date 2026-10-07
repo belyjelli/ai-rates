@@ -952,7 +952,7 @@ const DISCOVERY_LINKS = [
   '</.well-known/api-catalog>; rel="api-catalog"',
   '</v1/openapi.json>; rel="service-desc"; type="application/json"',
   '</docs>; rel="service-doc"; type="text/html"',
-  '</llms.txt>; rel="describedby"; type="text/plain"',
+  '</v1/openapi.json>; rel="describedby"; type="application/json"',
 ].join(", ");
 
 function htmlResponse(html: string, status = 200): Response {
