@@ -565,8 +565,11 @@ export interface LiquidationAssetMap {
    * and comparing the two venues is the whole point.
    */
   mark: number | null;
-  /** Open interest in this asset across every fresh market, in dollars; the pending model's input. */
-  open_interest_usd: number | null;
+  /**
+   * The collector's modeled pending liquidations (migration 027): dollars per 1% row below (longs)
+   * and above (shorts) the mark, nearest row first. Null when the collector has no fresh row.
+   */
+  pending: { longs: number[]; shorts: number[] } | null;
   cells: LiquidationAssetCell[];
   totals: LiquidationTotals[];
   /** Longs and shorts over time at `sideMinutes` grain, oldest first. Empty buckets are absent. */
@@ -1359,12 +1362,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       // arbitrage guard and the identity checks measure against. Both venue panels are banded off
       // this one price, so a row means the same dollars on the left and on the right.
       const [anchor] = await sql<
-        {
-          asset_class: AssetClass;
-          mark: number | null;
-          oi_usd: number | null;
-          reach_pct: number | null;
-        }[]
+        { asset_class: AssetClass; mark: number | null; reach_pct: number | null }[]
       >`
         WITH chosen AS (${chosenClass(sql, base, assetClass)}),
         anchor AS (
@@ -1378,21 +1376,6 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         )
         SELECT (SELECT asset_class FROM chosen) AS asset_class,
                (SELECT mark FROM anchor) AS mark,
-               -- Open interest on the venues whose liquidations this page reads, not the whole
-               -- market: the closed bars beside the pending strip only cover those feeds, and a
-               -- pending figure over every venue would compare a bigger book with a smaller one.
-               (SELECT sum(open_interest_usd)::float8 FROM market_latest
-                WHERE base = ${base}
-                  AND asset_class = (SELECT asset_class FROM chosen)
-                  AND observed_at > now() - ${FRESH_INTERVAL}::interval
-                  AND open_interest_usd > 0
-                  AND venue_id IN (
-                    SELECT DISTINCT l.venue_id FROM liquidations l
-                    JOIN market_latest m3
-                      ON m3.venue_id = l.venue_id AND m3.venue_symbol = l.venue_symbol
-                    WHERE l.liquidated_at > now() - ${windowInterval}::interval
-                      AND m3.base = ${base}
-                      AND m3.asset_class = (SELECT asset_class FROM chosen))) AS oi_usd,
                -- How far out the bulk of this asset's closes actually landed, as a percentage of the
                -- mark. The 90th percentile rather than the maximum: one liquidation 13% away would
                -- otherwise set the width for a day that happened inside 2%, which is the failure
@@ -1430,7 +1413,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           mark,
           band_pct: band,
           band_fitted: bandPct === null,
-          open_interest_usd: anchor?.oi_usd ?? null,
+          pending: null,
           cells: [],
           totals: [],
           sides: [],
@@ -1448,7 +1431,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           AND m.asset_class = ${resolvedClass}`;
 
       const sideSeconds = sideMinutes * 60;
-      const [cells, totals, sides] = await Promise.all([
+      const [cells, totals, sides, [pendingRow]] = await Promise.all([
         sql<LiquidationAssetCell[]>`
           WITH closes AS (${closes})
           SELECT venue_id,
@@ -1492,6 +1475,17 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                  coalesce(sum(notional_usd) FILTER (WHERE side = 'short'), 0)::float8 AS short_usd,
                  count(*)::int AS events
           FROM closes GROUP BY 1 ORDER BY 1`,
+
+        // Prepared by the collector every five minutes, one row per asset. A row older than three
+        // cycles is the collector having stopped, and a stale model drawn as current is worse than
+        // none, so it is refused here rather than by the page.
+        sql<{ long_usd: number[]; short_usd: number[] }[]>`
+          SELECT long_usd, short_usd FROM liquidation_pending
+          WHERE asset_class = ${resolvedClass} AND base = ${base}
+            AND computed_at > now() - interval '15 minutes'`
+          // Until migration 027 is applied and the collector has run, the table does not exist; the
+          // strip is an extra, so its absence must not take the whole page down with it.
+          .catch(() => []),
       ]);
 
       return {
@@ -1499,7 +1493,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         mark,
         band_pct: band,
         band_fitted: bandPct === null,
-        open_interest_usd: anchor?.oi_usd ?? null,
+        pending: pendingRow ? { longs: pendingRow.long_usd, shorts: pendingRow.short_usd } : null,
         cells: [...cells],
         totals: [...totals],
         sides: [...sides],

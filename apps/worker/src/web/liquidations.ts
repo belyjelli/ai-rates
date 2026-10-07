@@ -15,7 +15,7 @@ import {
   type LiquidationWindow,
   liquidationsToQuery,
 } from "../app/params";
-import { PENDING_ROWS, pendingBands } from "../app/pending";
+import { PENDING_ROWS } from "../app/pending";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { msg, tr, trMsg } from "./i18n";
@@ -755,9 +755,22 @@ function bandRows(reach: number): number[] {
  *
  * Each row carries its reading in data-read; slot-chart.ts puts it in the header line on hover or tap.
  */
-function pendingModel(map: LiquidationAssetMap): ReturnType<typeof pendingBands> | null {
-  if (map.mark === null || map.open_interest_usd === null) return null;
-  const model = pendingBands(map.open_interest_usd);
+function pendingModel(map: LiquidationAssetMap): {
+  longs: number[];
+  shorts: number[];
+  longTotal: number;
+  shortTotal: number;
+} | null {
+  const pending = map.pending;
+  if (map.mark === null || pending === null) return null;
+  if (pending.longs.length !== PENDING_ROWS || pending.shorts.length !== PENDING_ROWS) return null;
+  const sum = (rows: number[]) => rows.reduce((total, usd) => total + usd, 0);
+  const model = {
+    longs: pending.longs,
+    shorts: pending.shorts,
+    longTotal: sum(pending.longs),
+    shortTotal: sum(pending.shorts),
+  };
   return model.longTotal + model.shortTotal > 0 ? model : null;
 }
 

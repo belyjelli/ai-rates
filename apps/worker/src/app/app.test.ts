@@ -130,7 +130,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     liquidationAsset: async () => ({
       asset_class: "crypto" as const,
       mark: 2434.7,
-      open_interest_usd: null,
+      pending: null,
       band_pct: 1,
       band_fitted: true,
       cells: [],
@@ -604,7 +604,7 @@ describe("pages", () => {
   const liqAsset = (overrides: Partial<LiquidationAssetMap> = {}): LiquidationAssetMap => ({
     asset_class: "crypto",
     mark: 2_400,
-    open_interest_usd: null,
+    pending: null,
     band_pct: 1,
     band_fitted: false,
     cells: [
@@ -869,10 +869,16 @@ describe("pages", () => {
     expect(sides).toContain('data-u="lqc-long">$8.0M<');
   });
 
+  // What the collector would have written for roughly $2B of open interest.
+  const PENDING = {
+    longs: [4e6, 9e6, 11e6, 16e6, 24e6, 31e6, 20e6, 7e6, 3e6, 1e6],
+    shorts: [3e6, 8e6, 10e6, 13e6, 19e6, 22e6, 15e6, 6e6, 2e6, 1e6],
+  };
+
   test("the sides chart draws the modeled pending strip, and Pending off removes it", async () => {
     const { data } = fakeData({
       liquidationMap: async () => liqMap(),
-      liquidationAsset: async () => liqAsset({ open_interest_usd: 2_000_000_000 }),
+      liquidationAsset: async () => liqAsset({ pending: PENDING }),
     });
     const html = await (await get("/liquidations", data)).text();
     const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
@@ -899,7 +905,7 @@ describe("pages", () => {
     expect(offSides).toContain('href="/liquidations#sides"');
   });
 
-  test("the sides chart has no pending strip without open interest to model it from", async () => {
+  test("the sides chart has no pending strip when the collector has no fresh model", async () => {
     const { data } = fakeData({
       liquidationMap: async () => liqMap(),
       liquidationAsset: async () => liqAsset(),
