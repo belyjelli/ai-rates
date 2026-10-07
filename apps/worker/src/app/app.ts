@@ -40,7 +40,7 @@ import {
 import {
   arbitrageToQuery,
   type BacktestParams,
-  CVD_WINDOWS,
+  CVD_INTERVALS,
   DEFAULT_FILTERS,
   filtersToQuery,
   HEATMAP_MIN_VENUES,
@@ -259,7 +259,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         );
       }
       const params = parseCvdParams(url.searchParams);
-      const { hours, barMinutes } = CVD_WINDOWS[params.window];
+      const { hours, barMinutes } = CVD_INTERVALS[params.interval];
       const asset = address?.asset ?? "BTC";
       const [overview, flow] = await Promise.all([
         deps.data.overview(),

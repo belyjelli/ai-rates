@@ -1,8 +1,10 @@
 import type { AssetClass } from "@ai-rates/core";
 import type { CvdAssetRow, CvdBar, CvdData, Overview } from "../app/data";
 import {
-  CVD_WINDOW_KEYS,
-  CVD_WINDOWS,
+  CVD_DEFAULT_INTERVAL,
+  CVD_INTERVAL_KEYS,
+  CVD_INTERVALS,
+  CVD_LOCKED_INTERVALS,
   type CvdParams,
   type CvdSort,
   cvdToQuery,
@@ -126,7 +128,7 @@ function cvdChart(data: {
   now: number;
 }): string {
   const { label, bars, params, now } = data;
-  const { hours, barMinutes } = CVD_WINDOWS[params.window];
+  const { hours, barMinutes, span: window } = CVD_INTERVALS[params.interval];
   const bucketMs = barMinutes * 60_000;
   const current = Math.floor(now / bucketMs) * bucketMs;
   const count = Math.round((hours * 60) / barMinutes);
@@ -204,7 +206,19 @@ function cvdChart(data: {
     })
     .join("");
 
-  const tickHours = hours <= 1 ? 0.25 : hours <= 4 ? 1 : hours <= 24 ? 4 : 24;
+  // About four to eight labels at every span: hourly over 8h, daily over 4 days, weekly over 30.
+  const tickHours =
+    hours <= 1
+      ? 0.25
+      : hours <= 8
+        ? 1
+        : hours <= 24
+          ? 4
+          : hours <= 96
+            ? 24
+            : hours <= 384
+              ? 96
+              : 168;
   const tickMs = tickHours * 3_600_000;
   const xLabels: string[] = [];
   for (let ms = Math.ceil(fromMs / tickMs) * tickMs; ms < toMs; ms += tickMs) {
@@ -240,14 +254,14 @@ function cvdChart(data: {
   const cite = citeMark(
     tr("{asset} taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.", {
       asset: plainLabel(label),
-      window: params.window,
+      window,
       cvd: signedUsd(total),
       bought: formatUsd(bought),
       sold: formatUsd(sold),
     }),
   );
   const idle = cvdText(
-    tr("Last {window}", { window: esc(params.window) }),
+    tr("Last {window}", { window: esc(window) }),
     [bought, sold, prices.at(-1) ?? null],
     null,
     open,
@@ -269,7 +283,7 @@ function cvdChart(data: {
   return `<figure class="fchart cvd-chart" data-live="cvd-chart">${cite}
 <div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>${tr("Price")}</span><span><i class="cvd-key-cvd"></i>CVD <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span><span><i class="cvd-key-buy"></i>${tr("Net buy")}</span><span><i class="cvd-key-sell"></i>${tr("Net sell")}</span></div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}">
-<div class="fchart-plot cvd-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} price and cumulative volume delta over the last {window}", { asset: label, window: params.window }))}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${
+<div class="fchart-plot cvd-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} price and cumulative volume delta over the last {window}", { asset: label, window }))}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${
     pricePath.length > 1
       ? `<polyline class="cvd-price" points="${pricePath.join(" ")}"></polyline>`
       : ""
@@ -286,6 +300,92 @@ const SORT_LABELS: Record<CvdSort, string> = {
   ratio: msg("CVD / volume"),
   change: msg("Change"),
 };
+
+/** A small padlock in the text colour, for an interval that is shown but cannot be picked yet. */
+const LOCK_ICON =
+  '<svg class="tf-lock" viewBox="0 0 12 12" width="9" height="9" aria-hidden="true"><rect x="2" y="5" width="8" height="6.5" rx="1" fill="currentColor"></rect><path d="M4 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="currentColor" stroke-width="1.4"></path></svg>';
+
+/**
+ * Switching the interval in place.
+ *
+ * WHY NOT A PLAIN LINK. A full navigation repaints the header, the nav and the screener before the
+ * new chart arrives, and for the longer spans a cold render takes a second or two: the page goes
+ * blank and jumps. So a click on an interval keeps the page, puts an animated placeholder where the
+ * chart is (bars rising and falling in the chart's own colours, a spinner and "Loading 1h bars…"),
+ * dims the tiles and the table, and fetches the SAME address a plain click would have opened -- the
+ * edge cache treats it as any other visit -- then swaps the new page's <main> in and moves the
+ * address bar with pushState.
+ *
+ * It falls back to a real navigation on any failure, a modified click (new tab, new window), or a
+ * browser without fetch. Back and forward reload, which is plain and always right. live.ts keeps
+ * working across a swap because it polls location.href, which pushState has already moved.
+ */
+export const CVD_SWITCH_SCRIPT = `(() => {
+  if (!document.querySelector(".cvd-intervals") || !window.fetch || !window.DOMParser || !history.pushState) return;
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let busy = false;
+
+  const placeholder = (label) => {
+    const wrap = document.createElement("div");
+    wrap.className = "cvd-skel" + (still ? " cvd-skel-still" : "");
+    wrap.setAttribute("role", "status");
+    let bars = "";
+    for (let i = 0; i < 48; i++) {
+      // A fixed wave, not random: the same placeholder every time, so it reads as "loading", not data.
+      const h = 18 + Math.round(30 * Math.abs(Math.sin(i * 0.55)) + 12 * Math.abs(Math.cos(i * 1.7)));
+      bars += '<i class="' + (i % 3 === 0 ? "cvd-skel-sell" : "cvd-skel-buy") + '" style="height:' + h + '%;animation-delay:' + (i * 40) + 'ms"></i>';
+    }
+    wrap.innerHTML = '<div class="cvd-skel-bars">' + bars + '</div><p class="cvd-skel-msg"><span class="spin" aria-hidden="true"></span></p>';
+    wrap.querySelector(".cvd-skel-msg").append(label);
+    return wrap;
+  };
+
+  const go = async (link) => {
+    if (busy) return;
+    busy = true;
+    const href = link.href;
+    // Looked up per click: the strip is replaced with the rest of <main> on every switch.
+    const nav = link.closest(".cvd-intervals");
+    const main = document.querySelector("main");
+    const chart = document.getElementById("cvd-chart");
+    for (const a of nav.querySelectorAll("a")) {
+      const on = a === link;
+      a.classList.toggle("on", on);
+      if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    }
+    main.classList.add("cvd-switching");
+    main.setAttribute("aria-busy", "true");
+    if (chart) {
+      chart.style.minHeight = chart.offsetHeight + "px";
+      chart.replaceChildren(placeholder((nav.dataset.loading || "").replace("{interval}", link.dataset.cvdSwitch || "")));
+    }
+    try {
+      const res = await fetch(href, { credentials: "same-origin" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const fresh = new DOMParser().parseFromString(await res.text(), "text/html").querySelector("main");
+      if (!fresh) throw new Error("no main");
+      history.pushState(null, "", href);
+      main.innerHTML = fresh.innerHTML;
+      main.classList.remove("cvd-switching");
+      main.removeAttribute("aria-busy");
+      if (window.airratesHelp) window.airratesHelp(main);
+      busy = false;
+    } catch (_) {
+      location.href = href;
+    }
+  };
+
+  // Delegated, because the strip itself is replaced with the rest of <main> on every switch.
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest && event.target.closest("a[data-cvd-switch]");
+    if (!link || event.defaultPrevented || event.button !== 0) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (link.getAttribute("aria-current") === "page") { event.preventDefault(); return; }
+    event.preventDefault();
+    go(link);
+  });
+  addEventListener("popstate", () => location.reload());
+})();`;
 
 function sortKey(row: CvdAssetRow, sort: CvdSort): number {
   switch (sort) {
@@ -338,12 +438,22 @@ export function cvd(data: {
 </div>`;
 
   // --- controls ---------------------------------------------------------------------------------
-  const windowStrip = `<nav class="tf" aria-label="${tr("Window")}">${CVD_WINDOW_KEYS.map((key) => {
-    const href = esc((assetInAddress ? selfPath : "/cvd") + cvdToQuery({ ...params, window: key }));
-    return key === params.window
-      ? `<a class="on" href="${href}" aria-current="page">${key}</a>`
-      : `<a href="${href}">${key}</a>`;
-  }).join("")}</nav>`;
+  // The interval strip. Each link is an ordinary address (the page works without the script), and
+  // CVD_SWITCH_SCRIPT turns a click into an in-place swap behind a loading placeholder. The locked
+  // interval is not a link at all: there is nowhere for it to go yet.
+  const intervalStrip = `<nav class="tf cvd-intervals" aria-label="${tr("Interval")}" data-loading="${esc(tr("Loading {interval} bars…"))}">${CVD_INTERVAL_KEYS.map(
+    (key) => {
+      const href = esc(
+        (assetInAddress ? selfPath : "/cvd") + cvdToQuery({ ...params, interval: key }),
+      );
+      return key === params.interval
+        ? `<a class="on" href="${href}" aria-current="page" data-cvd-switch="${key}">${key}</a>`
+        : `<a href="${href}" data-cvd-switch="${key}">${key}</a>`;
+    },
+  ).join("")}${CVD_LOCKED_INTERVALS.map(
+    (key) =>
+      `<span class="tf-locked" aria-disabled="true" title="${esc(tr("Not available yet: there is not enough history for {interval} bars", { interval: key }))}">${key}${LOCK_ICON}</span>`,
+  ).join("")}</nav>`;
 
   // --- the screener table -----------------------------------------------------------------------
   const filtered = params.q ? rows.filter((row) => row.asset.includes(params.q)) : rows;
@@ -379,8 +489,8 @@ export function cvd(data: {
     .join("");
 
   const search = `<form class="cvd-search" method="get" action="${esc(assetInAddress ? selfPath : "/cvd")}">${
-    params.window !== "24h"
-      ? `<input type="hidden" name="window" value="${esc(params.window)}">`
+    params.interval !== CVD_DEFAULT_INTERVAL
+      ? `<input type="hidden" name="interval" value="${esc(params.interval)}">`
       : ""
   }${params.sort !== "volume" ? `<input type="hidden" name="sort" value="${esc(params.sort)}">` : ""}${
     params.asc ? '<input type="hidden" name="dir" value="asc">' : ""
@@ -392,7 +502,7 @@ export function cvd(data: {
 
   const table =
     rows.length === 0
-      ? `<p class="empty">${tr("No taker flow has been collected in the last {window}. Collection polls each venue every five minutes; a new deployment backfills about a week within its first hour.", { window: esc(params.window) })}</p>`
+      ? `<p class="empty">${tr("No taker flow has been collected in the last {window}. Collection polls each venue every five minutes; a new deployment backfills about a week within its first hour.", { window: esc(CVD_INTERVALS[params.interval].span) })}</p>`
       : `<div class="sheet-wrap"><table class="sheet cvd-table">
 <thead><tr><th class="num">#</th><th>${tr("Asset")}</th><th class="num">${tr("Price")}</th>${sortTh("change", tr("Reference market's first close to last close in the window"))}${sortTh("cvd", tr("Taker buys less taker sells, in dollars, summed over the polled venues"))}${sortTh("ratio", tr("CVD as a share of the window's taker volume"))}${sortTh("volume", tr("Taker buys plus taker sells, in dollars"))}<th class="num" title="${tr("Polled venues with flow for this asset")}">${tr("Venues")}</th><th title="${tr("Price and flow disagreeing by more than the thresholds above the table")}">${tr("Signal")}</th></tr></thead>
 <tbody data-live="cvd-rows">${body || `<tr><td colspan="9" class="dim">${tr("No asset matches “{q}”.", { q: esc(params.q) })}</td></tr>`}</tbody>
@@ -402,7 +512,7 @@ export function cvd(data: {
     flow.asset_class === null
       ? `<p class="empty">${tr("No live market lists {asset}, so there is no flow to chart.", { asset: esc(asset) })}</p>`
       : flow.bars.length === 0
-        ? `<p class="empty">${tr("No taker flow for {asset} in the last {window}. Only the ~100 assets deepest on {venues} are polled; pick one from the table below.", { asset: label, window: esc(params.window), venues: CVD_VENUES.map(venueName).join(", ") })}</p>`
+        ? `<p class="empty">${tr("No taker flow for {asset} in the last {window}. Only the ~100 assets deepest on {venues} are polled; pick one from the table below.", { asset: label, window: esc(CVD_INTERVALS[params.interval].span), venues: CVD_VENUES.map(venueName).join(", ") })}</p>`
         : cvdChart({ label, bars: flow.bars, params, now });
 
   const lag = flow.newest
@@ -430,10 +540,11 @@ export function cvd(data: {
         },
       )}</p><p>${tr("Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover either panel to read one bar beside the cursor; on a phone, tap and it reads in the line above the chart.")}</p>`,
     )}
-<div class="lq-controls">${windowStrip}</div>
+<div class="lq-controls">${intervalStrip}</div>
 ${tiles}
 <div id="cvd-chart" class="cvd-anchor">${chart}</div>
 <script>${SLOT_SCRIPT}</script>
+<script>${CVD_SWITCH_SCRIPT}</script>
 <div class="cvd-head"><h2 class="cvd-h2 has-help">${tr("CVD screener · net buying and selling by asset")}${helpButton("cvd-screener")}</h2>${search}</div>
 ${helpPanel("cvd-screener", `<p>${tr("Click an asset to chart it above. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.")}</p><p>${tr("Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.")}</p>`)}
 <p class="notes" data-live="cvd-asof">${lag}</p>

@@ -91,7 +91,11 @@ export const LIVE_SCRIPT = String.raw`(() => {
   // The deployed commit this page was built from. Refreshes only swap regions, never the page's CSS or
   // this script, so a tab opened before a deploy would keep an old layout for as long as it stays open.
   const build = document.body.dataset.build || "";
-  let pending = null, heldSince = 0, timer = 0, controller = null, lastPoll = 0, failures = 0;
+  let pending = null, pendingFor = "", heldSince = 0, timer = 0, controller = null, lastPoll = 0, failures = 0;
+  // The address without its fragment: what a poll fetched, compared with where the page is now. A
+  // page can move under a poll in flight (the CVD interval switch uses pushState), and a copy of the
+  // address it left must never be painted over the one it moved to.
+  const address = () => location.href.split("#")[0];
 
   // Clocks tick every second on their own, so their text is never evidence of new data. A nested
   // [data-u] is its own unit, so it is left out too: an open-interest figure moving inside a leg
@@ -242,6 +246,7 @@ export const LIVE_SCRIPT = String.raw`(() => {
     if (engaged() && Date.now() - heldSince < PERIOD) return void setTimeout(settle, 1e3);
     const doc = pending;
     pending = null;
+    if (pendingFor !== address()) return;
     apply(doc);
   };
 
@@ -262,9 +267,10 @@ export const LIVE_SCRIPT = String.raw`(() => {
     controller?.abort();
     controller = new AbortController();
     lastPoll = Date.now();
+    const asked = address();
     let next = PERIOD + 1e3;
     try {
-      const res = await fetch(location.href, { signal: controller.signal, cache: "no-store", credentials: "same-origin" });
+      const res = await fetch(asked, { signal: controller.signal, cache: "no-store", credentials: "same-origin" });
       if (!res.ok) throw new Error("HTTP " + res.status);
       // Land just after the edge copy expires, so the next request is a fresh render rather than
       // a second read of the copy this one got. Jitter spreads tabs that loaded together.
@@ -287,9 +293,15 @@ export const LIVE_SCRIPT = String.raw`(() => {
           return;
         }
       }
+      if (asked !== address()) {
+        // The page moved while this was in flight: drop it and ask for the new address soon.
+        schedule(1e3);
+        return;
+      }
       if (stamp && stamp[1] !== rendered) {
         rendered = stamp[1];
         const doc = new DOMParser().parseFromString(html, "text/html");
+        pendingFor = asked;
         if (pending) pending = doc;
         else {
           pending = doc;

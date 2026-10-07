@@ -427,27 +427,51 @@ export function liquidationAssetToQuery(params: LiquidationAssetParams): string 
 }
 
 /**
- * Windows the CVD page offers, and the bar width each one draws at.
+ * Bar intervals the CVD page offers, and the span each one charts.
  *
- * The floor is 5 minutes because that is the grain the venues publish taker flow at (migration 023),
- * so a 1-hour window is twelve bars and cannot be finer. Longer windows re-bucket to keep each chart
- * near a hundred bars, the same density the longs-vs-shorts chart settled on.
+ * THE READER PICKS THE BAR, NOT THE WINDOW (2026-10-07). The control used to be a window (1h, 4h,
+ * 24h, 7d) with the bar width derived from it; traders think in candles, so it now names the bar
+ * and the span follows: about 96 bars each, the density the longs-vs-shorts chart settled on. The
+ * table and the tiles sum the same span the chart draws, so everything on the page covers one
+ * stretch of time.
+ *
+ * The floor is 5 minutes because that is the grain the venues publish taker flow at (migration 023).
+ * The ceiling is history: taker_flow keeps 35 days (and held 27 when this was written), so 24-hour
+ * bars chart 30 days, and a 7-day bar -- offered, but locked -- would be four or five bars.
+ *
+ * Measured on production with the web role, 2026-10-07: the per-market sum over taker_flow took
+ * 0.2-0.9 s for 7, 16 and 30 days, so the long spans need no rollup yet.
  */
-export const CVD_WINDOWS = {
-  "1h": { hours: 1, barMinutes: 5 },
-  "4h": { hours: 4, barMinutes: 5 },
-  "24h": { hours: 24, barMinutes: 15 },
-  "7d": { hours: 168, barMinutes: 120 },
+export const CVD_INTERVALS = {
+  "5m": { barMinutes: 5, hours: 8, span: "8h" },
+  "15m": { barMinutes: 15, hours: 24, span: "24h" },
+  "1h": { barMinutes: 60, hours: 96, span: "4d" },
+  "4h": { barMinutes: 240, hours: 384, span: "16d" },
+  "24h": { barMinutes: 1440, hours: 720, span: "30d" },
 } as const;
 
-export type CvdWindow = keyof typeof CVD_WINDOWS;
-export const CVD_WINDOW_KEYS = Object.keys(CVD_WINDOWS) as CvdWindow[];
+export type CvdInterval = keyof typeof CVD_INTERVALS;
+export const CVD_INTERVAL_KEYS = Object.keys(CVD_INTERVALS) as CvdInterval[];
+/** Shown on the strip with a lock: not enough history yet to draw it. */
+export const CVD_LOCKED_INTERVALS = ["7d"] as const;
+export const CVD_DEFAULT_INTERVAL: CvdInterval = "15m";
+
+/**
+ * The old `?window=` addresses, kept working: each lands on the interval that draws the closest
+ * chart. 24h was 15-minute bars over a day, which is exactly the 15m interval.
+ */
+const CVD_LEGACY_WINDOWS: Record<string, CvdInterval> = {
+  "1h": "5m",
+  "4h": "5m",
+  "24h": "15m",
+  "7d": "1h",
+};
 
 export const CVD_SORTS = ["volume", "cvd", "ratio", "change"] as const;
 export type CvdSort = (typeof CVD_SORTS)[number];
 
 export interface CvdParams {
-  window: CvdWindow;
+  interval: CvdInterval;
   sort: CvdSort;
   /** Ascending instead of the default descending, so the heaviest selling can be put on top. */
   asc: boolean;
@@ -456,10 +480,14 @@ export interface CvdParams {
 }
 
 export function parseCvdParams(params: URLSearchParams): CvdParams {
-  const window = (params.get("window") ?? "").trim().toLowerCase();
+  const interval = (params.get("interval") ?? "").trim().toLowerCase();
+  const legacy = CVD_LEGACY_WINDOWS[(params.get("window") ?? "").trim().toLowerCase()];
   const sort = (params.get("sort") ?? "").trim().toLowerCase();
   return {
-    window: (CVD_WINDOW_KEYS as readonly string[]).includes(window) ? (window as CvdWindow) : "24h",
+    // Exact match against the allowlist: the interval becomes arithmetic inside the query.
+    interval: (CVD_INTERVAL_KEYS as readonly string[]).includes(interval)
+      ? (interval as CvdInterval)
+      : (legacy ?? CVD_DEFAULT_INTERVAL),
     sort: (CVD_SORTS as readonly string[]).includes(sort) ? (sort as CvdSort) : "volume",
     asc: params.get("dir") === "asc",
     // Matched in the page, never in SQL, and bounded so a pasted paragraph cannot become the key.
@@ -473,7 +501,7 @@ export function parseCvdParams(params: URLSearchParams): CvdParams {
 
 export function cvdToQuery(params: CvdParams): string {
   const query = new URLSearchParams();
-  if (params.window !== "24h") query.set("window", params.window);
+  if (params.interval !== CVD_DEFAULT_INTERVAL) query.set("interval", params.interval);
   if (params.sort !== "volume") query.set("sort", params.sort);
   if (params.asc) query.set("dir", "asc");
   if (params.q) query.set("q", params.q);

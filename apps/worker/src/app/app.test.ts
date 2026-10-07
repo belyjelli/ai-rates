@@ -2589,7 +2589,7 @@ describe("cvd", () => {
     expect(html.match(/window\.airratesSlots = true/g)).toHaveLength(1);
   });
 
-  test("the address picks the charted asset and the window picks the bar width", async () => {
+  test("the address picks the charted asset and the interval picks the bar width", async () => {
     const seen: CvdOptions[] = [];
     const { data } = fakeData({
       cvd: async (options) => {
@@ -2597,17 +2597,67 @@ describe("cvd", () => {
         return flow({ asset_class: "equity", bars: [] });
       },
     });
-    const html = await (await get("/cvd/equity/SNDK?window=7d&sort=cvd&dir=asc", data)).text();
+    const html = await (await get("/cvd/equity/SNDK?interval=4h&sort=cvd&dir=asc", data)).text();
+    // 4-hour bars over 16 days: about 96 of them.
     expect(seen).toEqual([
-      { windowHours: 168, barMinutes: 120, base: "SNDK", assetClass: "equity" },
+      { windowHours: 384, barMinutes: 240, base: "SNDK", assetClass: "equity" },
     ]);
-    // Links keep the window and the sort, and the charted row is marked.
-    // ...and land on the chart, not the top of the page.
-    expect(html).toContain('href="/cvd/ZEC?window=7d&amp;sort=cvd&amp;dir=asc#cvd-chart"');
+    // Links keep the interval and the sort, and land on the chart, not the top of the page.
+    expect(html).toContain('href="/cvd/ZEC?interval=4h&amp;sort=cvd&amp;dir=asc#cvd-chart"');
     expect(html).toContain('id="cvd-chart"');
     expect(html).toContain('aria-current="true"');
     // Sorted ascending by CVD, the heaviest net selling comes first.
     expect(html.indexOf('data-k="ZEC"')).toBeLessThan(html.indexOf('data-k="BTC"'));
+  });
+
+  test("the interval strip offers five bar sizes and shows 7d locked", async () => {
+    const seen: CvdOptions[] = [];
+    const { data } = fakeData({
+      cvd: async (options) => {
+        seen.push(options);
+        return flow();
+      },
+    });
+    const html = await (await get("/cvd", data)).text();
+    const strip = html.split('class="tf cvd-intervals"')[1]?.split("</nav>")[0] ?? "";
+    for (const key of ["5m", "15m", "1h", "4h", "24h"]) {
+      expect(strip).toContain(`data-cvd-switch="${key}">${key}<`);
+    }
+    // 15m is the default: the bare address, marked current, and it reads a day of 15-minute bars.
+    expect(strip).toContain('href="/cvd" aria-current="page" data-cvd-switch="15m"');
+    expect(strip).toContain('href="/cvd?interval=24h" data-cvd-switch="24h"');
+    expect(seen[0]).toMatchObject({ windowHours: 24, barMinutes: 15 });
+    // 7d is shown with a lock and is not a link anywhere.
+    expect(strip).toContain('<span class="tf-locked" aria-disabled="true"');
+    expect(strip).toContain("7d<svg");
+    expect(html).not.toContain("interval=7d");
+    // The switch script ships with the page (and is allowed by its CSP hash like any other).
+    expect(html).toContain("a[data-cvd-switch]");
+
+    // Every interval reads the span it charts.
+    seen.length = 0;
+    for (const key of ["5m", "1h", "24h"]) await get(`/cvd?interval=${key}`, data);
+    expect(seen.map((o) => [o.barMinutes, o.windowHours])).toEqual([
+      [5, 8],
+      [60, 96],
+      [1440, 720],
+    ]);
+    // A locked or unknown interval is the default, not an error.
+    seen.length = 0;
+    await get("/cvd?interval=7d", data);
+    expect(seen[0]).toMatchObject({ barMinutes: 15 });
+  });
+
+  test("old ?window= addresses land on the nearest interval", async () => {
+    const seen: CvdOptions[] = [];
+    const { data } = fakeData({
+      cvd: async (options) => {
+        seen.push(options);
+        return flow();
+      },
+    });
+    for (const window of ["1h", "4h", "24h", "7d"]) await get(`/cvd?window=${window}`, data);
+    expect(seen.map((o) => o.barMinutes)).toEqual([5, 5, 15, 60]);
   });
 
   test("an asset named in another script has a working address", async () => {
