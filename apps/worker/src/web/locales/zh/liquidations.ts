@@ -96,6 +96,13 @@ export const liquidations: Catalog = {
     "{low} 至 {high} 之间（当前 {mark}）的待触发爆仓（模型估算）：上方空头约 {shorts}，下方多头约 {longs}",
   "Pending range": "待触发范围",
   "Zoom in": "放大",
+  "Columns are time, in UTC. Each is a {hours}-hour block named by its start hour ({start} = {from}–{to}). Where the day changes, the column shows date/hour (7/00 = the 7th at 00:00 UTC). The yellow column is the block in progress and still filling.":
+    "列表示时间（UTC）。每列为 {hours} 小时，以开始时刻标注（{start} = {from}–{to}）。日期变化处显示为 日/时（7/00 = 7 日 00:00 UTC）。黄色列为当前时段，仍在累计。",
+  "'All' is that price row's total over the whole window.":
+    "「全部」为该价格行在整个时间窗口内的合计。",
+  "{month} {day} {hours} UTC": "{month}{day}日 {hours} UTC",
+  "{hours} UTC": "{hours} UTC",
+  "{range}, still filling": "{range}，仍在累计",
   "This tab did not load.": "此标签页未能加载。",
   "Try again": "重试",
   "Loading…": "加载中…",

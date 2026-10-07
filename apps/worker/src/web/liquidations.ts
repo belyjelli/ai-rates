@@ -154,6 +154,46 @@ function columnLabel(column: Column, bucketHours: number): string {
   return `${day}${label}`;
 }
 
+const clock = (hour: number) => `${String(hour % 24).padStart(2, "0")}:00`;
+
+/**
+ * A column header's full range, for its tooltip: "16:00–18:00 UTC", with the date where the label
+ * shows one ("Oct 7 00:00–02:00 UTC"), and said to be filling on the column still in progress.
+ */
+function columnTitle(column: Column, bucketHours: number): string {
+  const hour = column.start.getUTCHours();
+  const hours = `${clock(hour)}–${clock(hour + bucketHours)}`;
+  const range =
+    hour < bucketHours
+      ? tr("{month} {day} {hours} UTC", {
+          month: trMsg(MONTHS[column.start.getUTCMonth()] as string),
+          day: column.start.getUTCDate(),
+          hours,
+        })
+      : tr("{hours} UTC", { hours });
+  return column.partial ? tr("{range}, still filling", { range }) : range;
+}
+
+/**
+ * The "?" paragraph that reads the time columns, for the two per-asset grids that have them.
+ *
+ * The worked example follows the window's own block length, so it stays true on 48h (4-hour blocks)
+ * and 7d (12-hour blocks): the start hour is the last block start at or before 16:00. Only the Sides
+ * grid has an "All" column, so only it gets that sentence.
+ */
+function columnsHelp(bucketHours: number, withAll: boolean): string {
+  const start = Math.floor(16 / bucketHours) * bucketHours;
+  return `<p>${tr(
+    "Columns are time, in UTC. Each is a {hours}-hour block named by its start hour ({start} = {from}–{to}). Where the day changes, the column shows date/hour (7/00 = the 7th at 00:00 UTC). The yellow column is the block in progress and still filling.",
+    {
+      hours: bucketHours,
+      start: String(start).padStart(2, "0"),
+      from: clock(start),
+      to: clock(start + bucketHours),
+    },
+  )}${withAll ? ` ${tr("'All' is that price row's total over the whole window.")}` : ""}</p>`;
+}
+
 /**
  * Every control on the page builds its href through here.
  *
@@ -590,9 +630,9 @@ function assetPanel(data: {
     const head = cols
       .map(
         (column) =>
-          `<th class="num${column.partial ? " lq-now" : ""}" scope="col">${esc(
-            columnLabel(column, bucketHours),
-          )}</th>`,
+          `<th class="num${column.partial ? " lq-now" : ""}" scope="col" title="${esc(
+            columnTitle(column, bucketHours),
+          )}">${esc(columnLabel(column, bucketHours))}</th>`,
       )
       .join("");
 
@@ -679,7 +719,7 @@ function assetPanel(data: {
         )
   }</p>`;
   return `<div class="lq-controls">${picker}<nav class="tf" aria-label="${tr("Band width")}">${bandStrip}</nav>${helpButton("liq-price")}</div>
-${helpPanel("liq-price", explained)}
+${helpPanel("liq-price", `${explained}${columnsHelp(bucketHours, false)}`)}
 ${body}`;
 }
 
@@ -1072,7 +1112,7 @@ function sidesPanel(data: {
         (column, i) =>
           `<th class="num${column.partial ? " lq-now" : ""}${
             side === "short" && i === 0 ? " lq-split" : ""
-          }" scope="col">${esc(columnLabel(column, bucketHours))}</th>`,
+          }" scope="col" title="${esc(columnTitle(column, bucketHours))}">${esc(columnLabel(column, bucketHours))}</th>`,
       )
       .join("")}<th class="num lq-rowsum" scope="col">${tr("All")}</th>`;
 
@@ -1172,7 +1212,7 @@ ${helpPanel(
   `<p>${tr(
     "Showing <b>{asset}</b>, every exchange added together — the split by exchange is one tab along. Rows are the same {pct}% price bands, banded from <b>{mark}</b>. A long close is a forced SELL and a short close a forced BUY, so the heavier side is the one the move ran against. Any asset outside this list opens from a row on the map tab.",
     { asset: label, pct: bandPct, mark: formatPrice(mark) },
-  )}</p><p>${tr("Longs closed above the line, shorts closed below, on the same linear scale. Hover a bar to read it beside the cursor; on a phone, tap and it reads in the line above the chart. The last bar is still filling.")}</p>`,
+  )}</p><p>${tr("Longs closed above the line, shorts closed below, on the same linear scale. Hover a bar to read it beside the cursor; on a phone, tap and it reads in the line above the chart. The last bar is still filling.")}</p>${columnsHelp(bucketHours, true)}`,
 )}
 ${sidesChart({ label, points: map.sides, params, now, pending: { show: showPending, zoom: pendingZoom, strip: pendingStrip, map } })}
 ${table}`;

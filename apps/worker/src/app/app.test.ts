@@ -984,6 +984,56 @@ describe("pages", () => {
     expect(sides).toContain('aria-current="page">Zoom out<');
   });
 
+  test("the per-asset grids explain their time columns, and each header names its full range", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const sides = await tab("/liquidations", "sides", data);
+    const price = await tab("/liquidations", "price", data);
+
+    // 24h: two-hour blocks, so the worked example is exactly the 16:00 one.
+    for (const html of [sides, price]) {
+      expect(html).toContain(
+        "Each is a 2-hour block named by its start hour (16 = 16:00–18:00). Where the day changes, the column shows date/hour (7/00 = the 7th at 00:00 UTC). The yellow column is the block in progress and still filling.",
+      );
+    }
+    // Only Sides has an "All" column, so only Sides explains it.
+    expect(sides).toContain("'All' is that price row's total over the whole window.");
+    expect(price).not.toContain("is that price row");
+
+    // NOW is 12:00 UTC on Sep 12: a plain block, the block that starts the day, and the one filling.
+    for (const html of [sides, price]) {
+      expect(html).toContain('title="16:00–18:00 UTC">16<');
+      expect(html).toContain('title="Sep 12 00:00–02:00 UTC">12/00<');
+      expect(html).toContain('title="12:00–14:00 UTC, still filling">12<');
+    }
+
+    // Longer windows have longer blocks, and the example follows them.
+    expect(await tab("/liquidations?window=48h", "sides", data)).toContain("(16 = 16:00–20:00)");
+    expect(await tab("/liquidations?window=7d", "sides", data)).toContain("(12 = 12:00–00:00)");
+  });
+
+  test("the time-column help and tooltips read in Chinese", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const sides = await (
+      await handleApp(new Request("https://airates.test/liquidations?panel=sides"), {
+        data,
+        now: () => NOW,
+        locale: "zh",
+      })
+    ).text();
+    expect(sides).toContain(
+      "列表示时间（UTC）。每列为 2 小时，以开始时刻标注（16 = 16:00–18:00）。日期变化处显示为 日/时（7/00 = 7 日 00:00 UTC）。黄色列为当前时段，仍在累计。",
+    );
+    expect(sides).toContain("「全部」为该价格行在整个时间窗口内的合计。");
+    expect(sides).toContain('title="9月12日 00:00–02:00 UTC"');
+    expect(sides).toContain('title="12:00–14:00 UTC，仍在累计"');
+  });
+
   test("the sides chart has no pending strip when the collector has no fresh model", async () => {
     const { data } = fakeData({
       liquidationMap: async () => liqMap(),
