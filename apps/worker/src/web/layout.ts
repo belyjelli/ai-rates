@@ -314,6 +314,29 @@ box-shadow:inset 0 0 0 1px var(--ink)}
    the masthead, so its offset is zero; at eleven rows the table never needs it to stick anyway. */
 .heat-wrap.lq-box{overflow-x:auto;width:auto;min-width:0}
 .heat-wrap.lq-box .heat th{top:0}
+/* The Odds tab's two tables are read, not scanned: their row labels and readings are sentences, which
+   the no-wrap grid above turned into a column wider than a phone, with the figures off-screen. On a
+   phone every cell here wraps. The odds table is half label, half figures: the label column is half the
+   screen and stays put, and the four horizons (4 hours to 1 week) scroll sideways beside it, 64px each,
+   which is room for a move cell's up and down halves stacked. Half the screen is the box's width, as the
+   page's side padding is 10px. The theories table has no horizons, so it wraps to fit and never scrolls.
+   A group heading is one cell across every column, so its text sticks instead of the cell. */
+@media (max-width:860px){
+.heat-wrap.lq-read{max-height:none;border:0}
+.heat-wrap.lq-read .heat{table-layout:fixed;width:100%;min-width:0;border-spacing:0}
+.heat-wrap.lq-read .heat th,.heat-wrap.lq-read .heat td{position:static;white-space:normal;overflow-wrap:anywhere;padding:3px 4px;vertical-align:top}
+.heat-wrap.lq-read .lq-odds{min-width:calc(50vw - 10px + 256px)}
+.heat-wrap.lq-read .lq-odds thead th:first-child{width:calc(50vw - 10px)}
+.heat-wrap.lq-read .lq-odds th.asset{position:sticky;left:0;z-index:3;background:var(--bg);box-shadow:inset -1px 0 0 var(--rule),inset 0 -1px 0 var(--rule)}
+.heat-wrap.lq-read .lq-odds tr.lq-grp th.asset{position:static;box-shadow:inset 0 -1px 0 var(--rule)}
+.heat-wrap.lq-read .lq-gt{position:sticky;left:0;display:block;max-width:calc(100vw - 28px)}
+.heat-wrap.lq-read .lq-theories thead th:nth-child(1){width:24%}
+.heat-wrap.lq-read .lq-theories thead th:nth-child(2){width:34%}
+.heat-wrap.lq-read .lq-theories thead th:nth-child(3){width:12%}
+.heat-wrap.lq-read .lq-theories td{text-align:left}
+.heat-wrap.lq-read .lq-mv{display:block}
+.heat-wrap.lq-read .lq-sep{display:none}
+}
 /* Longs vs shorts over time: the funding chart's frame, with bars mirrored around one zero line. */
 .lqc .lqc-plot{height:260px}
 .lqc-grid{stroke:var(--rule);stroke-width:1;vector-effect:non-scaling-stroke}

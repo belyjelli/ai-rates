@@ -158,7 +158,7 @@ export function outlookPanel(data: {
       .map((cell) => `<td class="num">${cell}</td>`)
       .join("")}</tr>`;
   const section = (name: string) =>
-    `<tr class="lq-grp"><th class="asset" scope="colgroup" colspan="${horizons.length + 1}">${name}</th></tr>`;
+    `<tr class="lq-grp"><th class="asset" scope="colgroup" colspan="${horizons.length + 1}"><span class="lq-gt">${name}</span></th></tr>`;
 
   const rows: string[] = [];
   rows.push(
@@ -226,13 +226,15 @@ export function outlookPanel(data: {
         `±${move.pct}%`,
         horizons.map((horizon) => {
           const at = horizon.moves[index];
-          return at ? `↑ ${oddsText(at.above)} · ↓ ${oddsText(at.below)}` : "–";
+          return at
+            ? `<span class="lq-mv">↑ ${oddsText(at.above)}</span><span class="lq-sep"> · </span><span class="lq-mv">↓ ${oddsText(at.below)}</span>`
+            : "–";
         }),
       ),
     );
   });
 
-  const table = `<div class="heat-wrap lq-box"><table class="heat lq lq-odds">
+  const table = `<div class="heat-wrap lq-box lq-read"><table class="heat lq lq-odds">
 <thead><tr><th class="asset" scope="col">${tr("Within")}</th>${heading}</tr></thead>
 <tbody>${rows.join("\n")}</tbody>
 </table></div>`;
@@ -245,7 +247,7 @@ export function outlookPanel(data: {
         )}</td><td class="num">${leanText(reading)}</td><td>${statusText(reading)}</td></tr>`,
     )
     .join("\n");
-  const theoryTable = `<div class="heat-wrap lq-box"><table class="heat lq lq-theories">
+  const theoryTable = `<div class="heat-wrap lq-box lq-read"><table class="heat lq lq-theories">
 <thead><tr><th class="asset" scope="col">${tr("Theory")}</th><th scope="col">${tr("Reading now")}</th><th class="num" scope="col">${tr("Leans")}</th><th scope="col">${tr("Moves the odds?")}</th></tr></thead>
 <tbody>${theories}</tbody>
 </table></div>`;

@@ -49,6 +49,23 @@ describe("the screener's sheet scrolls to suit the screen", () => {
     expect(css).toMatch(/\.heat td\.asset\{[^}]*position:sticky;left:0/);
   });
 
+  test("the Odds tables wrap on a phone: labels take half the screen and the horizons scroll beside them", () => {
+    // The stylesheet has more than one phone block; this is the one that holds the Odds rules.
+    const at = css.indexOf(".heat-wrap.lq-read{");
+    expect(at).toBeGreaterThan(0);
+    expect(css.lastIndexOf("@media", at)).toBe(css.lastIndexOf("@media (max-width:860px){", at));
+    const phone = css.slice(at, css.indexOf("\n}\n", at));
+    // Wrapping cells in a fixed layout, not the heatmap's no-wrap grid.
+    expect(phone).toContain(".heat-wrap.lq-read .heat{table-layout:fixed;width:100%;");
+    expect(phone).toMatch(/\.lq-read \.heat td\{[^}]*white-space:normal/);
+    // The label column is half the box and sticks; the table is as wide as its horizons need.
+    expect(phone).toContain(".lq-read .lq-odds thead th:first-child{width:calc(50vw - 10px)}");
+    expect(phone).toMatch(/\.lq-read \.lq-odds th\.asset\{position:sticky;left:0;/);
+    expect(phone).toContain(".lq-read .lq-odds{min-width:calc(50vw - 10px + 256px)}");
+    // The scroll box is the stylesheet's own for .lq-box, which the Odds tables share.
+    expect(css).toContain(".heat-wrap.lq-box{overflow-x:auto;");
+  });
+
   test("a long strip of links wraps rather than widening a phone's page", () => {
     expect(css).toMatch(/\n\.tf\{[^}]*flex-wrap:wrap/);
   });
