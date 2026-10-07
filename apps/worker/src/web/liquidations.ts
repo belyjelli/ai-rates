@@ -724,16 +724,6 @@ function bandRows(reach: number): number[] {
   return bands;
 }
 
-/** The smallest 1-2-5 step at or above `usd`, so the axis reads $10M rather than $9.37M. */
-function niceCeil(usd: number): number {
-  if (!(usd > 0)) return 1_000;
-  const power = 10 ** Math.floor(Math.log10(usd));
-  for (const multiple of [1, 2, 2.5, 5, 10]) {
-    if (usd <= multiple * power) return multiple * power;
-  }
-  return 10 * power;
-}
-
 /**
  * Longs and shorts on one axis over the window: longs closed rise above zero, shorts closed fall
  * below it, one bar per `sideMinutes`.
@@ -772,7 +762,9 @@ function sidesChart(data: {
   const byBucket = new Map(points.map((point) => [point.bucket_start.getTime(), point]));
   let peak = 0;
   for (const point of points) peak = Math.max(peak, point.long_usd, point.short_usd);
-  const top = niceCeil(peak);
+  // The axis ends at the tallest bar, not at a round number above it: rounding up wasted up to half
+  // the plot (a $5.1M peak got a $10M axis) and flattened every other bar.
+  const top = peak > 0 ? peak : 1_000;
 
   // viewBox 1000 x 1000 with zero at 500: each side gets half the height and the same scale, so a
   // long bar and a short bar of equal height are equal money.

@@ -859,9 +859,10 @@ describe("pages", () => {
     // Longs rise and shorts fall from the same line; a bucket with no longs draws no long bar.
     expect(sides.match(/class="lqc-long"/g)?.length).toBe(1);
     expect(sides.match(/class="lqc-short"/g)?.length).toBe(2);
-    // Equal scales above and below, rounded to a readable step over the $7.97M peak.
-    expect(sides).toContain(">$10M<");
-    expect(sides).toContain(">−$10M<");
+    // Equal scales above and below, ending at the tallest bar ($7.97M) rather than a round number.
+    expect(sides).toContain(">$8M<");
+    expect(sides).toContain(">−$8M<");
+    expect(sides).toContain('class="lqc-long" x="907.71" y="0.00"');
     // The legend totals the window.
     expect(sides).toContain('data-u="lqc-long">$8.0M<');
   });
