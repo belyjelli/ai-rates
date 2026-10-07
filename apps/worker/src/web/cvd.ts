@@ -306,7 +306,7 @@ const LOCK_ICON =
   '<svg class="tf-lock" viewBox="0 0 12 12" width="9" height="9" aria-hidden="true"><rect x="2" y="5" width="8" height="6.5" rx="1" fill="currentColor"></rect><path d="M4 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="currentColor" stroke-width="1.4"></path></svg>';
 
 /**
- * Switching the interval in place.
+ * Switching the interval, or the charted asset, in place.
  *
  * WHY NOT A PLAIN LINK. A full navigation repaints the header, the nav and the screener before the
  * new chart arrives, and for the longer spans a cold render takes a second or two: the page goes
@@ -340,49 +340,97 @@ export const CVD_SWITCH_SCRIPT = `(() => {
     return wrap;
   };
 
+  const toChart = () => {
+    const chart = document.getElementById("cvd-chart");
+    if (!chart) return;
+    const box = chart.getBoundingClientRect();
+    // Only when the chart is out of sight: a reader picking an interval is already looking at it.
+    if (box.top < 0 || box.top > innerHeight * 0.5) chart.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
+  };
+
+  // link: an interval in the strip (data-cvd-switch) or an asset to chart (data-cvd-select).
   const go = async (link) => {
     if (busy) return;
     busy = true;
     const href = link.href;
-    // Looked up per click: the strip is replaced with the rest of <main> on every switch.
-    const nav = link.closest(".cvd-intervals");
     const main = document.querySelector("main");
     const chart = document.getElementById("cvd-chart");
-    for (const a of nav.querySelectorAll("a")) {
-      const on = a === link;
-      a.classList.toggle("on", on);
-      if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    // Looked up per click: the strip is replaced with the rest of <main> on every switch.
+    const nav = document.querySelector(".cvd-intervals");
+    let label = "";
+    if (link.dataset.cvdSwitch) {
+      for (const a of nav.querySelectorAll("a")) {
+        const on = a === link;
+        a.classList.toggle("on", on);
+        if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+      }
+      label = (nav.dataset.loading || "").replace("{interval}", link.dataset.cvdSwitch);
+    } else {
+      // The chosen row lights up at once, before the chart arrives.
+      for (const tr of document.querySelectorAll(".cvd-table tr.cvd-on")) tr.classList.remove("cvd-on");
+      const row = link.closest("tr");
+      if (row) row.classList.add("cvd-on");
+      label = (nav.dataset.loadingAsset || "").replace("{asset}", link.dataset.cvdSelect || "");
+      toChart();
     }
     main.classList.add("cvd-switching");
     main.setAttribute("aria-busy", "true");
     if (chart) {
       chart.style.minHeight = chart.offsetHeight + "px";
-      chart.replaceChildren(placeholder((nav.dataset.loading || "").replace("{interval}", link.dataset.cvdSwitch || "")));
+      chart.replaceChildren(placeholder(label));
     }
     try {
       const res = await fetch(href, { credentials: "same-origin" });
       if (!res.ok) throw new Error("HTTP " + res.status);
-      const fresh = new DOMParser().parseFromString(await res.text(), "text/html").querySelector("main");
+      const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+      const fresh = doc.querySelector("main");
       if (!fresh) throw new Error("no main");
       history.pushState(null, "", href);
       main.innerHTML = fresh.innerHTML;
+      // The tab's title names the charted asset ("ETH CVD"), so it moves with the chart.
+      if (doc.title) document.title = doc.title;
       main.classList.remove("cvd-switching");
       main.removeAttribute("aria-busy");
       if (window.airratesHelp) window.airratesHelp(main);
+      // Replacing <main> cuts a smooth scroll short; land it on the chart for a newly picked asset.
+      if (link.dataset.cvdSelect) {
+        const chart = document.getElementById("cvd-chart");
+        if (chart) chart.scrollIntoView({ block: "start" });
+      }
       busy = false;
     } catch (_) {
       location.href = href;
     }
   };
 
-  // Delegated, because the strip itself is replaced with the rest of <main> on every switch.
+  const modified = (event) => event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+
+  // Delegated, because the strip and the table are replaced with the rest of <main> on every switch,
+  // and live.ts swaps the table's rows every 30 seconds.
   document.addEventListener("click", (event) => {
-    const link = event.target.closest && event.target.closest("a[data-cvd-switch]");
-    if (!link || event.defaultPrevented || event.button !== 0) return;
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    if (link.getAttribute("aria-current") === "page") { event.preventDefault(); return; }
-    event.preventDefault();
-    go(link);
+    if (event.defaultPrevented || event.button !== 0 || !event.target.closest) return;
+    const link = event.target.closest("a[data-cvd-switch], a[data-cvd-select]");
+    if (link) {
+      if (modified(event)) return;
+      event.preventDefault();
+      if (link.getAttribute("aria-current")) {
+        if (link.dataset.cvdSelect) toChart();
+        return;
+      }
+      go(link);
+      return;
+    }
+    // Anywhere on a screener row selects it, not just the symbol: the row is the target. The symbol
+    // stays the real link, for the keyboard and for opening in a new tab. A click on anything else
+    // that acts, or one that ends a text selection, is left alone.
+    const row = event.target.closest(".cvd-table tbody tr");
+    if (!row || event.target.closest("a, button, input, select, textarea, label, summary")) return;
+    if (String(getSelection && getSelection()).trim()) return;
+    const select = row.querySelector("a[data-cvd-select]");
+    if (!select) return;
+    if (modified(event)) { window.open(select.href, "_blank", "noopener"); return; }
+    if (select.getAttribute("aria-current")) { toChart(); return; }
+    go(select);
   });
   addEventListener("popstate", () => location.reload());
 })();`;
@@ -441,7 +489,7 @@ export function cvd(data: {
   // The interval strip. Each link is an ordinary address (the page works without the script), and
   // CVD_SWITCH_SCRIPT turns a click into an in-place swap behind a loading placeholder. The locked
   // interval is not a link at all: there is nowhere for it to go yet.
-  const intervalStrip = `<nav class="tf cvd-intervals" aria-label="${tr("Interval")}" data-loading="${esc(tr("Loading {interval} bars…"))}">${CVD_INTERVAL_KEYS.map(
+  const intervalStrip = `<nav class="tf cvd-intervals" aria-label="${tr("Interval")}" data-loading="${esc(tr("Loading {interval} bars…"))}" data-loading-asset="${esc(tr("Loading {asset}…"))}">${CVD_INTERVAL_KEYS.map(
     (key) => {
       const href = esc(
         (assetInAddress ? selfPath : "/cvd") + cvdToQuery({ ...params, interval: key }),
@@ -476,7 +524,7 @@ export function cvd(data: {
       const selected = row.asset === asset && row.asset_class === chartClass;
       return `<tr data-k="${esc(assetKey(row.asset, row.asset_class))}"${selected ? ' class="cvd-on"' : ""}>
 <td class="num dim">${index + 1}</td>
-<td class="asset"><a href="${esc(`${cvdPath(row.asset, row.asset_class)}${cvdToQuery({ ...params, q: "" })}#cvd-chart`)}"${selected ? ' aria-current="true"' : ""}>${assetName(row.asset, row.asset_class)}</a></td>
+<td class="asset"><a href="${esc(`${cvdPath(row.asset, row.asset_class)}${cvdToQuery({ ...params, q: "" })}#cvd-chart`)}" data-cvd-select="${esc(row.asset)}"${selected ? ' aria-current="true"' : ""}>${assetName(row.asset, row.asset_class)}</a></td>
 <td class="num"><span data-u="price">${formatPrice(row.price)}</span></td>
 <td class="num${tone(row.change_pct)}"><span data-u="change">${signedPct(row.change_pct)}</span></td>
 <td class="num${tone(net(row))}"><span data-u="cvd">${signedUsd(net(row))}</span></td>

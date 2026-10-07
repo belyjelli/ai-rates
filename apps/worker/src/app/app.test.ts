@@ -2648,6 +2648,15 @@ describe("cvd", () => {
     expect(seen[0]).toMatchObject({ barMinutes: 15 });
   });
 
+  test("every screener row selects its asset, through the symbol's own link", async () => {
+    const { data } = fakeData({ cvd: async () => flow() });
+    const html = await (await get("/cvd?interval=1h", data)).text();
+    // The symbol stays a real link (keyboard, new tab); the script makes the rest of the row use it.
+    expect(html).toContain('href="/cvd/ZEC?interval=1h#cvd-chart" data-cvd-select="ZEC"');
+    expect(html).toContain('data-loading-asset="Loading {asset}…"');
+    expect(html).toContain('.cvd-table tbody tr");');
+  });
+
   test("old ?window= addresses land on the nearest interval", async () => {
     const seen: CvdOptions[] = [];
     const { data } = fakeData({

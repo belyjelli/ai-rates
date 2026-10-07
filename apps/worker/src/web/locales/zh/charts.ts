@@ -54,6 +54,7 @@ export const charts: Catalog = {
     "{asset} 最近 {window} 的主动成交 CVD：{cvd}。市价买方 {bought}，市价卖方 {sold}。",
   "Last {window}": "最近 {window}",
   "Loading {interval} bars…": "正在加载 {interval} 柱…",
+  "Loading {asset}…": "正在加载 {asset}…",
   "Not available yet: there is not enough history for {interval} bars":
     "暂不可用：历史数据不足以绘制 {interval} 柱",
   Price: "价格",

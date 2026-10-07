@@ -497,6 +497,8 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .cvd-search a{color:var(--muted)}
 .cvd-table tr.cvd-on td{background:#141a10}
 .cvd-table tr.cvd-on .asset a{color:var(--accent)}
+/* The whole row selects its asset (cvd.ts CVD_SWITCH_SCRIPT), so the whole row says so. */
+.cvd-table tbody tr[data-k]{cursor:pointer}
 .cvd-badge{font-size:11px;font-weight:700;text-transform:uppercase;padding:0 6px;border:1px solid currentColor}
 .cvd-badge-bullish{color:var(--long)}.cvd-badge-bearish{color:var(--short)}
 /* Slot readout (slot-chart.ts), shared by the CVD and longs-vs-shorts charts. The readout sits in the
