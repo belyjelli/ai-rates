@@ -938,6 +938,8 @@ describe("pages", () => {
     const off = await (await get("/liquidations?pending=0", data)).text();
     const offSides = off.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
     expect(offSides).not.toContain("Zoom out");
+    expect(sides).toContain(">Zoom in<");
+    expect(sides).toContain('aria-current="page">Zoom out<');
   });
 
   test("the sides chart has no pending strip when the collector has no fresh model", async () => {

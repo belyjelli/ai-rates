@@ -1349,7 +1349,8 @@ ${
             ? `<nav class="tf" aria-label="${tr("Pending range")}">${(["near", "wide"] as const)
                 .map((zoom) => {
                   const href = esc(controlHref(state, { zoom }, "#sides"));
-                  const text = zoom === "near" ? tr("±10%") : tr("Zoom out ½×–2×");
+                  // Plain words: the strip's own tick labels already say the range each one covers.
+                  const text = zoom === "near" ? tr("Zoom in") : tr("Zoom out");
                   return zoom === assetParams.zoom
                     ? `<a class="on" href="${href}" aria-current="page">${text}</a>`
                     : `<a href="${href}">${text}</a>`;

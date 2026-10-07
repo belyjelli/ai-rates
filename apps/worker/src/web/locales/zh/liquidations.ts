@@ -95,8 +95,8 @@ export const liquidations: Catalog = {
   "Modeled pending liquidations between {low} and {high}, around {mark}: about {shorts} of shorts above and {longs} of longs below":
     "{low} 至 {high} 之间（当前 {mark}）的待触发爆仓（模型估算）：上方空头约 {shorts}，下方多头约 {longs}",
   "Pending range": "待触发范围",
-  "±10%": "±10%",
-  "Zoom out ½×–2×": "缩小视图 ½×–2×",
+  "Zoom in": "放大",
+  "Zoom out": "缩小",
   "shorts liquidate if price rises": "价格上涨则空头被强平",
   "longs liquidate if price falls": "价格下跌则多头被强平",
   "pending is modeled": "待触发部分为模型估算",
