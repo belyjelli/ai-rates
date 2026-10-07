@@ -11,6 +11,7 @@ import { adminCredentials } from "./referrals/auth";
 import { forgetReferrals, loadReferrals } from "./referrals/load";
 import { ReferralStoreDO, referralStore } from "./referrals/store-do";
 import { DEFAULT_LOCALE, languageSwitch, requestLocale } from "./web/i18n";
+import { htmlToMarkdown, wantsMarkdown } from "./web/markdown";
 
 export { ProbeDO, ReferralStoreDO };
 
@@ -115,7 +116,7 @@ export default {
       unavailable: () => unavailableResponse(new URL(request.url).pathname, Date.now(), locale),
       log: console.error,
     });
-    return varyByLanguage(response);
+    return varyByLanguage(await asMarkdown(request, response));
   },
 } satisfies ExportedHandler<Env>;
 
@@ -127,8 +128,32 @@ export default {
  * the JSON API reads the same in every language.
  */
 function varyByLanguage(response: Response): Response {
-  if (!response.headers.get("content-type")?.startsWith("text/html")) return response;
+  const type = response.headers.get("content-type") ?? "";
+  if (!type.startsWith("text/html") && !type.startsWith("text/markdown")) return response;
   const out = new Response(response.body, response);
-  out.headers.append("vary", "Cookie, Accept-Language");
+  out.headers.append("vary", "Cookie, Accept-Language, Accept");
+  return out;
+}
+
+/**
+ * The page as Markdown for a caller that asked for it (`Accept: text/markdown`). Done after the edge
+ * cache, so the cache keeps one HTML copy per URL and the conversion is cheap string work on it.
+ * Anything that is not a 200 page with a <main> goes out unchanged.
+ */
+async function asMarkdown(request: Request, response: Response): Promise<Response> {
+  if (
+    request.method !== "GET" ||
+    response.status !== 200 ||
+    !wantsMarkdown(request.headers.get("accept")) ||
+    !response.headers.get("content-type")?.startsWith("text/html")
+  ) {
+    return response;
+  }
+  const markdown = htmlToMarkdown(await response.clone().text(), request.url);
+  if (markdown === null) return response;
+  const out = new Response(markdown, response);
+  out.headers.set("content-type", "text/markdown; charset=utf-8");
+  out.headers.delete("content-length");
+  out.headers.set("x-markdown-tokens", String(Math.ceil(markdown.length / 4)));
   return out;
 }
