@@ -37,16 +37,26 @@ const GA_SCRIPT = "https://*.googletagmanager.com";
 const GA_CONNECT =
   "https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com";
 const GA_IMG = "https://*.google-analytics.com https://*.googletagmanager.com";
+// Cloudflare Web Analytics: the zone injects this beacon at the edge, after the Worker, so it is the
+// one script on the page this code never sees. Found by the first live check on 2026-10-07: every
+// page refused it. Cloudflare documents exactly these two origins for it.
+const CF_BEACON_SCRIPT = "https://static.cloudflareinsights.com";
+const CF_BEACON_CONNECT = "https://cloudflareinsights.com";
 
-/** The policy for one page, given the hashes of its inline scripts ('sha256-...' tokens). */
+/**
+ * The policy for one page, given the hashes of its inline scripts ('sha256-...' tokens).
+ *
+ * After changing it, load the live pages in a browser and read the console, not just these tests:
+ * scripts the edge adds are invisible from here.
+ */
 export function contentSecurityPolicy(scriptHashes: readonly string[]): string {
   return [
     "default-src 'self'",
-    ["script-src 'self'", ...scriptHashes, GA_SCRIPT].join(" "),
+    ["script-src 'self'", ...scriptHashes, GA_SCRIPT, CF_BEACON_SCRIPT].join(" "),
     "style-src 'self' 'unsafe-inline'",
     // data: and blob: for the share card, which draws to a canvas and shows the PNG it made.
     `img-src 'self' data: blob: ${GA_IMG}`,
-    `connect-src 'self' ${GA_CONNECT}`,
+    `connect-src 'self' ${GA_CONNECT} ${CF_BEACON_CONNECT}`,
     "font-src 'self' data:",
     "object-src 'none'",
     "base-uri 'self'",

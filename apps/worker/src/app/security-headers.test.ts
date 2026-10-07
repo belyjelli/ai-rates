@@ -41,7 +41,11 @@ describe("scriptHash", () => {
 describe("contentSecurityPolicy", () => {
   test("allows only this page's scripts and Google Analytics, and refuses framing", () => {
     const policy = contentSecurityPolicy(["'sha256-abc'"]);
-    expect(policy).toContain("script-src 'self' 'sha256-abc' https://*.googletagmanager.com");
+    expect(policy).toContain(
+      "script-src 'self' 'sha256-abc' https://*.googletagmanager.com https://static.cloudflareinsights.com",
+    );
+    // Cloudflare's own analytics beacon, which the edge injects after the Worker.
+    expect(policy).toContain("https://cloudflareinsights.com");
     expect(policy).toContain("frame-ancestors 'none'");
     expect(policy).toContain("object-src 'none'");
     expect(policy).not.toContain("'unsafe-inline' https"); // never on scripts
