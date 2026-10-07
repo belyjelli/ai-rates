@@ -2744,6 +2744,13 @@ describe("api", () => {
       expect(e.type).toBeTruthy();
       expect(e.url !== undefined && e.data === undefined).toBe(true);
     }
+    const prm = (await (await get("/.well-known/oauth-protected-resource", data)).json()) as Record<
+      string,
+      unknown
+    >;
+    expect(prm.resource).toBe("https://airrates.net");
+    expect(prm).not.toHaveProperty("authorization_servers");
+    expect(await (await get("/auth.md", data)).text()).toContain("member.airrates.net/auth.md");
     const page = await (await get("/docs", data)).text();
     expect(page).toContain("GET /v1/rates");
   });

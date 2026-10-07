@@ -26,6 +26,7 @@ import {
   aiCatalog,
   apiCatalog,
   openApiSpec,
+  protectedResource,
   SKILL_PATH,
   skillMd,
   skillsIndex,
@@ -557,6 +558,15 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     }
     if (path === "/.well-known/ai-catalog.json") {
       return new Response(JSON.stringify(aiCatalog()), {
+        headers: {
+          "content-type": "application/json",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=3600",
+        },
+      });
+    }
+    if (path === "/.well-known/oauth-protected-resource") {
+      return new Response(JSON.stringify(protectedResource()), {
         headers: {
           "content-type": "application/json",
           "access-control-allow-origin": "*",

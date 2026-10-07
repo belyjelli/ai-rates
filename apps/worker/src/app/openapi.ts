@@ -200,9 +200,9 @@ None are supported. airrates publishes no OAuth Protected Resource Metadata and 
 - On a 503, wait for \`Retry-After\` and try again.
 - Please credit and link ${SITE_ORIGIN} when you reuse the data.
 
-## Accounts
+## Protected data
 
-A separate member area exists at https://member.airrates.net/ for people. It is not part of this API and has no agent registration flow described here.
+The member area at https://member.airrates.net/ is a separate service with its own credentials. Its API keys are created by a signed-in person, not over an API, and a worker presents one as \`Authorization: Bearer <key>\` on its relay connection. That service publishes its own auth.md (https://member.airrates.net/auth.md) and OAuth Protected Resource Metadata (https://member.airrates.net/.well-known/oauth-protected-resource). Nothing there is reachable with a key from this site, and there is no agent registration flow.
 `;
 
 /** The skill an agent can load to use the API. Built from ENDPOINTS so it lists what exists. */
@@ -321,5 +321,20 @@ export function aiCatalog(): Record<string, unknown> {
         "use the airrates api",
       ]),
     ],
+  };
+}
+
+/**
+ * RFC 9728 metadata for airrates.net itself. The resource is the public API: it takes no bearer
+ * token, so no method is listed and no authorization server is named. The protected resource is the
+ * member area, which publishes its own document on its own origin.
+ */
+export function protectedResource(): Record<string, unknown> {
+  return {
+    resource: SITE_ORIGIN,
+    resource_name: "airrates",
+    resource_documentation: `${SITE_ORIGIN}/docs`,
+    scopes_supported: [],
+    bearer_methods_supported: [],
   };
 }
