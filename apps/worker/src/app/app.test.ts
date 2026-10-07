@@ -2689,6 +2689,25 @@ describe("api", () => {
     expect(body.source).toBe("https://airrates.net");
   });
 
+  test("the API catalog, OpenAPI spec and docs page are served for discovery", async () => {
+    const { data } = fakeData();
+    const catalog = await get("/.well-known/api-catalog", data);
+    expect(catalog.status).toBe(200);
+    expect(catalog.headers.get("content-type")).toContain("application/linkset+json");
+    const { linkset } = (await catalog.json()) as { linkset: Record<string, unknown>[] };
+    expect(linkset[0]).toMatchObject({ anchor: "https://airrates.net/v1" });
+    for (const rel of ["service-desc", "service-doc", "status"])
+      expect(linkset[0]).toHaveProperty(rel);
+    const spec = (await (await get("/v1/openapi.json", data)).json()) as {
+      openapi: string;
+      paths: Record<string, unknown>;
+    };
+    expect(spec.openapi).toBe("3.1.0");
+    expect(Object.keys(spec.paths)).toContain("/v1/rates");
+    const page = await (await get("/docs", data)).text();
+    expect(page).toContain("GET /v1/rates");
+  });
+
   test("sitemap.xml lists canonical page URLs as XML", async () => {
     const res = await get("/sitemap.xml", fakeData().data);
     expect(res.status).toBe(200);

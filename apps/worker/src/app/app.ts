@@ -2,6 +2,7 @@ import { ASSET_CLASSES, type AssetClass, backtestDaily, dailyWindowStart } from 
 import { VENUES } from "@ai-rates/venues";
 import { about } from "../web/about";
 import { cvd } from "../web/cvd";
+import { docs } from "../web/docs";
 import { esc } from "../web/format";
 import type { FundingHistory } from "../web/funding-chart";
 import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
@@ -18,6 +19,7 @@ import { tos } from "../web/tos";
 import { VENUE_BY_ID } from "../web/venues";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import { type Referral, requestGeo } from "./geo";
+import { apiCatalog, openApiSpec } from "./openapi";
 import {
   buildOutlook,
   OUTLOOK_BAR_MINUTES,
@@ -479,6 +481,27 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       );
     }
 
+    if (path === "/docs") {
+      const overview = await deps.data.overview();
+      return page(() => docs({ overview, now }));
+    }
+
+    // Plain bodies, not json(): the attribution field it adds is not part of either document.
+    if (path === "/.well-known/api-catalog") {
+      return new Response(JSON.stringify(apiCatalog()), {
+        headers: {
+          "content-type":
+            'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"',
+          "cache-control": "public, max-age=3600",
+        },
+      });
+    }
+    if (path === "/v1/openapi.json") {
+      return new Response(JSON.stringify(openApiSpec()), {
+        headers: { "content-type": "application/json", "cache-control": "public, max-age=3600" },
+      });
+    }
+
     if (path === "/v1/health") {
       const overview = await deps.data.overview();
       const updatedAt = overview.updated_at?.getTime() ?? null;
@@ -750,6 +773,7 @@ const SITEMAP_PATHS = [
   "/about",
   "/legal",
   "/tos",
+  "/docs",
 ];
 
 /** Seconds a client is told to wait after a 503. Past the cooldown the edge cache applies to a failed render. */
@@ -923,12 +947,21 @@ function pickMarket(markets: readonly MarketRow[], venueId: string): MarketRow |
     .sort((a, b) => (b.open_interest_usd ?? 0) - (a.open_interest_usd ?? 0))[0];
 }
 
+/** Where an agent landing on any page finds the API: RFC 9727's catalog, and the spec and docs it lists. */
+const DISCOVERY_LINKS = [
+  '</.well-known/api-catalog>; rel="api-catalog"',
+  '</v1/openapi.json>; rel="service-desc"; type="application/json"',
+  '</docs>; rel="service-doc"; type="text/html"',
+  '</llms.txt>; rel="describedby"; type="text/plain"',
+].join(", ");
+
 function htmlResponse(html: string, status = 200): Response {
   return new Response(html, {
     status,
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": status === 200 ? `public, max-age=${PAGE_MAX_AGE}` : "no-store",
+      link: DISCOVERY_LINKS,
       // Pages are for search engines; the not-found and busy pages are not.
       ...(status === 200 ? {} : { "x-robots-tag": "noindex" }),
     },
