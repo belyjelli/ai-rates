@@ -40,6 +40,43 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-10-07",
+    title: "Arbitrage reads cleaner, and liquidation controls work in place",
+    changes: [
+      "The arbitrage table shows each side as its price, then the exchange, with a new Basis column: the sell price less the buy price, in the asset's own units. The Net, Ask size and Bid size columns are gone, and clicking anywhere on a row opens that asset's price page.",
+      "The size each price gap is good for is locked for now: its column shows a padlock, and the arbitrage API no longer returns it or the two sides' sizes.",
+      "On the liquidation map you can add up any combination of exchanges: each one in the strip switches on or off, and the grid sums the ones that are lit. The view with a separate panel per exchange is gone.",
+      "Picking exchanges, an asset, Pending on or off, the zoom or a band width now reloads only that tab instead of the whole page. The address still changes, so Back and shared links work as before.",
+      "The pending liquidations strip has a dollar scale along the bottom.",
+    ],
+  },
+  {
+    date: "2026-10-07",
+    title: "CVD by interval, and pending liquidations",
+    changes: [
+      "The CVD page lets you pick the bar interval: 5 minutes, 15 minutes, 1 hour, 4 hours or 24 hours. 2 hours and 7 days are shown but not available yet. Switching the interval, or clicking an asset's row, redraws the chart in place.",
+      "The Longs vs shorts chart can show modeled pending liquidations: how much of each side would be force-closed as the price moves through each band, estimated from open interest and leverage tiers rather than reported by exchanges. Pending off hides it, and Zoom out widens it from ±10% to half the price and double it.",
+      "The liquidation tabs you have not opened load when you first show them, so the page opens faster. The Longs vs shorts and Price levels help explains what each time column covers.",
+    ],
+  },
+  {
+    date: "2026-10-07",
+    title: "An Odds tab, and an API you can find",
+    changes: [
+      "The liquidations page has an Odds tab: for each time horizon, the chance the price reaches the heaviest forced-close level, or a move of a given size, estimated from the asset's own volatility. The theories about direction are listed with their current readings; none of them moves the odds yet.",
+      "There is an API docs page at /docs with an OpenAPI description. Search engines and AI agents can now find and read the site: a sitemap, an API catalog, and pages served as Markdown to agents that ask for it.",
+    ],
+  },
+  {
+    date: "2026-10-06",
+    title: "Chinese, and explanations behind a ?",
+    changes: [
+      "Every page can be read in Simplified Chinese: switch with language: English · 中文 at the foot of the page. A first visit follows your browser's language. The legal and status pages and this changelog stay in English, and the API is never translated.",
+      "Each page's explanation moved out of the way, into a ? beside its title or section heading.",
+      "On a phone, the rates grid and the liquidation map scroll in their own box with the header row and asset column kept in view. Longs vs shorts is one table, with the price column printed once.",
+    ],
+  },
+  {
     date: "2026-10-06",
     title: "Install it as an app, and charts that share properly",
     changes: [
