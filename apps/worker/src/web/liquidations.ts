@@ -293,7 +293,6 @@ function mapPanel(data: {
   const { map, params, strip, now } = data;
   const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
   const cols = columns(params, now);
-  const query = liquidationsToQuery(params);
 
   // Index once: the grid reads every (venue, asset, bucket) and a scan per cell would be quadratic
   // in a page that is already 2 x 13 x 12 cells.
@@ -489,6 +488,23 @@ ${title}
         )}</p>`
       : `<div class="lq-grid">${shown.map(panel).join("")}</div>`;
 
+  return `${venueStrip(strip, feeds)}
+${body}`;
+}
+
+/**
+ * The line under the whole page: how fresh the feed is, and the JSON behind the map. It used to sit
+ * between the venue strip and the grid, where it pushed the grid down on every tab.
+ */
+function mapFootnote(data: {
+  map: LiquidationMap;
+  params: LiquidationParams;
+  now: number;
+}): string {
+  const { map, params, now } = data;
+  const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
+  const query = liquidationsToQuery(params);
+
   // The newest forced close itself, from the per-venue totals. This used to be the newest CELL's
   // bucket_start, i.e. the start of the last 2-hour column, so it read "1h 11m ago" while a feed had
   // closed something 16 seconds earlier.
@@ -499,8 +515,7 @@ ${title}
   );
 
   // The explanation sits behind the badge; the line beside it keeps only what refreshes (help.ts).
-  return `${venueStrip(strip, feeds)}
-<p class="notes lq-note">${helpButton("liq-map")} <span data-live="lq-asof">${newest ? tr("Newest liquidation {age}.", { age: esc(ageText(newest, now)) }) : ""}</span> <a href="/v1/liquidations${esc(query)}">JSON</a></p>
+  return `<p class="notes lq-note">${helpButton("liq-map")} <span data-live="lq-asof">${newest ? tr("Newest liquidation {age}.", { age: esc(ageText(newest, now)) }) : ""}</span> <a href="/v1/liquidations${esc(query)}">JSON</a></p>
 ${helpPanel(
   "liq-map",
   `<p>${tr(
@@ -510,8 +525,7 @@ ${helpPanel(
     "Rows are the {count} busiest assets by notional across every feed, and the rest are summed into “other markets”, so the totals below the grid are real totals and add up.",
     { count: map.assets.length },
   )} ${tr("Any row opens that asset at the price it died at.")}</p>`,
-)}
-${body}`;
+)}`;
 }
 
 /**
@@ -1228,6 +1242,7 @@ ${
       })
 }
 </div>
+${mapFootnote({ map, params, now })}
 <p class="notes">${tr("Updated {ago}.", { ago: since(overview.updated_at, now) })}</p>
 <script>${SLOT_SCRIPT}</script>`,
   });
