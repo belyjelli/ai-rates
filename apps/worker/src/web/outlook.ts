@@ -149,7 +149,7 @@ export function outlookPanel(data: {
     )}</p>`;
   }
 
-  const { horizons, levels, readings, volatility } = outlook;
+  const { horizons, levels, readings, volatility, minLevelDistance } = outlook;
   const heading = horizons
     .map((horizon) => `<th class="num" scope="col">${horizonName(horizon.id)}</th>`)
     .join("");
@@ -193,6 +193,9 @@ export function outlookPanel(data: {
         ),
       );
     }
+  }
+  if (!levels.above && !levels.below) {
+    rows.push(section(tr("No forced-close level lies beyond the 4-hour typical move")));
   }
   if (levels.above && levels.below) {
     rows.push(section(tr("Whichever of those two it reaches first")));
@@ -257,6 +260,9 @@ ${helpPanel(
   )}</p><p>${tr(
     "The levels are where the most dollars were force-closed in the last {window}. Those positions are gone, so a heavy level is somewhere price has been, not fuel waiting for it. The collector does not keep open positions by price, so the resting map a liquidation magnet needs cannot be built yet.",
     { window: esc(window) },
+  )} ${tr(
+    "Levels closer than the 4-hour typical move ({pct}) are left out, because price is already standing in them.",
+    { pct: percentText(minLevelDistance, 2) },
   )}</p><p>${tr(
     "Real prices have fatter tails than this model assumes, so the far levels are reached more often than shown. Volatility is measured over the recent past and held constant.",
   )}</p>`,

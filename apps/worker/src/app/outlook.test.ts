@@ -211,6 +211,25 @@ describe("heaviestLevels", () => {
     expect(levels.above?.open).toBe(true);
   });
 
+  test("bands closer than the minimum distance are not levels, even when they are the heaviest", () => {
+    const levels = heaviestLevels({
+      mark: 100,
+      bandPct: 1,
+      reach,
+      minDistance: 0.02,
+      cells: [
+        { band: -1, notional_usd: 9_000 }, // 0.5% below: inside the floor
+        { band: 0, notional_usd: 9_000 }, // 0.5% above: inside the floor
+        { band: -3, notional_usd: 100 },
+        { band: 2, notional_usd: 50 },
+      ],
+    });
+    expect(levels.below?.usd).toBe(100);
+    expect(levels.above?.usd).toBe(50);
+    // Share is still of everything closed, so a level's weight is not inflated by the ones dropped.
+    expect(levels.below?.share).toBeCloseTo(100 / 18_150, 10);
+  });
+
   test("nothing closed means no level, not a level at the mark", () => {
     expect(heaviestLevels({ mark: 100, bandPct: 1, reach, cells: [] })).toEqual({
       below: null,
@@ -357,7 +376,7 @@ describe("buildOutlook", () => {
       { band: 1, notional_usd: 3_000_000 },
     ],
     sides: [] as LiquidationSidePoint[],
-    bandPct: 1,
+    bandPct: 2,
     reach: 4,
     fundingApr: 10,
     sentimentScore: 55,
@@ -386,6 +405,19 @@ describe("buildOutlook", () => {
   test("direction is a coin flip while the weights are zero", () => {
     const outlook = buildOutlook(input);
     for (const horizon of outlook?.horizons ?? []) expect(horizon.up).toBe(0.5);
+  });
+
+  test("levels inside the shortest horizon's typical move are left out of the odds", () => {
+    const outlook = buildOutlook({
+      ...input,
+      bandPct: 0.25,
+      cells: [
+        { band: 0, notional_usd: 9_000_000 },
+        { band: -1, notional_usd: 9_000_000 },
+      ],
+    });
+    expect(outlook?.minLevelDistance).toBeCloseTo((outlook?.volatility.perSqrtHour ?? 0) * 2, 10);
+    expect(outlook?.levels).toEqual({ below: null, above: null });
   });
 
   test("a level that does not exist leaves its cells empty, not zero", () => {

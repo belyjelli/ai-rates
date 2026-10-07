@@ -213,8 +213,14 @@ export function heaviestLevels(options: {
   bandPct: number;
   reach: number;
   mark: number;
+  /**
+   * Bands closer to the mark than this fraction are not levels. Forced closes of the last day sit
+   * where price has been standing, so without a floor the band touching the mark is the heaviest on
+   * both sides, price is already in it, and "the odds of reaching it" is a coin flip about nothing.
+   */
+  minDistance?: number;
 }): { below: LiquidationLevel | null; above: LiquidationLevel | null } {
-  const { cells, bandPct, reach, mark } = options;
+  const { cells, bandPct, reach, mark, minDistance = 0 } = options;
   const width = bandPct / 100;
   const byBand = new Map<number, number>();
   let all = 0;
@@ -235,7 +241,7 @@ export function heaviestLevels(options: {
     let distance: number;
     if (band >= 0) distance = open ? reach * width : (band + 0.5) * width;
     else distance = open ? (reach - 1) * width : -(band + 0.5) * width;
-    if (!(distance > 0)) continue;
+    if (!(distance > 0) || distance < minDistance) continue;
     const level: LiquidationLevel = {
       side,
       distance,
@@ -448,6 +454,8 @@ function orderedFirst(below: number, above: number, sigma: number) {
 export interface Outlook {
   volatility: Volatility;
   mark: number;
+  /** Levels nearer than this fraction of the mark were left out: the shortest horizon's typical move. */
+  minLevelDistance: number;
   levels: { below: LiquidationLevel | null; above: LiquidationLevel | null };
   horizons: HorizonOdds[];
   readings: TheoryReading[];
@@ -469,7 +477,9 @@ export function buildOutlook(input: {
   const volatility = realizedVolatility(bars);
   if (volatility === null) return null;
 
-  const levels = heaviestLevels({ cells, bandPct, reach, mark });
+  // The shortest horizon's 1-sigma move: inside it, price is already standing in the level.
+  const minLevelDistance = volatility.perSqrtHour * Math.sqrt(OUTLOOK_HORIZONS[0].hours);
+  const levels = heaviestLevels({ cells, bandPct, reach, mark, minDistance: minLevelDistance });
   const readings = theoryReadings({ bars, sides, volatility, fundingApr, sentimentScore, now });
   const logDistance = {
     below: (fraction: number) => -Math.log(1 - fraction),
@@ -496,7 +506,7 @@ export function buildOutlook(input: {
     };
   });
 
-  return { volatility, mark, levels, horizons, readings };
+  return { volatility, mark, minLevelDistance, levels, horizons, readings };
 }
 
 /**

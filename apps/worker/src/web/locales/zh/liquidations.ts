@@ -190,6 +190,9 @@ export const liquidations: Catalog = {
     "真实价格的尾部比此模型假设的更厚，所以较远的价位实际被触及的频率高于表中所示。波动率取自最近一段时间，并假设保持不变。",
   "Odds of reaching a level, from {asset}'s own volatility. They say how far it can go, not which way. The chance of closing higher stays at 50% until a theory below passes a test set in advance, after costs.":
     "触及某一价位的概率，依据 {asset} 自身的波动计算。它只说明能走多远，不说明往哪个方向。在下列任一假说通过事先设定的、扣除成本后的检验之前，收盘走高的概率保持 50%。",
+  "Levels closer than the 4-hour typical move ({pct}) are left out, because price is already standing in them.":
+    "距离小于 4 小时典型波动（{pct}）的价位已被排除，因为价格本来就停留在那里。",
+  "No forced-close level lies beyond the 4-hour typical move": "4 小时典型波动之外没有强平价位",
   "What the liquidation theories read now": "爆仓假说的当前读数",
   "A reading that leans one way is a hypothesis, not a signal: none of these has been shown to beat the base rate. The first three are measured against a fade, the way their test was written down in advance, and a flat reading leans nowhere.":
     "读数倾向某一方向只是假说，不是信号：目前没有任何一项被证明胜过基准概率。前三项按事先写定的检验方式，以回落（反向）为假设来衡量；读数持平则不指向任何方向。",
