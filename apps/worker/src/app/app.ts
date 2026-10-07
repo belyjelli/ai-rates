@@ -19,7 +19,7 @@ import { tos } from "../web/tos";
 import { VENUE_BY_ID } from "../web/venues";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import { type Referral, requestGeo } from "./geo";
-import { apiCatalog, openApiSpec } from "./openapi";
+import { AUTH_MD, apiCatalog, openApiSpec } from "./openapi";
 import {
   buildOutlook,
   OUTLOOK_BAR_MINUTES,
@@ -492,6 +492,14 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         headers: {
           "content-type":
             'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"',
+          "cache-control": "public, max-age=3600",
+        },
+      });
+    }
+    if (path === "/auth.md") {
+      return new Response(AUTH_MD, {
+        headers: {
+          "content-type": "text/markdown; charset=utf-8",
           "cache-control": "public, max-age=3600",
         },
       });

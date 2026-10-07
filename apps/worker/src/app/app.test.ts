@@ -2708,6 +2708,9 @@ describe("api", () => {
     for (const rel of ["api-catalog", "service-desc", "service-doc", "describedby"]) {
       expect(home).toContain(`rel="${rel}"`);
     }
+    const auth = await get("/auth.md", data);
+    expect(auth.headers.get("content-type")).toContain("text/markdown");
+    expect(await auth.text()).toMatch(/^# .*auth\.md/);
     const page = await (await get("/docs", data)).text();
     expect(page).toContain("GET /v1/rates");
   });

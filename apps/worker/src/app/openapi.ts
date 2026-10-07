@@ -168,3 +168,39 @@ export function apiCatalog(): Record<string, unknown> {
     ],
   };
 }
+
+/**
+ * /auth.md: how an agent gets access. The API takes no credentials and has no registration, so this
+ * says so rather than advertising OAuth metadata the service does not publish. Keep it true of the
+ * code: the limiter is withinRate in app.ts; member keys live in the separate member service.
+ */
+export const AUTH_MD = `# airrates auth.md
+
+This file tells an agent how to get access to airrates.
+
+## Audience
+
+Software agents and scripts reading airrates data.
+
+## Access
+
+The public API at ${SITE_ORIGIN}/v1 needs **no credentials and no registration**. Send a plain \`GET\`; there is nothing to sign up for, no token to obtain and no \`Authorization\` header to set. Every endpoint is read-only.
+
+- Endpoints: ${SITE_ORIGIN}/docs
+- OpenAPI: ${SITE_ORIGIN}/v1/openapi.json
+- Discovery: ${SITE_ORIGIN}/.well-known/api-catalog
+
+## Registration methods
+
+None are supported. airrates publishes no OAuth Protected Resource Metadata and no Authorization Server metadata, because there is nothing to authorize. There is no \`agent_auth\` endpoint; do not send registration requests to the site.
+
+## Limits
+
+- \`/v1/pairs/{asset}/backtest\` is rate limited per client address. A 429 carries a \`Retry-After\` header; wait that long.
+- On a 503, wait for \`Retry-After\` and try again.
+- Please credit and link ${SITE_ORIGIN} when you reuse the data.
+
+## Accounts
+
+A separate member area exists at https://member.airrates.net/ for people. It is not part of this API and has no agent registration flow described here.
+`;
