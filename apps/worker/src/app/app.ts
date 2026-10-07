@@ -16,6 +16,12 @@ import { VENUE_BY_ID } from "../web/venues";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import { type Referral, requestGeo } from "./geo";
 import {
+  buildOutlook,
+  OUTLOOK_BAR_MINUTES,
+  OUTLOOK_WINDOW_HOURS,
+  openInterestWeightedApr,
+} from "./outlook";
+import {
   arbitrageToQuery,
   type BacktestParams,
   CVD_WINDOWS,
@@ -265,18 +271,31 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         : busiest
           ? { asset: busiest.asset, assetClass: busiest.asset_class }
           : null;
-      const assetMap = wanted
-        ? await deps.data.liquidationAsset({
-            base: wanted.asset,
-            assetClass: wanted.assetClass,
-            windowHours: hours,
-            bucketHours,
-            bandPct: assetParams.band,
-            bandChoices: LIQUIDATION_BANDS,
-            reach: LIQUIDATION_BAND_REACH,
-            sideMinutes,
-          })
-        : null;
+      // The odds tab reads the same asset's week of closes and its funding beside the priced grid. A
+      // failed read of either leaves that tab saying it has too little history, not the page 500.
+      const [assetMap, oddsBars, oddsMarkets] = wanted
+        ? await Promise.all([
+            deps.data.liquidationAsset({
+              base: wanted.asset,
+              assetClass: wanted.assetClass,
+              windowHours: hours,
+              bucketHours,
+              bandPct: assetParams.band,
+              bandChoices: LIQUIDATION_BANDS,
+              reach: LIQUIDATION_BAND_REACH,
+              sideMinutes,
+            }),
+            deps.data
+              .assetBars({
+                base: wanted.asset,
+                assetClass: wanted.assetClass,
+                windowHours: OUTLOOK_WINDOW_HOURS,
+                barMinutes: OUTLOOK_BAR_MINUTES,
+              })
+              .catch(() => []),
+            deps.data.asset(wanted.asset, wanted.assetClass).catch(() => []),
+          ])
+        : [null, [], []];
       if (address && (!assetMap || assetMap.asset_class === null)) {
         return page(
           () =>
@@ -295,6 +314,19 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           asset: wanted?.asset ?? null,
           addressed: address !== null,
           assetMap,
+          outlook: assetMap
+            ? buildOutlook({
+                mark: assetMap.mark,
+                bars: oddsBars,
+                cells: assetMap.cells,
+                sides: assetMap.sides,
+                bandPct: assetMap.band_pct,
+                reach: LIQUIDATION_BAND_REACH,
+                fundingApr: openInterestWeightedApr(oddsMarkets),
+                sentimentScore: overview.sentiment_score,
+                now,
+              })
+            : null,
           params,
           assetParams,
           active: address ? "price" : "map",

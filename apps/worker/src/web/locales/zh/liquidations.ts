@@ -130,4 +130,67 @@ export const liquidations: Catalog = {
   "{asset} price levels": "{asset} 价格水平",
   Prices: "价格",
   "Updated {ago}.": "{ago}更新。",
+
+  // The odds tab.
+  Odds: "概率",
+  "{asset} odds": "{asset} 概率",
+  "Nothing has been force-closed in this window, so there is no asset to size.":
+    "此时间窗口内没有强制平仓，因此没有可估算波动的资产。",
+  "4 hours": "4 小时",
+  "6 hours": "6 小时",
+  "1 day": "1 天",
+  "1 week": "1 周",
+  Within: "时限",
+  "Typical move (1 sigma)": "典型波动（1 个标准差）",
+  "Closes higher than now": "收盘高于当前价",
+  "Reaches the heaviest forced-close level": "触及强平金额最大的价位",
+  "Whichever of those two it reaches first": "两者中先触及的一个",
+  "The upper one first": "先触及上方价位",
+  "The lower one first": "先触及下方价位",
+  Neither: "都没有触及",
+  "Reaches a move of": "触及以下涨跌幅",
+  "{price} ({where}) · {usd} closed, {share} of the window":
+    "{price}（{where}）· 平仓 {usd}，占窗口内 {share}",
+  Theory: "假说",
+  "Reading now": "当前读数",
+  Leans: "倾向",
+  "Moves the odds?": "是否影响概率？",
+  up: "上涨",
+  down: "下跌",
+  "Forced-close burst fades": "爆仓潮之后回落",
+  "Funding crowding fades": "资金费率拥挤之后回落",
+  "Stretch from the 50-hour average fades": "偏离 50 小时均线之后回归",
+  "Initiative vs absorption": "主动成交与承接",
+  "Fear and greed": "恐惧与贪婪",
+  "Liquidation magnet": "爆仓磁吸",
+  "Needs open positions by price level. The collector keeps closed ones only, so this cannot be read yet.":
+    "需要按价格水平划分的未平仓头寸。采集器只保存已平仓的记录，因此目前无法读取。",
+  "Fewer than 5 forced closes in the last 4 hours: too thin to call a burst.":
+    "最近 4 小时强制平仓不足 5 笔：样本太少，不足以判断爆仓潮。",
+  "Not enough data.": "数据不足。",
+  "{longs} of the last 4 hours' forced closes were longs ({usd} in all)":
+    "最近 4 小时的强制平仓中，多头占 {longs}（共 {usd}）",
+  "{apr} a year funding, weighted by open interest": "按持仓量加权的资金费率年化 {apr}",
+  "{sigma} bar-sigmas above its 50-hour average": "高于 50 小时均线 {sigma} 个 K 线标准差",
+  "{sigma} bar-sigmas below its 50-hour average": "低于 50 小时均线 {sigma} 个 K 线标准差",
+  "takers net buying {pct} of volume": "吃单净买入，占成交量 {pct}",
+  "takers net selling {pct} of volume": "吃单净卖出，占成交量 {pct}",
+  "{flow}, price {change} over 4 hours": "{flow}，4 小时内价格 {change}",
+  "{score} out of 100": "{score} / 100",
+  "No. Not yet tested, so it carries no weight.": "否。尚未通过检验，因此权重为零。",
+  "No. Context only: its claim never leans.": "否。仅作背景参考，它的假说不指向涨跌。",
+  "No. Cannot be computed.": "否。无法计算。",
+  "There is not yet enough price history for {asset} to size its moves, or no live market is publishing a mark. The odds need at least 12 hours of closes.":
+    "{asset} 的价格历史还不足以估算其波动，或者没有在线市场发布标记价格。概率至少需要 12 小时的收盘价。",
+  "These are the odds that <b>{asset}</b> reaches a price within each horizon, worked out from how far it has actually been moving: about {hourly} an hour over the last {hours} hours. They are not a forecast of direction.":
+    "这是 <b>{asset}</b> 在各个时限内触及某一价格的概率，依据它实际的波动幅度计算：最近 {hours} 小时约为每小时 {hourly}。这不是对方向的预测。",
+  "The levels are where the most dollars were force-closed in the last {window}. Those positions are gone, so a heavy level is somewhere price has been, not fuel waiting for it. The collector does not keep open positions by price, so the resting map a liquidation magnet needs cannot be built yet.":
+    "这些价位是最近 {window} 内强制平仓金额最大的位置。这些仓位已经不在了，所以金额大的价位只是价格走过的地方，并不是等着被触发的燃料。采集器不保存按价格划分的未平仓头寸，因此爆仓磁吸所需的挂单分布图目前还无法绘制。",
+  "Real prices have fatter tails than this model assumes, so the far levels are reached more often than shown. Volatility is measured over the recent past and held constant.":
+    "真实价格的尾部比此模型假设的更厚，所以较远的价位实际被触及的频率高于表中所示。波动率取自最近一段时间，并假设保持不变。",
+  "Odds of reaching a level, from {asset}'s own volatility. They say how far it can go, not which way. The chance of closing higher stays at 50% until a theory below passes a test set in advance, after costs.":
+    "触及某一价位的概率，依据 {asset} 自身的波动计算。它只说明能走多远，不说明往哪个方向。在下列任一假说通过事先设定的、扣除成本后的检验之前，收盘走高的概率保持 50%。",
+  "What the liquidation theories read now": "爆仓假说的当前读数",
+  "A reading that leans one way is a hypothesis, not a signal: none of these has been shown to beat the base rate. The first three are measured against a fade, the way their test was written down in advance, and a flat reading leans nowhere.":
+    "读数倾向某一方向只是假说，不是信号：目前没有任何一项被证明胜过基准概率。前三项按事先写定的检验方式，以回落（反向）为假设来衡量；读数持平则不指向任何方向。",
 };

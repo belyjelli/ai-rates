@@ -124,6 +124,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     bestVerifiedPair: async () => null,
     liquidationMap: async () => ({ cells: [], columnTotals: [], totals: [], assets: [] }),
     cvd: async () => ({ rows: [], asset_class: "crypto" as const, bars: [], newest: null }),
+    assetBars: async () => [],
     liquidationFeeds: async () => [],
     sentimentHistory: async () => [],
     liquidationAsset: async () => ({
@@ -770,6 +771,65 @@ describe("pages", () => {
     expect(sides).toContain("$12.0k");
     // Never the cell total: a view that forgot to split would print gate's $9.49M.
     expect(sides).not.toContain("$9.5M");
+  });
+
+  /** A week of half-hour closes that wobble around ETH's mark: enough history for the odds tab. */
+  const weekOfCloses = () =>
+    Array.from({ length: 336 }, (_, i) => ({
+      bucket_start: new Date(NOW - (336 - i) * 1_800_000),
+      buy_usd: 1_000_000,
+      sell_usd: 900_000,
+      price: 2434.7 * (1 + 0.004 * Math.sin(i * 1.7) + 0.002 * Math.cos(i * 0.31)),
+    }));
+
+  test("the odds tab sizes moves from a week of closes and keeps direction at a coin flip", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+      assetBars: async () => weekOfCloses(),
+    });
+    const html = await (await get("/liquidations/ETH", data)).text();
+
+    expect(html).toContain('data-tab="odds"');
+    const odds = html.split('data-tab-panel="odds"')[1];
+    expect(odds).toBeDefined();
+    // Four horizons as columns.
+    for (const label of ["4 hours", "6 hours", "1 day", "1 week"]) expect(odds).toContain(label);
+    // No theory has passed its test, so the direction row is exactly even at every horizon.
+    const row = odds.split("Closes higher than now")[1].split("</tr>")[0];
+    expect(row.split("50%").length - 1).toBe(4);
+    // Each reading says it is not moving the odds, and the magnet says why it cannot be read.
+    expect(odds).toContain("Not yet tested, so it carries no weight");
+    expect(odds).toContain("Liquidation magnet");
+    expect(odds).toContain("cannot be read yet");
+    // The heaviest levels come from the same cells the priced tab draws.
+    expect(odds).toContain("Reaches the heaviest forced-close level");
+    // Never a bare 100% or 0% for a model output.
+    expect(odds).not.toContain(">100%<");
+  });
+
+  test("the odds tab says so when there is too little price, and a failed read does not 500", async () => {
+    const thin = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+      assetBars: async () => weekOfCloses().slice(0, 6),
+    });
+    const html = await (await get("/liquidations/ETH", thin.data)).text();
+    expect(html.split('data-tab-panel="odds"')[1]).toContain("not yet enough price history");
+
+    const broken = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+      assetBars: async () => {
+        throw new Error("hyperdrive busy");
+      },
+      asset: async () => {
+        throw new Error("hyperdrive busy");
+      },
+    });
+    const res = await get("/liquidations/ETH", broken.data);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("not yet enough price history");
   });
 
   test("a side with nothing closed is silence, not a zero beside the other side", async () => {

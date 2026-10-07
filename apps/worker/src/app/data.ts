@@ -689,6 +689,11 @@ export interface DataSource {
   liquidationAsset(options: LiquidationAssetOptions): Promise<LiquidationAssetMap>;
   /** Taker flow for every polled asset over a window, and one asset's bars for the chart. */
   cvd(options: CvdOptions): Promise<CvdData>;
+  /**
+   * One asset's price and taker flow in bars, with none of cvd()'s all-asset ranking. The same bars
+   * the CVD chart draws, for the liquidations odds tab, which needs a week of one asset's closes.
+   */
+  assetBars(options: CvdOptions): Promise<CvdBar[]>;
   /** What each liquidation feed actually stored in the last day. */
   liquidationFeeds(): Promise<LiquidationFeedRow[]>;
   /** Fear/greed readings over the trailing window, oldest first, for the /sentiment chart. */
@@ -722,6 +727,50 @@ function chosenClass(sql: postgres.Sql, base: string, assetClass: AssetClass | n
     GROUP BY asset_class
     ORDER BY (asset_class = 'crypto') DESC, sum(open_interest_usd) DESC NULLS LAST, asset_class
     LIMIT 1`;
+}
+
+// The chart reads one asset, so it starts from that asset's markets (market_latest_class_base)
+// and walks taker_flow's primary key for each, instead of building every asset's flow and
+// throwing all but one away. Same reference rule as above, within the asset.
+function assetBarsQuery(
+  sql: postgres.Sql,
+  { base, assetClass, windowHours, barMinutes }: CvdOptions,
+) {
+  const windowInterval = `${windowHours} hours`;
+  const barSeconds = barMinutes * 60;
+  return sql<CvdBar[]>`
+    WITH chosen AS (${chosenClass(sql, base, assetClass)}),
+    mk AS (
+      SELECT ml.venue_id, ml.venue_symbol, nullif(k.multiplier, 0) AS mult
+      FROM market_latest ml
+      JOIN markets k ON k.venue_id = ml.venue_id AND k.venue_symbol = ml.venue_symbol
+      WHERE ml.base = ${base} AND ml.asset_class = (SELECT asset_class FROM chosen)
+    ),
+    flow AS (
+      SELECT t.venue_id, t.venue_symbol, t.bucket_start, t.buy_usd, t.sell_usd,
+             CASE WHEN t.close_price > 0 THEN t.close_price / mk.mult END AS price
+      FROM mk
+      JOIN taker_flow t ON t.venue_id = mk.venue_id AND t.venue_symbol = mk.venue_symbol
+      WHERE t.bucket_start > now() - ${windowInterval}::interval
+    ),
+    reference AS (
+      SELECT venue_id, venue_symbol
+      FROM flow WHERE price IS NOT NULL
+      GROUP BY venue_id, venue_symbol
+      ORDER BY sum(buy_usd + sell_usd) DESC, venue_id, venue_symbol
+      LIMIT 1
+    )
+    SELECT to_timestamp(floor(extract(epoch FROM f.bucket_start) / ${barSeconds})
+                        * ${barSeconds}) AS bucket_start,
+           sum(f.buy_usd)::float8 AS buy_usd,
+           sum(f.sell_usd)::float8 AS sell_usd,
+           ((array_agg(f.price ORDER BY f.bucket_start DESC) FILTER (
+              WHERE f.price IS NOT NULL AND f.venue_id = r.venue_id
+                AND f.venue_symbol = r.venue_symbol
+            ))[1])::float8 AS price
+    FROM flow f
+    LEFT JOIN reference r ON true
+    GROUP BY 1 ORDER BY 1`;
 }
 
 /**
@@ -1436,7 +1485,6 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
     async cvd({ windowHours, barMinutes, base, assetClass }) {
       const sql = connect();
       const windowInterval = `${windowHours} hours`;
-      const barSeconds = barMinutes * 60;
 
       // WHY THIS IS SHAPED AROUND ONE PASS AND NO JOIN ON THE RAW ROWS. The first version built a
       // `flow` CTE of every taker_flow row in the window and then joined the reference markets back
@@ -1502,42 +1550,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         GROUP BY n.asset, n.asset_class
         ORDER BY sum(n.buy_usd + n.sell_usd) DESC, n.asset`;
 
-      // The chart reads one asset, so it starts from that asset's markets (market_latest_class_base)
-      // and walks taker_flow's primary key for each, instead of building every asset's flow and
-      // throwing all but one away. Same reference rule as above, within the asset.
-      const barsQuery = sql<CvdBar[]>`
-        WITH chosen AS (${chosenClass(sql, base, assetClass)}),
-        mk AS (
-          SELECT ml.venue_id, ml.venue_symbol, nullif(k.multiplier, 0) AS mult
-          FROM market_latest ml
-          JOIN markets k ON k.venue_id = ml.venue_id AND k.venue_symbol = ml.venue_symbol
-          WHERE ml.base = ${base} AND ml.asset_class = (SELECT asset_class FROM chosen)
-        ),
-        flow AS (
-          SELECT t.venue_id, t.venue_symbol, t.bucket_start, t.buy_usd, t.sell_usd,
-                 CASE WHEN t.close_price > 0 THEN t.close_price / mk.mult END AS price
-          FROM mk
-          JOIN taker_flow t ON t.venue_id = mk.venue_id AND t.venue_symbol = mk.venue_symbol
-          WHERE t.bucket_start > now() - ${windowInterval}::interval
-        ),
-        reference AS (
-          SELECT venue_id, venue_symbol
-          FROM flow WHERE price IS NOT NULL
-          GROUP BY venue_id, venue_symbol
-          ORDER BY sum(buy_usd + sell_usd) DESC, venue_id, venue_symbol
-          LIMIT 1
-        )
-        SELECT to_timestamp(floor(extract(epoch FROM f.bucket_start) / ${barSeconds})
-                            * ${barSeconds}) AS bucket_start,
-               sum(f.buy_usd)::float8 AS buy_usd,
-               sum(f.sell_usd)::float8 AS sell_usd,
-               ((array_agg(f.price ORDER BY f.bucket_start DESC) FILTER (
-                  WHERE f.price IS NOT NULL AND f.venue_id = r.venue_id
-                    AND f.venue_symbol = r.venue_symbol
-                ))[1])::float8 AS price
-        FROM flow f
-        LEFT JOIN reference r ON true
-        GROUP BY 1 ORDER BY 1`;
+      const barsQuery = assetBarsQuery(sql, { windowHours, barMinutes, base, assetClass });
 
       // Four independent reads at once: the chart no longer waits on the class lookup, which it only
       // used to learn whether to run. With no live market the class is null, the chart's market list
@@ -1556,6 +1569,11 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         bars: [...bars],
         newest: newest[0]?.newest ?? null,
       };
+    },
+
+    async assetBars(options) {
+      const bars = await assetBarsQuery(connect(), options);
+      return [...bars];
     },
 
     async liquidationFeeds() {

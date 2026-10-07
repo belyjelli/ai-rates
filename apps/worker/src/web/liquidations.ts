@@ -1,5 +1,6 @@
 import type { AssetClass } from "@ai-rates/core";
 import type { LiquidationAssetMap, LiquidationMap, Overview } from "../app/data";
+import type { Outlook } from "../app/outlook";
 import {
   DEFAULT_LIQUIDATION_ASSETS,
   LIQUIDATION_BAND_REACH,
@@ -18,6 +19,7 @@ import { ageText, esc, formatPrice, formatUsd, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { msg, tr, trMsg } from "./i18n";
 import { layout } from "./layout";
+import { outlookPanel } from "./outlook";
 import { assetKey, assetName } from "./pages";
 import { citeMark, plainLabel } from "./share";
 import {
@@ -1083,13 +1085,16 @@ export function liquidations(data: {
   /** True when the ADDRESS named that asset, which is what every control link is built from. */
   addressed: boolean;
   assetMap: LiquidationAssetMap | null;
+  /** The odds tab's model, or null when the asset has too little price history to size its moves. */
+  outlook: Outlook | null;
   params: LiquidationParams;
   assetParams: LiquidationAssetParams;
   /** Which tab the server marks active. A hash in the URL still overrides it. */
-  active: "map" | "sides" | "price";
+  active: "map" | "sides" | "price" | "odds";
   now: number;
 }): string {
-  const { overview, map, asset, addressed, assetMap, params, assetParams, active, now } = data;
+  const { overview, map, asset, addressed, assetMap, outlook, params, assetParams, active, now } =
+    data;
   const state = {
     addressed: addressed ? asset : null,
     assetClass: assetMap?.asset_class ?? null,
@@ -1191,6 +1196,11 @@ ${tabBar({
       label: asset === null ? tr("By price level") : tr("{asset} price levels", { asset }),
       shortLabel: tr("Prices"),
     },
+    {
+      id: "odds",
+      label: asset === null ? tr("Odds") : tr("{asset} odds", { asset }),
+      shortLabel: tr("Odds"),
+    },
   ],
   activeId: active,
 })}
@@ -1212,6 +1222,18 @@ ${
 </div>
 <div class="tabpanel" role="tabpanel" id="panel-liq-price" data-tab-panel="price" aria-labelledby="tab-liq-price">
 ${priced}
+</div>
+<div class="tabpanel" role="tabpanel" id="panel-liq-odds" data-tab-panel="odds" aria-labelledby="tab-liq-odds">
+${
+  asset === null || assetMap === null
+    ? `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to size.")}</p>`
+    : outlookPanel({
+        label: assetName(asset, assetMap.asset_class ?? "crypto"),
+        outlook,
+        window: params.window,
+        picker: assetStrip(state, map.assets, asset, "#odds"),
+      })
+}
 </div>
 <p class="notes">${tr("Updated {ago}.", { ago: since(overview.updated_at, now) })}</p>
 <script>${SLOT_SCRIPT}</script>`,
