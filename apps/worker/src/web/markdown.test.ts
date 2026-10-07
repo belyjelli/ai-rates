@@ -28,6 +28,14 @@ describe("htmlToMarkdown", () => {
     expect(md).toContain("- [two](https://example.com/)");
   });
 
+  test("keeps adjacent links apart", () => {
+    const two = htmlToMarkdown(
+      '<main><div><a href="/a">a</a><a href="/b">b</a></div></main>',
+      "https://airrates.net/",
+    );
+    expect(two).toContain("[a](https://airrates.net/a) [b](https://airrates.net/b)");
+  });
+
   test("turns tables into pipe tables", () => {
     expect(md).toContain(
       "| asset | spread |\n| --- | --- |\n| [BTC](https://airrates.net/markets/asset/BTC) | +40.6% |",

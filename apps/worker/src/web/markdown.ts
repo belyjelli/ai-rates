@@ -37,6 +37,7 @@ function inline(html: string, origin: string): string {
       .replace(/<\/(span|small)>/gi, " ")
       .replace(/<[^>]+>/g, ""),
   )
+    .replace(/\)\[/g, ") [")
     .replace(/\s+/g, " ")
     .trim();
 }

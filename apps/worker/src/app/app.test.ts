@@ -2724,6 +2724,26 @@ describe("api", () => {
     expect(skill?.digest).toBe(`sha256:${hex}`);
     expect(home).toContain("rel=");
     expect(await (await get("/", data)).text()).toContain("navigator.modelContext");
+    const ard = await get("/.well-known/ai-catalog.json", data);
+    expect(ard.headers.get("access-control-allow-origin")).toBe("*");
+    const catalogue = (await ard.json()) as {
+      specVersion: string;
+      host: { displayName: string; identifier: string };
+      entries: {
+        identifier: string;
+        displayName: string;
+        type: string;
+        url?: string;
+        data?: unknown;
+      }[];
+    };
+    expect(catalogue.specVersion).toBe("1.0");
+    expect(catalogue.host.identifier).toBe("did:web:airrates.net");
+    for (const e of catalogue.entries) {
+      expect(e.identifier).toStartWith("urn:air:airrates.net:");
+      expect(e.type).toBeTruthy();
+      expect(e.url !== undefined && e.data === undefined).toBe(true);
+    }
     const page = await (await get("/docs", data)).text();
     expect(page).toContain("GET /v1/rates");
   });

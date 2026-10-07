@@ -21,7 +21,15 @@ import { A2A_PATH, agentCard, handleA2a } from "./a2a";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import { type Referral, requestGeo } from "./geo";
 import { handleMcp, MCP_PATH, mcpServerCard } from "./mcp";
-import { AUTH_MD, apiCatalog, openApiSpec, SKILL_PATH, skillMd, skillsIndex } from "./openapi";
+import {
+  AUTH_MD,
+  aiCatalog,
+  apiCatalog,
+  openApiSpec,
+  SKILL_PATH,
+  skillMd,
+  skillsIndex,
+} from "./openapi";
 import {
   buildOutlook,
   OUTLOOK_BAR_MINUTES,
@@ -545,6 +553,15 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     if (path === "/.well-known/mcp/server-card.json") {
       return new Response(JSON.stringify(mcpServerCard()), {
         headers: { "content-type": "application/json", "cache-control": "public, max-age=3600" },
+      });
+    }
+    if (path === "/.well-known/ai-catalog.json") {
+      return new Response(JSON.stringify(aiCatalog()), {
+        headers: {
+          "content-type": "application/json",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=3600",
+        },
       });
     }
     if (path === "/auth.md") {

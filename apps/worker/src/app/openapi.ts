@@ -261,3 +261,65 @@ export async function skillsIndex(): Promise<Record<string, unknown>> {
     ],
   };
 }
+
+/** ARD capability manifest at /.well-known/ai-catalog.json: one entry per way an agent can use the site. */
+export function aiCatalog(): Record<string, unknown> {
+  const entry = (
+    name: string,
+    displayName: string,
+    type: string,
+    url: string,
+    queries: string[],
+  ) => ({
+    identifier: `urn:air:airrates.net:${name}`,
+    displayName,
+    type,
+    url: `${SITE_ORIGIN}${url}`,
+    representativeQueries: queries,
+  });
+  return {
+    specVersion: "1.0",
+    host: { displayName: "airrates", identifier: "did:web:airrates.net" },
+    entries: [
+      entry(
+        "server:airrates",
+        "airrates MCP server",
+        "application/mcp-server-card+json",
+        "/.well-known/mcp/server-card.json",
+        [
+          "which perpetual futures have the widest funding rate spread",
+          "what is the funding rate for BTC on each exchange",
+          "is the airrates data fresh",
+        ],
+      ),
+      entry(
+        "agent:airrates",
+        "airrates A2A agent",
+        "application/json",
+        "/.well-known/agent-card.json",
+        [
+          "what are the best funding rate arbitrage pairs right now",
+          "funding rates for ETH across exchanges",
+        ],
+      ),
+      entry(
+        "api:catalog",
+        "airrates API catalog",
+        "application/linkset+json",
+        "/.well-known/api-catalog",
+        [
+          "funding rate API for perpetual futures exchanges",
+          "api for cross-exchange funding spreads and liquidations",
+        ],
+      ),
+      entry("api:openapi", "airrates OpenAPI description", "application/json", "/v1/openapi.json", [
+        "openapi spec for a funding rate api",
+        "how do I query funding rates by exchange",
+      ]),
+      entry("skill:airrates-api", "airrates API skill", "text/markdown", SKILL_PATH, [
+        "how to read funding rates from airrates",
+        "use the airrates api",
+      ]),
+    ],
+  };
+}
