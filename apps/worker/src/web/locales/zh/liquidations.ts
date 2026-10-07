@@ -86,6 +86,23 @@ export const liquidations: Catalog = {
     "{asset} 多空爆仓走势 · 每根柱 {minutes} 分钟，UTC",
   "Longs closed": "多头爆仓",
   "Shorts closed": "空头爆仓",
+  "Longs at risk, modeled · price falls <b>{pct}</b> to {range} · about <b>{usd}</b> would be liquidated":
+    "多头风险（模型估算）· 价格下跌 <b>{pct}</b> 至 {range} · 约 <b>{usd}</b> 将被强平",
+  "Shorts at risk, modeled · price rises <b>{pct}</b> to {range} · about <b>{usd}</b> would be liquidated":
+    "空头风险（模型估算）· 价格上涨 <b>{pct}</b> 至 {range} · 约 <b>{usd}</b> 将被强平",
+  "Shorts at risk above": "上方空头风险",
+  "Longs at risk below": "下方多头风险",
+  "Modeled pending liquidations within {pct}% of {mark}: about {shorts} of shorts above and {longs} of longs below":
+    "距 {mark} {pct}% 以内的待触发爆仓（模型估算）：上方空头约 {shorts}，下方多头约 {longs}",
+  "shorts liquidate if price rises": "价格上涨则空头被强平",
+  "longs liquidate if price falls": "价格下跌则多头被强平",
+  "pending is modeled": "待触发部分为模型估算",
+  "pending by price band": "按价格区间的待触发爆仓",
+  "Modeled from open interest and leverage tiers, not reported by venues.":
+    "根据未平仓合约和杠杆档位估算，并非交易所披露的数据。",
+  Pending: "待触发",
+  "Pending on": "显示待触发",
+  "Pending off": "隐藏待触发",
   "hover or tap a bar to read it": "悬停或点击柱形查看数值",
   "{asset} bars; arrow keys read one at a time": "{asset} 柱形图；用方向键逐根查看",
   "{asset} longs closed above zero and shorts closed below, over the last {window}":

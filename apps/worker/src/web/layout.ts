@@ -407,6 +407,37 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .lqc-x{top:100%;padding-top:3px;transform:translateX(-50%)}
 .lqc-day{color:var(--muted)}
 .lqc .fchart-plot{margin-left:56px}
+.lqc-body{display:flex;align-items:flex-start}
+.lqc-body .lqc-plot{flex:1 1 0;min-width:0}
+/* Modeled pending strip: rows are 1% price bands, shorts above the price line, longs below. Same
+   height and vertical margins as the plot beside it so zero and the price line meet. */
+.lqp{position:relative;flex:0 0 clamp(96px,22%,220px);height:260px;margin:6px 56px 20px 14px;border-left:1px dashed var(--muted)}
+.lqp-now{position:absolute;left:8px;top:100%;padding-top:3px;color:var(--ink)}
+.lqp-rows{position:relative;height:100%;display:grid;grid-template-rows:repeat(20,minmax(0,1fr));padding-left:6px}
+.lqp-row{display:flex;align-items:stretch;padding:1px 0;min-height:0}
+.lqp-row i{display:block;box-sizing:border-box;min-width:1px}
+.lqp-short{border:1px solid var(--short);background:repeating-linear-gradient(45deg,var(--short) 0 2px,transparent 2px 4px)}
+.lqp-long{border:1px solid var(--long);background:repeating-linear-gradient(45deg,var(--long) 0 2px,transparent 2px 4px)}
+.lqp-row:hover i{filter:brightness(1.35)}
+.lqp-mark{position:absolute;left:0;right:0;top:50%;border-top:1px dashed var(--ink);pointer-events:none}
+.lqp-mark b{position:absolute;left:100%;top:0;transform:translateY(-50%);padding-left:6px;color:var(--ink);font-weight:600;white-space:nowrap}
+.lqp-y{position:absolute;left:100%;transform:translateY(-50%);padding-left:6px;color:var(--dim);white-space:nowrap;pointer-events:none}
+.lqp-cap{position:absolute;left:10px;right:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none;text-shadow:0 0 3px var(--bg),0 0 3px var(--bg)}
+.lqp-cap-s{top:0;color:var(--short)}.lqp-cap-l{bottom:0;color:var(--long)}
+.lqp-key-short,.lqp-key-long{box-sizing:border-box}
+.lqp-key-short{border:1px solid var(--short);background:repeating-linear-gradient(45deg,var(--short) 0 2px,transparent 2px 4px)}
+.lqp-key-long{border:1px solid var(--long);background:repeating-linear-gradient(45deg,var(--long) 0 2px,transparent 2px 4px)}
+.lqc-foot{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;justify-content:space-between;margin-top:6px}
+.lqc-foot .tf{margin:0}
+.lqc-warn{margin:0;color:var(--warn)}
+/* A phone has no room for the strip beside the bars (it would leave them under 100px), so it drops
+   underneath at full width with the same rows and the same labels. */
+@media (max-width:640px){
+.lqc-body{flex-direction:column}
+.lqc-body .lqc-plot{flex:none;width:calc(100% - 56px)}
+.lqp{flex:none;width:calc(100% - 112px);margin:26px 56px 20px 56px;height:240px}
+.lqp-now{left:0;top:-22px;padding:0}
+}
 /* CVD: buying is the long colour and selling the short one, the same direction-of-pressure reading
    the liquidation page uses. Price is ink and CVD the accent, so neither can be read as a side. */
 .cvd-up{color:var(--long)}.cvd-down{color:var(--short)}

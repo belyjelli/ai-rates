@@ -565,6 +565,8 @@ export interface LiquidationAssetMap {
    * and comparing the two venues is the whole point.
    */
   mark: number | null;
+  /** Open interest in this asset across every fresh market, in dollars; the pending model's input. */
+  open_interest_usd: number | null;
   cells: LiquidationAssetCell[];
   totals: LiquidationTotals[];
   /** Longs and shorts over time at `sideMinutes` grain, oldest first. Empty buckets are absent. */
@@ -1357,7 +1359,12 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       // arbitrage guard and the identity checks measure against. Both venue panels are banded off
       // this one price, so a row means the same dollars on the left and on the right.
       const [anchor] = await sql<
-        { asset_class: AssetClass; mark: number | null; reach_pct: number | null }[]
+        {
+          asset_class: AssetClass;
+          mark: number | null;
+          oi_usd: number | null;
+          reach_pct: number | null;
+        }[]
       >`
         WITH chosen AS (${chosenClass(sql, base, assetClass)}),
         anchor AS (
@@ -1371,6 +1378,21 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         )
         SELECT (SELECT asset_class FROM chosen) AS asset_class,
                (SELECT mark FROM anchor) AS mark,
+               -- Open interest on the venues whose liquidations this page reads, not the whole
+               -- market: the closed bars beside the pending strip only cover those feeds, and a
+               -- pending figure over every venue would compare a bigger book with a smaller one.
+               (SELECT sum(open_interest_usd)::float8 FROM market_latest
+                WHERE base = ${base}
+                  AND asset_class = (SELECT asset_class FROM chosen)
+                  AND observed_at > now() - ${FRESH_INTERVAL}::interval
+                  AND open_interest_usd > 0
+                  AND venue_id IN (
+                    SELECT DISTINCT l.venue_id FROM liquidations l
+                    JOIN market_latest m3
+                      ON m3.venue_id = l.venue_id AND m3.venue_symbol = l.venue_symbol
+                    WHERE l.liquidated_at > now() - ${windowInterval}::interval
+                      AND m3.base = ${base}
+                      AND m3.asset_class = (SELECT asset_class FROM chosen))) AS oi_usd,
                -- How far out the bulk of this asset's closes actually landed, as a percentage of the
                -- mark. The 90th percentile rather than the maximum: one liquidation 13% away would
                -- otherwise set the width for a day that happened inside 2%, which is the failure
@@ -1408,6 +1430,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           mark,
           band_pct: band,
           band_fitted: bandPct === null,
+          open_interest_usd: anchor?.oi_usd ?? null,
           cells: [],
           totals: [],
           sides: [],
@@ -1476,6 +1499,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         mark,
         band_pct: band,
         band_fitted: bandPct === null,
+        open_interest_usd: anchor?.oi_usd ?? null,
         cells: [...cells],
         totals: [...totals],
         sides: [...sides],

@@ -393,6 +393,8 @@ export interface LiquidationAssetParams {
    * and the page says which width it chose -- a reader who wants a different one clicks it.
    */
   band: LiquidationBand | null;
+  /** Whether the sides chart draws the modeled pending-by-price panel. On unless the address says 0. */
+  pending: boolean;
 }
 
 export function parseLiquidationAssetParams(params: URLSearchParams): LiquidationAssetParams {
@@ -407,6 +409,7 @@ export function parseLiquidationAssetParams(params: URLSearchParams): Liquidatio
     band: (LIQUIDATION_BANDS as readonly number[]).includes(band)
       ? (band as LiquidationBand)
       : null,
+    pending: params.get("pending") !== "0",
   };
 }
 
@@ -414,6 +417,7 @@ export function liquidationAssetToQuery(params: LiquidationAssetParams): string 
   const query = new URLSearchParams();
   if (params.window !== "24h") query.set("window", params.window);
   if (params.band !== null) query.set("band", String(params.band));
+  if (!params.pending) query.set("pending", "0");
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
 }

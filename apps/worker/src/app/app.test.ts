@@ -130,6 +130,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     liquidationAsset: async () => ({
       asset_class: "crypto" as const,
       mark: 2434.7,
+      open_interest_usd: null,
       band_pct: 1,
       band_fitted: true,
       cells: [],
@@ -603,6 +604,7 @@ describe("pages", () => {
   const liqAsset = (overrides: Partial<LiquidationAssetMap> = {}): LiquidationAssetMap => ({
     asset_class: "crypto",
     mark: 2_400,
+    open_interest_usd: null,
     band_pct: 1,
     band_fitted: false,
     cells: [
@@ -865,6 +867,47 @@ describe("pages", () => {
     expect(sides).toContain('class="lqc-long" x="907.71" y="0.00"');
     // The legend totals the window.
     expect(sides).toContain('data-u="lqc-long">$8.0M<');
+  });
+
+  test("the sides chart draws the modeled pending strip, and Pending off removes it", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset({ open_interest_usd: 2_000_000_000 }),
+    });
+    const html = await (await get("/liquidations", data)).text();
+    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+
+    // Twenty rows, shorts above the price and longs below, and the legend totals both sides.
+    expect(sides.match(/class="lqp-row"/g)?.length).toBe(20);
+    expect(sides).toContain("Shorts at risk above");
+    expect(sides).toContain("Longs at risk below");
+    expect(sides).toContain("pending by price band");
+    expect(sides).toContain("pending is modeled");
+    // It is an estimate, and the page says so beside the chart.
+    expect(sides).toContain(
+      "Modeled from open interest and leverage tiers, not reported by venues.",
+    );
+    // Each row reads itself in the header line, and the price line carries the mark.
+    expect(sides).toContain("Longs at risk, modeled");
+    expect(sides).toContain('class="lqp-mark"><b>2,400</b>');
+    // The toggle keeps the tab, and off drops the strip and the note.
+    expect(sides).toContain('href="/liquidations?pending=0#sides"');
+    const off = await (await get("/liquidations?pending=0", data)).text();
+    const offSides = off.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    expect(offSides).not.toContain("lqp-row");
+    expect(offSides).not.toContain("Modeled from open interest");
+    expect(offSides).toContain('href="/liquidations#sides"');
+  });
+
+  test("the sides chart has no pending strip without open interest to model it from", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const html = await (await get("/liquidations", data)).text();
+    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    expect(sides).not.toContain("lqp-row");
+    expect(sides).not.toContain("Modeled from open interest");
   });
 
   test("the sides chart ships every slot's figures for the hover readout, and no native tooltips", async () => {

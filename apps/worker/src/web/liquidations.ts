@@ -15,6 +15,7 @@ import {
   type LiquidationWindow,
   liquidationsToQuery,
 } from "../app/params";
+import { PENDING_ROWS, pendingBands } from "../app/pending";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { msg, tr, trMsg } from "./i18n";
@@ -177,6 +178,7 @@ function controlHref(
     window?: LiquidationWindow;
     venue?: string;
     band?: LiquidationBand | null;
+    pending?: boolean;
     /** Swap the asset the address names. Null returns to the all-assets address. */
     asset?: { name: string; assetClass: AssetClass } | null;
   } = {},
@@ -205,6 +207,7 @@ function controlHref(
   }
   const band = overrides.band === undefined ? state.assetParams.band : overrides.band;
   if (band !== null) query.set("band", String(band));
+  if (!(overrides.pending ?? state.assetParams.pending)) query.set("pending", "0");
   const encoded = query.toString();
   return `${base}${encoded ? `?${encoded}` : ""}${hash}`;
 }
@@ -739,6 +742,80 @@ function bandRows(reach: number): number[] {
 }
 
 /**
+ * The modeled pending side panel: shorts at risk above the price, longs below, in 1% rows.
+ *
+ * ITS OWN SCALE, NOT THE BARS'. The first design shared one axis so a $3M row was as long as a $3M
+ * flush was tall. Honest numbers broke it: a day's worth of pending in one 1% row is tens of times a
+ * 15-minute flush, so sharing the axis flattened every realized bar to a sliver. The widest row
+ * fills the strip instead, and the legend and the readout carry the dollars.
+ *
+ * Rows are divs, not SVG, so the hatching is not stretched by the chart's non-uniform scaling. On a
+ * phone the strip drops under the bars at full width with the same rows rather than shrinking
+ * beside them: at 360px it would leave the history under 100px, a sliver. Nothing is removed.
+ *
+ * Each row carries its reading in data-read; slot-chart.ts puts it in the header line on hover or tap.
+ */
+function pendingModel(map: LiquidationAssetMap): ReturnType<typeof pendingBands> | null {
+  if (map.mark === null || map.open_interest_usd === null) return null;
+  const model = pendingBands(map.open_interest_usd);
+  return model.longTotal + model.shortTotal > 0 ? model : null;
+}
+
+function pendingPanel(
+  map: LiquidationAssetMap,
+  model: NonNullable<ReturnType<typeof pendingModel>>,
+): { keys: string; html: string } {
+  const mark = map.mark as number;
+  const top = Math.max(...model.longs, ...model.shorts);
+  const row = (side: "long" | "short", usd: number, index: number): string => {
+    const lo = formatPrice(mark * (side === "long" ? 1 - (index + 1) / 100 : 1 + index / 100));
+    const hi = formatPrice(mark * (side === "long" ? 1 - index / 100 : 1 + (index + 1) / 100));
+    const values = {
+      pct: `${index}–${index + 1}%`,
+      range: `${lo}–${hi}`,
+      usd: money(usd),
+    };
+    const read =
+      side === "long"
+        ? tr(
+            "Longs at risk, modeled · price falls <b>{pct}</b> to {range} · about <b>{usd}</b> would be liquidated",
+            values,
+          )
+        : tr(
+            "Shorts at risk, modeled · price rises <b>{pct}</b> to {range} · about <b>{usd}</b> would be liquidated",
+            values,
+          );
+    return `<div class="lqp-row" data-read="${esc(read)}"><i class="lqp-${side}" style="width:${((usd / top) * 100).toFixed(1)}%"></i></div>`;
+  };
+  const rows = [
+    ...model.shorts.map((usd, i) => row("short", usd, i)).reverse(),
+    ...model.longs.map((usd, i) => row("long", usd, i)),
+  ].join("");
+  // A label every second row, centred on it: +2% sits on the row 1-2% above, as in the design.
+  const ticks: string[] = [];
+  for (let pct = 2; pct <= PENDING_ROWS; pct += 2) {
+    const offset = ((pct - 0.5) / PENDING_ROWS) * 50;
+    ticks.push(
+      `<span class="lqp-y" style="top:${(50 - offset).toFixed(1)}%">+${pct}%</span><span class="lqp-y" style="top:${(50 + offset).toFixed(1)}%">−${pct}%</span>`,
+    );
+  }
+  return {
+    keys: `<span><i class="lqp-key-short"></i>${tr("Shorts at risk above")} <b>≈${money(model.shortTotal)}</b></span><span><i class="lqp-key-long"></i>${tr("Longs at risk below")} <b>≈${money(model.longTotal)}</b></span>`,
+    html: `<div class="lqp" role="img" aria-label="${esc(
+      tr(
+        "Modeled pending liquidations within {pct}% of {mark}: about {shorts} of shorts above and {longs} of longs below",
+        {
+          pct: PENDING_ROWS,
+          mark: formatPrice(mark),
+          shorts: money(model.shortTotal),
+          longs: money(model.longTotal),
+        },
+      ),
+    )}"><span class="lqp-now">${tr("now")}</span><div class="lqp-rows">${rows}<span class="lqp-mark"><b>${formatPrice(mark)}</b></span>${ticks.join("")}<span class="lqp-cap lqp-cap-s">${tr("shorts liquidate if price rises")}</span><span class="lqp-cap lqp-cap-l">${tr("longs liquidate if price falls")}</span></div></div>`,
+  };
+}
+
+/**
  * Longs and shorts on one axis over the window: longs closed rise above zero, shorts closed fall
  * below it, one bar per `sideMinutes`.
  *
@@ -763,8 +840,11 @@ function sidesChart(data: {
   points: LiquidationAssetMap["sides"];
   params: LiquidationParams;
   now: number;
+  /** The pending panel and its toggle, or null when the asset has no price or no open interest. */
+  pending: { show: boolean; strip: string; map: LiquidationAssetMap } | null;
 }): string {
-  const { label, points, params, now } = data;
+  const { label, points, params, now, pending } = data;
+  const model = pending?.show ? pendingModel(pending.map) : null;
   const { hours, sideMinutes } = LIQUIDATION_WINDOWS[params.window];
   const bucketMs = sideMinutes * 60_000;
   const current = Math.floor(now / bucketMs) * bucketMs;
@@ -779,6 +859,7 @@ function sidesChart(data: {
   // The axis ends at the tallest bar, not at a round number above it: rounding up wasted up to half
   // the plot (a $5.1M peak got a $10M axis) and flattened every other bar.
   const top = peak > 0 ? peak : 1_000;
+  const pend = pending && model ? pendingPanel(pending.map, model) : null;
 
   // viewBox 1000 x 1000 with zero at 500: each side gets half the height and the same scale, so a
   // long bar and a short bar of equal height are equal money.
@@ -853,7 +934,7 @@ function sidesChart(data: {
     [longSum, shortSum, events],
     SLOT_FORMAT,
     false,
-  );
+  ).concat(pend ? ` · ${tr("pending is modeled")}` : "");
   const summary = {
     asset: plainLabel(label),
     window: params.window,
@@ -884,9 +965,10 @@ function sidesChart(data: {
         });
 
   return `<figure class="fchart lqc" data-live="lq-side-chart">${cite}
-<div class="fchart-head"><p class="fchart-title">${chartTitle}</p><div class="fchart-keys"><span><i class="lqc-key-long"></i>${tr("Longs closed")} <b data-u="lqc-long">${money(longSum)}</b></span><span><i class="lqc-key-short"></i>${tr("Shorts closed")} <b data-u="lqc-short">${money(shortSum)}</b></span></div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
-<div class="fchart-plot lqc-plot slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} longs closed above zero and shorts closed below, over the last {window}", { asset: label, window: params.window }))}">${grid}${SLOT_BAND}${bars.join("")}${SLOT_CURSOR}</svg>${yLabels}${xLabels.join("")}</div>
+<div class="fchart-head"><p class="fchart-title">${chartTitle}${pend ? ` · ${tr("pending by price band")}` : ""}</p><div class="fchart-keys"><span><i class="lqc-key-long"></i>${tr("Longs closed")} <b data-u="lqc-long">${money(longSum)}</b></span><span><i class="lqc-key-short"></i>${tr("Shorts closed")} <b data-u="lqc-short">${money(shortSum)}</b></span>${pend ? pend.keys : ""}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
+<div class="lqc-body"><div class="fchart-plot lqc-plot slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} longs closed above zero and shorts closed below, over the last {window}", { asset: label, window: params.window }))}">${grid}${SLOT_BAND}${bars.join("")}${SLOT_CURSOR}</svg>${yLabels}${xLabels.join("")}</div>${pend ? pend.html : ""}</div>
 ${slotData({ kind: "lqc", from: fromMs, unit: bucketMs, slots })}
+${pending ? `<div class="lqc-foot">${pending.strip}${pend ? `<p class="lqc-warn">${tr("Modeled from open interest and leverage tiers, not reported by venues.")}</p>` : ""}</div>` : ""}
 </figure>`;
 }
 
@@ -915,9 +997,12 @@ function sidesPanel(data: {
   params: LiquidationParams;
   /** Pre-rendered by the caller, which is the only place that knows the whole address and query. */
   picker: string;
+  /** The Pending on/off strip, pre-rendered for the same reason. */
+  pendingStrip: string;
+  showPending: boolean;
   now: number;
 }): string {
-  const { asset, map, params, picker, now } = data;
+  const { asset, map, params, picker, pendingStrip, showPending, now } = data;
   const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
   const cols = columns(params, now);
   const reach = LIQUIDATION_BAND_REACH;
@@ -1062,7 +1147,7 @@ ${helpPanel(
     { asset: label, pct: bandPct, mark: formatPrice(mark) },
   )}</p><p>${tr("Longs closed above the line, shorts closed below, on the same linear scale. Hover a bar to read it beside the cursor; on a phone, tap and it reads in the line above the chart. The last bar is still filling.")}</p>`,
 )}
-${sidesChart({ label, points: map.sides, params, now })}
+${sidesChart({ label, points: map.sides, params, now, pending: { show: showPending, strip: pendingStrip, map } })}
 ${table}`;
 }
 
@@ -1223,6 +1308,16 @@ ${
         map: assetMap,
         params,
         picker: assetStrip(state, map.assets, asset, "#sides"),
+        pendingStrip: `<nav class="tf" aria-label="${tr("Pending")}">${[true, false]
+          .map((on) => {
+            const href = esc(controlHref(state, { pending: on }, "#sides"));
+            const text = on ? tr("Pending on") : tr("Pending off");
+            return on === assetParams.pending
+              ? `<a class="on" href="${href}" aria-current="page">${text}</a>`
+              : `<a href="${href}">${text}</a>`;
+          })
+          .join("")}</nav>`,
+        showPending: assetParams.pending,
         now,
       })
 }

@@ -392,6 +392,23 @@ export const SLOT_SCRIPT = `(() => {
     return Math.floor(((clientX - rect.left) / rect.width) * d.slots.length);
   };
   const track = (event) => {
+    // A pending row reads from its own data-read, in the same header line a bar's reading uses.
+    const row = event.target.closest ? event.target.closest(".lqp-row") : null;
+    if (row) {
+      const figure = row.closest("figure");
+      const read = figure && figure.querySelector(".slot-read");
+      if (!read) return;
+      if (held !== figure) clear();
+      if (!idle.has(read)) idle.set(read, read.innerHTML);
+      for (const el of figure.querySelectorAll(".slot-mark")) el.classList.add("off");
+      const tip = figure.querySelector(".slot-tip");
+      if (tip) tip.hidden = true;
+      read.innerHTML = row.dataset.read;
+      held = figure;
+      heldRead = read;
+      heldIndex = -1;
+      return;
+    }
     const area = event.target.closest ? event.target.closest(".slot-area") : null;
     if (area) {
       return show(area, indexAt(area, event.clientX), {
