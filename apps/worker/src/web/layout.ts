@@ -18,6 +18,7 @@ import { INSTALL_CSS, INSTALL_HEAD } from "./install";
 import { LIVE_SCRIPT } from "./live";
 import { SHARE_CSS, shareBar, shareScript } from "./share";
 import { TAB_SCRIPT } from "./tabs";
+import { WEBMCP_SCRIPT } from "./webmcp";
 
 const NAV = [
   { href: "/", label: msg("spreads"), match: (p: string) => p === "/" },
@@ -737,6 +738,7 @@ ${INSTALL_HEAD}
 <script>${awaitScript()}</script>
 <script>${TAB_SCRIPT}</script>
 <script>${shareScript()}</script>
+<script>${WEBMCP_SCRIPT}</script>
 </body>
 </html>`;
 }

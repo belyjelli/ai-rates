@@ -2722,6 +2722,8 @@ describe("api", () => {
     const bytes = await crypto.subtle.digest("SHA-256", await served.arrayBuffer());
     const hex = [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
     expect(skill?.digest).toBe(`sha256:${hex}`);
+    expect(home).toContain("rel=");
+    expect(await (await get("/", data)).text()).toContain("navigator.modelContext");
     const page = await (await get("/docs", data)).text();
     expect(page).toContain("GET /v1/rates");
   });
