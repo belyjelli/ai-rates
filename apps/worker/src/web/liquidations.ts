@@ -838,6 +838,7 @@ function sidesChart(data: {
     tr("Last {window}", { window: esc(params.window) }),
     [longSum, shortSum, events],
     SLOT_FORMAT,
+    false,
   );
   const summary = {
     asset: plainLabel(label),

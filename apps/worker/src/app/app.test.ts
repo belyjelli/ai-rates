@@ -900,7 +900,7 @@ describe("pages", () => {
     expect(figure).toContain('<rect class="slot-mark slot-band off"');
     // Before a hover the readout is the window: $7.974M less $1.528M of shorts, 838 events.
     expect(figure).toContain(
-      '<p class="fchart-read slot-read" aria-live="polite">Last 24h · longs closed $8.0M · shorts closed $1.5M · longs − shorts <b class="lq-ink-l">+$6.4M</b> · longs heavier, 84% · 838 liquidations · hover or tap a bar to read it</p>',
+      '<p class="fchart-read slot-read" aria-live="polite">Last 24h · longs − shorts <b class="lq-ink-l">+$6.4M</b> · longs heavier, 84% · 838 liquidations · hover or tap a bar to read it</p>',
     );
     // The readout replaces the per-bar tooltips; both would show the same figures twice.
     expect(figure).not.toContain("<title>");

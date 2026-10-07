@@ -206,6 +206,7 @@ export function sidesText(
   head: string,
   sides: readonly [number, number, number] | null,
   f: SlotFormat,
+  totals = true,
 ): string {
   const w = f.words;
   if (sides === null) return `${head} · ${w.nothing}`;
@@ -219,8 +220,9 @@ export function sidesText(
         );
   return [
     head,
-    w.longsClosed.replace("{usd}", () => f.usd(longs)),
-    w.shortsClosed.replace("{usd}", () => f.usd(shorts)),
+    // The idle readout skips both: the legend above already shows them.
+    totals ? w.longsClosed.replace("{usd}", () => f.usd(longs)) : "",
+    totals ? w.shortsClosed.replace("{usd}", () => f.usd(shorts)) : "",
     w.diff.replace(
       "{diff}",
       () =>
@@ -230,7 +232,9 @@ export function sidesText(
     (events === 1 ? w.liquidation : w.liquidations).replace("{n}", () =>
       events.toLocaleString("en-US"),
     ),
-  ].join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** What a CVD figure ships: one entry per slot, oldest first, [bought, sold, CVD so far, price]. */
