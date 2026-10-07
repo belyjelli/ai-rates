@@ -492,7 +492,15 @@ export function cvd(data: {
   const intervalStrip = `<nav class="tf cvd-intervals" aria-label="${tr("Interval")}" data-loading="${esc(tr("Loading {interval} bars…"))}" data-loading-asset="${esc(tr("Loading {asset}…"))}">${CVD_STRIP.map(
     (key) => {
       if (isCvdLockedInterval(key)) {
-        return `<span class="tf-locked" aria-disabled="true" title="${esc(tr("Not available yet: there is not enough history for {interval} bars", { interval: key }))}">${key}${LOCK_ICON}</span>`;
+        // Only 7d is held back by history; 2h is simply not offered yet, and saying "not enough
+        // history" for a bar that needs a week of the month we keep would be untrue.
+        const why =
+          key === "7d"
+            ? tr("Not available yet: there is not enough history for {interval} bars", {
+                interval: key,
+              })
+            : tr("Not available yet");
+        return `<span class="tf-locked" aria-disabled="true" title="${esc(why)}">${key}${LOCK_ICON}</span>`;
       }
       const href = esc(
         (assetInAddress ? selfPath : "/cvd") + cvdToQuery({ ...params, interval: key }),

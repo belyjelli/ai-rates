@@ -57,6 +57,7 @@ export const charts: Catalog = {
   "Loading {asset}…": "正在加载 {asset}…",
   "Not available yet: there is not enough history for {interval} bars":
     "暂不可用：历史数据不足以绘制 {interval} 柱",
+  "Not available yet": "暂不可用",
   Price: "价格",
   "Net buy": "净买入",
   "Net sell": "净卖出",

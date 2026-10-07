@@ -2649,6 +2649,11 @@ describe("cvd", () => {
     expect(strip).toContain("7d<svg");
     expect(html).not.toContain("interval=2h");
     expect(html).not.toContain("interval=7d");
+    // Each lock says why truthfully: 7d lacks history, 2h is simply not offered yet.
+    expect(strip).toContain('title="Not available yet">2h<svg');
+    expect(strip).toContain(
+      'title="Not available yet: there is not enough history for 7d bars">7d<svg',
+    );
     // The switch script ships with the page (and is allowed by its CSP hash like any other).
     expect(html).toContain("a[data-cvd-switch]");
 
