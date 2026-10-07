@@ -577,6 +577,21 @@ export interface LiquidationAssetMap {
 }
 
 /**
+ * The collector's pending rows, sent as comma-joined text (see the query for why). Null unless both
+ * sides parse to the same number of finite, non-negative figures: a half-read model is not drawn.
+ */
+export function parsePending(
+  longs: string,
+  shorts: string,
+): { longs: number[]; shorts: number[] } | null {
+  const parse = (text: string) => (text === "" ? [] : text.split(",").map(Number));
+  const pending = { longs: parse(longs), shorts: parse(shorts) };
+  const valid = (rows: number[]) => rows.every((usd) => Number.isFinite(usd) && usd >= 0);
+  if (pending.longs.length === 0 || pending.longs.length !== pending.shorts.length) return null;
+  return valid(pending.longs) && valid(pending.shorts) ? pending : null;
+}
+
+/**
  * One asset's taker flow over a CVD window, every polled venue summed (migration 023).
  *
  * CVD here is buy_usd − sell_usd: taker buys less taker sells, in dollars, over the window. The
@@ -1479,13 +1494,21 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         // Prepared by the collector every five minutes, one row per asset. A row older than three
         // cycles is the collector having stopped, and a stale model drawn as current is worse than
         // none, so it is refused here rather than by the page.
-        sql<{ long_usd: number[]; short_usd: number[] }[]>`
-          SELECT long_usd, short_usd FROM liquidation_pending
+        // As text, not float8[]: with fetch_types off (Hyperdrive) postgres.js does not parse arrays,
+        // and the raw "{...}" string failed the page's row-count check without a word on 2026-10-07.
+        sql<{ long_usd: string; short_usd: string }[]>`
+          SELECT array_to_string(long_usd, ',') AS long_usd,
+                 array_to_string(short_usd, ',') AS short_usd
+          FROM liquidation_pending
           WHERE asset_class = ${resolvedClass} AND base = ${base}
             AND computed_at > now() - interval '15 minutes'`
-          // Until migration 027 is applied and the collector has run, the table does not exist; the
-          // strip is an extra, so its absence must not take the whole page down with it.
-          .catch(() => []),
+          // The strip is an extra, so a failed read must not take the whole page down with it. But
+          // it is logged, not swallowed: on 2026-10-07 the web role had no grant on this table
+          // (deploy/hklab/web-role.sql) and a silent catch made that look like an empty model.
+          .catch((error: unknown) => {
+            console.error("liquidation_pending read failed", error);
+            return [];
+          }),
       ]);
 
       return {
@@ -1493,7 +1516,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         mark,
         band_pct: band,
         band_fitted: bandPct === null,
-        pending: pendingRow ? { longs: pendingRow.long_usd, shorts: pendingRow.short_usd } : null,
+        pending: pendingRow ? parsePending(pendingRow.long_usd, pendingRow.short_usd) : null,
         cells: [...cells],
         totals: [...totals],
         sides: [...sides],
