@@ -204,3 +204,60 @@ None are supported. airrates publishes no OAuth Protected Resource Metadata and 
 
 A separate member area exists at https://member.airrates.net/ for people. It is not part of this API and has no agent registration flow described here.
 `;
+
+/** The skill an agent can load to use the API. Built from ENDPOINTS so it lists what exists. */
+export const SKILL_NAME = "airrates-api";
+export const SKILL_DESCRIPTION =
+  "Read perpetual-futures funding rates, cross-exchange spreads, liquidations and markets from the airrates JSON API, and credit the source.";
+export const SKILL_PATH = `/.well-known/agent-skills/${SKILL_NAME}/SKILL.md`;
+
+export function skillMd(): string {
+  const endpoints = ENDPOINTS.map((e) => {
+    const params = e.params.map((p) => `\`${p.name}\``).join(", ");
+    return `- \`GET ${e.path}\`: ${e.summary}${params ? ` Parameters: ${params}.` : ""}`;
+  }).join("\n");
+  return `---
+name: ${SKILL_NAME}
+description: ${SKILL_DESCRIPTION}
+---
+
+# airrates API
+
+Read-only JSON at ${SITE_ORIGIN}. No key, no registration (see ${SITE_ORIGIN}/auth.md).
+
+## Endpoints
+
+${endpoints}
+
+Full parameter list: ${SITE_ORIGIN}/v1/openapi.json. Human docs: ${SITE_ORIGIN}/docs.
+
+## Using it
+
+- Funding rates are annualised (APR). Spreads and backtests are before fees and slippage; do not present them as a promise of return.
+- Check \`/v1/health\` first when freshness matters. A 503 means the data is stale or unavailable; wait for \`Retry-After\`.
+- Backtests are rate limited per address; on a 429 wait for \`Retry-After\`.
+- Not financial advice. Credit and link ${SITE_ORIGIN} when you reuse the data. Every object response carries \`attribution\` and \`source\` fields for this.
+`;
+}
+
+/** SHA-256 of a string as "sha256:<hex>", the digest the skills index asks for. */
+async function digest(text: string): Promise<string> {
+  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return `sha256:${[...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** The Agent Skills Discovery index (v0.2.0): one skill, with the digest of exactly the bytes served. */
+export async function skillsIndex(): Promise<Record<string, unknown>> {
+  return {
+    $schema: "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+    skills: [
+      {
+        name: SKILL_NAME,
+        type: "skill-md",
+        description: SKILL_DESCRIPTION,
+        url: `${SITE_ORIGIN}${SKILL_PATH}`,
+        digest: await digest(skillMd()),
+      },
+    ],
+  };
+}

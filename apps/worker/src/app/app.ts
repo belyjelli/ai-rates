@@ -17,9 +17,10 @@ import { referralLinks } from "../web/referral-links";
 import { sentiment } from "../web/sentiment";
 import { tos } from "../web/tos";
 import { VENUE_BY_ID } from "../web/venues";
+import { A2A_PATH, agentCard, handleA2a } from "./a2a";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import { type Referral, requestGeo } from "./geo";
-import { AUTH_MD, apiCatalog, openApiSpec } from "./openapi";
+import { AUTH_MD, apiCatalog, openApiSpec, SKILL_PATH, skillMd, skillsIndex } from "./openapi";
 import {
   buildOutlook,
   OUTLOOK_BAR_MINUTES,
@@ -125,7 +126,20 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
   const page = (render: () => string, status = 200) =>
     htmlResponse(withLocale(locale, render), status);
 
-  // Read-only: nothing on the site or the API accepts a write.
+  // The one POST: an A2A agent's question, answered from the same reads as the pages. It changes nothing.
+  if (path === A2A_PATH && request.method === "POST") {
+    if (!(await withinRate(deps, request, "a2a"))) {
+      return retryLater(json({ error: "rate_limited" }, 429, 0));
+    }
+    try {
+      return await handleA2a(request, deps.data, now);
+    } catch (error) {
+      deps.log?.(`${path}: ${error instanceof Error ? error.message : String(error)}`);
+      return json({ error: "data_unavailable" }, 503, 0);
+    }
+  }
+
+  // Read-only: nothing else on the site or the API accepts a write.
   if (request.method !== "GET" && request.method !== "HEAD") {
     return json({ error: "method_not_allowed" }, 405, 0);
   }
@@ -494,6 +508,24 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
             'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"',
           "cache-control": "public, max-age=3600",
         },
+      });
+    }
+    if (path === "/.well-known/agent-skills/index.json") {
+      return new Response(JSON.stringify(await skillsIndex()), {
+        headers: { "content-type": "application/json", "cache-control": "public, max-age=3600" },
+      });
+    }
+    if (path === SKILL_PATH) {
+      return new Response(skillMd(), {
+        headers: {
+          "content-type": "text/markdown; charset=utf-8",
+          "cache-control": "public, max-age=3600",
+        },
+      });
+    }
+    if (path === "/.well-known/agent-card.json") {
+      return new Response(JSON.stringify(agentCard()), {
+        headers: { "content-type": "application/json", "cache-control": "public, max-age=3600" },
       });
     }
     if (path === "/auth.md") {

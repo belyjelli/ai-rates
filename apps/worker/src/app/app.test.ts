@@ -2711,8 +2711,65 @@ describe("api", () => {
     const auth = await get("/auth.md", data);
     expect(auth.headers.get("content-type")).toContain("text/markdown");
     expect(await auth.text()).toMatch(/^# .*auth\.md/);
+    const index = (await (await get("/.well-known/agent-skills/index.json", data)).json()) as {
+      $schema: string;
+      skills: { name: string; type: string; url: string; digest: string }[];
+    };
+    expect(index.$schema).toBe("https://schemas.agentskills.io/discovery/0.2.0/schema.json");
+    const [skill] = index.skills;
+    expect(skill?.type).toBe("skill-md");
+    const served = await get(new URL(skill?.url ?? "").pathname, data);
+    const bytes = await crypto.subtle.digest("SHA-256", await served.arrayBuffer());
+    const hex = [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
+    expect(skill?.digest).toBe(`sha256:${hex}`);
     const page = await (await get("/docs", data)).text();
     expect(page).toContain("GET /v1/rates");
+  });
+
+  test("the A2A card is served and the endpoint answers SendMessage and message/send", async () => {
+    const { data } = fakeData();
+    const card = (await (await get("/.well-known/agent-card.json", data)).json()) as {
+      supportedInterfaces: { url: string; protocolBinding: string }[];
+      skills: { id: string; name: string; description: string }[];
+    };
+    expect(card.supportedInterfaces[0]?.url).toBe("https://airrates.net/a2a");
+    expect(card.skills.length).toBeGreaterThan(0);
+
+    const post = (body: unknown) =>
+      handleApp(
+        new Request("https://airates.test/a2a", { method: "POST", body: JSON.stringify(body) }),
+        { data, now: () => NOW },
+      );
+    const ask = (method: string, text: string) =>
+      post({
+        jsonrpc: "2.0",
+        id: 7,
+        method,
+        params: { message: { messageId: "m1", role: "ROLE_USER", parts: [{ text }] } },
+      });
+    const v1 = (await (await ask("SendMessage", "is the data fresh?")).json()) as {
+      id: number;
+      result: { message: { role: string; parts: { text: string }[] } };
+    };
+    expect(v1.id).toBe(7);
+    expect(v1.result.message.role).toBe("ROLE_AGENT");
+    expect(v1.result.message.parts[0]?.text).toContain("markets");
+    const v03 = (await (await ask("message/send", "best spreads")).json()) as {
+      result: { kind: string };
+    };
+    expect(v03.result.kind).toBe("message");
+    const unknown = (await (await post({ jsonrpc: "2.0", id: 1, method: "nope" })).json()) as {
+      error: { code: number };
+    };
+    expect(unknown.error.code).toBe(-32601);
+    expect(
+      (
+        await handleApp(new Request("https://airates.test/rates", { method: "POST" }), {
+          data,
+          now: () => NOW,
+        })
+      ).status,
+    ).toBe(405);
   });
 
   test("sitemap.xml lists canonical page URLs as XML", async () => {
