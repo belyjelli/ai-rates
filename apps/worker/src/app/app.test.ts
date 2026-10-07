@@ -2671,7 +2671,19 @@ describe("api", () => {
 
   test("robots.txt blocks crawlers before launch", async () => {
     const res = await get("/robots.txt", fakeData().data);
-    expect(await res.text()).toBe("User-agent: *\nDisallow: /\n");
+    expect(await res.text()).toBe(
+      "User-agent: *\nContent-Signal: ai-train=no, search=yes, ai-input=no\nDisallow: /\n\nSitemap: https://airrates.net/sitemap.xml\n",
+    );
+  });
+
+  test("sitemap.xml lists canonical page URLs as XML", async () => {
+    const res = await get("/sitemap.xml", fakeData().data);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/xml");
+    const body = await res.text();
+    expect(body).toContain('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
+    expect(body).toContain("<loc>https://airrates.net/</loc>");
+    expect(body).toContain("<loc>https://airrates.net/about</loc>");
   });
 });
 

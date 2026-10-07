@@ -695,14 +695,27 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       );
     }
 
-    if (path === "/robots.txt") {
-      // Pre-launch: keep the site out of search engines until the legal checklist is done.
-      return new Response("User-agent: *\nDisallow: /\n", {
+    if (path === "/sitemap.xml") {
+      const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${SITEMAP_PATHS.map((p) => `  <url><loc>${SITE_ORIGIN}${p}</loc></url>`).join("\n")}\n</urlset>\n`;
+      return new Response(body, {
         headers: {
-          "content-type": "text/plain; charset=utf-8",
+          "content-type": "application/xml; charset=utf-8",
           "cache-control": "public, max-age=3600",
         },
       });
+    }
+
+    if (path === "/robots.txt") {
+      // Pre-launch: keep the site out of search engines until the legal checklist is done.
+      return new Response(
+        `User-agent: *\nContent-Signal: ai-train=no, search=yes, ai-input=no\nDisallow: /\n\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`,
+        {
+          headers: {
+            "content-type": "text/plain; charset=utf-8",
+            "cache-control": "public, max-age=3600",
+          },
+        },
+      );
     }
 
     if (segments[0] === "v1") return json({ error: "not_found" }, 404);
@@ -712,6 +725,25 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     return unavailableResponse(path, now, locale);
   }
 }
+
+/** The canonical origin, for the sitemap: a URL there must not depend on the host that was asked. */
+const SITE_ORIGIN = "https://airrates.net";
+
+/** The public pages with a fixed address. Per-asset pages are left out; they are reached by link. */
+const SITEMAP_PATHS = [
+  "/",
+  "/screener",
+  "/rates",
+  "/arbitrage",
+  "/cvd",
+  "/liquidations",
+  "/sentiment",
+  "/markets",
+  "/status",
+  "/about",
+  "/legal",
+  "/tos",
+];
 
 /** Seconds a client is told to wait after a 503. Past the cooldown the edge cache applies to a failed render. */
 const UNAVAILABLE_RETRY_SECONDS = 10;
