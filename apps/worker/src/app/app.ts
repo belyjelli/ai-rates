@@ -20,6 +20,7 @@ import { VENUE_BY_ID } from "../web/venues";
 import { A2A_PATH, agentCard, handleA2a } from "./a2a";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import { type Referral, requestGeo } from "./geo";
+import { handleMcp, MCP_PATH, mcpServerCard } from "./mcp";
 import { AUTH_MD, apiCatalog, openApiSpec, SKILL_PATH, skillMd, skillsIndex } from "./openapi";
 import {
   buildOutlook,
@@ -126,7 +127,20 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
   const page = (render: () => string, status = 200) =>
     htmlResponse(withLocale(locale, render), status);
 
-  // The one POST: an A2A agent's question, answered from the same reads as the pages. It changes nothing.
+  // MCP's transport is POST-only here: there is no server-to-client stream to open with a GET.
+  if (path === MCP_PATH && request.method === "POST") {
+    if (!(await withinRate(deps, request, "mcp"))) {
+      return retryLater(json({ error: "rate_limited" }, 429, 0));
+    }
+    try {
+      return await handleMcp(request, deps.data, now);
+    } catch (error) {
+      deps.log?.(`${path}: ${error instanceof Error ? error.message : String(error)}`);
+      return json({ error: "data_unavailable" }, 503, 0);
+    }
+  }
+
+  // The POSTs: an A2A agent's question, answered from the same reads as the pages. They change nothing.
   if (path === A2A_PATH && request.method === "POST") {
     if (!(await withinRate(deps, request, "a2a"))) {
       return retryLater(json({ error: "rate_limited" }, 429, 0));
@@ -525,6 +539,11 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     }
     if (path === "/.well-known/agent-card.json") {
       return new Response(JSON.stringify(agentCard()), {
+        headers: { "content-type": "application/json", "cache-control": "public, max-age=3600" },
+      });
+    }
+    if (path === "/.well-known/mcp/server-card.json") {
+      return new Response(JSON.stringify(mcpServerCard()), {
         headers: { "content-type": "application/json", "cache-control": "public, max-age=3600" },
       });
     }

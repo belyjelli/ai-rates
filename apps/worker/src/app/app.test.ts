@@ -2772,6 +2772,47 @@ describe("api", () => {
     ).toBe(405);
   });
 
+  test("the MCP server card is served and /mcp speaks initialize, tools/list and tools/call", async () => {
+    const { data } = fakeData();
+    const card = (await (await get("/.well-known/mcp/server-card.json", data)).json()) as {
+      serverInfo: { name: string; version: string };
+      endpoint: string;
+      capabilities: { tools: unknown };
+    };
+    expect(card.serverInfo.name).toBe("airrates");
+    expect(card.endpoint).toBe("https://airrates.net/mcp");
+    expect(card.capabilities.tools).toBeDefined();
+
+    const post = (body: unknown) =>
+      handleApp(
+        new Request("https://airates.test/mcp", { method: "POST", body: JSON.stringify(body) }),
+        {
+          data,
+          now: () => NOW,
+        },
+      );
+    const rpc = async (method: string, params?: unknown) =>
+      (await (await post({ jsonrpc: "2.0", id: 1, method, params })).json()) as {
+        result?: {
+          protocolVersion: string;
+          serverInfo: { name: string };
+          tools: { name: string }[];
+          content: { text: string }[];
+        };
+        error?: { code: number };
+      };
+    const init = await rpc("initialize", { protocolVersion: "2025-06-18" });
+    expect(init.result?.protocolVersion).toBe("2025-06-18");
+    expect(init.result?.serverInfo.name).toBe("airrates");
+    expect((await rpc("tools/list")).result?.tools.map((t) => t.name)).toContain("get_top_spreads");
+    const status = await rpc("tools/call", { name: "get_data_status", arguments: {} });
+    expect(status.result?.content[0]?.text).toContain("markets");
+    expect((await rpc("tools/call", { name: "nope" })).error?.code).toBe(-32602);
+    expect((await rpc("resources/list")).error?.code).toBe(-32601);
+    const note = await post({ jsonrpc: "2.0", method: "notifications/initialized" });
+    expect(note.status).toBe(202);
+  });
+
   test("sitemap.xml lists canonical page URLs as XML", async () => {
     const res = await get("/sitemap.xml", fakeData().data);
     expect(res.status).toBe(200);
