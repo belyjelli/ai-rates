@@ -6,7 +6,6 @@ import {
   LIQUIDATION_BAND_REACH,
   LIQUIDATION_BANDS,
   LIQUIDATION_VENUE_ALL,
-  LIQUIDATION_VENUE_EACH,
   LIQUIDATION_WINDOW_KEYS,
   LIQUIDATION_WINDOWS,
   type LiquidationAssetParams,
@@ -14,6 +13,9 @@ import {
   type LiquidationParams,
   type LiquidationWindow,
   liquidationsToQuery,
+  liquidationVenueParam,
+  liquidationVenues,
+  readableQuery,
 } from "../app/params";
 import { PENDING_ROWS, PENDING_ZOOMS, type PendingZoom } from "../app/pending";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
@@ -250,7 +252,7 @@ function controlHref(
   if (band !== null) query.set("band", String(band));
   if (!(overrides.pending ?? state.assetParams.pending)) query.set("pending", "0");
   if ((overrides.zoom ?? state.assetParams.zoom) === "wide") query.set("zoom", "out");
-  const encoded = query.toString();
+  const encoded = readableQuery(query);
   return `${base}${encoded ? `?${encoded}` : ""}${hash}`;
 }
 
@@ -272,12 +274,24 @@ function windowStrip(state: {
 }
 
 /**
- * Which venues the map draws: every feed added up, one venue, or the feeds side by side.
+ * The venues a view is narrowed to, among the feeds this window actually has: empty means every
+ * feed. A named venue with nothing in the window is dropped, so a selection that names only quiet
+ * venues reads as "all" rather than as an empty grid the reader did not ask for.
+ */
+function pickedFeeds(params: Pick<LiquidationParams, "venue">, feeds: readonly string[]): string[] {
+  const named = liquidationVenues(params);
+  return named ? feeds.filter((venueId) => named.includes(venueId)) : [];
+}
+
+/**
+ * Which venues the map adds up: every feed, or any combination of them.
  *
- * A strip of links rather than a select, like every other control here: no JavaScript, each entry is
- * an address, and it disappears entirely on a single-feed window, where a chooser would be a control
- * with one choice. The venues come from the data, so a feed added to the collector appears here
- * without this page being edited.
+ * A strip of links rather than checkboxes, like every other control here: no JavaScript, each entry
+ * is an address. A venue is a toggle -- its link is the current selection with that venue added or
+ * taken away -- and the selected ones are highlighted. "all" clears the selection, and picking every
+ * feed is the same grid as picking none, so it is the same address. The strip disappears on a
+ * single-feed window, where a chooser would be a control with one choice. The venues come from the
+ * data, so a feed added to the collector appears here without this page being edited.
  */
 function venueStrip(
   state: {
@@ -289,26 +303,155 @@ function venueStrip(
   feeds: readonly string[],
 ): string {
   if (feeds.length < 2) return "";
-  const link = (venue: string, label: string) => {
-    const href = esc(controlHref(state, { venue }, "#map"));
-    // A named venue with nothing in this window falls back to the combined grid, so the strip marks
-    // what the page is actually showing rather than what the address asked for.
-    const on =
-      state.params.venue === venue ||
-      (venue === LIQUIDATION_VENUE_ALL &&
-        state.params.venue !== LIQUIDATION_VENUE_EACH &&
-        !feeds.includes(state.params.venue));
-    return on
-      ? `<a class="on" href="${href}" aria-current="page">${label}</a>`
-      : `<a href="${href}">${label}</a>`;
-  };
-  return `<nav class="tf" aria-label="${tr("Venue")}"><span class="tf-label">${tr("Venue")}</span>${link(
-    LIQUIDATION_VENUE_ALL,
-    tr("all"),
-  )}${link(LIQUIDATION_VENUE_EACH, tr("each"))}${feeds
-    .map((venueId) => link(venueId, esc(venueName(venueId).toLowerCase())))
-    .join("")}</nav>`;
+  const picked = pickedFeeds(state.params, feeds);
+  const href = (ids: readonly string[]) =>
+    esc(
+      controlHref(
+        state,
+        { venue: ids.length === feeds.length ? LIQUIDATION_VENUE_ALL : liquidationVenueParam(ids) },
+        "#map",
+      ),
+    );
+  // data-lq-swap="map" makes the link an in-place reload of this tab (LQ_SWAP_SCRIPT), and
+  // data-lq-venue says what it toggles: "all", or one venue.
+  const all =
+    picked.length === 0
+      ? `<a class="on" href="${href([])}" aria-current="true" data-lq-swap="map" data-lq-venue="${LIQUIDATION_VENUE_ALL}">${tr("all")}</a>`
+      : `<a href="${href([])}" data-lq-swap="map" data-lq-venue="${LIQUIDATION_VENUE_ALL}">${tr("all")}</a>`;
+  const venues = feeds
+    .map((venueId) => {
+      const label = esc(venueName(venueId).toLowerCase());
+      return picked.includes(venueId)
+        ? `<a class="on" href="${href(picked.filter((id) => id !== venueId))}" aria-current="true" data-lq-swap="map" data-lq-venue="${esc(venueId)}">${label}</a>`
+        : `<a href="${href([...picked, venueId])}" data-lq-swap="map" data-lq-venue="${esc(venueId)}">${label}</a>`;
+    })
+    .join("");
+  return `<nav class="tf" aria-label="${tr("Venue")}"><span class="tf-label">${tr("Venue")}</span>${all}${venues}</nav>`;
 }
+
+/**
+ * Every control inside a liquidation tab works in place: a click reloads only that tab, the way a
+ * lazy tab loads itself, instead of the whole page. Links opt in with `data-lq-swap="<tab>"`: the
+ * venue strip on the map, the asset picker on Sides, Prices and Odds, Pending on/off and Zoom on
+ * Sides, and the band widths on Prices.
+ *
+ * The links stay real addresses, so this is an enhancement and never the only way: without the
+ * script, or on any failure, the link is simply followed. With it, the clicked choice lights up at
+ * once, the tab's chart and grid dim behind a spinner, and the tab's own fragment (`?panel=<tab>`,
+ * the address a lazy tab loads from) replaces it. The address moves with pushState, and Back walks
+ * the choices.
+ *
+ * Everything else on the page was built for the old address, so it is pointed at the new one: the
+ * window strip's links, the language switch, the per-asset tab labels (the fragment carries them in
+ * data-labels), and every tab's `data-lazy` address. Each tab becomes one tabs.ts manages: the one
+ * just loaded keeps its fragment, `.lazy-body` and all, so live.ts refreshes it from its own address;
+ * the others are marked stale, so they are fetched again when next shown -- the Prices tab draws only
+ * the selected venues, and none of them may keep showing an asset the reader moved away from.
+ */
+const LQ_SWAP_SCRIPT = `(() => {
+  if (!document.getElementById("panel-liq-map") || !window.fetch || !window.DOMParser || !history.pushState) return;
+  let shown = location.href.split("#")[0];
+  let busy = false;
+  const panelOf = (id) => document.getElementById("panel-liq-" + id);
+  const panelUrl = (base, id) => base + (base.indexOf("?") >= 0 ? "&" : "?") + "panel=" + id;
+  const readable = (search) => search.replace(/%2C/g, ",");
+
+  const light = (link, on) => {
+    link.classList.toggle("on", on);
+    if (on) link.setAttribute("aria-current", "true"); else link.removeAttribute("aria-current");
+  };
+  // The clicked choice answers at once, before the tab does. A venue toggles within a set; every
+  // other strip picks one.
+  const mark = (link) => {
+    const nav = link.closest("nav");
+    if (!nav) return;
+    const links = Array.prototype.slice.call(nav.querySelectorAll("a[data-lq-swap]"));
+    if (link.dataset.lqVenue) {
+      const all = links.filter((a) => a.dataset.lqVenue === "all")[0];
+      if (link === all) links.forEach((a) => light(a, a === all));
+      else {
+        light(link, !link.classList.contains("on"));
+        if (all) light(all, !links.some((a) => a !== all && a.classList.contains("on")));
+      }
+    } else links.forEach((a) => light(a, a === link));
+    nav.insertAdjacentHTML("beforeend", '<span class="spin" aria-hidden="true"></span>');
+  };
+
+  const follow = (base, labels) => {
+    const here = new URL(base, location.href);
+    for (const a of document.querySelectorAll(".lq-controls nav.tf a")) {
+      if (a.closest("[data-tab-panel]")) continue;
+      // The window strip: this address with that link's window, first, as the server orders it.
+      const win = new URL(a.href).searchParams.get("window");
+      const rest = new URLSearchParams(here.search);
+      rest.delete("window");
+      const query = new URLSearchParams();
+      if (win) query.set("window", win);
+      rest.forEach((value, key) => query.append(key, value));
+      const text = query.toString();
+      a.setAttribute("href", here.pathname + (text ? "?" + readable(text) : ""));
+    }
+    for (const a of document.querySelectorAll("a[data-lang]")) {
+      a.href = a.pathname + "?back=" + encodeURIComponent(location.pathname + location.search);
+    }
+    for (const id in labels) {
+      const label = document.querySelector('[data-tab="' + id + '"] .tab-label--full, [data-tab="' + id + '"] .tab-label');
+      if (label) label.textContent = labels[id];
+    }
+    for (const panel of document.querySelectorAll("[data-tab-panel]")) {
+      panel.setAttribute("data-lazy", panelUrl(base, panel.getAttribute("data-tab-panel")));
+      if (panel.dataset.lazyState === "loaded" || (!panel.dataset.lazyState && !panel.querySelector(".lazy-wait"))) {
+        panel.dataset.lazyState = "stale";
+      }
+    }
+  };
+
+  const load = async (tab, href, push) => {
+    const panel = panelOf(tab);
+    if (!panel) { location.href = href; return; }
+    busy = true;
+    const base = href.split("#")[0];
+    panel.classList.add("lq-switching");
+    panel.setAttribute("aria-busy", "true");
+    try {
+      const res = await fetch(panelUrl(base, tab), { credentials: "same-origin" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const body = new DOMParser().parseFromString(await res.text(), "text/html").querySelector(".lazy-body");
+      if (!body) throw new Error("no panel");
+      if (push) history.pushState(null, "", href);
+      shown = base;
+      follow(base, JSON.parse(body.getAttribute("data-labels") || "{}"));
+      panel.replaceChildren(document.importNode(body, true));
+      panel.dataset.lazyState = "loaded";
+      panel.dataset.loadedAt = String(Date.now());
+      if (window.airratesHelp) window.airratesHelp(panel);
+    } catch (_) {
+      location.href = href;
+      return;
+    }
+    panel.classList.remove("lq-switching");
+    panel.removeAttribute("aria-busy");
+    busy = false;
+  };
+
+  // Delegated, because every strip is replaced with the rest of its tab on every switch.
+  document.addEventListener("click", (event) => {
+    if (event.defaultPrevented || event.button !== 0 || !event.target.closest) return;
+    const link = event.target.closest("a[data-lq-swap]");
+    if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    // A lit single choice is already showing; a lit venue is a toggle and still acts, unless it is "all".
+    if (busy || (link.classList.contains("on") && (!link.dataset.lqVenue || link.dataset.lqVenue === "all"))) return;
+    mark(link);
+    load(link.dataset.lqSwap, link.href, true);
+  });
+  addEventListener("popstate", () => {
+    if (location.pathname.indexOf("/liquidations") !== 0) { location.reload(); return; }
+    if (busy || location.href.split("#")[0] === shown) return;
+    const tab = location.hash.slice(1);
+    load(panelOf(tab) ? tab : "map", location.href, false);
+  });
+})();`;
 
 function legend(): string {
   const bounds = ["&lt;$1k", "$1k–10k", "$10k–100k", "$100k–1M", "$1M–5M", "≥$5M"];
@@ -339,157 +482,118 @@ function mapPanel(data: {
   const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
   const cols = columns(params, now);
 
-  // Index once: the grid reads every (venue, asset, bucket) and a scan per cell would be quadratic
-  // in a page that is already 2 x 13 x 12 cells.
-  //
-  // The key separator is NUL, written as the escape \0 and never as a raw byte: an asset can be
-  // named almost anything a venue lists, so the separator has to be a character that cannot appear
-  // in one -- but a raw U+0000 in a source file makes `file` call it binary and grep return nothing
-  // for any pattern in it, which is why the same separator was rewritten this way in
-  // packages/core/src/ranking-eval.ts.
-  const byCell = new Map<string, { usd: number; events: number; long: number; short: number }>();
-  for (const cell of map.cells) {
-    byCell.set(
-      `${cell.venue_id}\0${cell.asset}\0${cell.asset_class}\0${cell.bucket_start.getTime()}`,
-      {
-        usd: cell.notional_usd,
-        events: cell.events,
-        long: cell.long_usd,
-        short: cell.short_usd,
-      },
-    );
-  }
-  const byColumnTotal = new Map<
-    string,
-    { usd: number; events: number; long: number; short: number }
-  >();
-  for (const total of map.columnTotals) {
-    byColumnTotal.set(`${total.venue_id}\0${total.bucket_start.getTime()}`, {
-      usd: total.notional_usd,
-      events: total.events,
-      long: total.long_usd,
-      short: total.short_usd,
-    });
-  }
-
   const feeds = map.totals.map((total) => total.venue_id);
+  const picked = pickedFeeds(params, feeds);
+  const counted = (venueId: string) => picked.length === 0 || picked.includes(venueId);
 
-  // The combined view is a pseudo-venue summed over the feeds, built from the same indexes the per
-  // venue panels read rather than from a second query: the cells are already per venue, per asset,
-  // per bucket, so adding them here costs one pass and keeps one arithmetic for both views.
+  // One grid, summed over the selected venues -- every feed when none is selected. The cells are
+  // already per venue, per asset, per bucket, so the sum is one pass over them here rather than a
+  // second query, and one arithmetic for every selection.
   //
-  // It is keyed by a name no venue can have (params guarantees a venue id is [a-z0-9-]), so the
-  // panel renderer needs no second code path.
+  // Indexed once: the grid reads every (asset, bucket) and a scan per cell would be quadratic. The
+  // key separator is NUL, written as the escape \0 and never as a raw byte: an asset can be named
+  // almost anything a venue lists, so the separator has to be a character that cannot appear in one
+  // -- but a raw U+0000 in a source file makes `file` call it binary and grep return nothing for any
+  // pattern in it, which is why the same separator was rewritten this way in
+  // packages/core/src/ranking-eval.ts.
+  type Tally = { usd: number; events: number; long: number; short: number };
+  const add = (
+    into: Map<string, Tally>,
+    key: string,
+    row: { notional_usd: number; events: number; long_usd: number; short_usd: number },
+  ) => {
+    const held = into.get(key) ?? { usd: 0, events: 0, long: 0, short: 0 };
+    held.usd += row.notional_usd;
+    held.events += row.events;
+    held.long += row.long_usd;
+    held.short += row.short_usd;
+    into.set(key, held);
+  };
+  const byCell = new Map<string, Tally>();
   for (const cell of map.cells) {
-    const key = `${LIQUIDATION_VENUE_ALL}\0${cell.asset}\0${cell.asset_class}\0${cell.bucket_start.getTime()}`;
-    const held = byCell.get(key) ?? { usd: 0, events: 0, long: 0, short: 0 };
-    held.usd += cell.notional_usd;
-    held.events += cell.events;
-    held.long += cell.long_usd;
-    held.short += cell.short_usd;
-    byCell.set(key, held);
+    if (counted(cell.venue_id)) {
+      add(byCell, `${cell.asset}\0${cell.asset_class}\0${cell.bucket_start.getTime()}`, cell);
+    }
   }
+  const byColumnTotal = new Map<string, Tally>();
   for (const total of map.columnTotals) {
-    const key = `${LIQUIDATION_VENUE_ALL}\0${total.bucket_start.getTime()}`;
-    const held = byColumnTotal.get(key) ?? { usd: 0, events: 0, long: 0, short: 0 };
-    held.usd += total.notional_usd;
-    held.events += total.events;
-    held.long += total.long_usd;
-    held.short += total.short_usd;
-    byColumnTotal.set(key, held);
+    if (counted(total.venue_id)) add(byColumnTotal, String(total.bucket_start.getTime()), total);
   }
   // Markets are summed rather than counted distinctly: a market is one venue's own listing, so the
-  // same asset on two venues is two markets, which is what each panel's own figure already says.
-  const combinedTotals = map.totals.reduce(
-    (sum, total) => ({
-      venue_id: LIQUIDATION_VENUE_ALL,
-      notional_usd: sum.notional_usd + total.notional_usd,
-      events: sum.events + total.events,
-      long_usd: sum.long_usd + total.long_usd,
-      short_usd: sum.short_usd + total.short_usd,
-      markets: sum.markets + total.markets,
-    }),
-    {
-      venue_id: LIQUIDATION_VENUE_ALL,
-      notional_usd: 0,
-      events: 0,
-      long_usd: 0,
-      short_usd: 0,
-      markets: 0,
-    },
-  );
+  // same asset on two venues is two markets.
+  const totals = map.totals
+    .filter((total) => counted(total.venue_id))
+    .reduce(
+      (sum, total) => ({
+        notional_usd: sum.notional_usd + total.notional_usd,
+        events: sum.events + total.events,
+        markets: sum.markets + total.markets,
+      }),
+      { notional_usd: 0, events: 0, markets: 0 },
+    );
 
-  const panel = (venueId: string): string => {
-    const totals =
-      venueId === LIQUIDATION_VENUE_ALL
-        ? combinedTotals
-        : map.totals.find((total) => total.venue_id === venueId);
-    const head = cols
-      .map(
-        (column) =>
-          `<th class="num${column.partial ? " lq-now" : ""}" scope="col"${
-            column.partial ? ` title="${tr("This column is still filling")}"` : ""
-          }>${esc(columnLabel(column, bucketHours))}</th>`,
-      )
-      .join("");
+  const head = cols
+    .map(
+      (column) =>
+        `<th class="num${column.partial ? " lq-now" : ""}" scope="col"${
+          column.partial ? ` title="${tr("This column is still filling")}"` : ""
+        }>${esc(columnLabel(column, bucketHours))}</th>`,
+    )
+    .join("");
 
-    const rows = map.assets
-      .map((asset) => {
-        const key = assetKey(asset.asset, asset.asset_class);
-        const cells = cols
-          .map((column) => {
-            const cell = byCell.get(
-              `${venueId}\0${asset.asset}\0${asset.asset_class}\0${column.start.getTime()}`,
-            );
-            if (!cell) return `<td class="num none" data-c="${column.start.getTime()}">·</td>`;
-            const title = cellTitle(cell);
-            return `<td class="num ${cellClass(cell.usd, cell.long, cell.short)}" data-c="${column.start.getTime()}" title="${esc(
-              title,
-            )}"><span data-u="usd">${money(cell.usd)}</span><span class="lq-n">${cell.events.toLocaleString(
-              "en-US",
-            )}</span></td>`;
-          })
-          .join("");
-        // The row links to the asset's OWN grid, where the axis becomes the price a position died
-        // at -- the one view this page cannot show, because a price band means nothing across
-        // twelve different assets.
-        return `<tr data-k="${esc(key)}"><th class="asset" scope="row"><a href="/liquidations/${assetPathFor(
-          asset.asset,
-          asset.asset_class,
-        )}">${assetName(asset.asset, asset.asset_class)}</a></th>${cells}</tr>`;
-      })
-      .join("");
+  const cellAt = (asset: { asset: string; asset_class: AssetClass }, column: Column) =>
+    byCell.get(`${asset.asset}\0${asset.asset_class}\0${column.start.getTime()}`);
 
-    // The tail, so the column totals below are checkable against the rows above rather than merely
-    // larger than them.
-    const other = cols
-      .map((column) => {
-        const total = byColumnTotal.get(`${venueId}\0${column.start.getTime()}`);
-        if (!total) return `<td class="num none">·</td>`;
-        let shown = 0;
-        for (const asset of map.assets) {
-          const cell = byCell.get(
-            `${venueId}\0${asset.asset}\0${asset.asset_class}\0${column.start.getTime()}`,
-          );
-          if (cell) shown += cell.usd;
-        }
-        const rest = total.usd - shown;
-        // Floating point, not a data problem: a sum of doubles that should be zero often is not.
-        return rest > 1 ? `<td class="num dim">${money(rest)}</td>` : `<td class="num none">·</td>`;
-      })
-      .join("");
+  const rows = map.assets
+    .map((asset) => {
+      const key = assetKey(asset.asset, asset.asset_class);
+      const cells = cols
+        .map((column) => {
+          const cell = cellAt(asset, column);
+          if (!cell) return `<td class="num none" data-c="${column.start.getTime()}">·</td>`;
+          return `<td class="num ${cellClass(cell.usd, cell.long, cell.short)}" data-c="${column.start.getTime()}" title="${esc(
+            cellTitle(cell),
+          )}"><span data-u="usd">${money(cell.usd)}</span><span class="lq-n">${cell.events.toLocaleString(
+            "en-US",
+          )}</span></td>`;
+        })
+        .join("");
+      // The row links to the asset's OWN grid, where the axis becomes the price a position died at
+      // -- the one view this page cannot show, because a price band means nothing across twelve
+      // different assets.
+      return `<tr data-k="${esc(key)}"><th class="asset" scope="row"><a href="/liquidations/${assetPathFor(
+        asset.asset,
+        asset.asset_class,
+      )}">${assetName(asset.asset, asset.asset_class)}</a></th>${cells}</tr>`;
+    })
+    .join("");
 
-    const totalRow = cols
-      .map((column) => {
-        const total = byColumnTotal.get(`${venueId}\0${column.start.getTime()}`);
-        if (!total) return `<td class="num none">·</td>`;
-        return `<td class="num"><span data-u="total">${money(total.usd)}</span><span class="lq-n">${total.events.toLocaleString(
-          "en-US",
-        )}</span></td>`;
-      })
-      .join("");
+  // The tail, so the column totals below are checkable against the rows above rather than merely
+  // larger than them.
+  const other = cols
+    .map((column) => {
+      const total = byColumnTotal.get(String(column.start.getTime()));
+      if (!total) return `<td class="num none">·</td>`;
+      let shown = 0;
+      for (const asset of map.assets) shown += cellAt(asset, column)?.usd ?? 0;
+      const rest = total.usd - shown;
+      // Floating point, not a data problem: a sum of doubles that should be zero often is not.
+      return rest > 1 ? `<td class="num dim">${money(rest)}</td>` : `<td class="num none">·</td>`;
+    })
+    .join("");
 
-    const heading = totals
+  const totalRow = cols
+    .map((column) => {
+      const total = byColumnTotal.get(String(column.start.getTime()));
+      if (!total) return `<td class="num none">·</td>`;
+      return `<td class="num"><span data-u="total">${money(total.usd)}</span><span class="lq-n">${total.events.toLocaleString(
+        "en-US",
+      )}</span></td>`;
+    })
+    .join("");
+
+  const heading =
+    totals.events > 0
       ? tr("<b>{usd}</b> · {events} liquidations · {markets} markets", {
           usd: money(totals.notional_usd),
           events: totals.events.toLocaleString("en-US"),
@@ -497,41 +601,23 @@ function mapPanel(data: {
         })
       : tr("no liquidations in this window");
 
-    const title =
-      venueId === LIQUIDATION_VENUE_ALL
-        ? `<h2 class="lq-venue">${
-            feeds.length > 1
-              ? tr("Every feed, {count} venues", { count: feeds.length })
-              : tr("Every feed")
-          }</h2>`
-        : `<h2 class="lq-venue"><a href="/markets/${esc(venueId)}">${esc(venueName(venueId))}</a></h2>`;
-    return `<section class="lq-panel">
-${title}
-<p class="lq-sum" data-live="lq-sum-${esc(venueId)}">${heading}</p>
-<div class="heat-wrap"><table class="heat lq">
-<thead><tr><th class="asset" scope="col">${tr("Asset")}</th>${head}</tr></thead>
-<tbody data-live="lq-${esc(venueId)}">${rows}
-<tr class="lq-other"><th class="asset" scope="row">${tr("other markets")}</th>${other}</tr>
-<tr class="lq-total"><th class="asset" scope="row">${tr("total")}</th>${totalRow}</tr></tbody>
-</table></div>
-</section>`;
-  };
-
-  // "each" keeps the side-by-side comparison; a named venue that has no rows in this window falls
-  // back to the combined grid rather than rendering an empty panel the reader did not ask for.
-  const shown =
-    params.venue === LIQUIDATION_VENUE_EACH
-      ? feeds
-      : feeds.includes(params.venue)
-        ? [params.venue]
-        : [LIQUIDATION_VENUE_ALL];
+  // No heading naming the venues: the strip above already shows which ones are added up. The live
+  // keys stay "all" whatever the selection, since a refresh re-reads the same address.
   const body =
     feeds.length === 0
       ? `<p class="empty">${tr(
           "No liquidations recorded in the last {window}. Only the venues that publish a feed the collector reads appear here, so a quiet window is not a quiet market.",
           { window: esc(params.window) },
         )}</p>`
-      : `<div class="lq-grid">${shown.map(panel).join("")}</div>`;
+      : `<div class="lq-grid"><section class="lq-panel">
+<p class="lq-sum" data-live="lq-sum-${LIQUIDATION_VENUE_ALL}">${heading}</p>
+<div class="heat-wrap"><table class="heat lq">
+<thead><tr><th class="asset" scope="col">${tr("Asset")}</th>${head}</tr></thead>
+<tbody data-live="lq-${LIQUIDATION_VENUE_ALL}">${rows}
+<tr class="lq-other"><th class="asset" scope="row">${tr("other markets")}</th>${other}</tr>
+<tr class="lq-total"><th class="asset" scope="row">${tr("total")}</th>${totalRow}</tr></tbody>
+</table></div>
+</section></div>`;
 
   return `${venueStrip(strip, feeds)}
 ${body}`;
@@ -682,10 +768,11 @@ function assetPanel(data: {
   };
 
   // The priced grid cannot sum venues -- comparing where each book broke is the tab's whole question
-  // -- so "all" and "each" both draw every panel here. A named venue still narrows it to one, which
-  // is what makes the strip on the map tab mean the same thing on this one.
+  // -- so it draws a panel per venue: the ones selected on the map tab's strip, or every one when none
+  // is, which is what makes the strip mean the same thing on this tab.
   const all = map.totals.map((total) => total.venue_id);
-  const venues = all.includes(params.venue) ? [params.venue] : all;
+  const picked = pickedFeeds(params, all);
+  const venues = picked.length > 0 ? picked : all;
   const body =
     mark === null
       ? `<p class="empty">${tr(
@@ -753,9 +840,11 @@ function assetStrip(
         controlHref(state, { asset: { name: entry.asset, assetClass: entry.asset_class } }, hash),
       );
       const label = assetName(entry.asset, entry.asset_class);
+      // The tab it lives in reloads in place (LQ_SWAP_SCRIPT); the hash names that tab.
+      const swap = esc(hash.slice(1));
       return entry.asset === current
-        ? `<a class="on" href="${href}" aria-current="page">${label}</a>`
-        : `<a href="${href}">${label}</a>`;
+        ? `<a class="on" href="${href}" aria-current="page" data-lq-swap="${swap}">${label}</a>`
+        : `<a href="${href}" data-lq-swap="${swap}">${label}</a>`;
     })
     .join("");
   return `<nav class="tf lq-assets" aria-label="${tr("Asset")}">${links}</nav>`;
@@ -855,6 +944,11 @@ function pendingPanel(
     ...model.shorts.map((usd, i) => row("short", usd, i)).reverse(),
     ...model.longs.map((usd, i) => row("long", usd, i)),
   ].join("");
+  // The money axis along the bottom: a row's length is its dollars against the widest row, so the
+  // widest row's figure sits at the right edge and half of it in the middle. Zero is the strip's own
+  // left edge, which is also "now", so it carries no label of its own.
+  const axis = (fraction: number) => formatUsd(top * fraction).replace(".0", "");
+  const xAxis = `<div class="lqp-x" aria-hidden="true"><span style="left:50%">${axis(0.5)}</span><span style="left:100%">${axis(1)}</span></div>`;
   // A label every second row, centred on it and naming its outer edge: +2% sits on the row 1-2%
   // above, as in the design; zoomed out, +20% on the row 10-20% above and −10% on 5-10% below.
   const ticks: string[] = [];
@@ -877,7 +971,7 @@ function pendingPanel(
           longs: money(model.longTotal),
         },
       ),
-    )}"><span class="lqp-now">${tr("now")}</span><div class="lqp-rows">${rows}<span class="lqp-mark"><b>${formatPrice(mark)}</b></span>${ticks.join("")}<span class="lqp-cap lqp-cap-s">${tr("shorts liquidate if price rises")}</span><span class="lqp-cap lqp-cap-l">${tr("longs liquidate if price falls")}</span></div></div>`,
+    )}"><span class="lqp-now">${tr("now")}</span><div class="lqp-rows">${rows}<span class="lqp-mark"><b>${formatPrice(mark)}</b></span>${ticks.join("")}<span class="lqp-cap lqp-cap-s">${tr("shorts liquidate if price rises")}</span><span class="lqp-cap lqp-cap-l">${tr("longs liquidate if price falls")}</span>${xAxis}</div></div>`,
   };
 }
 
@@ -1289,12 +1383,12 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
     const bandStrip = [
       `<a${
         assetParams.band === null ? ' class="on" aria-current="page"' : ""
-      } href="${esc(controlHref(state, { band: null }, "#price"))}">${tr("fit")}</a>`,
+      } href="${esc(controlHref(state, { band: null }, "#price"))}" data-lq-swap="price">${tr("fit")}</a>`,
       ...LIQUIDATION_BANDS.map((choice) => {
         const href = esc(controlHref(state, { band: choice }, "#price"));
         return choice === assetParams.band
-          ? `<a class="on" href="${href}" aria-current="page">${choice}%</a>`
-          : `<a href="${href}">${choice}%</a>`;
+          ? `<a class="on" href="${href}" aria-current="page" data-lq-swap="price">${choice}%</a>`
+          : `<a href="${href}" data-lq-swap="price">${choice}%</a>`;
       }),
     ].join("");
     return assetPanel({
@@ -1322,8 +1416,8 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
         const href = esc(controlHref(state, { pending: on }, "#sides"));
         const text = on ? tr("Pending on") : tr("Pending off");
         return on === assetParams.pending
-          ? `<a class="on" href="${href}" aria-current="page">${text}</a>`
-          : `<a href="${href}">${text}</a>`;
+          ? `<a class="on" href="${href}" aria-current="page" data-lq-swap="sides">${text}</a>`
+          : `<a href="${href}" data-lq-swap="sides">${text}</a>`;
       })
       .join("")}</nav>${
       // The zoom only means something while the strip is drawn, so it goes with it.
@@ -1334,8 +1428,8 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
               // Plain words: the strip's own tick labels already say the range each one covers.
               const text = zoom === "near" ? tr("Zoom in") : tr("Zoom out");
               return zoom === assetParams.zoom
-                ? `<a class="on" href="${href}" aria-current="page">${text}</a>`
-                : `<a href="${href}">${text}</a>`;
+                ? `<a class="on" href="${href}" aria-current="page" data-lq-swap="sides">${text}</a>`
+                : `<a href="${href}" data-lq-swap="sides">${text}</a>`;
             })
             .join("")}</nav>`
         : ""
@@ -1373,7 +1467,20 @@ function lazyPanel(view: LiquidationView, id: LiquidationTab): string {
 export function liquidationsPanel(view: LiquidationView, id: LiquidationTab): string {
   const body =
     tabBody(view, id) ?? `<p class="empty">${tr("This tab has nothing to show right now.")}</p>`;
-  return `<div class="lazy-body" data-rendered="${view.now}">${body}</div>`;
+  // The per-asset tab labels ride along, for a tab loaded in place after the asset changed: the
+  // tab bar is outside every panel, so LQ_SWAP_SCRIPT relabels it from these.
+  return `<div class="lazy-body" data-rendered="${view.now}" data-labels="${esc(
+    JSON.stringify(assetTabLabels(view.asset)),
+  )}">${body}</div>`;
+}
+
+/** The per-asset tabs' full labels, which name the asset they show. */
+function assetTabLabels(asset: string | null): Record<"sides" | "price" | "odds", string> {
+  return {
+    sides: asset === null ? tr("Longs vs shorts") : tr("{asset} longs vs shorts", { asset }),
+    price: asset === null ? tr("By price level") : tr("{asset} price levels", { asset }),
+    odds: asset === null ? tr("Odds") : tr("{asset} odds", { asset }),
+  };
 }
 
 /**
@@ -1404,6 +1511,7 @@ export function liquidations(
 ): string {
   const { overview, map, asset, params, active, now } = data;
   const state = controlState(data);
+  const labels = assetTabLabels(asset);
 
   const panels = LIQUIDATION_TABS.map((id) => {
     const body = tabBody(data, id);
@@ -1470,27 +1578,16 @@ ${tabBar({
       shortLabel: tr("Assets"),
       badge: totalEvents,
     },
-    {
-      id: "sides",
-      label: asset === null ? tr("Longs vs shorts") : tr("{asset} longs vs shorts", { asset }),
-      shortLabel: tr("Sides"),
-    },
-    {
-      id: "price",
-      label: asset === null ? tr("By price level") : tr("{asset} price levels", { asset }),
-      shortLabel: tr("Prices"),
-    },
-    {
-      id: "odds",
-      label: asset === null ? tr("Odds") : tr("{asset} odds", { asset }),
-      shortLabel: tr("Odds"),
-    },
+    { id: "sides", label: labels.sides, shortLabel: tr("Sides") },
+    { id: "price", label: labels.price, shortLabel: tr("Prices") },
+    { id: "odds", label: labels.odds, shortLabel: tr("Odds") },
   ],
   activeId: active,
 })}
 ${panels}
 ${mapFootnote({ map, params, now })}
 <p class="notes">${tr("Updated {ago}.", { ago: since(overview.updated_at, now) })}</p>
-<script>${SLOT_SCRIPT}</script>`,
+<script>${SLOT_SCRIPT}</script>
+<script>${LQ_SWAP_SCRIPT}</script>`,
   });
 }

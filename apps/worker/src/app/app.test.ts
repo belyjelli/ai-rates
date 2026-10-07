@@ -460,7 +460,7 @@ describe("pages", () => {
     expect(html).toContain("Newest liquidation 16s ago.");
   });
 
-  test("/v1/liquidations applies a named venue instead of only echoing it", async () => {
+  test("/v1/liquidations applies the named venues instead of only echoing them", async () => {
     const { data } = fakeData({ liquidationMap: async () => liqMap() });
     const body = (await (await get("/v1/liquidations?venue=okx", data)).json()) as {
       count: number;
@@ -474,6 +474,16 @@ describe("pages", () => {
     // Only the rows okx has a cell in: gate's ETH is not okx's.
     expect(body.assets.map((asset) => asset.asset)).toEqual(["SNDK"]);
 
+    // A combination, in whatever order it was asked for, comes back as one canonical selection.
+    const both = (await (await get("/v1/liquidations?venue=okx,gate", data)).json()) as {
+      params: { venue: string };
+      query: string;
+      cells: unknown[];
+    };
+    expect(both.params.venue).toBe("gate,okx");
+    expect(both.query).toBe("?venue=gate,okx");
+    expect(both.cells).toHaveLength(2);
+
     const all = (await (await get("/v1/liquidations", data)).json()) as { cells: unknown[] };
     expect(all.cells).toHaveLength(2);
   });
@@ -482,44 +492,101 @@ describe("pages", () => {
     const { data } = fakeData({ liquidationMap: async () => liqMap() });
     const html = await (await get("/liquidations", data)).text();
 
-    // One grid, summed over the feeds: with the fleet past two venues, "what happened to this asset"
-    // is the question the page opens on. The per-venue panels are one click away.
+    // One grid, summed over the feeds: "what happened to this asset" is the question the page opens
+    // on.
     expect(html).toContain('data-live="lq-all"');
     expect(html).not.toContain('data-live="lq-gate"');
-    // The feeds' own totals, added: the fixture's $88.4M on gate and $15.5M on okx.
+    // The feeds' own totals, added: the fixture's $39.8M on gate and $64.1M on okx.
     expect(html).toContain('data-live="lq-sum-all"><b>$104M</b>');
     // The venues are named from the data, not written into the copy.
     expect(html).toContain("This is Gate and OKX, the 2 venues whose liquidation feed");
-    expect(html).toContain('href="/liquidations?venue=each#map"');
+    // "all" is the lit entry, and each venue's link selects it alone.
+    expect(html).toContain(
+      'class="on" href="/liquidations#map" aria-current="true" data-lq-swap="map" data-lq-venue="all">all<',
+    );
+    expect(html).toContain(
+      'href="/liquidations?venue=gate#map" data-lq-swap="map" data-lq-venue="gate">gate<',
+    );
+    expect(html).toContain(
+      'href="/liquidations?venue=okx#map" data-lq-swap="map" data-lq-venue="okx">okx<',
+    );
+    // No heading over the grid naming the venues: the strip already shows which are added up.
+    expect(html).not.toContain('class="lq-venue"');
+    expect(html).not.toContain("Every feed");
   });
 
   test("one venue can be picked, and an unknown one falls back to the sum", async () => {
     const { data } = fakeData({ liquidationMap: async () => liqMap() });
     const okx = await (await get("/liquidations?venue=okx", data)).text();
-    expect(okx).toContain('data-live="lq-okx"');
-    expect(okx).not.toContain('data-live="lq-gate"');
-    expect(okx).toContain('aria-current="page">okx<');
+    // The same one grid, now okx's alone, and okx lit while "all" is not.
+    expect(okx).toContain('data-live="lq-sum-all"><b>$64.1M</b>');
+    expect(okx).toContain('aria-current="true" data-lq-swap="map" data-lq-venue="okx">okx<');
+    expect(okx).not.toContain('aria-current="true" data-lq-swap="map" data-lq-venue="all"');
+    // Clicking okx again takes it away, which leaves every feed. Clicking gate adds it, which with
+    // two feeds is every feed too, so it is the plain address.
+    expect(okx).toContain(
+      'href="/liquidations#map" aria-current="true" data-lq-swap="map" data-lq-venue="okx"',
+    );
+    expect(okx).toContain('href="/liquidations#map" data-lq-swap="map" data-lq-venue="gate"');
 
-    // A venue with no rows in this window is not an empty panel: it reads as the combined grid.
+    // A venue with no rows in this window is not an empty grid: it reads as the combined one.
     const gone = await (await get("/liquidations?venue=bybit", data)).text();
-    expect(gone).toContain('data-live="lq-all"');
+    expect(gone).toContain('data-live="lq-sum-all"><b>$104M</b>');
+    expect(gone).toContain('aria-current="true" data-lq-swap="map" data-lq-venue="all"');
   });
 
-  test("the liquidation map gives each venue its own panel, on shared rows", async () => {
+  test("a combination of venues is added up into the one grid, each of them lit", async () => {
+    const liq3 = liqMap({
+      totals: [
+        ...liqMap().totals,
+        {
+          venue_id: "binance",
+          notional_usd: 10_000_000,
+          events: 1_000,
+          long_usd: 5_000_000,
+          short_usd: 5_000_000,
+          markets: 200,
+          last_at: new Date(NOW - 60_000),
+        },
+      ],
+    });
+    const { data } = fakeData({ liquidationMap: async () => liq3 });
+    const html = await (await get("/liquidations?venue=okx,gate", data)).text();
+
+    // gate's $39.76M and okx's $64.08M, binance's $10M left out.
+    expect(html).toContain('data-live="lq-sum-all"><b>$104M</b>');
+    expect(html).toContain("24,058 liquidations");
+    expect(html).toContain('aria-current="true" data-lq-swap="map" data-lq-venue="gate">gate<');
+    expect(html).toContain('aria-current="true" data-lq-swap="map" data-lq-venue="okx">okx<');
+    // Picking the last one left is every feed, so it is the plain address.
+    expect(html).not.toContain("venue=binance,gate,okx");
+    expect(html).toContain(
+      'href="/liquidations#map" data-lq-swap="map" data-lq-venue="binance">binance<',
+    );
+    // Shared rows: ETH is gate's and SNDK okx's, both in the one grid.
+    expect(html).toContain("$26.6M");
+    expect(html).toContain("$2.1M");
+  });
+
+  test("the old side-by-side view reads as every feed", async () => {
     const { data } = fakeData({ liquidationMap: async () => liqMap() });
     const html = await (await get("/liquidations?venue=each", data)).text();
+    expect(html).toContain('data-live="lq-sum-all"><b>$104M</b>');
+    expect(html).not.toContain(">each<");
+  });
 
-    // The venue is the split, which is the whole point of the page: two panels, both named.
-    expect(html).toContain("Gate");
-    expect(html).toContain("OKX");
-    expect(html).toContain('data-live="lq-gate"');
-    expect(html).toContain('data-live="lq-okx"');
-    // Shared rows: the same asset appears in both panels even though only one venue liquidated it.
-    expect(html.split('data-live="lq-okx"')[1]).toContain("ETH");
-    // The money and the population, as the reference design pairs them.
-    expect(html).toContain("$26.6M");
-    expect(html).toContain("1,681");
-    expect(html).toContain("8,701 liquidations");
+  test("picking venues reloads only the map tab, in place", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    const html = await (await get("/liquidations", data)).text();
+    // The script ships with the page and reloads the tab from its own fragment address.
+    expect(html).toContain("a[data-lq-swap]");
+    expect(html).toContain("panelUrl(base, tab)");
+    // And that fragment is the map tab alone, strip and grid, for the selection asked for.
+    const fragment = await (await get("/liquidations?venue=okx&panel=map", data)).text();
+    expect(fragment).toContain('<div class="lazy-body"');
+    expect(fragment).toContain('data-live="lq-sum-all"><b>$64.1M</b>');
+    expect(fragment).toContain('aria-current="true" data-lq-swap="map" data-lq-venue="okx"');
+    expect(fragment).not.toContain("<main");
   });
 
   test("a long liquidation and a short liquidation are different colours", async () => {
@@ -542,7 +609,7 @@ describe("pages", () => {
 
   test("the rows that did not fit are summed, so the venue total adds up", async () => {
     const { data } = fakeData({ liquidationMap: async () => liqMap() });
-    const html = await (await get("/liquidations?venue=each", data)).text();
+    const html = await (await get("/liquidations?venue=gate", data)).text();
 
     // gate's column total is $30M and its one visible row is $26.61M, so the tail is $3.39M.
     expect(html).toContain("other markets");
@@ -981,7 +1048,43 @@ describe("pages", () => {
     const offSides = await tab("/liquidations?pending=0", "sides", data);
     expect(offSides).not.toContain("Zoom out");
     expect(sides).toContain(">Zoom in<");
-    expect(sides).toContain('aria-current="page">Zoom out<');
+    expect(sides).toContain('aria-current="page" data-lq-swap="sides">Zoom out<');
+  });
+
+  test("the pending strip reads its money along the bottom, against its widest row", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset({ pending: PENDING }),
+    });
+    const sides = await tab("/liquidations", "sides", data);
+    // The widest row is the longs' $31M, so half of it sits in the middle and all of it at the edge.
+    expect(sides).toContain(
+      '<div class="lqp-x" aria-hidden="true"><span style="left:50%">$15.5M</span><span style="left:100%">$31M</span></div>',
+    );
+  });
+
+  test("every control in the per-asset tabs reloads its own tab in place", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset({ pending: PENDING }),
+    });
+    const sides = await tab("/liquidations", "sides", data);
+    const price = await tab("/liquidations", "price", data);
+    // Pending on/off and the zoom, on Sides.
+    expect(sides).toContain(
+      'href="/liquidations?pending=0#sides" data-lq-swap="sides">Pending off<',
+    );
+    expect(sides).toContain('href="/liquidations?zoom=out#sides" data-lq-swap="sides">Zoom out<');
+    // The asset picker, on each tab it sits in, reloading that tab.
+    expect(sides).toMatch(
+      /<a class="on" href="\/liquidations\/ETH#sides" aria-current="page" data-lq-swap="sides">/,
+    );
+    expect(price).toMatch(/href="\/liquidations\/[^"]+#price"[^>]* data-lq-swap="price">/);
+    // The band widths, on Prices.
+    expect(price).toMatch(/href="[^"]*band=[^"]*#price" data-lq-swap="price">/);
+    // A fragment carries the tab labels, so the bar can be relabelled when the asset changes.
+    expect(sides).toContain("data-labels=");
+    expect(sides).toContain("ETH longs vs shorts");
   });
 
   test("the per-asset grids explain their time columns, and each header names its full range", async () => {

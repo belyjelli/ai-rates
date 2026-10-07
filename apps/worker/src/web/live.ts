@@ -197,7 +197,14 @@ export const LIVE_SCRIPT = String.raw`(() => {
   const apply = (doc) => {
     for (const el of document.querySelectorAll(".chg")) el.classList.remove("chg", "chg-up", "chg-down", "chg-text", "chg-new");
     const here = regions(document);
-    const there = regions(doc);
+    // A tab this page loads by itself is left out of the fresh copy too, even where the server
+    // filled it there: a tab loaded in place (liquidations.ts, LQ_SWAP_SCRIPT) becomes one, and
+    // counting it on one side only would make the two never line up and replace the whole of main.
+    const lazyHere = new Set([...document.querySelectorAll("[data-tab-panel][data-lazy]")].map((el) => el.getAttribute("data-tab-panel")));
+    const there = regions(doc).filter((el) => {
+      const panel = el.closest("[data-tab-panel]");
+      return !panel || !lazyHere.has(panel.getAttribute("data-tab-panel"));
+    });
     const aligned = sameShape(here, there);
     if (!aligned) {
       // An empty state became a table, or the reverse: nothing lines up to compare, so take the page.

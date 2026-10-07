@@ -315,27 +315,64 @@ export const DEFAULT_LIQUIDATION_ASSETS = 12;
 export const MAX_LIQUIDATION_ASSETS = 40;
 
 /**
- * Which venues the map tab draws, as one control.
+ * Which venues the map tab adds up, as one control.
  *
- * "all" sums every venue into one grid and is the default: with two feeds the side-by-side panels
- * were the point, but the liquidation fleet is growing past that, and "what happened to this asset"
- * is the question a reader brings. "each" is the old side-by-side view, which answers the narrower
- * and better question of whether two books broke in the same hour. Anything else is one venue's id.
+ * "all" sums every feed into one grid and is the default. Otherwise it is a SET of venue ids, any
+ * combination of them, summed into that same one grid: "what happened on Binance and OKX together"
+ * is a question the reader can now ask directly. The old "each" view, a panel per venue, went with
+ * the venue headings that told its panels apart (2026-10-08); an old link to it reads as "all".
  */
 export const LIQUIDATION_VENUE_ALL = "all";
-export const LIQUIDATION_VENUE_EACH = "each";
+/** How many venues one selection may name; more than the fleet has, and a bound on the query. */
+const MAX_LIQUIDATION_VENUES = 24;
 
 export interface LiquidationParams {
   window: LiquidationWindow;
   assets: number;
-  /** "all", "each", or a venue id. Never interpolated into SQL; the page matches it against data. */
+  /**
+   * "all", or the selected venue ids, sorted, unique and comma-joined ("binance,okx"), so one
+   * selection is one address and one cache key whatever order it was clicked in. Never
+   * interpolated into SQL; the page matches the ids against data.
+   */
   venue: string;
+}
+
+/**
+ * The canonical `venue` for a set of ids: "all" when the set is empty, sorted and comma-joined
+ * otherwise. The one place a selection becomes a string, for the parser and the strip's links alike.
+ */
+export function liquidationVenueParam(ids: Iterable<string>): string {
+  const unique = [...new Set(ids)].sort();
+  return unique.length === 0 ? LIQUIDATION_VENUE_ALL : unique.join(",");
+}
+
+/** The venues a liquidation view is narrowed to, or null for every feed. */
+export function liquidationVenues(params: Pick<LiquidationParams, "venue">): string[] | null {
+  return params.venue === LIQUIDATION_VENUE_ALL ? null : params.venue.split(",");
+}
+
+/**
+ * A query string with the venue list's commas left readable: URLSearchParams writes them as %2C,
+ * which is legal but turns "?venue=binance,okx" into something nobody would type or recognise.
+ */
+export function readableQuery(query: URLSearchParams): string {
+  return query.toString().replace(/%2C/g, ",");
 }
 
 export function parseLiquidationParams(params: URLSearchParams): LiquidationParams {
   const window = (params.get("window") ?? "").trim().toLowerCase();
   const assets = Number.parseInt(params.get("assets") ?? "", 10);
-  const venue = (params.get("venue") ?? LIQUIDATION_VENUE_ALL).trim().toLowerCase();
+  // Venue ids are lowercase words with dashes (see packages/venues); anything else is dropped
+  // rather than carried into the page as a selector nothing matches, and "all" anywhere in the list
+  // means every feed. So does "each", the retired side-by-side view.
+  const named = (params.get("venue") ?? "")
+    .split(",")
+    .map((id) => id.trim().toLowerCase())
+    .filter((id) => /^[a-z0-9-]{1,24}$/.test(id));
+  const venue =
+    named.includes(LIQUIDATION_VENUE_ALL) || named.includes("each")
+      ? LIQUIDATION_VENUE_ALL
+      : liquidationVenueParam(named.slice(0, MAX_LIQUIDATION_VENUES));
   return {
     // Exact match against the allowlist: the window decides an interval and a bucket width, so it is
     // never interpolated from what arrived in the query string.
@@ -345,9 +382,7 @@ export function parseLiquidationParams(params: URLSearchParams): LiquidationPara
     assets: Number.isFinite(assets)
       ? Math.min(Math.max(assets, 1), MAX_LIQUIDATION_ASSETS)
       : DEFAULT_LIQUIDATION_ASSETS,
-    // Venue ids are lowercase words with dashes (see packages/venues); anything else falls back to
-    // the combined view rather than being carried into the page as a selector nothing matches.
-    venue: /^[a-z0-9-]{1,24}$/.test(venue) ? venue : LIQUIDATION_VENUE_ALL,
+    venue,
   };
 }
 
@@ -357,7 +392,7 @@ export function liquidationsToQuery(params: LiquidationParams): string {
   if (params.window !== "24h") query.set("window", params.window);
   if (params.assets !== DEFAULT_LIQUIDATION_ASSETS) query.set("assets", String(params.assets));
   if (params.venue !== LIQUIDATION_VENUE_ALL) query.set("venue", params.venue);
-  const encoded = query.toString();
+  const encoded = readableQuery(query);
   return encoded ? `?${encoded}` : "";
 }
 

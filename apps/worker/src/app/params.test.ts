@@ -305,11 +305,19 @@ describe("parseLiquidationParams", () => {
       venue: "all",
     });
     // The venue is a page-side selector, never SQL, but it is still bounded to a venue-id shape.
-    expect(parseLiquidationParams(new URLSearchParams("venue=each")).venue).toBe("each");
     expect(parseLiquidationParams(new URLSearchParams("venue=lighter-rh")).venue).toBe(
       "lighter-rh",
     );
     expect(parseLiquidationParams(new URLSearchParams("venue=DROP TABLE")).venue).toBe("all");
+    // A set: sorted and unique, so one selection is one address whatever order it was picked in.
+    expect(parseLiquidationParams(new URLSearchParams("venue=okx,GATE,okx")).venue).toBe(
+      "gate,okx",
+    );
+    // A bad id is dropped, not the whole selection.
+    expect(parseLiquidationParams(new URLSearchParams("venue=okx,DROP TABLE")).venue).toBe("okx");
+    // "all" anywhere means every feed, and so does the retired side-by-side "each".
+    expect(parseLiquidationParams(new URLSearchParams("venue=okx,all")).venue).toBe("all");
+    expect(parseLiquidationParams(new URLSearchParams("venue=each")).venue).toBe("all");
     // Clamp, never reject: a bad query yields the default view, as every other parser here does.
     expect(parseLiquidationParams(new URLSearchParams("assets=9999")).assets).toBe(
       MAX_LIQUIDATION_ASSETS,

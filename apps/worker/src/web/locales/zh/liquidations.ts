@@ -28,7 +28,6 @@ export const liquidations: Catalog = {
   Window: "时间窗口",
   Venue: "交易所",
   all: "全部",
-  each: "分别",
   Cell: "单元格",
   "longs closed": "多头爆仓",
   "shorts closed": "空头爆仓",
@@ -45,8 +44,6 @@ export const liquidations: Catalog = {
   "<b>{usd}</b> · {events} liquidations · {markets} markets":
     "<b>{usd}</b> · {events} 笔爆仓 · {markets} 个市场",
   "no liquidations in this window": "此时间窗口内没有爆仓",
-  "Every feed": "全部数据源",
-  "Every feed, {count} venues": "全部数据源，共 {count} 家交易所",
   "other markets": "其他市场",
   total: "合计",
   "No liquidations recorded in the last {window}. Only the venues that publish a feed the collector reads appear here, so a quiet window is not a quiet market.":
