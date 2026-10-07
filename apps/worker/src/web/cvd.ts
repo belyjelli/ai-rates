@@ -9,7 +9,7 @@ import {
   cvdToQuery,
   isCvdLockedInterval,
 } from "../app/params";
-import { ageText, esc, formatPrice, formatUsd } from "./format";
+import { ageText, esc, formatPrice, formatUsd, LOCK_ICON } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { msg, tr, trMsg } from "./i18n";
 import { layout } from "./layout";
@@ -300,10 +300,6 @@ const SORT_LABELS: Record<CvdSort, string> = {
   ratio: msg("CVD / volume"),
   change: msg("Change"),
 };
-
-/** A small padlock in the text colour, for an interval that is shown but cannot be picked yet. */
-const LOCK_ICON =
-  '<svg class="tf-lock" viewBox="0 0 12 12" width="9" height="9" aria-hidden="true"><rect x="2" y="5" width="8" height="6.5" rx="1" fill="currentColor"></rect><path d="M4 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="currentColor" stroke-width="1.4"></path></svg>';
 
 /**
  * Switching the interval, or the charted asset, in place.

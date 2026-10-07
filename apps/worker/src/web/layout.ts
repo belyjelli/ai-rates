@@ -553,6 +553,7 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 /* An option shown but not offered yet (the CVD 7d interval): dimmed, a padlock, no pointer. */
 .tf .tf-locked{display:inline-flex;align-items:center;gap:3px;padding:0 6px;color:var(--dim);cursor:not-allowed}
 .tf-lock{opacity:.85}
+.sheet td.locked{color:var(--dim);cursor:not-allowed}
 .tf a:hover{color:var(--accent)}
 .pager{display:flex;gap:16px;margin-top:10px;color:var(--muted)}
 .sheet .asset a{font-weight:700;border:0}

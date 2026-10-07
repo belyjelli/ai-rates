@@ -181,14 +181,8 @@ export const pages: Catalog = {
     "一次查看各交易所最有深度资产的资金费率。正值表示多头支付、空头收取；空单元格表示该交易所没有该资产的市场，而不是资金费率持平。",
 
   // price gaps
-  "One side's resting size is unknown, so the size this gap is good for cannot be stated":
-    "有一侧的挂单量未知，因此无法说明这个价差能容纳多大规模",
-  "Good for about {size} at these quotes, before fees and before either book moves":
-    "按这些报价约可容纳 {size}，未计手续费，也未计任一盘口的变动",
-  "{gap} less {fee} bps of taker fee, one fill on each side. The transfer a real position needs is not counted.":
-    "{gap} 减去 {fee} 个基点的吃单手续费，每侧成交一次。未计入真实仓位所需的资金划转。",
-  "{asset}: buy on {buyVenue} at {buyPrice}, sell on {sellVenue} at {sellPrice}. A {gap} bps gap, good for {size} at the top of the book.":
-    "{asset}：在 {buyVenue} 以 {buyPrice} 买入，在 {sellVenue} 以 {sellPrice} 卖出。价差 {gap} 个基点，盘口最优档可容纳 {size}。",
+  "{asset}: buy on {buyVenue} at {buyPrice}, sell on {sellVenue} at {sellPrice}. A {gap} bps gap at the top of the book.":
+    "{asset}：在 {buyVenue} 以 {buyPrice} 买入，在 {sellVenue} 以 {sellPrice} 卖出。盘口最优档价差 {gap} 个基点。",
   "Quotes seen {quoted}; the older leg's funding row fetched {fetched}":
     "报价获取于 {quoted}；较旧一腿的资金费数据获取于 {fetched}",
   "No asset quotes a gap this wide right now. The median comparable asset sits near 1.6 bps, so try a lower floor.":
@@ -196,25 +190,26 @@ export const pages: Catalog = {
   "Highest bid against lowest ask, across two different exchanges":
     "两家不同交易所之间的最高买价对最低卖价",
   "Gap, bps": "价差（基点）",
-  "The gap less one taker fee on each side, at an assumed retail rate. The transfer a real position needs is not counted.":
-    "价差减去每侧一笔吃单手续费（按假定的零售费率）。未计入真实仓位所需的资金划转。",
-  "Net, bps": "净价差（基点）",
+  "The sell price less the buy price, in the asset's own price units":
+    "卖出价减去购入价，以该资产的价格单位计",
+  Basis: "基差",
   "The smaller of the two resting sizes: what the gap is actually good for":
     "两侧挂单量中较小者：即这个价差实际能容纳的规模",
-  "Good for": "可容纳",
+  "Good for": "利用量",
+  "Buy price": "购入价",
   "Buy at": "买入于",
-  "Ask size": "卖单量",
+  "Ask size": "卖一挂单额",
+  "Sell price": "卖出价",
   "Sell at": "卖出于",
-  "Bid size": "买单量",
+  "Bid size": "买一挂单额",
   "Exchanges quoting this asset that survived the mark-agreement check":
     "报价该资产且通过标记价格一致性检查的交易所数",
   Quoted: "报价时间",
   "Price gaps across exchanges": "跨交易所价格差",
-  "Where one exchange's bid sits above another's ask, with the size resting at each quote.":
-    "一家交易所的买价高于另一家卖价的情形，以及各报价上的挂单量。",
+  "Where one exchange's bid sits above another's ask.": "一家交易所的买价高于另一家卖价的情形。",
   "Price gaps": "价格差",
-  "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps at the size shown</b>, not fillable trades: nothing here reflects the book below level 1, or the two transfers a real position needs. <b>Net</b> charges {bps} bps of taker fee on each side, one fill to buy and one to sell — a retail rate, not yours, and a VIP tier pays less. The transfer is not in it. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size. Read the <b>good for</b> column before the gap.":
-    "对每个资产，在各盘口最优档找出买入最便宜和卖出最贵的交易所。这些是<b>按所示规模可报出的价差</b>，而不是可成交的交易：这里既没有反映一档以下的盘口，也没有反映真实仓位所需的两次资金划转。<b>净价差</b>按每侧 {bps} 个基点的吃单手续费计算，买入和卖出各成交一次——这是零售费率，不是你的费率，VIP 等级会更低。资金划转未计入。最大的价差出现在最薄的盘口上——测量时，721 个资产中有 395 个出现价差，中位数为 1.6 个基点，而排名靠前的仅能容纳低至 $3 的挂单量。请先看<b>可容纳</b>列，再看价差。",
+  "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.":
+    "对每个资产，在各盘口最优档找出买入最便宜和卖出最贵的交易所。这些是<b>可报出的价差</b>，而不是可成交的交易：这里既没有反映一档以下的盘口和吃单手续费，也没有反映真实仓位所需的两次资金划转。最大的价差出现在最薄的盘口上——测量时，721 个资产中有 395 个出现价差，中位数为 1.6 个基点，而排名靠前的仅能容纳低至 $3 的挂单量。",
   "Min gap, bps": "最小价差（基点）",
   "Any, including 0.0": "不限，含 0.0",
   "Min resting size": "最小挂单量",

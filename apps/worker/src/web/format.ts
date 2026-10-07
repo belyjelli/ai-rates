@@ -125,6 +125,33 @@ export function formatGapBps(value: number | null): string {
   return value < 0 && Number(text) !== 0 ? `${MINUS}${text}` : text;
 }
 
+/**
+ * The basis between two quotes, `sell` less `buy`, in the asset's own price units: the gap
+ * `formatGapBps` states relatively, stated absolutely. Rounded to the finer of the two prices as
+ * `formatPrice` shows them, so 0.01162 against 0.01133 reads "0.00029" rather than float noise, and
+ * a 0.1 move on a 65,000 price reads "0.1" rather than "0.1000".
+ */
+export function formatPriceGap(sell: number, buy: number): string {
+  if (!Number.isFinite(sell) || !Number.isFinite(buy)) return "–";
+  const shown = (price: number) => {
+    const abs = Math.abs(price);
+    // Below 1 formatPrice keeps four significant figures, trailing zeros and all.
+    if (abs < 1) return abs > 0 ? 3 - Math.floor(Math.log10(abs)) : 0;
+    return formatPrice(price).split(".")[1]?.length ?? 0;
+  };
+  const decimals = Math.max(shown(sell), shown(buy));
+  const value = sell - buy;
+  const text = Math.abs(value).toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  return value < 0 && Number(text.replace(/,/g, "")) !== 0 ? `${MINUS}${text}` : text;
+}
+
+/** A small padlock in the text colour, for something shown but not available yet. */
+export const LOCK_ICON =
+  '<svg class="tf-lock" viewBox="0 0 12 12" width="9" height="9" aria-hidden="true"><rect x="2" y="5" width="8" height="6.5" rx="1" fill="currentColor"></rect><path d="M4 5V3.6a2 2 0 0 1 4 0V5" fill="none" stroke="currentColor" stroke-width="1.4"></path></svg>';
+
 /** CSS class for a funding value: who gets paid (positive: shorts receive, negative: longs receive). */
 export function aprTone(apr: number | null): string {
   if (apr === null || apr === 0) return "flat";

@@ -1203,51 +1203,70 @@ describe("pages", () => {
     expect(res.status).toBe(404);
   });
 
-  test("a price gap shows the size it is good for, which is the thinner side", async () => {
+  test("the size a gap is good for is a locked column, with no figure anywhere on the page", async () => {
     const { data } = fakeData({ arbitrage: async () => [gap()] });
     const html = await (await get("/arbitrage", data)).text();
 
     expect(html).toContain("269.6");
-    // Both sides are rendered, but the figure the row is titled with is the SMALL one: a 269 bps
-    // gap against $2k of resting size is a quote, not a trade.
-    expect(html).toContain("$2.0k");
-    expect(html).toContain("$220k");
-    expect(html).toContain("Good for about $2.0k");
+    // The column is there, third from last, but each cell is a padlock: the $2.0k thinner side and
+    // the $220k deeper one appear nowhere, not in a cell, a title or the hidden share text.
+    expect(html).toContain('<td class="num locked" title="Not available yet"><svg class="tf-lock"');
+    expect(html).not.toContain("$2.0k");
+    expect(html).not.toContain("$220k");
+    expect(html).not.toContain("Good for about");
     // Buy/sell are their own classes: reusing long/short would borrow a funding meaning that a
     // price gap does not have.
     expect(html).toContain("buy-leg");
     expect(html).toContain("sell-leg");
-    expect(html).toContain("quotable gaps at the size shown");
+    expect(html).toContain("quotable gaps");
   });
 
-  test("an unknown resting size says so instead of reading as zero", async () => {
-    const { data } = fakeData({
-      arbitrage: async () => [gap({ buy_depth_usd: null, thinner_depth_usd: null })],
-    });
-    const html = await (await get("/arbitrage", data)).text();
-
-    // esc() turns the apostrophe into an entity, so the assertion avoids one rather than guessing
-    // which form reaches the page.
-    expect(html).toContain("resting size is unknown");
-    expect(html).not.toContain("Good for about");
-  });
-
-  test("the net column charges one taker fee per side and names the assumption", async () => {
+  test("each side reads price first, then the venue it was quoted on", async () => {
     const { data } = fakeData({ arbitrage: async () => [gap()] });
     const html = await (await get("/arbitrage", data)).text();
 
-    // 269.64 quoted, less 5 bps on each of the two fills.
-    expect(html).toContain('<span data-u="net" class="gap-pos">259.6</span>');
-    expect(html).toContain("5 bps of taker fee on each side");
-    // fees.ts requires any net that leaves out the transfer to say so.
-    expect(html).toContain("The transfer is not in it.");
+    expect(html).toContain(
+      `<th>Asset</th><th class="num" title="Highest bid against lowest ask, across two different exchanges">Gap, bps</th><th class="num" title="The sell price less the buy price, in the asset's own price units">Basis</th><th class="num">Buy price</th><th>Buy at</th><th class="num">Sell price</th><th>Sell at</th><th class="num" title="The smaller of the two resting sizes: what the gap is actually good for">Good for</th><th class="num" title="Exchanges quoting this asset that survived the mark-agreement check">Venues</th><th>Quoted</th>`,
+    );
+    expect(html).toMatch(
+      /<td class="num"><span data-u="buy-price">[^<]+<\/span><\/td>\n<td><div class="leg buy-leg">/,
+    );
+    expect(html).toMatch(
+      /<td class="num"><span data-u="sell-price">[^<]+<\/span><\/td>\n<td><div class="leg sell-leg">/,
+    );
+    // The profit and per-side size columns are gone.
+    expect(html).not.toContain("Net, bps");
+    expect(html).not.toContain('data-u="net"');
+    expect(html).not.toContain("Ask size");
+    expect(html).not.toContain("Bid size");
   });
 
-  test("a gap thinner than the fees reads negative, not as a win", async () => {
-    const { data } = fakeData({ arbitrage: async () => [gap({ gap_bps: 4 })] });
+  test("Chinese labels the locked column 利用量", async () => {
+    const { data } = fakeData({ arbitrage: async () => [gap()] });
+    const html = await (
+      await handleApp(new Request("https://airates.test/arbitrage"), {
+        data,
+        now: () => NOW,
+        locale: "zh",
+      })
+    ).text();
+    expect(html).toContain(">利用量</th>");
+    expect(html).toContain('<td class="num locked" title="暂不可用">');
+  });
+
+  test("the basis is the sell price less the buy price, in price units", async () => {
+    const { data } = fakeData({ arbitrage: async () => [gap()] });
     const html = await (await get("/arbitrage", data)).text();
 
-    expect(html).toContain('<span data-u="net">−6.0</span>');
+    // 0.01162 less 0.01131, toned like the gap it restates.
+    expect(html).toContain('<span data-u="basis" class="gap-pos">0.00031</span>');
+  });
+
+  test("with no net column, the lede says fees and transfers are not counted", async () => {
+    const { data } = fakeData({ arbitrage: async () => [gap()] });
+    const html = await (await get("/arbitrage", data)).text();
+
+    expect(html).toContain("the taker fees, or the two transfers a real position needs");
   });
 
   test("an arbitrage row opens its asset from anywhere on the row, through the asset's own link", async () => {
@@ -1275,6 +1294,21 @@ describe("pages", () => {
     expect(body.params.minDepthUsd).toBe(10_000);
     expect(body.query).toBe("?min_bps=25&min_depth=10000");
     expect(body.count).toBe(0);
+  });
+
+  test("/v1/arbitrage leaves out the size a gap is good for, which is the paid version's", async () => {
+    const { data } = fakeData({ arbitrage: async () => [gap()] });
+    const body = (await (await get("/v1/arbitrage", data)).json()) as {
+      rows: Record<string, unknown>[];
+    };
+    const [row] = body.rows;
+
+    expect(row?.gap_bps).toBe(269.64);
+    expect(row?.buy_price).toBe(0.01131);
+    // Neither the thinner side nor the two depths it is the smaller of.
+    expect(row).not.toHaveProperty("thinner_depth_usd");
+    expect(row).not.toHaveProperty("buy_depth_usd");
+    expect(row).not.toHaveProperty("sell_depth_usd");
   });
 
   test("every page footer links to both status pages, distinctly labelled", async () => {

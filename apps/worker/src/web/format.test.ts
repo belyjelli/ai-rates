@@ -8,6 +8,7 @@ import {
   formatGapBps,
   formatInterval,
   formatPrice,
+  formatPriceGap,
   formatUsd,
   since,
   until,
@@ -45,6 +46,24 @@ describe("formatGapBps", () => {
     expect(formatGapBps(-283.51)).toBe("−283.5");
     // A value that rounds to zero must not acquire a sign it cannot justify.
     expect(formatGapBps(-0.04)).toBe("0.0");
+  });
+});
+
+describe("formatPriceGap", () => {
+  test("rounds to the finer of the two prices as they are shown, not to float noise", () => {
+    expect(formatPriceGap(0.01162, 0.01133)).toBe("0.00029");
+    expect(formatPriceGap(65_010.3, 65_000.2)).toBe("10.1");
+    expect(formatPriceGap(65_000.1, 65_000)).toBe("0.1");
+    expect(formatPriceGap(101.25, 100)).toBe("1.25");
+    // 2,401.25 is shown as 2,401.3, so the basis a reader can check against the columns is 1.3.
+    expect(formatPriceGap(2_401.25, 2_400)).toBe("1.3");
+    expect(formatPriceGap(1_234_567, 1_200_000)).toBe("34,567");
+  });
+
+  test("signs a losing direction with the site's minus, and never a zero", () => {
+    expect(formatPriceGap(0.01133, 0.01162)).toBe("−0.00029");
+    expect(formatPriceGap(2_400, 2_400)).toBe("0");
+    expect(formatPriceGap(Number.NaN, 1)).toBe("–");
   });
 });
 

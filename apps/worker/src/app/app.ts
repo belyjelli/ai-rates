@@ -692,7 +692,11 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
 
     if (path === "/v1/arbitrage") {
       const params = parseArbitrageParams(url.searchParams);
-      const rows = await deps.data.arbitrage(params);
+      // The size a gap is good for belongs to the paid version, so the public rows carry neither
+      // it nor the two side depths it is the smaller of.
+      const rows = (await deps.data.arbitrage(params)).map(
+        ({ buy_depth_usd, sell_depth_usd, thinner_depth_usd, ...row }) => row,
+      );
       return json({ params, query: arbitrageToQuery(params), count: rows.length, rows });
     }
 
