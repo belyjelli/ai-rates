@@ -120,11 +120,15 @@ export const FEEDS: readonly FeedEntry[] = [
       "Every liquidation topic answers '404 topic does not exist'; its execution feed works",
   },
   {
+    // Added 2026-10-08. Hyperliquid itself still publishes no forced close (the 2026-09-18 probe: no
+    // liquidations subscription, no marker on 550 trades), so this reads 0xArchive, an indexer of the
+    // node's fills. Both sides were checked against Hyperliquid's own userFillsByTime. A free key
+    // covers the 20 deepest markets; see profitlock-worker collector/internal/adapters/hyperliquid.
     venueId: "hyperliquid",
-    verdict: "none",
-    transport: "",
+    verdict: "live",
+    transport: "REST, via 0xArchive",
     evidence:
-      "No liquidations subscription exists, and its trades carry no marker: 550 inspected, and the zero-hash lead was chased and disproved",
+      "It publishes none itself, so they come from an index of its node's fills: the 20 deepest markets, each close folded from its fills (7,606 BTC fills were 4,361 closes in a day)",
   },
   {
     venueId: "backpack",
