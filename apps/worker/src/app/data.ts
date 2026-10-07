@@ -541,6 +541,8 @@ export interface LiquidationAssetOptions {
   reach: number;
   /** Bar width of the longs-vs-shorts series, in minutes. */
   sideMinutes: number;
+  /** Read the pending strip's zoomed-out rows (half the mark to double it) instead of the ±10% ones. */
+  pendingWide?: boolean;
 }
 
 /** One bar of the longs-vs-shorts chart: both sides of one asset in one bucket, every venue summed. */
@@ -1368,6 +1370,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       bandChoices,
       reach,
       sideMinutes,
+      pendingWide = false,
     }) {
       const sql = connect();
       const windowInterval = `${windowHours} hours`;
@@ -1497,8 +1500,13 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         // As text, not float8[]: with fetch_types off (Hyperdrive) postgres.js does not parse arrays,
         // and the raw "{...}" string failed the page's row-count check without a word on 2026-10-07.
         sql<{ long_usd: string; short_usd: string }[]>`
-          SELECT array_to_string(long_usd, ',') AS long_usd,
-                 array_to_string(short_usd, ',') AS short_usd
+          SELECT ${
+            pendingWide
+              ? sql`array_to_string(long_wide_usd, ',') AS long_usd,
+                    array_to_string(short_wide_usd, ',') AS short_usd`
+              : sql`array_to_string(long_usd, ',') AS long_usd,
+                    array_to_string(short_usd, ',') AS short_usd`
+          }
           FROM liquidation_pending
           WHERE asset_class = ${resolvedClass} AND base = ${base}
             AND computed_at > now() - interval '15 minutes'`

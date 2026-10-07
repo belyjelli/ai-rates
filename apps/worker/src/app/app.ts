@@ -327,6 +327,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
               bandChoices: LIQUIDATION_BANDS,
               reach: LIQUIDATION_BAND_REACH,
               sideMinutes,
+              pendingWide: assetParams.pending && assetParams.zoom === "wide",
             }),
             deps.data
               .assetBars({

@@ -429,6 +429,8 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .lqp-key-long{border:1px solid var(--long);background:repeating-linear-gradient(45deg,var(--long) 0 2px,transparent 2px 4px)}
 .lqc-foot{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;justify-content:space-between;margin-top:6px}
 .lqc-foot .tf{margin:0}
+/* The range switch sits beside Pending on/off; the note takes the far end. */
+.lqc-foot .tf+.tf{margin-right:auto}
 .lqc-warn{margin:0;color:var(--warn)}
 /* A phone has no room for the strip beside the bars (it would leave them under 100px), so it drops
    underneath at full width with the same rows and the same labels. */

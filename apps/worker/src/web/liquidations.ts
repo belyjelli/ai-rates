@@ -15,7 +15,7 @@ import {
   type LiquidationWindow,
   liquidationsToQuery,
 } from "../app/params";
-import { PENDING_ROWS } from "../app/pending";
+import { PENDING_ROWS, PENDING_ZOOMS, type PendingZoom } from "../app/pending";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { msg, tr, trMsg } from "./i18n";
@@ -179,6 +179,7 @@ function controlHref(
     venue?: string;
     band?: LiquidationBand | null;
     pending?: boolean;
+    zoom?: PendingZoom;
     /** Swap the asset the address names. Null returns to the all-assets address. */
     asset?: { name: string; assetClass: AssetClass } | null;
   } = {},
@@ -208,6 +209,7 @@ function controlHref(
   const band = overrides.band === undefined ? state.assetParams.band : overrides.band;
   if (band !== null) query.set("band", String(band));
   if (!(overrides.pending ?? state.assetParams.pending)) query.set("pending", "0");
+  if ((overrides.zoom ?? state.assetParams.zoom) === "wide") query.set("zoom", "out");
   const encoded = query.toString();
   return `${base}${encoded ? `?${encoded}` : ""}${hash}`;
 }
@@ -742,7 +744,11 @@ function bandRows(reach: number): number[] {
 }
 
 /**
- * The modeled pending side panel: shorts at risk above the price, longs below, in 1% rows.
+ * The modeled pending side panel: shorts at risk above the price, longs below, ten rows a side.
+ *
+ * TWO ZOOMS, both prepared by the collector. Near is ±10% in 1% rows, where the high-leverage money
+ * sits. Zoomed out is half the mark to double it (5% rows below, 10% above): the 2-5x positions only
+ * appear there, and it answers "what would a crash or a squeeze take out", which ±10% cannot.
  *
  * ITS OWN SCALE, NOT THE BARS'. The first design shared one axis so a $3M row was as long as a $3M
  * flush was tall. Honest numbers broke it: a day's worth of pending in one 1% row is tens of times a
@@ -777,14 +783,19 @@ function pendingModel(map: LiquidationAssetMap): {
 function pendingPanel(
   map: LiquidationAssetMap,
   model: NonNullable<ReturnType<typeof pendingModel>>,
+  zoom: PendingZoom,
 ): { keys: string; html: string } {
   const mark = map.mark as number;
+  const steps = PENDING_ZOOMS[zoom];
   const top = Math.max(...model.longs, ...model.shorts);
   const row = (side: "long" | "short", usd: number, index: number): string => {
-    const lo = formatPrice(mark * (side === "long" ? 1 - (index + 1) / 100 : 1 + index / 100));
-    const hi = formatPrice(mark * (side === "long" ? 1 - index / 100 : 1 + (index + 1) / 100));
+    const step = side === "long" ? steps.below : steps.above;
+    const near = (index * step) / 100;
+    const far = ((index + 1) * step) / 100;
+    const lo = formatPrice(mark * (side === "long" ? 1 - far : 1 + near));
+    const hi = formatPrice(mark * (side === "long" ? 1 - near : 1 + far));
     const values = {
-      pct: `${index}–${index + 1}%`,
+      pct: `${index * step}–${(index + 1) * step}%`,
       range: `${lo}–${hi}`,
       usd: money(usd),
     };
@@ -804,21 +815,23 @@ function pendingPanel(
     ...model.shorts.map((usd, i) => row("short", usd, i)).reverse(),
     ...model.longs.map((usd, i) => row("long", usd, i)),
   ].join("");
-  // A label every second row, centred on it: +2% sits on the row 1-2% above, as in the design.
+  // A label every second row, centred on it and naming its outer edge: +2% sits on the row 1-2%
+  // above, as in the design; zoomed out, +20% on the row 10-20% above and −10% on 5-10% below.
   const ticks: string[] = [];
-  for (let pct = 2; pct <= PENDING_ROWS; pct += 2) {
-    const offset = ((pct - 0.5) / PENDING_ROWS) * 50;
+  for (let k = 2; k <= PENDING_ROWS; k += 2) {
+    const offset = ((k - 0.5) / PENDING_ROWS) * 50;
     ticks.push(
-      `<span class="lqp-y" style="top:${(50 - offset).toFixed(1)}%">+${pct}%</span><span class="lqp-y" style="top:${(50 + offset).toFixed(1)}%">−${pct}%</span>`,
+      `<span class="lqp-y" style="top:${(50 - offset).toFixed(1)}%">+${k * steps.above}%</span><span class="lqp-y" style="top:${(50 + offset).toFixed(1)}%">−${k * steps.below}%</span>`,
     );
   }
   return {
     keys: `<span><i class="lqp-key-short"></i>${tr("Shorts at risk above")} <b>≈${money(model.shortTotal)}</b></span><span><i class="lqp-key-long"></i>${tr("Longs at risk below")} <b>≈${money(model.longTotal)}</b></span>`,
     html: `<div class="lqp" role="img" aria-label="${esc(
       tr(
-        "Modeled pending liquidations within {pct}% of {mark}: about {shorts} of shorts above and {longs} of longs below",
+        "Modeled pending liquidations between {low} and {high}, around {mark}: about {shorts} of shorts above and {longs} of longs below",
         {
-          pct: PENDING_ROWS,
+          low: formatPrice(mark * (1 - (steps.below * PENDING_ROWS) / 100)),
+          high: formatPrice(mark * (1 + (steps.above * PENDING_ROWS) / 100)),
           mark: formatPrice(mark),
           shorts: money(model.shortTotal),
           longs: money(model.longTotal),
@@ -854,7 +867,7 @@ function sidesChart(data: {
   params: LiquidationParams;
   now: number;
   /** The pending panel and its toggle, or null when the asset has no price or no open interest. */
-  pending: { show: boolean; strip: string; map: LiquidationAssetMap } | null;
+  pending: { show: boolean; zoom: PendingZoom; strip: string; map: LiquidationAssetMap } | null;
 }): string {
   const { label, points, params, now, pending } = data;
   const model = pending?.show ? pendingModel(pending.map) : null;
@@ -872,7 +885,7 @@ function sidesChart(data: {
   // The axis ends at the tallest bar, not at a round number above it: rounding up wasted up to half
   // the plot (a $5.1M peak got a $10M axis) and flattened every other bar.
   const top = peak > 0 ? peak : 1_000;
-  const pend = pending && model ? pendingPanel(pending.map, model) : null;
+  const pend = pending && model ? pendingPanel(pending.map, model, pending.zoom) : null;
 
   // viewBox 1000 x 1000 with zero at 500: each side gets half the height and the same scale, so a
   // long bar and a short bar of equal height are equal money.
@@ -1010,12 +1023,13 @@ function sidesPanel(data: {
   params: LiquidationParams;
   /** Pre-rendered by the caller, which is the only place that knows the whole address and query. */
   picker: string;
-  /** The Pending on/off strip, pre-rendered for the same reason. */
+  /** The Pending on/off and zoom strips, pre-rendered for the same reason. */
   pendingStrip: string;
   showPending: boolean;
+  pendingZoom: PendingZoom;
   now: number;
 }): string {
-  const { asset, map, params, picker, pendingStrip, showPending, now } = data;
+  const { asset, map, params, picker, pendingStrip, showPending, pendingZoom, now } = data;
   const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
   const cols = columns(params, now);
   const reach = LIQUIDATION_BAND_REACH;
@@ -1160,7 +1174,7 @@ ${helpPanel(
     { asset: label, pct: bandPct, mark: formatPrice(mark) },
   )}</p><p>${tr("Longs closed above the line, shorts closed below, on the same linear scale. Hover a bar to read it beside the cursor; on a phone, tap and it reads in the line above the chart. The last bar is still filling.")}</p>`,
 )}
-${sidesChart({ label, points: map.sides, params, now, pending: { show: showPending, strip: pendingStrip, map } })}
+${sidesChart({ label, points: map.sides, params, now, pending: { show: showPending, zoom: pendingZoom, strip: pendingStrip, map } })}
 ${table}`;
 }
 
@@ -1329,8 +1343,22 @@ ${
               ? `<a class="on" href="${href}" aria-current="page">${text}</a>`
               : `<a href="${href}">${text}</a>`;
           })
-          .join("")}</nav>`,
+          .join("")}</nav>${
+          // The zoom only means something while the strip is drawn, so it goes with it.
+          assetParams.pending
+            ? `<nav class="tf" aria-label="${tr("Pending range")}">${(["near", "wide"] as const)
+                .map((zoom) => {
+                  const href = esc(controlHref(state, { zoom }, "#sides"));
+                  const text = zoom === "near" ? tr("±10%") : tr("Zoom out ½×–2×");
+                  return zoom === assetParams.zoom
+                    ? `<a class="on" href="${href}" aria-current="page">${text}</a>`
+                    : `<a href="${href}">${text}</a>`;
+                })
+                .join("")}</nav>`
+            : ""
+        }`,
         showPending: assetParams.pending,
+        pendingZoom: assetParams.zoom,
         now,
       })
 }

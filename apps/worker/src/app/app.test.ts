@@ -905,6 +905,41 @@ describe("pages", () => {
     expect(offSides).toContain('href="/liquidations#sides"');
   });
 
+  test("the pending strip zooms out to half the price and double it, reading the wide rows", async () => {
+    const asked: boolean[] = [];
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async (options) => {
+        asked.push(options.pendingWide ?? false);
+        return liqAsset({ pending: PENDING });
+      },
+    });
+    const near = await (await get("/liquidations", data)).text();
+    const nearSides = near.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    expect(nearSides).toContain(">+10%<");
+    expect(nearSides).toContain(">−10%<");
+    expect(nearSides).toContain('href="/liquidations?zoom=out#sides"');
+
+    const wide = await (await get("/liquidations?zoom=out", data)).text();
+    const sides = wide.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    expect(asked).toEqual([false, true]);
+    // 10% rows above to +100% (double), 5% rows below to −50% (half), both ticked at the outer edge.
+    expect(sides).toContain(">+100%<");
+    expect(sides).toContain(">+20%<");
+    expect(sides).toContain(">−50%<");
+    expect(sides).toContain(">−10%<");
+    expect(sides).not.toContain(">+10%<");
+    // A row reads its own range: the first one below spans 0-5%, from 2,280 to the 2,400 mark.
+    expect(sides).toContain("price falls &lt;b&gt;0–5%&lt;/b&gt; to 2,280–2,400");
+    expect(sides).toContain("price rises &lt;b&gt;90–100%&lt;/b&gt; to 4,560–4,800");
+    // The switch keeps the tab and drops back to ±10%; turning pending off drops the zoom with it.
+    expect(sides).toContain('href="/liquidations#sides"');
+    expect(sides).toContain('href="/liquidations?pending=0&amp;zoom=out#sides"');
+    const off = await (await get("/liquidations?pending=0", data)).text();
+    const offSides = off.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    expect(offSides).not.toContain("Zoom out");
+  });
+
   test("the sides chart has no pending strip when the collector has no fresh model", async () => {
     const { data } = fakeData({
       liquidationMap: async () => liqMap(),
