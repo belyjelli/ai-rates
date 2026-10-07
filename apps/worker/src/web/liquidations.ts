@@ -1178,6 +1178,164 @@ ${sidesChart({ label, points: map.sides, params, now, pending: { show: showPendi
 ${table}`;
 }
 
+/** The tabs of /liquidations, in order. Only the map always ships; the rest may load themselves. */
+export const LIQUIDATION_TABS = ["map", "sides", "price", "odds"] as const;
+export type LiquidationTab = (typeof LIQUIDATION_TABS)[number];
+
+/** What a render of /liquidations read. A field left undefined was not read by THIS render. */
+export interface LiquidationView {
+  map: LiquidationMap;
+  /** The asset the per-asset tabs show: the addressed one, or the busiest when none was addressed. */
+  asset: string | null;
+  /** True when the ADDRESS named that asset, which is what every control link is built from. */
+  addressed: boolean;
+  /** The addressed asset's class, for the control links; null when the address names none. */
+  assetClass: AssetClass | null;
+  /**
+   * The per-asset read the Sides and Prices tabs draw, null when there is no asset to read, and
+   * undefined when this render skipped it: those two tabs then ship as placeholders that load
+   * themselves (see `lazyPanel`).
+   */
+  assetMap?: LiquidationAssetMap | null;
+  /** The Odds tab's model; null when there is too little history, undefined when not read. */
+  outlook?: Outlook | null;
+  params: LiquidationParams;
+  assetParams: LiquidationAssetParams;
+  now: number;
+}
+
+const controlState = (view: LiquidationView) => ({
+  addressed: view.addressed ? view.asset : null,
+  assetClass: view.assetMap?.asset_class ?? view.assetClass,
+  params: view.params,
+  assetParams: view.assetParams,
+});
+
+/**
+ * One tab's markup, or null when this render did not read what that tab needs.
+ *
+ * The "nothing to show" sentences stay here, not in the placeholder: an asset-less window is an
+ * answer, and it is the same answer whether the tab rendered with the page or on its own.
+ */
+function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
+  const { map, asset, params, assetParams, now } = view;
+  const state = controlState(view);
+  if (id === "map") return mapPanel({ map, params, strip: state, now });
+
+  if (id === "odds") {
+    if (asset === null) {
+      return `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to size.")}</p>`;
+    }
+    if (view.outlook === undefined || view.assetMap === undefined) return null;
+    if (view.assetMap === null) {
+      return `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to size.")}</p>`;
+    }
+    return outlookPanel({
+      label: assetName(asset, view.assetMap.asset_class ?? "crypto"),
+      outlook: view.outlook,
+      window: params.window,
+      picker: assetStrip(state, map.assets, asset, "#odds"),
+    });
+  }
+
+  if (id === "price") {
+    if (asset !== null && view.assetMap === undefined) return null;
+    if (asset === null || !view.assetMap) {
+      return `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to price.")}</p>`;
+    }
+    // "fit" is offered explicitly beside the widths, so a reader who has clicked one can get back to
+    // the width chosen from the asset's own data. Every link keeps the #price fragment, or following
+    // one from /liquidations would land back on the map tab.
+    const bandStrip = [
+      `<a${
+        assetParams.band === null ? ' class="on" aria-current="page"' : ""
+      } href="${esc(controlHref(state, { band: null }, "#price"))}">${tr("fit")}</a>`,
+      ...LIQUIDATION_BANDS.map((choice) => {
+        const href = esc(controlHref(state, { band: choice }, "#price"));
+        return choice === assetParams.band
+          ? `<a class="on" href="${href}" aria-current="page">${choice}%</a>`
+          : `<a href="${href}">${choice}%</a>`;
+      }),
+    ].join("");
+    return assetPanel({
+      asset,
+      map: view.assetMap,
+      params: { ...assetParams, venue: params.venue },
+      bandStrip,
+      picker: assetStrip(state, map.assets, asset, "#price"),
+      now,
+    });
+  }
+
+  // sides
+  if (asset !== null && view.assetMap === undefined) return null;
+  if (asset === null || !view.assetMap) {
+    return `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to split.")}</p>`;
+  }
+  return sidesPanel({
+    asset,
+    map: view.assetMap,
+    params,
+    picker: assetStrip(state, map.assets, asset, "#sides"),
+    pendingStrip: `<nav class="tf" aria-label="${tr("Pending")}">${[true, false]
+      .map((on) => {
+        const href = esc(controlHref(state, { pending: on }, "#sides"));
+        const text = on ? tr("Pending on") : tr("Pending off");
+        return on === assetParams.pending
+          ? `<a class="on" href="${href}" aria-current="page">${text}</a>`
+          : `<a href="${href}">${text}</a>`;
+      })
+      .join("")}</nav>${
+      // The zoom only means something while the strip is drawn, so it goes with it.
+      assetParams.pending
+        ? `<nav class="tf" aria-label="${tr("Pending range")}">${(["near", "wide"] as const)
+            .map((zoom) => {
+              const href = esc(controlHref(state, { zoom }, "#sides"));
+              // Plain words: the strip's own tick labels already say the range each one covers.
+              const text = zoom === "near" ? tr("Zoom in") : tr("Zoom out");
+              return zoom === assetParams.zoom
+                ? `<a class="on" href="${href}" aria-current="page">${text}</a>`
+                : `<a href="${href}">${text}</a>`;
+            })
+            .join("")}</nav>`
+        : ""
+    }`,
+    showPending: assetParams.pending,
+    pendingZoom: assetParams.zoom,
+    now,
+  });
+}
+
+/** The address one tab loads itself from: this page's own address and query, plus `panel=<tab>`. */
+export function panelHref(view: LiquidationView, id: LiquidationTab): string {
+  const href = controlHref(controlState(view));
+  return `${href}${href.includes("?") ? "&" : "?"}panel=${id}`;
+}
+
+/**
+ * A tab this render did not fill: a spinner that tabs.ts replaces with the tab's own markup the
+ * first time the tab is opened (or hovered, so a click usually lands on a loaded tab).
+ *
+ * The words the script needs on failure ride on the element, translated here, because the script
+ * is one string shared by every language. Without JavaScript there is nothing to load the tab, so
+ * the reader gets a plain link to it instead of a spinner that never ends.
+ */
+function lazyPanel(view: LiquidationView, id: LiquidationTab): string {
+  const href = esc(panelHref(view, id));
+  return `<div class="lazy-wait" role="status" data-fail="${esc(tr("This tab did not load."))}" data-retry="${esc(tr("Try again"))}"><span class="spin" aria-hidden="true"></span><span class="lazy-msg">${tr("Loading…")}</span><noscript><a href="${href}">${tr("Open this tab")}</a></noscript></div>`;
+}
+
+/**
+ * One tab on its own, for `?panel=<tab>`: what tabs.ts fetches into a placeholder. A bare fragment,
+ * not a page -- it is only ever read into a page that already has the layout, the styles and the
+ * scripts. `data-rendered` lets live.ts tell a fresh copy from the one it already shows.
+ */
+export function liquidationsPanel(view: LiquidationView, id: LiquidationTab): string {
+  const body =
+    tabBody(view, id) ?? `<p class="empty">${tr("This tab has nothing to show right now.")}</p>`;
+  return `<div class="lazy-body" data-rendered="${view.now}">${body}</div>`;
+}
+
 /**
  * /liquidations: both views of the same subject, behind one tab bar.
  *
@@ -1186,67 +1344,34 @@ ${table}`;
  * drill-down, not a separate destination, and splitting them across two addresses put the same
  * subject in two places in the nav.
  *
- * BOTH PANELS SHIP IN EVERY RESPONSE, because that is how tabs.ts works: nothing is `hidden` in the
- * served HTML and the script hides the inactive panel on load, so a reader without JavaScript sees
- * both sections instead of one panel and a dead button. The cost is the asset query on every
- * request, which is one asset over one window -- and in exchange the tab switch is instant and the
- * hash keeps the choice without adding a second edge-cache key.
+ * TABS THIS RENDER DID NOT READ LOAD THEMSELVES (2026-10-07). Every tab used to ship in every
+ * response, so /liquidations paid for the per-asset read and a week of price bars on each render
+ * although most readers only look at the map. Now a tab ships filled only when its data was read
+ * anyway -- the map always; Sides and Prices when the address or the query is about one asset; Odds
+ * never -- and the others ship as `lazyPanel` placeholders. The tab bar, the hash and the edge cache
+ * work as before: each placeholder's address is an ordinary cached URL.
  *
- * WHICH ASSET the priced panel shows: the one in the address, or the busiest by notional when the
+ * WHICH ASSET the per-asset tabs show: the one in the address, or the busiest by notional when the
  * address names none. `/liquidations` therefore opens on the map with the day's biggest asset
- * already primed behind the second tab, and `/liquidations/ETH` opens on ETH's prices directly.
+ * behind the other tabs, and `/liquidations/ETH` opens on ETH's prices directly.
  */
-export function liquidations(data: {
-  overview: Overview;
-  map: LiquidationMap;
-  /** The asset the priced tab shows: the addressed one, or the busiest when none was addressed. */
-  asset: string | null;
-  /** True when the ADDRESS named that asset, which is what every control link is built from. */
-  addressed: boolean;
-  assetMap: LiquidationAssetMap | null;
-  /** The odds tab's model, or null when the asset has too little price history to size its moves. */
-  outlook: Outlook | null;
-  params: LiquidationParams;
-  assetParams: LiquidationAssetParams;
-  /** Which tab the server marks active. A hash in the URL still overrides it. */
-  active: "map" | "sides" | "price" | "odds";
-  now: number;
-}): string {
-  const { overview, map, asset, addressed, assetMap, outlook, params, assetParams, active, now } =
-    data;
-  const state = {
-    addressed: addressed ? asset : null,
-    assetClass: assetMap?.asset_class ?? null,
-    params,
-    assetParams,
-  };
+export function liquidations(
+  data: LiquidationView & {
+    overview: Overview;
+    /** Which tab the server marks active. A hash in the URL still overrides it. */
+    active: LiquidationTab;
+  },
+): string {
+  const { overview, map, asset, params, active, now } = data;
+  const state = controlState(data);
 
-  // "fit" is offered explicitly beside the widths, so a reader who has clicked one can get back to
-  // the width chosen from the asset's own data. Every link keeps the #price fragment, or following
-  // one from /liquidations would land back on the map tab.
-  const bandStrip = [
-    `<a${
-      assetParams.band === null ? ' class="on" aria-current="page"' : ""
-    } href="${esc(controlHref(state, { band: null }, "#price"))}">${tr("fit")}</a>`,
-    ...LIQUIDATION_BANDS.map((choice) => {
-      const href = esc(controlHref(state, { band: choice }, "#price"));
-      return choice === assetParams.band
-        ? `<a class="on" href="${href}" aria-current="page">${choice}%</a>`
-        : `<a href="${href}">${choice}%</a>`;
-    }),
-  ].join("");
-
-  const priced =
-    asset === null || assetMap === null
-      ? `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to price.")}</p>`
-      : assetPanel({
-          asset,
-          map: assetMap,
-          params: { ...assetParams, venue: params.venue },
-          bandStrip,
-          picker: assetStrip(state, map.assets, asset, "#price"),
-          now,
-        });
+  const panels = LIQUIDATION_TABS.map((id) => {
+    const body = tabBody(data, id);
+    const lazy = body === null ? ` data-lazy="${esc(panelHref(data, id))}"` : "";
+    return `<div class="tabpanel" role="tabpanel" id="panel-liq-${id}" data-tab-panel="${id}" aria-labelledby="tab-liq-${id}"${lazy}>
+${body ?? lazyPanel(data, id)}
+</div>`;
+  }).join("\n");
 
   const totalEvents = map.totals.reduce((sum, venue) => sum + venue.events, 0);
   // Named from the data rather than written into the copy: the page used to say "gate and okx" in
@@ -1323,62 +1448,7 @@ ${tabBar({
   ],
   activeId: active,
 })}
-<div class="tabpanel" role="tabpanel" id="panel-liq-map" data-tab-panel="map" aria-labelledby="tab-liq-map">
-${mapPanel({ map, params, strip: state, now })}
-</div>
-<div class="tabpanel" role="tabpanel" id="panel-liq-sides" data-tab-panel="sides" aria-labelledby="tab-liq-sides">
-${
-  asset === null || assetMap === null
-    ? `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to split.")}</p>`
-    : sidesPanel({
-        asset,
-        map: assetMap,
-        params,
-        picker: assetStrip(state, map.assets, asset, "#sides"),
-        pendingStrip: `<nav class="tf" aria-label="${tr("Pending")}">${[true, false]
-          .map((on) => {
-            const href = esc(controlHref(state, { pending: on }, "#sides"));
-            const text = on ? tr("Pending on") : tr("Pending off");
-            return on === assetParams.pending
-              ? `<a class="on" href="${href}" aria-current="page">${text}</a>`
-              : `<a href="${href}">${text}</a>`;
-          })
-          .join("")}</nav>${
-          // The zoom only means something while the strip is drawn, so it goes with it.
-          assetParams.pending
-            ? `<nav class="tf" aria-label="${tr("Pending range")}">${(["near", "wide"] as const)
-                .map((zoom) => {
-                  const href = esc(controlHref(state, { zoom }, "#sides"));
-                  // Plain words: the strip's own tick labels already say the range each one covers.
-                  const text = zoom === "near" ? tr("Zoom in") : tr("Zoom out");
-                  return zoom === assetParams.zoom
-                    ? `<a class="on" href="${href}" aria-current="page">${text}</a>`
-                    : `<a href="${href}">${text}</a>`;
-                })
-                .join("")}</nav>`
-            : ""
-        }`,
-        showPending: assetParams.pending,
-        pendingZoom: assetParams.zoom,
-        now,
-      })
-}
-</div>
-<div class="tabpanel" role="tabpanel" id="panel-liq-price" data-tab-panel="price" aria-labelledby="tab-liq-price">
-${priced}
-</div>
-<div class="tabpanel" role="tabpanel" id="panel-liq-odds" data-tab-panel="odds" aria-labelledby="tab-liq-odds">
-${
-  asset === null || assetMap === null
-    ? `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to size.")}</p>`
-    : outlookPanel({
-        label: assetName(asset, assetMap.asset_class ?? "crypto"),
-        outlook,
-        window: params.window,
-        picker: assetStrip(state, map.assets, asset, "#odds"),
-      })
-}
-</div>
+${panels}
 ${mapFootnote({ map, params, now })}
 <p class="notes">${tr("Updated {ago}.", { ago: since(overview.updated_at, now) })}</p>
 <script>${SLOT_SCRIPT}</script>`,

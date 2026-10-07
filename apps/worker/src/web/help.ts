@@ -92,18 +92,25 @@ export const HELP_SCRIPT = `(() => {
   const desktop = matchMedia("(hover: hover) and (pointer: fine) and (min-width: 861px)").matches;
   const panelOf = (b) => document.getElementById(b.dataset.helpFor || b.getAttribute("popovertarget"));
 
+  // Called again by tabs.ts on a tab it loads later, whose badges were not on the page at load.
+  window.airratesHelp = () => {};
   if (!desktop) {
-    for (const b of document.querySelectorAll("[data-help]")) {
-      const p = panelOf(b);
-      if (!p) continue;
-      b.dataset.helpFor = p.id;
-      b.removeAttribute("popovertarget");
-      b.setAttribute("aria-controls", p.id);
-      b.setAttribute("aria-expanded", "false");
-      p.removeAttribute("popover");
-      p.classList.add("help-inline");
-      p.hidden = true;
-    }
+    const convert = (root) => {
+      for (const b of root.querySelectorAll("[data-help]")) {
+        if (b.dataset.helpFor) continue;
+        const p = panelOf(b);
+        if (!p) continue;
+        b.dataset.helpFor = p.id;
+        b.removeAttribute("popovertarget");
+        b.setAttribute("aria-controls", p.id);
+        b.setAttribute("aria-expanded", "false");
+        p.removeAttribute("popover");
+        p.classList.add("help-inline");
+        p.hidden = true;
+      }
+    };
+    convert(document);
+    window.airratesHelp = convert;
     document.addEventListener("click", (e) => {
       const b = e.target instanceof Element && e.target.closest("[data-help]");
       if (!b) return;

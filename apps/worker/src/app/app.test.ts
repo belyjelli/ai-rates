@@ -664,6 +664,10 @@ describe("pages", () => {
     ...overrides,
   });
 
+  /** One tab on its own, as tabs.ts loads it into a placeholder: the page's address plus ?panel=. */
+  const tab = async (path: string, id: string, data: DataSource) =>
+    (await get(`${path}${path.includes("?") ? "&" : "?"}panel=${id}`, data)).text();
+
   test("liquidations is one page in two tabs, both panels served and neither hidden", async () => {
     const { data } = fakeData({
       liquidationMap: async () => liqMap(),
@@ -714,9 +718,53 @@ describe("pages", () => {
     });
     const html = await (await get("/liquidations", data)).text();
 
-    // liqMap's busiest asset is ETH, so the tab is filled rather than shipped empty and dead.
-    expect(calls).toEqual(["ETH"]);
+    // The map page reads nothing per asset: the other tabs ship as placeholders that load
+    // themselves, named for the busiest asset (ETH in liqMap) so the tab bar already says what
+    // they hold.
+    expect(calls).toEqual([]);
     expect(html).toContain("ETH price levels");
+    expect(html).toContain('data-lazy="/liquidations?panel=price"');
+    expect(html).toContain('class="lazy-wait"');
+    // Opening one reads that asset, once.
+    const price = await tab("/liquidations", "price", data);
+    expect(calls).toEqual(["ETH"]);
+    expect(price).toContain('class="lazy-body"');
+    expect(price).toContain("Fill price");
+    // A bare fragment, never a second copy of the page around it.
+    expect(price).not.toContain("<html");
+  });
+
+  test("a tab that loads itself carries the page's query, and an address that names an asset fills its tabs", async () => {
+    const calls: string[] = [];
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async (options) => {
+        calls.push(options.base);
+        return liqAsset();
+      },
+      assetBars: async () => {
+        calls.push("bars");
+        return [];
+      },
+    });
+    const week = await (await get("/liquidations?window=7d", data)).text();
+    expect(week).toContain('data-lazy="/liquidations?window=7d&amp;panel=sides"');
+    expect(calls).toEqual([]);
+
+    // /liquidations/ETH opens on its prices, so the per-asset read is made anyway: Sides and Prices
+    // ship filled, and only Odds -- a week of bars more -- waits to be opened.
+    const eth = await (await get("/liquidations/ETH", data)).text();
+    expect(calls).toEqual(["ETH"]);
+    expect(eth).not.toContain('data-lazy="/liquidations/ETH?panel=sides"');
+    expect(eth).not.toContain('data-lazy="/liquidations/ETH?panel=price"');
+    expect(eth).toContain('data-lazy="/liquidations/ETH?panel=odds"');
+    // A query that is about one tab's own controls fills that tab, so a click lands on a drawn tab.
+    calls.length = 0;
+    const zoomed = await (await get("/liquidations?zoom=out", data)).text();
+    expect(calls).toEqual(["ETH"]);
+    expect(zoomed).not.toContain('data-lazy="/liquidations?zoom=out&amp;panel=sides"');
+    // An unknown panel is the page, not an error.
+    expect((await get("/liquidations?panel=nope", data)).status).toBe(200);
   });
 
   test("an address that is not an asset is a 404, not the map with a stray tab", async () => {
@@ -752,11 +800,11 @@ describe("pages", () => {
 
     expect(html).toContain('data-tab="sides"');
     expect(html).toContain('data-tab-panel="sides"');
-    expect(html).toContain("Longs closed <b>$8.0M</b>");
-    expect(html).toContain("Shorts closed <b>$1.5M</b>");
-    expect(html).toContain('data-live="lq-sides"');
 
-    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    const sides = await tab("/liquidations", "sides", data);
+    expect(sides).toContain("Longs closed <b>$8.0M</b>");
+    expect(sides).toContain("Shorts closed <b>$1.5M</b>");
+    expect(sides).toContain('data-live="lq-sides"');
     // ONE price column: the two sides share their rows, so the labels are printed once. Two grids
     // that each repeated them did not fit side by side and were drawn over each other.
     expect(sides.split("<table").length - 1).toBe(1);
@@ -793,7 +841,7 @@ describe("pages", () => {
     const html = await (await get("/liquidations/ETH", data)).text();
 
     expect(html).toContain('data-tab="odds"');
-    const odds = html.split('data-tab-panel="odds"')[1];
+    const odds = await tab("/liquidations/ETH", "odds", data);
     expect(odds).toBeDefined();
     // Four horizons as columns.
     for (const label of ["4 hours", "6 hours", "1 day", "1 week"]) expect(odds).toContain(label);
@@ -816,8 +864,9 @@ describe("pages", () => {
       liquidationAsset: async () => liqAsset(),
       assetBars: async () => weekOfCloses().slice(0, 6),
     });
-    const html = await (await get("/liquidations/ETH", thin.data)).text();
-    expect(html.split('data-tab-panel="odds"')[1]).toContain("not yet enough price history");
+    expect(await tab("/liquidations/ETH", "odds", thin.data)).toContain(
+      "not yet enough price history",
+    );
 
     const broken = fakeData({
       liquidationMap: async () => liqMap(),
@@ -829,7 +878,7 @@ describe("pages", () => {
         throw new Error("hyperdrive busy");
       },
     });
-    const res = await get("/liquidations/ETH", broken.data);
+    const res = await get("/liquidations/ETH?panel=odds", broken.data);
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("not yet enough price history");
   });
@@ -839,8 +888,7 @@ describe("pages", () => {
       liquidationMap: async () => liqMap(),
       liquidationAsset: async () => liqAsset(),
     });
-    const html = await (await get("/liquidations", data)).text();
-    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    const sides = await tab("/liquidations", "sides", data);
 
     // okx's band-4 cell closed $12k of shorts and no longs. The long panel's band 4 has to read as
     // nothing, in a panel whose entire subject is one side -- which is a narrower claim than "$0",
@@ -854,8 +902,7 @@ describe("pages", () => {
       liquidationMap: async () => liqMap(),
       liquidationAsset: async () => liqAsset(),
     });
-    const html = await (await get("/liquidations", data)).text();
-    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    const sides = await tab("/liquidations", "sides", data);
 
     expect(sides).toContain('class="fchart lqc"');
     // Longs rise and shorts fall from the same line; a bucket with no longs draws no long bar.
@@ -880,8 +927,7 @@ describe("pages", () => {
       liquidationMap: async () => liqMap(),
       liquidationAsset: async () => liqAsset({ pending: PENDING }),
     });
-    const html = await (await get("/liquidations", data)).text();
-    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    const sides = await tab("/liquidations", "sides", data);
 
     // Twenty rows, shorts above the price and longs below, and the legend totals both sides.
     expect(sides.match(/class="lqp-row"/g)?.length).toBe(20);
@@ -898,8 +944,7 @@ describe("pages", () => {
     expect(sides).toContain('class="lqp-mark"><b>2,400</b>');
     // The toggle keeps the tab, and off drops the strip and the note.
     expect(sides).toContain('href="/liquidations?pending=0#sides"');
-    const off = await (await get("/liquidations?pending=0", data)).text();
-    const offSides = off.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    const offSides = await tab("/liquidations?pending=0", "sides", data);
     expect(offSides).not.toContain("lqp-row");
     expect(offSides).not.toContain("Modeled from open interest");
     expect(offSides).toContain('href="/liquidations#sides"');
@@ -914,14 +959,12 @@ describe("pages", () => {
         return liqAsset({ pending: PENDING });
       },
     });
-    const near = await (await get("/liquidations", data)).text();
-    const nearSides = near.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    const nearSides = await tab("/liquidations", "sides", data);
     expect(nearSides).toContain(">+10%<");
     expect(nearSides).toContain(">−10%<");
     expect(nearSides).toContain('href="/liquidations?zoom=out#sides"');
 
-    const wide = await (await get("/liquidations?zoom=out", data)).text();
-    const sides = wide.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    const sides = await tab("/liquidations?zoom=out", "sides", data);
     expect(asked).toEqual([false, true]);
     // 10% rows above to +100% (double), 5% rows below to −50% (half), both ticked at the outer edge.
     expect(sides).toContain(">+100%<");
@@ -935,8 +978,7 @@ describe("pages", () => {
     // The switch keeps the tab and drops back to ±10%; turning pending off drops the zoom with it.
     expect(sides).toContain('href="/liquidations#sides"');
     expect(sides).toContain('href="/liquidations?pending=0&amp;zoom=out#sides"');
-    const off = await (await get("/liquidations?pending=0", data)).text();
-    const offSides = off.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    const offSides = await tab("/liquidations?pending=0", "sides", data);
     expect(offSides).not.toContain("Zoom out");
     expect(sides).toContain(">Zoom in<");
     expect(sides).toContain('aria-current="page">Zoom out<');
@@ -947,8 +989,7 @@ describe("pages", () => {
       liquidationMap: async () => liqMap(),
       liquidationAsset: async () => liqAsset(),
     });
-    const html = await (await get("/liquidations", data)).text();
-    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    const sides = await tab("/liquidations", "sides", data);
     expect(sides).not.toContain("lqp-row");
     expect(sides).not.toContain("Modeled from open interest");
   });
@@ -959,7 +1000,7 @@ describe("pages", () => {
       liquidationAsset: async () => liqAsset(),
     });
     const html = await (await get("/liquidations", data)).text();
-    const sides = html.split('data-tab-panel="sides"')[1].split('data-tab-panel="price"')[0];
+    const sides = await tab("/liquidations", "sides", data);
     const figure = sides.slice(
       sides.indexOf('<figure class="fchart lqc"'),
       sides.indexOf("</figure>"),

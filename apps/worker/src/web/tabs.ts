@@ -17,7 +17,9 @@ import { tr } from "./i18n";
  *
  *   - **Panels render visible.** The script hides the inactive one on init. A reader with no
  *     JavaScript therefore sees every section, exactly as the page read before tabs existed, rather
- *     than one panel and some dead buttons. Nothing is `hidden` in the served HTML.
+ *     than one panel and some dead buttons. Nothing is `hidden` in the served HTML. The exception
+ *     is a panel the server chose not to fill (`data-lazy`, liquidations.ts): the script loads it
+ *     on first show, and without the script it offers a plain link to its own address instead.
  *   - **State lives in the hash, never a query parameter.** `?tab=` would be a second edge-cache key
  *     for the same page, where params.ts works to keep exactly one; a fragment is never sent to the
  *     server, so `/status#verification` is shareable and still hits the same cached copy.
@@ -109,6 +111,53 @@ export const TAB_SCRIPT = `(() => {
     // Taking over from the no-JS fallback: the static border-bottom gives way to the indicator.
     strip.classList.add("tabbar-tabs--js");
 
+    // A panel the server left unfilled carries data-lazy, the address of its own markup (see
+    // liquidations.ts). It loads the first time its tab is shown or hovered; a loaded one that has
+    // sat hidden for a while is fetched again when shown, keeping what it has until the new copy is
+    // in. live.ts refreshes the visible one after that.
+    const load = (panel) => {
+      const url = panel.getAttribute("data-lazy");
+      const state = panel.dataset.lazyState;
+      if (!url || state === "loading" || state === "loaded") return;
+      panel.dataset.lazyState = "loading";
+      if (state !== "stale") panel.setAttribute("aria-busy", "true");
+      fetch(url, { credentials: "same-origin" })
+        .then((res) => {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.text();
+        })
+        .then((html) => {
+          panel.innerHTML = html;
+          panel.dataset.lazyState = "loaded";
+          panel.dataset.loadedAt = String(Date.now());
+          panel.removeAttribute("aria-busy");
+          if (window.airratesHelp) window.airratesHelp(panel);
+        })
+        .catch(() => {
+          panel.removeAttribute("aria-busy");
+          // A stale copy that failed to refresh is still a copy: keep it and try on the next show.
+          if (state === "stale") { panel.dataset.lazyState = "loaded"; return; }
+          panel.dataset.lazyState = "failed";
+          const wait = panel.querySelector(".lazy-wait");
+          if (!wait || wait.querySelector(".lazy-retry")) return;
+          wait.classList.add("lazy-failed");
+          const msg = wait.querySelector(".lazy-msg");
+          if (msg) msg.textContent = wait.getAttribute("data-fail") || "";
+          const retry = document.createElement("button");
+          retry.type = "button";
+          retry.className = "lazy-retry";
+          retry.textContent = wait.getAttribute("data-retry") || "Retry";
+          retry.addEventListener("click", () => {
+            wait.classList.remove("lazy-failed");
+            retry.remove();
+            panel.dataset.lazyState = "";
+            load(panel);
+          });
+          wait.appendChild(retry);
+        });
+    };
+    const panelFor = (id) => panels.filter((p) => p.getAttribute("data-tab-panel") === id)[0];
+
     const move = () => {
       if (!underline) return;
       const active = buttons.filter((b) => b.classList.contains("active"))[0];
@@ -132,6 +181,11 @@ export const TAB_SCRIPT = `(() => {
       });
       panels.forEach((panel) => {
         panel.hidden = panel.getAttribute("data-tab-panel") !== id;
+        if (panel.hidden) return;
+        if (panel.dataset.lazyState === "loaded" && Date.now() - Number(panel.dataset.loadedAt) > 60e3) {
+          panel.dataset.lazyState = "stale";
+        }
+        load(panel);
       });
       move();
     };
@@ -154,6 +208,13 @@ export const TAB_SCRIPT = `(() => {
         const id = button.getAttribute("data-tab");
         if (id) select(id, false);
       });
+      // Start loading on intent, so the click usually lands on a tab that is already there.
+      const warm = () => {
+        const panel = panelFor(button.getAttribute("data-tab"));
+        if (panel && !panel.dataset.lazyState) load(panel);
+      };
+      button.addEventListener("pointerenter", warm);
+      button.addEventListener("focus", warm);
     });
 
     // Arrow keys walk the strip, as a tablist is expected to.

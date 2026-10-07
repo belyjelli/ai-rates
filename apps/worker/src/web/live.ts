@@ -172,18 +172,12 @@ export const LIVE_SCRIPT = String.raw`(() => {
     el.animate([{ offset: 0, ...from }], { duration: change === "new" ? 1800 : 1400, easing: "cubic-bezier(.2,0,.2,1)" });
   };
 
-  const apply = (doc) => {
-    for (const el of document.querySelectorAll(".chg")) el.classList.remove("chg", "chg-up", "chg-down", "chg-text", "chg-new");
-    const here = [...document.querySelectorAll("[data-live]")];
-    const there = [...doc.querySelectorAll("[data-live]")];
-    const aligned = here.length === there.length && here.every((el, i) => el.dataset.live === there[i].dataset.live);
-    if (!aligned) {
-      // An empty state became a table, or the reverse: nothing lines up to compare, so take the page.
-      const main = doc.querySelector("main"), status = doc.querySelector(".mast .status");
-      if (main) document.querySelector("main").innerHTML = main.innerHTML;
-      if (status) document.querySelector(".mast .status").replaceWith(document.importNode(status, true));
-      return;
-    }
+  // A tab tabs.ts loads by itself (data-lazy) is not in the page's own poll: the server left it as a
+  // placeholder there. Its regions are refreshed from its own address instead (refreshPanels), so
+  // they are left out of the page's comparison -- counting them would make every poll look like a
+  // different page and replace the whole of main.
+  const regions = (root) => [...root.querySelectorAll("[data-live]")].filter((el) => !el.closest("[data-lazy]"));
+  const swapIn = (here, there) => {
     here.forEach((el, i) => {
       const before = texts(units(el));
       const rails = positions(el);
@@ -192,6 +186,50 @@ export const LIVE_SCRIPT = String.raw`(() => {
       for (const [key, change] of changes(before, texts(after), parseShown)) flash(after.get(key), change);
       slide(rails, el);
     });
+  };
+  const sameShape = (here, there) =>
+    here.length === there.length && here.every((el, i) => el.dataset.live === there[i].dataset.live);
+
+  const apply = (doc) => {
+    for (const el of document.querySelectorAll(".chg")) el.classList.remove("chg", "chg-up", "chg-down", "chg-text", "chg-new");
+    const here = regions(document);
+    const there = regions(doc);
+    const aligned = sameShape(here, there);
+    if (!aligned) {
+      // An empty state became a table, or the reverse: nothing lines up to compare, so take the page.
+      const main = doc.querySelector("main"), status = doc.querySelector(".mast .status");
+      if (main) document.querySelector("main").innerHTML = main.innerHTML;
+      if (status) document.querySelector(".mast .status").replaceWith(document.importNode(status, true));
+      return;
+    }
+    swapIn(here, there);
+  };
+
+  // The visible loaded tab, fetched from its own address like the page is: the same flash on what
+  // changed, or a plain replacement when its regions no longer line up. Skipped while the reader is
+  // pointing at the page, like the page's own swap; the next poll gets it.
+  const refreshPanels = async () => {
+    if (engaged()) return;
+    for (const panel of document.querySelectorAll("[data-lazy][data-lazy-state=loaded]")) {
+      if (panel.hidden) continue;
+      const body = panel.querySelector(".lazy-body");
+      if (!body) continue;
+      try {
+        const res = await fetch(panel.getAttribute("data-lazy"), { cache: "no-store", credentials: "same-origin" });
+        if (!res.ok) continue;
+        const html = await res.text();
+        const stamp = /data-rendered="(\d+)"/.exec(html);
+        if (!stamp || stamp[1] === body.dataset.rendered) continue;
+        const fresh = new DOMParser().parseFromString(html, "text/html").querySelector(".lazy-body");
+        if (!fresh) continue;
+        const here = [...body.querySelectorAll("[data-live]")];
+        const there = [...fresh.querySelectorAll("[data-live]")];
+        if (sameShape(here, there)) swapIn(here, there);
+        else body.innerHTML = fresh.innerHTML;
+        body.dataset.rendered = stamp[1];
+        panel.dataset.loadedAt = String(Date.now());
+      } catch (_) {}
+    }
   };
 
   // Rows never move under a pointer or an open filter; the hold lasts one period at most.
@@ -259,6 +297,7 @@ export const LIVE_SCRIPT = String.raw`(() => {
           settle();
         }
       }
+      await refreshPanels();
     } catch (error) {
       if (error && error.name === "AbortError") return;
       failures++;

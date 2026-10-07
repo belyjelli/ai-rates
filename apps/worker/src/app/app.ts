@@ -9,7 +9,7 @@ import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
 import { installAsset } from "../web/install";
 import { SITE_ORIGIN } from "../web/layout";
 import { legal } from "../web/legal";
-import { liquidations } from "../web/liquidations";
+import { liquidations, liquidationsPanel } from "../web/liquidations";
 import * as pages from "../web/pages";
 import { assetHref } from "../web/pages";
 import { referralCta } from "../web/referral";
@@ -301,24 +301,38 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const params = parseLiquidationParams(url.searchParams);
       const assetParams = parseLiquidationAssetParams(url.searchParams);
       const { hours, bucketHours, sideMinutes } = LIQUIDATION_WINDOWS[params.window];
+      // `?panel=<tab>` asks for one tab on its own, which is what a lazy tab loads itself from.
+      const askedPanel = url.searchParams.get("panel");
+      const panel = (["sides", "price", "odds"] as const).find((id) => id === askedPanel) ?? null;
       const [overview, map] = await Promise.all([
         deps.data.overview(),
         deps.data.liquidationMap({ windowHours: hours, bucketHours, assets: params.assets }),
       ]);
-      // With no asset in the address the priced tab shows the day's busiest, which is the row a
-      // reader would have clicked anyway. A second query, but the tab has to ship filled: tabs.ts
-      // renders every panel and hides the inactive one, so an empty panel would be a dead tab.
+      // With no asset in the address the per-asset tabs show the day's busiest, which is the row a
+      // reader would have clicked anyway.
       const busiest = map.assets[0];
       const wanted: { asset: string; assetClass: AssetClass | null } | null = address
         ? { asset: address.asset, assetClass: address.assetClass }
         : busiest
           ? { asset: busiest.asset, assetClass: busiest.asset_class }
           : null;
-      // The odds tab reads the same asset's week of closes and its funding beside the priced grid. A
-      // failed read of either leaves that tab saying it has too little history, not the page 500.
-      const [assetMap, oddsBars, oddsMarkets] = wanted
-        ? await Promise.all([
-            deps.data.liquidationAsset({
+      // What this render reads beyond the map. The per-asset read when a tab that draws it is asked
+      // for, when the address names an asset (that page opens on its prices), or when the query
+      // carries a control that only those tabs have -- a reader who just clicked Zoom out should
+      // land on a drawn tab, not a spinner. The week of bars only for the Odds tab itself.
+      const wantsAsset =
+        wanted !== null &&
+        (panel !== null ||
+          address !== null ||
+          assetParams.band !== null ||
+          !assetParams.pending ||
+          assetParams.zoom === "wide");
+      const wantsOdds = wanted !== null && panel === "odds";
+      // A failed read of the bars or the funding leaves the Odds tab saying it has too little
+      // history, not the page 500.
+      const [assetMap, oddsBars, oddsMarkets] = await Promise.all([
+        wantsAsset && wanted
+          ? deps.data.liquidationAsset({
               base: wanted.asset,
               assetClass: wanted.assetClass,
               windowHours: hours,
@@ -328,18 +342,20 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
               reach: LIQUIDATION_BAND_REACH,
               sideMinutes,
               pendingWide: assetParams.pending && assetParams.zoom === "wide",
-            }),
-            deps.data
+            })
+          : undefined,
+        wantsOdds && wanted
+          ? deps.data
               .assetBars({
                 base: wanted.asset,
                 assetClass: wanted.assetClass,
                 windowHours: OUTLOOK_WINDOW_HOURS,
                 barMinutes: OUTLOOK_BAR_MINUTES,
               })
-              .catch(() => []),
-            deps.data.asset(wanted.asset, wanted.assetClass).catch(() => []),
-          ])
-        : [null, [], []];
+              .catch(() => [])
+          : [],
+        wantsOdds && wanted ? deps.data.asset(wanted.asset, wanted.assetClass).catch(() => []) : [],
+      ]);
       if (address && (!assetMap || assetMap.asset_class === null)) {
         return page(
           () =>
@@ -351,32 +367,36 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           404,
         );
       }
-      return page(() =>
-        liquidations({
-          overview,
-          map,
-          asset: wanted?.asset ?? null,
-          addressed: address !== null,
-          assetMap,
-          outlook: assetMap
-            ? buildOutlook({
-                mark: assetMap.mark,
-                bars: oddsBars,
-                cells: assetMap.cells,
-                sides: assetMap.sides,
-                bandPct: assetMap.band_pct,
-                reach: LIQUIDATION_BAND_REACH,
-                fundingApr: openInterestWeightedApr(oddsMarkets),
-                sentimentScore: overview.sentiment_score,
-                now,
-              })
-            : null,
-          params,
-          assetParams,
-          active: address ? "price" : "map",
-          now,
-        }),
-      );
+      const view = {
+        map,
+        asset: wanted?.asset ?? null,
+        addressed: address !== null,
+        assetClass: address?.assetClass ?? null,
+        assetMap: wanted === null ? null : assetMap,
+        outlook:
+          wanted === null
+            ? null
+            : !wantsOdds
+              ? undefined
+              : assetMap
+                ? buildOutlook({
+                    mark: assetMap.mark,
+                    bars: oddsBars,
+                    cells: assetMap.cells,
+                    sides: assetMap.sides,
+                    bandPct: assetMap.band_pct,
+                    reach: LIQUIDATION_BAND_REACH,
+                    fundingApr: openInterestWeightedApr(oddsMarkets),
+                    sentimentScore: overview.sentiment_score,
+                    now,
+                  })
+                : null,
+        params,
+        assetParams,
+        now,
+      };
+      if (panel !== null) return page(() => liquidationsPanel(view, panel));
+      return page(() => liquidations({ ...view, overview, active: address ? "price" : "map" }));
     }
 
     if (segments[0] === "price-pair" && (segments.length === 2 || segments.length === 3)) {

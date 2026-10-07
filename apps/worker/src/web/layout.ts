@@ -683,6 +683,14 @@ input[type=checkbox]{accent-color:var(--accent)}
 /* The original's own fallback: no sliding, a static underline instead. */
 @media (prefers-reduced-motion:reduce){.tabbar-tabs--js .btn-tab.active{border-bottom-color:var(--accent)}.tab-underline{display:none}}
 @media (max-width:560px){.tab-label--full{display:none}.tab-label--short{display:inline}}
+/* A tab loading itself (tabs.ts): the shared spinner, a line of muted text, and room enough that the
+   page does not jump twice -- once to the placeholder and again to the tab. */
+.lazy-wait{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;min-height:180px;padding:16px 4px;color:var(--muted)}
+.lazy-wait .spin{margin-right:0;color:var(--accent)}
+.lazy-failed .spin{display:none}
+.lazy-failed .lazy-msg{color:var(--warn)}
+.lazy-retry{font:700 12px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--ink);background:transparent;border:1px solid var(--rule);padding:3px 10px;cursor:pointer}
+.lazy-retry:hover{border-color:var(--accent);color:var(--accent)}
 footer{border-top:1px solid var(--rule);margin-top:24px;padding:8px 0 24px;color:var(--dim);line-height:1.6}
 footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
 /* The language switch: each language in its own script, the one in use lit as the nav's current page is. */
