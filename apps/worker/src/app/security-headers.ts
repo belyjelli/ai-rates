@@ -42,6 +42,9 @@ const GA_IMG = "https://*.google-analytics.com https://*.googletagmanager.com";
 // page refused it. Cloudflare documents exactly these two origins for it.
 const CF_BEACON_SCRIPT = "https://static.cloudflareinsights.com";
 const CF_BEACON_CONNECT = "https://cloudflareinsights.com";
+// The member area, for the one call a page makes to it: /keys reads and saves a signed-in member's
+// keyboard profiles there (web/keyboard.ts). Its session cookie is its own; this only lets the call go.
+const MEMBER_CONNECT = "https://member.airrates.net";
 
 /**
  * The policy for one page, given the hashes of its inline scripts ('sha256-...' tokens).
@@ -56,7 +59,7 @@ export function contentSecurityPolicy(scriptHashes: readonly string[]): string {
     "style-src 'self' 'unsafe-inline'",
     // data: and blob: for the share card, which draws to a canvas and shows the PNG it made.
     `img-src 'self' data: blob: ${GA_IMG}`,
-    `connect-src 'self' ${GA_CONNECT} ${CF_BEACON_CONNECT}`,
+    `connect-src 'self' ${GA_CONNECT} ${CF_BEACON_CONNECT} ${MEMBER_CONNECT}`,
     "font-src 'self' data:",
     "object-src 'none'",
     "base-uri 'self'",

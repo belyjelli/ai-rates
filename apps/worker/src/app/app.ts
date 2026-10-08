@@ -7,6 +7,7 @@ import { esc } from "../web/format";
 import type { FundingHistory } from "../web/funding-chart";
 import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
 import { installAsset } from "../web/install";
+import { keyboard } from "../web/keyboard";
 import { SITE_ORIGIN } from "../web/layout";
 import { legal } from "../web/legal";
 import { liquidations, liquidationsPanel } from "../web/liquidations";
@@ -442,6 +443,11 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     if (path === "/legal") {
       const overview = await deps.data.overview();
       return page(() => legal({ overview, now }));
+    }
+
+    if (path === "/keys") {
+      const overview = await deps.data.overview();
+      return page(() => keyboard({ overview, now }));
     }
 
     if (path === "/tos") {
@@ -884,6 +890,7 @@ const SITEMAP_PATHS = [
   "/legal",
   "/tos",
   "/docs",
+  "/keys",
 ];
 
 /** Seconds a client is told to wait after a 503. Past the cooldown the edge cache applies to a failed render. */

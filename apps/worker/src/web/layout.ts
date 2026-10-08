@@ -3,6 +3,7 @@ import { BUILD } from "../build-info";
 import { awaitScript } from "./await";
 import { durationStrings, esc, sentimentLabel, sentimentTone, since } from "./format";
 import { HELP_CSS, HELP_SCRIPT } from "./help";
+import { hotkeyLegend, hotkeyScript, keyboardIcon } from "./hotkeys";
 import {
   currentLocale,
   htmlLang,
@@ -45,7 +46,7 @@ const NAV = [
  * off-origin link in the footer, so it opens in a new tab with rel="noopener" — a reader who is
  * mid-screener keeps their filters rather than losing them to an auth redirect.
  */
-const MEMBER_URL = "https://member.airrates.net/";
+export const MEMBER_URL = "https://member.airrates.net/";
 
 /**
  * Google Analytics 4 for airrates.net, first thing in <head> as Google asks. The member area on its
@@ -117,24 +118,6 @@ function discoverability(title: string, description: string, path: string): stri
 <script type="application/ld+json">${ld}</script>`;
 }
 
-/** Hotkeys shown in the status bar. They are advertised, so they are implemented. */
-const KEYS: [string, string, string][] = [
-  ["h", msg("spreads"), "/"],
-  ["s", msg("screener"), "/screener"],
-  ["r", msg("rates"), "/rates"],
-  ["a", msg("arbitrage"), "/arbitrage"],
-  ["l", msg("liquidations"), "/liquidations"],
-  ["c", msg("cvd"), "/cvd"],
-  ["e", msg("exchanges"), "/markets"],
-];
-
-/**
- * The key-to-destination map the inline script jumps with, built from KEYS rather than repeated.
- * It used to be written out a second time inside the page script, so a key could be advertised in the
- * status bar and do nothing, or work without being advertised.
- */
-const HOTKEY_TARGETS = JSON.stringify(Object.fromEntries(KEYS.map(([key, , href]) => [key, href])));
-
 // A terminal, not a printout: black ground, one monospace stack, no radius anywhere, 12px rows.
 // Long stays blue and short stays red as they always were, lifted to values legible on black.
 const CSS = `
@@ -172,7 +155,10 @@ a:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .sent-short{color:var(--short)}
 .sent-ink{color:var(--ink)}
 .clock{color:var(--ink)}
-.keys{margin-left:auto;display:flex;gap:12px;color:var(--dim)}
+.keys{margin-left:auto;display:flex;gap:12px;color:var(--dim);border:0}
+.keys:hover{color:var(--muted)}
+.keys [hidden]{display:none}
+.kb-link .kb-icon{margin-right:5px;vertical-align:-2px}
 .keys b{margin-right:5px;padding:0 4px;background:var(--dim);color:var(--bg);font-weight:700}
 main.wrap{padding-top:12px;padding-bottom:32px}
 h1{font:700 15px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.04em;margin:0 0 4px}
@@ -735,17 +721,17 @@ footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim)
 .about-log li+li{margin-top:4px}
 /* Reduced motion: a still outline in place of the live-refresh fade, cleared on the next refresh. */
 .chg{outline:1px solid var(--muted);outline-offset:-1px}.chg-up{outline-color:#00ff88}.chg-down{outline-color:#ff4757}
-/* The hotkey legend needs ~1,190px beside the nav since cvd joined it; below that it was clipped
-   mid-word ("lliquidations"), so it goes rather than half-shows. The keys still work. */
-@media (max-width:1240px){.keys{display:none}}
+/* The hotkey legend needs ~1,250px beside the nav since "? keyboard map" joined it; below that it was
+   clipped mid-word ("lliquidations"), so it goes rather than half-shows. The keys still work. */
+@media (max-width:1300px){.keys{display:none}}
 @media (max-width:860px){.status{font-size:11px}.legs .short{text-align:left}}
 `;
 
-// Live "… ago" and countdowns, a UTC clock, and the hotkeys advertised in the status bar. The
+// Live "… ago" and countdowns and a UTC clock; the hotkeys are hotkeys.ts's own script. The
 // duration words come from format.ts in the page's language, so a ticking age reads as the server
 // wrote it. The language links get the page's query string, so switching keeps a screener's filters.
 const pageScript = () =>
-  `(()=>{const L=${scriptStrings(durationStrings())};for(const a of document.querySelectorAll("a[data-lang]"))a.href=a.pathname+"?back="+encodeURIComponent(location.pathname+location.search);const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?L.s.replace("{s}",s):s<3600?L.m.replace("{m}",Math.floor(s/60)):L.hm.replace("{h}",Math.floor(s/3600)).replace("{m}",p(Math.floor(s%3600/60)))};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=L.ago.replace("{time}",f((n-e.dataset.since)/1e3));for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):L.settling}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const n=e.target&&e.target.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA")return;if(e.key==="/"){const q=document.querySelector("form.filters select,form.filters input,form.cvd-search input[type=search]");if(q){e.preventDefault();q.focus()}return}const g=${HOTKEY_TARGETS}[e.key];if(g){e.preventDefault();location.href=g}})})();`;
+  `(()=>{const L=${scriptStrings(durationStrings())};for(const a of document.querySelectorAll("a[data-lang]"))a.href=a.pathname+"?back="+encodeURIComponent(location.pathname+location.search);const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?L.s.replace("{s}",s):s<3600?L.m.replace("{m}",Math.floor(s/60)):L.hm.replace("{h}",Math.floor(s/3600)).replace("{m}",p(Math.floor(s%3600/60)))};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=L.ago.replace("{time}",f((n-e.dataset.since)/1e3));for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):L.settling}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);})();`;
 
 export function layout(options: {
   title: string;
@@ -760,7 +746,6 @@ export function layout(options: {
     (item) =>
       `<a href="${item.href}"${item.match(path) ? ' aria-current="page"' : ""}>${trMsg(item.label)}</a>`,
   ).join("");
-  const keys = KEYS.map(([key, label]) => `<span><b>${key}</b>${trMsg(label)}</span>`).join("");
   // A page that reads no database (the geo-probe, the error pages) passes no overview: it has no
   // status to report, which is not the same as "no venue has reported".
   const status =
@@ -799,15 +784,16 @@ ${INSTALL_HEAD}
 <body data-rendered="${now}" data-build="${esc(BUILD.commit ?? "")}">
 <header class="mast">
 <div class="wrap bar"><a class="brand" href="/">airrates<small>${tr("What settled. Not what might.")}</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${shareBar()}<time class="clock" id="clock">--:--:-- UTC</time></div>
-<div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><span class="keys">${keys}<span><b>/</b>${tr("filter")}</span></span></div>
+<div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><a class="keys" href="/keys" title="${tr("Keyboard shortcuts: change them on the keyboard page")}">${hotkeyLegend()}</a></div>
 </header>
 <main class="wrap">${body}</main>
 <footer><div class="wrap">
-<p class="sig"><span><a href="${MEMBER_URL}" target="_blank" rel="noopener">${tr("login")}</a> · <a href="/status">${tr("status")}</a> · <a href="/probe">${tr("geo-probe")}</a> · <a href="/about">${tr("about")}</a> · <a href="/referrals">${tr("referral links")}</a> · <a href="/legal">${tr("legal &amp; privacy")}</a> · <a href="/tos">${tr("terms")}</a></span><span>airrates</span></p>
+<p class="sig"><span><a href="${MEMBER_URL}" target="_blank" rel="noopener">${tr("login")}</a> · <a href="/status">${tr("status")}</a> · <a href="/probe">${tr("geo-probe")}</a> · <a href="/about">${tr("about")}</a> · <a class="kb-link" href="/keys">${keyboardIcon()}${tr("keyboard")}</a> · <a href="/referrals">${tr("referral links")}</a> · <a href="/legal">${tr("legal &amp; privacy")}</a> · <a href="/tos">${tr("terms")}</a></span><span>airrates</span></p>
 <nav class="langs" aria-label="${tr("Language")}"><span>${tr("language:")}</span>${languages}</nav>
 <p>${tr("Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.")}</p>
 </div></footer>
 <script>${pageScript()}</script>
+<script>${hotkeyScript()}</script>
 <script>${HELP_SCRIPT}</script>
 <script>${LIVE_SCRIPT}</script>
 <script>${awaitScript()}</script>

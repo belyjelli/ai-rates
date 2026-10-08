@@ -3,7 +3,7 @@ import { currentLocale, tr } from "./i18n";
 import { layout } from "./layout";
 
 /** When the text below last changed. Update it with any edit a reader would notice. */
-const UPDATED = "7 October 2026";
+const UPDATED = "9 October 2026";
 
 /**
  * The body of a page that stays in English whatever the reader's language: legal text binds in one
@@ -25,7 +25,8 @@ export function englishOnly(body: string): string {
  * Every factual claim about data handling here must stay true of the code, and changes with it:
  *   - what a page view records: app/visits.ts;
  *   - the Google Analytics tag: GA_TAG in web/layout.ts (and probe/render.ts), plus the events in share.ts and install.ts;
- *   - the sessionStorage value in web/live.ts and the localStorage value in web/install.ts;
+ *   - the sessionStorage value in web/live.ts and the localStorage values in web/install.ts and
+ *     web/hotkeys.ts;
  *   - the IP-keyed backtest limiter: withinRate in app/app.ts and BACKTEST_LIMITER in wrangler.jsonc;
  *   - where referral links can appear: app/geo.ts and web/referral.ts.
  * Drafted from plans/phase0-referrals-legal.md §3 for counsel to review; it is not legal advice.
@@ -79,7 +80,7 @@ export function legal(data: { overview: Overview; now: number }): string {
 <article id="storage">
 <h2>Storage in your browser</h2>
 <ul>
-<li>Beyond the Google Analytics cookies above, airrates keeps two values in your browser, neither sent to anyone. In session storage: the version of the site it last loaded, so that a page reloads once, rather than repeatedly, after a new version is released; it is deleted when you close the tab. In local storage: the time you dismissed the offer to install the site as an app, so the offer does not return for a while; it stays until you clear your site data.</li>
+<li>Beyond the Google Analytics cookies above, airrates keeps up to three values in your browser, none sent to anyone. In session storage: the version of the site it last loaded, so that a page reloads once, rather than repeatedly, after a new version is released; it is deleted when you close the tab. In local storage: the time you dismissed the offer to install the site as an app, so the offer does not return for a while; it stays until you clear your site data. If you are a member and have remapped the keyboard shortcuts on <a href="/keys">Keyboard</a>, also in local storage: a copy of your keyboard profiles, so every page answers your keys without asking the member area; the profiles themselves are kept on your member account, and the copy is removed when the keyboard page finds you signed out.</li>
 </ul>
 </article>
 <article id="contact">

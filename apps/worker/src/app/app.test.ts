@@ -2411,6 +2411,22 @@ describe("pages", () => {
     expect(await (await get("/", data)).text()).toContain('<a href="/about">about</a>');
   });
 
+  test("the keyboard page draws every shortcut and is linked from every footer", async () => {
+    const { data } = fakeData();
+    const res = await get("/keys", data);
+    const html = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(html).toContain('<h1 class="has-help">Keyboard<');
+    // The default keys are lit for a reader with no script: R goes to rates, / filters.
+    expect(html).toMatch(/class="cap t-go" [^>]*data-k="r"/);
+    expect(html).toMatch(/class="cap t-page two" [^>]*data-k="\/" data-s="\?"/);
+    // Editing is behind a login: the lock is shown and the editor hidden until the member area says so.
+    expect(html).toContain('id="kb-lock"');
+    expect(html).toContain('<div class="kb-head" id="kb-head" hidden>');
+    expect(await (await get("/", data)).text()).toContain('href="/keys"');
+  });
+
   test("terms of service is reachable from the legal page and scopes itself to this site", async () => {
     const { data } = fakeData();
     const res = await get("/tos", data);
