@@ -126,7 +126,8 @@ export const FEEDS: readonly FeedEntry[] = [
     // covers the 20 deepest markets; see profitlock-worker collector/internal/adapters/hyperliquid.
     venueId: "hyperliquid",
     verdict: "live",
-    transport: "REST, via 0xArchive",
+    // The source is not named on the page (the owner's call, 2026-10-09); the comment above is the record.
+    transport: "REST",
     evidence:
       "It publishes none itself, so they come from an index of its node's fills: the 20 deepest markets, each close folded from its fills (7,606 BTC fills were 4,361 closes in a day)",
   },
