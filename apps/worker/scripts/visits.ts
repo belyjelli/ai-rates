@@ -1,6 +1,6 @@
 /**
- * Page views by source, and where outside visits land, from the airrates dataset that
- * app/visits.ts writes.
+ * Page views by source, where outside visits land, and the languages readers' browsers ask for,
+ * from the airrates dataset that app/visits.ts writes.
  *
  *   CLOUDFLARE_ACCOUNT_ID=… CLOUDFLARE_API_TOKEN=… bun apps/worker/scripts/visits.ts [days]
  *
@@ -39,4 +39,13 @@ console.table(
   await query(`SELECT blob1 AS source, blob2 AS page, SUM(_sample_interval) AS views
     FROM airrates WHERE ${window} AND blob1 != 'internal'
     GROUP BY source, page ORDER BY views DESC LIMIT 30`),
+);
+
+// The case for a translation. Recorded since 2026-10-09; earlier rows have no language and are left
+// out. A headless scraper sends a browser's language too, so read this beside the sources above.
+console.log("Languages readers' browsers ask for first");
+console.table(
+  await query(`SELECT blob4 AS language, blob3 AS country, SUM(_sample_interval) AS views
+    FROM airrates WHERE ${window} AND blob4 != ''
+    GROUP BY language, country ORDER BY views DESC LIMIT 30`),
 );

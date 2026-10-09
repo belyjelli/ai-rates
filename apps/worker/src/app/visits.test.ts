@@ -10,11 +10,31 @@ const open = (path: string, headers: Record<string, string> = {}, method = "GET"
 
 describe("visitPoint", () => {
   test("a page opened from a post counts under the post's ref", () => {
-    expect(visitPoint(open("/pair/BTC?long=gate&short=okx&ref=X"), "SG")).toEqual({
+    expect(
+      visitPoint(open("/pair/BTC?long=gate&short=okx&ref=X", { "accept-language": "ja" }), "SG"),
+    ).toEqual({
       indexes: ["x"],
-      blobs: ["x", "/pair/BTC", "SG"],
+      blobs: ["x", "/pair/BTC", "SG", "ja"],
       doubles: [1],
     });
+  });
+
+  test("the language is the browser's first choice, whether or not the site has it", () => {
+    const lang = (header?: string) =>
+      visitPoint(open("/", header === undefined ? {} : { "accept-language": header }))?.blobs[3];
+    // The point of counting it: a Japanese reader is seen as one, though the site has no Japanese.
+    expect(lang("ja-JP,ja;q=0.9,en-US;q=0.8,en;q=0.7")).toBe("ja-jp");
+    // Quality decides, not position.
+    expect(lang("en;q=0.5,zh-TW")).toBe("zh-tw");
+    // One subtag kept, so simplified and traditional Chinese stay apart without a third level.
+    expect(lang("zh-Hant-TW,zh;q=0.9")).toBe("zh-hant");
+    // A wildcard is no answer; the next tag is.
+    expect(lang("*,ko;q=0.5")).toBe("ko");
+    // Nothing usable is stored as unknown rather than as whatever was sent.
+    expect(lang()).toBe("");
+    expect(lang("*")).toBe("");
+    expect(lang("english")).toBe("");
+    expect(lang(`${"a".repeat(300)}`)).toBe("");
   });
 
   test("without a ref, the referring site names the source, and the site's own pages read as internal", () => {

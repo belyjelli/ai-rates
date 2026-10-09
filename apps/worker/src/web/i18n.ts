@@ -142,8 +142,21 @@ function cookieValue(header: string | null, name: string): string | null {
  * ranked above Chinese stays English: "en-US,en;q=0.9,zh-CN;q=0.8" is a reader who chose English.
  */
 export function acceptedLocale(header: string | null): Locale | null {
-  if (!header) return null;
-  const ranked = header
+  for (const tag of rankedLanguages(header)) {
+    if (tag === "*") return null;
+    const locale = parseLocale(tag);
+    if (locale) return locale;
+  }
+  return null;
+}
+
+/**
+ * Every tag in an Accept-Language header, by quality and then by order, with refused (q=0) and
+ * malformed entries dropped. The page-view count reads the first one too (app/visits.ts).
+ */
+export function rankedLanguages(header: string | null): string[] {
+  if (!header) return [];
+  return header
     .split(",")
     .map((part, index) => {
       const [tag = "", ...params] = part.trim().split(";");
@@ -151,13 +164,8 @@ export function acceptedLocale(header: string | null): Locale | null {
       return { tag: tag.trim(), quality: q ? Number(q.slice(2)) : 1, index };
     })
     .filter((entry) => entry.tag !== "" && Number.isFinite(entry.quality) && entry.quality > 0)
-    .sort((a, b) => b.quality - a.quality || a.index - b.index);
-  for (const { tag } of ranked) {
-    if (tag === "*") return null;
-    const locale = parseLocale(tag);
-    if (locale) return locale;
-  }
-  return null;
+    .sort((a, b) => b.quality - a.quality || a.index - b.index)
+    .map((entry) => entry.tag);
 }
 
 const SWITCH_PATH = /^\/lang\/([a-z]{2,3})\/?$/;
