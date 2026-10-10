@@ -474,7 +474,7 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .wh-markets a.on{color:var(--accent)}
 .wh-toggle{margin-left:14px;border:0;color:var(--muted)}
 .wh-toggle.on{color:var(--accent)}
-.wh-chart .fchart-plot{margin:6px 100px 0 64px}
+.wh-chart .fchart-plot{margin:6px 128px 0 64px}
 .wh-chart .wh-plot{height:380px}
 .wh-wick{stroke:var(--dim);stroke-width:1;vector-effect:non-scaling-stroke}
 .wh-up{fill:var(--muted)}.wh-down{fill:var(--dim)}
@@ -482,7 +482,7 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .wh-open{opacity:.9}.wh-filled{opacity:.45}.wh-pulled{opacity:.35;stroke-dasharray:4 3}.wh-expired{opacity:.25}
 .wh-last{stroke:var(--accent);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
-.wh-yr{position:absolute;right:-100px;width:96px;text-align:left;transform:translateY(-50%);white-space:nowrap;pointer-events:none;font-size:11px}
+.wh-yr{position:absolute;right:-128px;width:124px;text-align:left;transform:translateY(-50%);white-space:nowrap;pointer-events:none;font-size:11px}
 .wh-bid-t{color:var(--long)}.wh-ask-t{color:var(--short)}
 .wh-filled-t{color:var(--muted)}.wh-pulled-t{color:var(--warn)}.wh-expired-t{color:var(--dim)}
 .wh-key-bid{background:var(--long)}.wh-key-ask{background:var(--short)}.wh-key-ended{background:var(--dim)}.wh-key-last{background:var(--accent)}
