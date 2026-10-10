@@ -132,10 +132,16 @@ export const FEEDS: readonly FeedEntry[] = [
       "It publishes none itself, so they come from an index of its node's fills: the 20 deepest markets, each close folded from its fills (7,606 BTC fills were 4,361 closes in a day)",
   },
   {
+    // Re-probed 2026-10-10. September subscribed to bare `liquidation`, which is still "Invalid
+    // stream"; the documented `liquidation.<symbol>` is accepted for every perp (a made-up symbol is
+    // refused, so the stream is real). Nothing arrived in 30 quiet minutes, and the docs do not say
+    // whose side `S` is, so the collector reads it as the order's side until the first events can
+    // be checked against the tape. See profitlock-worker collector/internal/stream/liqbackpack.go.
     venueId: "backpack",
-    verdict: "none",
-    transport: "",
-    evidence: "liquidation streams rejected as an invalid stream; its trade stream works",
+    verdict: "live",
+    transport: "socket",
+    evidence:
+      "A liquidation stream per perp, documented and accepted for all of them; none seen yet in a quiet market, so its side reading waits on the first events",
   },
   {
     venueId: "pacifica",
