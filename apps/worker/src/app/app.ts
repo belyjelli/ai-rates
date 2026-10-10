@@ -18,6 +18,7 @@ import { referralLinks } from "../web/referral-links";
 import { sentiment } from "../web/sentiment";
 import { tos } from "../web/tos";
 import { VENUE_BY_ID } from "../web/venues";
+import { whales } from "../web/whales";
 import { A2A_PATH, agentCard, handleA2a } from "./a2a";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import { type Referral, requestGeo } from "./geo";
@@ -61,7 +62,9 @@ import {
   parseLiquidationParams,
   parseScreenerFilters,
   parseSentimentParams,
+  parseWhaleParams,
   SENTIMENT_WINDOWS,
+  WHALE_WINDOWS,
 } from "./params";
 
 export interface AppDeps {
@@ -277,6 +280,52 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         );
       }
       return page(() => cvd({ overview, cvd: flow, asset, params, now }));
+    }
+
+    // Whale orders: /whales is BTC, /whales/<asset> (or /whales/<class>/<asset>) one of the forty
+    // markets the collector keeps a Binance book for. An asset outside the forty is a 404 that says
+    // so, unless the feed has not ranked any yet, which the page explains instead.
+    if (
+      path === "/whales" ||
+      (segments[0] === "whales" && (segments.length === 2 || segments.length === 3))
+    ) {
+      const address = segments.length > 1 ? assetAddress(segments.slice(1)) : null;
+      if (segments.length > 1 && !address) {
+        return page(
+          () =>
+            pages.notFound(
+              path,
+              now,
+              tr("{asset} is not an asset address.", { asset: askedAsset(segments) }),
+            ),
+          404,
+        );
+      }
+      const params = parseWhaleParams(url.searchParams);
+      const { hours, barMinutes } = WHALE_WINDOWS[params.window];
+      const asset = address?.asset ?? "BTC";
+      const [overview, book] = await Promise.all([
+        deps.data.overview(),
+        deps.data.whales({
+          base: asset,
+          assetClass: address?.assetClass ?? null,
+          windowHours: hours,
+          barMinutes,
+        }),
+      ]);
+      if (address && book.markets.length > 0 && book.market === null) {
+        return page(
+          () =>
+            pages.notFound(
+              path,
+              now,
+              tr("{asset} is not one of the forty markets tracked.", { asset: esc(asset) }),
+            ),
+          404,
+        );
+      }
+      const assetClass = book.market?.asset_class ?? address?.assetClass ?? "crypto";
+      return page(() => whales({ overview, whales: book, asset, assetClass, params, now }));
     }
 
     // One page, two tabs: the map and the priced grid are the same subject, and the address only
@@ -882,6 +931,7 @@ const SITEMAP_PATHS = [
   "/rates",
   "/arbitrage",
   "/cvd",
+  "/whales",
   "/liquidations",
   "/sentiment",
   "/markets",

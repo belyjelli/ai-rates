@@ -603,3 +603,39 @@ export function sentimentToQuery(params: SentimentParams): string {
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
 }
+
+/**
+ * /whales windows. Each folds the collector's 5-minute candles into bars that keep the chart near a
+ * hundred bars wide; the walls are drawn over the same span.
+ */
+export const WHALE_WINDOWS = {
+  "6h": { hours: 6, barMinutes: 5 },
+  "24h": { hours: 24, barMinutes: 15 },
+  "3d": { hours: 72, barMinutes: 60 },
+} as const;
+export type WhaleWindow = keyof typeof WHALE_WINDOWS;
+export const WHALE_WINDOW_KEYS = Object.keys(WHALE_WINDOWS) as WhaleWindow[];
+export const WHALE_DEFAULT_WINDOW: WhaleWindow = "24h";
+
+export interface WhaleParams {
+  window: WhaleWindow;
+  /** Draw walls that were pulled (cancelled) too. Off by default: they are most of the noise. */
+  pulled: boolean;
+}
+
+export function parseWhaleParams(params: URLSearchParams): WhaleParams {
+  const asked = params.get("window") ?? "";
+  const window = (WHALE_WINDOW_KEYS as string[]).includes(asked)
+    ? (asked as WhaleWindow)
+    : WHALE_DEFAULT_WINDOW;
+  return { window, pulled: params.get("pulled") === "1" };
+}
+
+/** The query for params, defaults left out so the bare address is the canonical one. */
+export function whaleToQuery(params: WhaleParams): string {
+  const query = new URLSearchParams();
+  if (params.window !== WHALE_DEFAULT_WINDOW) query.set("window", params.window);
+  if (params.pulled) query.set("pulled", "1");
+  const text = query.toString();
+  return text ? `?${text}` : "";
+}

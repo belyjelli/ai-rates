@@ -126,6 +126,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     cvd: async () => ({ rows: [], asset_class: "crypto" as const, bars: [], newest: null }),
     assetBars: async () => [],
     liquidationFeeds: async () => [],
+    whales: async () => ({ markets: [], market: null, candles: [], walls: [] }),
     sentimentHistory: async () => [],
     liquidationAsset: async () => ({
       asset_class: "crypto" as const,
@@ -3440,5 +3441,132 @@ describe("link previews", () => {
     const res = await get("/liquidations/not%20an%20asset", data);
     expect(res.status).toBe(404);
     expect(res.headers.get("x-robots-tag")).toBe("noindex");
+  });
+});
+
+describe("whales", () => {
+  const T = NOW;
+  const minutes = (n: number) => new Date(T - n * 60_000);
+  const btc = {
+    venue_symbol: "BTCUSDT",
+    asset_class: "crypto" as const,
+    base: "BTC",
+    rank: 1,
+    global_open_interest_usd: 34e9,
+    floor_usd: 1.02e6,
+    updated_at: minutes(5),
+  };
+  const eth = { ...btc, venue_symbol: "ETHUSDT", base: "ETH", rank: 2, floor_usd: 690_000 };
+  const candles = [0, 1, 2, 3].map((i) => ({
+    open_time: minutes(60 - i * 15),
+    open: 83000 + i * 10,
+    high: 83100 + i * 10,
+    low: 82900 + i * 10,
+    close: 83020 + i * 10,
+  }));
+  const wall = (over: Partial<import("./data").WhaleWall>) => ({
+    side: "bid" as const,
+    price: 82000,
+    first_seen: minutes(50),
+    last_seen: minutes(1),
+    start_usd: 18e6,
+    peak_usd: 19e6,
+    current_usd: 18.86e6,
+    status: "open" as const,
+    ended_at: null,
+    ...over,
+  });
+  const book = {
+    markets: [btc, eth],
+    market: btc,
+    candles,
+    walls: [
+      wall({}),
+      wall({ side: "ask", price: 84000, current_usd: 17.3e6, peak_usd: 17.3e6 }),
+      wall({
+        price: 82500,
+        status: "filled",
+        current_usd: 0,
+        peak_usd: 4e6,
+        ended_at: minutes(10),
+      }),
+      wall({
+        price: 83900,
+        side: "ask",
+        status: "pulled",
+        current_usd: 0,
+        peak_usd: 6e6,
+        ended_at: minutes(5),
+      }),
+    ],
+  };
+
+  test("/whales charts BTC's walls over its candles, with the tiles and both tables", async () => {
+    const seen: unknown[] = [];
+    const { data } = fakeData({
+      whales: async (opts) => {
+        seen.push(opts);
+        return book;
+      },
+    });
+    const res = await get("/whales", data);
+    const html = await res.text();
+    expect(res.status).toBe(200);
+    expect(seen).toEqual([{ base: "BTC", assetClass: null, windowHours: 24, barMinutes: 15 }]);
+    // Candles and wall lines in the SVG, each wall with a hover title.
+    expect(html).toContain('class="wh-up"');
+    expect(html).toContain('class="wh-wall wh-bid wh-open"');
+    expect(html).toContain('class="wh-wall wh-ask wh-open"');
+    expect(html).toContain('class="wh-wall wh-bid wh-filled"');
+    expect(html).toContain("bid wall 82,000 · $18.9M · resting");
+    // Pulled walls are hidden by default, from the chart and the ended table alike.
+    expect(html).not.toContain("wh-wall wh-ask wh-pulled");
+    expect(html).not.toContain(">pulled<");
+    // Tiles: the resting totals and the largest wall.
+    expect(html).toContain('<span data-u="bids">$18.9M</span>');
+    expect(html).toContain('<span data-u="asks">$17.3M</span>');
+    expect(html).toContain("bid at 82,000");
+    // The market strip links every tracked market; BTC is the current one.
+    expect(html).toContain('href="/whales/ETH"');
+    expect(html).toContain('aria-current="page">BTC</a>');
+  });
+
+  test("the window and the pulled toggle are read from the address", async () => {
+    const seen: unknown[] = [];
+    const { data } = fakeData({
+      whales: async (opts) => {
+        seen.push(opts);
+        return { ...book, market: eth };
+      },
+    });
+    const html = await (await get("/whales/ETH?window=6h&pulled=1", data)).text();
+    expect(seen).toEqual([{ base: "ETH", assetClass: null, windowHours: 6, barMinutes: 5 }]);
+    expect(html).toContain("wh-wall wh-ask wh-pulled");
+    expect(html).toContain(">pulled<");
+    // The toggle offers to hide them again and keeps the window.
+    expect(html).toContain('href="/whales/ETH?window=6h">hide pulled walls');
+  });
+
+  test("an asset outside the forty is a 404 that says so", async () => {
+    const { data } = fakeData({
+      whales: async () => ({ ...book, market: null, candles: [], walls: [] }),
+    });
+    const res = await get("/whales/DOGE", data);
+    expect(res.status).toBe(404);
+    expect(await res.text()).toContain("DOGE is not one of the forty markets tracked.");
+    expect(res.headers.get("x-robots-tag")).toBe("noindex");
+  });
+
+  test("before the feed has ranked any market the page explains rather than 404s", async () => {
+    const res = await get("/whales", fakeData().data);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("The whale-order feed has not ranked its markets yet.");
+  });
+
+  test("the nav and the sitemap carry the page", async () => {
+    const html = await (await get("/whales", fakeData({ whales: async () => book }).data)).text();
+    expect(html).toContain('href="/whales"');
+    const sitemap = await (await get("/sitemap.xml", fakeData().data)).text();
+    expect(sitemap).toContain("<loc>https://airrates.net/whales</loc>");
   });
 });

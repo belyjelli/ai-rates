@@ -657,6 +657,53 @@ export interface LiquidationFeedRow {
   last_at: Date | null;
 }
 
+/** One market the collector keeps a Binance book for (migration 029, whale_markets). */
+export interface WhaleMarket {
+  venue_symbol: string;
+  asset_class: AssetClass;
+  base: string;
+  /** 1 = most open interest worldwide, summed across every venue collected. */
+  rank: number;
+  global_open_interest_usd: number;
+  /** The least one price level must hold to count as a wall in this market. */
+  floor_usd: number;
+  updated_at: Date;
+}
+
+/** One OHLC bar, aggregated from the collector's 5-minute candles. */
+export interface WhaleCandle {
+  open_time: Date;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+export type WallStatus = "open" | "filled" | "pulled" | "expired";
+
+/** One wall's life (whale_orders): a large resting limit order at one price. */
+export interface WhaleWall {
+  side: "bid" | "ask";
+  price: number;
+  first_seen: Date;
+  last_seen: Date;
+  start_usd: number;
+  peak_usd: number;
+  current_usd: number;
+  status: WallStatus;
+  ended_at: Date | null;
+}
+
+export interface WhaleData {
+  /** Every tracked market, by rank: the page's market strip. */
+  markets: WhaleMarket[];
+  /** The charted one, or null when the asked asset is not tracked. */
+  market: WhaleMarket | null;
+  candles: WhaleCandle[];
+  /** Walls alive at any point in the window, largest first. */
+  walls: WhaleWall[];
+}
+
 export interface DataSource {
   overview(): Promise<Overview>;
   screener(filters: ScreenerFilters): Promise<ScreenerPair[]>;
@@ -718,6 +765,13 @@ export interface DataSource {
   assetBars(options: CvdOptions): Promise<CvdBar[]>;
   /** What each liquidation feed actually stored in the last day. */
   liquidationFeeds(): Promise<LiquidationFeedRow[]>;
+  /** The whale-orders page: the tracked markets, and one market's candles and walls over a window. */
+  whales(options: {
+    base: string;
+    assetClass: AssetClass | null;
+    windowHours: number;
+    barMinutes: number;
+  }): Promise<WhaleData>;
   /** Fear/greed readings over the trailing window, oldest first, for the /sentiment chart. */
   sentimentHistory(hours: number): Promise<SentimentPoint[]>;
 }
@@ -1638,6 +1692,52 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         WHERE liquidated_at > now() - interval '24 hours'
         GROUP BY venue_id`;
       return [...rows];
+    },
+
+    async whales({ base, assetClass, windowHours, barMinutes }) {
+      const sql = connect();
+      const markets = [
+        ...(await sql<WhaleMarket[]>`
+          SELECT venue_symbol, asset_class, base, rank,
+                 global_open_interest_usd::float8 AS global_open_interest_usd,
+                 floor_usd::float8 AS floor_usd, updated_at
+          FROM whale_markets
+          WHERE venue_id = 'binance'
+          ORDER BY rank`),
+      ];
+      const market =
+        markets.find(
+          (m) => m.base === base && (assetClass === null || m.asset_class === assetClass),
+        ) ?? null;
+      if (!market) return { markets, market: null, candles: [], walls: [] };
+
+      // Bars are folded from the 5-minute candles in the database, so a 3-day view draws 72 hourly
+      // bars rather than 864 five-minute ones. Open and close come from the first and last candle of
+      // each bar by time, not from min/max.
+      const [candles, walls] = await Promise.all([
+        sql<WhaleCandle[]>`
+          SELECT date_bin(make_interval(mins => ${barMinutes}), open_time, TIMESTAMPTZ '2000-01-01')
+                   AS open_time,
+                 (array_agg(open ORDER BY open_time))[1]::float8 AS open,
+                 max(high)::float8 AS high,
+                 min(low)::float8 AS low,
+                 (array_agg(close ORDER BY open_time DESC))[1]::float8 AS close
+          FROM perp_candles
+          WHERE venue_id = 'binance' AND venue_symbol = ${market.venue_symbol} AND interval = '5m'
+            AND open_time >= now() - make_interval(hours => ${windowHours})
+          GROUP BY 1
+          ORDER BY 1`,
+        sql<WhaleWall[]>`
+          SELECT side, price::float8 AS price, first_seen, last_seen,
+                 start_usd::float8 AS start_usd, peak_usd::float8 AS peak_usd,
+                 current_usd::float8 AS current_usd, status, ended_at
+          FROM whale_orders
+          WHERE venue_id = 'binance' AND venue_symbol = ${market.venue_symbol}
+            AND last_seen >= now() - make_interval(hours => ${windowHours})
+          ORDER BY current_usd DESC
+          LIMIT 400`,
+      ]);
+      return { markets, market, candles: [...candles], walls: [...walls] };
     },
 
     async sentimentHistory(hours) {

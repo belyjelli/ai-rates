@@ -36,6 +36,7 @@ import { layout } from "./layout";
 import { liquidations } from "./liquidations";
 import { pages } from "./pages";
 import { site } from "./site";
+import { whales } from "./whales";
 
 /** Each part on its own, for the test that checks two parts never disagree on one key. */
 export const ZH_PARTS: Readonly<Record<string, Catalog>> = {
@@ -45,6 +46,7 @@ export const ZH_PARTS: Readonly<Record<string, Catalog>> = {
   charts,
   site,
   keyboard,
+  whales,
 };
 
 export const zh: Catalog = Object.assign({}, ...Object.values(ZH_PARTS));

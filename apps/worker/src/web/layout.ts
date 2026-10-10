@@ -37,6 +37,7 @@ const NAV = [
     match: (p: string) => p.startsWith("/liquidations"),
   },
   { href: "/cvd", label: msg("cvd"), match: (p: string) => p.startsWith("/cvd") },
+  { href: "/whales", label: msg("whales"), match: (p: string) => p.startsWith("/whales") },
   { href: "/markets", label: msg("exchanges"), match: (p: string) => p.startsWith("/markets") },
 ];
 
@@ -73,7 +74,15 @@ export const SITE_ORIGIN = "https://airrates.net";
 const OG_LOCALE: Readonly<Record<Locale, string>> = { en: "en_US", zh: "zh_CN" };
 
 /** Pages that are a dataset in their own right, for the structured data below. */
-const DATASET_PATHS = ["/rates", "/arbitrage", "/cvd", "/liquidations", "/sentiment", "/markets"];
+const DATASET_PATHS = [
+  "/rates",
+  "/arbitrage",
+  "/cvd",
+  "/liquidations",
+  "/sentiment",
+  "/markets",
+  "/whales",
+];
 
 /**
  * What a crawler needs to credit the page: its canonical address (the path alone, so ?tf= and ?ref=
@@ -457,6 +466,27 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 /* CVD: buying is the long colour and selling the short one, the same direction-of-pressure reading
    the liquidation page uses. Price is ink and CVD the accent, so neither can be read as a side. */
 .cvd-up{color:var(--long)}.cvd-down{color:var(--short)}
+/* Whale orders (web/whales.ts): a bid wall is the long colour and an ask wall the short one, as
+   everywhere. Candles are ink and dim, so the walls read first; an ended wall fades, a pulled one is
+   also dashed. */
+.wh-markets{display:flex;flex-wrap:wrap;gap:4px 12px;margin:0 0 10px}
+.wh-markets a{border:0;color:var(--muted)}
+.wh-markets a.on{color:var(--accent)}
+.wh-toggle{margin-left:14px;border:0;color:var(--muted)}
+.wh-toggle.on{color:var(--accent)}
+.wh-chart .fchart-plot{margin:6px 100px 0 64px}
+.wh-chart .wh-plot{height:380px}
+.wh-wick{stroke:var(--dim);stroke-width:1;vector-effect:non-scaling-stroke}
+.wh-up{fill:var(--muted)}.wh-down{fill:var(--dim)}
+.wh-wall{vector-effect:non-scaling-stroke}
+line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
+.wh-open{opacity:.9}.wh-filled{opacity:.45}.wh-pulled{opacity:.35;stroke-dasharray:4 3}.wh-expired{opacity:.25}
+.wh-last{stroke:var(--accent);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+.wh-yr{position:absolute;right:-100px;width:96px;text-align:left;transform:translateY(-50%);white-space:nowrap;pointer-events:none;font-size:11px}
+.wh-bid-t{color:var(--long)}.wh-ask-t{color:var(--short)}
+.wh-filled-t{color:var(--muted)}.wh-pulled-t{color:var(--warn)}.wh-expired-t{color:var(--dim)}
+.wh-key-bid{background:var(--long)}.wh-key-ask{background:var(--short)}.wh-key-ended{background:var(--dim)}.wh-key-last{background:var(--accent)}
+@media (max-width:640px){.wh-chart .wh-plot{height:300px}.wh-chart .fchart-plot{margin:6px 8px 0 56px}.wh-yr{display:none}}
 .cvd-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 12px}
 @media (max-width:860px){.cvd-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .cvd-tile{border:1px solid var(--rule);background:var(--panel);padding:8px 10px}
