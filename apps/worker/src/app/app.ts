@@ -1079,8 +1079,11 @@ function htmlResponse(html: string, status = 200): Response {
       "content-type": "text/html; charset=utf-8",
       "cache-control": status === 200 ? `public, max-age=${PAGE_MAX_AGE}` : "no-store",
       link: DISCOVERY_LINKS,
-      // Pages are for search engines; the not-found and busy pages are not.
-      ...(status === 200 ? {} : { "x-robots-tag": "noindex" }),
+      // A not-found page is for no search engine. The busy page (503) is not marked: it stands in for
+      // a real page for a few minutes, and "noindex" on it told Googlebot to drop that page. Through
+      // the Hyperdrive outage of 2026-10-09 every page it fetched said so for six hours. The 503
+      // status and Retry-After already tell a crawler to come back.
+      ...(status >= 400 && status < 500 ? { "x-robots-tag": "noindex" } : {}),
     },
   });
 }
