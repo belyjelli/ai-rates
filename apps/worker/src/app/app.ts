@@ -18,7 +18,7 @@ import { referralLinks } from "../web/referral-links";
 import { sentiment } from "../web/sentiment";
 import { tos } from "../web/tos";
 import { VENUE_BY_ID } from "../web/venues";
-import { whales } from "../web/whales";
+import { whales, whaleVenueName } from "../web/whales";
 import { A2A_PATH, agentCard, handleA2a } from "./a2a";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import { type Referral, requestGeo } from "./geo";
@@ -307,6 +307,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const [overview, book] = await Promise.all([
         deps.data.overview(),
         deps.data.whales({
+          venue: params.venue,
           base: asset,
           assetClass: address?.assetClass ?? null,
           windowHours: hours,
@@ -320,7 +321,10 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
             pages.notFound(
               path,
               now,
-              tr("{asset} is not one of the forty markets tracked.", { asset: esc(asset) }),
+              tr("{asset} is not one of the markets tracked on {venue}.", {
+                asset: esc(asset),
+                venue: whaleVenueName(params.venue),
+              }),
             ),
           404,
         );

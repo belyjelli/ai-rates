@@ -469,9 +469,34 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 /* Whale orders (web/whales.ts): a bid wall is the long colour and an ask wall the short one, as
    everywhere. Candles are ink and dim, so the walls read first; an ended wall fades, a pulled one is
    also dashed. */
-.wh-markets{display:flex;flex-wrap:wrap;gap:4px 12px;margin:0 0 10px}
-.wh-markets a{border:0;color:var(--muted)}
-.wh-markets a.on{color:var(--accent)}
+.wh-controls{align-items:center;gap:10px 16px}.wh-controls .tf{margin:0}
+.wh-pick{position:relative}
+.wh-pick-btn{display:flex;gap:10px;align-items:baseline;cursor:pointer;list-style:none;padding:5px 10px;border:1px solid var(--rule);background:var(--panel);min-width:220px}
+.wh-pick-btn::-webkit-details-marker{display:none}
+.wh-pick-btn::after{content:"▾";color:var(--muted);margin-left:auto}
+.wh-pick[open] .wh-pick-btn,.wh-pick-btn:hover{border-color:var(--muted)}
+.wh-pick-btn b{font-size:15px;color:var(--ink)}
+.wh-pick-more{font-size:11px}
+.wh-pick-panel{position:absolute;z-index:20;top:calc(100% + 4px);left:0;width:min(720px,calc(100vw - 20px));max-height:min(70vh,560px);display:flex;flex-direction:column;border:1px solid var(--muted);background:var(--bg);box-shadow:0 8px 24px rgba(0,0,0,.6)}
+.wh-pick-q{margin:8px;padding:5px 8px;font:13px var(--mono);color:var(--ink);background:var(--band);border:1px solid var(--rule)}
+.wh-pick-q:focus{outline:none;border-color:var(--accent)}
+.wh-pick-head,.wh-pick-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) 70px minmax(0,1.8fr) minmax(0,1fr);gap:10px;align-items:center;padding:4px 10px}
+.wh-pick-head{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule)}
+.wh-pick-list{overflow-y:auto}
+.wh-pick-row{border:0;color:var(--ink);min-height:34px}
+.wh-pick-row:hover,.wh-pick-row:focus{background:var(--band);outline:none}
+.wh-pick-row.on{background:var(--band);box-shadow:inset 2px 0 0 var(--accent)}
+.wh-pick-row[hidden]{display:none}
+.wh-pick-sym{display:flex;gap:6px;align-items:baseline;min-width:0;white-space:nowrap;overflow:hidden}
+.wh-pick-sym .dim{width:1.6em;text-align:right;font-size:10px}
+.wh-pick-sym small{color:var(--muted);font-size:10px}
+.wh-pick-book{display:flex;flex-direction:column;gap:2px;font-size:11px}
+.wh-pick-bar{display:flex;height:4px;background:var(--rule)}
+.wh-pick-bid{background:var(--long)}.wh-pick-ask{background:var(--short)}
+.wh-pick-sum{white-space:nowrap}
+.wh-pick-none{padding:8px 10px}
+@media (max-width:640px){.wh-pick{flex:1 1 100%}.wh-pick-btn{min-width:0}.wh-pick-panel{width:calc(100vw - 20px)}.wh-pick-head,.wh-pick-row{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr);gap:8px}.wh-pick-head span:nth-child(3),.wh-pick-row>span:nth-child(3),.wh-pick-head span:nth-child(5),.wh-pick-row>span:nth-child(5){display:none}}
+.wh-addr{border:0;color:var(--muted)}.wh-addr:hover{color:var(--accent)}
 .wh-toggle{margin-left:14px;border:0;color:var(--muted)}
 .wh-toggle.on{color:var(--accent)}
 .cvd-chart.wh-chart .fchart-plot{margin:6px 128px 0 64px}

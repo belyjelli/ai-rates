@@ -617,10 +617,15 @@ export type WhaleWindow = keyof typeof WHALE_WINDOWS;
 export const WHALE_WINDOW_KEYS = Object.keys(WHALE_WINDOWS) as WhaleWindow[];
 export const WHALE_DEFAULT_WINDOW: WhaleWindow = "24h";
 
+/** The venues whose books the collector reads for /whales, the default first. */
+export const WHALE_VENUES = ["binance", "hyperliquid"] as const;
+export type WhaleVenue = (typeof WHALE_VENUES)[number];
+
 export interface WhaleParams {
   window: WhaleWindow;
   /** Draw walls that were pulled (cancelled) too. Off by default: they are most of the noise. */
   pulled: boolean;
+  venue: WhaleVenue;
 }
 
 export function parseWhaleParams(params: URLSearchParams): WhaleParams {
@@ -628,12 +633,16 @@ export function parseWhaleParams(params: URLSearchParams): WhaleParams {
   const window = (WHALE_WINDOW_KEYS as string[]).includes(asked)
     ? (asked as WhaleWindow)
     : WHALE_DEFAULT_WINDOW;
-  return { window, pulled: params.get("pulled") === "1" };
+  const venue = (WHALE_VENUES as readonly string[]).includes(params.get("venue") ?? "")
+    ? (params.get("venue") as WhaleVenue)
+    : WHALE_VENUES[0];
+  return { window, pulled: params.get("pulled") === "1", venue };
 }
 
 /** The query for params, defaults left out so the bare address is the canonical one. */
 export function whaleToQuery(params: WhaleParams): string {
   const query = new URLSearchParams();
+  if (params.venue !== WHALE_VENUES[0]) query.set("venue", params.venue);
   if (params.window !== WHALE_DEFAULT_WINDOW) query.set("window", params.window);
   if (params.pulled) query.set("pulled", "1");
   const text = query.toString();

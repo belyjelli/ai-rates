@@ -129,6 +129,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     liquidationFeeds: async () => [],
     whales: async () => ({
       markets: [],
+      venues: [],
       market: null,
       candles: [],
       walls: [],
@@ -3462,9 +3463,26 @@ describe("whales", () => {
     rank: 1,
     global_open_interest_usd: 34e9,
     floor_usd: 1.02e6,
+    price_step: null,
     updated_at: minutes(5),
+    last_price: 83050,
+    change_24h_pct: 0.52,
+    bid_walls_usd: 156.7e6,
+    ask_walls_usd: 166.8e6,
+    buy_usd_24h: 9e6,
+    sell_usd_24h: 9.7e6,
   };
-  const eth = { ...btc, venue_symbol: "ETHUSDT", base: "ETH", rank: 2, floor_usd: 690_000 };
+  const eth = {
+    ...btc,
+    venue_symbol: "ETHUSDT",
+    base: "ETH",
+    rank: 2,
+    floor_usd: 690_000,
+    last_price: 2506.6,
+    change_24h_pct: -0.71,
+    buy_usd_24h: 0,
+    sell_usd_24h: 0,
+  };
   const candles = [0, 1, 2, 3].map((i) => ({
     open_time: minutes(60 - i * 15),
     open: 83000 + i * 10,
@@ -3482,6 +3500,7 @@ describe("whales", () => {
     current_usd: 18.86e6,
     status: "open" as const,
     ended_at: null,
+    orders: null,
     ...over,
   });
   const trade = (over: Partial<import("./data").WhaleTrade>) => ({
@@ -3490,10 +3509,12 @@ describe("whales", () => {
     traded_at: minutes(20),
     notional_usd: 1.69e6,
     fills: 1,
+    taker: null,
     ...over,
   });
   const book = {
     markets: [btc, eth],
+    venues: ["binance", "hyperliquid"],
     market: btc,
     candles,
     trades: [
@@ -3540,7 +3561,14 @@ describe("whales", () => {
     const html = await res.text();
     expect(res.status).toBe(200);
     expect(seen).toEqual([
-      { base: "BTC", assetClass: null, windowHours: 24, barMinutes: 15, pulled: false },
+      {
+        venue: "binance",
+        base: "BTC",
+        assetClass: null,
+        windowHours: 24,
+        barMinutes: 15,
+        pulled: false,
+      },
     ]);
     // Candles and wall lines in the SVG, each wall with a hover title.
     expect(html).toContain('class="wh-up"');
@@ -3557,7 +3585,7 @@ describe("whales", () => {
     expect(html).toContain("bid at 82,000");
     // The market strip links every tracked market; BTC is the current one.
     expect(html).toContain('href="/whales/ETH"');
-    expect(html).toContain('aria-current="page">BTC</a>');
+    expect(html).toContain('<a class="wh-pick-row on" href="/whales"');
   });
 
   test("large trades draw as circles, with their tiles and table", async () => {
@@ -3584,6 +3612,95 @@ describe("whales", () => {
     expect(html).toContain("No taker burst of $1.0M or more in the last 24h.");
   });
 
+  test("the market picker lists every market with what a reader picks one by", async () => {
+    const html = await (await get("/whales", fakeData({ whales: async () => book }).data)).text();
+    // The current market as the button, with its price and day.
+    expect(html).toContain('<summary class="wh-pick-btn"');
+    expect(html).toContain("2 markets");
+    // A row per market: a plain link, so the picker works without its script.
+    expect(html).toContain('<a class="wh-pick-row on" href="/whales"');
+    expect(html).toContain('<a class="wh-pick-row" href="/whales/ETH"');
+    expect(html).toContain('data-q="eth ethusdt crypto"');
+    expect(html).toContain("+0.52%");
+    expect(html).toContain(`${"−"}0.71%`);
+    // Walls each side as a split bar with both totals, and the day's whale flow, net.
+    expect(html).toContain('class="wh-pick-bid" style="width:48.4%"');
+    expect(html).toContain(
+      '<span class="cvd-up">$157M</span> / <span class="cvd-down">$167M</span>',
+    );
+    expect(html).toMatch(/class="num cvd-down">−\$700k<\/span>/);
+    // The filter box is revealed by the script.
+    expect(html).toContain('class="wh-pick-q" type="search"');
+    expect(html).toContain('querySelector(".wh-pick")');
+    // The filter splits on whitespace: a template literal would turn a bare \s into a plain "s".
+    expect(html).toContain("split(/\\s+/)");
+    expect(html).not.toContain('class="wh-markets"');
+  });
+
+  test("the venue switch keeps the asset where the other venue tracks it", async () => {
+    const both = await (
+      await get("/whales/ETH", fakeData({ whales: async () => ({ ...book, market: eth }) }).data)
+    ).text();
+    expect(both).toContain('href="/whales/ETH?venue=hyperliquid">Hyperliquid</a>');
+    const binanceOnly = await (
+      await get(
+        "/whales/ETH",
+        fakeData({ whales: async () => ({ ...book, market: eth, venues: ["binance"] }) }).data,
+      )
+    ).text();
+    expect(binanceOnly).toContain('href="/whales?venue=hyperliquid">Hyperliquid</a>');
+    expect(binanceOnly).toContain('aria-current="page">Binance</a>');
+  });
+
+  test("on Hyperliquid a wall is a bucket with its orders, and a trade names its taker", async () => {
+    const hlBtc = { ...btc, venue_symbol: "BTC", price_step: 100 };
+    const gold = {
+      ...btc,
+      venue_symbol: "xyz:GOLD",
+      base: "XAU",
+      asset_class: "commodity" as const,
+      rank: 5,
+      price_step: 10,
+    };
+    const taker = "0x2025137a136bea7446deba681cbfc7cf1970840e";
+    const hl = {
+      ...book,
+      markets: [hlBtc, gold],
+      market: hlBtc,
+      walls: [wall({ price: 82900, current_usd: 2.6e6, peak_usd: 2.6e6, orders: 2 })],
+      trades: [trade({ taker })],
+    };
+    const seen: { venue: string }[] = [];
+    const html = await (
+      await get(
+        "/whales?venue=hyperliquid",
+        fakeData({
+          whales: async (opts) => {
+            seen.push(opts);
+            return hl;
+          },
+        }).data,
+      )
+    ).text();
+    expect(seen[0]?.venue).toBe("hyperliquid");
+    expect(html).toContain("BTC · Hyperliquid perp · 15-minute bars, UTC");
+    // The bucket's range, how many orders share it, and the least its largest holds.
+    expect(html).toContain("82,900–83,000");
+    expect(html).toContain("bid wall 82,900–83,000 · $2.6M in 2 orders, one at least $1.3M");
+    expect(html).toContain(">Largest ≥</th>");
+    expect(html).toContain("$100 wide");
+    // Drawn and labelled at the bucket's middle.
+    expect(html).toContain("$2.6M ~82,950");
+    // The taker, linked to Hyperliquid's explorer.
+    expect(html).toContain(
+      `<a class="wh-addr" href="https://app.hyperliquid.xyz/explorer/address/${taker}" target="_blank" rel="noopener" title="${taker}">0x2025…840e</a>`,
+    );
+    expect(html).toContain("taker 0x2025…840e");
+    // A HIP-3 market shows its own name in the picker.
+    expect(html).toContain("<small>xyz:GOLD</small>");
+    expect(html).toContain('href="/whales/commodity/XAU?venue=hyperliquid"');
+  });
+
   test("the window and the pulled toggle are read from the address", async () => {
     const seen: unknown[] = [];
     const { data } = fakeData({
@@ -3594,7 +3711,14 @@ describe("whales", () => {
     });
     const html = await (await get("/whales/ETH?window=6h&pulled=1", data)).text();
     expect(seen).toEqual([
-      { base: "ETH", assetClass: null, windowHours: 6, barMinutes: 5, pulled: true },
+      {
+        venue: "binance",
+        base: "ETH",
+        assetClass: null,
+        windowHours: 6,
+        barMinutes: 5,
+        pulled: true,
+      },
     ]);
     expect(html).toContain("wh-wall wh-ask wh-pulled");
     expect(html).toContain(">pulled<");
@@ -3608,7 +3732,7 @@ describe("whales", () => {
     });
     const res = await get("/whales/DOGE", data);
     expect(res.status).toBe(404);
-    expect(await res.text()).toContain("DOGE is not one of the forty markets tracked.");
+    expect(await res.text()).toContain("DOGE is not one of the markets tracked on Binance.");
     expect(res.headers.get("x-robots-tag")).toBe("noindex");
   });
 

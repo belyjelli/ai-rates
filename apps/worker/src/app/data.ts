@@ -657,7 +657,7 @@ export interface LiquidationFeedRow {
   last_at: Date | null;
 }
 
-/** One market the collector keeps a Binance book for (migration 029, whale_markets). */
+/** One market the collector keeps a book for on a venue (migration 029, whale_markets). */
 export interface WhaleMarket {
   venue_symbol: string;
   asset_class: AssetClass;
@@ -667,7 +667,18 @@ export interface WhaleMarket {
   global_open_interest_usd: number;
   /** The least one price level must hold to count as a wall in this market. */
   floor_usd: number;
+  /** The width of the venue's rounded levels (Hyperliquid); null where levels are exact prices. */
+  price_step: number | null;
   updated_at: Date;
+  /** For the market picker. Null when the market has no candle in the last day. */
+  last_price: number | null;
+  change_24h_pct: number | null;
+  /** Resting now, summed by side. */
+  bid_walls_usd: number;
+  ask_walls_usd: number;
+  /** Large taker bursts over the last 24 hours, by side. */
+  buy_usd_24h: number;
+  sell_usd_24h: number;
 }
 
 /** One OHLC bar, aggregated from the collector's 5-minute candles. */
@@ -692,6 +703,8 @@ export interface WhaleWall {
   current_usd: number;
   status: WallStatus;
   ended_at: Date | null;
+  /** Orders in the level at the last sighting, where the venue says (Hyperliquid); else null. */
+  orders: number | null;
 }
 
 /** One large taker burst (whale_trades): every fill on one side in the same millisecond. */
@@ -704,6 +717,8 @@ export interface WhaleTrade {
   notional_usd: number;
   /** Aggregate trades folded in: roughly the price levels it swept. */
   fills: number;
+  /** The taker's account, where the venue names it (an 0x address on Hyperliquid); else null. */
+  taker: string | null;
 }
 
 /** What happened in the window, counted in full rather than from the capped lists. */
@@ -717,8 +732,10 @@ export interface WhaleTally {
 }
 
 export interface WhaleData {
-  /** Every tracked market, by rank: the page's market strip. */
+  /** Every market tracked on the venue, by rank, with the picker's figures. */
   markets: WhaleMarket[];
+  /** Every venue that tracks the asked asset, for the venue switch. */
+  venues: string[];
   /** The charted one, or null when the asked asset is not tracked. */
   market: WhaleMarket | null;
   candles: WhaleCandle[];
@@ -802,6 +819,7 @@ export interface DataSource {
   liquidationFeeds(): Promise<LiquidationFeedRow[]>;
   /** The whale-orders page: the tracked markets, and one market's candles and walls over a window. */
   whales(options: {
+    venue: string;
     base: string;
     assetClass: AssetClass | null;
     windowHours: number;
@@ -1731,23 +1749,68 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       return [...rows];
     },
 
-    async whales({ base, assetClass, windowHours, barMinutes, pulled }) {
+    async whales({ venue, base, assetClass, windowHours, barMinutes, pulled }) {
       const sql = connect();
-      const markets = [
-        ...(await sql<WhaleMarket[]>`
-          SELECT venue_symbol, asset_class, base, rank,
-                 global_open_interest_usd::float8 AS global_open_interest_usd,
-                 floor_usd::float8 AS floor_usd, updated_at
-          FROM whale_markets
-          WHERE venue_id = 'binance'
-          ORDER BY rank`),
+      // Every venue's tracked markets (80 rows at most), with the picker's figures for this venue's:
+      // last price and 24-hour change from the stored candles, walls resting now, and the last
+      // day's large trades. 11 ms on hklab on 2026-10-11.
+      const all = [
+        ...(await sql<(WhaleMarket & { venue_id: string })[]>`
+          WITH bars AS (
+            SELECT venue_symbol,
+                   (array_agg(close ORDER BY open_time DESC))[1] AS last,
+                   (array_agg(open ORDER BY open_time))[1] AS first
+            FROM perp_candles
+            WHERE venue_id = ${venue} AND interval = '5m' AND open_time >= now() - interval '24 hours'
+            GROUP BY venue_symbol
+          ), resting AS (
+            SELECT venue_symbol,
+                   sum(current_usd) FILTER (WHERE side = 'bid') AS bid_usd,
+                   sum(current_usd) FILTER (WHERE side = 'ask') AS ask_usd
+            FROM whale_orders
+            WHERE venue_id = ${venue} AND status = 'open'
+            GROUP BY venue_symbol
+          ), flow AS (
+            SELECT venue_symbol,
+                   sum(notional_usd) FILTER (WHERE side = 'buy') AS buy_usd,
+                   sum(notional_usd) FILTER (WHERE side = 'sell') AS sell_usd
+            FROM whale_trades
+            WHERE venue_id = ${venue} AND traded_at >= now() - interval '24 hours'
+            GROUP BY venue_symbol
+          )
+          SELECT m.venue_id, m.venue_symbol, m.asset_class, m.base, m.rank,
+                 m.global_open_interest_usd::float8 AS global_open_interest_usd,
+                 m.floor_usd::float8 AS floor_usd, m.price_step::float8 AS price_step, m.updated_at,
+                 b.last::float8 AS last_price,
+                 CASE WHEN b.first > 0 THEN ((b.last / b.first - 1) * 100)::float8 END AS change_24h_pct,
+                 coalesce(r.bid_usd, 0)::float8 AS bid_walls_usd,
+                 coalesce(r.ask_usd, 0)::float8 AS ask_walls_usd,
+                 coalesce(f.buy_usd, 0)::float8 AS buy_usd_24h,
+                 coalesce(f.sell_usd, 0)::float8 AS sell_usd_24h
+          FROM whale_markets m
+          LEFT JOIN bars b ON m.venue_id = ${venue} AND b.venue_symbol = m.venue_symbol
+          LEFT JOIN resting r ON m.venue_id = ${venue} AND r.venue_symbol = m.venue_symbol
+          LEFT JOIN flow f ON m.venue_id = ${venue} AND f.venue_symbol = m.venue_symbol
+          ORDER BY m.venue_id, m.rank`),
       ];
-      const market =
-        markets.find(
-          (m) => m.base === base && (assetClass === null || m.asset_class === assetClass),
-        ) ?? null;
-      if (!market)
-        return { markets, market: null, candles: [], walls: [], trades: [], tally: EMPTY_TALLY };
+      const asked = (m: WhaleMarket) =>
+        m.base === base && (assetClass === null || m.asset_class === assetClass);
+      const markets: WhaleMarket[] = all
+        .filter((m) => m.venue_id === venue)
+        .map(({ venue_id: _, ...m }) => m);
+      const venues = [...new Set(all.filter(asked).map((m) => m.venue_id))];
+      const market = markets.find(asked) ?? null;
+      if (!market) {
+        return {
+          markets,
+          venues,
+          market: null,
+          candles: [],
+          walls: [],
+          trades: [],
+          tally: EMPTY_TALLY,
+        };
+      }
 
       // Bars are folded from the 5-minute candles in the database, so a 3-day view draws 72 hourly
       // bars rather than 864 five-minute ones. Open and close come from the first and last candle of
@@ -1766,16 +1829,16 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                  min(low)::float8 AS low,
                  (array_agg(close ORDER BY open_time DESC))[1]::float8 AS close
           FROM perp_candles
-          WHERE venue_id = 'binance' AND venue_symbol = ${symbol} AND interval = '5m'
+          WHERE venue_id = ${venue} AND venue_symbol = ${symbol} AND interval = '5m'
             AND open_time >= now() - make_interval(hours => ${windowHours})
           GROUP BY 1
           ORDER BY 1`,
         sql<WhaleWall[]>`
           SELECT side, price::float8 AS price, first_seen, last_seen,
                  start_usd::float8 AS start_usd, peak_usd::float8 AS peak_usd,
-                 current_usd::float8 AS current_usd, status, ended_at
+                 current_usd::float8 AS current_usd, status, ended_at, orders
           FROM whale_orders
-          WHERE venue_id = 'binance' AND venue_symbol = ${symbol} AND status <> 'pulled'
+          WHERE venue_id = ${venue} AND venue_symbol = ${symbol} AND status <> 'pulled'
             AND last_seen >= now() - make_interval(hours => ${windowHours})
           ORDER BY (status = 'open') DESC, peak_usd DESC
           LIMIT 400`,
@@ -1783,30 +1846,31 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           ? sql<WhaleWall[]>`
               SELECT side, price::float8 AS price, first_seen, last_seen,
                      start_usd::float8 AS start_usd, peak_usd::float8 AS peak_usd,
-                     current_usd::float8 AS current_usd, status, ended_at
+                     current_usd::float8 AS current_usd, status, ended_at, orders
               FROM whale_orders
-              WHERE venue_id = 'binance' AND venue_symbol = ${symbol} AND status = 'pulled'
+              WHERE venue_id = ${venue} AND venue_symbol = ${symbol} AND status = 'pulled'
                 AND last_seen >= now() - make_interval(hours => ${windowHours})
               ORDER BY peak_usd DESC
               LIMIT 300`
           : Promise.resolve([] as WhaleWall[]),
         sql<WhaleTrade[]>`
-          SELECT side, price::float8 AS price, traded_at, notional_usd::float8 AS notional_usd, fills
+          SELECT side, price::float8 AS price, traded_at, notional_usd::float8 AS notional_usd, fills,
+                 taker
           FROM whale_trades
-          WHERE venue_id = 'binance' AND venue_symbol = ${symbol}
+          WHERE venue_id = ${venue} AND venue_symbol = ${symbol}
             AND traded_at >= now() - make_interval(hours => ${windowHours})
           ORDER BY notional_usd DESC
           LIMIT 200`,
         sql<{ kind: string; n: number; usd: number }[]>`
           SELECT status AS kind, count(*)::int AS n, 0::float8 AS usd
           FROM whale_orders
-          WHERE venue_id = 'binance' AND venue_symbol = ${symbol} AND status IN ('filled', 'pulled')
+          WHERE venue_id = ${venue} AND venue_symbol = ${symbol} AND status IN ('filled', 'pulled')
             AND last_seen >= now() - make_interval(hours => ${windowHours})
           GROUP BY status
           UNION ALL
           SELECT side, count(*)::int, sum(notional_usd)::float8
           FROM whale_trades
-          WHERE venue_id = 'binance' AND venue_symbol = ${symbol}
+          WHERE venue_id = ${venue} AND venue_symbol = ${symbol}
             AND traded_at >= now() - make_interval(hours => ${windowHours})
           GROUP BY side`,
       ]);
@@ -1821,6 +1885,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       };
       return {
         markets,
+        venues,
         market,
         candles: [...candles],
         walls: [...walls, ...pulledWalls],
