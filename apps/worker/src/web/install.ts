@@ -1,5 +1,6 @@
 import { APP_ICON_PNG } from "./app-icons.generated";
 import { tr } from "./i18n";
+import { shareCardAsset } from "./share-card";
 
 /**
  * Installing the site as an app, in browsers that offer it (Chrome, and the other Chromium browsers).
@@ -52,8 +53,13 @@ function iconBytes(name: string): Uint8Array<ArrayBuffer> | null {
   return bytes;
 }
 
-/** The manifest and the icons, or null for any other address. Neither needs the database. */
+/**
+ * The manifest, the icons and the link-preview card, or null for any other address. None of them
+ * needs the database.
+ */
 export function installAsset(path: string): Response | null {
+  const card = shareCardAsset(path);
+  if (card) return card;
   if (path === "/manifest.webmanifest") {
     return new Response(JSON.stringify(MANIFEST), {
       headers: {

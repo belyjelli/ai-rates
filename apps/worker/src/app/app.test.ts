@@ -2614,6 +2614,8 @@ describe("pages", () => {
     const page = unavailableResponse("/cvd", NOW);
     expect(page.status).toBe(503);
     expect(page.headers.get("retry-after")).toBe("10");
+    // Temporary, so never "noindex": Googlebot read that as "drop this page" through the outage.
+    expect(page.headers.get("x-robots-tag")).toBeNull();
     expect(await page.text()).toContain("The data center is getting too busy");
     const api = unavailableResponse("/v1/screener", NOW);
     expect(api.headers.get("content-type")).toContain("application/json");
@@ -3395,5 +3397,48 @@ describe("language", () => {
     expect(await unavailableResponse("/rates", NOW, "zh").text()).toContain(
       '<html lang="zh-Hans">',
     );
+  });
+});
+
+describe("link previews", () => {
+  test("every page names the share card for Facebook and X, and the card is a 1200x630 PNG", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/", data)).text();
+    // Absolute: Facebook and X fetch the card from their own servers.
+    expect(html).toContain(
+      '<meta property="og:image" content="https://airrates.net/share-card.png">',
+    );
+    expect(html).toContain('<meta property="og:image:width" content="1200">');
+    expect(html).toContain('<meta property="og:image:height" content="630">');
+    expect(html).toContain('<meta property="og:image:alt" content="airrates: what settled');
+    expect(html).toContain('<meta property="og:locale" content="en_US">');
+    expect(html).toContain('<meta property="og:locale:alternate" content="zh_CN">');
+    expect(html).toContain('<meta name="twitter:card" content="summary_large_image">');
+
+    // The size the tags claim is the size served: a mismatch makes Facebook crop or refuse it.
+    const card = await get("/share-card.png", data);
+    expect(card.status).toBe(200);
+    expect(card.headers.get("content-type")).toBe("image/png");
+    const bytes = new Uint8Array(await card.arrayBuffer());
+    expect(String.fromCharCode(...bytes.subarray(1, 4))).toBe("PNG");
+    const header = new DataView(bytes.buffer, bytes.byteOffset);
+    expect(header.getUint32(16)).toBe(1200);
+    expect(header.getUint32(20)).toBe(630);
+  });
+
+  test("a Chinese page tells Facebook it is Chinese, with English as the alternate", async () => {
+    const { data } = fakeData();
+    const html = await (
+      await handleApp(new Request("https://airates.test/"), { data, now: () => NOW, locale: "zh" })
+    ).text();
+    expect(html).toContain('<meta property="og:locale" content="zh_CN">');
+    expect(html).toContain('<meta property="og:locale:alternate" content="en_US">');
+  });
+
+  test("a not-found page stays out of search, unlike the busy page", async () => {
+    const { data } = fakeData();
+    const res = await get("/liquidations/not%20an%20asset", data);
+    expect(res.status).toBe(404);
+    expect(res.headers.get("x-robots-tag")).toBe("noindex");
   });
 });

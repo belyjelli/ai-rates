@@ -1,0 +1,46 @@
+<!doctype html>
+<!--
+  The link-preview image (og:image / twitter:image), 1200x630. Rendered to PNG by scripts/share-card.ts;
+  edit this, run the script, commit both. No counts on it: a card is cached by Facebook and X for weeks,
+  so anything that changes (markets, venues) would be wrong on most shares.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+html,body{margin:0;width:1200px;height:630px;background:#000;overflow:hidden}
+body{position:relative;color:#d8d8d8;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;-webkit-font-smoothing:antialiased}
+.frame{position:absolute;inset:32px;border:1px solid #242424}
+.bar{position:absolute;left:32px;right:32px;top:32px;height:64px;border-bottom:1px solid #242424;display:flex;align-items:center;justify-content:space-between;padding:0 32px;font-size:20px;letter-spacing:.08em;text-transform:uppercase;color:#7a7a7a}
+.live{color:#c8f5a8}
+.live::before{content:"";display:inline-block;width:12px;height:12px;margin-right:14px;background:#c8f5a8;vertical-align:1px}
+.brand{position:absolute;left:88px;top:148px;font-size:124px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.tag{position:absolute;left:94px;top:300px;font-size:38px;color:#c8f5a8}
+.rail{position:absolute;left:94px;right:94px;top:410px;height:64px}
+.rule{position:absolute;left:0;right:0;top:31px;height:2px;background:#494949}
+.zero{position:absolute;left:50%;top:14px;width:2px;height:36px;margin-left:-1px;background:#494949}
+.span{position:absolute;left:18%;right:22%;top:26px;height:12px;background:linear-gradient(90deg,#5f87ff,#ff5f5f)}
+.mark{position:absolute;top:6px;width:14px;height:52px}
+.long{left:18%;margin-left:-7px;background:#5f87ff}
+.short{right:22%;margin-right:-7px;background:#ff5f5f}
+.label{position:absolute;top:-30px;font-size:20px;letter-spacing:.08em;text-transform:uppercase}
+.label.l{left:18%;margin-left:-7px;color:#5f87ff}
+.label.s{right:22%;margin-right:-7px;color:#ff5f5f}
+.foot{position:absolute;left:94px;right:94px;bottom:72px;display:flex;justify-content:space-between;align-items:baseline;font-size:27px}
+.what{color:#7a7a7a}
+.url{color:#d8d8d8}
+</style>
+</head>
+<body>
+<div class="frame"></div>
+<div class="bar"><span class="live">live</span><span>perpetual futures · every exchange</span></div>
+<div class="brand">airrates</div>
+<div class="tag">What settled. Not what might.</div>
+<div class="rail">
+  <div class="label l">long</div><div class="label s">short</div>
+  <div class="rule"></div><div class="zero"></div><div class="span"></div>
+  <div class="mark long"></div><div class="mark short"></div>
+</div>
+<div class="foot"><span class="what">Funding spreads · liquidations · CVD</span><span class="url">airrates.net</span></div>
+</body>
+</html>

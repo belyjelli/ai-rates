@@ -9,6 +9,7 @@ import {
   htmlLang,
   LOCALE_INFO,
   LOCALES,
+  type Locale,
   msg,
   scriptStrings,
   switchHref,
@@ -19,6 +20,7 @@ import { INSTALL_CSS, INSTALL_HEAD } from "./install";
 import { LIVE_SCRIPT } from "./live";
 import { ROW_LINK_SCRIPT } from "./row-link";
 import { SHARE_CSS, shareBar, shareScript } from "./share";
+import { SHARE_CARD_ALT, SHARE_CARD_HEIGHT, SHARE_CARD_PATH, SHARE_CARD_WIDTH } from "./share-card";
 import { TAB_SCRIPT } from "./tabs";
 import { WEBMCP_SCRIPT } from "./webmcp";
 
@@ -67,6 +69,9 @@ export const GA_TAG = `<!-- Google tag (gtag.js) -->
 /** The one origin pages name as their own, so a copy found elsewhere points back here. */
 export const SITE_ORIGIN = "https://airrates.net";
 
+/** Open Graph wants a language_TERRITORY locale, not the html lang: zh-Hans is zh_CN to Facebook. */
+const OG_LOCALE: Readonly<Record<Locale, string>> = { en: "en_US", zh: "zh_CN" };
+
 /** Pages that are a dataset in their own right, for the structured data below. */
 const DATASET_PATHS = ["/rates", "/arbitrage", "/cvd", "/liquidations", "/sentiment", "/markets"];
 
@@ -108,13 +113,28 @@ function discoverability(title: string, description: string, path: string): stri
     /</g,
     "\\u003c",
   );
+  // The card's address is absolute: Facebook and X fetch it from their own servers, not from the page.
+  const image = `${SITE_ORIGIN}${SHARE_CARD_PATH}`;
+  const locale = currentLocale();
+  const alternates = LOCALES.filter((other) => other !== locale)
+    .map((other) => `\n<meta property="og:locale:alternate" content="${OG_LOCALE[other]}">`)
+    .join("");
   return `<link rel="canonical" href="${esc(url)}">
 <meta property="og:site_name" content="airrates">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${esc(title)} · airrates">
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:url" content="${esc(url)}">
-<meta name="twitter:card" content="summary">
+<meta property="og:locale" content="${OG_LOCALE[locale]}">${alternates}
+<meta property="og:image" content="${image}">
+<meta property="og:image:secure_url" content="${image}">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="${SHARE_CARD_WIDTH}">
+<meta property="og:image:height" content="${SHARE_CARD_HEIGHT}">
+<meta property="og:image:alt" content="${esc(SHARE_CARD_ALT)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="${image}">
+<meta name="twitter:image:alt" content="${esc(SHARE_CARD_ALT)}">
 <script type="application/ld+json">${ld}</script>`;
 }
 
