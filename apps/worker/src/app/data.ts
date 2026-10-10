@@ -694,15 +694,50 @@ export interface WhaleWall {
   ended_at: Date | null;
 }
 
+/** One large taker burst (whale_trades): every fill on one side in the same millisecond. */
+export interface WhaleTrade {
+  /** The taker's side: a buy lifted asks, a sell hit bids. */
+  side: "buy" | "sell";
+  /** Volume-weighted over the burst. */
+  price: number;
+  traded_at: Date;
+  notional_usd: number;
+  /** Aggregate trades folded in: roughly the price levels it swept. */
+  fills: number;
+}
+
+/** What happened in the window, counted in full rather than from the capped lists. */
+export interface WhaleTally {
+  filled: number;
+  pulled: number;
+  buys: number;
+  buy_usd: number;
+  sells: number;
+  sell_usd: number;
+}
+
 export interface WhaleData {
   /** Every tracked market, by rank: the page's market strip. */
   markets: WhaleMarket[];
   /** The charted one, or null when the asked asset is not tracked. */
   market: WhaleMarket | null;
   candles: WhaleCandle[];
-  /** Walls alive at any point in the window, largest first. */
+  /** Walls alive at any point in the window: every open one first, then the largest. Pulled walls
+   * only when asked for. */
   walls: WhaleWall[];
+  /** The largest taker bursts in the window, largest first. */
+  trades: WhaleTrade[];
+  tally: WhaleTally;
 }
+
+export const EMPTY_TALLY: WhaleTally = {
+  filled: 0,
+  pulled: 0,
+  buys: 0,
+  buy_usd: 0,
+  sells: 0,
+  sell_usd: 0,
+};
 
 export interface DataSource {
   overview(): Promise<Overview>;
@@ -771,6 +806,8 @@ export interface DataSource {
     assetClass: AssetClass | null;
     windowHours: number;
     barMinutes: number;
+    /** Include pulled walls. They are most rows (about 110,000 a day across the forty markets). */
+    pulled: boolean;
   }): Promise<WhaleData>;
   /** Fear/greed readings over the trailing window, oldest first, for the /sentiment chart. */
   sentimentHistory(hours: number): Promise<SentimentPoint[]>;
@@ -1694,7 +1731,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       return [...rows];
     },
 
-    async whales({ base, assetClass, windowHours, barMinutes }) {
+    async whales({ base, assetClass, windowHours, barMinutes, pulled }) {
       const sql = connect();
       const markets = [
         ...(await sql<WhaleMarket[]>`
@@ -1709,12 +1746,18 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         markets.find(
           (m) => m.base === base && (assetClass === null || m.asset_class === assetClass),
         ) ?? null;
-      if (!market) return { markets, market: null, candles: [], walls: [] };
+      if (!market)
+        return { markets, market: null, candles: [], walls: [], trades: [], tally: EMPTY_TALLY };
 
       // Bars are folded from the 5-minute candles in the database, so a 3-day view draws 72 hourly
       // bars rather than 864 five-minute ones. Open and close come from the first and last candle of
       // each bar by time, not from min/max.
-      const [candles, walls] = await Promise.all([
+      //
+      // Pulled walls are read apart from the rest, and only when asked for: they outnumber the others
+      // more than ten to one, and under one shared LIMIT they pushed resting walls off the page (ZEC
+      // showed 3 of its 27 on 2026-10-11).
+      const symbol = market.venue_symbol;
+      const [candles, walls, pulledWalls, trades, tallyRows] = await Promise.all([
         sql<WhaleCandle[]>`
           SELECT date_bin(make_interval(mins => ${barMinutes}), open_time, TIMESTAMPTZ '2000-01-01')
                    AS open_time,
@@ -1723,7 +1766,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                  min(low)::float8 AS low,
                  (array_agg(close ORDER BY open_time DESC))[1]::float8 AS close
           FROM perp_candles
-          WHERE venue_id = 'binance' AND venue_symbol = ${market.venue_symbol} AND interval = '5m'
+          WHERE venue_id = 'binance' AND venue_symbol = ${symbol} AND interval = '5m'
             AND open_time >= now() - make_interval(hours => ${windowHours})
           GROUP BY 1
           ORDER BY 1`,
@@ -1732,12 +1775,58 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                  start_usd::float8 AS start_usd, peak_usd::float8 AS peak_usd,
                  current_usd::float8 AS current_usd, status, ended_at
           FROM whale_orders
-          WHERE venue_id = 'binance' AND venue_symbol = ${market.venue_symbol}
+          WHERE venue_id = 'binance' AND venue_symbol = ${symbol} AND status <> 'pulled'
             AND last_seen >= now() - make_interval(hours => ${windowHours})
-          ORDER BY current_usd DESC
+          ORDER BY (status = 'open') DESC, peak_usd DESC
           LIMIT 400`,
+        pulled
+          ? sql<WhaleWall[]>`
+              SELECT side, price::float8 AS price, first_seen, last_seen,
+                     start_usd::float8 AS start_usd, peak_usd::float8 AS peak_usd,
+                     current_usd::float8 AS current_usd, status, ended_at
+              FROM whale_orders
+              WHERE venue_id = 'binance' AND venue_symbol = ${symbol} AND status = 'pulled'
+                AND last_seen >= now() - make_interval(hours => ${windowHours})
+              ORDER BY peak_usd DESC
+              LIMIT 300`
+          : Promise.resolve([] as WhaleWall[]),
+        sql<WhaleTrade[]>`
+          SELECT side, price::float8 AS price, traded_at, notional_usd::float8 AS notional_usd, fills
+          FROM whale_trades
+          WHERE venue_id = 'binance' AND venue_symbol = ${symbol}
+            AND traded_at >= now() - make_interval(hours => ${windowHours})
+          ORDER BY notional_usd DESC
+          LIMIT 200`,
+        sql<{ kind: string; n: number; usd: number }[]>`
+          SELECT status AS kind, count(*)::int AS n, 0::float8 AS usd
+          FROM whale_orders
+          WHERE venue_id = 'binance' AND venue_symbol = ${symbol} AND status IN ('filled', 'pulled')
+            AND last_seen >= now() - make_interval(hours => ${windowHours})
+          GROUP BY status
+          UNION ALL
+          SELECT side, count(*)::int, sum(notional_usd)::float8
+          FROM whale_trades
+          WHERE venue_id = 'binance' AND venue_symbol = ${symbol}
+            AND traded_at >= now() - make_interval(hours => ${windowHours})
+          GROUP BY side`,
       ]);
-      return { markets, market, candles: [...candles], walls: [...walls] };
+      const count = (kind: string) => tallyRows.find((r) => r.kind === kind);
+      const tally: WhaleTally = {
+        filled: count("filled")?.n ?? 0,
+        pulled: count("pulled")?.n ?? 0,
+        buys: count("buy")?.n ?? 0,
+        buy_usd: count("buy")?.usd ?? 0,
+        sells: count("sell")?.n ?? 0,
+        sell_usd: count("sell")?.usd ?? 0,
+      };
+      return {
+        markets,
+        market,
+        candles: [...candles],
+        walls: [...walls, ...pulledWalls],
+        trades: [...trades],
+        tally,
+      };
     },
 
     async sentimentHistory(hours) {

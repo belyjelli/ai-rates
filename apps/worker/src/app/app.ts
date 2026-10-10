@@ -311,6 +311,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           assetClass: address?.assetClass ?? null,
           windowHours: hours,
           barMinutes,
+          pulled: params.pulled,
         }),
       ]);
       if (address && book.markets.length > 0 && book.market === null) {

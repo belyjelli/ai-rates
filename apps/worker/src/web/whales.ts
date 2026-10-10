@@ -1,5 +1,5 @@
 import type { AssetClass } from "@ai-rates/core";
-import type { Overview, WhaleCandle, WhaleData, WhaleWall } from "../app/data";
+import type { Overview, WhaleCandle, WhaleData, WhaleTrade, WhaleWall } from "../app/data";
 import { WHALE_WINDOW_KEYS, WHALE_WINDOWS, type WhaleParams, whaleToQuery } from "../app/params";
 import { esc, formatPrice, formatUsd, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
@@ -9,13 +9,19 @@ import { assetKey, assetName } from "./pages";
 import { MONTHS } from "./slot-chart";
 
 /**
- * /whales: large resting limit orders ("walls") in Binance USD-M books, drawn as lines over the price.
+ * /whales: large resting limit orders ("walls") in Binance USD-M books, drawn as lines over the price,
+ * and the large taker trades in the same markets, drawn as circles.
  *
  * WHAT A LINE IS. One price level in Binance's book that held at least the market's floor for at
  * least a minute, from when the collector first saw it to when it went (or now). The collector keeps
  * live books for the top 40 markets by worldwide open interest and writes walls, never books
  * (profitlock-worker collector/internal/walls, migration 029). Thickness is size; a line that ends
  * is filled (the market reached it) or pulled (cancelled while the market was elsewhere).
+ *
+ * WHAT A CIRCLE IS. One taker burst: every fill on one side in the same millisecond, so a market
+ * order that sweeps several levels is one circle (collector internal/walls/trades.go, migration
+ * 030). Only bursts of at least the market's wall floor are kept; the page draws the 200 largest in
+ * the window. Area is size, blue a buy and red a sell, by the taker's side.
  *
  * WHAT IT IS NOT. A forecast, or a floor or ceiling: a wall can be pulled the moment price nears it,
  * and the page says so. It is one venue's book, not the market's. And it starts blind to far levels
@@ -55,6 +61,22 @@ function statusLabel(status: WhaleWall["status"]): string {
 /** A wall's size for drawing and ranking: what it holds now if open, its peak if it ended. */
 const wallUsd = (wall: WhaleWall) => (wall.status === "open" ? wall.current_usd : wall.peak_usd);
 
+const takerLabel = (side: WhaleTrade["side"]) =>
+  side === "buy" ? tr("taker buy") : tr("taker sell");
+
+const fillsText = (fills: number) => (fills === 1 ? tr("one fill") : tr("{n} fills", { n: fills }));
+
+/** "Oct 10 21:10", UTC. */
+function stamp(date: Date): string {
+  const day = tr("{month} {day}", {
+    month: trMsg(MONTHS[date.getUTCMonth()] ?? ""),
+    day: date.getUTCDate(),
+  });
+  const hh = String(date.getUTCHours()).padStart(2, "0");
+  const mm = String(date.getUTCMinutes()).padStart(2, "0");
+  return `${day} ${hh}:${mm}`;
+}
+
 function durationText(ms: number): string {
   const minutes = Math.max(0, Math.round(ms / 60_000));
   if (minutes < 60) return tr("{n}m", { n: minutes });
@@ -67,10 +89,11 @@ function whaleChart(data: {
   label: string;
   candles: readonly WhaleCandle[];
   walls: readonly WhaleWall[];
+  trades: readonly WhaleTrade[];
   params: WhaleParams;
   now: number;
 }): string {
-  const { label, candles, walls, params, now } = data;
+  const { label, candles, walls, trades, params, now } = data;
   const { hours, barMinutes } = WHALE_WINDOWS[params.window];
   const toMs = now;
   const fromMs = now - hours * 3_600_000;
@@ -129,6 +152,28 @@ function whaleChart(data: {
     })
     .join("");
 
+  // Taker bursts as circles, in HTML rather than the SVG: the plot stretches to its box
+  // (preserveAspectRatio none), which would draw an SVG circle as an ellipse. Area is size, the
+  // biggest in view 24px across; the biggest are laid first so smaller ones stay on top to hover.
+  const shown = trades.filter(
+    (t) => t.traded_at.getTime() >= fromMs && t.price >= lo && t.price <= hi,
+  );
+  const biggestTrade = Math.max(...shown.map((t) => t.notional_usd), 1);
+  const circles = [...shown]
+    .sort((a, b) => b.notional_usd - a.notional_usd)
+    .map((t) => {
+      const across = 5 + 19 * Math.sqrt(t.notional_usd / biggestTrade);
+      const tip = tr("{side} {size} at {price} · {fills} · {time} UTC", {
+        side: takerLabel(t.side),
+        size: formatUsd(t.notional_usd),
+        price: formatPrice(t.price),
+        fills: fillsText(t.fills),
+        time: stamp(t.traded_at),
+      });
+      return `<span class="wh-trade wh-${t.side}" style="left:${(x(t.traded_at.getTime()) / 10).toFixed(2)}%;top:${(y(t.price) / 10).toFixed(2)}%;width:${across.toFixed(1)}px;height:${across.toFixed(1)}px" title="${esc(tip)}"></span>`;
+    })
+    .join("");
+
   const last = candles.at(-1)?.close ?? null;
   const lastLine =
     last === null
@@ -178,14 +223,14 @@ function whaleChart(data: {
     barMinutes >= 60
       ? tr("{asset} · Binance perp · {n}-hour bars, UTC", { asset: label, n: barMinutes / 60 })
       : tr("{asset} · Binance perp · {n}-minute bars, UTC", { asset: label, n: barMinutes });
-  const keys = `<p class="fchart-keys wh-keys"><span><i class="wh-key-bid"></i>${tr("bid wall (buy orders)")}</span><span><i class="wh-key-ask"></i>${tr("ask wall (sell orders)")}</span><span><i class="wh-key-ended"></i>${tr("faded: filled or pulled")}</span><span><i class="wh-key-last"></i>${tr("last price")}</span></p>`;
+  const keys = `<p class="fchart-keys wh-keys"><span><i class="wh-key-bid"></i>${tr("bid wall (buy orders)")}</span><span><i class="wh-key-ask"></i>${tr("ask wall (sell orders)")}</span><span><i class="wh-key-ended"></i>${tr("faded: filled or pulled")}</span><span><i class="wh-key-buy"></i>${tr("large taker buy")}</span><span><i class="wh-key-sell"></i>${tr("large taker sell")}</span><span><i class="wh-key-last"></i>${tr("last price")}</span></p>`;
 
   return `<figure class="fchart cvd-chart wh-chart">
 <figcaption class="fchart-title">${title}</figcaption>
 ${keys}
 <div class="fchart-plot wh-plot">
 <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(title.replace(/<[^>]+>/g, ""))}">${grid}${body}${lines}${lastLine}</svg>
-${leftLabels}${rightLabels}${xLabels.join("")}
+${circles}${leftLabels}${rightLabels}${xLabels.join("")}
 </div>
 </figure>`;
 }
@@ -229,22 +274,31 @@ export function whales(data: {
   const asks = open.filter((w) => w.side === "ask");
   const sum = (list: readonly WhaleWall[]) => list.reduce((total, w) => total + w.current_usd, 0);
   const largest = [...open].sort((a, b) => b.current_usd - a.current_usd)[0] ?? null;
-  const pulled = book.walls.filter((w) => w.status === "pulled").length;
-  const filled = book.walls.filter((w) => w.status === "filled").length;
+  const { tally } = book;
+  const floor = book.market ? formatUsd(book.market.floor_usd) : "–";
   const last = book.candles.at(-1)?.close ?? null;
 
-  const tiles = `<div class="cvd-tiles" data-live="wh-tiles">
+  const tiles = `<div class="cvd-tiles wh-tiles" data-live="wh-tiles">
 <div class="cvd-tile"><p class="eyebrow">${tr("Bid walls resting")}</p><p class="cvd-big cvd-up"><span data-u="bids">${formatUsd(sum(bids))}</span></p><p class="dim">${tr("{n} buy walls below the price", { n: bids.length })}</p></div>
 <div class="cvd-tile"><p class="eyebrow">${tr("Ask walls resting")}</p><p class="cvd-big cvd-down"><span data-u="asks">${formatUsd(sum(asks))}</span></p><p class="dim">${tr("{n} sell walls above the price", { n: asks.length })}</p></div>
 <div class="cvd-tile"><p class="eyebrow">${tr("Largest wall")}</p><p class="cvd-big${largest ? (largest.side === "bid" ? " cvd-up" : " cvd-down") : ""}"><span data-u="largest">${largest ? formatUsd(largest.current_usd) : "–"}</span></p><p class="dim">${largest ? tr("{side} at {price}", { side: sideLabel(largest.side), price: formatPrice(largest.price) }) : tr("none resting")}</p></div>
-<div class="cvd-tile"><p class="eyebrow">${tr("Pulled in {window}", { window })}</p><p class="cvd-big"><span data-u="pulled">${pulled}</span></p><p class="dim">${tr("cancelled before the price reached them; {n} filled", { n: filled })}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("Large buys in {window}", { window })}</p><p class="cvd-big cvd-up"><span data-u="buys">${formatUsd(tally.buy_usd)}</span></p><p class="dim">${tr("{n} taker bursts of {floor} or more", { n: tally.buys, floor })}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("Large sells in {window}", { window })}</p><p class="cvd-big cvd-down"><span data-u="sells">${formatUsd(tally.sell_usd)}</span></p><p class="dim">${tr("{n} taker bursts of {floor} or more", { n: tally.sells, floor })}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("Pulled in {window}", { window })}</p><p class="cvd-big"><span data-u="pulled">${tally.pulled}</span></p><p class="dim">${tr("cancelled before the price reached them; {n} filled", { n: tally.filled })}</p></div>
 </div>`;
 
   // --- chart --------------------------------------------------------------------------------------
   const chart =
     book.candles.length === 0
       ? `<p class="empty">${tr("No candles for {asset} yet. The collector backfills three days within a minute of a market joining the set.", { asset: label })}</p>`
-      : whaleChart({ label, candles: book.candles, walls: book.walls, params, now });
+      : whaleChart({
+          label,
+          candles: book.candles,
+          walls: book.walls,
+          trades: book.trades,
+          params,
+          now,
+        });
 
   // --- tables -------------------------------------------------------------------------------------
   const dist = (price: number) => (last === null ? "–" : signedPct(((price - last) / last) * 100));
@@ -292,8 +346,27 @@ export function whales(data: {
 </table></div>`
     : `<p class="empty">${tr("No wall ended in the last {window}.", { window })}</p>`;
 
-  const floor = book.market ? formatUsd(book.market.floor_usd) : "–";
-  const help = `<p>${tr("Large resting limit orders in Binance's USD-M book for {asset}: one price level holding at least {floor} for at least a minute. A {bid} is buy orders below the price, an {ask} sell orders above it. Each line runs from when the collector first saw the wall to when it went, and is thicker the bigger it is.", { asset: label, floor, bid: `<span class="cvd-up">${tr("bid wall")}</span>`, ask: `<span class="cvd-down">${tr("ask wall")}</span>` })}</p><p>${tr("A wall that ends is filled if the price reached it and pulled if it was cancelled first. Pulled walls are hidden by default: most are spoofs or quotes moving with the price. Walls are a snapshot of visible liquidity, not a floor or a ceiling, and not a forecast; any of them can be gone the moment the price gets near.")}</p><p>${tr("The forty markets are the top forty by open interest summed across every exchange we collect, read on Binance. The floor scales with that open interest. After every collector restart the book relearns levels far from the price as they change, so the oldest far walls can take an hour or two to reappear.")}</p>`;
+  const tradeRows = book.trades
+    .slice(0, 25)
+    .map(
+      (t) => `<tr data-k="${esc(`${t.side}:${t.traded_at.getTime()}:${t.price}`)}">
+<td class="${t.side === "buy" ? "cvd-up" : "cvd-down"}">${takerLabel(t.side)}</td>
+<td class="num">${formatPrice(t.price)}</td>
+<td class="num dim">${dist(t.price)}</td>
+<td class="num">${formatUsd(t.notional_usd)}</td>
+<td class="num dim">${t.fills}</td>
+<td class="num dim">${since(t.traded_at, now)}</td>
+</tr>`,
+    )
+    .join("");
+  const tradeTable = book.trades.length
+    ? `<div class="sheet-wrap"><table class="sheet wh-table">
+<thead><tr><th>${tr("Side")}</th><th class="num">${tr("Price")}</th><th class="num" title="${tr("From the last price")}">${tr("Distance")}</th><th class="num">${tr("Size")}</th><th class="num" title="${tr("Aggregate trades in the burst: roughly the price levels it took")}">${tr("Fills")}</th><th class="num">${tr("When")}</th></tr></thead>
+<tbody data-live="wh-trades">${tradeRows}</tbody>
+</table></div>`
+    : `<p class="empty">${tr("No taker burst of {floor} or more in the last {window}.", { floor, window })}</p>`;
+
+  const help = `<p>${tr("Large resting limit orders in Binance's USD-M book for {asset}: one price level holding at least {floor} for at least a minute. A {bid} is buy orders below the price, an {ask} sell orders above it. Each line runs from when the collector first saw the wall to when it went, and is thicker the bigger it is.", { asset: label, floor, bid: `<span class="cvd-up">${tr("bid wall")}</span>`, ask: `<span class="cvd-down">${tr("ask wall")}</span>` })}</p><p>${tr("Each circle is a large market order: every fill on one side in the same millisecond, counted as one burst, of at least the same {floor}. Blue is a taker buying, red a taker selling; the bigger the circle, the bigger the burst. The chart draws the 200 largest in the window.", { floor })}</p><p>${tr("A wall that ends is filled if the price reached it and pulled if it was cancelled first. Pulled walls are hidden by default: most are spoofs or quotes moving with the price. Walls are a snapshot of visible liquidity, not a floor or a ceiling, and not a forecast; any of them can be gone the moment the price gets near.")}</p><p>${tr("The forty markets are the top forty by open interest summed across every exchange we collect, read on Binance. The floor scales with that open interest. After every collector restart the book relearns levels far from the price as they change, so the oldest far walls can take an hour or two to reappear.")}</p>`;
 
   return layout({
     title:
@@ -301,7 +374,7 @@ export function whales(data: {
         ? tr("Whale orders")
         : `${asset} ${tr("whale orders")}`,
     description: tr(
-      "Large resting limit orders in Binance futures order books, drawn over the price: where they sit, how big, and whether they were filled or pulled.",
+      "Large resting limit orders and large market orders in Binance futures, drawn over the price: where the walls sit, how big, whether they were filled or pulled, and who hit them.",
     ),
     path: "/whales",
     overview,
@@ -318,7 +391,9 @@ ${
 ${helpPanel("wh-open", `<p>${tr("Every wall in the book right now, largest first. Distance is from the last price; size is what the level holds now, peak the most it has held.")}</p>`)}
 ${openTable}
 <h2 class="cvd-h2">${tr("Ended in the last {window}", { window })}</h2>
-${endedTable}`
+${endedTable}
+<h2 class="cvd-h2">${tr("Largest trades in the last {window}", { window })}</h2>
+${tradeTable}`
 }`,
   });
 }

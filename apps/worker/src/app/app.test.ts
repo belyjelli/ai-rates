@@ -19,6 +19,7 @@ import type {
   ScreenerPair,
   VenueStatus,
 } from "./data";
+import { EMPTY_TALLY } from "./data";
 import type { Referral } from "./geo";
 import { DEFAULT_FILTERS } from "./params";
 
@@ -126,7 +127,14 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     cvd: async () => ({ rows: [], asset_class: "crypto" as const, bars: [], newest: null }),
     assetBars: async () => [],
     liquidationFeeds: async () => [],
-    whales: async () => ({ markets: [], market: null, candles: [], walls: [] }),
+    whales: async () => ({
+      markets: [],
+      market: null,
+      candles: [],
+      walls: [],
+      trades: [],
+      tally: EMPTY_TALLY,
+    }),
     sentimentHistory: async () => [],
     liquidationAsset: async () => ({
       asset_class: "crypto" as const,
@@ -3476,10 +3484,29 @@ describe("whales", () => {
     ended_at: null,
     ...over,
   });
+  const trade = (over: Partial<import("./data").WhaleTrade>) => ({
+    side: "buy" as const,
+    price: 83030,
+    traded_at: minutes(20),
+    notional_usd: 1.69e6,
+    fills: 1,
+    ...over,
+  });
   const book = {
     markets: [btc, eth],
     market: btc,
     candles,
+    trades: [
+      trade({}),
+      trade({
+        side: "sell",
+        price: 82990,
+        traded_at: minutes(40),
+        notional_usd: 1.17e6,
+        fills: 26,
+      }),
+    ],
+    tally: { filled: 1, pulled: 1, buys: 3, buy_usd: 4.2e6, sells: 1, sell_usd: 1.17e6 },
     walls: [
       wall({}),
       wall({ side: "ask", price: 84000, current_usd: 17.3e6, peak_usd: 17.3e6 }),
@@ -3512,7 +3539,9 @@ describe("whales", () => {
     const res = await get("/whales", data);
     const html = await res.text();
     expect(res.status).toBe(200);
-    expect(seen).toEqual([{ base: "BTC", assetClass: null, windowHours: 24, barMinutes: 15 }]);
+    expect(seen).toEqual([
+      { base: "BTC", assetClass: null, windowHours: 24, barMinutes: 15, pulled: false },
+    ]);
     // Candles and wall lines in the SVG, each wall with a hover title.
     expect(html).toContain('class="wh-up"');
     expect(html).toContain('class="wh-wall wh-bid wh-open"');
@@ -3531,6 +3560,30 @@ describe("whales", () => {
     expect(html).toContain('aria-current="page">BTC</a>');
   });
 
+  test("large trades draw as circles, with their tiles and table", async () => {
+    const html = await (await get("/whales", fakeData({ whales: async () => book }).data)).text();
+    // One round HTML circle per burst, sized by notional, the biggest 24px across.
+    expect(html).toContain('class="wh-trade wh-buy"');
+    expect(html).toContain('class="wh-trade wh-sell"');
+    expect(html).toContain("width:24.0px;height:24.0px");
+    expect(html).toContain('title="taker buy $1.7M at 83,030 · one fill ·');
+    expect(html).toContain('title="taker sell $1.2M at 82,990 · 26 fills ·');
+    // The tiles count the whole window from the tally, not from the capped lists.
+    expect(html).toContain('<span data-u="buys">$4.2M</span>');
+    expect(html).toContain("3 taker bursts of $1.0M or more");
+    expect(html).toContain('<span data-u="sells">$1.2M</span>');
+    expect(html).toContain('<span data-u="pulled">1</span>');
+    expect(html).toContain("Largest trades in the last 24h");
+    expect(html).toContain('<tbody data-live="wh-trades">');
+  });
+
+  test("a window with no large trade says so", async () => {
+    const quiet = { ...book, trades: [], tally: { ...book.tally, buys: 0, sells: 0 } };
+    const html = await (await get("/whales", fakeData({ whales: async () => quiet }).data)).text();
+    expect(html).not.toContain("wh-trade wh-");
+    expect(html).toContain("No taker burst of $1.0M or more in the last 24h.");
+  });
+
   test("the window and the pulled toggle are read from the address", async () => {
     const seen: unknown[] = [];
     const { data } = fakeData({
@@ -3540,7 +3593,9 @@ describe("whales", () => {
       },
     });
     const html = await (await get("/whales/ETH?window=6h&pulled=1", data)).text();
-    expect(seen).toEqual([{ base: "ETH", assetClass: null, windowHours: 6, barMinutes: 5 }]);
+    expect(seen).toEqual([
+      { base: "ETH", assetClass: null, windowHours: 6, barMinutes: 5, pulled: true },
+    ]);
     expect(html).toContain("wh-wall wh-ask wh-pulled");
     expect(html).toContain(">pulled<");
     // The toggle offers to hide them again and keeps the window.
@@ -3549,7 +3604,7 @@ describe("whales", () => {
 
   test("an asset outside the forty is a 404 that says so", async () => {
     const { data } = fakeData({
-      whales: async () => ({ ...book, market: null, candles: [], walls: [] }),
+      whales: async () => ({ ...book, market: null, candles: [], walls: [], trades: [] }),
     });
     const res = await get("/whales/DOGE", data);
     expect(res.status).toBe(404);

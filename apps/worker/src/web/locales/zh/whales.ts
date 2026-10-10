@@ -5,6 +5,8 @@ import type { Catalog } from "../../i18n";
  *
  * Terms: whale orders 巨鲸挂单, wall 挂单墙 (bid wall 买单墙, ask wall 卖单墙), resting 挂单中,
  * filled 已成交, pulled 已撤单. 挂单 is the glossary's maker, which is what a resting order is.
+ * A taker burst (the circles) is 主动成交: taker buy 主动买入, taker sell 主动卖出, as exchanges
+ * label the aggressor side.
  */
 export const whales: Catalog = {
   "{asset} is not one of the forty markets tracked.": "{asset} 不在追踪的四十个市场之内。",
@@ -63,12 +65,32 @@ export const whales: Catalog = {
     "这四十个市场是按我们采集的所有交易所合计持仓量排名前四十的资产，在 Binance 上读取。门槛随持仓量缩放。采集器每次重启后，订单簿会在远离价格的价位发生变化时重新学习它们，因此最早的远端挂单墙可能需要一两个小时才会重新出现。",
   "Whale orders": "巨鲸挂单",
   "whale orders": "巨鲸挂单",
-  "Large resting limit orders in Binance futures order books, drawn over the price: where they sit, how big, and whether they were filled or pulled.":
-    "Binance 合约订单簿中的大额挂单，叠加在价格之上：位置、规模，以及是否已成交或已撤单。",
+  "Large resting limit orders and large market orders in Binance futures, drawn over the price: where the walls sit, how big, whether they were filled or pulled, and who hit them.":
+    "Binance 合约中的大额挂单与大额市价单，叠加在价格之上：挂单墙的位置、规模、是否已成交或已撤单，以及是谁吃掉了它们。",
   "The whale-order feed has not ranked its markets yet. It does so within a few minutes of starting.":
     "巨鲸挂单数据源尚未完成市场排名，通常在启动后几分钟内完成。",
   "Resting now": "当前挂单",
   "Every wall in the book right now, largest first. Distance is from the last price; size is what the level holds now, peak the most it has held.":
     "订单簿中当前的全部挂单墙，按规模从大到小排列。距离相对最新价；规模是该价位当前的挂单量，峰值是曾达到的最大值。",
   "Ended in the last {window}": "过去 {window} 内结束",
+  "taker buy": "主动买入",
+  "taker sell": "主动卖出",
+  "one fill": "1 笔成交",
+  "{n} fills": "{n} 笔成交",
+  "{side} {size} at {price} · {fills} · {time} UTC":
+    "{side} {size}，价格 {price} · {fills} · {time} UTC",
+  "large taker buy": "大额主动买入",
+  "large taker sell": "大额主动卖出",
+  "Large buys in {window}": "{window} 内大额买入",
+  "Large sells in {window}": "{window} 内大额卖出",
+  "{n} taker bursts of {floor} or more": "{n} 笔不低于 {floor} 的主动成交",
+  "Aggregate trades in the burst: roughly the price levels it took":
+    "该笔主动成交包含的归集成交数：大致等于吃掉的价位数",
+  Fills: "成交笔数",
+  When: "时间",
+  "No taker burst of {floor} or more in the last {window}.":
+    "过去 {window} 内没有不低于 {floor} 的主动成交。",
+  "Largest trades in the last {window}": "过去 {window} 内最大的成交",
+  "Each circle is a large market order: every fill on one side in the same millisecond, counted as one burst, of at least the same {floor}. Blue is a taker buying, red a taker selling; the bigger the circle, the bigger the burst. The chart draws the 200 largest in the window.":
+    "每个圆圈是一笔大额市价单：同一毫秒内同一方向的全部成交合计为一笔，且不低于同样的 {floor}。蓝色为主动买入，红色为主动卖出；圆圈越大，成交越大。图表绘制该时段内最大的 200 笔。",
 };
