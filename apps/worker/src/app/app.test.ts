@@ -1445,6 +1445,15 @@ describe("pages", () => {
     expect(await (await get("/screener", data)).text()).toContain(">login</a>");
   });
 
+  test("every page footer links to the Telegram group, off-origin and in a new tab", async () => {
+    const { data } = fakeData();
+    for (const path of ["/", "/whales"]) {
+      expect(await (await get(path, data)).text()).toContain(
+        '<a href="https://t.me/airratesnet" target="_blank" rel="noopener" title="Join the airrates group on Telegram: @airratesnet">telegram</a>',
+      );
+    }
+  });
+
   const vstatus = (overrides: Partial<VenueStatus> = {}): VenueStatus => ({
     venue_id: "gate",
     name: "Gate",

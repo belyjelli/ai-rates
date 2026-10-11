@@ -35,6 +35,8 @@ export const layout: Catalog = {
   "What settled. Not what might.": "只看已结算，不猜可能。",
   filter: "筛选",
   login: "登录",
+  telegram: "电报群",
+  "Join the airrates group on Telegram: @airratesnet": "加入 airrates 的 Telegram 群：@airratesnet",
   status: "状态",
   "geo-probe": "地域探测",
   about: "关于",

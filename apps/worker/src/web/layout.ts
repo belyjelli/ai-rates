@@ -45,11 +45,14 @@ const NAV = [
  * The member area, which lives on its own subdomain and is not served by this Worker.
  *
  * Labelled "login" in the footer because that is where it actually lands: measured 2026-09-16,
- * `member.airrates.net/` answers 303 to `/member` and settles on `/member/login`. It is the one
- * off-origin link in the footer, so it opens in a new tab with rel="noopener" — a reader who is
- * mid-screener keeps their filters rather than losing them to an auth redirect.
+ * `member.airrates.net/` answers 303 to `/member` and settles on `/member/login`. It is off-origin,
+ * so it opens in a new tab with rel="noopener" — a reader who is mid-screener keeps their filters
+ * rather than losing them to an auth redirect.
  */
 export const MEMBER_URL = "https://member.airrates.net/";
+
+/** The airrates Telegram group, @airratesnet: off-origin like the member area, so a new tab too. */
+export const TELEGRAM_URL = "https://t.me/airratesnet";
 
 /**
  * Google Analytics 4 for airrates.net, first thing in <head> as Google asks. The member area on its
@@ -869,7 +872,7 @@ ${INSTALL_HEAD}
 </header>
 <main class="wrap">${body}</main>
 <footer><div class="wrap">
-<p class="sig"><span><a href="${MEMBER_URL}" target="_blank" rel="noopener">${tr("login")}</a> · <a href="/status">${tr("status")}</a> · <a href="/probe">${tr("geo-probe")}</a> · <a href="/about">${tr("about")}</a> · <a class="kb-link" href="/keys">${keyboardIcon()}${tr("keyboard")}</a> · <a href="/referrals">${tr("referral links")}</a> · <a href="/legal">${tr("legal &amp; privacy")}</a> · <a href="/tos">${tr("terms")}</a></span><span>airrates</span></p>
+<p class="sig"><span><a href="${MEMBER_URL}" target="_blank" rel="noopener">${tr("login")}</a> · <a href="${TELEGRAM_URL}" target="_blank" rel="noopener" title="${tr("Join the airrates group on Telegram: @airratesnet")}">${tr("telegram")}</a> · <a href="/status">${tr("status")}</a> · <a href="/probe">${tr("geo-probe")}</a> · <a href="/about">${tr("about")}</a> · <a class="kb-link" href="/keys">${keyboardIcon()}${tr("keyboard")}</a> · <a href="/referrals">${tr("referral links")}</a> · <a href="/legal">${tr("legal &amp; privacy")}</a> · <a href="/tos">${tr("terms")}</a></span><span>airrates</span></p>
 <nav class="langs" aria-label="${tr("Language")}"><span>${tr("language:")}</span>${languages}</nav>
 <p>${tr("Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.")}</p>
 </div></footer>
