@@ -32,32 +32,41 @@ function harness(options: Partial<EdgeCacheOptions> = {}) {
   const edge = new EdgeCache({ now: () => now, ...options });
   const background: Promise<unknown>[] = [];
   const logs: string[] = [];
+  const observed: { ms: number; ok: boolean }[] = [];
   let renders = 0;
   const page = (
     body: string,
     headers: Record<string, string> = { "cache-control": "public, max-age=30" },
   ) => new Response(body, { status: 200, headers });
 
-  const get = (render: () => Promise<Response>, url = URL_A, method = "GET") => {
+  const args = (render: () => Promise<Response>, url: string, method: string) => {
     const request = new Request(url, { method });
-    return edge.serve({
+    return {
       cache,
       key: request,
       request,
-      waitUntil: (promise) => void background.push(promise),
+      waitUntil: (promise: Promise<unknown>) => void background.push(promise),
       render: () => {
         renders++;
         return render();
       },
       unavailable: () => new Response("busy", { status: 503 }),
-      log: (line) => logs.push(line),
-    });
+      log: (line: string) => logs.push(line),
+      observe: (outcome: { ms: number; ok: boolean }) => void observed.push(outcome),
+    };
   };
+  const get = (render: () => Promise<Response>, url = URL_A, method = "GET") =>
+    edge.serve(args(render, url, method));
+  /** The same request, from a caller being shed (app/load-shed.ts). */
+  const shed = (render: () => Promise<Response>, url = URL_A, method = "GET") =>
+    edge.serveShed(args(render, url, method));
   return {
     cache,
     get,
+    shed,
     page,
     logs,
+    observed,
     renders: () => renders,
     advance: (ms: number) => {
       now += ms;
@@ -345,5 +354,86 @@ describe("EdgeCache", () => {
     expect(
       await (await h.get(async () => h.page("x"), "https://www.airrates.net/cvd")).text(),
     ).toBe("a");
+  });
+});
+
+describe("EdgeCache, as load shedding sees it", () => {
+  const never = () => new Promise<Response>(() => {});
+
+  test("each render reports how long it took and whether it answered", async () => {
+    const h = harness();
+    await h.get(async () => {
+      h.advance(300);
+      return h.page("quick");
+    });
+    await h.get(
+      async () => new Response("down", { status: 503 }),
+      "https://www.airrates.net/liquidations",
+    );
+    await h.settle();
+    expect(h.observed).toEqual([
+      { ms: 300, ok: true },
+      { ms: 0, ok: false },
+    ]);
+  });
+
+  test("a reader with no copy who gives up at the budget reports a failure", async () => {
+    const h = harness({ budgetMs: 5 });
+    const response = await h.get(never);
+    expect(response.status).toBe(503);
+    expect(h.observed).toEqual([{ ms: 5, ok: false }]);
+  });
+
+  test("a shed caller gets any kept copy, however stale, without a render", async () => {
+    const h = harness();
+    await h.get(async () => h.page("kept"));
+    await h.settle();
+    // Fifty minutes on: far past fresh and past the refresh window, inside the keep-for hour.
+    h.advance(50 * 60_000);
+    const response = await h.shed(async () => h.page("must not render"));
+    expect(await response.text()).toBe("kept");
+    expect(state(response)).toBe("shed-copy");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=0");
+    expect(h.renders()).toBe(1);
+  });
+
+  test("with no copy, a shed caller gets the cut-off render, unstored and told to come back in a minute", async () => {
+    const h = harness();
+    const busy = await h.shed(
+      async () => new Response("busy", { status: 503, headers: { "retry-after": "10" } }),
+    );
+    expect(busy.status).toBe(503);
+    expect(state(busy)).toBe("shed");
+    expect(busy.headers.get("retry-after")).toBe("60");
+    expect(busy.headers.get("cache-control")).toBe("no-store");
+    // A route that reads nothing still answers, and is not stored: it was rendered for a caller
+    // whose render could not reach the database, so it is not the page a reader would get.
+    const plain = await h.shed(async () => h.page("robots"), "https://www.airrates.net/robots.txt");
+    expect(await plain.text()).toBe("robots");
+    await h.settle();
+    expect(h.cache.puts).toBe(0);
+    // And it tells the pressure gauge nothing about the database.
+    expect(h.observed).toEqual([]);
+  });
+
+  test("a shed render that throws is the busy answer, not a crash", async () => {
+    const h = harness();
+    const response = await h.shed(async () => {
+      throw new Error("load shedding: the database is reserved for page readers");
+    });
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("60");
+  });
+
+  test("a shed POST is rendered, never answered from a copy", async () => {
+    const h = harness();
+    await h.get(async () => h.page("a page"), "https://www.airrates.net/mcp");
+    await h.settle();
+    const response = await h.shed(
+      async () => new Response('{"error":"data_unavailable"}', { status: 503 }),
+      "https://www.airrates.net/mcp",
+      "POST",
+    );
+    expect(response.status).toBe(503);
   });
 });

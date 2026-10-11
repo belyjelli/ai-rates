@@ -3,6 +3,7 @@ import { handleApp, unavailableResponse } from "./app/app";
 import { createDataSource } from "./app/data";
 import { EdgeCache } from "./app/edge-cache";
 import { geoCacheBucket, requestGeo } from "./app/geo";
+import { isSheddable, Pressure, SHED_REFUSAL } from "./app/load-shed";
 import { withSecurityHeaders } from "./app/security-headers";
 import { visitPoint } from "./app/visits";
 import { ProbeDO } from "./probe/probe-do";
@@ -19,6 +20,9 @@ export { ProbeDO, ReferralStoreDO };
 // Module scope, so the renders in flight and the cooldowns are shared by every request this isolate
 // serves. That sharing is the point: it is what stops N readers of one cold page becoming N renders.
 const edge = new EdgeCache();
+// Whether this location's database path is too weak to spend on the API and on cloud networks
+// (app/load-shed.ts). Per isolate, and shared with the location's other isolates through its cache.
+const pressure = new Pressure();
 
 export default {
   // Every response leaves through withSecurityHeaders (app/security-headers.ts). Rendered pages carry
@@ -80,10 +84,13 @@ async function handle(
   }
   // What the page needs from the database is rendered at most once per URL at a time, served stale
   // while it refreshes, and replaced by the last good copy if it fails (app/edge-cache.ts).
-  const render = async (): Promise<Response> => {
+  // `refuseDatabase` is the render for a caller being shed: every query fails at once, before a
+  // connection is asked for, so the routes that read nothing still answer and the rest say busy.
+  const render = async (refuseDatabase = false): Promise<Response> => {
     // One connection per render, opened only if a route needs data; Hyperdrive pools the real ones.
     let sql: postgres.Sql | null = null;
     const data = createDataSource(() => {
+      if (refuseDatabase) throw new Error(SHED_REFUSAL);
       sql ??= postgres(env.HYPERDRIVE.connectionString, {
         // ONE connection per render. A page runs three to five queries at once, and with `max: 5`
         // each took a pooled connection of its own. The Hyperdrive config allows only
@@ -124,15 +131,31 @@ async function handle(
     }
   };
 
-  const response = await edge.serve({
+  const serving = {
     cache,
     key: cacheKey,
     request,
-    waitUntil: (promise) => ctx.waitUntil(promise),
-    render,
+    waitUntil: (promise: Promise<unknown>) => ctx.waitUntil(promise),
+    render: () => render(),
     unavailable: () => unavailableResponse(new URL(request.url).pathname, Date.now(), locale),
     log: console.error,
-  });
+    observe: (outcome: { ms: number; ok: boolean }) => {
+      const pressed = pressure.observe(outcome, cache);
+      if (!pressed) return;
+      ctx.waitUntil(pressed.share);
+      if (pressed.tipped) {
+        console.error(
+          `load shedding on: ${outcome.ok ? `a ${outcome.ms} ms render` : "a failed render"} after another; the API and cloud networks get the cache for a minute`,
+        );
+      }
+    },
+  };
+  // The API and the machines are cut first when the database path is weak; readers of the pages
+  // keep it (app/load-shed.ts).
+  const shed = isSheddable(request, request.cf?.asn) && (await pressure.underPressure(cache));
+  const response = shed
+    ? await edge.serveShed({ ...serving, render: () => render(true) })
+    : await edge.serve(serving);
   return varyByLanguage(await asMarkdown(request, response));
 }
 

@@ -3781,3 +3781,30 @@ describe("whales", () => {
     expect(sitemap).toContain("<loc>https://airrates.net/whales</loc>");
   });
 });
+
+describe("load shedding", () => {
+  // What a shed render's data source is (index.ts): every query refused before a connection is asked for.
+  const refused = new Proxy({} as DataSource, {
+    get: () => async () => {
+      throw new Error("load shedding: the database is reserved for page readers");
+    },
+  });
+
+  test("a shed render answers busy at once for the API and for pages that read data", async () => {
+    const api = await get("/v1/rates", refused);
+    expect(api.status).toBe(503);
+    expect(await api.json()).toEqual({ error: "data_unavailable" });
+    // Even the homepage, whose sections fail soft one by one: its header reads the database too.
+    for (const path of ["/liquidations/BTC", "/whales", "/"]) {
+      const res = await get(path, refused);
+      expect(res.status).toBe(503);
+      expect(res.headers.get("cache-control")).toBe("no-store");
+    }
+  });
+
+  test("routes that read nothing still answer a shed caller", async () => {
+    for (const path of ["/robots.txt", "/sitemap.xml", "/v1/openapi.json", "/v1/venues"]) {
+      expect((await get(path, refused)).status).toBe(200);
+    }
+  });
+});

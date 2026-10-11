@@ -30,6 +30,9 @@
  *
  * Copies are per Cloudflare location (`caches.default`), as before. A location that has never
  * rendered the page has no copy to fall back to; it gets the busy page, as before.
+ *
+ * A caller being shed (app/load-shed.ts) goes through `serveShed` instead: any kept copy, or a render
+ * that cannot reach the database, never stored.
  */
 
 export interface EdgeCacheOptions {
@@ -86,6 +89,12 @@ export interface ServeArgs {
   /** The busy page, for a reader who has no copy and whose render did not finish in time. */
   unavailable: () => Response;
   log?: (message: string) => void;
+  /**
+   * Told how each render went: how long it took and whether it answered. Also told, as a failure,
+   * when a reader with no copy gives up on one at the budget. Load shedding reads the database's
+   * health from this (app/load-shed.ts).
+   */
+  observe?: (outcome: { ms: number; ok: boolean }) => void;
 }
 
 /** A rendered response held as plain data, so any number of readers can each be given their own. */
@@ -104,6 +113,12 @@ export const CACHE_STATE = "x-airrates-cache";
 
 const TIMED_OUT = Symbol("timed out");
 
+/**
+ * Seconds a shed caller with nothing cached is told to wait (app/load-shed.ts). Longer than the busy
+ * page's 10: a program being shed is asked to back off, not to retry into the same pressure.
+ */
+const SHED_RETRY_SECONDS = 60;
+
 export class EdgeCache {
   private readonly options: EdgeCacheOptions;
   private readonly flights = new Map<string, { promise: Promise<Rendered>; startedAt: number }>();
@@ -119,13 +134,7 @@ export class EdgeCache {
     // Only a GET is ever stored or answered from a stored copy.
     if (request.method !== "GET") return render();
 
-    const hit = await cache.match(key).catch(() => undefined);
-    // A copy with no stamps (stored by the build before this one, for 30 s) is ignored outright.
-    const renderedAt = number(hit?.headers.get(RENDERED_AT));
-    const freshFor = number(hit?.headers.get(FRESH_FOR));
-    const age = renderedAt === null ? null : Math.max(0, o.now() - renderedAt);
-    const freshMs = freshFor === null ? 0 : freshFor * 1000;
-    const copy = hit && age !== null && age <= o.maxStaleMs ? hit : undefined;
+    const { copy, age, freshMs } = await this.kept(cache, key);
 
     if (copy && age !== null && age < freshMs) {
       return this.fromCopy(copy, "hit", age, freshMs - age);
@@ -147,11 +156,58 @@ export class EdgeCache {
     }
 
     const outcome = await settleWithin(flight, copy ? o.slowMs : o.budgetMs);
+    // A reader turned away at the budget is the clearest sign of a sick database, and the render
+    // itself may never report: one stopped with its request does not settle.
+    if (outcome === TIMED_OUT && !copy) args.observe?.({ ms: o.budgetMs, ok: false });
     if (outcome !== TIMED_OUT && outcome.status < 500) return this.fromRendered(outcome, "miss");
     if (copy) {
       return this.fromCopy(copy, outcome === TIMED_OUT ? "stale-slow" : "stale-error", age ?? 0, 0);
     }
     return outcome === TIMED_OUT ? unavailable() : this.fromRendered(outcome, "failed");
+  }
+
+  /**
+   * The answer for a caller being shed while the database is under pressure (app/load-shed.ts): any
+   * copy still kept, however stale, and otherwise `render` -- which the caller has cut off from the
+   * database, so only the routes that read nothing answer. That render is never joined, never
+   * stored, and never observed: it says nothing about the database. A failure tells the caller to
+   * come back in a minute rather than ten seconds.
+   */
+  async serveShed(args: ServeArgs): Promise<Response> {
+    const { cache, key, request, render } = args;
+    if (request.method === "GET") {
+      const { copy, age, freshMs } = await this.kept(cache, key);
+      if (copy && age !== null) return this.fromCopy(copy, "shed-copy", age, freshMs - age);
+    }
+    let rendered: Rendered;
+    try {
+      rendered = await snapshot(await render());
+    } catch {
+      rendered = unavailableSnapshot();
+    }
+    const response = this.fromRendered(rendered, "shed");
+    if (response.status >= 500) {
+      response.headers.set("retry-after", String(SHED_RETRY_SECONDS));
+      response.headers.set("cache-control", "no-store");
+    }
+    return response;
+  }
+
+  /**
+   * The stored copy for this key if it may still be served, with its age and how long it was fresh
+   * for. A copy with no stamps (stored by the build before this one, for 30 s) is ignored outright.
+   */
+  private async kept(
+    cache: CacheLike,
+    key: Request,
+  ): Promise<{ copy: Response | undefined; age: number | null; freshMs: number }> {
+    const hit = await cache.match(key).catch(() => undefined);
+    const renderedAt = number(hit?.headers.get(RENDERED_AT));
+    const freshFor = number(hit?.headers.get(FRESH_FOR));
+    const age = renderedAt === null ? null : Math.max(0, this.options.now() - renderedAt);
+    const freshMs = freshFor === null ? 0 : freshFor * 1000;
+    const copy = hit && age !== null && age <= this.options.maxStaleMs ? hit : undefined;
+    return { copy, age, freshMs };
   }
 
   /**
@@ -168,6 +224,7 @@ export class EdgeCache {
     if (failure && o.now() - failure.at < o.cooldownMs) return null;
 
     const flight = (async (): Promise<Rendered> => {
+      const startedAt = o.now();
       let rendered: Rendered;
       try {
         rendered = await snapshot(await render());
@@ -175,6 +232,7 @@ export class EdgeCache {
         log?.(`${new URL(id).pathname}: render failed: ${message(error)}`);
         rendered = unavailableSnapshot();
       }
+      args.observe?.({ ms: o.now() - startedAt, ok: rendered.status < 500 });
       if (rendered.status >= 500) {
         this.failures.set(id, { at: o.now(), rendered });
         this.pruneFailures();
