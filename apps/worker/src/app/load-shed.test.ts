@@ -67,16 +67,19 @@ describe("Pressure", () => {
     };
   };
 
-  test("quick renders never put the location under pressure", async () => {
+  test("quick renders never put the location under pressure, nor do heavy pages far from the database", async () => {
     const h = harness();
     for (let i = 0; i < 50; i++)
       expect(h.pressure.observe({ ms: 300, ok: true }, h.cache)).toBeNull();
+    // /liquidations/BTC uncached from Bangkok on a healthy path, 2026-10-11.
+    for (let i = 0; i < 10; i++)
+      expect(h.pressure.observe({ ms: 4_400, ok: true }, h.cache)).toBeNull();
     expect(await h.pressure.underPressure(h.cache)).toBe(false);
   });
 
   test("one slow render is bad luck; a second within the minute is pressure", async () => {
     const h = harness();
-    expect(h.pressure.observe({ ms: 6_000, ok: true }, h.cache)).toBeNull();
+    expect(h.pressure.observe({ ms: 9_000, ok: true }, h.cache)).toBeNull();
     expect(await h.pressure.underPressure(h.cache)).toBe(false);
     h.advance(20_000);
     const pressed = h.pressure.observe({ ms: 0, ok: false }, h.cache);
@@ -85,9 +88,9 @@ describe("Pressure", () => {
     expect(await h.pressure.underPressure(h.cache)).toBe(true);
     // Strikes a minute apart are not a pattern.
     const spaced = harness();
-    spaced.pressure.observe({ ms: 6_000, ok: true }, spaced.cache);
+    spaced.pressure.observe({ ms: 9_000, ok: true }, spaced.cache);
     spaced.advance(61_000);
-    expect(spaced.pressure.observe({ ms: 6_000, ok: true }, spaced.cache)).toBeNull();
+    expect(spaced.pressure.observe({ ms: 9_000, ok: true }, spaced.cache)).toBeNull();
   });
 
   test("it lifts a minute after the last bad render, and further strikes extend it without re-tipping", async () => {

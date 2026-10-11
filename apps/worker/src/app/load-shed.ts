@@ -82,8 +82,13 @@ export interface PressureOptions {
 }
 
 export const PRESSURE_DEFAULTS: PressureOptions = {
-  // A page is five or so queries of ~25 ms each; four seconds is a sick path, not a heavy page.
-  slowMs: 4_000,
+  // Eight seconds is a sick path, not a heavy page. A healthy uncached page is many quick queries
+  // made one after another, and from a location far from the database that adds up: measured
+  // 2026-10-11 through the tunnel (10 ms a query at Hyperdrive, nothing slow in Postgres),
+  // /liquidations/BTC took 2.9 to 4.4 s from Bangkok, and a 4 s threshold cut the API in normal
+  // traffic. The outage it is for looked nothing like that: 16 to 18 s renders, 10 s connection
+  // timeouts and failures.
+  slowMs: 8_000,
   // Two, so one unlucky render does not cut the API for a minute.
   strikes: 2,
   windowMs: 60_000,
