@@ -35,13 +35,13 @@
     // deploy/hklab/README.md, which is not committed).
     { "binding": "HYPERDRIVE", "id": "7c04838b33a6423d8a195fafab6d101f" }
   ],
-  // Run the Worker beside the database instead of beside the reader. An uncached page is many queries
-  // one after another, each a round trip to Hyperdrive's pool at the database: on 2026-10-11, with
-  // 10 ms queries, /liquidations/BTC still took 2.9 to 4.4 s from Bangkok. The database is in Hong
-  // Kong, hence AWS's Hong Kong region. The price: the page cache becomes Hong Kong's, so a cached
-  // page for a reader far away makes that trip too. A region and nothing more, as the repository is
-  // public: `host` would publish the database's address.
-  "placement": { "mode": "targeted", "region": "aws:ap-east-1" },
+  // Placement OFF on purpose: the Worker runs beside the reader. Tried 2026-10-11 in AWS's Hong Kong
+  // region, beside the database (2aaa52a): uncached pages from Bangkok went from 1.5-4.3 s to about
+  // 1-1.5 s, but every cached page -- most of what readers load, live polls included -- went from
+  // 0.06 s to 0.6-1.5 s, with the Worker itself answering in 5-60 ms: the time was the trip to Hong
+  // Kong and back. Placement moves the page cache too. Faster misses need fewer round trips per
+  // render, or a placed render Worker behind this one, not this.
+  "placement": { "mode": "off" },
   "observability": {
     "enabled": true
   },
