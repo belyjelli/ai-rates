@@ -1520,6 +1520,29 @@ describe("pages", () => {
     expect(html).not.toContain('<tr data-k="htx:liq">');
   });
 
+  test("the whale feeds are not listed as exchanges catalogued but not collected", async () => {
+    const never = {
+      last_run_ever: null,
+      last_run_at: null,
+      last_success_at: null,
+      live_markets: 0,
+    };
+    const { data } = fakeData({
+      venueStatus: async () => [
+        vstatus({ venue_id: "binance:walls", name: "Binance (whale orders)", ...never }),
+        vstatus({ venue_id: "binance:trades", name: "Binance (whale trades)", ...never }),
+        vstatus({ venue_id: "hyperliquid:walls", name: "Hyperliquid (whale orders)", ...never }),
+        vstatus({ venue_id: "txflow", name: "TxFlow", ...never }),
+      ],
+    });
+    const html = await (await get("/status", data)).text();
+    // A real exchange without an adapter is still the backlog; the socket feeds that run are not.
+    expect(html).toContain("<b>1</b> more exchanges are catalogued");
+    expect(html).toContain("TxFlow");
+    expect(html).not.toContain("whale orders");
+    expect(html).not.toContain("whale trades");
+  });
+
   test("the liquidation tab says the counts are missing when the table cannot be read", async () => {
     const { data } = fakeData({
       liquidationFeeds: async () => Promise.reject(new Error("no table")),

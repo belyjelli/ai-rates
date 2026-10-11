@@ -1309,10 +1309,12 @@ function statusBody(data: {
   // venue keeps its `venues` row for the foreign keys, but it is neither a fault nor a backlog item.
   const hidden = new Set(VENUES.filter((v) => v.aliasOf || v.retired).map((v) => v.id));
   const rows = venues
-    // A `<venue>:liq` row is one liquidation feed's own health, not a second copy of that exchange's
-    // collection. It belongs in the liquidation tab, where its silence can be read against how often
-    // that venue actually liquidates, instead of sitting here as an exchange listing no markets.
-    .filter((v) => !hidden.has(v.venue_id) && !v.venue_id.endsWith(":liq"))
+    // A `<venue>:<feed>` row is one socket feed's own catalog entry, not a second copy of that
+    // exchange's collection. A `:liq` feed belongs in the liquidation tab, where its silence can be
+    // read against how often that venue actually liquidates. The whale feeds (`:walls`, `:trades`)
+    // report their health only to the collector's /health, never to collector_runs, so here they
+    // read as "catalogued but not collected yet" while they run; /whales shows whether they deliver.
+    .filter((v) => !hidden.has(v.venue_id) && !v.venue_id.includes(":"))
     .map((v) => ({ status: v, state: venueState(v, now) }))
     .sort(
       (a, b) =>
