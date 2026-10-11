@@ -115,7 +115,11 @@ async function handle(
         await handleApp(request, {
           data,
           now: Date.now,
-          log: console.error,
+          // A shed render's refusals are the plan working, one per shed request: in a scraper's
+          // burst they would bury the lines worth reading.
+          log: (line: string) => {
+            if (!line.includes(SHED_REFUSAL)) console.error(line);
+          },
           // Per-colo, so a blunt filter against one client hammering one location. Backtests read
           // the collector's daily rollup, so nothing behind it is expensive enough to need more.
           rateLimit: async (key: string) => (await env.BACKTEST_LIMITER.limit({ key })).success,
