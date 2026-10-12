@@ -70,6 +70,8 @@ export const whales: Catalog = {
   "The whale-order feed has not ranked its markets yet. It does so within a few minutes of starting.":
     "巨鲸挂单数据源尚未完成市场排名，通常在启动后几分钟内完成。",
   "Resting now": "当前挂单",
+  "Orders and trades": "挂单与成交",
+  "{n} resting": "当前挂单 {n} 道",
   "Every wall in the book right now, largest first. Distance is from the last price; size is what the level holds now, peak the most it has held.":
     "订单簿中当前的全部挂单墙，按规模从大到小排列。距离相对最新价；规模是该价位当前的挂单量，峰值是曾达到的最大值。",
   "Ended in the last {window}": "过去 {window} 内结束",

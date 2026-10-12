@@ -499,6 +499,47 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .wh-pick-sum{white-space:nowrap}
 .wh-pick-none{padding:8px 10px}
 @media (max-width:640px){.wh-pick{flex:1 1 100%}.wh-pick-btn{min-width:0}.wh-pick-panel{width:calc(100vw - 20px)}.wh-pick-head,.wh-pick-row{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr);gap:8px}.wh-pick-head span:nth-child(3),.wh-pick-row>span:nth-child(3),.wh-pick-head span:nth-child(5),.wh-pick-row>span:nth-child(5){display:none}}
+/* The three tables (resting, ended, largest trades): one element, two shapes (whales.ts BOOK_SCRIPT).
+   These first rules are the phone's, and any browser's without popovers: the tables in the page,
+   under the chart, with every style a popover is born with taken back off. From 861px it is a panel
+   instead, opened by the button beside the picker, each table scrolling under its own heading:
+   resting on the left with the other two stacked beside it, or all three side by side once they fit
+   (1280px; 1600px for a rounded book, whose tables carry more columns). The --wh-* values are the
+   script's; without it the panel still opens, pinned to the top of the screen. */
+.wh-book-btn{display:none}
+.wh-book{display:block;position:static;inset:auto;width:auto;height:auto;max-width:none;max-height:none;margin:0;padding:0;border:0;overflow:visible;color:inherit;background:none}
+@media (min-width:861px){@supports selector(:popover-open){
+.wh-book-btn{display:flex;gap:10px;align-items:baseline;padding:5px 10px;font:12px/1.35 var(--mono);letter-spacing:0;text-transform:none;color:var(--ink);background:var(--panel);border:1px solid var(--rule)}
+.wh-book-btn::after{content:"▾";color:var(--muted)}
+.wh-book-btn:hover,main:has(.wh-book:popover-open) .wh-book-btn{background:var(--panel);border-color:var(--muted)}
+.wh-book-btn b{font-size:15px}
+.wh-book-btn .dim{font-size:11px}
+.wh-book{display:none;position:var(--wh-pos,fixed);top:var(--wh-top,12px);left:var(--wh-left,10px);width:var(--wh-width,calc(100vw - 20px));max-height:var(--wh-max,calc(100vh - 24px));overflow:hidden;color:var(--ink);background:var(--bg);border:1px solid var(--muted);border-top:2px solid var(--accent);box-shadow:0 14px 44px rgba(0,0,0,.75);
+opacity:0;transform:translateY(-4px);transition:opacity .14s ease-out,transform .14s ease-out,overlay .14s allow-discrete,display .14s allow-discrete}
+.wh-book:popover-open{display:grid;grid-template-columns:repeat(2,minmax(0,auto));grid-template-rows:minmax(0,1fr);opacity:1;transform:none}
+@starting-style{.wh-book:popover-open{opacity:0;transform:translateY(-4px)}}
+.wh-book::backdrop{background:transparent}
+/* The stacked pair shares the panel's height: each takes what its rows need, up to half. */
+.wh-book-side{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:repeat(2,minmax(0,auto));align-content:start;min-width:0;min-height:0;border-left:1px solid var(--rule)}
+.wh-book-side>.wh-book-col+.wh-book-col{border-top:1px solid var(--rule)}
+.wh-book-col{display:flex;flex-direction:column;min-width:0;min-height:0;padding:8px 10px 10px}
+.wh-book-col>*{flex:none}
+.wh-book-col>.cvd-h2{margin-bottom:6px}
+.wh-book-col>.sheet-wrap{flex:0 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
+.wh-book-col .sheet th{position:sticky;top:0;z-index:1;background:var(--bg);border-bottom:0;box-shadow:inset 0 -1px 0 var(--rule)}
+.wh-book-col .sheet th,.wh-book-col .sheet td{padding-left:6px;padding-right:6px}
+@media (min-width:1280px){
+.wh-book:not(.wh-book-wide):popover-open{grid-template-columns:repeat(3,minmax(0,auto))}
+.wh-book:not(.wh-book-wide) .wh-book-side{display:contents}
+.wh-book:not(.wh-book-wide) .wh-book-side>.wh-book-col{border-top:0;border-left:1px solid var(--rule)}
+}
+@media (min-width:1600px){
+.wh-book-wide:popover-open{grid-template-columns:repeat(3,minmax(0,auto))}
+.wh-book-wide .wh-book-side{display:contents}
+.wh-book-wide .wh-book-side>.wh-book-col{border-top:0;border-left:1px solid var(--rule)}
+}
+@media (prefers-reduced-motion:reduce){.wh-book{transition:none;transform:none}}
+}}
 .wh-addr{border:0;color:var(--muted)}.wh-addr:hover{color:var(--accent)}
 .wh-toggle{margin-left:14px;border:0;color:var(--muted)}
 .wh-toggle.on{color:var(--accent)}

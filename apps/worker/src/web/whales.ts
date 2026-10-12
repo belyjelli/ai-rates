@@ -436,6 +436,49 @@ export const PICK_SCRIPT = `(() => {
   });
 })();`;
 
+/**
+ * The three tables (resting now, ended, largest trades) are ONE element with two shapes. On a phone
+ * it is what it always was: three headed tables in the page, under the chart. On a desktop it is a
+ * wide panel that drops from a button beside the market picker, the tables side by side and each
+ * scrolling on its own, so sixty rows no longer push the page three screens long under the chart.
+ *
+ * One copy of the rows, not one per shape: live refresh matches regions by name and would have two
+ * of each to write. The panel is a `popover`, which the button opens with no script and which CSS is
+ * free to leave in the page instead: layout.ts shows it in place under 861px, and wherever the
+ * browser has no popovers. This script only puts the open panel under the controls row, as wide as
+ * the row and no taller than the screen below it. It is absolute rather than fixed, so it scrolls
+ * with the page like the picker's panel beside it.
+ */
+export const BOOK_SCRIPT = `(() => {
+  if (!("popover" in HTMLElement.prototype)) return;
+  const wide = matchMedia("(min-width: 861px)");
+  const book = () => document.getElementById("wh-book");
+  const place = (p) => {
+    const row = document.querySelector(".wh-controls");
+    if (!row) return;
+    const r = row.getBoundingClientRect();
+    p.style.setProperty("--wh-pos", "absolute");
+    p.style.setProperty("--wh-top", r.bottom + scrollY + 4 + "px");
+    p.style.setProperty("--wh-left", r.left + scrollX + "px");
+    p.style.setProperty("--wh-width", r.width + "px");
+    p.style.setProperty("--wh-max", Math.max(260, innerHeight - Math.max(r.bottom, 0) - 16) + "px");
+  };
+  // Delegated, and before the panel shows: a refresh that replaces the page's main keeps it working,
+  // and the panel never paints where the stylesheet alone would have put it.
+  document.addEventListener("beforetoggle", (e) => {
+    if (e.target instanceof HTMLElement && e.target.id === "wh-book" && e.newState === "open") place(e.target);
+  }, true);
+  addEventListener("resize", () => {
+    const p = book();
+    if (p && p.matches(":popover-open")) place(p);
+  });
+  // Narrowed to a phone's width, the tables belong in the page again, not floating over it.
+  wide.addEventListener("change", () => {
+    const p = book();
+    if (!wide.matches && p && p.matches(":popover-open")) p.hidePopover();
+  });
+})();`;
+
 export function whales(data: {
   overview: Overview;
   whales: WhaleData;
@@ -493,6 +536,11 @@ export function whales(data: {
   const { tally } = book;
   const floor = book.market ? formatUsd(book.market.floor_usd) : "–";
   const last = book.candles.at(-1)?.close ?? null;
+  // The desktop's way into the tables (BOOK_SCRIPT); a phone has them in the page and no button.
+  const bookButton =
+    book.market === null
+      ? ""
+      : `<button type="button" class="wh-book-btn" popovertarget="wh-book"><b>${tr("Orders and trades")}</b><span class="dim" data-live="wh-book-n">${tr("{n} resting", { n: `<span data-u="open">${open.length}</span>` })}</span></button>`;
 
   const tiles = `<div class="cvd-tiles wh-tiles" data-live="wh-tiles">
 <div class="cvd-tile"><p class="eyebrow">${tr("Bid walls resting")}</p><p class="cvd-big cvd-up"><span data-u="bids">${formatUsd(sum(bids))}</span></p><p class="dim">${tr("{n} buy walls below the price", { n: bids.length })}</p></div>
@@ -622,20 +670,31 @@ ${takerCell(t)}
     overview,
     now,
     body: `${helpHeading("h1", tr("Whale orders"), "whales", help)}
-<div class="lq-controls wh-controls">${picker}${venueStrip}${windowStrip}${pulledToggle}</div>
+<div class="lq-controls wh-controls">${picker}${bookButton}${venueStrip}${windowStrip}${pulledToggle}</div>
 ${
   book.market === null
     ? `<p class="empty">${book.markets.length ? tr("{asset} is not one of the markets tracked on {venue}.", { asset: label, venue }) : tr("The whale-order feed has not ranked its markets yet. It does so within a few minutes of starting.")}</p>`
     : `${tiles}
 <div id="wh-chart" class="cvd-anchor">${chart}</div>
+<section class="wh-book${rounded ? " wh-book-wide" : ""}" id="wh-book" popover aria-label="${esc(tr("Orders and trades"))}">
+<div class="wh-book-col">
 <h2 class="cvd-h2 has-help">${tr("Resting now")}${helpButton("wh-open")}</h2>
 ${helpPanel("wh-open", `<p>${tr("Every wall in the book right now, largest first. Distance is from the last price; size is what the level holds now, peak the most it has held.")}</p>`)}
 ${openTable}
+</div>
+<div class="wh-book-side">
+<div class="wh-book-col">
 <h2 class="cvd-h2">${tr("Ended in the last {window}", { window })}</h2>
 ${endedTable}
+</div>
+<div class="wh-book-col">
 <h2 class="cvd-h2">${tr("Largest trades in the last {window}", { window })}</h2>
-${tradeTable}`
+${tradeTable}
+</div>
+</div>
+</section>`
 }
-<script>${PICK_SCRIPT}</script>`,
+<script>${PICK_SCRIPT}</script>
+<script>${BOOK_SCRIPT}</script>`,
   });
 }

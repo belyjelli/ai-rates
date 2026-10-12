@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { VENUES } from "@ai-rates/venues";
 import { divergence, flowRatio } from "../web/cvd";
 import { bestPair, pivot } from "../web/pages";
+import { BOOK_SCRIPT } from "../web/whales";
 import { handleApp, unavailableResponse } from "./app";
 import type {
   ArbitrageRow,
@@ -3693,6 +3694,34 @@ describe("whales", () => {
     expect(html).toContain('<tbody data-live="wh-trades">');
   });
 
+  test("the three tables are one panel: a button opens it on a desktop, a phone has it in the page", async () => {
+    const html = await (await get("/whales", fakeData({ whales: async () => book }).data)).text();
+    // The button sits beside the market picker and counts the walls resting.
+    expect(html).toContain(
+      '</details><button type="button" class="wh-book-btn" popovertarget="wh-book">',
+    );
+    expect(html).toContain('data-live="wh-book-n"><span data-u="open">2</span> resting</span>');
+    // One copy of every table, all of them inside the panel: live refresh matches regions by name.
+    const panel =
+      html.split('<section class="wh-book" id="wh-book" popover')[1]?.split("</section>")[0] ?? "";
+    for (const region of ["wh-open", "wh-ended", "wh-trades"]) {
+      expect(panel).toContain(`<tbody data-live="${region}">`);
+      expect(html.split(`<tbody data-live="${region}">`)).toHaveLength(2);
+    }
+    for (const heading of [
+      "Resting now",
+      "Ended in the last 24h",
+      "Largest trades in the last 24h",
+    ])
+      expect(panel).toContain(heading);
+    // The help panel is inside it too: a popover opened from outside would close the one it explains.
+    expect(panel).toContain('id="help-wh-open" popover');
+    // The script only places the panel; the button opens it without one.
+    expect(html).toContain('getElementById("wh-book")');
+    expect(() => new Function(BOOK_SCRIPT)).not.toThrow();
+    expect(BOOK_SCRIPT.toLowerCase()).not.toContain("</script");
+  });
+
   test("a window with no large trade says so", async () => {
     const quiet = { ...book, trades: [], tally: { ...book.tally, buys: 0, sells: 0 } };
     const html = await (await get("/whales", fakeData({ whales: async () => quiet }).data)).text();
@@ -3776,6 +3805,8 @@ describe("whales", () => {
     expect(html).toContain("82,900–83,000");
     expect(html).toContain("bid wall 82,900–83,000 · $2.6M in 2 orders, one at least $1.3M");
     expect(html).toContain(">Largest ≥</th>");
+    // Two more columns a table: three side by side need a wider screen (layout.ts).
+    expect(html).toContain('<section class="wh-book wh-book-wide" id="wh-book" popover');
     expect(html).toContain("$100 wide");
     // Drawn and labelled at the bucket's middle.
     expect(html).toContain("$2.6M ~82,950");
@@ -3820,7 +3851,10 @@ describe("whales", () => {
     });
     const res = await get("/whales/DOGE", data);
     expect(res.status).toBe(404);
-    expect(await res.text()).toContain("DOGE is not one of the markets tracked on Binance.");
+    const html = await res.text();
+    expect(html).toContain("DOGE is not one of the markets tracked on Binance.");
+    // No tables to open, so no button for them.
+    expect(html).not.toContain('class="wh-book-btn"');
     expect(res.headers.get("x-robots-tag")).toBe("noindex");
   });
 
