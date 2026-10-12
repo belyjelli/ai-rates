@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { VENUES } from "@ai-rates/venues";
 import { divergence, flowRatio } from "../web/cvd";
 import { bestPair, pivot } from "../web/pages";
 import { handleApp, unavailableResponse } from "./app";
@@ -1762,6 +1763,61 @@ describe("pages", () => {
     // And it must NOT claim a clean bill of health it never took.
     expect(html).toContain("Verification has not run yet");
     expect(html).not.toContain("Every market agrees");
+  });
+
+  test("status lists every catalogued exchange as unknown when the database cannot be read", async () => {
+    // The collector's host reset six times on 2026-10-12, and each time /status -- the page a reader
+    // opens to find out what is wrong -- answered with the busy page.
+    const down = async () => {
+      throw new Error("connection refused");
+    };
+    const { data } = fakeData({
+      overview: down,
+      venueStatus: down,
+      liquidationFeeds: down,
+      identityChecks: down,
+    });
+    const logs: string[] = [];
+    const response = await handleApp(new Request("https://airates.test/status"), {
+      data,
+      now: () => NOW,
+      log: (m) => logs.push(m),
+    });
+    // Still a 503: the edge cache keeps serving its last good copy where it has one, a crawler comes
+    // back later, and nothing stores this as the state of the collector.
+    expect(response.status).toBe(503);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(response.headers.get("retry-after")).toBe("10");
+    expect(logs).toContain("/status: connection refused");
+
+    const html = await response.text();
+    expect(html).not.toContain("The data center is getting too busy");
+    expect(html).toContain("The collector's database could not be read just now");
+
+    // One row per exchange the site catalogues, from the Worker's own copy of the list.
+    const listed = VENUES.filter((v) => !v.aliasOf && !v.retired);
+    const table = html.slice(html.indexOf('<tbody data-live="status">'));
+    const rows = table.slice(0, table.indexOf("</tbody>"));
+    expect(rows.match(/<tr data-k=/g)?.length).toBe(listed.length);
+    expect(rows.match(/class="st st-unknown"/g)?.length).toBe(listed.length);
+    for (const venue of listed) expect(rows).toContain(`<tr data-k="${venue.id}">`);
+    expect(html).toContain(`<b>${listed.length}</b> catalogued`);
+
+    // Nothing unread is reported as a finding, good or bad.
+    expect(html).not.toContain("Every collected exchange is live and current");
+    expect(html).not.toContain("Verification has not run yet");
+    expect(html).not.toContain('class="st st-silent"');
+    expect(html).not.toContain("failed runs of");
+    // A measured verdict on a venue with no liquidation feed was never read from the database.
+    expect(html).toContain('class="st st-none"');
+  });
+
+  test("status goes back to the collector's own rows once the database answers", async () => {
+    const { data } = fakeData({ venueStatus: async () => [vstatus()] });
+    const html = await (await get("/status", data)).text();
+    expect(html).not.toContain('data-live="status-outage"');
+    expect(html).not.toContain('class="st st-unknown"');
+    expect(html).toContain("<b>1</b> collected");
   });
 
   test("price verification says so plainly when every market agrees", async () => {

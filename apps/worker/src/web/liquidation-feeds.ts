@@ -215,6 +215,9 @@ const VERDICT_TITLE: Record<FeedVerdict, string> = {
   blocked: "The venue publishes forced closes, but no source we can trust reaches our collector",
 };
 
+const UNREAD_TITLE =
+  "The collector's database could not be read, so this feed's state is not known right now";
+
 /** Feeds first, and within them the busiest, then the venues that publish nothing. */
 const VERDICT_ORDER: FeedVerdict[] = ["live", "blocked", "partial", "unresolved", "none"];
 
@@ -256,12 +259,14 @@ export function feedState(
 
 export function liquidationFeedTable(data: {
   feeds: LiquidationFeedRow[] | null;
-  venues: VenueStatus[];
+  /** Null when the collector's database could not be read at all: an ingested feed reads `unknown`. */
+  venues: VenueStatus[] | null;
   now: number;
 }): string {
-  const { feeds, venues, now } = data;
+  const { feeds, now } = data;
+  const unread = data.venues === null;
   const byVenue = new Map((feeds ?? []).map((row) => [row.venue_id, row]));
-  const byHealth = new Map(venues.map((venue) => [venue.venue_id, venue]));
+  const byHealth = new Map((data.venues ?? []).map((venue) => [venue.venue_id, venue]));
 
   const ranked = [...FEEDS].sort(
     (a, b) =>
@@ -274,7 +279,12 @@ export function liquidationFeedTable(data: {
     .map((entry) => {
       const row = byVenue.get(entry.venueId);
       const health = byHealth.get(`${entry.venueId}:liq`);
-      const { state, title } = feedState(entry, row, health, now);
+      // With nothing read, `feedState` would call every ingested feed `silent` and ask for each to be
+      // checked. A venue that publishes nothing keeps its verdict: that was measured, not read.
+      const { state, title } =
+        unread && entry.verdict === "live"
+          ? { state: "unknown", title: UNREAD_TITLE }
+          : feedState(entry, row, health, now);
       const longs =
         row && row.events_24h > 0
           ? `${Math.round((row.longs_24h / row.events_24h) * 100)}%`
@@ -287,7 +297,7 @@ export function liquidationFeedTable(data: {
 <td class="num">${row ? formatUsd(row.notional_24h) : '<span class="dim">–</span>'}</td>
 <td class="num dim">${row ? row.markets_24h.toLocaleString("en-US") : ""}</td>
 <td class="num">${longs}</td>
-<td class="dim">${row?.last_at ? since(row.last_at, now) : "never"}</td>
+<td class="dim">${row?.last_at ? since(row.last_at, now) : unread ? "–" : "never"}</td>
 <td class="feed-why">${esc(entry.evidence)}</td>
 </tr>`;
     })
@@ -301,9 +311,11 @@ export function liquidationFeedTable(data: {
 <p class="lede">Which exchanges publish forced closes, and which were tested and publish none. Every venue here was probed with a <b>control channel on the same connection</b> — a channel known to be pushing — so a quiet market and a venue that sends us nothing are different findings. Silence in the count below is not a fault by itself: the measured rates run from 4.5 a minute to one every twelve minutes. A feed that connects and is repeatedly dropped is a fault, and reports as one.</p>
 <p class="facts" data-live="liqfeed-facts"><span><b>${live}</b> feeds ingested</span><span><b>${none}</b> publish nothing</span><span><b>${events.toLocaleString("en-US")}</b> forced closes in 24h</span></p>
 ${
-  feeds === null
-    ? '<p class="notes">The liquidation table could not be read, so the counts below are missing rather than zero.</p>'
-    : ""
+  unread
+    ? '<p class="notes">The collector\'s database could not be read, so the state and counts of every ingested feed below are unknown rather than zero.</p>'
+    : feeds === null
+      ? '<p class="notes">The liquidation table could not be read, so the counts below are missing rather than zero.</p>'
+      : ""
 }
 <div class="sheet-wrap"><table class="sheet">
 <thead><tr><th>Exchange</th><th>Feed</th><th class="num">24h</th><th class="num" title="Forced closes stored in the last hour">1h</th><th class="num" title="Notional of the last 24 hours, where the venue's size could be converted to dollars">Money</th><th class="num" title="Distinct markets that liquidated in the last 24 hours">Markets</th><th class="num" title="Share of the last 24 hours that closed a long position">Longs</th><th>Last close</th><th>Evidence</th></tr></thead>

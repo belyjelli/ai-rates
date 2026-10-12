@@ -1277,8 +1277,10 @@ const duration = (ms: number | null): string =>
  * pass/fail reading and the geo-probe call them healthy.
  */
 export function status(data: {
-  overview: Overview;
-  venues: VenueStatus[];
+  /** Absent with `venues` null: a page that read no database has no status line to show. */
+  overview?: Overview;
+  /** Null when the collector's database could not be read at all (see `unreadVenueRows`). */
+  venues: VenueStatus[] | null;
   /** Null when the liquidations table could not be read, which is not the same as no liquidations. */
   liquidationFeeds: LiquidationFeedRow[] | null;
   /** Null when the verification table could not be read at all, which is not the same as empty. */
@@ -1298,13 +1300,52 @@ export function status(data: {
   });
 }
 
+const UNREAD_TITLE =
+  "The collector's database could not be read, so this exchange's state is not known right now";
+
+/**
+ * The collector table when the collector's database cannot be read: every exchange the site
+ * catalogues, each marked `unknown`.
+ *
+ * WHY NOT THE BUSY PAGE. /status is the page a reader opens to find out what is wrong. On 2026-10-12
+ * the collector's host reset six times in twelve hours, and each time this page answered with the
+ * runner like every other: the one page meant to explain an outage had nothing to say about it.
+ *
+ * FROM THE CATALOG, the copy of the venue list this Worker is built with (`@ai-rates/venues`), which
+ * needs nothing from the collector's side. So an exchange the collector has never run -- `planned`
+ * on a normal day -- is listed with the rest: which ones are collected is itself unreadable.
+ *
+ * `unknown`, never `failing` or `silent`. Nothing here is evidence about any exchange, nor even
+ * about the collector, which may be collecting into a database this Worker cannot reach.
+ */
+function unreadVenueRows(): { count: number; html: string } {
+  const listed = VENUES.filter((v) => !v.aliasOf && !v.retired).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
+  const html = listed
+    .map(
+      (v) => `<tr data-k="${esc(v.id)}">
+<td><div class="leg"><a class="venue" href="${exchangeHref(v.id)}">${esc(v.name)}</a><span class="meta">${esc(v.type)}</span></div></td>
+<td><span class="st st-unknown" title="${esc(UNREAD_TITLE)}">unknown</span></td>
+<td class="num dim">–</td>
+<td class="dim">–</td>
+<td class="num dim">–</td>
+<td class="num dim">–</td>
+</tr>`,
+    )
+    .join("");
+  return { count: listed.length, html };
+}
+
 function statusBody(data: {
-  venues: VenueStatus[];
+  venues: VenueStatus[] | null;
   liquidationFeeds: LiquidationFeedRow[] | null;
   checks: IdentityCheckRow[] | null;
   now: number;
 }): string {
-  const { venues, checks, liquidationFeeds, now } = data;
+  const { checks, liquidationFeeds, now } = data;
+  const unread = data.venues === null ? unreadVenueRows() : null;
+  const venues = data.venues ?? [];
   // An alias has no feed of its own; listing it would report another venue's health twice. A retired
   // venue keeps its `venues` row for the foreign keys, but it is neither a fault nor a backlog item.
   const hidden = new Set(VENUES.filter((v) => v.aliasOf || v.retired).map((v) => v.id));
@@ -1406,37 +1447,52 @@ ${tabBar({
   ],
   activeId: "collector",
 })}
+${
+  // A live region of its own, and one the page has only while unread: the next poll that reads the
+  // database finds the regions no longer line up, so live.ts takes the whole page and this goes.
+  unread
+    ? `<p class="outage" data-live="status-outage">The collector's database could not be read just now, so no exchange's state is known. Every exchange in the catalog is listed below as <b>unknown</b> until it can be read again; this page keeps asking by itself. That says nothing about the exchanges themselves: the <a href="/probe">geo-probe</a> asks each one directly and needs no collector.</p>`
+    : ""
+}
 <div class="tabpanel" role="tabpanel" id="panel-status-collector" data-tab-panel="collector" aria-labelledby="tab-status-collector">
-<p class="facts" data-live="status-facts"><span><b>${running.length}</b> collected</span><span><b>${tally("live")}</b> live</span>${
-    tally("empty") ? `<span><b>${tally("empty")}</b> empty</span>` : ""
-  }${tally("failing") ? `<span><b>${tally("failing")}</b> failing</span>` : ""}${
-    tally("stale") ? `<span><b>${tally("stale")}</b> stale</span>` : ""
-  }${tally("silent") ? `<span><b>${tally("silent")}</b> silent</span>` : ""}<span><b>${failures.toLocaleString("en-US")}</b> failed runs of ${runs.toLocaleString("en-US")} in 24h</span></p>
+${
+  unread
+    ? `<p class="facts" data-live="status-facts"><span><b>${unread.count}</b> catalogued</span><span><b>${unread.count}</b> unknown</span></p>`
+    : `<p class="facts" data-live="status-facts"><span><b>${running.length}</b> collected</span><span><b>${tally("live")}</b> live</span>${
+        tally("empty") ? `<span><b>${tally("empty")}</b> empty</span>` : ""
+      }${tally("failing") ? `<span><b>${tally("failing")}</b> failing</span>` : ""}${
+        tally("stale") ? `<span><b>${tally("stale")}</b> stale</span>` : ""
+      }${tally("silent") ? `<span><b>${tally("silent")}</b> silent</span>` : ""}<span><b>${failures.toLocaleString("en-US")}</b> failed runs of ${runs.toLocaleString("en-US")} in 24h</span></p>`
+}
 <div class="sheet-wrap"><table class="sheet">
 <thead><tr><th>Exchange</th><th>State</th><th class="num">Live markets</th><th>Last success</th><th class="num" title="Runs that returned an error in the last 24 hours. One blip and a venue that is down look identical without this">Failures 24h</th><th class="num" title="The last run's wall time and request count">Cost</th></tr></thead>
-<tbody data-live="status">${body}</tbody>
+<tbody data-live="status">${unread ? unread.html : body}</tbody>
 </table></div>
-${wrong === 0 ? '<p class="notes">Every collected exchange is live and current.</p>' : ""}
+${!unread && wrong === 0 ? '<p class="notes">Every collected exchange is live and current.</p>' : ""}
 </div>
 <div class="tabpanel" role="tabpanel" id="panel-status-liquidations" data-tab-panel="liquidations" aria-labelledby="tab-status-liquidations">
-${liquidationFeedTable({ feeds: liquidationFeeds, venues, now })}
+${liquidationFeedTable({ feeds: liquidationFeeds, venues: data.venues, now })}
 </div>
 <div class="tabpanel" role="tabpanel" id="panel-status-verification" data-tab-panel="verification" aria-labelledby="tab-status-verification">
 ${helpHeading("h2", "Price verification", "verification", `<p>Whether each market really is the asset it is filed under. Every asset is anchored on its deepest market by open interest, and a market disagreeing with that anchor by more than 10% is judged on whether its minute returns follow it. Correlation decides, never the size of the gap: a ratio landing near a clean 10× is a coincidence, not evidence — Gate quotes <b>PURR</b> at 104.6× Hyperliquid's on a correlation of 0.005, and they are simply different assets. <b>mismatch</b> means two unrelated assets share one ticker.</p>`)}
 ${
-  checks === null
-    ? '<p class="notes">Verification has not run yet, so nothing below is confirmed either way. This is what a deployment looks like before the collector has checked its first asset.</p>'
-    : verified.length === 0
-      ? '<p class="notes">Every market agrees with the deepest market in its asset pool.</p>'
-      : `<p class="facts"><span><b>${verified.length}</b> diverging</span>${
-          verdictTally("mismatch") ? `<span><b>${verdictTally("mismatch")}</b> mismatch</span>` : ""
-        }${verdictTally("scale") ? `<span><b>${verdictTally("scale")}</b> scale</span>` : ""}${
-          verdictTally("tracks") ? `<span><b>${verdictTally("tracks")}</b> tracks</span>` : ""
-        }${
-          verdictTally("unverified")
-            ? `<span><b>${verdictTally("unverified")}</b> unverified</span>`
-            : ""
-        }</p>
+  unread
+    ? '<p class="notes">The verification results could not be read, so nothing here is confirmed either way.</p>'
+    : checks === null
+      ? '<p class="notes">Verification has not run yet, so nothing below is confirmed either way. This is what a deployment looks like before the collector has checked its first asset.</p>'
+      : verified.length === 0
+        ? '<p class="notes">Every market agrees with the deepest market in its asset pool.</p>'
+        : `<p class="facts"><span><b>${verified.length}</b> diverging</span>${
+            verdictTally("mismatch")
+              ? `<span><b>${verdictTally("mismatch")}</b> mismatch</span>`
+              : ""
+          }${verdictTally("scale") ? `<span><b>${verdictTally("scale")}</b> scale</span>` : ""}${
+            verdictTally("tracks") ? `<span><b>${verdictTally("tracks")}</b> tracks</span>` : ""
+          }${
+            verdictTally("unverified")
+              ? `<span><b>${verdictTally("unverified")}</b> unverified</span>`
+              : ""
+          }</p>
 <div class="sheet-wrap"><table class="sheet">
 <thead><tr><th>Asset</th><th>Market</th><th title="The deepest market in the asset's pool by open interest. Every other market is measured against it, because the largest cluster is not necessarily the truthful one">Anchor</th><th class="num" title="This market's mark divided by the anchor's">Ratio</th><th class="num" title="Correlation of minute log-returns against the anchor. A dash means one side never moved, which is not the same as a correlation of zero">Corr</th><th class="num" title="Minute buckets in which both markets reported a mark">Mins</th><th>Verdict</th></tr></thead>
 <tbody data-checks="identity">${checkBody}</tbody>

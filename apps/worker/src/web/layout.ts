@@ -656,7 +656,8 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .st-empty,.st-stale{color:var(--warn)}
 .st-failing{color:var(--short)}
 .st-silent{color:var(--dim)}
-.st-planned{color:var(--dim)}
+.st-planned,.st-unknown{color:var(--dim)}
+.outage{margin:0 0 14px;color:var(--warn);max-width:100ch;line-height:1.5}
 /* Liquidation-feed states. A feed with nothing to report is not a fault -- the thinnest measured one
    averages a close every twelve minutes -- so "quiet" is dim, while a venue that publishes no feed at
    all is a settled finding rather than a warning. Only "failing" (the socket cycling) is alarming. */

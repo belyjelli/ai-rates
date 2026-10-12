@@ -964,7 +964,13 @@ export function unavailableResponse(
     path === "/v1" || path.startsWith("/v1/")
       ? json({ error: "data_unavailable" }, 503, 0)
       : htmlResponse(
-          withLocale(locale, () => pages.unavailable(path, now)),
+          withLocale(locale, () =>
+            // The one page that still has something to say: the list of exchanges comes from the
+            // catalog this Worker is built with, each marked unknown (pages.ts, `unreadVenueRows`).
+            path === "/status"
+              ? pages.status({ venues: null, liquidationFeeds: null, checks: null, now })
+              : pages.unavailable(path, now),
+          ),
           503,
         );
   response.headers.set("retry-after", String(UNAVAILABLE_RETRY_SECONDS));
