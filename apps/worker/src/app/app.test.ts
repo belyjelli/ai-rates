@@ -3805,7 +3805,7 @@ describe("whales", () => {
     expect(html).toContain("82,900–83,000");
     expect(html).toContain("bid wall 82,900–83,000 · $2.6M in 2 orders, one at least $1.3M");
     expect(html).toContain(">Largest ≥</th>");
-    // Two more columns a table: three side by side need a wider screen (layout.ts).
+    // Two more columns a table: too wide for three side by side, so it stays two across (layout.ts).
     expect(html).toContain('<section class="wh-book wh-book-wide" id="wh-book" popover');
     expect(html).toContain("$100 wide");
     // Drawn and labelled at the bucket's middle.

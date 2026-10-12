@@ -503,9 +503,10 @@ box-shadow:inset 0 0 0 1px var(--ink)}
    These first rules are the phone's, and any browser's without popovers: the tables in the page,
    under the chart, with every style a popover is born with taken back off. From 861px it is a panel
    instead, opened by the button beside the picker, each table scrolling under its own heading:
-   resting on the left with the other two stacked beside it, or all three side by side once they fit
-   (1280px; 1600px for a rounded book, whose tables carry more columns). The --wh-* values are the
-   script's; without it the panel still opens, pinned to the top of the screen. */
+   resting on the left with the other two stacked beside it, or all three side by side from 1360px,
+   where live prices fit with room to spare. A rounded book stays two across at any width: its tables
+   carry more columns than three abreast have room for. The --wh-* values are the script's; without
+   it the panel still opens, pinned to the top of the screen. */
 .wh-book-btn{display:none}
 .wh-book{display:block;position:static;inset:auto;width:auto;height:auto;max-width:none;max-height:none;margin:0;padding:0;border:0;overflow:visible;color:inherit;background:none}
 @media (min-width:861px){@supports selector(:popover-open){
@@ -528,15 +529,10 @@ opacity:0;transform:translateY(-4px);transition:opacity .14s ease-out,transform 
 .wh-book-col>.sheet-wrap{flex:0 1 auto;min-height:0;overflow:auto;overscroll-behavior:contain}
 .wh-book-col .sheet th{position:sticky;top:0;z-index:1;background:var(--bg);border-bottom:0;box-shadow:inset 0 -1px 0 var(--rule)}
 .wh-book-col .sheet th,.wh-book-col .sheet td{padding-left:6px;padding-right:6px}
-@media (min-width:1280px){
+@media (min-width:1360px){
 .wh-book:not(.wh-book-wide):popover-open{grid-template-columns:repeat(3,minmax(0,auto))}
 .wh-book:not(.wh-book-wide) .wh-book-side{display:contents}
 .wh-book:not(.wh-book-wide) .wh-book-side>.wh-book-col{border-top:0;border-left:1px solid var(--rule)}
-}
-@media (min-width:1600px){
-.wh-book-wide:popover-open{grid-template-columns:repeat(3,minmax(0,auto))}
-.wh-book-wide .wh-book-side{display:contents}
-.wh-book-wide .wh-book-side>.wh-book-col{border-top:0;border-left:1px solid var(--rule)}
 }
 @media (prefers-reduced-motion:reduce){.wh-book{transition:none;transform:none}}
 }}
