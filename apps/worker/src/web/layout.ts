@@ -621,6 +621,18 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .cvd-h2{font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.04em}
 .cvd-badge{font-size:11px;font-weight:700;text-transform:uppercase;padding:0 6px;border:1px solid currentColor}
 .cvd-badge-bullish{color:var(--long)}.cvd-badge-bearish{color:var(--short)}
+/* The whale map (whale-map.ts): Hyperliquid's large positions by the price they liquidate at, longs
+   below the dashed mark and shorts above, and the running total from the mark out to each band. */
+.wm-chart .wm-plot{height:300px}
+.wm-long{fill:var(--long)}.wm-short{fill:var(--short)}
+.wm-cum-l,.wm-cum-s{fill:none;stroke-width:1.5;vector-effect:non-scaling-stroke}
+.wm-cum-l{stroke:var(--long)}.wm-cum-s{stroke:var(--short)}
+.wm-mark{stroke:var(--ink);stroke-width:1;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
+.wm-chart .fchart-keys i.wm-key-l,.wm-chart .fchart-keys i.wm-key-s{width:10px;height:10px}
+.wm-key-l{background:var(--long)}.wm-key-s{background:var(--short)}
+.wm-chart .fchart-keys i.wm-key-cum{height:0;border-top:2px solid var(--muted)}
+.wm-x-mark{color:var(--ink)}
+.wm-h2{margin:18px 0 8px}
 /* Slot readout (slot-chart.ts), shared by the CVD and longs-vs-shorts charts. The readout sits in the
    header across the full width, and below desktop width it reserves the two to four lines its longest reading
    wraps to (measured at 1024, 600 and 390px), so the plot below does not jump while a finger scrubs. pan-y leaves vertical scrolling to the

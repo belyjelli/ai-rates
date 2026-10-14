@@ -731,6 +731,31 @@ export interface WhaleTally {
   sell_usd: number;
 }
 
+/**
+ * One Hyperliquid position of at least $100k, as the exchange reported it at its account's last
+ * read (collector migration 032, internal/hlpos). Reported, not modeled: the liquidation price is
+ * Hyperliquid's own.
+ */
+export interface WhalePosition {
+  address: string;
+  /** Hyperliquid's own name ("BTC", "xyz:GOLD") and the venue that lists it ("hyperliquid", "hl-xyz"). */
+  coin: string;
+  venue_id: string;
+  /** Signed: positive long, negative short. */
+  size: number;
+  entry_price: number;
+  position_usd: number;
+  /** Null when Hyperliquid reports none: the account's margin covers any move. */
+  liquidation_price: number | null;
+  leverage: number | null;
+  leverage_type: string | null;
+  unrealized_pnl_usd: number | null;
+  account_value_usd: number | null;
+  /** The position's own market's latest mark, which its distance to liquidation is measured from. */
+  mark_price: number | null;
+  read_at: Date;
+}
+
 export interface WhaleData {
   /** Every market tracked on the venue, by rank, with the picker's figures. */
   markets: WhaleMarket[];
@@ -829,6 +854,14 @@ export interface DataSource {
   }): Promise<WhaleData>;
   /** Fear/greed readings over the trailing window, oldest first, for the /sentiment chart. */
   sentimentHistory(hours: number): Promise<SentimentPoint[]>;
+  /**
+   * Hyperliquid positions of at least $100k in one asset, largest first, for the /liquidations
+   * whale map. Only accounts read in the last three hours: an older row may be a closed position.
+   */
+  whalePositions(options: {
+    base: string;
+    assetClass: AssetClass | null;
+  }): Promise<WhalePosition[]>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -1892,6 +1925,25 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         trades: [...trades],
         tally,
       };
+    },
+
+    async whalePositions({ base, assetClass }) {
+      const sql = connect();
+      // hl_positions_asset serves the filter; BTC holds a few hundred rows over $100k.
+      return sql<WhalePosition[]>`
+        WITH chosen AS (${chosenClass(sql, base, assetClass)})
+        SELECT p.address, p.coin, p.venue_id, p.size::float8 AS size,
+               p.entry_price::float8 AS entry_price, p.position_usd::float8 AS position_usd,
+               p.liquidation_price::float8 AS liquidation_price, p.leverage::float8 AS leverage,
+               p.leverage_type, p.unrealized_pnl_usd::float8 AS unrealized_pnl_usd,
+               p.account_value_usd::float8 AS account_value_usd, m.mark_price::float8 AS mark_price,
+               p.read_at
+        FROM hl_positions p
+        LEFT JOIN market_latest m ON m.venue_id = p.venue_id AND m.venue_symbol = p.coin
+        WHERE p.base = ${base} AND p.asset_class = (SELECT asset_class FROM chosen)
+          AND p.read_at > now() - interval '3 hours'
+        ORDER BY p.position_usd DESC
+        LIMIT 3000`;
     },
 
     async sentimentHistory(hours) {

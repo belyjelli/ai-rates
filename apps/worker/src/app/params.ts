@@ -432,7 +432,24 @@ export interface LiquidationAssetParams {
   pending: boolean;
   /** The pending strip's range: ±10% ("near"), or zoomed out to half the mark through double it. */
   zoom: "near" | "wide";
+  /** The whale map's smallest position: $1M, as whale trackers count them, or $100k. */
+  whale: WhaleFloor;
+  /** How far either side of the mark the whale map's price axis reaches, in percent. */
+  wzoom: WhaleZoom;
 }
+
+/**
+ * The whale map's price ranges. Fixed rather than fitted: most of a whale book sits far from its
+ * liquidation (BTC on 2026-10-14: 85% of it beyond ±30%), so a fit stretched to ±50% and crushed the
+ * levels near the price, which are the ones a trader acts on. The chart says what lies beyond.
+ */
+export const WHALE_ZOOMS = [10, 25, 50] as const;
+export type WhaleZoom = (typeof WHALE_ZOOMS)[number];
+export const DEFAULT_WHALE_ZOOM: WhaleZoom = 25;
+
+/** The whale map's position floors, in dollars by their query value. The collector stores $100k up. */
+export const WHALE_FLOORS = { "1m": 1_000_000, "100k": 100_000 } as const;
+export type WhaleFloor = keyof typeof WHALE_FLOORS;
 
 export function parseLiquidationAssetParams(params: URLSearchParams): LiquidationAssetParams {
   const window = (params.get("window") ?? "").trim().toLowerCase();
@@ -448,6 +465,10 @@ export function parseLiquidationAssetParams(params: URLSearchParams): Liquidatio
       : null,
     pending: params.get("pending") !== "0",
     zoom: params.get("zoom") === "out" ? "wide" : "near",
+    whale: params.get("whale") === "100k" ? "100k" : "1m",
+    wzoom: (WHALE_ZOOMS as readonly number[]).includes(Number(params.get("wzoom")))
+      ? (Number(params.get("wzoom")) as WhaleZoom)
+      : DEFAULT_WHALE_ZOOM,
   };
 }
 
@@ -457,6 +478,8 @@ export function liquidationAssetToQuery(params: LiquidationAssetParams): string 
   if (params.band !== null) query.set("band", String(params.band));
   if (!params.pending) query.set("pending", "0");
   if (params.zoom === "wide") query.set("zoom", "out");
+  if (params.whale !== "1m") query.set("whale", params.whale);
+  if (params.wzoom !== DEFAULT_WHALE_ZOOM) query.set("wzoom", String(params.wzoom));
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
 }

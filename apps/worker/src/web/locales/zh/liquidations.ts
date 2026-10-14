@@ -225,4 +225,66 @@ export const liquidations: Catalog = {
   "What the liquidation theories read now": "爆仓假说的当前读数",
   "A reading that leans one way is a hypothesis, not a signal: none of these has been shown to beat the base rate. The first three are measured against a fade, the way their test was written down in advance, and a flat reading leans nowhere.":
     "读数倾向某一方向只是假说，不是信号：目前没有任何一项被证明胜过基准概率。前三项按事先写定的检验方式，以回落（反向）为假设来衡量；读数持平则不指向任何方向。",
+  // web/liquidations.ts: the whale map tab.
+  "Nothing has been force-closed in this window, so there is no asset to map.":
+    "该时间窗口内没有任何强平，因此没有可绘制地图的资产。",
+  "Position size": "仓位规模",
+  "Price range": "价格范围",
+  "Whale map": "巨鲸地图",
+  "{asset} whale map": "{asset} 巨鲸地图",
+  Whales: "巨鲸",
+
+  // web/whale-map.ts
+  "mark {price}": "标记价格 {price}",
+  "{n} positions of {floor} or more · {longs} of longs, {shorts} of shorts · hover or tap a bar to read it":
+    "{n} 个 {floor} 及以上的仓位 · 多头 {longs}，空头 {shorts} · 悬停或点按柱形查看",
+  "Beyond ±{pct} of the mark, off the chart: {longs} of longs and {shorts} of shorts.":
+    "距标记价格 ±{pct} 之外、未在图中显示：多头 {longs}，空头 {shorts}。",
+  "{asset} · whale positions on Hyperliquid by liquidation price":
+    "{asset} · Hyperliquid 巨鲸仓位，按强平价格分布",
+  "Longs liquidate": "多头强平",
+  "Shorts liquidate": "空头强平",
+  "Total to the mark": "至标记价格的累计",
+  "{asset} price bands; arrow keys read one at a time": "{asset} 价格区间；方向键逐个读取",
+  "{asset} whale positions by the price they liquidate at": "{asset} 巨鲸仓位，按其强平价格分布",
+  "Every position here is one Hyperliquid reports for a named account, with the exchange's own liquidation price: reported, not modeled. Hyperliquid is the one exchange that publishes every account's positions; no other venue is in this map.":
+    "这里的每个仓位都是 Hyperliquid 为某个具体账户公布的仓位，强平价格由交易所自身给出：是实际数据，不是模型推算。Hyperliquid 是唯一公开每个账户仓位的交易所；本地图不包含其他交易所。",
+  "The collector watches the accounts on Hyperliquid's leaderboard worth $100k or more, and any account it sees in a large trade on Hyperliquid's busiest markets. It re-reads each one every few minutes while it holds $1M or more, hourly while it holds $100k, and sooner whenever it trades. So the map covers the largest traders, not every account.":
+    "采集器跟踪 Hyperliquid 排行榜上资产 $100k 及以上的账户，以及在 Hyperliquid 最活跃市场中出现大额成交的任何账户。持有 $1M 及以上仓位的账户每隔几分钟重新读取一次，持有 $100k 的每小时一次，账户一旦成交则会更早读取。因此地图覆盖的是最大的交易者，而不是所有账户。",
+  "A cross-margin position's liquidation price moves with the rest of its account: its other positions' profit and loss, deposits and withdrawals. Each one is as of its account's last read, shown in the table. Bars are the money that liquidates in each price band, longs below the mark and shorts above; the lines add up everything between the mark and that price.":
+    "全仓仓位的强平价格会随账户其余部分变化：其他仓位的盈亏、充值与提现。每个仓位以其账户最近一次读取为准，读取时间见表格。柱形表示每个价格区间内会被强平的金额，多头在标记价格下方，空头在上方；折线累计从标记价格到该价格之间的全部金额。",
+  "The whale positions could not be read right now.": "暂时无法读取巨鲸仓位。",
+  "No Hyperliquid position of {floor} or more in {asset} among the accounts watched.":
+    "在所跟踪的账户中，没有 {asset} 上 {floor} 及以上的 Hyperliquid 仓位。",
+  "There are {n} of $100k or more: switch to $100k+.":
+    "有 {n} 个 $100k 及以上的仓位：可切换到 $100k+。",
+  "nearest at {price} ({pct})": "最近的在 {price}（{pct}）",
+  "none with a liquidation price": "均无强平价格",
+  "Whale longs": "巨鲸多头",
+  "{n} positions": "{n} 个仓位",
+  "Whale shorts": "巨鲸空头",
+  "Within 5% of the mark": "距标记价格 5% 以内",
+  "longs below / shorts above": "下方多头 / 上方空头",
+  Accounts: "账户",
+  "read a median {age}": "读取时间中位数：{age}",
+  "No live mark for {asset}, so the positions cannot be placed on a price axis.":
+    "{asset} 没有在线标记价格，因此无法将仓位放到价格轴上。",
+  long: "多头",
+  short: "空头",
+  "Hyperliquid reports no liquidation price: the account's margin covers any move":
+    "Hyperliquid 未给出强平价格：账户保证金足以覆盖任何波动",
+  none: "无",
+  isolated: "逐仓",
+  "The {n} nearest to liquidation of {total}.": "共 {total} 个中最接近强平的 {n} 个。",
+  "Positions by distance to liquidation": "按距强平远近排列的仓位",
+  Trader: "交易者",
+  Value: "价值",
+  Entry: "开仓价",
+  "Liquidates at": "强平价格",
+  "From the market's mark to the liquidation price": "从该市场标记价格到强平价格的距离",
+  Leverage: "杠杆",
+  Unrealized: "未实现盈亏",
+  "The whole account's value on that dex": "该账户在该 dex 上的总价值",
+  Account: "账户价值",
+  Read: "读取",
 };

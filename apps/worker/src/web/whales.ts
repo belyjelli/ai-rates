@@ -58,11 +58,11 @@ export function whaleVenueName(venue: WhaleVenue): string {
 }
 
 /** Hyperliquid's own explorer, for a taker's address. */
-const explorerAddress = (address: string) =>
+export const explorerAddress = (address: string) =>
   `https://app.hyperliquid.xyz/explorer/address/${encodeURIComponent(address)}`;
 
 /** "0x2025…840e". */
-const shortAddress = (address: string) =>
+export const shortAddress = (address: string) =>
   address.length > 12 ? `${address.slice(0, 6)}…${address.slice(-4)}` : address;
 
 /** Drops float noise from a bucket edge (0.0853 + 0.0001 is 0.08539999999999999). */

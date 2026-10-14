@@ -20,6 +20,7 @@ import type {
   ScreenerFilters,
   ScreenerPair,
   VenueStatus,
+  WhalePosition,
 } from "./data";
 import { EMPTY_TALLY } from "./data";
 import type { Referral } from "./geo";
@@ -129,6 +130,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     cvd: async () => ({ rows: [], asset_class: "crypto" as const, bars: [], newest: null }),
     assetBars: async () => [],
     liquidationFeeds: async () => [],
+    whalePositions: async () => [],
     whales: async () => ({
       markets: [],
       venues: [],
@@ -844,6 +846,136 @@ describe("pages", () => {
     expect(zoomed).not.toContain('data-lazy="/liquidations?zoom=out&amp;panel=sides"');
     // An unknown panel is the page, not an error.
     expect((await get("/liquidations?panel=nope", data)).status).toBe(200);
+  });
+
+  describe("whale map", () => {
+    const whale = (overrides: Partial<WhalePosition>): WhalePosition => ({
+      address: "0x7c4b00000000000000000000000000000000e00b",
+      coin: "ETH",
+      venue_id: "hyperliquid",
+      size: 500,
+      entry_price: 4_000,
+      position_usd: 2_000_000,
+      liquidation_price: 3_800,
+      leverage: 20,
+      leverage_type: "cross",
+      unrealized_pnl_usd: -1_000,
+      account_value_usd: 5_000_000,
+      mark_price: 4_000,
+      read_at: new Date(NOW - 60_000),
+      ...overrides,
+    });
+    // ETH at 4,000: a $2M long 5% from liquidation, a $3M short 10% away, a $400k long 1% away (under
+    // the $1M floor), and a $1.5M long with no liquidation price at all.
+    const book = [
+      whale({}),
+      whale({
+        address: "0x5b5d00000000000000000000000000000000c060",
+        size: -750,
+        position_usd: 3_000_000,
+        liquidation_price: 4_400,
+        leverage: 5,
+        leverage_type: "isolated",
+      }),
+      whale({
+        address: "0x0000000000000000000000000000000000000001",
+        position_usd: 400_000,
+        liquidation_price: 3_960,
+      }),
+      whale({
+        address: "0x0000000000000000000000000000000000000002",
+        position_usd: 1_500_000,
+        liquidation_price: null,
+      }),
+    ];
+
+    test("the whale tab loads itself and lists the busiest asset's positions, nearest liquidation first", async () => {
+      const calls: string[] = [];
+      const { data } = fakeData({
+        liquidationMap: async () => liqMap(),
+        whalePositions: async ({ base }) => {
+          calls.push(base);
+          return book;
+        },
+      });
+      const page = await (await get("/liquidations", data)).text();
+      // A fifth tab, named for the busiest asset, read only when opened.
+      expect(page).toContain('data-tab="whales"');
+      expect(page).toContain("ETH whale map");
+      expect(page).toContain('data-lazy="/liquidations?panel=whales"');
+      expect(calls).toEqual([]);
+
+      const html = await tab("/liquidations", "whales", data);
+      expect(calls).toEqual(["ETH"]);
+      // $1M and up by default: the $400k long is left out.
+      const rows = [...html.matchAll(/<tr data-k="([^|]+)\|ETH">/g)].map((m) => m[1]);
+      expect(rows).toEqual([
+        "0x7c4b00000000000000000000000000000000e00b",
+        "0x5b5d00000000000000000000000000000000c060",
+        "0x0000000000000000000000000000000000000002",
+      ]);
+      expect(html).toContain(
+        'href="https://app.hyperliquid.xyz/explorer/address/0x7c4b00000000000000000000000000000000e00b"',
+      );
+      expect(html).toContain(">0x7c4b…e00b<");
+      expect(html).toContain("−5.0%");
+      expect(html).toContain("+10.0%");
+      expect(html).toContain("5× isolated");
+      // The long and short tiles, and the money within 5% of the mark on each side.
+      expect(html).toContain('data-u="longs">$3.5M<');
+      expect(html).toContain('data-u="shorts">$3.0M<');
+      expect(html).toContain('data-u="near-l" class="lq-ink-l">$2.0M<');
+      // The chart, with the crosshair and the hover payload; the switches reload the tab in place.
+      expect(html).toContain(
+        'class="fchart cvd-chart wm-chart" data-live="whale-chart" data-cursors',
+      );
+      expect(html).toContain('"kind":"wmap"');
+      expect(html).toContain(
+        'href="/liquidations?whale=100k#whales" data-lq-swap="whales">$100k+<',
+      );
+      expect(html).toContain('href="/liquidations?wzoom=50#whales" data-lq-swap="whales">±50%<');
+      expect(html).toContain('aria-current="page" data-lq-swap="whales">±25%<');
+    });
+
+    test("the $100k switch shows the smaller positions, and its address opens on a drawn tab", async () => {
+      const calls: string[] = [];
+      const { data } = fakeData({
+        liquidationMap: async () => liqMap(),
+        whalePositions: async ({ base }) => {
+          calls.push(base);
+          return book;
+        },
+      });
+      const html = await (await get("/liquidations?whale=100k", data)).text();
+      expect(calls).toEqual(["ETH"]);
+      expect(html).not.toContain('data-lazy="/liquidations?whale=100k&amp;panel=whales"');
+      // The $400k long, 1% from liquidation, now leads the table.
+      expect(html.match(/<tr data-k="([^|]+)\|ETH">/)?.[1]).toBe(
+        "0x0000000000000000000000000000000000000001",
+      );
+      // The other tabs' links keep the switch.
+      expect(html).toContain('data-lazy="/liquidations?whale=100k&amp;panel=sides"');
+    });
+
+    test("a failed read says so in the tab, and an empty $1M view points at the $100k one", async () => {
+      const broken = fakeData({
+        liquidationMap: async () => liqMap(),
+        whalePositions: async () => {
+          throw new Error("hl_positions does not exist");
+        },
+      });
+      const res = await get("/liquidations?panel=whales", broken.data);
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain("The whale positions could not be read right now.");
+
+      const small = fakeData({
+        liquidationMap: async () => liqMap(),
+        whalePositions: async () => [book[2] as WhalePosition],
+      });
+      const html = await tab("/liquidations", "whales", small.data);
+      expect(html).toContain("No Hyperliquid position of $1M or more in");
+      expect(html).toContain("There are 1 of $100k or more: switch to $100k+.");
+    });
   });
 
   test("an address that is not an asset is a 404, not the map with a stray tab", async () => {

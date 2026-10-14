@@ -74,6 +74,15 @@ export interface SlotWords {
   /** The twelve month names, "|"-joined, and the slot's date pattern. */
   months: string;
   when: string;
+  /** The whale map's: a price band, what liquidates in it, and what liquidates on the way to it. */
+  band: string;
+  longsHere: string;
+  shortsHere: string;
+  position: string;
+  positions: string;
+  noneHere: string;
+  longsToMark: string;
+  shortsToMark: string;
 }
 
 /** The words in the current render's language. */
@@ -97,6 +106,14 @@ export const slotWords = (): SlotWords => ({
   filling: tr("{when} (still filling)"),
   months: MONTHS.map((month) => trMsg(month)).join("|"),
   when: tr("{month} {day} {time} UTC"),
+  band: tr("{low} – {high} ({pct} from the mark)"),
+  longsHere: tr("longs liquidate here: {usd} ({n})"),
+  shortsHere: tr("shorts liquidate here: {usd} ({n})"),
+  position: tr("{n} position"),
+  positions: tr("{n} positions"),
+  noneHere: tr("no whale liquidates here"),
+  longsToMark: tr("{usd} of longs liquidate between here and the mark"),
+  shortsToMark: tr("{usd} of shorts liquidate between the mark and here"),
 });
 
 /** Compact dollars, identical to format.ts's `formatUsd` for any finite number (a test holds them). */
@@ -237,6 +254,64 @@ export function sidesText(
     .join(" · ");
 }
 
+/**
+ * One whale-map reading: price band i of d, what liquidates in it, and everything that liquidates
+ * between the mark and it -- longs on the way down to a band under the mark, shorts on the way up to
+ * one over it.
+ */
+export function whaleText(d: WhaleSlots, i: number, f: SlotFormat): string {
+  const w = f.words;
+  const low = d.low + i * d.step;
+  const mid = low + d.step / 2;
+  const parts = [
+    w.band
+      .replace("{low}", () => f.price(low))
+      .replace("{high}", () => f.price(low + d.step))
+      .replace("{pct}", () => f.pct((mid / d.mark - 1) * 100, 1)),
+  ];
+  const slot = d.slots[i];
+  const count = (n: number) => (n === 1 ? w.position : w.positions).replace("{n}", () => String(n));
+  if (slot === null || slot === undefined) parts.push(w.noneHere);
+  else {
+    if (slot[0] > 0) {
+      parts.push(
+        w.longsHere
+          .replace("{usd}", () => `<b class="lq-ink-l">${f.usd(slot[0])}</b>`)
+          .replace("{n}", () => count(slot[2])),
+      );
+    }
+    if (slot[1] > 0) {
+      parts.push(
+        w.shortsHere
+          .replace("{usd}", () => `<b class="lq-ink-s">${f.usd(slot[1])}</b>`)
+          .replace("{n}", () => count(slot[3])),
+      );
+    }
+  }
+  const toMark = d.cumulative[i] ?? 0;
+  if (toMark > 0) {
+    parts.push(
+      (mid < d.mark ? w.longsToMark : w.shortsToMark).replace("{usd}", () => f.usd(toMark)),
+    );
+  }
+  return parts.join(" · ");
+}
+
+/**
+ * What a whale-map figure ships: one entry per price band, low to high, [longs liquidating in it,
+ * shorts liquidating in it, how many of each], or null for a band where none does; and for every
+ * band, empty or not, everything that liquidates between the mark and it.
+ */
+export interface WhaleSlots {
+  kind: "wmap";
+  /** The lowest band's low price, each band's width, and the mark the distances are from. */
+  low: number;
+  step: number;
+  mark: number;
+  slots: ([number, number, number, number] | null)[];
+  cumulative: number[];
+}
+
 /** What a CVD figure ships: one entry per slot, oldest first, [bought, sold, CVD so far, price]. */
 export interface CvdSlots {
   kind: "cvd";
@@ -260,7 +335,7 @@ export interface SidesSlots {
  * The payload as a JSON script tag, `<` escaped so no value can close it. It carries the readout's
  * words in the render's language, which the browser copy of the text functions reads them from.
  */
-export function slotData(payload: CvdSlots | SidesSlots): string {
+export function slotData(payload: CvdSlots | SidesSlots | WhaleSlots): string {
   return `<script type="application/json" class="slot-data">${JSON.stringify({ ...payload, words: slotWords() }).replace(/</g, "\\u003c")}</script>`;
 }
 
@@ -300,7 +375,8 @@ export function slotCursorSwitch(): string {
  * THE CROSSHAIR. A figure marked data-cursors offers two cursors (slotCursorSwitch): the band, and a
  * crosshair whose level line follows the pointer's height in the panel it is over, with that height
  * read on each axis in a tag. A panel's axes come in its data-axes, {"l"|"r": [kind, bottom, top]},
- * the values at the bottom and top edges of the plot, since the SVG maps them linearly. The vertical
+ * the values at the bottom and top edges of the plot, since the SVG maps them linearly; kind is
+ * "price", "usd" (signed) or "amount" (dollars that have no sign). The vertical
  * line still snaps to the slot being read. A keyboard step has no height, so it draws no level line.
  * The choice is kept on <html> (data-cursor), not on the figure, which a refresh replaces.
  */
@@ -310,6 +386,7 @@ export const SLOT_SCRIPT = `(() => {
   const f = { usd: ${slotUsd}, price: ${slotPrice}, pct: ${slotPct}, when: ${slotWhen} };
   const cvdText = ${cvdText};
   const sidesText = ${sidesText};
+  const whaleText = ${whaleText};
   const parsed = new WeakMap();
   const idle = new WeakMap();
   let held = null, heldRead = null, heldIndex = -1;
@@ -325,6 +402,7 @@ export const SLOT_SCRIPT = `(() => {
   };
   const reading = (d, i) => {
     const fw = Object.assign({ words: d.words }, f);
+    if (d.kind === "wmap") return whaleText(d, i, fw);
     const when = f.when(d.from + i * d.unit, d.words);
     const head = i === d.slots.length - 1 ? d.words.filling.replace("{when}", () => when) : when;
     const slot = d.slots[i];
@@ -398,7 +476,8 @@ export const SLOT_SCRIPT = `(() => {
           plot.appendChild(tag);
         }
         const value = axis[2] - t * (axis[2] - axis[1]);
-        tag.textContent = axis[0] === "price" ? f.price(value) : (value > 0 ? "+" : "") + f.usd(value);
+        tag.textContent =
+          axis[0] === "price" ? f.price(value) : axis[0] === "amount" ? f.usd(Math.max(0, value)) : (value > 0 ? "+" : "") + f.usd(value);
         tag.style.top = (t * 100).toFixed(2) + "%";
         tag.hidden = false;
       }

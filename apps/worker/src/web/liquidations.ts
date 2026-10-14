@@ -1,8 +1,9 @@
 import type { AssetClass } from "@ai-rates/core";
-import type { LiquidationAssetMap, LiquidationMap, Overview } from "../app/data";
+import type { LiquidationAssetMap, LiquidationMap, Overview, WhalePosition } from "../app/data";
 import type { Outlook } from "../app/outlook";
 import {
   DEFAULT_LIQUIDATION_ASSETS,
+  DEFAULT_WHALE_ZOOM,
   LIQUIDATION_BAND_REACH,
   LIQUIDATION_BANDS,
   LIQUIDATION_VENUE_ALL,
@@ -16,6 +17,10 @@ import {
   liquidationVenueParam,
   liquidationVenues,
   readableQuery,
+  WHALE_FLOORS,
+  WHALE_ZOOMS,
+  type WhaleFloor,
+  type WhaleZoom,
 } from "../app/params";
 import { PENDING_ROWS, PENDING_ZOOMS, type PendingZoom } from "../app/pending";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
@@ -35,6 +40,7 @@ import {
   slotData,
 } from "./slot-chart";
 import { tabBar } from "./tabs";
+import { floorLabel, whalePanel } from "./whale-map";
 
 /** The address form every asset page uses: crypto unmarked, every other class in the path. */
 const assetPathFor = (asset: string, assetClass: AssetClass | null) =>
@@ -222,6 +228,8 @@ function controlHref(
     band?: LiquidationBand | null;
     pending?: boolean;
     zoom?: PendingZoom;
+    whale?: WhaleFloor;
+    wzoom?: WhaleZoom;
     /** Swap the asset the address names. Null returns to the all-assets address. */
     asset?: { name: string; assetClass: AssetClass } | null;
   } = {},
@@ -252,6 +260,10 @@ function controlHref(
   if (band !== null) query.set("band", String(band));
   if (!(overrides.pending ?? state.assetParams.pending)) query.set("pending", "0");
   if ((overrides.zoom ?? state.assetParams.zoom) === "wide") query.set("zoom", "out");
+  const whale = overrides.whale ?? state.assetParams.whale;
+  if (whale !== "1m") query.set("whale", whale);
+  const wzoom = overrides.wzoom ?? state.assetParams.wzoom;
+  if (wzoom !== DEFAULT_WHALE_ZOOM) query.set("wzoom", String(wzoom));
   const encoded = readableQuery(query);
   return `${base}${encoded ? `?${encoded}` : ""}${hash}`;
 }
@@ -1313,7 +1325,7 @@ ${table}`;
 }
 
 /** The tabs of /liquidations, in order. Only the map always ships; the rest may load themselves. */
-export const LIQUIDATION_TABS = ["map", "sides", "price", "odds"] as const;
+export const LIQUIDATION_TABS = ["map", "sides", "price", "odds", "whales"] as const;
 export type LiquidationTab = (typeof LIQUIDATION_TABS)[number];
 
 /** What a render of /liquidations read. A field left undefined was not read by THIS render. */
@@ -1333,6 +1345,11 @@ export interface LiquidationView {
   assetMap?: LiquidationAssetMap | null;
   /** The Odds tab's model; null when there is too little history, undefined when not read. */
   outlook?: Outlook | null;
+  /**
+   * The whale map's Hyperliquid positions in the asset, $100k and up; null when the read failed,
+   * undefined when this render skipped it (the tab then loads itself).
+   */
+  whales?: readonly WhalePosition[] | null;
   params: LiquidationParams;
   assetParams: LiquidationAssetParams;
   now: number;
@@ -1355,6 +1372,42 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
   const { map, asset, params, assetParams, now } = view;
   const state = controlState(view);
   if (id === "map") return mapPanel({ map, params, strip: state, now });
+
+  if (id === "whales") {
+    if (asset === null) {
+      return `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to map.")}</p>`;
+    }
+    if (view.whales === undefined) return null;
+    const assetClass = view.assetMap?.asset_class ?? view.assetClass ?? "crypto";
+    return whalePanel({
+      asset,
+      label: assetName(asset, assetClass),
+      positions: view.whales,
+      floor: assetParams.whale,
+      zoom: assetParams.wzoom,
+      picker: assetStrip(state, map.assets, asset, "#whales"),
+      floorStrip: `<nav class="tf" aria-label="${tr("Position size")}">${(
+        Object.keys(WHALE_FLOORS) as WhaleFloor[]
+      )
+        .map((floor) => {
+          const href = esc(controlHref(state, { whale: floor }, "#whales"));
+          const text = `${floorLabel(floor)}+`;
+          return floor === assetParams.whale
+            ? `<a class="on" href="${href}" aria-current="page" data-lq-swap="whales">${text}</a>`
+            : `<a href="${href}" data-lq-swap="whales">${text}</a>`;
+        })
+        .join("")}</nav><nav class="tf" aria-label="${tr("Price range")}">${WHALE_ZOOMS.map(
+        (zoom) => {
+          const href = esc(controlHref(state, { wzoom: zoom }, "#whales"));
+          const text = `±${zoom}%`;
+          return zoom === assetParams.wzoom
+            ? `<a class="on" href="${href}" aria-current="page" data-lq-swap="whales">${text}</a>`
+            : `<a href="${href}" data-lq-swap="whales">${text}</a>`;
+        },
+      ).join("")}</nav>`,
+      now,
+    });
+  }
 
   if (id === "odds") {
     if (asset === null) {
@@ -1475,11 +1528,14 @@ export function liquidationsPanel(view: LiquidationView, id: LiquidationTab): st
 }
 
 /** The per-asset tabs' full labels, which name the asset they show. */
-function assetTabLabels(asset: string | null): Record<"sides" | "price" | "odds", string> {
+function assetTabLabels(
+  asset: string | null,
+): Record<"sides" | "price" | "odds" | "whales", string> {
   return {
     sides: asset === null ? tr("Longs vs shorts") : tr("{asset} longs vs shorts", { asset }),
     price: asset === null ? tr("By price level") : tr("{asset} price levels", { asset }),
     odds: asset === null ? tr("Odds") : tr("{asset} odds", { asset }),
+    whales: asset === null ? tr("Whale map") : tr("{asset} whale map", { asset }),
   };
 }
 
@@ -1581,6 +1637,7 @@ ${tabBar({
     { id: "sides", label: labels.sides, shortLabel: tr("Sides") },
     { id: "price", label: labels.price, shortLabel: tr("Prices") },
     { id: "odds", label: labels.odds, shortLabel: tr("Odds") },
+    { id: "whales", label: labels.whales, shortLabel: tr("Whales") },
   ],
   activeId: active,
 })}

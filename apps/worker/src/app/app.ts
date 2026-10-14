@@ -44,6 +44,7 @@ import {
   type BacktestParams,
   CVD_INTERVALS,
   DEFAULT_FILTERS,
+  DEFAULT_WHALE_ZOOM,
   filtersToQuery,
   HEATMAP_MIN_VENUES,
   heatmapToQuery,
@@ -359,7 +360,8 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       // what the map tab reloads itself from when the reader picks venues (LQ_VENUE_SCRIPT).
       const askedPanel = url.searchParams.get("panel");
       const panel =
-        (["map", "sides", "price", "odds"] as const).find((id) => id === askedPanel) ?? null;
+        (["map", "sides", "price", "odds", "whales"] as const).find((id) => id === askedPanel) ??
+        null;
       const [overview, map] = await Promise.all([
         deps.data.overview(),
         deps.data.liquidationMap({ windowHours: hours, bucketHours, assets: params.assets }),
@@ -378,15 +380,22 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       // land on a drawn tab, not a spinner. The week of bars only for the Odds tab itself.
       const wantsAsset =
         wanted !== null &&
-        ((panel !== null && panel !== "map") ||
+        ((panel !== null && panel !== "map" && panel !== "whales") ||
           address !== null ||
           assetParams.band !== null ||
           !assetParams.pending ||
           assetParams.zoom === "wide");
       const wantsOdds = wanted !== null && panel === "odds";
+      // The whale map is read only for its own tab, or when its floor switch is in the query: a reader
+      // who just clicked $100k+ lands on a drawn tab. A failed read says so in the tab, not a 500.
+      const wantsWhales =
+        wanted !== null &&
+        (panel === "whales" ||
+          assetParams.whale !== "1m" ||
+          assetParams.wzoom !== DEFAULT_WHALE_ZOOM);
       // A failed read of the bars or the funding leaves the Odds tab saying it has too little
       // history, not the page 500.
-      const [assetMap, oddsBars, oddsMarkets] = await Promise.all([
+      const [assetMap, oddsBars, oddsMarkets, whales] = await Promise.all([
         wantsAsset && wanted
           ? deps.data.liquidationAsset({
               base: wanted.asset,
@@ -411,6 +420,11 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
               .catch(() => [])
           : [],
         wantsOdds && wanted ? deps.data.asset(wanted.asset, wanted.assetClass).catch(() => []) : [],
+        wantsWhales && wanted
+          ? deps.data
+              .whalePositions({ base: wanted.asset, assetClass: wanted.assetClass })
+              .catch(() => null)
+          : undefined,
       ]);
       if (address && (!assetMap || assetMap.asset_class === null)) {
         return page(
@@ -447,6 +461,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
                     now,
                   })
                 : null,
+        whales: wanted === null ? null : whales,
         params,
         assetParams,
         now,

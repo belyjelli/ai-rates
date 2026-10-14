@@ -27,6 +27,13 @@ export const charts: Catalog = {
   "{month} {day} {time} UTC": "{month}{day}日 {time} UTC",
 
   // web/slot-chart.ts: the hover readouts of the CVD and longs-vs-shorts charts.
+  "{low} – {high} ({pct} from the mark)": "{low} – {high}（距标记价格 {pct}）",
+  "longs liquidate here: {usd} ({n})": "此处多头强平：{usd}（{n}）",
+  "shorts liquidate here: {usd} ({n})": "此处空头强平：{usd}（{n}）",
+  "{n} position": "{n} 个仓位",
+  "no whale liquidates here": "此处没有巨鲸强平",
+  "{usd} of longs liquidate between here and the mark": "从此处到标记价格之间，多头强平 {usd}",
+  "{usd} of shorts liquidate between the mark and here": "从标记价格到此处之间，空头强平 {usd}",
   Cursor: "光标",
   cursor: "光标",
   bar: "柱",
