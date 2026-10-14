@@ -186,7 +186,8 @@ a:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .sent-long{color:var(--long)}
 .sent-short{color:var(--short)}
 .sent-ink{color:var(--ink)}
-.clock{color:var(--ink);background:none;border:0;padding:0;font:inherit;cursor:pointer}
+/* A button (a click flips it to UTC) that must not look like one: the global button rule styles hover too. */
+.clock,.clock:hover{color:var(--ink);background:none;border:0;padding:0;font:inherit;letter-spacing:normal;text-transform:none;cursor:pointer}
 .keys{margin-left:auto;display:flex;gap:12px;color:var(--dim);border:0}
 .keys:hover{color:var(--muted)}
 .keys [hidden]{display:none}
