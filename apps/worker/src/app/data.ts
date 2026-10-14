@@ -732,21 +732,29 @@ export interface WhaleTally {
 }
 
 /**
- * One Hyperliquid position of at least $100k, as the exchange reported it at its account's last
- * read (collector migration 032, internal/hlpos). Reported, not modeled: the liquidation price is
- * Hyperliquid's own.
+ * One position of at least $100k on an exchange that publishes every account's positions, as of its
+ * account's last read (collector view whale_positions: Hyperliquid's from migration 032, Lighter's
+ * and dYdX's from 033). Reported, not modeled; Hyperliquid and Lighter report the liquidation price
+ * too, and dYdX's is computed from the account's own balance and positions.
  */
 export interface WhalePosition {
+  /**
+   * The account on its venue: a Hyperliquid address, Lighter's account index, or a dYdX address
+   * with "/n" for a subaccount other than 0.
+   */
   address: string;
-  /** Hyperliquid's own name ("BTC", "xyz:GOLD") and the venue that lists it ("hyperliquid", "hl-xyz"). */
+  /** The venue's own name for the market ("BTC", "xyz:GOLD", "BTC-USD") and the venue that lists it. */
   coin: string;
   venue_id: string;
   /** Signed: positive long, negative short. */
   size: number;
-  entry_price: number;
+  /** Null until known (dYdX keeps none on chain; the collector asks its indexer). */
+  entry_price: number | null;
   position_usd: number;
-  /** Null when Hyperliquid reports none: the account's margin covers any move. */
+  /** Null when there is none: the account's margin covers any move. */
   liquidation_price: number | null;
+  /** False when the venue reports none and the collector computed it (dYdX). */
+  liquidation_reported: boolean;
   leverage: number | null;
   leverage_type: string | null;
   unrealized_pnl_usd: number | null;
@@ -1929,16 +1937,18 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
     async whalePositions({ base, assetClass }) {
       const sql = connect();
-      // hl_positions_asset serves the filter; BTC holds a few hundred rows over $100k.
+      // The view is a UNION ALL of hl_positions and venue_positions, each with an index on the
+      // asset that serves the filter; BTC holds a few hundred rows over $100k.
       return sql<WhalePosition[]>`
         WITH chosen AS (${chosenClass(sql, base, assetClass)})
-        SELECT p.address, p.coin, p.venue_id, p.size::float8 AS size,
+        SELECT p.account AS address, p.coin, p.venue_id, p.size::float8 AS size,
                p.entry_price::float8 AS entry_price, p.position_usd::float8 AS position_usd,
-               p.liquidation_price::float8 AS liquidation_price, p.leverage::float8 AS leverage,
-               p.leverage_type, p.unrealized_pnl_usd::float8 AS unrealized_pnl_usd,
+               p.liquidation_price::float8 AS liquidation_price, p.liquidation_reported,
+               p.leverage::float8 AS leverage, p.leverage_type,
+               p.unrealized_pnl_usd::float8 AS unrealized_pnl_usd,
                p.account_value_usd::float8 AS account_value_usd, m.mark_price::float8 AS mark_price,
                p.read_at
-        FROM hl_positions p
+        FROM whale_positions p
         LEFT JOIN market_latest m ON m.venue_id = p.venue_id AND m.venue_symbol = p.coin
         WHERE p.base = ${base} AND p.asset_class = (SELECT asset_class FROM chosen)
           AND p.read_at > now() - interval '3 hours'

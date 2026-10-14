@@ -633,6 +633,7 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .wm-chart .fchart-keys i.wm-key-cum{height:0;border-top:2px solid var(--muted)}
 .wm-x-mark{color:var(--ink)}
 .wm-h2{margin:18px 0 8px}
+.wm-venues{margin:-4px 0 12px;font-size:12px}.wm-venues b{color:var(--ink);font-weight:500}.wm-venues span{white-space:nowrap}
 /* Slot readout (slot-chart.ts), shared by the CVD and longs-vs-shorts charts. The readout sits in the
    header across the full width, and below desktop width it reserves the two to four lines its longest reading
    wraps to (measured at 1024, 600 and 390px), so the plot below does not jump while a finger scrubs. pan-y leaves vertical scrolling to the

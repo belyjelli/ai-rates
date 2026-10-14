@@ -857,6 +857,7 @@ describe("pages", () => {
       entry_price: 4_000,
       position_usd: 2_000_000,
       liquidation_price: 3_800,
+      liquidation_reported: true,
       leverage: 20,
       leverage_type: "cross",
       unrealized_pnl_usd: -1_000,
@@ -908,7 +909,7 @@ describe("pages", () => {
       const html = await tab("/liquidations", "whales", data);
       expect(calls).toEqual(["ETH"]);
       // $1M and up by default: the $400k long is left out.
-      const rows = [...html.matchAll(/<tr data-k="([^|]+)\|ETH">/g)].map((m) => m[1]);
+      const rows = [...html.matchAll(/<tr data-k="hyperliquid\|([^|]+)\|ETH">/g)].map((m) => m[1]);
       expect(rows).toEqual([
         "0x7c4b00000000000000000000000000000000e00b",
         "0x5b5d00000000000000000000000000000000c060",
@@ -950,7 +951,7 @@ describe("pages", () => {
       expect(calls).toEqual(["ETH"]);
       expect(html).not.toContain('data-lazy="/liquidations?whale=100k&amp;panel=whales"');
       // The $400k long, 1% from liquidation, now leads the table.
-      expect(html.match(/<tr data-k="([^|]+)\|ETH">/)?.[1]).toBe(
+      expect(html.match(/<tr data-k="hyperliquid\|([^|]+)\|ETH">/)?.[1]).toBe(
         "0x0000000000000000000000000000000000000001",
       );
       // The other tabs' links keep the switch.
@@ -973,8 +974,54 @@ describe("pages", () => {
         whalePositions: async () => [book[2] as WhalePosition],
       });
       const html = await tab("/liquidations", "whales", small.data);
-      expect(html).toContain("No Hyperliquid position of $1M or more in");
+      expect(html).toContain("No position of $1M or more in");
       expect(html).toContain("There are 1 of $100k or more: switch to $100k+.");
+    });
+
+    test("Lighter's and dYdX's positions sit beside Hyperliquid's, each linked to its own venue", async () => {
+      const { data } = fakeData({
+        liquidationMap: async () => liqMap(),
+        whalePositions: async () => [
+          whale({}),
+          // Lighter's own mark is 4,010: its 2% is measured from there, not from Hyperliquid's.
+          whale({
+            venue_id: "lighter",
+            address: "714710",
+            size: -300,
+            position_usd: 1_203_000,
+            liquidation_price: 4_090.2,
+            mark_price: 4_010,
+          }),
+          whale({
+            venue_id: "dydx",
+            coin: "ETH-USD",
+            address: "dydx1fjeassd5ljdfwy5elpqn3pfzdccmwzz706v97e/2",
+            size: -400,
+            entry_price: null,
+            position_usd: 1_600_000,
+            liquidation_price: 4_800,
+            liquidation_reported: false,
+            leverage: 3.4,
+          }),
+        ],
+      });
+      const html = await tab("/liquidations", "whales", data);
+      expect(html).toContain('<tr data-k="lighter|714710|ETH">');
+      expect(html).toContain('href="https://app.lighter.xyz/explorer/accounts/714710"');
+      expect(html).toContain(">#714710<");
+      expect(html).toContain(
+        'href="https://www.mintscan.io/dydx/address/dydx1fjeassd5ljdfwy5elpqn3pfzdccmwzz706v97e"',
+      );
+      expect(html).toContain(">dydx1f…v97e/2<");
+      expect(html).toContain("+2.0%");
+      // dYdX's price is computed, and says so; its unknown entry is a dash, not a zero.
+      expect(html).toContain('4,800<span class="dim">*</span>');
+      expect(html).toContain("dYdX publishes no liquidation price");
+      expect(html).toContain("3.4× cross");
+      expect(html).toContain('<td class="dim">Lighter</td>');
+      expect(html).toContain("whale positions by liquidation price · Hyperliquid, dYdX, Lighter");
+      expect(html).toMatch(/data-live="whale-venues">By venue: <span>Hyperliquid <b>\$2\.0M<\/b>/);
+      expect(html).toContain('data-u="accounts">3<');
     });
   });
 

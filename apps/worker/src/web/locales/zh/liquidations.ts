@@ -240,22 +240,24 @@ export const liquidations: Catalog = {
     "{n} 个 {floor} 及以上的仓位 · 多头 {longs}，空头 {shorts} · 悬停或点按柱形查看",
   "Beyond ±{pct} of the mark, off the chart: {longs} of longs and {shorts} of shorts.":
     "距标记价格 ±{pct} 之外、未在图中显示：多头 {longs}，空头 {shorts}。",
-  "{asset} · whale positions on Hyperliquid by liquidation price":
-    "{asset} · Hyperliquid 巨鲸仓位，按强平价格分布",
+  "{asset} · whale positions by liquidation price · {venues}":
+    "{asset} · 巨鲸仓位，按强平价格分布 · {venues}",
   "Longs liquidate": "多头强平",
   "Shorts liquidate": "空头强平",
   "Total to the mark": "至标记价格的累计",
   "{asset} price bands; arrow keys read one at a time": "{asset} 价格区间；方向键逐个读取",
   "{asset} whale positions by the price they liquidate at": "{asset} 巨鲸仓位，按其强平价格分布",
-  "Every position here is one Hyperliquid reports for a named account, with the exchange's own liquidation price: reported, not modeled. Hyperliquid is the one exchange that publishes every account's positions; no other venue is in this map.":
-    "这里的每个仓位都是 Hyperliquid 为某个具体账户公布的仓位，强平价格由交易所自身给出：是实际数据，不是模型推算。Hyperliquid 是唯一公开每个账户仓位的交易所；本地图不包含其他交易所。",
-  "The collector watches the accounts on Hyperliquid's leaderboard worth $100k or more, and any account it sees in a large trade on Hyperliquid's busiest markets. It re-reads each one every few minutes while it holds $1M or more, hourly while it holds $100k, and sooner whenever it trades. So the map covers the largest traders, not every account.":
-    "采集器跟踪 Hyperliquid 排行榜上资产 $100k 及以上的账户，以及在 Hyperliquid 最活跃市场中出现大额成交的任何账户。持有 $1M 及以上仓位的账户每隔几分钟重新读取一次，持有 $100k 的每小时一次，账户一旦成交则会更早读取。因此地图覆盖的是最大的交易者，而不是所有账户。",
+  "Every position here is one an exchange publishes for a named account: reported, not modeled. Only Hyperliquid, Lighter and dYdX publish every account's positions, and together they hold about a tenth of the open interest; Binance, OKX and the other centralized exchanges publish none, so they are not in this map.":
+    "这里的每个仓位都是交易所为某个具体账户公布的仓位：是实际数据，不是模型推算。只有 Hyperliquid、Lighter 和 dYdX 公开每个账户的仓位，三者合计约占全市场持仓量的十分之一；Binance、OKX 等中心化交易所不公开任何账户仓位，因此不在本地图中。",
+  "Hyperliquid and Lighter report each position's liquidation price. dYdX does not, so its are computed from the account's own balance and positions with dYdX's maintenance margins, holding its other prices where they are; they are marked * in the table.":
+    "Hyperliquid 和 Lighter 会给出每个仓位的强平价格。dYdX 不提供，因此其强平价格由账户自身的余额与仓位、按 dYdX 的维持保证金率计算得出，并假定账户其他市场价格不变；表格中以 * 标注。",
+  "On Hyperliquid the collector watches the leaderboard's accounts worth $100k or more and any account it sees in a large trade, re-reading each every few minutes while it holds $1M or more and hourly while it holds $100k. On Lighter it follows the leaderboard's owners with $100k in the account or a $100k position, whose changes arrive as they happen. On dYdX it reads every account on the chain every five minutes. So the map covers the largest traders, not every account.":
+    "在 Hyperliquid 上，采集器跟踪排行榜上资产 $100k 及以上的账户，以及出现大额成交的任何账户；持有 $1M 及以上仓位的账户每隔几分钟重新读取一次，持有 $100k 的每小时一次。在 Lighter 上，它跟踪排行榜上账户资产达 $100k 或持有 $100k 仓位的地址，仓位变化实时推送。在 dYdX 上，它每五分钟读取一次链上的全部账户。因此地图覆盖的是最大的交易者，而不是所有账户。",
   "A cross-margin position's liquidation price moves with the rest of its account: its other positions' profit and loss, deposits and withdrawals. Each one is as of its account's last read, shown in the table. Bars are the money that liquidates in each price band, longs below the mark and shorts above; the lines add up everything between the mark and that price.":
     "全仓仓位的强平价格会随账户其余部分变化：其他仓位的盈亏、充值与提现。每个仓位以其账户最近一次读取为准，读取时间见表格。柱形表示每个价格区间内会被强平的金额，多头在标记价格下方，空头在上方；折线累计从标记价格到该价格之间的全部金额。",
   "The whale positions could not be read right now.": "暂时无法读取巨鲸仓位。",
-  "No Hyperliquid position of {floor} or more in {asset} among the accounts watched.":
-    "在所跟踪的账户中，没有 {asset} 上 {floor} 及以上的 Hyperliquid 仓位。",
+  "No position of {floor} or more in {asset} among the accounts watched.":
+    "在所跟踪的账户中，没有 {asset} 上 {floor} 及以上的仓位。",
   "There are {n} of $100k or more: switch to $100k+.":
     "有 {n} 个 $100k 及以上的仓位：可切换到 $100k+。",
   "nearest at {price} ({pct})": "最近的在 {price}（{pct}）",
@@ -271,8 +273,11 @@ export const liquidations: Catalog = {
     "{asset} 没有在线标记价格，因此无法将仓位放到价格轴上。",
   long: "多头",
   short: "空头",
-  "Hyperliquid reports no liquidation price: the account's margin covers any move":
-    "Hyperliquid 未给出强平价格：账户保证金足以覆盖任何波动",
+  "No liquidation price: the account's margin covers any move":
+    "没有强平价格：账户保证金足以覆盖任何波动",
+  "dYdX publishes no liquidation price: computed from the account's balance and positions with dYdX's maintenance margins":
+    "dYdX 不公布强平价格：按账户余额与仓位及 dYdX 的维持保证金率计算得出",
+  "By venue:": "按交易所：",
   none: "无",
   isolated: "逐仓",
   "The {n} nearest to liquidation of {total}.": "共 {total} 个中最接近强平的 {n} 个。",
@@ -284,7 +289,7 @@ export const liquidations: Catalog = {
   "From the market's mark to the liquidation price": "从该市场标记价格到强平价格的距离",
   Leverage: "杠杆",
   Unrealized: "未实现盈亏",
-  "The whole account's value on that dex": "该账户在该 dex 上的总价值",
+  "The whole account's value on its venue": "该账户在其交易所上的总价值",
   Account: "账户价值",
   Read: "读取",
 };
