@@ -23,7 +23,9 @@ import {
   SLOT_BAND,
   SLOT_CURSOR,
   SLOT_FORMAT,
+  SLOT_HAIR,
   SLOT_SCRIPT,
+  slotCursorSwitch,
   slotData,
 } from "./slot-chart";
 import { venueName } from "./venues";
@@ -194,6 +196,14 @@ function cvdChart(data: {
     .map((f) => `<span class="cvd-yr" style="top:${f * 100}%">${signedUsd(cvdAt(f))}</span>`)
     .join("");
 
+  // Each panel's axes for the crosshair's tags: the values at the plot's bottom and top edges.
+  const priceAxes = esc(
+    JSON.stringify({
+      ...(prices.length ? { l: ["price", pLo - pPad, pHi + pPad] } : {}),
+      r: ["usd", cLo - cPad, cHi + cPad],
+    }),
+  );
+
   // The net strip: one bar per slot around its own zero, on its own symmetric scale.
   const peak = niceCeil(Math.max(0, ...slots.map((s) => (s.bar ? Math.abs(net(s.bar)) : 0))));
   const barWidth = Math.max(slot * 0.72, 1);
@@ -282,15 +292,15 @@ function cvdChart(data: {
     ),
   });
 
-  return `<figure class="fchart cvd-chart" data-live="cvd-chart">${cite}
-<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>${tr("Price")}</span><span><i class="cvd-key-cvd"></i>CVD <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span><span><i class="cvd-key-buy"></i>${tr("Net buy")}</span><span><i class="cvd-key-sell"></i>${tr("Net sell")}</span></div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
+  return `<figure class="fchart cvd-chart" data-live="cvd-chart" data-cursors>${cite}
+<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>${tr("Price")}</span><span><i class="cvd-key-cvd"></i>CVD <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span><span><i class="cvd-key-buy"></i>${tr("Net buy")}</span><span><i class="cvd-key-sell"></i>${tr("Net sell")}</span>${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}">
-<div class="fchart-plot cvd-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} price and cumulative volume delta over the last {window}", { asset: label, window }))}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${
+<div class="fchart-plot cvd-plot" data-axes="${priceAxes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} price and cumulative volume delta over the last {window}", { asset: label, window }))}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${
     pricePath.length > 1
       ? `<polyline class="cvd-price" points="${pricePath.join(" ")}"></polyline>`
       : ""
-  }${SLOT_CURSOR}</svg>${leftLabels}${rightLabels}</div>
-<div class="fchart-plot cvd-strip"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} net taker flow per bar", { asset: label }))}">${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line>${netBars}${SLOT_CURSOR}</svg><span class="cvd-yr" style="top:0%">${signedUsd(peak)}</span><span class="cvd-yr" style="top:100%">${signedUsd(-peak)}</span>${xLabels.join("")}</div>
+  }${SLOT_CURSOR}${SLOT_HAIR}</svg>${leftLabels}${rightLabels}</div>
+<div class="fchart-plot cvd-strip" data-axes="${esc(JSON.stringify({ r: ["usd", -peak, peak] }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} net taker flow per bar", { asset: label }))}">${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line>${netBars}${SLOT_CURSOR}${SLOT_HAIR}</svg><span class="cvd-yr" style="top:0%">${signedUsd(peak)}</span><span class="cvd-yr" style="top:100%">${signedUsd(-peak)}</span>${xLabels.join("")}</div>
 </div>
 ${payload}
 </figure>`;

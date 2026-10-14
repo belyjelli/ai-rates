@@ -2854,6 +2854,38 @@ describe("cvd", () => {
     expect(html.match(/window\.airratesSlots = true/g)).toHaveLength(1);
   });
 
+  test("the chart offers a crosshair: a level line per panel, each panel's axes, and a switch", async () => {
+    const { data } = fakeData({ cvd: async () => flow() });
+    const html = await (await get("/cvd", data)).text();
+    const figure = html.slice(
+      html.indexOf('<figure class="fchart cvd-chart"'),
+      html.indexOf("</figure>"),
+    );
+    expect(figure).toContain('data-live="cvd-chart" data-cursors>');
+    expect(figure.match(/<line class="slot-hair off"/g)).toHaveLength(2);
+    // The switch needs the script, so it starts hidden; the crosshair is the default.
+    expect(figure).toContain('<div class="slot-modes" role="group" aria-label="Cursor" hidden>');
+    expect(figure).toContain('data-cursor="cross" aria-pressed="true"');
+    expect(figure).toContain('data-cursor="bar" aria-pressed="false"');
+    // Each panel's axes, as the values at the plot's bottom and top edges: price on the left and CVD
+    // on the right of the chart (75,900–76,100 and 0–+$3M, each padded 8%), net flow on the strip.
+    const axes = [...figure.matchAll(/data-axes="([^"]+)"/g)].map((m) =>
+      JSON.parse((m[1] ?? "").replaceAll("&quot;", '"')),
+    );
+    expect(axes).toHaveLength(2);
+    expect(axes[0].l[0]).toBe("price");
+    expect(axes[0].l[1]).toBeCloseTo(75_884);
+    expect(axes[0].l[2]).toBeCloseTo(76_116);
+    expect(axes[0].r[0]).toBe("usd");
+    expect(axes[0].r[1]).toBeCloseTo(-240_000);
+    expect(axes[0].r[2]).toBeCloseTo(3_240_000);
+    expect(axes[1].l).toBeUndefined();
+    expect(axes[1].r[0]).toBe("usd");
+    expect(axes[1].r[1]).toBe(-axes[1].r[2]);
+    // The reader's choice is kept in their browser.
+    expect(html).toContain('localStorage.getItem("chart-cursor")');
+  });
+
   test("the address picks the charted asset and the interval picks the bar width", async () => {
     const seen: CvdOptions[] = [];
     const { data } = fakeData({

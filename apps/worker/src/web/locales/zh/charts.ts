@@ -27,6 +27,13 @@ export const charts: Catalog = {
   "{month} {day} {time} UTC": "{month}{day}日 {time} UTC",
 
   // web/slot-chart.ts: the hover readouts of the CVD and longs-vs-shorts charts.
+  Cursor: "光标",
+  cursor: "光标",
+  bar: "柱",
+  cross: "十字线",
+  "Light up the bar under the pointer": "高亮指针所在的柱",
+  "Dashed crosshair at the pointer, with the value there on each axis":
+    "在指针处显示虚线十字线，并在两侧坐标轴上标出该处数值",
   "no flow recorded": "没有记录到成交流",
   "price {price}": "价格 {price}",
   "price {price} ({pct} since start)": "价格 {price}（较窗口起点 {pct}）",

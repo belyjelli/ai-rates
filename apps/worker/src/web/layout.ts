@@ -629,6 +629,20 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .slot-area:focus{outline:0}.slot-area:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
 .slot-band{fill:rgba(216,216,216,.08)}
 .slot-mark.fchart-cursor{stroke:var(--ink);stroke-dasharray:3 3}
+/* The crosshair (slot-chart.ts, a figure marked data-cursors): the band gives way to a dashed level line
+   at the pointer, and the value there sits on each axis in a tag over the axis labels. The reader picks
+   bar or cross in the chart's head; the choice is on <html>, so a refreshed chart keeps it. */
+:root[data-cursor=cross] [data-cursors] .slot-band{display:none}
+.slot-hair{stroke:var(--ink);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+.slot-tag{position:absolute;z-index:2;transform:translateY(-50%);padding:0 4px;background:var(--ink);color:var(--bg);font-size:11px;line-height:16px;white-space:nowrap;pointer-events:none}
+.slot-tag[hidden]{display:none}
+.slot-tag-l{right:calc(100% + 4px)}.slot-tag-r{left:calc(100% + 4px)}
+.slot-modes{display:flex;align-items:center;gap:2px;color:var(--dim)}
+.slot-modes[hidden]{display:none}
+.slot-modes>span{margin-right:4px}
+.slot-modes button,.slot-modes button:hover{font:inherit;text-transform:none;letter-spacing:normal;color:var(--muted);background:none;border:0;padding:0 6px}
+.slot-modes button:hover{color:var(--accent)}
+.slot-modes button[aria-pressed=true]{background:var(--ink);color:var(--bg)}
 .slot-read{flex-basis:100%;color:var(--muted)}
 /* The tooltip beside a mouse cursor (slot-chart.ts). The figure is its positioning box, so it moves
    with the chart when the page scrolls. pointer-events:none keeps it from stealing the hover it shows. */

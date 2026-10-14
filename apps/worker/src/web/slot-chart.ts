@@ -272,6 +272,22 @@ export const SLOT_BAND = `<rect class="slot-mark slot-band off" x="0" y="0" widt
 export const SLOT_CURSOR = `<line class="slot-mark fchart-cursor off" x1="0" x2="0" y1="0" y2="1000"></line>`;
 
 /**
+ * The crosshair's level line, for a chart that offers the crosshair (a figure marked data-cursors):
+ * one per panel, last in its SVG, drawn at the pointer's height in the panel the pointer is over. It
+ * is not a .slot-mark, so it is never placed as the cursor line is.
+ */
+export const SLOT_HAIR = `<line class="slot-hair off" x1="0" x2="1000" y1="0" y2="0"></line>`;
+
+/**
+ * The switch between the two cursors, for the chart's head: "bar", the band behind the bar under the
+ * pointer, and "cross", a dashed crosshair with the value at the pointer on each axis. It needs the
+ * script, so it is hidden until the script shows it; the choice is the reader's, kept in their browser.
+ */
+export function slotCursorSwitch(): string {
+  return `<div class="slot-modes" role="group" aria-label="${tr("Cursor")}" hidden><span>${tr("cursor")}</span><button type="button" class="slot-mode" data-cursor="bar" aria-pressed="false" title="${tr("Light up the bar under the pointer")}">${tr("bar")}</button><button type="button" class="slot-mode" data-cursor="cross" aria-pressed="true" title="${tr("Dashed crosshair at the pointer, with the value there on each axis")}">${tr("cross")}</button></div>`;
+}
+
+/**
  * The browser half. Included once per page, outside every live region, so a chart that only appears
  * on a later refresh is still read. The guard makes a second copy harmless.
  *
@@ -280,6 +296,13 @@ export const SLOT_CURSOR = `<line class="slot-mark fchart-cursor off" x1="0" x2=
  * sets the reading on a tap and holds it, since a finger lifting is not a reader leaving; scrubbing
  * sideways works because the area allows only vertical panning. Arrow keys step through the slots
  * once the area has focus.
+ *
+ * THE CROSSHAIR. A figure marked data-cursors offers two cursors (slotCursorSwitch): the band, and a
+ * crosshair whose level line follows the pointer's height in the panel it is over, with that height
+ * read on each axis in a tag. A panel's axes come in its data-axes, {"l"|"r": [kind, bottom, top]},
+ * the values at the bottom and top edges of the plot, since the SVG maps them linearly. The vertical
+ * line still snaps to the slot being read. A keyboard step has no height, so it draws no level line.
+ * The choice is kept on <html> (data-cursor), not on the figure, which a refresh replaces.
  */
 export const SLOT_SCRIPT = `(() => {
   if (window.airratesSlots) return;
@@ -290,6 +313,9 @@ export const SLOT_SCRIPT = `(() => {
   const parsed = new WeakMap();
   const idle = new WeakMap();
   let held = null, heldRead = null, heldIndex = -1;
+  let mode = "cross";
+  try { if (localStorage.getItem("chart-cursor") === "bar") mode = "bar"; } catch (_) {}
+  document.documentElement.dataset.cursor = mode;
 
   const payload = (figure) => {
     const el = figure.querySelector(".slot-data");
@@ -309,7 +335,8 @@ export const SLOT_SCRIPT = `(() => {
   };
   const clear = () => {
     if (!held) return;
-    for (const el of held.querySelectorAll(".slot-mark")) el.classList.add("off");
+    for (const el of held.querySelectorAll(".slot-mark, .slot-hair")) el.classList.add("off");
+    for (const el of held.querySelectorAll(".slot-tag")) el.hidden = true;
     const read = held.querySelector(".slot-read");
     if (read && idle.has(read)) read.innerHTML = idle.get(read);
     const tip = held.querySelector(".slot-tip");
@@ -344,6 +371,39 @@ export const SLOT_SCRIPT = `(() => {
     tip.style.left = Math.max(4, left) + "px";
     tip.style.top = Math.max(4, top) + "px";
   };
+  // The crosshair's level line and axis tags, in the panel under the pointer, at its height.
+  const level = (figure, pointer) => {
+    for (const el of figure.querySelectorAll(".slot-hair")) el.classList.add("off");
+    for (const el of figure.querySelectorAll(".slot-tag")) el.hidden = true;
+    if (!pointer || mode !== "cross" || !figure.hasAttribute("data-cursors")) return;
+    for (const plot of figure.querySelectorAll(".fchart-plot[data-axes]")) {
+      const box = plot.getBoundingClientRect();
+      if (pointer.y < box.top || pointer.y > box.bottom || !box.height) continue;
+      const t = (pointer.y - box.top) / box.height;
+      const line = plot.querySelector(".slot-hair");
+      if (line) {
+        line.setAttribute("y1", (t * 1000).toFixed(1));
+        line.setAttribute("y2", (t * 1000).toFixed(1));
+        line.classList.remove("off");
+      }
+      const axes = JSON.parse(plot.dataset.axes);
+      for (const side of ["l", "r"]) {
+        const axis = axes[side];
+        if (!axis) continue;
+        let tag = plot.querySelector(".slot-tag-" + side);
+        if (!tag) {
+          tag = document.createElement("span");
+          tag.className = "slot-tag slot-tag-" + side;
+          tag.setAttribute("aria-hidden", "true");
+          plot.appendChild(tag);
+        }
+        const value = axis[2] - t * (axis[2] - axis[1]);
+        tag.textContent = axis[0] === "price" ? f.price(value) : (value > 0 ? "+" : "") + f.usd(value);
+        tag.style.top = (t * 100).toFixed(2) + "%";
+        tag.hidden = false;
+      }
+    }
+  };
   const show = (area, i, pointer) => {
     const figure = area.closest("figure");
     const d = figure && payload(figure);
@@ -351,6 +411,7 @@ export const SLOT_SCRIPT = `(() => {
     if (!d || !read || !d.slots.length) return;
     i = Math.min(d.slots.length - 1, Math.max(0, i));
     const float = floating(pointer);
+    level(figure, pointer);
     // A refresh swaps the readout for a new element, so an unchanged slot still redraws after one.
     // The tooltip still follows the cursor within a slot, so only its text is spared.
     if (figure === held && read === heldRead && i === heldIndex) {
@@ -437,5 +498,27 @@ export const SLOT_SCRIPT = `(() => {
   });
   document.addEventListener("focusout", (event) => {
     if (event.target.closest && event.target.closest(".slot-area") && held && !held.matches(":hover")) clear();
+  });
+
+  // The cursor switch. A refresh or an in-place switch brings a new copy of it, hidden and pressed as
+  // the server had it, so every new copy is set to the reader's choice as it arrives.
+  const sync = () => {
+    for (const group of document.querySelectorAll(".slot-modes")) {
+      group.hidden = false;
+      for (const button of group.querySelectorAll(".slot-mode")) button.setAttribute("aria-pressed", String(button.dataset.cursor === mode));
+    }
+  };
+  sync();
+  new MutationObserver(() => {
+    if (document.querySelector(".slot-modes[hidden]")) sync();
+  }).observe(document.querySelector("main") || document.body, { childList: true, subtree: true });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest ? event.target.closest(".slot-mode") : null;
+    if (!button) return;
+    mode = button.dataset.cursor === "bar" ? "bar" : "cross";
+    try { localStorage.setItem("chart-cursor", mode); } catch (_) {}
+    document.documentElement.dataset.cursor = mode;
+    clear();
+    sync();
   });
 })();`;
