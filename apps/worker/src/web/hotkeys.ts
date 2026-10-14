@@ -137,10 +137,10 @@ export function hotkeyLegend(): string {
 }
 
 /**
- * The fields a page's filter key focuses, first match wins: the screener-style filter form, else the
- * CVD search box.
+ * The fields a page's filter key focuses, first match wins: the screener-style filter form, else a
+ * picker's search box (CVD's assets, the whales markets), whose picker it opens first.
  */
-const FILTER_TARGET = "form.filters select,form.filters input,form.cvd-search input[type=search]";
+const FILTER_TARGET = "form.filters select,form.filters input,.wh-pick-q";
 
 /**
  * The script every page runs: read the reader's active profile, redraw the legend if it is not the
@@ -150,7 +150,7 @@ const FILTER_TARGET = "form.filters select,form.filters input,form.cvd-search in
  * is shown what it does instead of being taken away.
  */
 export function hotkeyScript(): string {
-  return `(()=>{if(document.getElementById("kb"))return;const A=${scriptActions()};let P=null;try{const s=JSON.parse(localStorage.getItem(${JSON.stringify(STORE_KEY)})||"null");P=s&&s.profiles&&s.profiles[s.active]||null}catch(e){}const K={};for(const id in A)if(A[id].key&&!(P&&typeof P[id]==="string"))K[A[id].key]=id;if(P)for(const id in A)if(typeof P[id]==="string"&&P[id])K[P[id]]=id;const cap=k=>k==="Escape"?"esc":k;if(P)for(const s of document.querySelectorAll(".keys [data-act]")){const id=s.dataset.act,k=typeof P[id]==="string"?P[id]:A[id].key,b=s.querySelector("b");if(!k||K[k]!==id)s.hidden=true;else if(b)b.textContent=cap(k)}addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey||e.isComposing)return;let k=e.key;if(!k)return;if(k.length===1)k=k.toLowerCase();const id=K[k],t=e.target,n=t&&t.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA"||t&&t.isContentEditable){if(id==="cancel"&&k.length>1)t.blur();return}if(!id)return;if(id==="cancel"){const f=document.activeElement;if(f&&f!==document.body&&f.blur)f.blur();return}if(id==="filter"){const q=document.querySelector(${JSON.stringify(FILTER_TARGET)});if(q){e.preventDefault();q.focus()}return}if(id==="prev-tab"||id==="next-tab"){const s=document.querySelector(".tabbar-tabs");const b=s?[...s.querySelectorAll(".btn-tab")]:[];if(b.length<2)return;e.preventDefault();const i=b.findIndex(x=>x.classList.contains("active")),j=b[(i+(id==="next-tab"?1:-1)+b.length)%b.length];j.click();j.focus();return}if(id==="top"){e.preventDefault();scrollTo({top:0});return}if(A[id].href){e.preventDefault();location.href=A[id].href}})})();`;
+  return `(()=>{if(document.getElementById("kb"))return;const A=${scriptActions()};let P=null;try{const s=JSON.parse(localStorage.getItem(${JSON.stringify(STORE_KEY)})||"null");P=s&&s.profiles&&s.profiles[s.active]||null}catch(e){}const K={};for(const id in A)if(A[id].key&&!(P&&typeof P[id]==="string"))K[A[id].key]=id;if(P)for(const id in A)if(typeof P[id]==="string"&&P[id])K[P[id]]=id;const cap=k=>k==="Escape"?"esc":k;if(P)for(const s of document.querySelectorAll(".keys [data-act]")){const id=s.dataset.act,k=typeof P[id]==="string"?P[id]:A[id].key,b=s.querySelector("b");if(!k||K[k]!==id)s.hidden=true;else if(b)b.textContent=cap(k)}addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey||e.isComposing)return;let k=e.key;if(!k)return;if(k.length===1)k=k.toLowerCase();const id=K[k],t=e.target,n=t&&t.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA"||t&&t.isContentEditable){if(id==="cancel"&&k.length>1)t.blur();return}if(!id)return;if(id==="cancel"){const f=document.activeElement;if(f&&f!==document.body&&f.blur)f.blur();return}if(id==="filter"){const q=document.querySelector(${JSON.stringify(FILTER_TARGET)});if(q){e.preventDefault();const d=q.closest("details");if(d)d.open=true;q.hidden=false;q.focus()}return}if(id==="prev-tab"||id==="next-tab"){const s=document.querySelector(".tabbar-tabs");const b=s?[...s.querySelectorAll(".btn-tab")]:[];if(b.length<2)return;e.preventDefault();const i=b.findIndex(x=>x.classList.contains("active")),j=b[(i+(id==="next-tab"?1:-1)+b.length)%b.length];j.click();j.focus();return}if(id==="top"){e.preventDefault();scrollTo({top:0});return}if(A[id].href){e.preventDefault();location.href=A[id].href}})})();`;
 }
 
 /**

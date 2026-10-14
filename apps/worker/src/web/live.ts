@@ -10,7 +10,8 @@
  * Markup contract, set by pages.ts and layout.ts:
  *   body[data-rendered]  render time; an unchanged stamp means the edge served the same copy
  *   [data-live="name"]   a region replaced wholesale on refresh (a tbody, the hero, the status line)
- *   tr[data-k]           a row's identity, so a re-sorted table still matches row to row
+ *   [data-k]             a row's identity, so a re-sorted table still matches row to row: a tr, or
+ *                        a link in a picker's list (cvd.ts), whose children are its cells
  *   td[data-c]           a column's identity where columns can move (the rates grid's venues)
  *   [data-u]             one figure flashed on its own: inside a row it is scoped to that row, and
  *                        its text is left out of the enclosing cell's or unit's comparison
@@ -108,13 +109,13 @@ export const LIVE_SCRIPT = String.raw`(() => {
   };
   const units = (region) => {
     const found = new Map();
-    for (const row of region.querySelectorAll("tr[data-k]")) {
+    for (const row of region.querySelectorAll("[data-k]")) {
       let i = 0;
       for (const cell of row.children) found.set(row.dataset.k + "\t" + (cell.dataset.c ?? i), cell), i++;
       // Scoped to the row, since every row carries the same unit names.
       for (const el of row.querySelectorAll("[data-u]")) found.set(row.dataset.k + "\tu\t" + el.dataset.u, el);
     }
-    for (const el of region.querySelectorAll("[data-u]")) if (!el.closest("tr[data-k]")) found.set("u\t" + el.dataset.u, el);
+    for (const el of region.querySelectorAll("[data-u]")) if (!el.closest("[data-k]")) found.set("u\t" + el.dataset.u, el);
     return found;
   };
   const texts = (map) => new Map([...map].map(([key, el]) => [key, signature(el)]));
@@ -124,7 +125,7 @@ export const LIVE_SCRIPT = String.raw`(() => {
   const railParts = (region) => {
     const found = new Map();
     for (const rail of region.querySelectorAll(".rail")) {
-      const row = rail.closest("tr[data-k]");
+      const row = rail.closest("[data-k]");
       const id = (row ? row.dataset.k : "") + "\t" + [...(row ?? region).querySelectorAll(".rail")].indexOf(rail) + "\t";
       for (const part of rail.children) found.set(id + (part.dataset.m ? "m\t" + part.dataset.m : part.className), part);
     }
@@ -243,8 +244,8 @@ export const LIVE_SCRIPT = String.raw`(() => {
     }
   };
 
-  // Rows never move under a pointer or an open filter; the hold lasts one period at most.
-  const engaged = () => document.querySelector("main [data-live]:hover, form.filters:focus-within") !== null;
+  // Rows never move under a pointer, an open filter or an open picker; the hold lasts one period at most.
+  const engaged = () => document.querySelector("main [data-live]:hover, form.filters:focus-within, .wh-pick[open]") !== null;
   const settle = () => {
     if (!pending) return;
     // A button waiting on its report (await.ts) is about to leave the page: swapping its region would

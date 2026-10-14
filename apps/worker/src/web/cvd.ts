@@ -3,6 +3,7 @@ import type { CvdAssetRow, CvdBar, CvdData, Overview } from "../app/data";
 import {
   CVD_DEFAULT_INTERVAL,
   CVD_INTERVALS,
+  CVD_SORTS,
   CVD_STRIP,
   type CvdParams,
   type CvdSort,
@@ -10,10 +11,11 @@ import {
   isCvdLockedInterval,
 } from "../app/params";
 import { ageText, esc, formatPrice, formatUsd, LOCK_ICON } from "./format";
-import { helpButton, helpHeading, helpPanel } from "./help";
+import { helpHeading } from "./help";
 import { msg, tr, trMsg } from "./i18n";
 import { layout } from "./layout";
 import { assetKey, assetName } from "./pages";
+import { PICK_SCRIPT } from "./picker";
 import { citeMark, plainLabel } from "./share";
 import {
   cvdText,
@@ -315,6 +317,12 @@ const SORT_LABELS: Record<CvdSort, string> = {
  * It falls back to a real navigation on any failure, a modified click (new tab, new window), or a
  * browser without fetch. Back and forward reload, which is plain and always right. live.ts keeps
  * working across a swap because it polls location.href, which pushState has already moved.
+ *
+ * SORTING needs no trip at all. A heading in the asset picker re-sorts its rows where they are: each
+ * row carries the server's own sort keys (data-keys, in CVD_SORTS order) and ties break by name as
+ * they do in sortKey's caller, so the order is the one a reload would give. The address takes the
+ * sort with replaceState, and so does every link on the page that keeps it, so the next live
+ * refresh, an interval or a picked asset all agree with what is shown.
  */
 export const CVD_SWITCH_SCRIPT = `(() => {
   if (!document.querySelector(".cvd-intervals") || !window.fetch || !window.DOMParser || !history.pushState) return;
@@ -362,10 +370,11 @@ export const CVD_SWITCH_SCRIPT = `(() => {
       }
       label = (nav.dataset.loading || "").replace("{interval}", link.dataset.cvdSwitch);
     } else {
-      // The chosen row lights up at once, before the chart arrives.
-      for (const tr of document.querySelectorAll(".cvd-table tr.cvd-on")) tr.classList.remove("cvd-on");
-      const row = link.closest("tr");
-      if (row) row.classList.add("cvd-on");
+      // The chosen row lights up and the list closes at once, before the chart arrives.
+      for (const row of document.querySelectorAll(".cvd-pick .wh-pick-row.on")) row.classList.remove("on");
+      link.classList.add("on");
+      const pick = link.closest(".wh-pick");
+      if (pick) pick.open = false;
       label = (nav.dataset.loadingAsset || "").replace("{asset}", link.dataset.cvdSelect || "");
       toChart();
     }
@@ -399,34 +408,69 @@ export const CVD_SWITCH_SCRIPT = `(() => {
     }
   };
 
+  const SORTS = ${JSON.stringify(CVD_SORTS)};
+  const withSort = (href, sort, asc) => {
+    const url = new URL(href, location.href);
+    if (sort === "volume") url.searchParams.delete("sort");
+    else url.searchParams.set("sort", sort);
+    if (asc) url.searchParams.set("dir", "asc");
+    else url.searchParams.delete("dir");
+    return url.pathname + url.search + url.hash;
+  };
+  const sortBy = (link) => {
+    const head = link.closest(".wh-pick-head");
+    const list = head && head.parentElement.querySelector(".wh-pick-list");
+    if (!list) return;
+    const sort = link.dataset.cvdSort;
+    const asc = head.dataset.sort === sort ? head.dataset.dir !== "asc" : false;
+    head.dataset.sort = sort;
+    head.dataset.dir = asc ? "asc" : "desc";
+    const at = SORTS.indexOf(sort);
+    const key = (row) => Number(row.dataset.keys.split(",")[at]);
+    const rows = [...list.querySelectorAll(".wh-pick-row")].sort((a, b) => {
+      const diff = key(a) - key(b);
+      return (asc ? diff : -diff) || a.dataset.a.localeCompare(b.dataset.a);
+    });
+    rows.forEach((row, i) => {
+      list.append(row);
+      const rank = row.querySelector(".wh-pick-rank");
+      if (rank) rank.textContent = i + 1;
+    });
+    for (const a of head.querySelectorAll("a[data-cvd-sort]")) {
+      const on = a.dataset.cvdSort === sort;
+      a.classList.toggle("on", on);
+      a.querySelector("i").textContent = on ? (asc ? " ↑" : " ↓") : "";
+      a.setAttribute("href", withSort(a.getAttribute("href"), a.dataset.cvdSort, on && !asc));
+    }
+    history.replaceState(null, "", withSort(location.href, sort, asc));
+    for (const a of document.querySelectorAll('main a[href^="/cvd"]:not([data-cvd-sort])')) a.setAttribute("href", withSort(a.getAttribute("href"), sort, asc));
+  };
+
   const modified = (event) => event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
 
-  // Delegated, because the strip and the table are replaced with the rest of <main> on every switch,
-  // and live.ts swaps the table's rows every 30 seconds.
+  // Delegated, because the strip and the picker are replaced with the rest of <main> on every switch,
+  // and live.ts swaps the picker's rows every 30 seconds.
   document.addEventListener("click", (event) => {
     if (event.defaultPrevented || event.button !== 0 || !event.target.closest) return;
-    const link = event.target.closest("a[data-cvd-switch], a[data-cvd-select]");
-    if (link) {
+    const heading = event.target.closest("a[data-cvd-sort]");
+    if (heading) {
       if (modified(event)) return;
       event.preventDefault();
-      if (link.getAttribute("aria-current")) {
-        if (link.dataset.cvdSelect) toChart();
-        return;
-      }
-      go(link);
+      sortBy(heading);
       return;
     }
-    // Anywhere on a screener row selects it, not just the symbol: the row is the target. The symbol
-    // stays the real link, for the keyboard and for opening in a new tab. A click on anything else
-    // that acts, or one that ends a text selection, is left alone.
-    const row = event.target.closest(".cvd-table tbody tr");
-    if (!row || event.target.closest("a, button, input, select, textarea, label, summary")) return;
-    if (String(getSelection && getSelection()).trim()) return;
-    const select = row.querySelector("a[data-cvd-select]");
-    if (!select) return;
-    if (modified(event)) { window.open(select.href, "_blank", "noopener"); return; }
-    if (select.getAttribute("aria-current")) { toChart(); return; }
-    go(select);
+    const link = event.target.closest("a[data-cvd-switch], a[data-cvd-select]");
+    if (!link || modified(event)) return;
+    event.preventDefault();
+    if (link.getAttribute("aria-current")) {
+      if (link.dataset.cvdSelect) {
+        const pick = link.closest(".wh-pick");
+        if (pick) pick.open = false;
+        toChart();
+      }
+      return;
+    }
+    go(link);
   });
   addEventListener("popstate", () => location.reload());
 })();`;
@@ -442,6 +486,81 @@ function sortKey(row: CvdAssetRow, sort: CvdSort): number {
     default:
       return volume(row);
   }
+}
+
+/**
+ * The screener, as a picker like the whales page's: the charted asset as a button, and under it every
+ * polled asset with its window's flow, a box to find a ticker, and headings to sort by. A row charts
+ * its asset in place and a heading re-sorts the rows where they are (CVD_SWITCH_SCRIPT); filtering,
+ * keys and closing are PICK_SCRIPT's. Without a script every row and heading is a plain link and the
+ * box a search form, as the table was.
+ */
+function assetPicker(data: {
+  rows: readonly CvdAssetRow[];
+  asset: string;
+  assetClass: AssetClass;
+  label: string;
+  params: CvdParams;
+  /** This page's own path, which the headings and the search form keep. */
+  base: string;
+}): string {
+  const { rows, asset, assetClass, label, params, base } = data;
+  const sorted = [...rows].sort((a, b) => {
+    const diff = sortKey(a, params.sort) - sortKey(b, params.sort);
+    return (params.asc ? diff : -diff) || a.asset.localeCompare(b.asset);
+  });
+  // ?q= is the search without a script, or an old link to one. The rows it leaves out are hidden
+  // rather than dropped, so emptying the box in the browser brings them back.
+  const matches = (row: CvdAssetRow) => !params.q || row.asset.includes(params.q);
+
+  const list = sorted
+    .map((row, index) => {
+      const signal = divergence(row);
+      const ratio = flowRatio(row);
+      const on = row.asset === asset && row.asset_class === assetClass;
+      const href = esc(
+        `${cvdPath(row.asset, row.asset_class)}${cvdToQuery({ ...params, q: "" })}#cvd-chart`,
+      );
+      const keys = CVD_SORTS.map((sort) => sortKey(row, sort)).join(",");
+      return `<a class="wh-pick-row${on ? " on" : ""}" href="${href}" data-cvd-select="${esc(row.asset)}" data-k="${esc(assetKey(row.asset, row.asset_class))}" data-q="${esc(`${row.asset} ${row.asset_class}`.toLowerCase())}" data-a="${esc(row.asset)}" data-keys="${keys}"${on ? ' aria-current="true"' : ""}${matches(row) ? "" : " hidden"}>
+<span class="wh-pick-sym"><span class="dim wh-pick-rank">${index + 1}</span><b>${assetName(row.asset, row.asset_class)}</b></span>
+<span class="num"><span data-u="price">${formatPrice(row.price)}</span></span>
+<span class="num${tone(row.change_pct)}"><span data-u="change">${signedPct(row.change_pct)}</span></span>
+<span class="num${tone(net(row))}"><span data-u="cvd">${signedUsd(net(row))}</span></span>
+<span class="num${tone(ratio)}"><span data-u="ratio">${signedPct(ratio)}</span></span>
+<span class="num"><span data-u="volume">${formatUsd(volume(row))}</span></span>
+<span class="num dim">${row.venues}</span>
+<span>${signal === null ? "" : `<span class="cvd-badge cvd-badge-${signal}">${signal === "bullish" ? tr("bullish div") : tr("bearish div")}</span>`}</span>
+</a>`;
+    })
+    .join("");
+
+  const heading = (sort: CvdSort, title: string) => {
+    const on = params.sort === sort;
+    const href = esc(base + cvdToQuery({ ...params, sort, asc: on && !params.asc }));
+    return `<a class="num wh-pick-sort${on ? " on" : ""}" href="${href}" data-cvd-sort="${sort}" title="${esc(title)}">${trMsg(SORT_LABELS[sort])}<i>${on ? (params.asc ? " ↑" : " ↓") : ""}</i></a>`;
+  };
+  const kept = `${
+    params.interval !== CVD_DEFAULT_INTERVAL
+      ? `<input type="hidden" name="interval" value="${esc(params.interval)}">`
+      : ""
+  }${params.sort !== "volume" ? `<input type="hidden" name="sort" value="${esc(params.sort)}">` : ""}${
+    params.asc ? '<input type="hidden" name="dir" value="asc">' : ""
+  }`;
+  const current = rows.find((row) => row.asset === asset && row.asset_class === assetClass);
+  const summary = current
+    ? `<b>${label}</b><span class="num">${formatPrice(current.price)}</span><span class="num${tone(current.change_pct)}">${signedPct(current.change_pct)}</span>`
+    : `<b>${label}</b>`;
+
+  return `<details class="wh-pick cvd-pick"${params.q ? " open data-searched" : ""}>
+<summary class="wh-pick-btn" aria-label="${esc(tr("Pick an asset to chart"))}">${summary}<span class="wh-pick-more dim">${tr("{n} assets", { n: rows.length })}</span></summary>
+<div class="wh-pick-panel">
+<form class="wh-pick-find" method="get" action="${esc(base)}">${kept}<input class="wh-pick-q" type="search" name="q" value="${esc(params.q)}" placeholder="${esc(tr("Search symbol"))}" aria-label="${esc(tr("Search symbol"))}" autocomplete="off"><button type="submit">${tr("Find")}</button></form>
+<div class="wh-pick-head" data-sort="${params.sort}" data-dir="${params.asc ? "asc" : "desc"}"><span>${tr("Asset")}</span><span class="num">${tr("Price")}</span>${heading("change", tr("Reference market's first close to last close in the window"))}${heading("cvd", tr("Taker buys less taker sells, in dollars, summed over the polled venues"))}${heading("ratio", tr("CVD as a share of the window's taker volume"))}${heading("volume", tr("Taker buys plus taker sells, in dollars"))}<span class="num" title="${esc(tr("Polled venues with flow for this asset"))}">${tr("Venues")}</span><span title="${esc(tr("Price and flow disagreeing by more than the divergence thresholds in the tiles"))}">${tr("Signal")}</span></div>
+<nav class="wh-pick-list" data-live="cvd-rows" aria-label="${esc(tr("Assets"))}">${list}</nav>
+<p class="wh-pick-none dim"${sorted.some(matches) ? " hidden" : ""}>${tr("No asset matches.")}</p>
+</div>
+</details>`;
 }
 
 export function cvd(data: {
@@ -507,64 +626,28 @@ export function cvd(data: {
     },
   ).join("")}</nav>`;
 
-  // --- the screener table -----------------------------------------------------------------------
-  const filtered = params.q ? rows.filter((row) => row.asset.includes(params.q)) : rows;
-  const sorted = [...filtered].sort((a, b) => {
-    const diff = sortKey(a, params.sort) - sortKey(b, params.sort);
-    return (params.asc ? diff : -diff) || a.asset.localeCompare(b.asset);
-  });
-
-  const sortTh = (sort: CvdSort, title: string) => {
-    const active = params.sort === sort;
-    const next = { ...params, sort, asc: active ? !params.asc : false };
-    const href = esc((assetInAddress ? selfPath : "/cvd") + cvdToQuery(next));
-    return `<th class="num" title="${esc(title)}"${active ? ` aria-sort="${params.asc ? "ascending" : "descending"}"` : ""}><a href="${href}">${trMsg(SORT_LABELS[sort])}${active && params.asc ? " ↑" : ""}</a></th>`;
-  };
-
-  const body = sorted
-    .map((row, index) => {
-      const signal = divergence(row);
-      const ratio = flowRatio(row);
-      const selected = row.asset === asset && row.asset_class === chartClass;
-      return `<tr data-k="${esc(assetKey(row.asset, row.asset_class))}"${selected ? ' class="cvd-on"' : ""}>
-<td class="num dim">${index + 1}</td>
-<td class="asset"><a href="${esc(`${cvdPath(row.asset, row.asset_class)}${cvdToQuery({ ...params, q: "" })}#cvd-chart`)}" data-cvd-select="${esc(row.asset)}"${selected ? ' aria-current="true"' : ""}>${assetName(row.asset, row.asset_class)}</a></td>
-<td class="num"><span data-u="price">${formatPrice(row.price)}</span></td>
-<td class="num${tone(row.change_pct)}"><span data-u="change">${signedPct(row.change_pct)}</span></td>
-<td class="num${tone(net(row))}"><span data-u="cvd">${signedUsd(net(row))}</span></td>
-<td class="num${tone(ratio)}"><span data-u="ratio">${signedPct(ratio)}</span></td>
-<td class="num"><span data-u="volume">${formatUsd(volume(row))}</span></td>
-<td class="num dim">${row.venues}</td>
-<td>${signal === null ? "" : `<span class="cvd-badge cvd-badge-${signal}">${signal === "bullish" ? tr("bullish div") : tr("bearish div")}</span>`}</td>
-</tr>`;
-    })
-    .join("");
-
-  const search = `<form class="cvd-search" method="get" action="${esc(assetInAddress ? selfPath : "/cvd")}">${
-    params.interval !== CVD_DEFAULT_INTERVAL
-      ? `<input type="hidden" name="interval" value="${esc(params.interval)}">`
-      : ""
-  }${params.sort !== "volume" ? `<input type="hidden" name="sort" value="${esc(params.sort)}">` : ""}${
-    params.asc ? '<input type="hidden" name="dir" value="asc">' : ""
-  }<input type="search" name="q" value="${esc(params.q)}" placeholder="${tr("Search symbol")}" aria-label="${tr("Search symbol")}"><button type="submit">${tr("Find")}</button>${
-    params.q
-      ? `<a href="${esc((assetInAddress ? selfPath : "/cvd") + cvdToQuery({ ...params, q: "" }))}">${tr("clear")}</a>`
-      : ""
-  }</form>`;
-
-  const table =
+  // --- the screener, as the asset picker beside the intervals -------------------------------------
+  const picker =
+    rows.length === 0
+      ? ""
+      : assetPicker({
+          rows,
+          asset,
+          assetClass: chartClass,
+          label,
+          params,
+          base: assetInAddress ? selfPath : "/cvd",
+        });
+  const empty =
     rows.length === 0
       ? `<p class="empty">${tr("No taker flow has been collected in the last {window}. Collection polls each venue every five minutes; a new deployment backfills about a week within its first hour.", { window: esc(CVD_INTERVALS[params.interval].span) })}</p>`
-      : `<div class="sheet-wrap"><table class="sheet cvd-table">
-<thead><tr><th class="num">#</th><th>${tr("Asset")}</th><th class="num">${tr("Price")}</th>${sortTh("change", tr("Reference market's first close to last close in the window"))}${sortTh("cvd", tr("Taker buys less taker sells, in dollars, summed over the polled venues"))}${sortTh("ratio", tr("CVD as a share of the window's taker volume"))}${sortTh("volume", tr("Taker buys plus taker sells, in dollars"))}<th class="num" title="${tr("Polled venues with flow for this asset")}">${tr("Venues")}</th><th title="${tr("Price and flow disagreeing by more than the thresholds above the table")}">${tr("Signal")}</th></tr></thead>
-<tbody data-live="cvd-rows">${body || `<tr><td colspan="9" class="dim">${tr("No asset matches “{q}”.", { q: esc(params.q) })}</td></tr>`}</tbody>
-</table></div>`;
+      : "";
 
   const chart =
     flow.asset_class === null
       ? `<p class="empty">${tr("No live market lists {asset}, so there is no flow to chart.", { asset: esc(asset) })}</p>`
       : flow.bars.length === 0
-        ? `<p class="empty">${tr("No taker flow for {asset} in the last {window}. Only the ~100 assets deepest on {venues} are polled; pick one from the table below.", { asset: label, window: esc(CVD_INTERVALS[params.interval].span), venues: CVD_VENUES.map(venueName).join(", ") })}</p>`
+        ? `<p class="empty">${tr("No taker flow for {asset} in the last {window}. Only the ~100 assets deepest on {venues} are polled; pick one from the asset list above.", { asset: label, window: esc(CVD_INTERVALS[params.interval].span), venues: CVD_VENUES.map(venueName).join(", ") })}</p>`
         : cvdChart({ label, bars: flow.bars, params, now });
 
   const lag = flow.newest
@@ -590,16 +673,15 @@ export function cvd(data: {
           sells: `<span class="cvd-down">${tr("taker sells")}</span>`,
           venues: CVD_VENUES.map(venueName).join(", "),
         },
-      )}</p><p>${tr("Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover either panel to read one bar beside the cursor; on a phone, tap and it reads in the line above the chart.")}</p>`,
+      )}</p><p>${tr("Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover either panel to read one bar beside the cursor; on a phone, tap and it reads in the line above the chart.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.")}</p><p>${tr("Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.")}</p>`,
     )}
-<div class="lq-controls">${intervalStrip}</div>
+<div class="lq-controls wh-controls">${picker}${intervalStrip}</div>
 ${tiles}
 <div id="cvd-chart" class="cvd-anchor">${chart}</div>
 <script>${SLOT_SCRIPT}</script>
+<script>${PICK_SCRIPT}</script>
 <script>${CVD_SWITCH_SCRIPT}</script>
-<div class="cvd-head"><h2 class="cvd-h2 has-help">${tr("CVD screener · net buying and selling by asset")}${helpButton("cvd-screener")}</h2>${search}</div>
-${helpPanel("cvd-screener", `<p>${tr("Click an asset to chart it above. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.")}</p><p>${tr("Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.")}</p>`)}
 <p class="notes" data-live="cvd-asof">${lag}</p>
-${table}`,
+${empty}`,
   });
 }

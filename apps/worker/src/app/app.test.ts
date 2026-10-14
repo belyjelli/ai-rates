@@ -2929,13 +2929,52 @@ describe("cvd", () => {
     ]);
   });
 
-  test("every screener row selects its asset, through the symbol's own link", async () => {
+  test("the screener is a picker beside the intervals: a row charts its asset, the box finds a ticker", async () => {
     const { data } = fakeData({ cvd: async () => flow() });
     const html = await (await get("/cvd?interval=1h", data)).text();
-    // The symbol stays a real link (keyboard, new tab); the script makes the rest of the row use it.
-    expect(html).toContain('href="/cvd/ZEC?interval=1h#cvd-chart" data-cvd-select="ZEC"');
+    const controls =
+      html.split('<div class="lq-controls wh-controls">')[1]?.split('<div class="cvd-tiles"')[0] ??
+      "";
+    // The charted asset is the button; every polled asset is a row in its panel, a real link
+    // (keyboard, new tab) that the script turns into an in-place switch.
+    expect(controls).toContain('<details class="wh-pick cvd-pick">');
+    expect(controls).toContain("4 assets");
+    expect(controls).toContain(
+      '<a class="wh-pick-row on" href="/cvd/BTC?interval=1h#cvd-chart" data-cvd-select="BTC"',
+    );
+    expect(controls).toContain('href="/cvd/ZEC?interval=1h#cvd-chart" data-cvd-select="ZEC"');
+    expect(controls).toContain('data-live="cvd-rows"');
+    expect(controls).toContain('class="tf cvd-intervals"');
+    // The ticker search is in the panel: a form, so it still works without the script.
+    expect(controls).toContain(
+      '<div class="wh-pick-panel">\n<form class="wh-pick-find" method="get" action="/cvd"><input type="hidden" name="interval" value="1h"><input class="wh-pick-q" type="search" name="q" value=""',
+    );
     expect(html).toContain('data-loading-asset="Loading {asset}…"');
-    expect(html).toContain('.cvd-table tbody tr");');
+    expect(html).not.toContain("cvd-table");
+    expect(html).not.toContain("cvd-search");
+  });
+
+  test("a heading sorts the picker's rows in place, by the keys the server sorted with", async () => {
+    const { data } = fakeData({ cvd: async () => flow() });
+    const html = await (await get("/cvd?sort=cvd", data)).text();
+    // By CVD, heaviest net buying first: BTC +$30M, SNDK +$0.5M, SOL −$4M, ZEC −$20M.
+    const order = [
+      ...html.matchAll(/class="wh-pick-row[^"]*" href="[^"]*" data-cvd-select="([^"]+)"/g),
+    ].map((m) => m[1]);
+    expect(order).toEqual(["BTC", "SNDK", "SOL", "ZEC"]);
+    // Each row carries its keys in CVD_SORTS order (volume, CVD, ratio, change); no price sorts last.
+    expect(html).toContain(
+      `data-a="SNDK" data-keys="1500000,500000,${flowRatio({ buy_usd: 1e6, sell_usd: 0.5e6 })},-Infinity"`,
+    );
+    // The active heading says which way, and its link flips it; any other starts descending.
+    expect(html).toContain('<div class="wh-pick-head" data-sort="cvd" data-dir="desc">');
+    expect(html).toContain('href="/cvd?sort=cvd&amp;dir=asc" data-cvd-sort="cvd"');
+    expect(html).toContain('data-cvd-sort="cvd" title="');
+    expect(html).toContain('href="/cvd?sort=ratio" data-cvd-sort="ratio"');
+    expect(html).toContain('href="/cvd" data-cvd-sort="volume"');
+    // The script sorts by the same keys and moves the address with it.
+    expect(html).toContain('const SORTS = ["volume","cvd","ratio","change"];');
+    expect(html).toContain("history.replaceState(null");
   });
 
   test("old ?window= addresses land on the nearest interval", async () => {
@@ -2974,12 +3013,15 @@ describe("cvd", () => {
     expect(tiles).not.toContain("q=");
   });
 
-  test("search filters the table without changing the tiles", async () => {
+  test("?q= opens the picker on its search, hiding the other rows without changing the tiles", async () => {
     const { data } = fakeData({ cvd: async () => flow() });
     const html = await (await get("/cvd?q=ze", data)).text();
-    const table = html.split('data-live="cvd-rows"')[1] ?? "";
-    expect(table).toContain('data-k="ZEC"');
-    expect(table).not.toContain('data-k="BTC"');
+    expect(html).toContain('<details class="wh-pick cvd-pick" open data-searched>');
+    expect(html).toContain('name="q" value="ZE"');
+    // Hidden, not dropped: emptying the box in the browser brings BTC back.
+    expect(html).toMatch(/data-k="ZEC"[^>]*data-keys="[^"]*">/);
+    expect(html).toMatch(/data-k="BTC"[^>]*aria-current="true" hidden>/);
+    expect(html).toContain('<p class="wh-pick-none dim" hidden>');
     expect(html).toContain('data-u="breadth">50.0%<');
   });
 
@@ -3748,7 +3790,7 @@ describe("whales", () => {
     expect(html).toMatch(/class="num cvd-down">−\$700k<\/span>/);
     // The filter box is revealed by the script.
     expect(html).toContain('class="wh-pick-q" type="search"');
-    expect(html).toContain('querySelector(".wh-pick")');
+    expect(html).toContain('closest(".wh-pick")');
     // The filter splits on whitespace: a template literal would turn a bare \s into a plain "s".
     expect(html).toContain("split(/\\s+/)");
     expect(html).not.toContain('class="wh-markets"');

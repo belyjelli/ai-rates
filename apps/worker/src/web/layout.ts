@@ -499,7 +499,19 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .wh-pick-bid{background:var(--long)}.wh-pick-ask{background:var(--short)}
 .wh-pick-sum{white-space:nowrap}
 .wh-pick-none{padding:8px 10px}
-@media (max-width:640px){.wh-pick{flex:1 1 100%}.wh-pick-btn{min-width:0}.wh-pick-panel{width:calc(100vw - 20px)}.wh-pick-head,.wh-pick-row{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr);gap:8px}.wh-pick-head span:nth-child(3),.wh-pick-row>span:nth-child(3),.wh-pick-head span:nth-child(5),.wh-pick-row>span:nth-child(5){display:none}}
+@media (max-width:640px){.wh-pick{flex:1 1 100%}.wh-pick-btn{min-width:0}.wh-pick-panel{width:calc(100vw - 20px)}.wh-pick:not(.cvd-pick) .wh-pick-head,.wh-pick:not(.cvd-pick) .wh-pick-row{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr);gap:8px}.wh-pick:not(.cvd-pick) .wh-pick-head span:nth-child(3),.wh-pick:not(.cvd-pick) .wh-pick-row>span:nth-child(3),.wh-pick:not(.cvd-pick) .wh-pick-head span:nth-child(5),.wh-pick:not(.cvd-pick) .wh-pick-row>span:nth-child(5){display:none}}
+/* The CVD screener as a picker (cvd.ts assetPicker): the whales picker with the screener's eight
+   columns, a search form for a box, and headings that sort. A phone keeps the asset, the change, the
+   CVD and the signal. */
+.cvd-pick .wh-pick-panel{width:min(960px,calc(100vw - 20px))}
+.cvd-pick .wh-pick-head,.cvd-pick .wh-pick-row{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 72px minmax(0,1fr) 92px minmax(0,1fr) 56px 100px}
+.cvd-pick .wh-pick-rank{width:2.2em}
+.wh-pick-find{display:flex;gap:6px;margin:8px}
+.wh-pick-find .wh-pick-q{flex:1;min-width:0;margin:0}
+.wh-pick-sort{border:0;color:var(--dim)}
+.wh-pick-sort:hover,.wh-pick-sort.on{color:var(--ink)}
+.wh-pick-sort i{font-style:normal}
+@media (max-width:640px){.cvd-pick .wh-pick-head,.cvd-pick .wh-pick-row{grid-template-columns:minmax(0,1.2fr) 64px minmax(0,1fr) 96px;gap:8px}.cvd-pick .wh-pick-head>:is(:nth-child(2),:nth-child(5),:nth-child(6),:nth-child(7)),.cvd-pick .wh-pick-row>:is(:nth-child(2),:nth-child(5),:nth-child(6),:nth-child(7)){display:none}}
 /* The three tables (resting, ended, largest trades): one element, two shapes (whales.ts BOOK_SCRIPT).
    These first rules are the phone's, and any browser's without popovers: the tables in the page,
    under the chart, with every style a popover is born with taken back off. From 861px it is a panel
@@ -574,9 +586,9 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .cvd-chart .cvd-plot{height:260px}
 .cvd-chart .cvd-strip{height:90px;margin-top:14px;margin-bottom:22px}
 /* Switching the CVD interval in place (cvd.ts CVD_SWITCH_SCRIPT): the chart gives way to bars that rise
-   and fall in the chart's own colours, under a spinner and "Loading 1h bars…"; the tiles and the table
-   dim until the new page is in. Reduced motion keeps the shape and drops the movement. */
-.cvd-switching .cvd-tiles,.cvd-switching .sheet-wrap,.cvd-switching .cvd-head,.cvd-switching [data-live=cvd-asof]{opacity:.35;transition:opacity .15s;pointer-events:none}
+   and fall in the chart's own colours, under a spinner and "Loading 1h bars…"; the tiles and the asset
+   picker dim until the new page is in. Reduced motion keeps the shape and drops the movement. */
+.cvd-switching .cvd-tiles,.cvd-switching .cvd-pick,.cvd-switching [data-live=cvd-asof]{opacity:.35;transition:opacity .15s;pointer-events:none}
 .cvd-skel{position:relative;display:flex;flex-direction:column;justify-content:flex-end;height:100%;min-height:260px;padding:10px 64px 28px;border:1px solid var(--rule);background:var(--panel);box-sizing:border-box}
 .cvd-skel-bars{display:flex;align-items:center;gap:3px;height:200px}
 .cvd-skel-bars i{flex:1;min-width:2px;border-radius:1px;opacity:.28;animation:cvd-skel 1.1s ease-in-out infinite alternate}
@@ -606,15 +618,7 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .cvd-key-price{background:var(--ink)}.cvd-key-cvd{background:var(--accent)}
 .cvd-key-buy{background:var(--long);height:10px!important;width:10px!important}
 .cvd-key-sell{background:var(--short);height:10px!important;width:10px!important}
-.cvd-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 16px;margin-top:18px}
 .cvd-h2{font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.04em}
-.cvd-search{display:flex;gap:6px;align-items:center}
-.cvd-search input{font:12px var(--mono);color:var(--ink);background:var(--band);border:1px solid var(--rule);padding:2px 6px;width:160px}
-.cvd-search a{color:var(--muted)}
-.cvd-table tr.cvd-on td{background:#141a10}
-.cvd-table tr.cvd-on .asset a{color:var(--accent)}
-/* The whole row selects its asset (cvd.ts CVD_SWITCH_SCRIPT), so the whole row says so. */
-.cvd-table tbody tr[data-k]{cursor:pointer}
 .cvd-badge{font-size:11px;font-weight:700;text-transform:uppercase;padding:0 6px;border:1px solid currentColor}
 .cvd-badge-bullish{color:var(--long)}.cvd-badge-bearish{color:var(--short)}
 /* Slot readout (slot-chart.ts), shared by the CVD and longs-vs-shorts charts. The readout sits in the

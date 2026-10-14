@@ -89,7 +89,9 @@ export const charts: Catalog = {
   "bearish div": "看跌背离",
   "Search symbol": "搜索代码",
   Find: "查找",
-  clear: "清除",
+  "Pick an asset to chart": "选择要绘制的资产",
+  "{n} assets": "{n} 个资产",
+  "No asset matches.": "没有匹配的资产。",
   "No taker flow has been collected in the last {window}. Collection polls each venue every five minutes; a new deployment backfills about a week within its first hour.":
     "最近 {window} 内没有采集到主动成交数据。采集器每五分钟轮询一次各交易所；新部署会在第一个小时内回填约一周的数据。",
   Asset: "资产",
@@ -101,14 +103,13 @@ export const charts: Catalog = {
   "Taker buys plus taker sells, in dollars": "主动买入加主动卖出（美元）",
   "Polled venues with flow for this asset": "该资产有成交数据的被采集交易所数量",
   Venues: "交易所",
-  "Price and flow disagreeing by more than the thresholds above the table":
-    "价格与成交流方向相反，且超过表格上方所列的阈值",
+  "Price and flow disagreeing by more than the divergence thresholds in the tiles":
+    "价格与成交流方向相反，且超过背离卡片中所列的阈值",
   Signal: "信号",
-  "No asset matches “{q}”.": "没有与“{q}”匹配的资产。",
   "No live market lists {asset}, so there is no flow to chart.":
     "没有在线市场上架 {asset}，因此没有可绘制的成交流。",
-  "No taker flow for {asset} in the last {window}. Only the ~100 assets deepest on {venues} are polled; pick one from the table below.":
-    "最近 {window} 内没有 {asset} 的主动成交数据。只采集在 {venues} 上持仓量最大的约 100 个资产；请从下表中选择一个。",
+  "No taker flow for {asset} in the last {window}. Only the ~100 assets deepest on {venues} are polled; pick one from the asset list above.":
+    "最近 {window} 内没有 {asset} 的主动成交数据。只采集在 {venues} 上持仓量最大的约 100 个资产；请从上方的资产列表中选择一个。",
   "Newest bucket {age}.": "最新时段：{age}。",
   "Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.":
     "交易所在每个 5 分钟时段结束后才发布该时段数据，因此图表最右侧会落后几分钟。",
@@ -120,9 +121,8 @@ export const charts: Catalog = {
     "累计成交量差：{buys}减去{sells}，单位为美元。数据来自交易所自身发布的 5 分钟主动成交统计（<b>{venues}</b>），加总后覆盖在这些交易所上持仓量最大的约 100 个资产 — 并非所有交易所，也没有比五分钟更细的粒度。背离表示该时间窗口内价格与成交流方向相反；它描述的是已经发生的情况，而不是对后市的预测。",
   "taker buys": "主动买入",
   "taker sells": "主动卖出",
-  "CVD screener · net buying and selling by asset": "CVD 筛选器 · 各资产的净买入与净卖出",
-  "Click an asset to chart it above. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.":
-    "点击资产即可在上方绘制其图表。涨跌幅为成交最活跃的被采集市场在窗口内从首个收盘价到最后一个收盘价的变化。各交易所的历史数据长短不一：Binance 和 Gate 提供数周，OKX 提供五天，因此新的 7 天窗口中最早的几根柱加总的交易所较少。",
+  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.":
+    "时间间隔旁的资产按钮会打开筛选器：每个被采集资产在窗口内的主动成交流。选择一个即可绘制其图表，也可以在搜索框中查找代码，或点击列标题排序。涨跌幅为成交最活跃的被采集市场在窗口内从首个收盘价到最后一个收盘价的变化。各交易所的历史数据长短不一：Binance 和 Gate 提供数周，OKX 提供五天，因此新的 7 天窗口中最早的几根柱加总的交易所较少。",
 
   // web/funding-chart.ts
   "The funding chart is unavailable right now. The backtest below is unaffected.":

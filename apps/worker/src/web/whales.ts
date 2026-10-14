@@ -20,6 +20,7 @@ import { helpButton, helpHeading, helpPanel } from "./help";
 import { tr, trMsg } from "./i18n";
 import { layout } from "./layout";
 import { assetKey, assetName } from "./pages";
+import { PICK_SCRIPT } from "./picker";
 import { MONTHS } from "./slot-chart";
 
 /**
@@ -325,7 +326,7 @@ ${circles}${leftLabels}${rightLabels}${xLabels.join("")}
  * The market picker: the current market as a button, and every tracked market in a panel under it,
  * each with what a reader picks one by: price and its day, the walls resting each side (and which
  * outweighs the other), and the last day's large-trade flow. Plain links in a <details>, so it works
- * without the script; PICK_SCRIPT adds the filter box, arrow keys, Escape and click-away.
+ * without the script; PICK_SCRIPT (picker.ts) adds the filter box, arrow keys, Escape and click-away.
  */
 function marketPicker(data: {
   markets: readonly WhaleMarket[];
@@ -384,57 +385,6 @@ ${flow(m)}
 </div>
 </details>`;
 }
-
-/**
- * The picker's behaviour beyond plain links: a filter box that narrows the list as you type (Enter
- * opens the first match), arrow keys through the rows, Escape and a click elsewhere to close.
- */
-export const PICK_SCRIPT = `(() => {
-  const pick = document.querySelector(".wh-pick");
-  if (!pick) return;
-  const box = pick.querySelector(".wh-pick-q");
-  const rows = [...pick.querySelectorAll(".wh-pick-row")];
-  const none = pick.querySelector(".wh-pick-none");
-  box.hidden = false;
-  const shown = () => rows.filter((r) => !r.hidden);
-  box.addEventListener("input", () => {
-    const words = box.value.trim().toLowerCase().split(/\\s+/).filter(Boolean);
-    for (const r of rows) r.hidden = !words.every((w) => r.dataset.q.includes(w));
-    none.hidden = shown().length > 0;
-  });
-  box.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      const first = shown()[0];
-      if (first) { e.preventDefault(); location.href = first.href; }
-    } else if (e.key === "ArrowDown") {
-      const first = shown()[0];
-      if (first) { e.preventDefault(); first.focus(); }
-    }
-  });
-  pick.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") { pick.open = false; pick.querySelector("summary").focus(); return; }
-    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-    const list = shown();
-    const at = list.indexOf(document.activeElement);
-    if (at < 0) return;
-    e.preventDefault();
-    const next = at + (e.key === "ArrowDown" ? 1 : -1);
-    if (next < 0) box.focus();
-    else if (list[next]) list[next].focus();
-  });
-  pick.addEventListener("toggle", () => {
-    if (!pick.open) return;
-    box.value = "";
-    for (const r of rows) r.hidden = false;
-    none.hidden = true;
-    if (matchMedia("(hover: hover)").matches) box.focus();
-    const on = pick.querySelector(".wh-pick-row.on");
-    if (on) on.scrollIntoView({ block: "nearest" });
-  });
-  document.addEventListener("click", (e) => {
-    if (pick.open && !pick.contains(e.target)) pick.open = false;
-  });
-})();`;
 
 /**
  * The three tables (resting now, ended, largest trades) are ONE element with two shapes. On a phone
