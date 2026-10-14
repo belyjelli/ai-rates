@@ -186,7 +186,7 @@ a:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .sent-long{color:var(--long)}
 .sent-short{color:var(--short)}
 .sent-ink{color:var(--ink)}
-.clock{color:var(--ink)}
+.clock{color:var(--ink);background:none;border:0;padding:0;font:inherit;cursor:pointer}
 .keys{margin-left:auto;display:flex;gap:12px;color:var(--dim);border:0}
 .keys:hover{color:var(--muted)}
 .keys [hidden]{display:none}
@@ -849,11 +849,19 @@ footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim)
 @media (max-width:860px){.status{font-size:11px}.legs .short{text-align:left}}
 `;
 
-// Live "… ago" and countdowns and a UTC clock; the hotkeys are hotkeys.ts's own script. The
+// Live "… ago" and countdowns and the clock; the hotkeys are hotkeys.ts's own script. The
 // duration words come from format.ts in the page's language, so a ticking age reads as the server
 // wrote it. The language links get the page's query string, so switching keeps a screener's filters.
+// The clock reads the visitor's own time zone, which only the browser knows (the page is cached for
+// everyone); a click flips it to UTC, the clock funding settles by, and the choice is remembered.
 const pageScript = () =>
-  `(()=>{const L=${scriptStrings(durationStrings())};for(const a of document.querySelectorAll("a[data-lang]"))a.href=a.pathname+"?back="+encodeURIComponent(location.pathname+location.search);const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?L.s.replace("{s}",s):s<3600?L.m.replace("{m}",Math.floor(s/60)):L.hm.replace("{h}",Math.floor(s/3600)).replace("{m}",p(Math.floor(s%3600/60)))};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=L.ago.replace("{time}",f((n-e.dataset.since)/1e3));for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):L.settling}const c=document.getElementById("clock");if(c){const d=new Date();c.textContent=p(d.getUTCHours())+":"+p(d.getUTCMinutes())+":"+p(d.getUTCSeconds())+" UTC"}};t();setInterval(t,1e3);})();`;
+  `(()=>{const L=${scriptStrings({ ...durationStrings(), ...clockStrings() })};for(const a of document.querySelectorAll("a[data-lang]"))a.href=a.pathname+"?back="+encodeURIComponent(location.pathname+location.search);const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?L.s.replace("{s}",s):s<3600?L.m.replace("{m}",Math.floor(s/60)):L.hm.replace("{h}",Math.floor(s/3600)).replace("{m}",p(Math.floor(s%3600/60)))};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=L.ago.replace("{time}",f((n-e.dataset.since)/1e3));for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):L.settling}if(c){const d=new Date(),o=u?0:-d.getTimezoneOffset(),a=Math.abs(o);c.textContent=(u?[d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()]:[d.getHours(),d.getMinutes(),d.getSeconds()]).map(p).join(":")+" UTC"+(o?(o>0?"+":"-")+Math.floor(a/60)+(a%60?":"+p(a%60):""):"");c.title=u?L.utc:L.local.replace("{zone}",z)}};const c=document.getElementById("clock");let u=false,z="";try{u=localStorage.getItem("clock")==="utc"}catch{}try{z=Intl.DateTimeFormat().resolvedOptions().timeZone||""}catch{}c&&c.addEventListener("click",()=>{u=!u;try{localStorage.setItem("clock",u?"utc":"local")}catch{}t()});t();setInterval(t,1e3);})();`;
+
+/** The clock's tooltips, for the page script: the zone is the browser's, filled in there. */
+const clockStrings = () => ({
+  local: tr("Your local time ({zone}). Click for UTC."),
+  utc: tr("UTC, the clock funding settles by. Click for your local time."),
+});
 
 export function layout(options: {
   title: string;
@@ -905,7 +913,7 @@ ${INSTALL_HEAD}
 </head>
 <body data-rendered="${now}" data-build="${esc(BUILD.commit ?? "")}">
 <header class="mast">
-<div class="wrap bar"><a class="brand" href="/">airrates<small>${tr("What settled. Not what might.")}</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${shareBar()}<time class="clock" id="clock">--:--:-- UTC</time></div>
+<div class="wrap bar"><a class="brand" href="/">airrates<small>${tr("What settled. Not what might.")}</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${shareBar()}<button type="button" class="clock" id="clock">--:--:--</button></div>
 <div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><a class="keys" href="/keys" title="${tr("Keyboard shortcuts: change them on the keyboard page")}">${hotkeyLegend()}</a></div>
 </header>
 <main class="wrap">${body}</main>

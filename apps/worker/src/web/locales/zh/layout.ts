@@ -33,6 +33,9 @@ export const layout: Catalog = {
   "no venue has reported in five minutes": "五分钟内没有交易所上报数据",
   "Fear &amp; greed: click for the chart": "恐惧与贪婪：点击查看图表",
   "What settled. Not what might.": "只看已结算，不猜可能。",
+  "Your local time ({zone}). Click for UTC.": "你的本地时间（{zone}）。点击切换为 UTC。",
+  "UTC, the clock funding settles by. Click for your local time.":
+    "UTC，资金费率按此时间结算。点击切换为本地时间。",
   filter: "筛选",
   login: "登录",
   telegram: "电报群",
