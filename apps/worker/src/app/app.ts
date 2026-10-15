@@ -5,6 +5,7 @@ import { cvd } from "../web/cvd";
 import { docs } from "../web/docs";
 import { esc } from "../web/format";
 import type { FundingHistory } from "../web/funding-chart";
+import { gammaFragment } from "../web/gamma";
 import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
 import { installAsset } from "../web/install";
 import { keyboard } from "../web/keyboard";
@@ -41,6 +42,7 @@ import {
 } from "./outlook";
 import {
   arbitrageToQuery,
+  asksForGamma,
   type BacktestParams,
   CVD_INTERVALS,
   DEFAULT_FILTERS,
@@ -58,6 +60,7 @@ import {
   parseBacktestDays,
   parseBacktestParams,
   parseCvdParams,
+  parseGammaParams,
   parseHeatmapParams,
   parseLiquidationAssetParams,
   parseLiquidationParams,
@@ -222,15 +225,34 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
 
     if (path === "/rates") {
       const params = parseHeatmapParams(url.searchParams);
-      const [overview, cells] = await Promise.all([
+      const gammaParams = parseGammaParams(url.searchParams);
+      // The Gamma Exposure tab, read for its own `?panel=gamma` (what the placeholder and the tab's
+      // switches load) or when the address names its choices. A failed read says so in the tab --
+      // before the collector's migration 034 and the web role's grant, every read fails -- rather than
+      // taking the grid down with it.
+      const readGamma = () =>
+        deps.data.gamma(gammaParams).catch((error) => {
+          deps.log?.(
+            `gamma unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return null;
+        });
+      if (url.searchParams.get("panel") === "gamma") {
+        const gamma = await readGamma();
+        return page(() =>
+          gammaFragment({ data: gamma, params: gammaParams, heatmap: params, now }),
+        );
+      }
+      const [overview, cells, gamma] = await Promise.all([
         deps.data.overview(),
         deps.data.heatmap({
           limit: params.limit,
           offset: params.offset,
           minVenues: HEATMAP_MIN_VENUES,
         }),
+        asksForGamma(url.searchParams) ? readGamma() : undefined,
       ]);
-      return page(() => pages.heatmap({ overview, cells, params, now }));
+      return page(() => pages.heatmap({ overview, cells, params, gamma, gammaParams, now }));
     }
 
     // The phase's actual title: where one venue's bid sits above another's ask. Only three venues

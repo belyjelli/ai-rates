@@ -131,6 +131,14 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     assetBars: async () => [],
     liquidationFeeds: async () => [],
     whalePositions: async () => [],
+    gamma: async ({ currency }) => ({
+      currency,
+      scopes: [],
+      exposure: null,
+      strikes: [],
+      curve: [],
+      expiries: [],
+    }),
     whales: async () => ({
       markets: [],
       venues: [],
@@ -2538,6 +2546,115 @@ describe("pages", () => {
     expect(long).toContain("+3.00%");
     // The live column must not leak into the 60d view.
     expect(long).not.toContain("+12.0%");
+  });
+
+  describe("rates gamma exposure tab", () => {
+    const gammaRow = (scope: string) => ({
+      scope,
+      computed_at: new Date(NOW - 2 * 60_000),
+      source: "deribit",
+      spot: 2_400,
+      options: 660,
+      expiries: 12,
+      first_expiry: new Date(NOW + 20 * 3600_000),
+      last_expiry: new Date(NOW + 300 * 86_400_000),
+      next_expiry: new Date(NOW + 20 * 3600_000),
+      call_oi: 974_124,
+      put_oi: 510_741,
+      call_gex_usd: 26.1e6,
+      put_gex_usd: -23.5e6,
+      net_gex_usd: 2.6e6,
+      flip_price: 2_327,
+      call_wall: 2_500,
+      put_wall: 2_300,
+    });
+    const gammaSource = (calls: { currency: string; scope: string }[]) =>
+      fakeData({
+        gamma: async (options) => {
+          calls.push(options);
+          return {
+            currency: options.currency,
+            scopes: [gammaRow("all"), gammaRow("next")],
+            exposure: gammaRow(options.scope),
+            strikes: [
+              {
+                strike: 2_300,
+                call_oi: 1_000,
+                put_oi: 9_000,
+                call_gex_usd: 1.7e6,
+                put_gex_usd: -5.2e6,
+              },
+              {
+                strike: 2_500,
+                call_oi: 9_000,
+                put_oi: 2_000,
+                call_gex_usd: 2.6e6,
+                put_gex_usd: -1.5e6,
+              },
+            ],
+            curve: [
+              { price: 2_200, net_gex_usd: -3e6 },
+              { price: 2_600, net_gex_usd: 9e6 },
+            ],
+            expiries: [],
+          };
+        },
+      }).data;
+
+    test("the grid's page carries the tab as a placeholder it does not read", async () => {
+      const calls: { currency: string; scope: string }[] = [];
+      const html = await (await get("/rates", gammaSource(calls))).text();
+      expect(html).toContain('data-tab="gamma"');
+      expect(html).toContain("Gamma Exposure");
+      expect(html).toContain('class="btn-tab active" data-tab="rates"');
+      expect(html).toContain('data-lazy="/rates?gex=BTC&amp;panel=gamma"');
+      // The tab bar sits ahead of both panels, so none of the regions live.ts swaps holds it.
+      const bar = html.indexOf('data-tabs="rates"');
+      expect(bar).toBeGreaterThan(html.indexOf("</h1>"));
+      expect(bar).toBeLessThan(html.indexOf('id="panel-rates-rates"'));
+      expect(calls).toEqual([]);
+    });
+
+    test("its own address returns a bare fragment for the asked book and expiries", async () => {
+      const calls: { currency: string; scope: string }[] = [];
+      const res = await get("/rates?panel=gamma&gex=eth&gexp=next", gammaSource(calls));
+      const html = await res.text();
+      expect(res.status).toBe(200);
+      expect(calls).toEqual([{ currency: "ETH", scope: "next" }]);
+      expect(html.startsWith('<div class="lazy-body"')).toBe(true);
+      expect(html).not.toContain("<html");
+      expect(html).toContain('"kind":"gex"');
+      expect(html).toContain(
+        'href="/rates?gex=ETH&gexp=next#gamma" data-gx-swap aria-current="true">',
+      );
+    });
+
+    test("an address naming its choices opens the page on the tab, filled, keeping the grid's", async () => {
+      const calls: { currency: string; scope: string }[] = [];
+      const html = await (await get("/rates?tf=7d&gex=ETH&gexp=7d", gammaSource(calls))).text();
+      expect(calls).toEqual([{ currency: "ETH", scope: "7d" }]);
+      expect(html).toContain('class="btn-tab active" data-tab="gamma"');
+      expect(html).not.toContain("panel=gamma");
+      expect(html).toContain('href="/rates?tf=7d&gex=BTC&gexp=7d#gamma" data-gx-swap>BTC<');
+      // Anything else in gex is BTC.
+      const odd: { currency: string; scope: string }[] = [];
+      await get("/rates?gex=DOGE&gexp=99d", gammaSource(odd));
+      expect(odd).toEqual([{ currency: "BTC", scope: "all" }]);
+    });
+
+    test("a failed read says so in the tab and leaves the grid standing", async () => {
+      const { data } = fakeData({
+        gamma: async () => {
+          throw new Error('relation "gamma_exposure" does not exist');
+        },
+      });
+      const tab = await get("/rates?panel=gamma", data);
+      expect(tab.status).toBe(200);
+      expect(await tab.text()).toContain("The options data could not be read right now.");
+      const page = await get("/rates?gex=BTC", data);
+      expect(page.status).toBe(200);
+      expect(await page.text()).toContain("The options data could not be read right now.");
+    });
   });
 
   test("rates says so when no asset spans two venues", async () => {

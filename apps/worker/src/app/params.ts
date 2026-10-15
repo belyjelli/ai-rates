@@ -108,14 +108,59 @@ export function parseHeatmapParams(params: URLSearchParams): HeatmapParams {
   };
 }
 
-/** Canonical query string, so timeframe and paging links round-trip and stay cache-keyed. */
-export function heatmapToQuery(params: HeatmapParams): string {
+/**
+ * Canonical query string, so timeframe and paging links round-trip and stay cache-keyed.
+ *
+ * The Gamma Exposure tab's links pass `gamma` and so keep the grid's timeframe and page: they swap
+ * the tab in place and push their address, and live.ts polls the page at that address, so a link
+ * that dropped `tf` would quietly turn the grid beside it back to "now" on the next poll. The grid's
+ * own links leave the tab's choices out, since a choice in the address opens the page on that tab.
+ */
+export function heatmapToQuery(params: HeatmapParams, gamma?: GammaParams): string {
   const query = new URLSearchParams();
   if (params.tf !== "now") query.set("tf", params.tf);
   if (params.limit !== DEFAULT_HEATMAP_LIMIT) query.set("limit", String(params.limit));
   if (params.offset !== 0) query.set("offset", String(params.offset));
+  // Always named, BTC too: a choice in the address is what has the server fill that tab, which a
+  // reader without JavaScript needs, since nothing else would load it.
+  if (gamma) query.set("gex", gamma.currency);
+  if (gamma && gamma.scope !== GAMMA_SCOPES[0]) query.set("gexp", gamma.scope);
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
+}
+
+/**
+ * The Rates page's Gamma Exposure tab: which option book, and which expiries. Deribit's BTC and ETH
+ * books are the only crypto options with open interest worth charting (collector internal/gamma).
+ * The scopes are the collector's own: every expiry, within 30 days, within 7, the nearest alone.
+ */
+export const GAMMA_CURRENCIES = ["BTC", "ETH"] as const;
+export type GammaCurrency = (typeof GAMMA_CURRENCIES)[number];
+export const GAMMA_SCOPES = ["all", "30d", "7d", "next"] as const;
+export type GammaScope = (typeof GAMMA_SCOPES)[number];
+
+export interface GammaParams {
+  currency: GammaCurrency;
+  scope: GammaScope;
+}
+
+export function parseGammaParams(params: URLSearchParams): GammaParams {
+  const currency = (params.get("gex") ?? "").trim().toUpperCase();
+  const scope = (params.get("gexp") ?? "").trim().toLowerCase();
+  return {
+    // Exact matches against the allowlists: both go into the query as values, never as SQL.
+    currency: (GAMMA_CURRENCIES as readonly string[]).includes(currency)
+      ? (currency as GammaCurrency)
+      : GAMMA_CURRENCIES[0],
+    scope: (GAMMA_SCOPES as readonly string[]).includes(scope)
+      ? (scope as GammaScope)
+      : GAMMA_SCOPES[0],
+  };
+}
+
+/** Whether the address names the Gamma Exposure tab's choices, which opens the page on that tab. */
+export function asksForGamma(params: URLSearchParams): boolean {
+  return params.has("gex") || params.has("gexp");
 }
 
 /** Rows a page of the arbitrage table shows. Same reasoning as the rates grid: one screenful. */

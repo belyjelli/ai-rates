@@ -764,6 +764,67 @@ export interface WhalePosition {
   read_at: Date;
 }
 
+/** One currency's gamma exposure in one scope (collector migration 034): Deribit's options, signed calls
+ * positive and puts negative, in dollars per 1% move. */
+export interface GammaExposure {
+  scope: string;
+  computed_at: Date;
+  source: string;
+  spot: number;
+  options: number;
+  expiries: number;
+  first_expiry: Date;
+  last_expiry: Date;
+  /** The chain's nearest expiry, whatever the scope. */
+  next_expiry: Date;
+  /** Open interest in coins. */
+  call_oi: number;
+  put_oi: number;
+  call_gex_usd: number;
+  /** Negative or zero. */
+  put_gex_usd: number;
+  net_gex_usd: number;
+  /** Null when the profile curve keeps one sign across its +/-30%. */
+  flip_price: number | null;
+  call_wall: number | null;
+  put_wall: number | null;
+}
+
+/** One strike's open interest and exposure in a scope, its expiries summed. */
+export interface GammaStrike {
+  strike: number;
+  call_oi: number;
+  put_oi: number;
+  call_gex_usd: number;
+  put_gex_usd: number;
+}
+
+/** The net exposure were the spot at `price`: every forward moved by the same share, IVs held. */
+export interface GammaPoint {
+  price: number;
+  net_gex_usd: number;
+}
+
+export interface GammaExpiry {
+  expiry: Date;
+  options: number;
+  call_oi: number;
+  put_oi: number;
+  call_gex_usd: number;
+  put_gex_usd: number;
+}
+
+export interface GammaData {
+  currency: string;
+  /** Every scope the collector computed, in the order it stores them; the asked scope's is `exposure`. */
+  scopes: GammaExposure[];
+  /** Null when the asked scope has no row (the collector has not run, or that scope was empty). */
+  exposure: GammaExposure | null;
+  strikes: GammaStrike[];
+  curve: GammaPoint[];
+  expiries: GammaExpiry[];
+}
+
 export interface WhaleData {
   /** Every market tracked on the venue, by rank, with the picker's figures. */
   markets: WhaleMarket[];
@@ -870,6 +931,12 @@ export interface DataSource {
     base: string;
     assetClass: AssetClass | null;
   }): Promise<WhalePosition[]>;
+  /**
+   * One currency's options gamma exposure in one scope, for the Rates page's Gamma Exposure tab: the
+   * collector's every-five-minutes read of Deribit (migration 034). Four small tables, a few hundred
+   * rows; the page bins the strikes itself.
+   */
+  gamma(options: { currency: string; scope: string }): Promise<GammaData>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -1954,6 +2021,42 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           AND p.read_at > now() - interval '3 hours'
         ORDER BY p.position_usd DESC
         LIMIT 3000`;
+    },
+
+    async gamma({ currency, scope }) {
+      const sql = connect();
+      const [scopes, strikes, curve, expiries] = await Promise.all([
+        sql<GammaExposure[]>`
+          SELECT scope, computed_at, source, spot, options, expiries, first_expiry, last_expiry,
+                 next_expiry, call_oi, put_oi, call_gex_usd, put_gex_usd, net_gex_usd, flip_price,
+                 call_wall, put_wall
+          FROM gamma_exposure
+          WHERE currency = ${currency}
+          ORDER BY array_position(ARRAY['all', '30d', '7d', 'next'], scope)`,
+        sql<GammaStrike[]>`
+          SELECT strike, call_oi, put_oi, call_gex_usd, put_gex_usd
+          FROM gamma_strikes
+          WHERE currency = ${currency} AND scope = ${scope}
+          ORDER BY strike`,
+        sql<GammaPoint[]>`
+          SELECT price, net_gex_usd
+          FROM gamma_curve
+          WHERE currency = ${currency} AND scope = ${scope}
+          ORDER BY step`,
+        sql<GammaExpiry[]>`
+          SELECT expiry, options, call_oi, put_oi, call_gex_usd, put_gex_usd
+          FROM gamma_expiries
+          WHERE currency = ${currency}
+          ORDER BY expiry`,
+      ]);
+      return {
+        currency,
+        scopes: [...scopes],
+        exposure: scopes.find((row) => row.scope === scope) ?? null,
+        strikes: [...strikes],
+        curve: [...curve],
+        expiries: [...expiries],
+      };
     },
 
     async sentimentHistory(hours) {

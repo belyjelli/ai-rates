@@ -9,6 +9,7 @@ import { VENUES, type Venue } from "@ai-rates/venues";
 import type {
   ArbitrageRow,
   ExchangeSummary,
+  GammaData,
   HeatmapCell,
   IdentityCheckRow,
   LeverageTierRow,
@@ -29,6 +30,7 @@ import { HEADLINE_BAR, venueState } from "../app/data";
 import type {
   ArbitrageParams,
   BacktestParams,
+  GammaParams,
   HeatmapParams,
   HeatmapTimeframe,
 } from "../app/params";
@@ -59,12 +61,20 @@ import {
   until,
 } from "./format";
 import { type FundingHistory, renderFundingChart } from "./funding-chart";
+import {
+  GAMMA_PANEL_ID,
+  GX_SWAP_SCRIPT,
+  gammaPanel,
+  gammaPanelHref,
+  gammaPlaceholder,
+} from "./gamma";
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { msg, tr, trMsg, withLocale } from "./i18n";
 import { layout } from "./layout";
 import { FEEDS, liquidationFeedTable } from "./liquidation-feeds";
 import { type RailScale, railPosition, railScale, renderRail } from "./rail";
 import { citeMark } from "./share";
+import { SLOT_SCRIPT } from "./slot-chart";
 import { tabBar } from "./tabs";
 import { VENUE_TYPE_LABEL, VENUE_TYPE_SHORT, venueName } from "./venues";
 
@@ -799,9 +809,16 @@ export function heatmap(data: {
   overview: Overview;
   cells: HeatmapCell[];
   params: HeatmapParams;
+  /**
+   * The Gamma Exposure tab's read, when this render made one (the address named the tab's choices):
+   * the tab ships filled and opens. Undefined leaves it a placeholder that loads itself; null is a
+   * read that failed, which the tab says.
+   */
+  gamma?: GammaData | null;
+  gammaParams: GammaParams;
   now: number;
 }): string {
-  const { overview, cells, params, now } = data;
+  const { overview, cells, params, gamma, gammaParams, now } = data;
   const { rows, venueIds } = pivot(cells);
   const cellValue = HEATMAP_VALUE[params.tf];
 
@@ -900,6 +917,15 @@ export function heatmap(data: {
       ? `<div class="sheet-wrap"><p class="empty">${tr("No asset has live markets on two or more venues right now.")}</p></div>`
       : `<div class="heat-wrap"><table class="heat"><thead data-live="rates-head">${header}</thead><tbody data-live="rates">${body}</tbody></table></div>${pager}`;
 
+  // Two tabs: the grid, always rendered, and the options book's gamma exposure, read only when the
+  // address asks for it -- otherwise a placeholder at its own `?panel=gamma` address, so the grid's
+  // readers pay nothing for a tab they never open.
+  const gammaFilled = gamma !== undefined;
+  const gammaBody = gammaFilled
+    ? gammaPanel({ data: gamma, params: gammaParams, heatmap: params, now })
+    : gammaPlaceholder(params, gammaParams);
+  const gammaLazy = gammaFilled ? "" : ` data-lazy="${esc(gammaPanelHref(params, gammaParams))}"`;
+
   return layout({
     title: tr("Rates"),
     description: tr("Funding APR for every asset across every perpetual exchange, in one grid."),
@@ -907,8 +933,23 @@ export function heatmap(data: {
     overview,
     now,
     body: `${helpHeading("h1", tr("Rates"), "rates", `<p>${tr("Every exchange's funding for the deepest assets at once. Positive means longs pay, so a short collects; an empty cell means that exchange has no market for the asset, not that funding is flat.")}</p>`)}
+${tabBar({
+  name: "rates",
+  tabs: [
+    { id: "rates", label: tr("Funding rates"), shortLabel: tr("Funding") },
+    { id: "gamma", label: tr("Gamma Exposure"), shortLabel: tr("Gamma") },
+  ],
+  activeId: gammaFilled ? "gamma" : "rates",
+})}
+<div class="tabpanel" role="tabpanel" id="panel-rates-rates" data-tab-panel="rates" aria-labelledby="tab-rates-rates">
 <div class="tf">${strip}</div>
-${grid}`,
+${grid}
+</div>
+<div class="tabpanel" role="tabpanel" id="${GAMMA_PANEL_ID}" data-tab-panel="gamma" aria-labelledby="tab-rates-gamma"${gammaLazy}>
+${gammaBody}
+</div>
+<script>${SLOT_SCRIPT}</script>
+<script>${GX_SWAP_SCRIPT}</script>`,
   });
 }
 

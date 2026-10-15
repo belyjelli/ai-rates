@@ -634,6 +634,25 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .wm-x-mark{color:var(--ink)}
 .wm-h2{margin:18px 0 8px}
 .wm-venues{margin:-4px 0 12px;font-size:12px}.wm-venues b{color:var(--ink);font-weight:500}.wm-venues span{white-space:nowrap}
+/* The Gamma Exposure tab (gamma.ts): each strike band's calls above the zero line and puts below it,
+   the net were the spot there as a line on its own right-hand scale, the spot dashed, the flip dashed
+   in yellow. */
+.gx-chart .gx-plot{height:320px}
+.gx-call{fill:var(--long)}.gx-put{fill:var(--short)}
+.gx-curve{fill:none;stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke}
+.gx-spot{stroke:var(--ink);stroke-width:1;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
+.gx-flip{stroke:var(--warn);stroke-width:1;stroke-dasharray:2 3;vector-effect:non-scaling-stroke}
+.gx-chart .fchart-keys i.gx-key-call,.gx-chart .fchart-keys i.gx-key-put{width:10px;height:10px}
+.gx-key-call{background:var(--long)}.gx-key-put{background:var(--short)}
+.gx-chart .fchart-keys i.gx-key-curve{height:0;border-top:2px solid var(--accent)}
+.gx-chart .fchart-keys i.gx-key-spot{height:0;border-top:1px dashed var(--ink)}
+.gx-chart .fchart-keys i.gx-key-flip{height:0;border-top:1px dashed var(--warn)}
+.gx-yr{color:var(--accent)}
+.gx-controls{align-items:center;gap:10px 16px}.gx-controls .tf{margin:0}
+.gx-table tr.gx-out td{opacity:.4}
+.gx-stale{color:var(--warn)}
+.gx-switching>.lazy-body,.gx-switching>.gx-controls~*{opacity:.35;transition:opacity .15s;pointer-events:none}
+@media (max-width:640px){.gx-chart .gx-plot{height:280px}.cvd-chart.gx-chart .fchart-plot{margin:6px 8px 0 56px}.gx-yr{display:none}}
 /* Slot readout (slot-chart.ts), shared by the CVD and longs-vs-shorts charts. The readout sits in the
    header across the full width, and below desktop width it reserves the two to four lines its longest reading
    wraps to (measured at 1024, 600 and 390px), so the plot below does not jump while a finger scrubs. pan-y leaves vertical scrolling to the

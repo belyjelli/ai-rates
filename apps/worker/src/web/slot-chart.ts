@@ -1,6 +1,6 @@
 /**
- * Hover reading for the bar charts that divide a window into equal time slots: the CVD chart and the
- * liquidations longs-vs-shorts chart.
+ * Hover reading for the bar charts that divide an axis into equal slots: the CVD chart and the
+ * liquidations longs-vs-shorts chart over time, and the whale map and Gamma Exposure chart over price.
  *
  * WHY THIS REPLACED A NATIVE <title> PER BAR. The title was the only readout, and it answered badly:
  * it appears after a delay, only over the bar's own hit box, never on a phone, and it covers the bars
@@ -83,6 +83,14 @@ export interface SlotWords {
   noneHere: string;
   longsToMark: string;
   shortsToMark: string;
+  /** The Gamma Exposure chart's: a strike band, its calls and puts, and the net were the spot there. */
+  gexStrike: string;
+  gexBand: string;
+  gexNone: string;
+  gexCalls: string;
+  gexPuts: string;
+  gexNet: string;
+  gexIf: string;
 }
 
 /** The words in the current render's language. */
@@ -114,6 +122,13 @@ export const slotWords = (): SlotWords => ({
   noneHere: tr("no whale liquidates here"),
   longsToMark: tr("{usd} of longs liquidate between here and the mark"),
   shortsToMark: tr("{usd} of shorts liquidate between the mark and here"),
+  gexStrike: tr("strike {strikes} ({pct} from spot)"),
+  gexBand: tr("{low} – {high} ({pct} from spot)"),
+  gexNone: tr("no open interest here"),
+  gexCalls: tr("calls {usd} ({oi} open)"),
+  gexPuts: tr("puts {usd} ({oi} open)"),
+  gexNet: tr("net {usd}"),
+  gexIf: tr("if the spot were here: net {usd}"),
 });
 
 /** Compact dollars, identical to format.ts's `formatUsd` for any finite number (a test holds them). */
@@ -298,6 +313,57 @@ export function whaleText(d: WhaleSlots, i: number, f: SlotFormat): string {
 }
 
 /**
+ * One Gamma Exposure reading: strike band i of d, the exposure of its calls and puts, the net, and
+ * the net exposure of the whole chain were the spot at the band's middle (the profile curve).
+ */
+export function gammaText(d: GammaSlots, i: number, f: SlotFormat): string {
+  const w = f.words;
+  const low = d.low + i * d.step;
+  const pct = f.pct(((low + d.step / 2) / d.spot - 1) * 100, 1);
+  const signed = (usd: number) =>
+    `<b class="${usd > 0 ? "lq-ink-l" : usd < 0 ? "lq-ink-s" : ""}">${usd > 0 ? "+" : ""}${f.usd(usd)}</b>`;
+  const coins = (oi: number) => `${Math.round(oi).toLocaleString("en-US")} ${d.unit}`;
+  const slot = d.slots[i];
+  const parts: string[] = [];
+  if (slot === null || slot === undefined) {
+    parts.push(
+      w.gexBand
+        .replace("{low}", () => f.price(low))
+        .replace("{high}", () => f.price(low + d.step))
+        .replace("{pct}", () => pct),
+      w.gexNone,
+    );
+  } else {
+    parts.push(
+      w.gexStrike.replace("{strikes}", () => slot[4]).replace("{pct}", () => pct),
+      w.gexCalls.replace("{usd}", () => signed(slot[0])).replace("{oi}", () => coins(slot[2])),
+      w.gexPuts.replace("{usd}", () => signed(slot[1])).replace("{oi}", () => coins(slot[3])),
+      w.gexNet.replace("{usd}", () => signed(slot[0] + slot[1])),
+    );
+  }
+  const curve = d.curve[i];
+  if (curve !== null && curve !== undefined)
+    parts.push(w.gexIf.replace("{usd}", () => signed(curve)));
+  return parts.join(" · ");
+}
+
+/**
+ * What a Gamma Exposure figure ships: one entry per strike band, low to high, [calls' exposure, puts'
+ * exposure (negative), calls' open interest, puts' open interest, the strikes in the band as text],
+ * or null for a band with no open interest; and for every band the profile curve at its middle, or
+ * null beyond the curve's reach. Exposure is dollars per 1% move; open interest is in `unit` coins.
+ */
+export interface GammaSlots {
+  kind: "gex";
+  low: number;
+  step: number;
+  spot: number;
+  unit: string;
+  slots: ([number, number, number, number, string] | null)[];
+  curve: (number | null)[];
+}
+
+/**
  * What a whale-map figure ships: one entry per price band, low to high, [longs liquidating in it,
  * shorts liquidating in it, how many of each], or null for a band where none does; and for every
  * band, empty or not, everything that liquidates between the mark and it.
@@ -335,7 +401,7 @@ export interface SidesSlots {
  * The payload as a JSON script tag, `<` escaped so no value can close it. It carries the readout's
  * words in the render's language, which the browser copy of the text functions reads them from.
  */
-export function slotData(payload: CvdSlots | SidesSlots | WhaleSlots): string {
+export function slotData(payload: CvdSlots | SidesSlots | WhaleSlots | GammaSlots): string {
   return `<script type="application/json" class="slot-data">${JSON.stringify({ ...payload, words: slotWords() }).replace(/</g, "\\u003c")}</script>`;
 }
 
@@ -387,6 +453,7 @@ export const SLOT_SCRIPT = `(() => {
   const cvdText = ${cvdText};
   const sidesText = ${sidesText};
   const whaleText = ${whaleText};
+  const gammaText = ${gammaText};
   const parsed = new WeakMap();
   const idle = new WeakMap();
   let held = null, heldRead = null, heldIndex = -1;
@@ -403,6 +470,7 @@ export const SLOT_SCRIPT = `(() => {
   const reading = (d, i) => {
     const fw = Object.assign({ words: d.words }, f);
     if (d.kind === "wmap") return whaleText(d, i, fw);
+    if (d.kind === "gex") return gammaText(d, i, fw);
     const when = f.when(d.from + i * d.unit, d.words);
     const head = i === d.slots.length - 1 ? d.words.filling.replace("{when}", () => when) : when;
     const slot = d.slots[i];
