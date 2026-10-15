@@ -6,7 +6,8 @@
       "!**/node_modules",
       "!**/.wrangler",
       "!**/.claude",
-      "!worker-configuration.d.ts"
+      "!worker-configuration.d.ts",
+      "!apps/worker/src/web/lwc.generated.ts"
     ]
   },
   "formatter": {

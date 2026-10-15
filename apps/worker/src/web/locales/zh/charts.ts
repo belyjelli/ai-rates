@@ -1,6 +1,6 @@
 /**
- * Simplified Chinese for the chart pages and their readouts: web/cvd.ts, web/sentiment.ts,
- * web/funding-chart.ts and web/slot-chart.ts (web/rail.ts has no words of its own). Glossary and
+ * Simplified Chinese for the chart pages and their readouts: web/cvd.ts, web/kchart.ts,
+ * web/sentiment.ts, web/funding-chart.ts and web/slot-chart.ts (web/rail.ts has no words of its own). Glossary and
  * style: ./index.ts.
  *
  * Keys shared with the liquidations part (months, dates, "Window", the hover hints) carry the same
@@ -183,4 +183,12 @@ export const charts: Catalog = {
   "no candle": "无 K 线",
   "{month} {day} {hours} {zone}": "{month}{day}日 {hours} {zone}",
   "{hours} {zone}": "{hours} {zone}",
+
+  // web/kchart.ts: the trading chart on /cvd.
+  "Loading older bars…": "正在加载更早的 K 线…",
+  "Nothing older: taker flow is kept for {days} days.":
+    "没有更早的数据：主动成交数据保留 {days} 天。",
+  "Older bars did not load. Drag again to retry.": "更早的 K 线未能加载，再拖动一次可重试。",
+  "drag to look back · wheel or pinch to zoom · hover a candle to read it":
+    "拖动查看历史 · 滚轮或双指缩放 · 悬停 K 线查看数值",
 };

@@ -1,3 +1,4 @@
+import { ASSET_CLASSES, type AssetClass } from "@ai-rates/core";
 import { VENUES } from "@ai-rates/venues";
 import { SCREENER_SORTS, type ScreenerFilters, type ScreenerSort } from "./data";
 
@@ -635,6 +636,59 @@ export function cvdToQuery(params: CvdParams): string {
   if (params.q) query.set("q", params.q);
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
+}
+
+/** Bars in one page of the CVD chart's history: about 41 hours of 5-minute bars, 21 days of hourly. */
+export const KC_PAGE_BARS = 500;
+/** How long taker_flow keeps a bucket (collector migration 023): nothing older can be asked for. */
+export const TAKER_FLOW_DAYS = 35;
+
+/** One page of the CVD chart's history, as `/data/cvd` is asked for it (web/kchart.ts). */
+export interface CvdHistoryParams {
+  asset: string;
+  assetClass: AssetClass;
+  barMinutes: number;
+  /** The page: bars starting in [fromMs, toMs). */
+  fromMs: number;
+  toMs: number;
+  ref: { venue: string; symbol: string } | null;
+}
+
+const HISTORY_ASSET = /^[\p{L}\p{N}._-]{1,40}$/u;
+const HISTORY_REF = /^([a-z0-9-]{1,32}):([\p{L}\p{N}._-]{1,48})$/u;
+
+/**
+ * `/data/cvd`'s query, or null when any part is not one the chart would send. Strict on purpose:
+ * every page is cached by its address, so `before` must sit on the page grid (a multiple of
+ * KC_PAGE_BARS bars) and inside the retention, and the bar must be one of the intervals' -- an
+ * address the chart never makes would only ever be a cache miss sent to the database.
+ */
+export function parseCvdHistoryParams(
+  params: URLSearchParams,
+  now: number,
+): CvdHistoryParams | null {
+  const asset = params.get("asset") ?? "";
+  const assetClass = ASSET_CLASSES.find((c) => c === params.get("class"));
+  const barMinutes = Number(params.get("bar"));
+  const before = Number(params.get("before"));
+  const ref = HISTORY_REF.exec(params.get("ref") ?? "");
+  if (!HISTORY_ASSET.test(asset) || !assetClass) return null;
+  if (!Object.values(CVD_INTERVALS).some((interval) => interval.barMinutes === barMinutes)) {
+    return null;
+  }
+  const page = KC_PAGE_BARS * barMinutes * 60_000;
+  if (!Number.isSafeInteger(before) || before % page !== 0) return null;
+  // From the page holding the oldest kept bucket to the page holding now.
+  if (before <= now - TAKER_FLOW_DAYS * 86_400_000 || before > now + page) return null;
+  if (params.has("ref") && !ref) return null;
+  return {
+    asset: asset.toUpperCase(),
+    assetClass,
+    barMinutes,
+    fromMs: before - page,
+    toMs: before,
+    ref: ref?.[1] && ref[2] ? { venue: ref[1], symbol: ref[2] } : null,
+  };
 }
 
 /**

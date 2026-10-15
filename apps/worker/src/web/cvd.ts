@@ -13,6 +13,16 @@ import {
 import { ageText, esc, formatPrice, formatUsd, LOCK_ICON } from "./format";
 import { helpHeading } from "./help";
 import { msg, tr, trMsg } from "./i18n";
+import {
+  KC_HOST,
+  KC_PAGE_BARS,
+  KCHART_SCRIPT,
+  kBars,
+  kchartData,
+  kRef,
+  kSource,
+  TAKER_FLOW_DAYS,
+} from "./kchart";
 import { layout } from "./layout";
 import { timeTag, zoneTag } from "./localtime";
 import { assetKey, assetName } from "./pages";
@@ -127,11 +137,13 @@ function niceCeil(value: number): number {
  */
 function cvdChart(data: {
   label: string;
+  asset: string;
+  assetClass: AssetClass;
   bars: readonly CvdBar[];
   params: CvdParams;
   now: number;
 }): string {
-  const { label, bars, params, now } = data;
+  const { label, asset, assetClass, bars, params, now } = data;
   const { hours, barMinutes, span: window } = CVD_INTERVALS[params.interval];
   const bucketMs = barMinutes * 60_000;
   const current = Math.floor(now / bucketMs) * bucketMs;
@@ -299,6 +311,18 @@ function cvdChart(data: {
     ),
   });
 
+  // The same bars for the trading chart that replaces the panels below once its library loads
+  // (kchart.ts), with where to ask for older ones.
+  const trading = kchartData({
+    bar: bucketMs,
+    count,
+    page: KC_PAGE_BARS * bucketMs,
+    floor: now - TAKER_FLOW_DAYS * 86_400_000,
+    src: kSource(asset, assetClass, barMinutes),
+    ref: kRef(bars),
+    bars: kBars(bars),
+  });
+
   return `<figure class="fchart cvd-chart" data-live="cvd-chart" data-cursors>${cite}
 <div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>${tr("Price")}${market ? ` <span class="dim">${tr("close, {market}", { market: esc(market) })}</span>` : ""}</span><span><i class="cvd-key-cvd"></i>CVD <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span><span><i class="cvd-key-buy"></i>${tr("Net buy")}</span><span><i class="cvd-key-sell"></i>${tr("Net sell")}</span>${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}">
@@ -309,7 +333,7 @@ function cvdChart(data: {
   }${SLOT_CURSOR}${SLOT_HAIR}</svg>${leftLabels}${rightLabels}</div>
 <div class="fchart-plot cvd-strip" data-axes="${esc(JSON.stringify({ r: ["usd", -peak, peak] }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} net taker flow per bar", { asset: label }))}">${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line>${netBars}${SLOT_CURSOR}${SLOT_HAIR}</svg><span class="cvd-yr" style="top:0%">${signedUsd(peak)}</span><span class="cvd-yr" style="top:100%">${signedUsd(-peak)}</span>${xLabels.join("")}</div>
 </div>
-${payload}
+${payload}${trading}
 </figure>`;
 }
 
@@ -665,7 +689,7 @@ export function cvd(data: {
       ? `<p class="empty">${tr("No live market lists {asset}, so there is no flow to chart.", { asset: esc(asset) })}</p>`
       : flow.bars.length === 0
         ? `<p class="empty">${tr("No taker flow for {asset} in the last {window}. Only the ~100 assets deepest on {venues} are polled; pick one from the asset list above.", { asset: label, window: esc(CVD_INTERVALS[params.interval].span), venues: CVD_VENUES.map(venueName).join(", ") })}</p>`
-        : cvdChart({ label, bars: flow.bars, params, now });
+        : cvdChart({ label, asset, assetClass: chartClass, bars: flow.bars, params, now });
 
   const lag = flow.newest
     ? tr("Newest bucket {age}.", { age: esc(ageText(flow.newest, now)) })
@@ -694,8 +718,9 @@ export function cvd(data: {
     )}
 <div class="lq-controls wh-controls">${picker}${intervalStrip}</div>
 ${tiles}
-<div id="cvd-chart" class="cvd-anchor">${chart}</div>
+<div id="cvd-chart" class="cvd-anchor">${chart}${flow.bars.length ? KC_HOST : ""}</div>
 <script>${SLOT_SCRIPT}</script>
+<script>${KCHART_SCRIPT}</script>
 <script>${PICK_SCRIPT}</script>
 <script>${CVD_SWITCH_SCRIPT}</script>
 <p class="notes" data-live="cvd-asof">${lag}</p>

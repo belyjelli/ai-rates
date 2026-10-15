@@ -115,7 +115,8 @@ export function timeTitle(ms: number, f: TimeFormat, template: string, bucket = 
 /**
  * The browser half, on every page (layout.ts). `window.airratesZone(ms)` is the reader's offset for a
  * moment, in minutes east of UTC, or 0 while the clock is set to UTC: the chart readouts
- * (slot-chart.ts) ask it. Each element is written only when its text changes, so the observer that
+ * (slot-chart.ts) ask it, and `window.airratesTime` hands the formats and words to the trading chart
+ * (kchart.ts), which labels its own time axis. Each element is written only when its text changes, so the observer that
  * re-runs this after a swap never re-triggers itself.
  */
 export function localTimeScript(): string {
@@ -125,6 +126,8 @@ export function localTimeScript(): string {
   const utc = () => { try { return localStorage.getItem("clock") === "utc"; } catch (_) { return false; } };
   const zone = (ms) => (utc() ? 0 : -new Date(ms).getTimezoneOffset());
   window.airratesZone = zone;
+  // The formats and words, for a chart that labels its own axis (kchart.ts).
+  window.airratesTime = { fmt, W };
   const set = (el, text) => { if (el.textContent !== text) el.textContent = text; };
   const apply = () => {
     for (const el of document.querySelectorAll("[data-t]")) {

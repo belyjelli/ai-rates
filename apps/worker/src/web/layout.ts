@@ -587,6 +587,13 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 /* Every asset link targets #cvd-chart, which wraps the chart or the note that replaces it. The offset
    keeps the sticky masthead from covering the chart's title when the page jumps there. */
 .cvd-anchor{scroll-margin-top:calc(var(--mast) + 8px)}
+.kc-host{margin:2px 0 22px}
+.kc-canvas{position:relative;height:460px}
+.kc-on .slot-area,.kc-on .slot-modes{display:none!important}
+.kc-bar{margin:0 0 4px;min-height:16px;font-size:11px;line-height:16px}
+.kc-note{color:var(--ink)}
+.kc-note:not([hidden])+.kc-hint{display:none}
+@media (max-width:640px){.kc-canvas{height:380px}.kc-hint{display:none}}
 .cvd-chart .fchart-plot{margin:6px 64px 0 64px}
 .cvd-chart .fchart-note{margin-top:22px}
 .cvd-chart .cvd-plot{height:260px}

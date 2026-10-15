@@ -27,8 +27,10 @@ function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) return entry.name === "locales" ? [] : sourceFiles(path);
+    // lwc.generated.ts is a minified library, whose own one-letter functions can be named tr.
     return entry.name.endsWith(".ts") &&
       !entry.name.endsWith(".test.ts") &&
+      entry.name !== "lwc.generated.ts" &&
       path !== join(import.meta.dir, "i18n.ts")
       ? [path]
       : [];

@@ -7,6 +7,7 @@ import { handleApp, unavailableResponse } from "./app";
 import type {
   ArbitrageRow,
   CvdAssetRow,
+  CvdBar,
   CvdData,
   CvdOptions,
   DailyFundingRow,
@@ -129,6 +130,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     liquidationMap: async () => ({ cells: [], columnTotals: [], totals: [], assets: [] }),
     cvd: async () => ({ rows: [], asset_class: "crypto" as const, bars: [], newest: null }),
     assetBars: async () => [],
+    cvdHistory: async () => [],
     liquidationFeeds: async () => [],
     whalePositions: async () => [],
     gamma: async ({ currency }) => ({
@@ -3170,6 +3172,107 @@ describe("cvd", () => {
     expect(figure).not.toContain("<title>");
     expect(figure).not.toContain("cvd-hit");
     expect(html.match(/window\.airratesSlots = true/g)).toHaveLength(1);
+  });
+
+  test("the trading chart gets the same bars as candles, where to find older ones, and a host outside the live figure", async () => {
+    const { data } = fakeData({
+      cvd: async () => {
+        const base = flow();
+        const [first, second] = base.bars as [CvdBar, CvdBar];
+        return { ...base, bars: [{ ...first, open: 76_000, high: 76_300, low: 75_950 }, second] };
+      },
+    });
+    const html = await (await get("/cvd", data)).text();
+    const figure = html.slice(
+      html.indexOf('<figure class="fchart cvd-chart"'),
+      html.indexOf("</figure>"),
+    );
+    const payload = JSON.parse(
+      figure.match(/<script type="application\/json" class="kc-data">([\s\S]*?)<\/script>/)?.[1] ??
+        "{}",
+    );
+    expect(payload.bar).toBe(900_000);
+    expect(payload.count).toBe(96);
+    expect(payload.page).toBe(500 * 900_000);
+    expect(payload.floor).toBe(NOW - 35 * 86_400_000);
+    expect(payload.src).toBe("/data/cvd?asset=BTC&class=crypto&bar=15");
+    expect(payload.ref).toBe("binance:BTCUSDT");
+    // [start, open, high, low, close, bought, sold]; a bar with only a close stands in for all four.
+    expect(payload.bars).toEqual([
+      [Date.parse("2026-09-12T11:15:00Z"), 76_000, 76_300, 75_950, 76_100, 5e6, 2e6],
+      [Date.parse("2026-09-12T11:45:00Z"), 75_900, 75_900, 75_900, 75_900, 1e6, 4e6],
+    ]);
+    expect(payload.words.older).toBe("Loading older bars…");
+    // The host follows the figure inside the anchor: live.ts replaces the figure, never the host.
+    expect(html).toMatch(/<\/figure>\s*<div class="kc-host" data-kc hidden><\/div><\/div>/);
+    expect(html.match(/window\.airratesKChart = true/g)).toHaveLength(1);
+  });
+
+  test("/data/cvd answers one page of history on the page grid, and nothing else", async () => {
+    const asked: unknown[] = [];
+    const { data } = fakeData({
+      cvdHistory: async (options) => {
+        asked.push(options);
+        return [
+          {
+            bucket_start: new Date(Date.parse("2026-09-01T00:00:00Z")),
+            buy_usd: 1.4e6,
+            sell_usd: 2.6e6,
+            price: 70_000,
+            open: 69_000,
+            high: 70_500,
+            low: 68_800,
+            price_venue: "binance",
+            price_symbol: "BTCUSDT",
+          },
+        ];
+      },
+    });
+    const page = 500 * 3_600_000;
+    const before = Math.ceil((NOW - 10 * 86_400_000) / page) * page;
+    const response = await get(
+      `/data/cvd?asset=BTC&class=crypto&bar=60&before=${before}&ref=binance:BTCUSDT`,
+      data,
+    );
+    expect(response.status).toBe(200);
+    // Long past: final, so kept an hour.
+    expect(response.headers.get("cache-control")).toBe("public, max-age=3600");
+    expect(asked).toEqual([
+      {
+        base: "BTC",
+        assetClass: "crypto",
+        barMinutes: 60,
+        fromMs: before - page,
+        toMs: before,
+        ref: { venue: "binance", symbol: "BTCUSDT" },
+      },
+    ]);
+    expect(await response.json()).toEqual({
+      from: before - page,
+      to: before,
+      ref: "binance:BTCUSDT",
+      bars: [
+        [Date.parse("2026-09-01T00:00:00Z"), 69_000, 70_500, 68_800, 70_000, 1_400_000, 2_600_000],
+      ],
+    });
+
+    // The page holding now is still filling: a minute.
+    const newest = Math.ceil(NOW / page) * page;
+    const fresh = await get(`/data/cvd?asset=BTC&class=crypto&bar=60&before=${newest}`, data);
+    expect(fresh.headers.get("cache-control")).toBe("public, max-age=60");
+
+    for (const bad of [
+      `asset=BTC&class=crypto&bar=60&before=${before + 3_600_000}`, // off the page grid
+      `asset=BTC&class=crypto&bar=7&before=${before}`, // not an interval's bar
+      `asset=BTC&class=bonds&bar=60&before=${before}`, // not a class
+      `asset=BTC&class=crypto&bar=60&before=${before - 20 * page}`, // past the retention
+      `asset=BTC&class=crypto&bar=60&before=${newest + page}`, // the future
+      `asset=BTC&class=crypto&bar=60&before=${before}&ref=binance`, // a ref without a symbol
+      `asset=B%20TC&class=crypto&bar=60&before=${before}`,
+    ]) {
+      expect((await get(`/data/cvd?${bad}`, data)).status).toBe(400);
+    }
+    expect(asked).toHaveLength(2);
   });
 
   test("the chart offers a crosshair: a level line per panel, each panel's axes, and a switch", async () => {

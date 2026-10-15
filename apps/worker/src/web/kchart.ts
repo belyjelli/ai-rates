@@ -1,0 +1,369 @@
+import type { CvdBar } from "../app/data";
+import { KC_PAGE_BARS, TAKER_FLOW_DAYS } from "../app/params";
+import { tr } from "./i18n";
+import { LWC_SOURCE, LWC_VERSION } from "./lwc.generated";
+import { cvdText, slotPct, slotPrice, slotUsd, slotWhen, slotWords } from "./slot-chart";
+
+/**
+ * The CVD chart as a trading chart: candles you drag back through history and zoom, drawn by
+ * TradingView's Lightweight Charts.
+ *
+ * WHY. A tester (2026-10-16) wanted what an exchange app gives: candles rather than a line of
+ * closes, and every interval scrollable to the left to look back. The SVG chart (cvd.ts) is one
+ * window, rendered whole on the server; a window that moves under the pointer needs a canvas and
+ * data on demand.
+ *
+ * THE SVG STAYS. The server still renders it, so a reader without JavaScript, a crawler and the
+ * moment before the library arrives all get a chart. This script then loads the library, builds the
+ * trading chart in a host beside the figure, and hides the SVG panels (`.kc-on`). If the library
+ * fails to load, nothing is hidden.
+ *
+ * OUTSIDE THE LIVE REGION. live.ts replaces the figure's HTML every 30 seconds, which would destroy
+ * a chart built inside it, and the reader's place in it. So the host sits beside the figure, and the
+ * figure carries only the data (`.kc-data`): when a refresh swaps in a new copy, the bars in it are
+ * merged into the chart where it stands. The readout line stays in the figure and is written to
+ * wherever it currently is.
+ *
+ * HISTORY comes from `/data/cvd` in pages of KC_PAGE_BARS bars, on a grid of whole pages so every
+ * reader asks for the same addresses and the edge cache answers most of them. A page names the
+ * reference market the chart already draws, so the price does not jump to another venue's quotes
+ * part way back. It stops at taker_flow's retention.
+ *
+ * TIME is the reader's zone, as on every chart (localtime.ts): the library draws UTC, so each bar is
+ * handed to it shifted by the reader's offset, and labelled with the site's own words.
+ */
+
+/** Where the library is served: versioned, so it can be cached for a year. */
+export const LWC_PATH = `/assets/lightweight-charts-${LWC_VERSION}.js`;
+
+/** The library itself, at LWC_PATH. */
+export function lwcAsset(path: string): Response | null {
+  if (path !== LWC_PATH) return null;
+  return new Response(LWC_SOURCE, {
+    headers: {
+      "content-type": "text/javascript; charset=utf-8",
+      "cache-control": "public, max-age=31536000, immutable",
+    },
+  });
+}
+
+export { KC_PAGE_BARS, TAKER_FLOW_DAYS };
+
+/** One bar as the chart ships it: start (epoch ms), open, high, low, close, taker buys, taker sells. */
+export type KBar = [
+  number,
+  number | null,
+  number | null,
+  number | null,
+  number | null,
+  number,
+  number,
+];
+
+/**
+ * The bars in the shipped form. Whole dollars: finer than any readout shows. A bar whose reference
+ * market has no close has no candle; a close without the rest stands in for all four.
+ */
+export function kBars(bars: readonly CvdBar[]): KBar[] {
+  return bars.map((bar) => {
+    const close = bar.price;
+    return [
+      bar.bucket_start.getTime(),
+      close === null ? null : (bar.open ?? close),
+      close === null ? null : (bar.high ?? close),
+      close === null ? null : (bar.low ?? close),
+      close,
+      Math.round(bar.buy_usd),
+      Math.round(bar.sell_usd),
+    ];
+  });
+}
+
+/** The reference market as the history address names it: "binance:BTCUSDT". */
+export function kRef(bars: readonly CvdBar[]): string | null {
+  const bar = bars.find((b) => b.price_venue !== null && b.price_symbol !== null);
+  return bar ? `${bar.price_venue}:${bar.price_symbol}` : null;
+}
+
+/** The history address for one asset and bar length, without `before`, which the browser adds. */
+export const kSource = (asset: string, assetClass: string, barMinutes: number) =>
+  `/data/cvd?asset=${encodeURIComponent(asset)}&class=${encodeURIComponent(assetClass)}&bar=${barMinutes}`;
+
+/** What a figure ships for the trading chart. */
+export interface KChartPayload {
+  /** Bar length, ms; and how many bars the page's window is, which the chart opens on. */
+  bar: number;
+  count: number;
+  /** One history page's length, ms: KC_PAGE_BARS bars. */
+  page: number;
+  /** The oldest moment worth asking for, epoch ms. */
+  floor: number;
+  /** The history address (kSource) and the reference market to keep. */
+  src: string;
+  ref: string | null;
+  bars: KBar[];
+}
+
+/** The payload as a JSON script tag, `<` escaped, with the readout's words in the render's language. */
+export function kchartData(payload: KChartPayload): string {
+  const words = {
+    ...slotWords(),
+    older: tr("Loading older bars…"),
+    oldest: tr("Nothing older: taker flow is kept for {days} days.", { days: TAKER_FLOW_DAYS }),
+    failed: tr("Older bars did not load. Drag again to retry."),
+    hint: tr("drag to look back · wheel or pinch to zoom · hover a candle to read it"),
+  };
+  return `<script type="application/json" class="kc-data">${JSON.stringify({ ...payload, words }).replace(/</g, "\\u003c")}</script>`;
+}
+
+/** The host the chart is built in: beside the figure, never inside a live region. */
+export const KC_HOST = `<div class="kc-host" data-kc hidden></div>`;
+
+/**
+ * The browser half, once per page. A MutationObserver both mounts a chart in a host that has just
+ * arrived (the page's own, or one an in-place interval switch swapped in) and merges a figure's
+ * refreshed data, so neither depends on who changed the page.
+ */
+export const KCHART_SCRIPT = `(() => {
+  if (window.airratesKChart) return;
+  window.airratesKChart = true;
+  const SRC = ${JSON.stringify(LWC_PATH)};
+  const slotWhen = ${slotWhen};
+  const usd = ${slotUsd};
+  const price = ${slotPrice};
+  const pct = ${slotPct};
+  const cvdText = ${cvdText};
+  const signed = (v) => (v > 0 ? "+" : "") + usd(v);
+  const zone = (ms) => (window.airratesZone ? window.airratesZone(ms) : 0);
+  let lib = null;
+  const load = () => lib || (lib = new Promise((ok, no) => {
+    if (window.LightweightCharts) return ok(window.LightweightCharts);
+    const s = document.createElement("script");
+    s.src = SRC;
+    s.async = true;
+    s.onload = () => (window.LightweightCharts ? ok(window.LightweightCharts) : no(new Error("no library")));
+    s.onerror = () => { lib = null; no(new Error("library failed")); };
+    document.head.appendChild(s);
+  }));
+  const charts = new Set();
+  const idle = new WeakMap();
+  const css = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+
+  // The library draws UTC; a bar is handed to it at its start in the reader's zone. Strictly
+  // ascending, which a clock going back an hour would otherwise break.
+  const times = (bars) => {
+    const out = [];
+    let last = -Infinity;
+    for (const b of bars) {
+      let t = Math.round((b[0] + zone(b[0]) * 60000) / 1000);
+      if (t <= last) t = last + 1;
+      out.push(t);
+      last = t;
+    }
+    return out;
+  };
+
+  const draw = (st) => {
+    const bars = st.bars, at = times(bars);
+    const candles = [], line = [], net = [];
+    let run = 0;
+    st.cvd = [];
+    bars.forEach((b, i) => {
+      const time = at[i];
+      const c = b[4];
+      if (c === null) candles.push({ time });
+      else {
+        const o = b[1] === null ? c : b[1];
+        candles.push({ time, open: o, high: Math.max(b[2] === null ? c : b[2], o, c), low: Math.min(b[3] === null ? c : b[3], o, c), close: c });
+      }
+      run += b[5] - b[6];
+      st.cvd.push(run);
+      line.push({ time, value: run });
+      net.push({ time, value: b[5] - b[6], color: b[5] >= b[6] ? st.colors.long : st.colors.short });
+    });
+    st.candles.setData(candles);
+    st.line.setData(line);
+    st.net.setData(net);
+    const last = bars.length ? bars[bars.length - 1][4] : null;
+    if (last) {
+      const step = Math.pow(10, Math.floor(Math.log10(Math.abs(last))) - 5);
+      st.candles.applyOptions({ priceFormat: { type: "custom", formatter: price, minMove: step } });
+    }
+  };
+
+  // Redraw keeping the reader's place: \`added\` bars came in on the left, so the same bars stay in
+  // view; at the right edge the chart keeps following the newest bar.
+  const redraw = (st, added, appended) => {
+    const ts = st.chart.timeScale();
+    const r = ts.getVisibleLogicalRange();
+    const atEdge = r && r.to >= st.bars.length - appended - 1.5;
+    draw(st);
+    if (r) ts.setVisibleLogicalRange({ from: r.from + added + (atEdge ? appended : 0), to: r.to + added + (atEdge ? appended : 0) });
+  };
+
+  const note = (st, text) => {
+    st.note.textContent = text || "";
+    st.note.hidden = !text;
+  };
+
+  const reading = (st, i) => {
+    const d = st.d, w = d.words, b = st.bars[i];
+    const when = slotWhen(b[0], w, zone(b[0]), d.bar);
+    const head = b[0] + d.bar > Date.now() ? w.filling.replace("{when}", () => when) : when;
+    const c = b[4];
+    let ohlc = "";
+    if (c !== null) {
+      const o = b[1] === null ? c : b[1];
+      const tone = c > o ? "cvd-up" : c < o ? "cvd-down" : "";
+      ohlc = w.ohlc
+        .replace("{open}", () => price(o))
+        .replace("{high}", () => price(b[2] === null ? c : b[2]))
+        .replace("{low}", () => price(b[3] === null ? c : b[3]))
+        .replace("{close}", () => '<b class="' + tone + '">' + price(c) + "</b> (" + pct((c / o - 1) * 100, 2) + ")");
+    }
+    return cvdText(ohlc ? head + " · " + ohlc : head, [b[5], b[6], null], st.cvd[i], null, { usd, price, pct, words: w });
+  };
+
+  // Older bars, a page at a time, on the page grid. An empty page that is still inside the
+  // retention is skipped past rather than taken for the end.
+  const older = async (st) => {
+    if (st.loading || st.done) return;
+    st.loading = true;
+    const w = st.d.words, page = st.d.page;
+    note(st, w.older);
+    try {
+      for (let tries = 0; tries < 4; tries++) {
+        if (st.cursor <= st.d.floor) { st.done = true; break; }
+        const before = Math.ceil(st.cursor / page) * page;
+        const res = await fetch(st.d.src + "&before=" + before + (st.ref ? "&ref=" + encodeURIComponent(st.ref) : ""), { credentials: "same-origin" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const body = await res.json();
+        if (!st.host.isConnected) return;
+        st.cursor = before - page;
+        if (!st.ref && body.ref) st.ref = body.ref;
+        const oldest = st.bars.length ? st.bars[0][0] : Infinity;
+        // The window's first bar can be part of one (the page asks for the last N hours, not whole
+        // bars): the page's whole bar replaces it.
+        const whole = new Map(body.bars.map((b) => [b[0], b]));
+        if (st.partial !== null && whole.has(st.partial)) {
+          const i = st.bars.findIndex((b) => b[0] === st.partial);
+          if (i >= 0) st.bars[i] = whole.get(st.partial);
+          st.partial = null;
+        }
+        const fresh = body.bars.filter((b) => b[0] < oldest);
+        if (fresh.length) {
+          st.bars = fresh.concat(st.bars);
+          redraw(st, fresh.length, 0);
+          break;
+        }
+      }
+      note(st, st.done ? w.oldest : "");
+    } catch (_) {
+      note(st, w.failed);
+    } finally {
+      st.loading = false;
+    }
+  };
+
+  // A refreshed figure's bars: the newest replace or extend what is drawn. Its first bar is part of
+  // one, as above, and never replaces a whole bar already held.
+  const merge = (st, d) => {
+    const have = new Map(st.bars.map((b, i) => [b[0], i]));
+    let appended = 0;
+    d.bars.forEach((b, j) => {
+      const i = have.get(b[0]);
+      if (i === undefined) {
+        if (st.bars.length && b[0] < st.bars[st.bars.length - 1][0]) return;
+        st.bars.push(b);
+        appended++;
+      } else if (j > 0) st.bars[i] = b;
+    });
+    st.d = Object.assign({}, st.d, { words: d.words, floor: d.floor });
+    redraw(st, 0, appended);
+  };
+
+  const mount = async (host) => {
+    host.dataset.kcOn = "1";
+    const anchor = host.parentElement;
+    const el = anchor && anchor.querySelector(".kc-data");
+    if (!el) return;
+    const d = JSON.parse(el.textContent);
+    let LC;
+    try { LC = await load(); } catch (_) { return; }
+    if (!host.isConnected) return;
+    const colors = { ink: css("--ink", "#d8d8d8"), muted: css("--muted", "#7a7a7a"), rule: css("--rule", "#242424"), band: css("--band", "#0e0e0e"), bg: css("--bg", "#000"), long: css("--long", "#5f87ff"), short: css("--short", "#ff5f5f"), accent: css("--accent", "#c8f5a8") };
+    host.hidden = false;
+    anchor.classList.add("kc-on");
+    // Looked up per label: the library can arrive before localtime.ts's script has run.
+    const words = (ms) => {
+      const T = window.airratesTime;
+      return T ? T.fmt(ms, "md", 0, T.W, 0) : new Date(ms).toISOString().slice(5, 10);
+    };
+    const hm = (ms) => new Date(ms).toISOString().slice(11, 16);
+    // The status line above the canvas, the canvas below it: the library sizes itself to its box.
+    const bar = document.createElement("p");
+    bar.className = "kc-bar dim";
+    const canvas = document.createElement("div");
+    canvas.className = "kc-canvas";
+    host.append(bar, canvas);
+    const chart = LC.createChart(canvas, {
+      autoSize: true,
+      layout: { background: { type: "solid", color: colors.bg }, textColor: colors.muted, fontSize: 11, fontFamily: css("--mono", "monospace"), panes: { separatorColor: colors.rule, enableResize: false } },
+      grid: { vertLines: { color: colors.band }, horzLines: { color: colors.band } },
+      // A phone keeps its width for the candles: the CVD line stays, its axis goes (the readout and
+      // the line's own label still give its value).
+      leftPriceScale: { visible: canvas.clientWidth >= 520, borderColor: colors.rule },
+      rightPriceScale: { borderColor: colors.rule },
+      timeScale: { borderColor: colors.rule, timeVisible: true, secondsVisible: false, rightOffset: 2, fixLeftEdge: true, tickMarkFormatter: (t, type) => (type <= 2 ? (type === 0 ? String(new Date(t * 1000).getUTCFullYear()) : words(t * 1000)) : hm(t * 1000)) },
+      crosshair: { mode: LC.CrosshairMode.Normal, vertLine: { color: colors.muted, labelBackgroundColor: colors.rule }, horzLine: { color: colors.muted, labelBackgroundColor: colors.rule } },
+      // No priceFormatter here: it would override every series' own, and the CVD is dollars.
+      localization: { timeFormatter: (t) => words(t * 1000) + " " + hm(t * 1000) },
+      handleScroll: { vertTouchDrag: false },
+    });
+    const st = {
+      host, anchor, el, d, chart, colors,
+      bars: d.bars.slice(),
+      partial: d.bars.length ? d.bars[0][0] : null,
+      cursor: d.bars.length ? d.bars[0][0] : Date.now(),
+      ref: d.ref, loading: false, done: false, cvd: [],
+    };
+    st.candles = chart.addSeries(LC.CandlestickSeries, { upColor: "rgba(0,0,0,0)", downColor: colors.ink, borderUpColor: colors.ink, borderDownColor: colors.ink, wickUpColor: colors.ink, wickDownColor: colors.ink, priceLineColor: colors.muted });
+    st.line = chart.addSeries(LC.LineSeries, { color: colors.accent, lineWidth: 2, priceScaleId: "left", priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: { type: "custom", formatter: signed, minMove: 1 } });
+    st.net = chart.addSeries(LC.HistogramSeries, { priceLineVisible: false, lastValueVisible: false, priceFormat: { type: "custom", formatter: signed, minMove: 1 } }, 1);
+    const panes = chart.panes();
+    if (panes[0]) panes[0].setStretchFactor(3);
+    if (panes[1]) panes[1].setStretchFactor(1);
+    st.note = document.createElement("span");
+    st.note.className = "kc-note";
+    st.note.hidden = true;
+    const hint = document.createElement("span");
+    hint.className = "kc-hint";
+    hint.textContent = d.words.hint;
+    bar.append(st.note, hint);
+    draw(st);
+    const n = st.bars.length;
+    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - d.count) - 0.5, to: n - 1 + 2 });
+    chart.timeScale().subscribeVisibleLogicalRangeChange((r) => { if (r && r.from < 30) older(st); });
+    chart.subscribeCrosshairMove((p) => {
+      const read = st.anchor.querySelector(".slot-read");
+      if (!read) return;
+      if (!idle.has(read)) idle.set(read, read.innerHTML);
+      const i = p && p.point && p.logical !== undefined ? Math.round(p.logical) : -1;
+      read.innerHTML = i >= 0 && i < st.bars.length ? reading(st, i) : idle.get(read);
+    });
+    charts.add(st);
+  };
+
+  const scan = () => {
+    for (const st of charts) {
+      if (!st.host.isConnected) { st.chart.remove(); charts.delete(st); continue; }
+      const el = st.anchor.querySelector(".kc-data");
+      if (el && el !== st.el) { st.el = el; merge(st, JSON.parse(el.textContent)); }
+    }
+    for (const host of document.querySelectorAll("[data-kc]:not([data-kc-on])")) mount(host);
+  };
+  scan();
+  new MutationObserver(scan).observe(document.querySelector("main") || document.body, { childList: true, subtree: true });
+  // The masthead clock moved between the reader's zone and UTC: every bar moves with it.
+  addEventListener("airrates:clock", () => { for (const st of charts) redraw(st, 0, 0); });
+})();`;

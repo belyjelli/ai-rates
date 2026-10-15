@@ -621,6 +621,14 @@ export interface CvdBar {
   sell_usd: number;
   /** The reference market's close: its last 5-minute close inside the bar. */
   price: number | null;
+  /**
+   * The reference market's open, high and low over the bar (migration 035), where it stores them;
+   * where it stores only closes, the bar's first close and the highest and lowest close. Absent
+   * from readers that never asked for them.
+   */
+  open?: number | null;
+  high?: number | null;
+  low?: number | null;
   /** The reference market the price is read from, the same on every bar; null when none has one. */
   price_venue: string | null;
   price_symbol: string | null;
@@ -632,6 +640,20 @@ export interface CvdOptions {
   /** The charted asset. */
   base: string;
   assetClass: AssetClass | null;
+}
+
+/**
+ * One page of an asset's CVD bars for the chart's history (`/data/cvd`): bars starting in
+ * [fromMs, toMs), both on the bar grid. `ref` keeps the price on the market the chart already shows,
+ * where that market has closes in the page; otherwise it is the page's busiest, as in cvd().
+ */
+export interface CvdHistoryOptions {
+  base: string;
+  assetClass: AssetClass;
+  barMinutes: number;
+  fromMs: number;
+  toMs: number;
+  ref: { venue: string; symbol: string } | null;
 }
 
 export interface CvdData {
@@ -915,6 +937,8 @@ export interface DataSource {
    * the CVD chart draws, for the liquidations odds tab, which needs a week of one asset's closes.
    */
   assetBars(options: CvdOptions): Promise<CvdBar[]>;
+  /** An older page of one asset's CVD bars, for a chart dragged back past what the page shipped. */
+  cvdHistory(options: CvdHistoryOptions): Promise<CvdBar[]>;
   /** What each liquidation feed actually stored in the last day. */
   liquidationFeeds(): Promise<LiquidationFeedRow[]>;
   /** The whale-orders page: the tracked markets, and one market's candles and walls over a window. */
@@ -980,9 +1004,14 @@ function chosenClass(sql: postgres.Sql, base: string, assetClass: AssetClass | n
 function assetBarsQuery(
   sql: postgres.Sql,
   { base, assetClass, windowHours, barMinutes }: CvdOptions,
+  range: Pick<CvdHistoryOptions, "fromMs" | "toMs" | "ref"> | null = null,
 ) {
   const windowInterval = `${windowHours} hours`;
   const barSeconds = barMinutes * 60;
+  // The window: the last `windowHours` for the page, or a page of history on the bar grid.
+  const within = range
+    ? sql`t.bucket_start >= to_timestamp(${range.fromMs / 1000}) AND t.bucket_start < to_timestamp(${range.toMs / 1000})`
+    : sql`t.bucket_start > now() - ${windowInterval}::interval`;
   return sql<CvdBar[]>`
     WITH chosen AS (${chosenClass(sql, base, assetClass)}),
     mk AS (
@@ -993,18 +1022,30 @@ function assetBarsQuery(
     ),
     flow AS (
       SELECT t.venue_id, t.venue_symbol, t.bucket_start, t.buy_usd, t.sell_usd,
-             CASE WHEN t.close_price > 0 THEN t.close_price / mk.mult END AS price
+             CASE WHEN t.close_price > 0 THEN t.close_price / mk.mult END AS price,
+             -- Migration 035's candle, only beside a close (the collector writes all four or none).
+             CASE WHEN t.close_price > 0 AND t.open_price > 0 THEN t.open_price / mk.mult END AS open,
+             CASE WHEN t.close_price > 0 AND t.high_price > 0 THEN t.high_price / mk.mult END AS high,
+             CASE WHEN t.close_price > 0 AND t.low_price > 0 THEN t.low_price / mk.mult END AS low
       FROM mk
       JOIN taker_flow t ON t.venue_id = mk.venue_id AND t.venue_symbol = mk.venue_symbol
-      WHERE t.bucket_start > now() - ${windowInterval}::interval
+      WHERE ${within}
     ),
+    -- The market the chart already draws, when a page of history names one and it has closes here;
+    -- otherwise the busiest market with closes, as for the page.
     reference AS (
       SELECT venue_id, venue_symbol
       FROM flow WHERE price IS NOT NULL
       GROUP BY venue_id, venue_symbol
-      ORDER BY sum(buy_usd + sell_usd) DESC, venue_id, venue_symbol
+      ORDER BY coalesce(venue_id = ${range?.ref?.venue ?? null}::text
+                        AND venue_symbol = ${range?.ref?.symbol ?? null}::text, false) DESC,
+               sum(buy_usd + sell_usd) DESC, venue_id, venue_symbol
       LIMIT 1
     )
+    -- One pass, no join back: the reference market's buckets give the bar its close and its candle
+    -- through FILTERed aggregates. A bucket stored before 035 has a close and nothing else, so it
+    -- stands in for its own open, high and low. (A per-bar candle CTE joined back on the computed bar
+    -- start made Postgres pair every bucket with every bar: over 10 s for 21 days of hourly bars.)
     SELECT to_timestamp(floor(extract(epoch FROM f.bucket_start) / ${barSeconds})
                         * ${barSeconds}) AS bucket_start,
            sum(f.buy_usd)::float8 AS buy_usd,
@@ -1013,6 +1054,18 @@ function assetBarsQuery(
               WHERE f.price IS NOT NULL AND f.venue_id = r.venue_id
                 AND f.venue_symbol = r.venue_symbol
             ))[1])::float8 AS price,
+           ((array_agg(coalesce(f.open, f.price) ORDER BY f.bucket_start) FILTER (
+              WHERE f.price IS NOT NULL AND f.venue_id = r.venue_id
+                AND f.venue_symbol = r.venue_symbol
+            ))[1])::float8 AS open,
+           (max(greatest(coalesce(f.high, f.price), f.price)) FILTER (
+              WHERE f.price IS NOT NULL AND f.venue_id = r.venue_id
+                AND f.venue_symbol = r.venue_symbol
+            ))::float8 AS high,
+           (min(least(coalesce(f.low, f.price), f.price)) FILTER (
+              WHERE f.price IS NOT NULL AND f.venue_id = r.venue_id
+                AND f.venue_symbol = r.venue_symbol
+            ))::float8 AS low,
            min(r.venue_id) AS price_venue,
            min(r.venue_symbol) AS price_symbol
     FROM flow f
@@ -1847,6 +1900,15 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
     async assetBars(options) {
       const bars = await assetBarsQuery(connect(), options);
+      return [...bars];
+    },
+
+    async cvdHistory({ base, assetClass, barMinutes, fromMs, toMs, ref }) {
+      const bars = await assetBarsQuery(
+        connect(),
+        { base, assetClass, barMinutes, windowHours: 0 },
+        { fromMs, toMs, ref },
+      );
       return [...bars];
     },
 

@@ -8,6 +8,7 @@ import type { FundingHistory } from "../web/funding-chart";
 import { gammaFragment } from "../web/gamma";
 import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
 import { installAsset } from "../web/install";
+import { kBars, kRef, lwcAsset } from "../web/kchart";
 import { keyboard } from "../web/keyboard";
 import { SITE_ORIGIN } from "../web/layout";
 import { legal } from "../web/legal";
@@ -59,6 +60,7 @@ import {
   parseArbitrageParams,
   parseBacktestDays,
   parseBacktestParams,
+  parseCvdHistoryParams,
   parseCvdParams,
   parseGammaParams,
   parseHeatmapParams,
@@ -178,6 +180,34 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     // The app manifest and its icons: no data, so ahead of every route that reads any.
     const installable = installAsset(path);
     if (installable) return installable;
+    // The trading chart's library (web/kchart.ts), served from here so the policy needs no new origin.
+    const library = lwcAsset(path);
+    if (library) return library;
+
+    // One page of an asset's CVD bars, for the trading chart dragged back past what the page shipped.
+    // A page that ended a quarter of an hour ago is final -- OKX's last revision lands ~7.5 minutes
+    // after its bucket -- so it is kept an hour; the newest page, a minute, like the page itself.
+    if (path === "/data/cvd") {
+      const asked = parseCvdHistoryParams(url.searchParams, now);
+      if (!asked) return json({ error: "bad_request" }, 400, 0);
+      const bars = await deps.data.cvdHistory({
+        base: asked.asset,
+        assetClass: asked.assetClass,
+        barMinutes: asked.barMinutes,
+        fromMs: asked.fromMs,
+        toMs: asked.toMs,
+        ref: asked.ref,
+      });
+      return Response.json(
+        { from: asked.fromMs, to: asked.toMs, ref: kRef(bars), bars: kBars(bars) },
+        {
+          headers: {
+            "cache-control": `public, max-age=${asked.toMs < now - 900_000 ? 3600 : 60}`,
+            "x-robots-tag": "noindex, nofollow",
+          },
+        },
+      );
+    }
 
     if (path === "/") {
       const [overview, pairs, verified, best] = await Promise.all([
