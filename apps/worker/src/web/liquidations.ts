@@ -25,8 +25,9 @@ import {
 import { PENDING_ROWS, PENDING_ZOOMS, type PendingZoom } from "../app/pending";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
-import { msg, tr, trMsg } from "./i18n";
+import { tr } from "./i18n";
 import { layout } from "./layout";
+import { timeTag, timeTitle, zoneTag } from "./localtime";
 import { outlookPanel } from "./outlook";
 import { assetKey, assetName } from "./pages";
 import { citeMark, plainLabel } from "./share";
@@ -78,21 +79,6 @@ import { venueName } from "./venues";
  */
 
 /** Cell colour steps, in dollars. Chosen from the measured distribution, not from round numbers. */
-const MONTHS = [
-  msg("Jan"),
-  msg("Feb"),
-  msg("Mar"),
-  msg("Apr"),
-  msg("May"),
-  msg("Jun"),
-  msg("Jul"),
-  msg("Aug"),
-  msg("Sep"),
-  msg("Oct"),
-  msg("Nov"),
-  msg("Dec"),
-];
-
 const STEPS = [1_000, 10_000, 100_000, 1_000_000, 5_000_000] as const;
 
 /** The step a cell's notional falls in, 1..6. */
@@ -154,32 +140,23 @@ function columns(params: LiquidationParams, now: number): Column[] {
   return out;
 }
 
+/**
+ * A column's header: its start hour, with the date where the day changes ("7/00"), in the reader's
+ * zone once localtime.ts's script has run -- the grid's blocks start on UTC hours, which are whole
+ * hours in nearly every zone, so the labels stay round. UTC until then.
+ */
 function columnLabel(column: Column, bucketHours: number): string {
-  const hour = column.start.getUTCHours();
-  const label = `${String(hour).padStart(2, "0")}`;
-  // A day boundary is the one place a bare hour is ambiguous across a 48-hour or 7-day window.
-  const day = hour < bucketHours ? `${column.start.getUTCDate()}/` : "";
-  return `${day}${label}`;
+  return timeTag(column.start.getTime(), "col", bucketHours);
 }
 
-const clock = (hour: number) => `${String(hour % 24).padStart(2, "0")}:00`;
-
 /**
- * A column header's full range, for its tooltip: "16:00–18:00 UTC", with the date where the label
- * shows one ("Oct 7 00:00–02:00 UTC"), and said to be filling on the column still in progress.
+ * A column header's full range, for its tooltip, as attributes: "16:00–18:00 UTC+8", with the date
+ * where the label shows one ("Oct 7 00:00–02:00 UTC+8"), and said to be filling on the column still
+ * in progress.
  */
 function columnTitle(column: Column, bucketHours: number): string {
-  const hour = column.start.getUTCHours();
-  const hours = `${clock(hour)}–${clock(hour + bucketHours)}`;
-  const range =
-    hour < bucketHours
-      ? tr("{month} {day} {hours} UTC", {
-          month: trMsg(MONTHS[column.start.getUTCMonth()] as string),
-          day: column.start.getUTCDate(),
-          hours,
-        })
-      : tr("{hours} UTC", { hours });
-  return column.partial ? tr("{range}, still filling", { range }) : range;
+  const template = column.partial ? tr("{range}, still filling", { range: "{t}" }) : "{t}";
+  return timeTitle(column.start.getTime(), "colt", template, bucketHours);
 }
 
 /**
@@ -190,15 +167,9 @@ function columnTitle(column: Column, bucketHours: number): string {
  * grid has an "All" column, so only it gets that sentence.
  */
 function columnsHelp(bucketHours: number, withAll: boolean): string {
-  const start = Math.floor(16 / bucketHours) * bucketHours;
   return `<p>${tr(
-    "Columns are time, in UTC. Each is a {hours}-hour block named by its start hour ({start} = {from}–{to}). Where the day changes, the column shows date/hour (7/00 = the 7th at 00:00 UTC). The yellow column is the block in progress and still filling.",
-    {
-      hours: bucketHours,
-      start: String(start).padStart(2, "0"),
-      from: clock(start),
-      to: clock(start + bucketHours),
-    },
+    "Columns are time, in your time zone ({zone}; click the clock at the top for UTC). Each is a {hours}-hour block named by its start hour. Where the day changes, the column shows date/hour (7/00 = the 7th at 00:00). The yellow column is the block in progress and still filling.",
+    { hours: bucketHours, zone: zoneTag() },
   )}${withAll ? ` ${tr("'All' is that price row's total over the whole window.")}` : ""}</p>`;
 }
 
@@ -549,7 +520,7 @@ function mapPanel(data: {
       (column) =>
         `<th class="num${column.partial ? " lq-now" : ""}" scope="col"${
           column.partial ? ` title="${tr("This column is still filling")}"` : ""
-        }>${esc(columnLabel(column, bucketHours))}</th>`,
+        }>${columnLabel(column, bucketHours)}</th>`,
     )
     .join("");
 
@@ -662,8 +633,8 @@ function mapFootnote(data: {
 ${helpPanel(
   "liq-map",
   `<p>${tr(
-    "Columns are {hours}-hour buckets in UTC, newest on the right; the last one is still filling.",
-    { hours: bucketHours },
+    "Columns are {hours}-hour buckets in {zone}, newest on the right; the last one is still filling.",
+    { hours: bucketHours, zone: zoneTag() },
   )}</p><p>${tr(
     "Rows are the {count} busiest assets by notional across every feed, and the rest are summed into “other markets”, so the totals below the grid are real totals and add up.",
     { count: map.assets.length },
@@ -728,9 +699,10 @@ function assetPanel(data: {
     const head = cols
       .map(
         (column) =>
-          `<th class="num${column.partial ? " lq-now" : ""}" scope="col" title="${esc(
-            columnTitle(column, bucketHours),
-          )}">${esc(columnLabel(column, bucketHours))}</th>`,
+          `<th class="num${column.partial ? " lq-now" : ""}" scope="col"${columnTitle(
+            column,
+            bucketHours,
+          )}>${columnLabel(column, bucketHours)}</th>`,
       )
       .join("");
 
@@ -1082,15 +1054,9 @@ function sidesChart(data: {
   const tickMs = tickHours * 3_600_000;
   const xLabels: string[] = [];
   for (let ms = Math.ceil(fromMs / tickMs) * tickMs; ms < toMs; ms += tickMs) {
-    const d = new Date(ms);
-    const hour = d.getUTCHours();
-    const text =
-      hour === 0
-        ? tr("{month} {day}", {
-            month: trMsg(MONTHS[d.getUTCMonth()] as string),
-            day: d.getUTCDate(),
-          })
-        : `${String(hour).padStart(2, "0")}:00`;
+    const hour = new Date(ms).getUTCHours();
+    // In the reader's zone once the page script has run (localtime.ts); UTC until then.
+    const text = timeTag(ms, "tick", tickHours);
     // Alternate labels drop on a phone, as on the CVD chart, where they otherwise run together.
     xLabels.push(
       `<span class="lqc-x${hour === 0 ? " lqc-day" : ""}${xLabels.length % 2 ? " x-alt" : ""}" style="left:${(((ms - fromMs) / span) * 100).toFixed(2)}%">${text}</span>`,
@@ -1127,13 +1093,15 @@ function sidesChart(data: {
   );
   const chartTitle =
     sideMinutes >= 60
-      ? tr("{asset} longs vs shorts over time · {hours}-hour bars, UTC", {
+      ? tr("{asset} longs vs shorts over time · {hours}-hour bars, {zone}", {
           asset: label,
           hours: sideMinutes / 60,
+          zone: zoneTag(),
         })
-      : tr("{asset} longs vs shorts over time · {minutes}-minute bars, UTC", {
+      : tr("{asset} longs vs shorts over time · {minutes}-minute bars, {zone}", {
           asset: label,
           minutes: sideMinutes,
+          zone: zoneTag(),
         });
 
   return `<figure class="fchart lqc" data-live="lq-side-chart">${cite}
@@ -1218,7 +1186,7 @@ function sidesPanel(data: {
         (column, i) =>
           `<th class="num${column.partial ? " lq-now" : ""}${
             side === "short" && i === 0 ? " lq-split" : ""
-          }" scope="col" title="${esc(columnTitle(column, bucketHours))}">${esc(columnLabel(column, bucketHours))}</th>`,
+          }" scope="col"${columnTitle(column, bucketHours)}>${columnLabel(column, bucketHours)}</th>`,
       )
       .join("")}<th class="num lq-rowsum" scope="col">${tr("All")}</th>`;
 

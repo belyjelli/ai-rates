@@ -619,7 +619,11 @@ export interface CvdBar {
   bucket_start: Date;
   buy_usd: number;
   sell_usd: number;
+  /** The reference market's close: its last 5-minute close inside the bar. */
   price: number | null;
+  /** The reference market the price is read from, the same on every bar; null when none has one. */
+  price_venue: string | null;
+  price_symbol: string | null;
 }
 
 export interface CvdOptions {
@@ -688,6 +692,8 @@ export interface WhaleCandle {
   high: number;
   low: number;
   close: number;
+  /** The venue's own quote volume over the bar; null where it publishes none. */
+  volume_usd: number | null;
 }
 
 export type WallStatus = "open" | "filled" | "pulled" | "expired";
@@ -1006,7 +1012,9 @@ function assetBarsQuery(
            ((array_agg(f.price ORDER BY f.bucket_start DESC) FILTER (
               WHERE f.price IS NOT NULL AND f.venue_id = r.venue_id
                 AND f.venue_symbol = r.venue_symbol
-            ))[1])::float8 AS price
+            ))[1])::float8 AS price,
+           min(r.venue_id) AS price_venue,
+           min(r.venue_symbol) AS price_symbol
     FROM flow f
     LEFT JOIN reference r ON true
     GROUP BY 1 ORDER BY 1`;
@@ -1935,7 +1943,8 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                  (array_agg(open ORDER BY open_time))[1]::float8 AS open,
                  max(high)::float8 AS high,
                  min(low)::float8 AS low,
-                 (array_agg(close ORDER BY open_time DESC))[1]::float8 AS close
+                 (array_agg(close ORDER BY open_time DESC))[1]::float8 AS close,
+                 sum(volume_usd)::float8 AS volume_usd
           FROM perp_candles
           WHERE venue_id = ${venue} AND venue_symbol = ${symbol} AND interval = '5m'
             AND open_time >= now() - make_interval(hours => ${windowHours})

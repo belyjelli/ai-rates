@@ -48,7 +48,7 @@ export interface SlotFormat {
   usd: (value: number) => string;
   price: (value: number) => string;
   pct: (value: number, digits: number) => string;
-  when: (ms: number, words?: SlotWords) => string;
+  when: (ms: number, words?: SlotWords, offset?: number, unit?: number) => string;
   words: SlotWords;
 }
 
@@ -71,9 +71,10 @@ export interface SlotWords {
   liquidation: string;
   liquidations: string;
   filling: string;
-  /** The twelve month names, "|"-joined, and the slot's date pattern. */
+  /** The twelve month names, "|"-joined, and the slot's date pattern, alone and as a range. */
   months: string;
   when: string;
+  whenRange: string;
   /** The whale map's: a price band, what liquidates in it, and what liquidates on the way to it. */
   band: string;
   longsHere: string;
@@ -91,13 +92,19 @@ export interface SlotWords {
   gexPuts: string;
   gexNet: string;
   gexIf: string;
+  /** The whale chart's: one candle. */
+  ohlc: string;
+  volume: string;
+  burstBuys: string;
+  burstSells: string;
+  noCandle: string;
 }
 
 /** The words in the current render's language. */
 export const slotWords = (): SlotWords => ({
   noFlow: tr("no flow recorded"),
-  price: tr("price {price}"),
-  priceSince: tr("price {price} ({pct} since start)"),
+  price: tr("close {price}"),
+  priceSince: tr("close {price} ({pct} since start)"),
   bought: tr("bought {usd}"),
   sold: tr("sold {usd}"),
   net: tr("net {net}"),
@@ -113,7 +120,8 @@ export const slotWords = (): SlotWords => ({
   liquidations: tr("{n} liquidations"),
   filling: tr("{when} (still filling)"),
   months: MONTHS.map((month) => trMsg(month)).join("|"),
-  when: tr("{month} {day} {time} UTC"),
+  when: tr("{month} {day} {time} {zone}"),
+  whenRange: tr("{month} {day} {time}–{end} {zone}"),
   band: tr("{low} – {high} ({pct} from the mark)"),
   longsHere: tr("longs liquidate here: {usd} ({n})"),
   shortsHere: tr("shorts liquidate here: {usd} ({n})"),
@@ -129,6 +137,11 @@ export const slotWords = (): SlotWords => ({
   gexPuts: tr("puts {usd} ({oi} open)"),
   gexNet: tr("net {usd}"),
   gexIf: tr("if the spot were here: net {usd}"),
+  ohlc: tr("open {open} · high {high} · low {low} · close {close}"),
+  volume: tr("volume {usd}"),
+  burstBuys: tr("large taker buys {usd} ({n})"),
+  burstSells: tr("large taker sells {usd} ({n})"),
+  noCandle: tr("no candle"),
 });
 
 /** Compact dollars, identical to format.ts's `formatUsd` for any finite number (a test holds them). */
@@ -157,17 +170,43 @@ export function slotPct(value: number, digits: number): string {
   return `${value < 0 ? "−" : "+"}${text}%`;
 }
 
-/** "Sep 17 14:15 UTC", or the same moment in the words' language when they are handed in. */
-export function slotWhen(ms: number, words?: { months: string; when: string }): string {
-  const d = new Date(ms);
+/**
+ * "Sep 17 14:15 UTC", or the same moment in the words' language when they are handed in, `offset`
+ * minutes east of UTC (the reader's zone, from localtime.ts, in the browser), and as the slot's whole
+ * range -- "Sep 17 14:15–14:30 UTC+8" -- when its length `unit` is given.
+ */
+export function slotWhen(
+  ms: number,
+  words?: { months: string; when: string; whenRange: string },
+  offset = 0,
+  unit = 0,
+): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  const d = new Date(ms + offset * 60_000);
+  const e = new Date(ms + unit + offset * 60_000);
+  const a = Math.abs(offset);
+  const zone =
+    offset === 0
+      ? "UTC"
+      : `UTC${offset > 0 ? "+" : "-"}${Math.floor(a / 60)}${a % 60 ? `:${p(a % 60)}` : ""}`;
   const month = (words ? words.months : "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec").split(
     "|",
   )[d.getUTCMonth()];
-  const time = `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
-  return (words ? words.when : "{month} {day} {time} UTC")
+  const time = `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+  const end = `${p(e.getUTCHours())}:${p(e.getUTCMinutes())}`;
+  const pattern = unit
+    ? words
+      ? words.whenRange
+      : "{month} {day} {time}–{end} {zone}"
+    : words
+      ? words.when
+      : "{month} {day} {time} {zone}";
+  return pattern
     .replace("{month}", () => month ?? "")
     .replace("{day}", () => String(d.getUTCDate()))
-    .replace("{time}", () => time);
+    .replace("{time}", () => time)
+    .replace("{end}", () => end)
+    .replace("{zone}", () => zone);
 }
 
 export const SLOT_FORMAT: SlotFormat = {
@@ -364,6 +403,58 @@ export interface GammaSlots {
 }
 
 /**
+ * One whale-chart candle: its range, open, high, low and close with the move inside it, the venue's
+ * volume, and the large taker bursts that fell in it.
+ */
+export function candleText(d: WhaleCandleSlots, i: number, f: SlotFormat): string {
+  const w = f.words;
+  const head = f.when(d.from + i * d.unit, w, 0, d.unit);
+  const slot = d.slots[i];
+  if (slot === null || slot === undefined) return `${head} · ${w.noCandle}`;
+  const [open, high, low, close, volume, buys, sells, nBuys, nSells] = slot;
+  const move = open ? ((close - open) / open) * 100 : 0;
+  const parts = [
+    head,
+    w.ohlc
+      .replace("{open}", () => f.price(open))
+      .replace("{high}", () => f.price(high))
+      .replace("{low}", () => f.price(low))
+      .replace(
+        "{close}",
+        () =>
+          `<b class="${close >= open ? "cvd-up" : "cvd-down"}">${f.price(close)}</b> (${f.pct(move, 2)})`,
+      ),
+  ];
+  if (volume > 0) parts.push(w.volume.replace("{usd}", () => f.usd(volume)));
+  if (nBuys > 0) {
+    parts.push(
+      w.burstBuys
+        .replace("{usd}", () => `<b class="cvd-up">${f.usd(buys)}</b>`)
+        .replace("{n}", () => String(nBuys)),
+    );
+  }
+  if (nSells > 0) {
+    parts.push(
+      w.burstSells
+        .replace("{usd}", () => `<b class="cvd-down">${f.usd(sells)}</b>`)
+        .replace("{n}", () => String(nSells)),
+    );
+  }
+  return parts.join(" · ");
+}
+
+/**
+ * What a whale-chart figure ships: one entry per candle slot, oldest first, [open, high, low, close,
+ * volume, large taker buys, large taker sells, how many of each], or null for a slot with no candle.
+ */
+export interface WhaleCandleSlots {
+  kind: "wcandle";
+  from: number;
+  unit: number;
+  slots: ([number, number, number, number, number, number, number, number, number] | null)[];
+}
+
+/**
  * What a whale-map figure ships: one entry per price band, low to high, [longs liquidating in it,
  * shorts liquidating in it, how many of each], or null for a band where none does; and for every
  * band, empty or not, everything that liquidates between the mark and it.
@@ -401,7 +492,9 @@ export interface SidesSlots {
  * The payload as a JSON script tag, `<` escaped so no value can close it. It carries the readout's
  * words in the render's language, which the browser copy of the text functions reads them from.
  */
-export function slotData(payload: CvdSlots | SidesSlots | WhaleSlots | GammaSlots): string {
+export function slotData(
+  payload: CvdSlots | SidesSlots | WhaleSlots | GammaSlots | WhaleCandleSlots,
+): string {
   return `<script type="application/json" class="slot-data">${JSON.stringify({ ...payload, words: slotWords() }).replace(/</g, "\\u003c")}</script>`;
 }
 
@@ -449,11 +542,14 @@ export function slotCursorSwitch(): string {
 export const SLOT_SCRIPT = `(() => {
   if (window.airratesSlots) return;
   window.airratesSlots = true;
-  const f = { usd: ${slotUsd}, price: ${slotPrice}, pct: ${slotPct}, when: ${slotWhen} };
+  const slotWhen = ${slotWhen};
+  // The reader's zone, from localtime.ts's script (0 while the clock is set to UTC).
+  const f = { usd: ${slotUsd}, price: ${slotPrice}, pct: ${slotPct}, when: (ms, w, offset, unit) => slotWhen(ms, w, window.airratesZone ? window.airratesZone(ms) : 0, unit) };
   const cvdText = ${cvdText};
   const sidesText = ${sidesText};
   const whaleText = ${whaleText};
   const gammaText = ${gammaText};
+  const candleText = ${candleText};
   const parsed = new WeakMap();
   const idle = new WeakMap();
   let held = null, heldRead = null, heldIndex = -1;
@@ -471,7 +567,8 @@ export const SLOT_SCRIPT = `(() => {
     const fw = Object.assign({ words: d.words }, f);
     if (d.kind === "wmap") return whaleText(d, i, fw);
     if (d.kind === "gex") return gammaText(d, i, fw);
-    const when = f.when(d.from + i * d.unit, d.words);
+    if (d.kind === "wcandle") return candleText(d, i, fw);
+    const when = f.when(d.from + i * d.unit, d.words, 0, d.unit);
     const head = i === d.slots.length - 1 ? d.words.filling.replace("{when}", () => when) : when;
     const slot = d.slots[i];
     if (d.kind === "lqc") return sidesText(head, slot, fw);

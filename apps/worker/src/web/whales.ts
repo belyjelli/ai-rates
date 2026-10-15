@@ -8,20 +8,29 @@ import type {
   WhaleWall,
 } from "../app/data";
 import {
+  WHALE_INTERVAL_KEYS,
+  WHALE_INTERVALS,
   WHALE_VENUES,
-  WHALE_WINDOW_KEYS,
-  WHALE_WINDOWS,
   type WhaleParams,
   type WhaleVenue,
   whaleToQuery,
 } from "../app/params";
 import { esc, formatPrice, formatUsd, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
-import { tr, trMsg } from "./i18n";
+import { tr } from "./i18n";
 import { layout } from "./layout";
+import { timeTag, timeTitle, zoneTag } from "./localtime";
 import { assetKey, assetName } from "./pages";
 import { PICK_SCRIPT } from "./picker";
-import { MONTHS } from "./slot-chart";
+import {
+  SLOT_BAND,
+  SLOT_CURSOR,
+  SLOT_HAIR,
+  SLOT_SCRIPT,
+  slotCursorSwitch,
+  slotData,
+  type WhaleCandleSlots,
+} from "./slot-chart";
 
 /**
  * /whales: large resting limit orders ("walls") drawn as lines over the price, and the large taker
@@ -131,17 +140,6 @@ const takerLabel = (side: WhaleTrade["side"]) =>
 
 const fillsText = (fills: number) => (fills === 1 ? tr("one fill") : tr("{n} fills", { n: fills }));
 
-/** "Oct 10 21:10", UTC. */
-function stamp(date: Date): string {
-  const day = tr("{month} {day}", {
-    month: trMsg(MONTHS[date.getUTCMonth()] ?? ""),
-    day: date.getUTCDate(),
-  });
-  const hh = String(date.getUTCHours()).padStart(2, "0");
-  const mm = String(date.getUTCMinutes()).padStart(2, "0");
-  return `${day} ${hh}:${mm}`;
-}
-
 function durationText(ms: number): string {
   const minutes = Math.max(0, Math.round(ms / 60_000));
   if (minutes < 60) return tr("{n}m", { n: minutes });
@@ -162,40 +160,48 @@ function whaleChart(data: {
   now: number;
 }): string {
   const { label, venueLabel, step, candles, walls, trades, params, now } = data;
-  const { hours, barMinutes } = WHALE_WINDOWS[params.window];
-  const toMs = now;
-  const fromMs = now - hours * 3_600_000;
+  const { hours, barMinutes } = WHALE_INTERVALS[params.interval];
+  // Bars on whole multiples of their length, as the query folds them, the last one still filling:
+  // the same slots the hover reads, so a slot is always one candle.
+  const barMs = barMinutes * 60_000;
+  const count = Math.round((hours * 60) / barMinutes);
+  const current = Math.floor(now / barMs) * barMs;
+  const fromMs = current - (count - 1) * barMs;
+  const toMs = current + barMs;
   const span = toMs - fromMs;
   const x = (ms: number) => ((Math.min(Math.max(ms, fromMs), toMs) - fromMs) / span) * 1000;
+  const slotOf = (ms: number) => Math.floor((ms - fromMs) / barMs);
 
-  // The price range is the candles' own, widened to take in the walls near them: within half the
-  // candles' range, and never less than 1.5% of the last price, so a calm day (BTC moving 0.3%) still
-  // shows the walls a percent away, while one 9% out cannot flatten the candles into a line.
-  let lo = Math.min(...candles.map((c) => c.low));
-  let hi = Math.max(...candles.map((c) => c.high));
-  const lastClose = candles.at(-1)?.close ?? hi;
-  const reach = Math.max((hi - lo) * 0.5, lastClose * 0.015);
-  const drawn = walls.filter(
-    (w) =>
-      (params.pulled || w.status !== "pulled") && w.price >= lo - reach && w.price <= hi + reach,
-  );
-  for (const w of drawn) {
-    lo = Math.min(lo, wallY(w, step));
-    hi = Math.max(hi, wallY(w, step));
-  }
-  const pad = (hi - lo) * 0.06 || hi * 0.005;
+  // THE CANDLES SET THE PRICE AXIS (2026-10-16). It used to stretch to take in walls up to half the
+  // candles' range away, which left the candles a strip along one edge and the chart reading as a
+  // stack of lines (a reader's words: "the bars do little, give it a K-line"). Now the axis is the
+  // candles' own range with a margin, walls inside it are drawn over them, and the largest beyond it
+  // are named at the top and bottom edges instead.
+  const inView = candles.filter((c) => c.open_time.getTime() >= fromMs);
+  let lo = Math.min(...inView.map((c) => c.low));
+  let hi = Math.max(...inView.map((c) => c.high));
+  const lastClose = inView.at(-1)?.close ?? hi;
+  const pad = Math.max((hi - lo) * 0.08, lastClose * 0.002);
   lo -= pad;
   hi += pad;
   const y = (price: number) => 1000 - ((price - lo) / (hi - lo)) * 1000;
+  const live = walls.filter((w) => params.pulled || w.status !== "pulled");
+  const drawn = live.filter((w) => wallY(w, step) >= lo && wallY(w, step) <= hi);
+  const beyond = live.filter(
+    (w) => w.status === "open" && (wallY(w, step) < lo || wallY(w, step) > hi),
+  );
 
-  const slot = ((barMinutes * 60_000) / span) * 1000;
-  const body = candles
+  const slot = 1000 / count;
+  const volumes = new Array<number>(count).fill(0);
+  const body = inView
     .map((c) => {
-      const cx = x(c.open_time.getTime()) + slot / 2;
+      const i = slotOf(c.open_time.getTime());
+      volumes[i] = c.volume_usd ?? 0;
+      const cx = (i + 0.5) * slot;
       const up = c.close >= c.open;
       const top = y(Math.max(c.open, c.close));
       const height = Math.max(Math.abs(y(c.open) - y(c.close)), 1.5);
-      return `<line class="wh-wick" x1="${cx.toFixed(2)}" x2="${cx.toFixed(2)}" y1="${y(c.high).toFixed(2)}" y2="${y(c.low).toFixed(2)}"></line><rect class="${up ? "wh-up" : "wh-down"}" x="${(cx - slot * 0.35).toFixed(2)}" y="${top.toFixed(2)}" width="${(slot * 0.7).toFixed(2)}" height="${height.toFixed(2)}"></rect>`;
+      return `<line class="wh-wick" x1="${cx.toFixed(2)}" x2="${cx.toFixed(2)}" y1="${y(c.high).toFixed(2)}" y2="${y(c.low).toFixed(2)}"></line><rect class="${up ? "wh-up" : "wh-down"}" x="${(cx - slot * 0.36).toFixed(2)}" y="${top.toFixed(2)}" width="${(slot * 0.72).toFixed(2)}" height="${height.toFixed(2)}"></rect>`;
     })
     .join("");
 
@@ -206,8 +212,8 @@ function whaleChart(data: {
       const end = w.status === "open" ? toMs : (w.ended_at?.getTime() ?? w.last_seen.getTime());
       if (end < fromMs) return "";
       const usd = wallUsd(w);
-      // Width in screen pixels (non-scaling stroke): 1px for the smallest drawn, 6px for the largest.
-      const width = 1 + 5 * Math.sqrt(usd / biggest);
+      // Width in screen pixels (non-scaling stroke): 1px for the smallest drawn, 5px for the largest.
+      const width = 1 + 4 * Math.sqrt(usd / biggest);
       const proven = provenUsd(w);
       const tip = tr("{side} wall {price} · {size} · {status} · {lived}", {
         side: sideLabel(w.side),
@@ -230,7 +236,21 @@ function whaleChart(data: {
 
   // Taker bursts as circles, in HTML rather than the SVG: the plot stretches to its box
   // (preserveAspectRatio none), which would draw an SVG circle as an ellipse. Area is size, the
-  // biggest in view 24px across; the biggest are laid first so smaller ones stay on top to hover.
+  // biggest in view 22px across; the biggest are laid first so smaller ones stay on top to hover.
+  // Each is also counted into its candle, for the hover reading.
+  const bursts = Array.from({ length: count }, () => [0, 0, 0, 0]);
+  for (const t of trades) {
+    const i = slotOf(t.traded_at.getTime());
+    const tally = bursts[i];
+    if (!tally) continue;
+    if (t.side === "buy") {
+      tally[0] = (tally[0] ?? 0) + t.notional_usd;
+      tally[2] = (tally[2] ?? 0) + 1;
+    } else {
+      tally[1] = (tally[1] ?? 0) + t.notional_usd;
+      tally[3] = (tally[3] ?? 0) + 1;
+    }
+  }
   const shown = trades.filter(
     (t) => t.traded_at.getTime() >= fromMs && t.price >= lo && t.price <= hi,
   );
@@ -238,31 +258,32 @@ function whaleChart(data: {
   const circles = [...shown]
     .sort((a, b) => b.notional_usd - a.notional_usd)
     .map((t) => {
-      const across = 5 + 19 * Math.sqrt(t.notional_usd / biggestTrade);
-      const tip =
-        tr("{side} {size} at {price} · {fills} · {time} UTC", {
+      const across = 5 + 17 * Math.sqrt(t.notional_usd / biggestTrade);
+      const template =
+        tr("{side} {size} at {price} · {fills} · {time}", {
           side: takerLabel(t.side),
           size: formatUsd(t.notional_usd),
           price: formatPrice(t.price),
           fills: fillsText(t.fills),
-          time: stamp(t.traded_at),
+          time: "{t}",
         }) + (t.taker ? ` · ${tr("taker {address}", { address: shortAddress(t.taker) })}` : "");
-      return `<span class="wh-trade wh-${t.side}" style="left:${(x(t.traded_at.getTime()) / 10).toFixed(2)}%;top:${(y(t.price) / 10).toFixed(2)}%;width:${across.toFixed(1)}px;height:${across.toFixed(1)}px" title="${esc(tip)}"></span>`;
+      return `<span class="wh-trade wh-${t.side}" style="left:${(x(t.traded_at.getTime()) / 10).toFixed(2)}%;top:${(y(t.price) / 10).toFixed(2)}%;width:${across.toFixed(1)}px;height:${across.toFixed(1)}px"${timeTitle(t.traded_at.getTime(), "when", template)}></span>`;
     })
     .join("");
 
-  const last = candles.at(-1)?.close ?? null;
+  const last = inView.at(-1)?.close ?? null;
   const lastLine =
     last === null
       ? ""
       : `<line class="wh-last" x1="0" x2="1000" y1="${y(last).toFixed(2)}" y2="${y(last).toFixed(2)}"></line>`;
 
-  // Labels for the biggest open walls on the right edge, nearest-first so they do not overlap.
+  // Labels for the biggest open walls on the chart, at the right edge, nearest-first so they do not
+  // overlap; and the biggest beyond it, named at the edge they lie past.
   const labelled: number[] = [];
   const rightLabels = drawn
     .filter((w) => w.status === "open")
     .sort((a, b) => wallUsd(b) - wallUsd(a))
-    .slice(0, 10)
+    .slice(0, 8)
     .map((w) => {
       const top = (y(wallY(w, step)) / 1000) * 100;
       if (labelled.some((t) => Math.abs(t - top) < 4.5)) return "";
@@ -272,6 +293,22 @@ function whaleChart(data: {
       return `<span class="wh-yr wh-${w.side}-t" style="top:${top.toFixed(2)}%">${formatUsd(wallUsd(w))} ${at}</span>`;
     })
     .join("");
+  const edge = (above: boolean) => {
+    const list = beyond
+      .filter((w) => wallY(w, step) > hi === above)
+      .sort((a, b) => wallUsd(b) - wallUsd(a))
+      .slice(0, 3)
+      .map((w) => {
+        const price = wallY(w, step);
+        const pct = last
+          ? ` <span class="dim">${signedPct((price / last - 1) * 100, 1)}</span>`
+          : "";
+        return `<span class="wh-${w.side}-t">${formatUsd(wallUsd(w))} ${step ? "~" : ""}${formatPrice(price)}${pct}</span>`;
+      });
+    return list.length === 0
+      ? ""
+      : `<p class="wh-edge wh-edge-${above ? "top" : "bottom"}">${above ? "▲" : "▼"} ${tr("off the chart:")} ${list.join(" · ")}</p>`;
+  };
 
   const gridLines = [0.1, 0.37, 0.63, 0.9];
   const grid = gridLines
@@ -280,45 +317,86 @@ function whaleChart(data: {
   const leftLabels = gridLines
     .map(
       (f) =>
-        `<span class="cvd-yl" style="top:${(f * 100).toFixed(2)}%">${formatPrice(hi - f * (hi - lo))}</span>`,
+        `<span class="cvd-yl" style="top:${(f * 100).toFixed(2)}%">${formatPrice(Number((hi - f * (hi - lo)).toPrecision(5)))}</span>`,
     )
     .join("");
 
-  const tickHours = hours <= 6 ? 1 : hours <= 24 ? 4 : 12;
+  const tickHours = hours <= 8 ? 1 : hours <= 24 ? 4 : hours <= 96 ? 24 : 48;
   const tickMs = tickHours * 3_600_000;
   const xLabels: string[] = [];
   for (let ms = Math.ceil(fromMs / tickMs) * tickMs; ms < toMs; ms += tickMs) {
-    const d = new Date(ms);
-    const midnight = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
-    const text = midnight
-      ? tr("{month} {day}", { month: trMsg(MONTHS[d.getUTCMonth()] ?? ""), day: d.getUTCDate() })
-      : `${String(d.getUTCHours()).padStart(2, "0")}:00`;
+    const midnight = new Date(ms).getUTCHours() === 0;
+    // In the reader's zone once the page script has run (localtime.ts); UTC until then.
     xLabels.push(
-      `<span class="cvd-x${midnight ? " cvd-day" : ""}${xLabels.length % 2 ? " x-alt" : ""}" style="left:${(((ms - fromMs) / span) * 100).toFixed(2)}%">${text}</span>`,
+      `<span class="cvd-x${midnight ? " cvd-day" : ""}${xLabels.length % 2 ? " x-alt" : ""}" style="left:${(((ms - fromMs) / span) * 100).toFixed(2)}%">${timeTag(ms, "tick", tickHours)}</span>`,
     );
   }
 
+  // The volume strip under the candles, in the venue's own quote volume, coloured by the candle.
+  const volPeak = Math.max(1, ...volumes);
+  const volBars = inView
+    .map((c) => {
+      const i = slotOf(c.open_time.getTime());
+      const v = c.volume_usd ?? 0;
+      if (!(v > 0)) return "";
+      const h = (v / volPeak) * 1000;
+      return `<rect class="${c.close >= c.open ? "wh-up" : "wh-down"} wh-vol" x="${(i * slot + slot * 0.14).toFixed(2)}" y="${(1000 - h).toFixed(1)}" width="${(slot * 0.72).toFixed(2)}" height="${h.toFixed(1)}"></rect>`;
+    })
+    .join("");
+
   const title =
     barMinutes >= 60
-      ? tr("{asset} · {venue} perp · {n}-hour bars, UTC", {
+      ? tr("{asset} · {venue} perp · {n}-hour candles, {zone}", {
           asset: label,
           venue: venueLabel,
           n: barMinutes / 60,
+          zone: zoneTag(),
         })
-      : tr("{asset} · {venue} perp · {n}-minute bars, UTC", {
+      : tr("{asset} · {venue} perp · {n}-minute candles, {zone}", {
           asset: label,
           venue: venueLabel,
           n: barMinutes,
+          zone: zoneTag(),
         });
-  const keys = `<p class="fchart-keys wh-keys"><span><i class="wh-key-bid"></i>${tr("bid wall (buy orders)")}</span><span><i class="wh-key-ask"></i>${tr("ask wall (sell orders)")}</span><span><i class="wh-key-ended"></i>${tr("faded: filled or pulled")}</span><span><i class="wh-key-buy"></i>${tr("large taker buy")}</span><span><i class="wh-key-sell"></i>${tr("large taker sell")}</span><span><i class="wh-key-last"></i>${tr("last price")}</span></p>`;
+  const keys = `<div class="fchart-keys wh-keys"><span><i class="wh-key-bid"></i>${tr("bid wall (buy orders)")}</span><span><i class="wh-key-ask"></i>${tr("ask wall (sell orders)")}</span><span><i class="wh-key-ended"></i>${tr("faded: filled or pulled")}</span><span><i class="wh-key-buy"></i>${tr("large taker buy")}</span><span><i class="wh-key-sell"></i>${tr("large taker sell")}</span><span><i class="wh-key-last"></i>${tr("last price")}</span>${slotCursorSwitch()}</div>`;
 
-  return `<figure class="fchart cvd-chart wh-chart">
-<figcaption class="fchart-title">${title}</figcaption>
-${keys}
-<div class="fchart-plot wh-plot">
-<svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(title.replace(/<[^>]+>/g, ""))}">${grid}${body}${lines}${lastLine}</svg>
-${circles}${leftLabels}${rightLabels}${xLabels.join("")}
+  // The hover reading: one candle's open, high, low and close, its volume, and the large taker
+  // bursts inside it (slot-chart.ts, kind "wcandle").
+  const candleSlots: WhaleCandleSlots["slots"] = new Array(count).fill(null);
+  for (const c of inView) {
+    const i = slotOf(c.open_time.getTime());
+    const b = bursts[i] ?? [0, 0, 0, 0];
+    candleSlots[i] = [
+      c.open,
+      c.high,
+      c.low,
+      c.close,
+      Math.round(c.volume_usd ?? 0),
+      Math.round(b[0] ?? 0),
+      Math.round(b[1] ?? 0),
+      b[2] ?? 0,
+      b[3] ?? 0,
+    ];
+  }
+  const payload = slotData({ kind: "wcandle", from: fromMs, unit: barMs, slots: candleSlots });
+  const lastCandle = inView.at(-1);
+  const idle = lastCandle
+    ? `${tr("last {price}", { price: formatPrice(lastCandle.close) })} · ${tr("hover or tap a candle to read it")}`
+    : tr("hover or tap a candle to read it");
+  const axes = esc(JSON.stringify({ l: ["price", lo, hi] }));
+
+  return `<figure class="fchart cvd-chart wh-chart" data-live="wh-chart" data-cursors>
+<div class="fchart-head"><p class="fchart-title">${title}</p>${keys}<p class="fchart-read slot-read" aria-live="polite">${idle}</p></div>
+${edge(true)}
+<div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} candles; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}">
+<div class="fchart-plot wh-plot" data-axes="${axes}">
+<svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(title.replace(/<[^>]+>/g, ""))}">${grid}${SLOT_BAND}${lines}${body}${lastLine}${SLOT_CURSOR}${SLOT_HAIR}</svg>
+${circles}${leftLabels}${rightLabels}
 </div>
+<div class="fchart-plot wh-volume" data-axes="${esc(JSON.stringify({ l: ["amount", 0, volPeak] }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} volume per candle", { asset: label.replace(/<[^>]+>/g, "") }))}">${SLOT_BAND}${volBars}${SLOT_CURSOR}${SLOT_HAIR}</svg><span class="cvd-yl" style="top:0%">${formatUsd(volPeak)}</span>${xLabels.join("")}</div>
+</div>
+${edge(false)}
+${payload}
 </figure>`;
 }
 
@@ -440,7 +518,7 @@ export function whales(data: {
   const { overview, whales: book, asset, assetClass, params, now } = data;
   const label = assetName(asset, assetClass);
   const selfPath = whalesPath(asset, assetClass);
-  const window = params.window;
+  const window = WHALE_INTERVALS[params.interval].span;
   const venue = whaleVenueName(params.venue);
   const step = book.market?.price_step ?? null;
   const rounded = step !== null;
@@ -467,10 +545,10 @@ export function whales(data: {
     assetClass,
     params,
   });
-  const windowStrip = `<nav class="tf" aria-label="${tr("Window")}">${WHALE_WINDOW_KEYS.map(
+  const windowStrip = `<nav class="tf" aria-label="${tr("Interval")}">${WHALE_INTERVAL_KEYS.map(
     (key) => {
-      const href = esc(selfPath + whaleToQuery({ ...params, window: key }));
-      return key === window
+      const href = esc(selfPath + whaleToQuery({ ...params, interval: key }));
+      return key === params.interval
         ? `<a class="on" href="${href}" aria-current="page">${key}</a>`
         : `<a href="${href}">${key}</a>`;
     },
@@ -645,6 +723,7 @@ ${tradeTable}
 </section>`
 }
 <script>${PICK_SCRIPT}</script>
-<script>${BOOK_SCRIPT}</script>`,
+<script>${BOOK_SCRIPT}</script>
+<script>${SLOT_SCRIPT}</script>`,
   });
 }

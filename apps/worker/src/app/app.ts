@@ -68,7 +68,7 @@ import {
   parseSentimentParams,
   parseWhaleParams,
   SENTIMENT_WINDOWS,
-  WHALE_WINDOWS,
+  WHALE_INTERVALS,
 } from "./params";
 
 export interface AppDeps {
@@ -325,7 +325,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         );
       }
       const params = parseWhaleParams(url.searchParams);
-      const { hours, barMinutes } = WHALE_WINDOWS[params.window];
+      const { hours, barMinutes } = WHALE_INTERVALS[params.interval];
       const asset = address?.asset ?? "BTC";
       const [overview, book] = await Promise.all([
         deps.data.overview(),

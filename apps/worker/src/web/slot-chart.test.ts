@@ -43,7 +43,7 @@ describe("slot formatters", () => {
 describe("cvdText", () => {
   test("a bar reads its price, both sides, the signed net and the running CVD", () => {
     expect(cvdText("Sep 12 11:15 UTC", [5e6, 2e6, 76_100], 3e6, 76_000, SLOT_FORMAT)).toBe(
-      'Sep 12 11:15 UTC · price 76,100 (+0.13% since start) · bought $5.0M · sold $2.0M · net <b class="cvd-up">+$3.0M</b> (+42.9% of volume) · CVD <b class="cvd-up">+$3.0M</b>',
+      'Sep 12 11:15 UTC · close 76,100 (+0.13% since start) · bought $5.0M · sold $2.0M · net <b class="cvd-up">+$3.0M</b> (+42.9% of volume) · CVD <b class="cvd-up">+$3.0M</b>',
     );
     expect(cvdText("t", [1e6, 4e6, null], -2e6, 76_000, SLOT_FORMAT)).toBe(
       't · bought $1.0M · sold $4.0M · net <b class="cvd-down">−$3.0M</b> (−60.0% of volume) · CVD <b class="cvd-down">−$2.0M</b>',

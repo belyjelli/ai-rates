@@ -48,8 +48,8 @@ export const liquidations: Catalog = {
   total: "合计",
   "No liquidations recorded in the last {window}. Only the venues that publish a feed the collector reads appear here, so a quiet window is not a quiet market.":
     "最近 {window} 内没有记录到爆仓。这里只显示发布了本站采集器所读取的爆仓数据流的交易所，因此窗口内没有爆仓并不代表市场平静。",
-  "Columns are {hours}-hour buckets in UTC, newest on the right; the last one is still filling.":
-    "每列为 {hours} 小时的时段（UTC），最新的在最右侧；最后一列仍在累计中。",
+  "Columns are {hours}-hour buckets in {zone}, newest on the right; the last one is still filling.":
+    "每列为 {hours} 小时的时段（{zone}），最新的在最右侧；最后一列仍在累计中。",
   "Newest liquidation {age}.": "最新爆仓：{age}。",
   "Rows are the {count} busiest assets by notional across every feed, and the rest are summed into “other markets”, so the totals below the grid are real totals and add up.":
     "各行是所有数据源中按名义价值排名前 {count} 的资产，其余合并为“其他市场”，因此表格下方的合计是真实合计，可以逐项相加核对。",
@@ -77,10 +77,10 @@ export const liquidations: Catalog = {
     "{asset} 最近 {window} 爆仓：多头被强平 {long}，空头被强平 {short}，共 {events} 笔。多头损失更重。",
   "{asset} liquidations, last {window}: {long} of longs and {short} of shorts force-closed, {events} events. Shorts took the beating.":
     "{asset} 最近 {window} 爆仓：多头被强平 {long}，空头被强平 {short}，共 {events} 笔。空头损失更重。",
-  "{asset} longs vs shorts over time · {hours}-hour bars, UTC":
-    "{asset} 多空爆仓走势 · 每根柱 {hours} 小时，UTC",
-  "{asset} longs vs shorts over time · {minutes}-minute bars, UTC":
-    "{asset} 多空爆仓走势 · 每根柱 {minutes} 分钟，UTC",
+  "{asset} longs vs shorts over time · {hours}-hour bars, {zone}":
+    "{asset} 多空爆仓走势 · 每根柱 {hours} 小时，{zone}",
+  "{asset} longs vs shorts over time · {minutes}-minute bars, {zone}":
+    "{asset} 多空爆仓走势 · 每根柱 {minutes} 分钟，{zone}",
   "Longs closed": "多头爆仓",
   "Shorts closed": "空头爆仓",
   "Longs at risk, modeled · price falls <b>{pct}</b> to {range} · about <b>{usd}</b> would be liquidated":
@@ -93,12 +93,10 @@ export const liquidations: Catalog = {
     "{low} 至 {high} 之间（当前 {mark}）的待触发爆仓（模型估算）：上方空头约 {shorts}，下方多头约 {longs}",
   "Pending range": "待触发范围",
   "Zoom in": "放大",
-  "Columns are time, in UTC. Each is a {hours}-hour block named by its start hour ({start} = {from}–{to}). Where the day changes, the column shows date/hour (7/00 = the 7th at 00:00 UTC). The yellow column is the block in progress and still filling.":
-    "列表示时间（UTC）。每列为 {hours} 小时，以开始时刻标注（{start} = {from}–{to}）。日期变化处显示为 日/时（7/00 = 7 日 00:00 UTC）。黄色列为当前时段，仍在累计。",
+  "Columns are time, in your time zone ({zone}; click the clock at the top for UTC). Each is a {hours}-hour block named by its start hour. Where the day changes, the column shows date/hour (7/00 = the 7th at 00:00). The yellow column is the block in progress and still filling.":
+    "列表示时间，按你的时区（{zone}；点击顶部时钟可切换为 UTC）。每列为 {hours} 小时，以开始时刻标注。日期变化处显示为 日/时（7/00 = 7 日 00:00）。黄色列为当前时段，仍在累计。",
   "'All' is that price row's total over the whole window.":
     "「全部」为该价格行在整个时间窗口内的合计。",
-  "{month} {day} {hours} UTC": "{month}{day}日 {hours} UTC",
-  "{hours} UTC": "{hours} UTC",
   "{range}, still filling": "{range}，仍在累计",
   "This tab did not load.": "此标签页未能加载。",
   "Try again": "重试",

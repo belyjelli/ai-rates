@@ -673,45 +673,49 @@ export function sentimentToQuery(params: SentimentParams): string {
 }
 
 /**
- * /whales windows. Each folds the collector's 5-minute candles into bars that keep the chart near a
- * hundred bars wide; the walls are drawn over the same span.
+ * /whales candle intervals, as on /cvd: each folds the collector's 5-minute candles into bars of
+ * its length and shows about a hundred of them, the walls drawn over the same span. The 4-hour view
+ * reaches the 14 days the collector keeps candles and walls for (pulled walls: 4 days).
  */
-export const WHALE_WINDOWS = {
-  "6h": { hours: 6, barMinutes: 5 },
-  "24h": { hours: 24, barMinutes: 15 },
-  "3d": { hours: 72, barMinutes: 60 },
+export const WHALE_INTERVALS = {
+  "5m": { hours: 8, barMinutes: 5, span: "8h" },
+  "15m": { hours: 24, barMinutes: 15, span: "24h" },
+  "1h": { hours: 96, barMinutes: 60, span: "4d" },
+  "4h": { hours: 336, barMinutes: 240, span: "14d" },
 } as const;
-export type WhaleWindow = keyof typeof WHALE_WINDOWS;
-export const WHALE_WINDOW_KEYS = Object.keys(WHALE_WINDOWS) as WhaleWindow[];
-export const WHALE_DEFAULT_WINDOW: WhaleWindow = "24h";
+export type WhaleInterval = keyof typeof WHALE_INTERVALS;
+export const WHALE_INTERVAL_KEYS = Object.keys(WHALE_INTERVALS) as WhaleInterval[];
+export const WHALE_DEFAULT_INTERVAL: WhaleInterval = "15m";
+/** The window strip this replaced (2026-10-16), each address landing on the interval nearest it. */
+const WHALE_OLD_WINDOWS: Record<string, WhaleInterval> = { "6h": "5m", "24h": "15m", "3d": "1h" };
 
 /** The venues whose books the collector reads for /whales, the default first. */
 export const WHALE_VENUES = ["binance", "hyperliquid"] as const;
 export type WhaleVenue = (typeof WHALE_VENUES)[number];
 
 export interface WhaleParams {
-  window: WhaleWindow;
+  interval: WhaleInterval;
   /** Draw walls that were pulled (cancelled) too. Off by default: they are most of the noise. */
   pulled: boolean;
   venue: WhaleVenue;
 }
 
 export function parseWhaleParams(params: URLSearchParams): WhaleParams {
-  const asked = params.get("window") ?? "";
-  const window = (WHALE_WINDOW_KEYS as string[]).includes(asked)
-    ? (asked as WhaleWindow)
-    : WHALE_DEFAULT_WINDOW;
+  const asked = params.get("interval") ?? "";
+  const interval = (WHALE_INTERVAL_KEYS as string[]).includes(asked)
+    ? (asked as WhaleInterval)
+    : (WHALE_OLD_WINDOWS[params.get("window") ?? ""] ?? WHALE_DEFAULT_INTERVAL);
   const venue = (WHALE_VENUES as readonly string[]).includes(params.get("venue") ?? "")
     ? (params.get("venue") as WhaleVenue)
     : WHALE_VENUES[0];
-  return { window, pulled: params.get("pulled") === "1", venue };
+  return { interval, pulled: params.get("pulled") === "1", venue };
 }
 
 /** The query for params, defaults left out so the bare address is the canonical one. */
 export function whaleToQuery(params: WhaleParams): string {
   const query = new URLSearchParams();
   if (params.venue !== WHALE_VENUES[0]) query.set("venue", params.venue);
-  if (params.window !== WHALE_DEFAULT_WINDOW) query.set("window", params.window);
+  if (params.interval !== WHALE_DEFAULT_INTERVAL) query.set("interval", params.interval);
   if (params.pulled) query.set("pulled", "1");
   const text = query.toString();
   return text ? `?${text}` : "";

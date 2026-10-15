@@ -1096,6 +1096,8 @@ describe("pages", () => {
       buy_usd: 1_000_000,
       sell_usd: 900_000,
       price: 2434.7 * (1 + 0.004 * Math.sin(i * 1.7) + 0.002 * Math.cos(i * 0.31)),
+      price_venue: "binance",
+      price_symbol: "ETHUSDT",
     }));
 
   test("the odds tab sizes moves from a week of closes and keeps direction at a coin flip", async () => {
@@ -1294,26 +1296,32 @@ describe("pages", () => {
     const sides = await tab("/liquidations", "sides", data);
     const price = await tab("/liquidations", "price", data);
 
-    // 24h: two-hour blocks, so the worked example is exactly the 16:00 one.
+    // The columns are in the reader's zone: UTC as served, renamed by localtime.ts in the browser.
     for (const html of [sides, price]) {
       expect(html).toContain(
-        "Each is a 2-hour block named by its start hour (16 = 16:00–18:00). Where the day changes, the column shows date/hour (7/00 = the 7th at 00:00 UTC). The yellow column is the block in progress and still filling.",
+        "Columns are time, in your time zone (<span data-tz>UTC</span>; click the clock at the top for UTC). Each is a 2-hour block named by its start hour.",
       );
     }
     // Only Sides has an "All" column, so only Sides explains it.
     expect(sides).toContain("'All' is that price row's total over the whole window.");
     expect(price).not.toContain("is that price row");
 
-    // NOW is 12:00 UTC on Sep 12: a plain block, the block that starts the day, and the one filling.
+    // NOW is 12:00 UTC on Sep 12: a plain block, the block that starts the day, and the one filling,
+    // each stamped with its moment and its bucket for the browser to redraw in the reader's zone.
+    const at = (iso: string) => Date.parse(iso);
     for (const html of [sides, price]) {
-      expect(html).toContain('title="16:00–18:00 UTC">16<');
-      expect(html).toContain('title="Sep 12 00:00–02:00 UTC">12/00<');
-      expect(html).toContain('title="12:00–14:00 UTC, still filling">12<');
+      expect(html).toContain(
+        `title="16:00–18:00 UTC" data-tt="${at("2026-09-11T16:00:00Z")}" data-tf="colt" data-tpl="{t}" data-b="2"><time datetime="2026-09-11T16:00:00.000Z" data-t="${at("2026-09-11T16:00:00Z")}" data-tf="col" data-b="2">16</time>`,
+      );
+      expect(html).toContain('title="Sep 12 00:00–02:00 UTC"');
+      expect(html).toContain('data-tf="col" data-b="2">12/00</time>');
+      expect(html).toContain('title="12:00–14:00 UTC, still filling"');
     }
 
-    // Longer windows have longer blocks, and the example follows them.
-    expect(await tab("/liquidations?window=48h", "sides", data)).toContain("(16 = 16:00–20:00)");
-    expect(await tab("/liquidations?window=7d", "sides", data)).toContain("(12 = 12:00–00:00)");
+    // Longer windows have longer blocks.
+    expect(await tab("/liquidations?window=48h", "sides", data)).toContain(
+      'title="16:00–20:00 UTC"',
+    );
   });
 
   test("the time-column help and tooltips read in Chinese", async () => {
@@ -1329,7 +1337,7 @@ describe("pages", () => {
       })
     ).text();
     expect(sides).toContain(
-      "列表示时间（UTC）。每列为 2 小时，以开始时刻标注（16 = 16:00–18:00）。日期变化处显示为 日/时（7/00 = 7 日 00:00 UTC）。黄色列为当前时段，仍在累计。",
+      "列表示时间，按你的时区（<span data-tz>UTC</span>；点击顶部时钟可切换为 UTC）。每列为 2 小时，以开始时刻标注。",
     );
     expect(sides).toContain("「全部」为该价格行在整个时间窗口内的合计。");
     expect(sides).toContain('title="9月12日 00:00–02:00 UTC"');
@@ -3069,8 +3077,22 @@ describe("cvd", () => {
     ],
     asset_class: "crypto",
     bars: [
-      { bucket_start: bucket(3), buy_usd: 5e6, sell_usd: 2e6, price: 76_100 },
-      { bucket_start: bucket(1), buy_usd: 1e6, sell_usd: 4e6, price: 75_900 },
+      {
+        bucket_start: bucket(3),
+        buy_usd: 5e6,
+        sell_usd: 2e6,
+        price: 76_100,
+        price_venue: "binance",
+        price_symbol: "BTCUSDT",
+      },
+      {
+        bucket_start: bucket(1),
+        buy_usd: 1e6,
+        sell_usd: 4e6,
+        price: 75_900,
+        price_venue: "binance",
+        price_symbol: "BTCUSDT",
+      },
     ],
     newest: bucket(1),
     ...overrides,
@@ -3142,7 +3164,7 @@ describe("cvd", () => {
     expect(figure).toContain('<div class="slot-area" tabindex="0"');
     // Before a hover the header reads the window: 75,900 is 0.26% under the first close of 76,100.
     expect(figure).toContain(
-      '<p class="fchart-read slot-read" aria-live="polite">Last 24h · price 75,900 (−0.26% since start) · bought $6.0M · sold $6.0M · net <b class="">$0</b> (0.0% of volume) · hover or tap a bar to read it</p>',
+      '<p class="fchart-read slot-read" aria-live="polite">Last 24h · close 75,900 (−0.26% since start) · bought $6.0M · sold $6.0M · net <b class="">$0</b> (0.0% of volume) · hover or tap a bar to read it</p>',
     );
     // The readout replaces the per-bar tooltips.
     expect(figure).not.toContain("<title>");
@@ -3948,6 +3970,7 @@ describe("whales", () => {
     high: 83100 + i * 10,
     low: 82900 + i * 10,
     close: 83020 + i * 10,
+    volume_usd: 1_000_000 * (i + 1),
   }));
   const wall = (over: Partial<import("./data").WhaleWall>) => ({
     side: "bid" as const,
@@ -3990,15 +4013,17 @@ describe("whales", () => {
     walls: [
       wall({}),
       wall({ side: "ask", price: 84000, current_usd: 17.3e6, peak_usd: 17.3e6 }),
+      // On the chart: the candles run 82,900-83,130, and the axis is their range with a margin.
+      wall({ price: 82950, current_usd: 3e6, peak_usd: 3e6 }),
       wall({
-        price: 82500,
+        price: 82960,
         status: "filled",
         current_usd: 0,
         peak_usd: 4e6,
         ended_at: minutes(10),
       }),
       wall({
-        price: 83900,
+        price: 83090,
         side: "ask",
         status: "pulled",
         current_usd: 0,
@@ -4029,17 +4054,25 @@ describe("whales", () => {
         pulled: false,
       },
     ]);
-    // Candles and wall lines in the SVG, each wall with a hover title.
+    // Candles set the axis; walls inside it are lines with a hover title, the largest beyond it are
+    // named at the edge they lie past.
     expect(html).toContain('class="wh-up"');
     expect(html).toContain('class="wh-wall wh-bid wh-open"');
-    expect(html).toContain('class="wh-wall wh-ask wh-open"');
     expect(html).toContain('class="wh-wall wh-bid wh-filled"');
-    expect(html).toContain("bid wall 82,000 · $18.9M · resting");
+    expect(html).toContain("bid wall 82,950 · $3.0M · resting");
+    expect(html).not.toContain("bid wall 82,000");
+    expect(html).toContain(
+      '▲ off the chart: <span class="wh-ask-t">$17.3M 84,000 <span class="dim">+1.1%</span></span>',
+    );
+    expect(html).toContain('▼ off the chart: <span class="wh-bid-t">$18.9M 82,000');
+    // A volume strip and the hover reading of each candle.
+    expect(html).toContain('class="fchart-plot wh-volume"');
+    expect(html).toContain('"kind":"wcandle"');
     // Pulled walls are hidden by default, from the chart and the ended table alike.
     expect(html).not.toContain("wh-wall wh-ask wh-pulled");
     expect(html).not.toContain(">pulled<");
     // Tiles: the resting totals and the largest wall.
-    expect(html).toContain('<span data-u="bids">$18.9M</span>');
+    expect(html).toContain('<span data-u="bids">$21.9M</span>');
     expect(html).toContain('<span data-u="asks">$17.3M</span>');
     expect(html).toContain("bid at 82,000");
     // The market strip links every tracked market; BTC is the current one.
@@ -4052,7 +4085,7 @@ describe("whales", () => {
     // One round HTML circle per burst, sized by notional, the biggest 24px across.
     expect(html).toContain('class="wh-trade wh-buy"');
     expect(html).toContain('class="wh-trade wh-sell"');
-    expect(html).toContain("width:24.0px;height:24.0px");
+    expect(html).toContain("width:22.0px;height:22.0px");
     expect(html).toContain('title="taker buy $1.7M at 83,030 · one fill ·');
     expect(html).toContain('title="taker sell $1.2M at 82,990 · 26 fills ·');
     // The tiles count the whole window from the tally, not from the capped lists.
@@ -4070,7 +4103,7 @@ describe("whales", () => {
     expect(html).toContain(
       '</details><button type="button" class="wh-book-btn" popovertarget="wh-book">',
     );
-    expect(html).toContain('data-live="wh-book-n"><span data-u="open">2</span> resting</span>');
+    expect(html).toContain('data-live="wh-book-n"><span data-u="open">3</span> resting</span>');
     // One copy of every table, all of them inside the panel: live refresh matches regions by name.
     const panel =
       html.split('<section class="wh-book" id="wh-book" popover')[1]?.split("</section>")[0] ?? "";
@@ -4170,7 +4203,7 @@ describe("whales", () => {
       )
     ).text();
     expect(seen[0]?.venue).toBe("hyperliquid");
-    expect(html).toContain("BTC · Hyperliquid perp · 15-minute bars, UTC");
+    expect(html).toContain("BTC · Hyperliquid perp · 15-minute candles, <span data-tz>UTC</span>");
     // The bucket's range, how many orders share it, and the least its largest holds.
     expect(html).toContain("82,900–83,000");
     expect(html).toContain("bid wall 82,900–83,000 · $2.6M in 2 orders, one at least $1.3M");
@@ -4190,7 +4223,7 @@ describe("whales", () => {
     expect(html).toContain('href="/whales/commodity/XAU?venue=hyperliquid"');
   });
 
-  test("the window and the pulled toggle are read from the address", async () => {
+  test("the interval and the pulled toggle are read from the address, old windows too", async () => {
     const seen: unknown[] = [];
     const { data } = fakeData({
       whales: async (opts) => {
@@ -4204,15 +4237,18 @@ describe("whales", () => {
         venue: "binance",
         base: "ETH",
         assetClass: null,
-        windowHours: 6,
+        windowHours: 8,
         barMinutes: 5,
         pulled: true,
       },
     ]);
     expect(html).toContain("wh-wall wh-ask wh-pulled");
     expect(html).toContain(">pulled<");
-    // The toggle offers to hide them again and keeps the window.
-    expect(html).toContain('href="/whales/ETH?window=6h">hide pulled walls');
+    // The old 6h window lands on 5-minute candles, and the toggle keeps that interval.
+    expect(html).toContain('href="/whales/ETH?interval=5m">hide pulled walls');
+    const hourly = await (await get("/whales/ETH?interval=4h", data)).text();
+    expect(seen.at(-1)).toMatchObject({ windowHours: 336, barMinutes: 240 });
+    expect(hourly).toContain('aria-current="page">4h<');
   });
 
   test("an asset outside the forty is a 404 that says so", async () => {

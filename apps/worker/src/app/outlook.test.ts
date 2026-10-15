@@ -53,6 +53,8 @@ function path(options: {
       buy_usd: 1_000,
       sell_usd: 1_000,
       price,
+      price_venue: "binance",
+      price_symbol: "BTCUSDT",
     });
   }
   return bars;

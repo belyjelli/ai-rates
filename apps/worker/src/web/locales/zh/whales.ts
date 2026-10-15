@@ -21,9 +21,10 @@ export const whales: Catalog = {
   "{d}d {h}h": "{d}天{h}小时",
   "{side} wall {price} · {size} · {status} · {lived}":
     "{side}墙 {price} · {size} · {status} · {lived}",
-  "{asset} · {venue} perp · {n}-hour bars, UTC": "{asset} · {venue} 永续合约 · {n} 小时 K 线，UTC",
-  "{asset} · {venue} perp · {n}-minute bars, UTC":
-    "{asset} · {venue} 永续合约 · {n} 分钟 K 线，UTC",
+  "{asset} · {venue} perp · {n}-hour candles, {zone}":
+    "{asset} · {venue} 永续合约 · {n} 小时 K 线，{zone}",
+  "{asset} · {venue} perp · {n}-minute candles, {zone}":
+    "{asset} · {venue} 永续合约 · {n} 分钟 K 线，{zone}",
   "bid wall (buy orders)": "买单墙（买入挂单）",
   "ask wall (sell orders)": "卖单墙（卖出挂单）",
   "faded: filled or pulled": "变淡：已成交或已撤单",
@@ -79,8 +80,7 @@ export const whales: Catalog = {
   "taker sell": "主动卖出",
   "one fill": "1 笔成交",
   "{n} fills": "{n} 笔成交",
-  "{side} {size} at {price} · {fills} · {time} UTC":
-    "{side} {size}，价格 {price} · {fills} · {time} UTC",
+  "{side} {size} at {price} · {fills} · {time}": "{side} {size}，价格 {price} · {fills} · {time}",
   "large taker buy": "大额主动买入",
   "large taker sell": "大额主动卖出",
   "Large buys in {window}": "{window} 内大额买入",
@@ -118,4 +118,9 @@ export const whales: Catalog = {
     "这些市场是在 {venue} 上市的资产中，按我们采集的所有交易所合计持仓量排名前四十者，包括其 HIP-3 市场（黄金为 xyz:GOLD）。门槛随持仓量缩放。",
   "Each circle is a large market order: every fill on one side in the same millisecond, counted as one burst, of at least the same {floor}. Blue is a taker buying, red a taker selling; the bigger the circle, the bigger the burst. The chart draws the 200 largest in the window.":
     "每个圆圈是一笔大额市价单：同一毫秒内同一方向的全部成交合计为一笔，且不低于同样的 {floor}。蓝色为主动买入，红色为主动卖出；圆圈越大，成交越大。图表绘制该时段内最大的 200 笔。",
+  "off the chart:": "图外：",
+  "last {price}": "最新价 {price}",
+  "hover or tap a candle to read it": "悬停或点按 K 线查看",
+  "{asset} candles; arrow keys read one at a time": "{asset} K 线；方向键逐根查看",
+  "{asset} volume per candle": "{asset} 每根 K 线成交额",
 };

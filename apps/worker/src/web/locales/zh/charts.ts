@@ -24,7 +24,7 @@ export const charts: Catalog = {
   Nov: "11月",
   Dec: "12月",
   "{month} {day}": "{month}{day}日",
-  "{month} {day} {time} UTC": "{month}{day}日 {time} UTC",
+  "{month} {day} {time} {zone}": "{month}{day}日 {time} {zone}",
 
   // web/slot-chart.ts: the hover readouts of the CVD and longs-vs-shorts charts.
   "{low} – {high} ({pct} from the mark)": "{low} – {high}（距标记价格 {pct}）",
@@ -42,8 +42,8 @@ export const charts: Catalog = {
   "Dashed crosshair at the pointer, with the value there on each axis":
     "在指针处显示虚线十字线，并在两侧坐标轴上标出该处数值",
   "no flow recorded": "没有记录到成交流",
-  "price {price}": "价格 {price}",
-  "price {price} ({pct} since start)": "价格 {price}（较窗口起点 {pct}）",
+  "close {price}": "收盘 {price}",
+  "close {price} ({pct} since start)": "收盘 {price}（较窗口起点 {pct}）",
   "bought {usd}": "主动买入 {usd}",
   "sold {usd}": "主动卖出 {usd}",
   "net {net}": "净额 {net}",
@@ -60,10 +60,10 @@ export const charts: Catalog = {
   "{when} (still filling)": "{when}（仍在累计中）",
 
   // web/cvd.ts: the chart.
-  "{asset} · cumulative volume delta · {n}-hour bars, UTC":
-    "{asset} · 累计成交量差 · 每根柱 {n} 小时，UTC",
-  "{asset} · cumulative volume delta · {n}-minute bars, UTC":
-    "{asset} · 累计成交量差 · 每根柱 {n} 分钟，UTC",
+  "{asset} · cumulative volume delta · {n}-hour bars, {zone}":
+    "{asset} · 累计成交量差 · 每根柱 {n} 小时，{zone}",
+  "{asset} · cumulative volume delta · {n}-minute bars, {zone}":
+    "{asset} · 累计成交量差 · 每根柱 {n} 分钟，{zone}",
   "{asset} taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.":
     "{asset} 最近 {window} 的主动成交 CVD：{cvd}。市价买方 {bought}，市价卖方 {sold}。",
   "Last {window}": "最近 {window}",
@@ -173,4 +173,14 @@ export const charts: Catalog = {
   "Fear & Greed": "恐惧与贪婪",
   "A funding-market fear and greed score: OI-weighted funding, open interest, liquidation skew and taker flow, each ranked against its own 30-day history.":
     "资金费率市场的恐惧与贪婪指数：按持仓量加权的资金费率、持仓量、爆仓偏向和主动成交流，各自与其过去 30 天的历史进行排名。",
+  "{month} {day} {time}–{end} {zone}": "{month}{day}日 {time}–{end} {zone}",
+  "close, {market}": "收盘价，{market}",
+  "open {open} · high {high} · low {low} · close {close}":
+    "开 {open} · 高 {high} · 低 {low} · 收 {close}",
+  "volume {usd}": "成交额 {usd}",
+  "large taker buys {usd} ({n})": "大额主动买入 {usd}（{n} 笔）",
+  "large taker sells {usd} ({n})": "大额主动卖出 {usd}（{n} 笔）",
+  "no candle": "无 K 线",
+  "{month} {day} {hours} {zone}": "{month}{day}日 {hours} {zone}",
+  "{hours} {zone}": "{hours} {zone}",
 };

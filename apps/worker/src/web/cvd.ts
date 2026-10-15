@@ -14,12 +14,12 @@ import { ageText, esc, formatPrice, formatUsd, LOCK_ICON } from "./format";
 import { helpHeading } from "./help";
 import { msg, tr, trMsg } from "./i18n";
 import { layout } from "./layout";
+import { timeTag, zoneTag } from "./localtime";
 import { assetKey, assetName } from "./pages";
 import { PICK_SCRIPT } from "./picker";
 import { citeMark, plainLabel } from "./share";
 import {
   cvdText,
-  MONTHS,
   SLOT_BAND,
   SLOT_CURSOR,
   SLOT_FORMAT,
@@ -236,9 +236,8 @@ function cvdChart(data: {
   for (let ms = Math.ceil(fromMs / tickMs) * tickMs; ms < toMs; ms += tickMs) {
     const d = new Date(ms);
     const midnight = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
-    const text = midnight
-      ? tr("{month} {day}", { month: trMsg(MONTHS[d.getUTCMonth()] ?? ""), day: d.getUTCDate() })
-      : `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+    // In the reader's zone once the page script has run (localtime.ts); UTC until then.
+    const text = timeTag(ms, "tick", tickHours);
     // Every other label is marked so a phone can drop it: at 390px the plot is ~220px wide and six
     // "HH:MM" labels ran into one string ("16:0020:00Sep 17").
     xLabels.push(
@@ -247,15 +246,23 @@ function cvdChart(data: {
   }
 
   const total = running;
+  // Where the price line comes from: one market, the busiest that publishes a price in the window.
+  // Named, so a reader checking it against an exchange app checks it against the same market.
+  const reference = bars.find((bar) => bar.price_venue !== null);
+  const market = reference?.price_venue
+    ? `${venueName(reference.price_venue)} ${reference.price_symbol ?? ""}`.trim()
+    : null;
   const title =
     barMinutes >= 60
-      ? tr("{asset} · cumulative volume delta · {n}-hour bars, UTC", {
+      ? tr("{asset} · cumulative volume delta · {n}-hour bars, {zone}", {
           asset: label,
           n: barMinutes / 60,
+          zone: zoneTag(),
         })
-      : tr("{asset} · cumulative volume delta · {n}-minute bars, UTC", {
+      : tr("{asset} · cumulative volume delta · {n}-minute bars, {zone}", {
           asset: label,
           n: barMinutes,
+          zone: zoneTag(),
         });
 
   // The readout before any hover is the whole window in the same words a bar is read in, so the line
@@ -293,7 +300,7 @@ function cvdChart(data: {
   });
 
   return `<figure class="fchart cvd-chart" data-live="cvd-chart" data-cursors>${cite}
-<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>${tr("Price")}</span><span><i class="cvd-key-cvd"></i>CVD <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span><span><i class="cvd-key-buy"></i>${tr("Net buy")}</span><span><i class="cvd-key-sell"></i>${tr("Net sell")}</span>${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
+<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>${tr("Price")}${market ? ` <span class="dim">${tr("close, {market}", { market: esc(market) })}</span>` : ""}</span><span><i class="cvd-key-cvd"></i>CVD <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span><span><i class="cvd-key-buy"></i>${tr("Net buy")}</span><span><i class="cvd-key-sell"></i>${tr("Net sell")}</span>${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}">
 <div class="fchart-plot cvd-plot" data-axes="${priceAxes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} price and cumulative volume delta over the last {window}", { asset: label, window }))}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${
     pricePath.length > 1

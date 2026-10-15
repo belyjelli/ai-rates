@@ -18,6 +18,7 @@ import {
 } from "./i18n";
 import { INSTALL_CSS, INSTALL_HEAD } from "./install";
 import { LIVE_SCRIPT } from "./live";
+import { localTimeScript } from "./localtime";
 import { ROW_LINK_SCRIPT } from "./row-link";
 import { SHARE_CSS, shareBar, shareScript } from "./share";
 import { SHARE_CARD_ALT, SHARE_CARD_HEIGHT, SHARE_CARD_PATH, SHARE_CARD_WIDTH } from "./share-card";
@@ -554,8 +555,13 @@ opacity:0;transform:translateY(-4px);transition:opacity .14s ease-out,transform 
 .wh-toggle.on{color:var(--accent)}
 .cvd-chart.wh-chart .fchart-plot{margin:6px 128px 0 64px}
 .wh-chart .wh-plot{height:380px}
-.wh-wick{stroke:var(--dim);stroke-width:1;vector-effect:non-scaling-stroke}
-.wh-up{fill:var(--muted)}.wh-down{fill:var(--dim)}
+/* Candles in the trading-chart monochrome -- rising hollow, falling filled -- so they read apart from
+   the blue and red walls drawn under them. */
+.wh-wick{stroke:var(--muted);stroke-width:1;vector-effect:non-scaling-stroke}
+.wh-up{fill:var(--bg);stroke:var(--ink);stroke-width:1;vector-effect:non-scaling-stroke}.wh-down{fill:var(--ink)}
+.wh-chart .wh-volume{height:64px;margin-top:4px}
+.wh-vol.wh-up{fill:#3a3a3a;stroke:none}.wh-vol.wh-down{fill:#262626}
+.wh-edge{margin:2px 0 4px;font-size:11px;color:var(--muted)}.wh-edge span{white-space:nowrap}.wh-edge-bottom{margin-top:24px}
 .wh-wall{vector-effect:non-scaling-stroke}
 line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .wh-open{opacity:.9}.wh-filled{opacity:.45}.wh-pulled{opacity:.35;stroke-dasharray:4 3}.wh-expired{opacity:.25}
@@ -905,8 +911,9 @@ footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim)
 // wrote it. The language links get the page's query string, so switching keeps a screener's filters.
 // The clock reads the visitor's own time zone, which only the browser knows (the page is cached for
 // everyone); a click flips it to UTC, the clock funding settles by, and the choice is remembered.
+// The click also tells localtime.ts, whose script redraws every chart time in the same zone.
 const pageScript = () =>
-  `(()=>{const L=${scriptStrings({ ...durationStrings(), ...clockStrings() })};for(const a of document.querySelectorAll("a[data-lang]"))a.href=a.pathname+"?back="+encodeURIComponent(location.pathname+location.search);const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?L.s.replace("{s}",s):s<3600?L.m.replace("{m}",Math.floor(s/60)):L.hm.replace("{h}",Math.floor(s/3600)).replace("{m}",p(Math.floor(s%3600/60)))};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=L.ago.replace("{time}",f((n-e.dataset.since)/1e3));for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):L.settling}if(c){const d=new Date(),o=u?0:-d.getTimezoneOffset(),a=Math.abs(o);c.textContent=(u?[d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()]:[d.getHours(),d.getMinutes(),d.getSeconds()]).map(p).join(":")+" UTC"+(o?(o>0?"+":"-")+Math.floor(a/60)+(a%60?":"+p(a%60):""):"");c.title=u?L.utc:L.local.replace("{zone}",z)}};const c=document.getElementById("clock");let u=false,z="";try{u=localStorage.getItem("clock")==="utc"}catch{}try{z=Intl.DateTimeFormat().resolvedOptions().timeZone||""}catch{}c&&c.addEventListener("click",()=>{u=!u;try{localStorage.setItem("clock",u?"utc":"local")}catch{}t()});t();setInterval(t,1e3);})();`;
+  `(()=>{const L=${scriptStrings({ ...durationStrings(), ...clockStrings() })};for(const a of document.querySelectorAll("a[data-lang]"))a.href=a.pathname+"?back="+encodeURIComponent(location.pathname+location.search);const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?L.s.replace("{s}",s):s<3600?L.m.replace("{m}",Math.floor(s/60)):L.hm.replace("{h}",Math.floor(s/3600)).replace("{m}",p(Math.floor(s%3600/60)))};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=L.ago.replace("{time}",f((n-e.dataset.since)/1e3));for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):L.settling}if(c){const d=new Date(),o=u?0:-d.getTimezoneOffset(),a=Math.abs(o);c.textContent=(u?[d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()]:[d.getHours(),d.getMinutes(),d.getSeconds()]).map(p).join(":")+" UTC"+(o?(o>0?"+":"-")+Math.floor(a/60)+(a%60?":"+p(a%60):""):"");c.title=u?L.utc:L.local.replace("{zone}",z)}};const c=document.getElementById("clock");let u=false,z="";try{u=localStorage.getItem("clock")==="utc"}catch{}try{z=Intl.DateTimeFormat().resolvedOptions().timeZone||""}catch{}c&&c.addEventListener("click",()=>{u=!u;try{localStorage.setItem("clock",u?"utc":"local")}catch{}t();dispatchEvent(new Event("airrates:clock"))});t();setInterval(t,1e3);})();`;
 
 /** The clock's tooltips, for the page script: the zone is the browser's, filled in there. */
 const clockStrings = () => ({
@@ -974,6 +981,7 @@ ${INSTALL_HEAD}
 <p>${tr("Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.")}</p>
 </div></footer>
 <script>${pageScript()}</script>
+<script>${localTimeScript()}</script>
 <script>${hotkeyScript()}</script>
 <script>${HELP_SCRIPT}</script>
 <script>${LIVE_SCRIPT}</script>
