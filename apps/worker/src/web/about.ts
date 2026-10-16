@@ -41,8 +41,10 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-16",
-    title: "BloFin's markets, and a CVD chart you can drag",
+    title: "Gamma for stocks and world indexes, BloFin's markets, and a CVD chart you can drag",
     changes: [
+      "The Gamma Exposure tab covers 31 option books. Beside Deribit's BTC and ETH: US indexes, ETFs and stocks from Cboe, 15 minutes delayed (S&P 500, Nasdaq-100, Russell 2000, SPY, QQQ, IWM, gold, silver, oil, the bitcoin and ether ETFs, MSTR, COIN, NVDA, TSLA, MU); and index options from each exchange's end-of-day file in Hong Kong (Hang Seng, HSCEI, Hang Seng TECH), mainland China (CSI 300, SSE 50, CSI 1000), Taiwan (TAIEX), India (Nifty 50, Nifty Bank, Sensex) and Europe (Euro Stoxx 50, DAX, SMI). Each is shown in the currency its contract pays.",
+      "The tab's book switch is a dropdown, grouped by region, that shows each book's net gamma, how its gamma splits between calls and puts, where its flip sits from the spot, and how old its figures are. Type to filter it by ticker, name, exchange or currency.",
       "BloFin is collected: its 509 perpetual markets now appear across the site, with their funding, prices and open interest. It had been listed since October 10, but every run had failed until now.",
       "The CVD chart is a trading chart: price candles, the CVD line on its own scale, and each bar's net flow below. Drag it to the left to look back through up to 35 days, zoom in and out, and new bars join the chart where you are reading.",
     ],
