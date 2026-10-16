@@ -11,6 +11,7 @@ import {
   slotPrice,
   slotUsd,
   slotWhen,
+  slotXPrice,
 } from "./slot-chart";
 
 describe("slot formatters", () => {
@@ -82,6 +83,34 @@ describe("the readout's language", () => {
     expect(isolated(sidesText)("t", [5_000, 5_000, 1], f)).toBe(
       't · 多头爆仓 $5.0k · 空头爆仓 $5.0k · 多头 − 空头 <b class="">$0</b> · 持平 · 1 笔爆仓',
     );
+  });
+});
+
+describe("the price at the crosshair's foot", () => {
+  test("is a Gamma band's strikes, or the middle of a band without one, and nothing across time", () => {
+    const gex = {
+      kind: "gex" as const,
+      low: 80_000,
+      step: 500,
+      spot: 81_000,
+      unit: "BTC",
+      slots: [[1, -1, 1, 1, "80,000"] as [number, number, number, number, string], null],
+      curve: [null, null],
+    };
+    expect(slotXPrice(gex, 0, slotPrice)).toBe("80,000");
+    expect(slotXPrice(gex, 1, slotPrice)).toBe(slotPrice(80_750));
+    const wmap = {
+      kind: "wmap" as const,
+      low: 100,
+      step: 10,
+      mark: 120,
+      slots: [],
+      cumulative: [],
+    };
+    expect(slotXPrice(wmap, 2, slotPrice)).toBe(slotPrice(125));
+    expect(
+      slotXPrice({ kind: "cvd", from: 0, unit: 1, open: null, slots: [] }, 0, slotPrice),
+    ).toBeNull();
   });
 });
 

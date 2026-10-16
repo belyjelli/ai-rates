@@ -387,6 +387,23 @@ export function gammaText(d: GammaSlots, i: number, f: SlotFormat): string {
 }
 
 /**
+ * The price the crosshair's vertical line stands on, for a chart whose x-axis is a price, tagged at
+ * the line's foot: a Gamma band's own strikes where it has any (a band starts on its strike, so its
+ * middle would name a price nobody trades), else the band's middle, where the line is drawn. Null for
+ * a chart across time. Self-contained: it ships as text.
+ */
+export function slotXPrice(
+  d: CvdSlots | SidesSlots | WhaleSlots | GammaSlots | WhaleCandleSlots,
+  i: number,
+  price: (value: number) => string,
+): string | null {
+  if (d.kind !== "gex" && d.kind !== "wmap") return null;
+  const slot = d.kind === "gex" ? d.slots[i] : null;
+  if (slot?.[4]) return slot[4];
+  return price(d.low + (i + 0.5) * d.step);
+}
+
+/**
  * What a Gamma Exposure figure ships: one entry per strike band, low to high, [calls' exposure, puts'
  * exposure (negative), calls' open interest, puts' open interest, the strikes in the band as text],
  * or null for a band with no open interest; and for every band the profile curve at its middle, or
@@ -550,6 +567,7 @@ export const SLOT_SCRIPT = `(() => {
   const whaleText = ${whaleText};
   const gammaText = ${gammaText};
   const candleText = ${candleText};
+  const xPrice = ${slotXPrice};
   const parsed = new WeakMap();
   const idle = new WeakMap();
   let held = null, heldRead = null, heldIndex = -1;
@@ -614,11 +632,27 @@ export const SLOT_SCRIPT = `(() => {
     tip.style.left = Math.max(4, left) + "px";
     tip.style.top = Math.max(4, top) + "px";
   };
-  // The crosshair's level line and axis tags, in the panel under the pointer, at its height.
-  const level = (figure, pointer) => {
+  // The crosshair's level line and axis tags, in the panel under the pointer, at its height; and where
+  // the x-axis is a price, that price at the foot of the vertical line, over the axis labels.
+  const level = (figure, pointer, d, i) => {
     for (const el of figure.querySelectorAll(".slot-hair")) el.classList.add("off");
     for (const el of figure.querySelectorAll(".slot-tag")) el.hidden = true;
     if (!pointer || mode !== "cross" || !figure.hasAttribute("data-cursors")) return;
+    const x = xPrice(d, i, f.price);
+    const plots = figure.querySelectorAll(".fchart-plot[data-axes]");
+    const foot = plots[plots.length - 1];
+    if (x !== null && foot) {
+      let tag = foot.querySelector(".slot-tag-x");
+      if (!tag) {
+        tag = document.createElement("span");
+        tag.className = "slot-tag slot-tag-x";
+        tag.setAttribute("aria-hidden", "true");
+        foot.appendChild(tag);
+      }
+      tag.textContent = x;
+      tag.style.left = (((i + 0.5) / d.slots.length) * 100).toFixed(2) + "%";
+      tag.hidden = false;
+    }
     for (const plot of figure.querySelectorAll(".fchart-plot[data-axes]")) {
       const box = plot.getBoundingClientRect();
       if (pointer.y < box.top || pointer.y > box.bottom || !box.height) continue;
@@ -655,7 +689,7 @@ export const SLOT_SCRIPT = `(() => {
     if (!d || !read || !d.slots.length) return;
     i = Math.min(d.slots.length - 1, Math.max(0, i));
     const float = floating(pointer);
-    level(figure, pointer);
+    level(figure, pointer, d, i);
     // A refresh swaps the readout for a new element, so an unchanged slot still redraws after one.
     // The tooltip still follows the cursor within a slot, so only its text is spared.
     if (figure === held && read === heldRead && i === heldIndex) {

@@ -682,6 +682,7 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .slot-tag{position:absolute;z-index:2;transform:translateY(-50%);padding:0 4px;background:var(--ink);color:var(--bg);font-size:11px;line-height:16px;white-space:nowrap;pointer-events:none}
 .slot-tag[hidden]{display:none}
 .slot-tag-l{right:calc(100% + 4px)}.slot-tag-r{left:calc(100% + 4px)}
+.slot-tag-x{top:100%;z-index:3;margin-top:1px;transform:translateX(-50%);background:#1c1c1c;color:#fff;border:1px solid var(--muted)}
 .slot-modes{display:flex;align-items:center;gap:2px;color:var(--dim)}
 .slot-modes[hidden]{display:none}
 .slot-modes>span{margin-right:4px}
