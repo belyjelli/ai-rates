@@ -76,7 +76,7 @@ export const GA_TAG = `<!-- Google tag (gtag.js) -->
 export const SITE_ORIGIN = "https://airrates.net";
 
 /** Open Graph wants a language_TERRITORY locale, not the html lang: zh-Hans is zh_CN to Facebook. */
-const OG_LOCALE: Readonly<Record<Locale, string>> = { en: "en_US", zh: "zh_CN" };
+const OG_LOCALE: Readonly<Record<Locale, string>> = { en: "en_US", zh: "zh_CN", ja: "ja_JP" };
 
 /** Pages that are a dataset in their own right, for the structured data below. */
 const DATASET_PATHS = [
@@ -658,6 +658,7 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
    the net were the spot there as a line on its own right-hand scale, the spot dashed, the flip dashed
    in yellow. */
 .gx-chart .gx-plot{height:320px}
+.gx-x-end{transform:translateX(-100%)}
 .gx-call{fill:var(--long)}.gx-put{fill:var(--short)}
 .gx-curve{fill:none;stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke}
 .gx-spot{stroke:var(--ink);stroke-width:1;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}

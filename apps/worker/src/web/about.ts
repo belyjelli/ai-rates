@@ -40,6 +40,13 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-10-17",
+    title: "The site in Japanese",
+    changes: [
+      "Every page can be read in Japanese: switch with language: 日本語 at the foot of the page. A first visit follows your browser's language. As with Chinese, the legal and status pages and this changelog stay in English, and the API is never translated.",
+    ],
+  },
+  {
     date: "2026-10-16",
     title: "Gamma for stocks and world indexes, BloFin's markets, and a CVD chart you can drag",
     changes: [

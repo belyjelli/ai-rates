@@ -385,7 +385,7 @@ ${helpPanel(
 <td class="num">${p.entry_price === null ? "–" : formatPrice(p.entry_price)}</td>
 <td class="num">${liquidation}</td>
 <td class="num">${distance === null ? "–" : `<span data-u="distance">${signedPct(distance)}</span>`}</td>
-<td class="num">${p.leverage === null ? "–" : `${p.leverage}× ${p.leverage_type === "isolated" ? tr("isolated") : tr("cross")}`}</td>
+<td class="num">${p.leverage === null ? "–" : p.leverage_type === "isolated" ? tr("{leverage}× isolated", { leverage: p.leverage }) : tr("{leverage}× cross", { leverage: p.leverage })}</td>
 <td class="num${pnl === null ? "" : pnl > 0 ? " cvd-up" : pnl < 0 ? " cvd-down" : ""}">${pnl === null ? "–" : `${pnl > 0 ? "+" : ""}${formatUsd(pnl)}`}</td>
 <td class="num">${p.account_value_usd === null ? "–" : formatUsd(p.account_value_usd)}</td>
 <td class="num dim">${ageText(p.read_at, now)}</td>

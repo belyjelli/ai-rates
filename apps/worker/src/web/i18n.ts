@@ -30,10 +30,11 @@
  * index.ts puts the result in the page cache's key, so one language's copy is never served to another.
  */
 
+import { ja } from "./locales/ja";
 import { zh } from "./locales/zh";
 
 /** Every language the site renders. The first is the default, and the source language of every key. */
-export const LOCALES = ["en", "zh"] as const;
+export const LOCALES = ["en", "zh", "ja"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 
@@ -41,16 +42,18 @@ export const DEFAULT_LOCALE: Locale = "en";
  * How each language names itself in the footer switch -- always in its own script, since a reader
  * looking for their language cannot be expected to read the current one -- and its `<html lang>`.
  * Chinese is Simplified, so the tag says so: a Traditional reader's browser picks fonts by it.
+ * The tag also picks the glyphs: kanji drawn under `ja` take their Japanese shapes, not the Chinese ones.
  */
 export const LOCALE_INFO: Readonly<Record<Locale, { name: string; htmlLang: string }>> = {
   en: { name: "English", htmlLang: "en" },
   zh: { name: "中文", htmlLang: "zh-Hans" },
+  ja: { name: "日本語", htmlLang: "ja" },
 };
 
 /** English text to its translation. English itself has an empty one: every key is its own English. */
 export type Catalog = Readonly<Record<string, string>>;
 
-const CATALOGS: Readonly<Record<Locale, Catalog>> = { en: {}, zh };
+const CATALOGS: Readonly<Record<Locale, Catalog>> = { en: {}, zh, ja };
 
 let active: Locale = DEFAULT_LOCALE;
 

@@ -517,7 +517,9 @@ function gammaChart(data: {
         t === 0
           ? tr("spot {price}", { price: formatPrice(spot) })
           : `${formatPrice(price)} <span class="dim">${signedPct(price / spot - 1, 0)}</span>`;
-      return `<span class="cvd-x${t === 0 ? " wm-x-mark" : ""}${n % 2 ? " x-alt" : ""}" style="left:${(x(price) / 10).toFixed(2)}%">${text}</span>`;
+      // The last tick ends at its mark rather than centring on it, so a wide price ("26,500 +10%")
+      // stays inside a phone's width.
+      return `<span class="cvd-x${t === 0 ? " wm-x-mark" : ""}${t === 1 ? " gx-x-end" : ""}${n % 2 ? " x-alt" : ""}" style="left:${(x(price) / 10).toFixed(2)}%">${text}</span>`;
     })
     .join("");
 

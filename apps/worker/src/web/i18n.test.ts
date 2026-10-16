@@ -18,6 +18,7 @@ import {
   withLocale,
 } from "./i18n";
 import { parseShown } from "./live";
+import { JA_PARTS, ja } from "./locales/ja";
 import { ZH_PARTS, zh } from "./locales/zh";
 
 /** apps/worker/src: every file a page's text can come from. */
@@ -74,7 +75,13 @@ const markup = (text: string) => [...text.matchAll(/<[^>]*>/g)].map((m) => m[0])
 const bareAmpersand = (text: string) => /&(?!#?\w+;)/.test(text);
 
 /** Languages whose catalog must cover every key. A language being translated stays out until done. */
-const COMPLETE: Readonly<Record<string, Catalog>> = { zh };
+const COMPLETE: Readonly<Record<string, Catalog>> = { zh, ja };
+
+/** Each complete language's catalog by part of the site, for the test that parts agree. */
+const PARTS: Readonly<Record<string, Readonly<Record<string, Catalog>>>> = {
+  zh: ZH_PARTS,
+  ja: JA_PARTS,
+};
 
 describe("catalogs", () => {
   const { keys, dynamic } = extract();
@@ -113,23 +120,36 @@ describe("catalogs", () => {
       expect(wrong).toEqual([]);
     });
 
+    // A key with a bare "&" ("S&P 500") is text that is escaped where it is shown, so its translation
+    // may keep the "&" as written; a key that is markup must keep writing it as an entity.
     test(`${locale}: every "&" is an entity, as in the English`, () => {
-      expect(Object.entries(catalog).filter(([, value]) => bareAmpersand(value))).toEqual([]);
+      expect(
+        Object.entries(catalog).filter(
+          ([key, value]) => bareAmpersand(value) && !bareAmpersand(key),
+        ),
+      ).toEqual([]);
     });
   }
 
-  test("zh: no two parts translate one key differently", () => {
-    const seen = new Map<string, { part: string; value: string }>();
-    const clashes: string[] = [];
-    for (const [part, catalog] of Object.entries(ZH_PARTS)) {
-      for (const [key, value] of Object.entries(catalog)) {
-        const before = seen.get(key);
-        if (before && before.value !== value)
-          clashes.push(`${key}: ${before.part} "${before.value}" vs ${part} "${value}"`);
-        if (!before) seen.set(key, { part, value });
+  for (const [locale, parts] of Object.entries(PARTS)) {
+    test(`${locale}: no two parts translate one key differently`, () => {
+      const seen = new Map<string, { part: string; value: string }>();
+      const clashes: string[] = [];
+      for (const [part, catalog] of Object.entries(parts)) {
+        for (const [key, value] of Object.entries(catalog)) {
+          const before = seen.get(key);
+          if (before && before.value !== value)
+            clashes.push(`${key}: ${before.part} "${before.value}" vs ${part} "${value}"`);
+          if (!before) seen.set(key, { part, value });
+        }
       }
-    }
-    expect(clashes).toEqual([]);
+      expect(clashes).toEqual([]);
+    });
+  }
+
+  test("every language but English is checked for completeness", () => {
+    expect(Object.keys(COMPLETE).sort()).toEqual(LOCALES.filter((l) => l !== "en").sort());
+    expect(Object.keys(PARTS).sort()).toEqual(Object.keys(COMPLETE).sort());
   });
 });
 
@@ -153,6 +173,7 @@ describe("tr", () => {
   test("withLocale scopes the language to the call and restores it", () => {
     const inside = withLocale("zh", () => [currentLocale(), htmlLang()]);
     expect(inside).toEqual(["zh", "zh-Hans"]);
+    expect(withLocale("ja", () => [currentLocale(), htmlLang()])).toEqual(["ja", "ja"]);
     expect(currentLocale()).toBe("en");
     expect(() =>
       withLocale("zh", () => {
@@ -182,6 +203,7 @@ describe("choosing a language", () => {
     expect(parseLocale("zh-CN")).toBe("zh");
     expect(parseLocale("ZH_tw")).toBe("zh");
     expect(parseLocale("en-GB")).toBe("en");
+    expect(parseLocale("ja-JP")).toBe("ja");
     expect(parseLocale("fr")).toBeNull();
     expect(parseLocale("")).toBeNull();
   });
@@ -191,6 +213,8 @@ describe("choosing a language", () => {
     expect(acceptedLocale("en-US,en;q=0.9,zh-CN;q=0.8")).toBe("en");
     expect(acceptedLocale("fr-FR,zh;q=0.5")).toBe("zh");
     expect(acceptedLocale("en;q=0.2,zh;q=0.7")).toBe("zh");
+    expect(acceptedLocale("ja,en-US;q=0.9,en;q=0.8")).toBe("ja");
+    expect(acceptedLocale("en-US,ja;q=0.9")).toBe("en");
     expect(acceptedLocale("fr,de")).toBeNull();
     expect(acceptedLocale("zh;q=0")).toBeNull();
     expect(acceptedLocale(null)).toBeNull();

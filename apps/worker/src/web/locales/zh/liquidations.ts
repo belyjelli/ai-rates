@@ -277,7 +277,9 @@ export const liquidations: Catalog = {
     "dYdX 不公布强平价格：按账户余额与仓位及 dYdX 的维持保证金率计算得出",
   "By venue:": "按交易所：",
   none: "无",
-  isolated: "逐仓",
+  "{leverage}× isolated": "{leverage}× 逐仓",
+  // Cross margin, not the chart cursor's crosshair (charts.ts's "cross").
+  "{leverage}× cross": "{leverage}× 全仓",
   "The {n} nearest to liquidation of {total}.": "共 {total} 个中最接近强平的 {n} 个。",
   "Positions by distance to liquidation": "按距强平远近排列的仓位",
   Trader: "交易者",

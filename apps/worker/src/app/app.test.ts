@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { VENUES } from "@ai-rates/venues";
 import { divergence, flowRatio } from "../web/cvd";
+import type { Locale } from "../web/i18n";
 import { icon } from "../web/icons";
 import { bestPair, pivot } from "../web/pages";
 import { BOOK_SCRIPT } from "../web/whales";
@@ -3969,7 +3970,7 @@ describe("bestPair", () => {
 });
 
 describe("language", () => {
-  const getIn = (path: string, locale: "en" | "zh") =>
+  const getIn = (path: string, locale: Locale) =>
     handleApp(new Request(`https://airates.test${path}`), {
       data: fakeData().data,
       now: () => NOW,
@@ -3983,11 +3984,20 @@ describe("language", () => {
     expect(html).toContain(">筛选器</a>");
   });
 
+  test("Japanese pages are Japanese, glyphs and all", async () => {
+    const html = await (await getIn("/", "ja")).text();
+    expect(html).toContain('<html lang="ja">');
+    expect(html).toContain('aria-current="true">日本語</a>');
+    expect(html).toContain(">スクリーナー</a>");
+    expect(html).toContain('<meta property="og:locale" content="ja_JP">');
+  });
+
   test("English is the default, and its switch points back at the page", async () => {
     const html = await (await get("/screener", fakeData().data)).text();
     expect(html).toContain('<html lang="en">');
     expect(html).toContain('aria-current="true">English</a>');
     expect(html).toContain('href="/lang/zh?back=%2Fscreener"');
+    expect(html).toContain('href="/lang/ja?back=%2Fscreener"');
   });
 
   test("a not-found message is translated too", async () => {
@@ -4022,6 +4032,7 @@ describe("link previews", () => {
     expect(html).toContain('<meta property="og:image:alt" content="airrates: what settled');
     expect(html).toContain('<meta property="og:locale" content="en_US">');
     expect(html).toContain('<meta property="og:locale:alternate" content="zh_CN">');
+    expect(html).toContain('<meta property="og:locale:alternate" content="ja_JP">');
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image">');
 
     // The size the tags claim is the size served: a mismatch makes Facebook crop or refuse it.
