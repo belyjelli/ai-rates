@@ -76,7 +76,12 @@ export const GA_TAG = `<!-- Google tag (gtag.js) -->
 export const SITE_ORIGIN = "https://airrates.net";
 
 /** Open Graph wants a language_TERRITORY locale, not the html lang: zh-Hans is zh_CN to Facebook. */
-const OG_LOCALE: Readonly<Record<Locale, string>> = { en: "en_US", zh: "zh_CN", ja: "ja_JP" };
+const OG_LOCALE: Readonly<Record<Locale, string>> = {
+  en: "en_US",
+  zh: "zh_CN",
+  ja: "ja_JP",
+  ko: "ko_KR",
+};
 
 /** Pages that are a dataset in their own right, for the structured data below. */
 const DATASET_PATHS = [
