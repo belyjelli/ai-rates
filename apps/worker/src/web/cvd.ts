@@ -480,7 +480,9 @@ export const CVD_SWITCH_SCRIPT = `(() => {
     for (const a of head.querySelectorAll("a[data-cvd-sort]")) {
       const on = a.dataset.cvdSort === sort;
       a.classList.toggle("on", on);
-      a.querySelector("i").textContent = on ? (asc ? " ↑" : " ↓") : "";
+      const mark = a.querySelector("i");
+      mark.classList.toggle("srt-up", on && asc);
+      mark.classList.toggle("srt-down", on && !asc);
       a.setAttribute("href", withSort(a.getAttribute("href"), a.dataset.cvdSort, on && !asc));
     }
     history.replaceState(null, "", withSort(location.href, sort, asc));
@@ -579,7 +581,7 @@ function assetPicker(data: {
   const heading = (sort: CvdSort, title: string) => {
     const on = params.sort === sort;
     const href = esc(base + cvdToQuery({ ...params, sort, asc: on && !params.asc }));
-    return `<a class="num wh-pick-sort${on ? " on" : ""}" href="${href}" data-cvd-sort="${sort}" title="${esc(title)}">${trMsg(SORT_LABELS[sort])}<i>${on ? (params.asc ? " ↑" : " ↓") : ""}</i></a>`;
+    return `<a class="num wh-pick-sort${on ? " on" : ""}" href="${href}" data-cvd-sort="${sort}" title="${esc(title)}">${trMsg(SORT_LABELS[sort])}<i class="srt${on ? (params.asc ? " srt-up" : " srt-down") : ""}"></i></a>`;
   };
   const kept = `${
     params.interval !== CVD_DEFAULT_INTERVAL

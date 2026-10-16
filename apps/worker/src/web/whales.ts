@@ -18,6 +18,7 @@ import {
 import { esc, formatPrice, formatUsd, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { tr } from "./i18n";
+import { icon } from "./icons";
 import { layout } from "./layout";
 import { timeTag, timeTitle, zoneTag } from "./localtime";
 import { assetKey, assetName } from "./pages";
@@ -307,7 +308,7 @@ function whaleChart(data: {
       });
     return list.length === 0
       ? ""
-      : `<p class="wh-edge wh-edge-${above ? "top" : "bottom"}">${above ? "▲" : "▼"} ${tr("off the chart:")} ${list.join(" · ")}</p>`;
+      : `<p class="wh-edge wh-edge-${above ? "top" : "bottom"}">${icon(above ? "up" : "down")} ${tr("off the chart:")} ${list.join(" · ")}</p>`;
   };
 
   const gridLines = [0.1, 0.37, 0.63, 0.9];

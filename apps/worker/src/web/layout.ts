@@ -16,6 +16,7 @@ import {
   tr,
   trMsg,
 } from "./i18n";
+import { FAVICON_HREF, ICON_CSS, iconMask } from "./icons";
 import { INSTALL_CSS, INSTALL_HEAD } from "./install";
 import { LIVE_SCRIPT } from "./live";
 import { localTimeScript } from "./localtime";
@@ -153,6 +154,10 @@ function discoverability(title: string, description: string, path: string): stri
 
 // A terminal, not a printout: black ground, one monospace stack, no radius anywhere, 12px rows.
 // Long stays blue and short stays red as they always were, lifted to values legible on black.
+const CARET = iconMask("caret");
+const SORT_UP = iconMask("up");
+const SORT_DOWN = iconMask("down");
+
 const CSS = `
 :root{--mast:45px;--bg:#000;--band:#0e0e0e;--panel:#0a0a0a;--ink:#d8d8d8;--muted:#7a7a7a;--dim:#494949;--rule:#242424;
 --long:#5f87ff;--short:#ff5f5f;--zero:#494949;--accent:#c8f5a8;--warn:#e5e500;
@@ -244,7 +249,7 @@ table.sheet{border-collapse:collapse;width:100%}
 .sheet th a{border:0;color:inherit}
 .sheet th a:hover{color:var(--accent)}
 .sheet th[aria-sort] a{color:var(--ink)}
-.sheet th[aria-sort] a::after{content:" ↓"}
+.sheet th[aria-sort] a::after{content:"";display:inline-block;width:.7em;height:.7em;margin-left:.35em;background:currentColor;-webkit-mask:${SORT_DOWN} center/contain no-repeat;mask:${SORT_DOWN} center/contain no-repeat}
 .sheet .rail-cell{width:20%;min-width:170px}
 /* A long sheet scrolls with the page, and its header row sticks under the masthead. It used to scroll
    inside a box of its own, which gave every wheel two scrollbars to move. The wrapper takes no
@@ -478,7 +483,7 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .wh-pick{position:relative}
 .wh-pick-btn{display:flex;gap:10px;align-items:baseline;cursor:pointer;list-style:none;padding:5px 10px;border:1px solid var(--rule);background:var(--panel);min-width:220px}
 .wh-pick-btn::-webkit-details-marker{display:none}
-.wh-pick-btn::after{content:"▾";color:var(--muted);margin-left:auto}
+.wh-pick-btn::after{content:"";width:10px;height:10px;flex-shrink:0;background:var(--muted);-webkit-mask:${CARET} center/contain no-repeat;mask:${CARET} center/contain no-repeat;margin-left:auto}
 .wh-pick[open] .wh-pick-btn,.wh-pick-btn:hover{border-color:var(--muted)}
 .wh-pick-btn b{font-size:15px;color:var(--ink)}
 .wh-pick-more{font-size:11px}
@@ -512,6 +517,8 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .wh-pick-sort{border:0;color:var(--dim)}
 .wh-pick-sort:hover,.wh-pick-sort.on{color:var(--ink)}
 .wh-pick-sort i{font-style:normal}
+.srt-up,.srt-down{display:inline-block;width:.7em;height:.7em;margin-left:.35em;background:currentColor;-webkit-mask:${SORT_DOWN} center/contain no-repeat;mask:${SORT_DOWN} center/contain no-repeat}.srt-up{-webkit-mask-image:${SORT_UP};mask-image:${SORT_UP}}
+${ICON_CSS}
 @media (max-width:640px){.cvd-pick .wh-pick-head,.cvd-pick .wh-pick-row{grid-template-columns:minmax(0,1.2fr) 64px minmax(0,1fr) 96px;gap:8px}.cvd-pick .wh-pick-head>:is(:nth-child(2),:nth-child(5),:nth-child(6),:nth-child(7)),.cvd-pick .wh-pick-row>:is(:nth-child(2),:nth-child(5),:nth-child(6),:nth-child(7)){display:none}}
 /* The three tables (resting, ended, largest trades): one element, two shapes (whales.ts BOOK_SCRIPT).
    These first rules are the phone's, and any browser's without popovers: the tables in the page,
@@ -525,7 +532,7 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .wh-book{display:block;position:static;inset:auto;width:auto;height:auto;max-width:none;max-height:none;margin:0;padding:0;border:0;overflow:visible;color:inherit;background:none}
 @media (min-width:861px){@supports selector(:popover-open){
 .wh-book-btn{display:flex;gap:10px;align-items:baseline;padding:5px 10px;font:12px/1.35 var(--mono);letter-spacing:0;text-transform:none;color:var(--ink);background:var(--panel);border:1px solid var(--rule)}
-.wh-book-btn::after{content:"▾";color:var(--muted)}
+.wh-book-btn::after{content:"";width:10px;height:10px;flex-shrink:0;align-self:center;background:var(--muted);-webkit-mask:${CARET} center/contain no-repeat;mask:${CARET} center/contain no-repeat}
 .wh-book-btn:hover,main:has(.wh-book:popover-open) .wh-book-btn{background:var(--panel);border-color:var(--muted)}
 .wh-book-btn b{font-size:15px}
 .wh-book-btn .dim{font-size:11px}
@@ -978,7 +985,7 @@ ${GA_TAG}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} · airrates</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📟</text></svg>">
+<link rel="icon" type="image/svg+xml" href="${FAVICON_HREF}">
 <meta name="description" content="${esc(description)}">
 ${discoverability(title, description, path)}
 ${INSTALL_HEAD}

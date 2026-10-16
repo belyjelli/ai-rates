@@ -1,5 +1,6 @@
 import { APP_ICON_PNG } from "./app-icons.generated";
 import { tr } from "./i18n";
+import { icon } from "./icons";
 import { shareCardAsset } from "./share-card";
 
 /**
@@ -107,7 +108,7 @@ export function installBlock(): string {
 <div class="install-nag" role="region" aria-label="${tr("Install the app")}">
 <p class="install-text"><b>${tr("Install airrates")}</b><small>${tr("Opens in its own window, from your home screen.")}</small></p>
 <button type="button" class="install-btn" data-install-go>${tr("Install app")}</button>
-<button type="button" class="install-x" data-install-dismiss aria-label="${tr("Not now")}">×</button>
+<button type="button" class="install-x" data-install-dismiss aria-label="${tr("Not now")}">${icon("close")}</button>
 </div>
 </div>
 <script>${installScript()}</script>`;

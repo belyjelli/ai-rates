@@ -169,9 +169,9 @@ export const pages: Catalog = {
   spread: "价差",
   "{asset} funding runs from {low} on {lowVenue} to {high} on {highVenue}: {gap} a year apart across {count} exchanges.":
     "{asset} 的资金费率从 {lowVenue} 的 {low} 到 {highVenue} 的 {high}：在 {count} 家交易所之间年化相差 {gap}。",
-  "← previous": "← 上一页",
+  previous: "上一页",
   "assets {from}–{to}": "资产 {from}–{to}",
-  "next →": "下一页 →",
+  next: "下一页",
   "No asset has live markets on two or more venues right now.":
     "目前没有资产在两家或以上交易所有在线市场。",
   Rates: "费率",

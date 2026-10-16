@@ -24,6 +24,7 @@
 
 import { esc } from "./format";
 import { scriptStrings, tr } from "./i18n";
+import { icon } from "./icons";
 
 /**
  * A quotable line, hidden, for the cite dialog to find. `text` is plain text: it is escaped here,
@@ -51,7 +52,7 @@ export const plainLabel = (html: string): string =>
 
 /** The masthead's two buttons. The chart one starts disabled; the script enables it on a chart. */
 export const shareBar = (): string =>
-  `<span class="share-acts"><button type="button" class="share-btn" data-share-chart disabled title="${tr("Share the chart in view as an image sized for X")}">⇪ ${tr("chart")}</button><button type="button" class="share-btn" data-share-cite title="${tr("Quote this page's best line, with a link back to it")}">❝ ${tr("cite")}</button></span>`;
+  `<span class="share-acts"><button type="button" class="share-btn" data-share-chart disabled title="${tr("Share the chart in view as an image sized for X")}">${icon("share")} ${tr("chart")}</button><button type="button" class="share-btn" data-share-cite title="${tr("Quote this page's best line, with a link back to it")}">${icon("quote")} ${tr("cite")}</button></span>`;
 
 /**
  * Every word the script shows, in the reader's language. Handed in as one object at render time,

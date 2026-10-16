@@ -2,6 +2,7 @@ import type { Geo, Referral } from "../app/geo";
 import { referralsFor } from "../referrals/policy";
 import { esc } from "./format";
 import { tr } from "./i18n";
+import { icon } from "./icons";
 
 /**
  * A venue's referral call-to-action, or nothing.
@@ -36,5 +37,5 @@ export function referralCta(
 
 /** The sign-up link itself, marked as paid. Shared by the exchange page and /referrals. */
 export function referralButton(venueName: string, url: string): string {
-  return `<a class="btn" href="${esc(url)}" rel="sponsored noopener noreferrer" target="_blank">${tr("Open a {venue} account", { venue: esc(venueName) })} <span aria-hidden="true">↗</span></a>`;
+  return `<a class="btn" href="${esc(url)}" rel="sponsored noopener noreferrer" target="_blank">${tr("Open a {venue} account", { venue: esc(venueName) })} ${icon("external")}</a>`;
 }

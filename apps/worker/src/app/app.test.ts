@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { VENUES } from "@ai-rates/venues";
 import { divergence, flowRatio } from "../web/cvd";
+import { icon } from "../web/icons";
 import { bestPair, pivot } from "../web/pages";
 import { BOOK_SCRIPT } from "../web/whales";
 import { handleApp, unavailableResponse } from "./app";
@@ -2528,7 +2529,7 @@ describe("pages", () => {
     expect(html).not.toContain("<script>alert");
 
     // Nothing to page to, so "next" is inert rather than a link into an empty page.
-    expect(html).toContain('<span class="dim">next →</span>');
+    expect(html).toContain(`<span class="dim">next ${icon("right")}</span>`);
   });
 
   test("rates timeframe switches which stored column the cells read", async () => {
@@ -2755,7 +2756,7 @@ describe("pages", () => {
     );
     expect(html).toContain('href="/pair/BTC?long=gate&short=okx">30d</a>');
     expect(html).toContain(
-      '<a class="btn" href="/pair/BTC?long=okx&short=gate&days=7" data-await>⇄ swap legs</a>',
+      `<a class="btn" href="/pair/BTC?long=okx&short=gate&days=7" data-await>${icon("swap")} swap legs</a>`,
     );
     // The way back to the asset is the breadcrumb, not a button among the form's actions.
     expect(html).not.toContain("Back to BTC");
@@ -4165,9 +4166,9 @@ describe("whales", () => {
     expect(html).toContain("bid wall 82,950 · $3.0M · resting");
     expect(html).not.toContain("bid wall 82,000");
     expect(html).toContain(
-      '▲ off the chart: <span class="wh-ask-t">$17.3M 84,000 <span class="dim">+1.1%</span></span>',
+      `${icon("up")} off the chart: <span class="wh-ask-t">$17.3M 84,000 <span class="dim">+1.1%</span></span>`,
     );
-    expect(html).toContain('▼ off the chart: <span class="wh-bid-t">$18.9M 82,000');
+    expect(html).toContain(`${icon("down")} off the chart: <span class="wh-bid-t">$18.9M 82,000`);
     // A volume strip and the hover reading of each candle.
     expect(html).toContain('class="fchart-plot wh-volume"');
     expect(html).toContain('"kind":"wcandle"');

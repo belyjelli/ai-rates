@@ -71,6 +71,7 @@ import {
 } from "./gamma";
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { msg, tr, trMsg, withLocale } from "./i18n";
+import { icon } from "./icons";
 import { layout } from "./layout";
 import { FEEDS, liquidationFeedTable } from "./liquidation-feeds";
 import { type RailScale, railPosition, railScale, renderRail } from "./rail";
@@ -287,7 +288,7 @@ function heroVerified(v: VerifiedPair): string {
 <p class="short"><b>${tr("Short on {venue}", { venue: `<a href="${exchangeHref(v.short_venue_id)}">${esc(short)}</a>` })}</b> ${esc(v.short_symbol)}</p>
 </div>
 <div class="facts"><span>${tr("after retail fees {value}", { value: `<b class="${net >= 0 ? "up" : "down"}">${money(net)}</b>` })}</span><span>${tr("annualized {value} before fees", { value: `<b>${formatApr(v.net_funding_apr_percent)}</b>` })}</span><span>${tr("win rate {value} of days", { value: `<b>${Math.round(v.win_rate_days * 100)}%</b>` })}</span><span>${tr("thinner leg {value} open interest", { value: `<b>${formatUsd(v.thinner_leg_oi_usd)}</b>` })}</span><span>${tr("stability {value}", { value: `<b>${stability(v.pair_stability, Math.min(v.long_charge_days, v.short_charge_days))}</b>` })}</span></div>
-<div class="cta"><a class="btn" href="${pairHref(v.asset, v.asset_class)}${query}" data-await>${tr("Open this backtest")} <span aria-hidden="true">→</span></a><span class="dim">${tr("replayed {date}", { date: esc(v.run_day.toISOString().slice(0, 10)) })}</span></div>
+<div class="cta"><a class="btn" href="${pairHref(v.asset, v.asset_class)}${query}" data-await>${tr("Open this backtest")} ${icon("right")}</a><span class="dim">${tr("replayed {date}", { date: esc(v.run_day.toISOString().slice(0, 10)) })}</span></div>
 </section>`;
 }
 
@@ -905,11 +906,11 @@ export function heatmap(data: {
 
   const pager = `<div class="pager" data-live="pager">${link(
     { offset: Math.max(0, params.offset - params.limit) },
-    tr("← previous"),
+    `${icon("left")} ${tr("previous")}`,
     params.offset > 0,
   )}<span class="dim">${tr("assets {from}–{to}", { from: params.offset + 1, to: params.offset + rows.length })}</span>${link(
     { offset: params.offset + params.limit },
-    tr("next →"),
+    `${tr("next")} ${icon("right")}`,
     rows.length >= params.limit,
   )}</div>`;
 
@@ -1024,11 +1025,11 @@ ${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price)}
 
   const pager = `<div class="pager" data-live="arb-pager">${link(
     { offset: Math.max(0, params.offset - params.limit) },
-    tr("← previous"),
+    `${icon("left")} ${tr("previous")}`,
     params.offset > 0,
   )}<span class="dim">${tr("assets {from}–{to}", { from: params.offset + 1, to: params.offset + rows.length })}</span>${link(
     { offset: params.offset + params.limit },
-    tr("next →"),
+    `${tr("next")} ${icon("right")}`,
     rows.length >= params.limit,
   )}</div>`;
 
@@ -1642,7 +1643,7 @@ ${helpHeading("h1", assetName(data.asset, assetClass), "asset", `<p>${tr("Only m
     }</p>
 <div class="cta" data-live="asset-cta">${
       pair
-        ? `<a class="btn" href="${pairHref(data.asset, assetClass)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}" data-await>${tr("Backtest this pair")} <span aria-hidden="true">→</span></a><span class="dim">${tr(
+        ? `<a class="btn" href="${pairHref(data.asset, assetClass)}?long=${encodeURIComponent(pair.long.venue_id)}&short=${encodeURIComponent(pair.short.venue_id)}" data-await>${tr("Backtest this pair")} ${icon("right")}</a><span class="dim">${tr(
             "long {long} · short {short} · {spread} a year, replayed on settled funding",
             {
               long: esc(venueName(pair.long.venue_id)),
@@ -1889,7 +1890,7 @@ ${feeField("fee_long", tr("Long taker fee"), params?.longTakerBps ?? null)}
 ${feeField("fee_short", tr("Short taker fee"), params?.shortTakerBps ?? null)}
 <div class="actions"><button type="submit">${tr("Run backtest")}</button>${
     params
-      ? `<a class="btn" href="${pairHref(asset, assetClass)}${backtestToQuery({ ...params, longVenueId: params.shortVenueId, shortVenueId: params.longVenueId })}" data-await>⇄ ${tr("swap legs")}</a>`
+      ? `<a class="btn" href="${pairHref(asset, assetClass)}${backtestToQuery({ ...params, longVenueId: params.shortVenueId, shortVenueId: params.longVenueId })}" data-await>${icon("swap")} ${tr("swap legs")}</a>`
       : ""
   }<a class="btn" href="${priceHref(asset, assetClass)}" title="${tr("What entering and exiting would cost at each exchange's top of book")}">${tr("price gap")}</a></div>
 </form>`;
