@@ -32,10 +32,11 @@
 
 import { ja } from "./locales/ja";
 import { ko } from "./locales/ko";
+import { ru } from "./locales/ru";
 import { zh } from "./locales/zh";
 
 /** Every language the site renders. The first is the default, and the source language of every key. */
-export const LOCALES = ["en", "zh", "ja", "ko"] as const;
+export const LOCALES = ["en", "zh", "ja", "ko", "ru"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 
@@ -50,12 +51,13 @@ export const LOCALE_INFO: Readonly<Record<Locale, { name: string; htmlLang: stri
   zh: { name: "中文", htmlLang: "zh-Hans" },
   ja: { name: "日本語", htmlLang: "ja" },
   ko: { name: "한국어", htmlLang: "ko" },
+  ru: { name: "Русский", htmlLang: "ru" },
 };
 
 /** English text to its translation. English itself has an empty one: every key is its own English. */
 export type Catalog = Readonly<Record<string, string>>;
 
-const CATALOGS: Readonly<Record<Locale, Catalog>> = { en: {}, zh, ja, ko };
+const CATALOGS: Readonly<Record<Locale, Catalog>> = { en: {}, zh, ja, ko, ru };
 
 let active: Locale = DEFAULT_LOCALE;
 

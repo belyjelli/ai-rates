@@ -20,6 +20,7 @@ import {
 import { parseShown } from "./live";
 import { JA_PARTS, ja } from "./locales/ja";
 import { KO_PARTS, ko } from "./locales/ko";
+import { RU_PARTS, ru } from "./locales/ru";
 import { ZH_PARTS, zh } from "./locales/zh";
 
 /** apps/worker/src: every file a page's text can come from. */
@@ -76,13 +77,14 @@ const markup = (text: string) => [...text.matchAll(/<[^>]*>/g)].map((m) => m[0])
 const bareAmpersand = (text: string) => /&(?!#?\w+;)/.test(text);
 
 /** Languages whose catalog must cover every key. A language being translated stays out until done. */
-const COMPLETE: Readonly<Record<string, Catalog>> = { zh, ja, ko };
+const COMPLETE: Readonly<Record<string, Catalog>> = { zh, ja, ko, ru };
 
 /** Each complete language's catalog by part of the site, for the test that parts agree. */
 const PARTS: Readonly<Record<string, Readonly<Record<string, Catalog>>>> = {
   zh: ZH_PARTS,
   ja: JA_PARTS,
   ko: KO_PARTS,
+  ru: RU_PARTS,
 };
 
 describe("catalogs", () => {
@@ -207,6 +209,7 @@ describe("choosing a language", () => {
     expect(parseLocale("en-GB")).toBe("en");
     expect(parseLocale("ja-JP")).toBe("ja");
     expect(parseLocale("ko-KR")).toBe("ko");
+    expect(parseLocale("ru-RU")).toBe("ru");
     expect(parseLocale("fr")).toBeNull();
     expect(parseLocale("")).toBeNull();
   });

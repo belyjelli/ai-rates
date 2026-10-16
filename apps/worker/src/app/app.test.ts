@@ -3999,6 +3999,13 @@ describe("language", () => {
     expect(html).toContain('<meta property="og:locale" content="ko_KR">');
   });
 
+  test("Russian pages are Russian", async () => {
+    const html = await (await getIn("/", "ru")).text();
+    expect(html).toContain('<html lang="ru">');
+    expect(html).toContain('aria-current="true">Русский</a>');
+    expect(html).toContain('<meta property="og:locale" content="ru_RU">');
+  });
+
   test("English is the default, and its switch points back at the page", async () => {
     const html = await (await get("/screener", fakeData().data)).text();
     expect(html).toContain('<html lang="en">');
@@ -4006,6 +4013,7 @@ describe("language", () => {
     expect(html).toContain('href="/lang/zh?back=%2Fscreener"');
     expect(html).toContain('href="/lang/ja?back=%2Fscreener"');
     expect(html).toContain('href="/lang/ko?back=%2Fscreener"');
+    expect(html).toContain('href="/lang/ru?back=%2Fscreener"');
   });
 
   test("a not-found message is translated too", async () => {
@@ -4042,6 +4050,7 @@ describe("link previews", () => {
     expect(html).toContain('<meta property="og:locale:alternate" content="zh_CN">');
     expect(html).toContain('<meta property="og:locale:alternate" content="ja_JP">');
     expect(html).toContain('<meta property="og:locale:alternate" content="ko_KR">');
+    expect(html).toContain('<meta property="og:locale:alternate" content="ru_RU">');
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image">');
 
     // The size the tags claim is the size served: a mismatch makes Facebook crop or refuse it.

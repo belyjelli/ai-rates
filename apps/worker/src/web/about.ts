@@ -41,9 +41,10 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-17",
-    title: "The site in Japanese and Korean",
+    title: "The site in Japanese, Korean and Russian",
     changes: [
-      "Every page can be read in Japanese and in Korean: switch with language: 日本語 or 한국어 at the foot of the page. A first visit follows your browser's language. As with Chinese, the legal and status pages and this changelog stay in English, and the API is never translated.",
+      "Every page can be read in Japanese, Korean and Russian: switch with language: 日本語, 한국어 or Русский at the foot of the page. A first visit follows your browser's language. As with Chinese, the legal and status pages and this changelog stay in English, and the API is never translated.",
+      "On a phone, the chart and cite buttons at the top show just their icons, so the market count beside them stays readable.",
     ],
   },
   {

@@ -50,9 +50,13 @@ export const plainLabel = (html: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
-/** The masthead's two buttons. The chart one starts disabled; the script enables it on a chart. */
+/**
+ * The masthead's two buttons. The chart one starts disabled; the script enables it on a chart. On a
+ * phone they show their icons alone (SHARE_CSS), leaving the row's width to the market count beside
+ * them, which a longer language's labels would otherwise cut to a letter; aria-label keeps the name.
+ */
 export const shareBar = (): string =>
-  `<span class="share-acts"><button type="button" class="share-btn" data-share-chart disabled title="${tr("Share the chart in view as an image sized for X")}">${icon("share")} ${tr("chart")}</button><button type="button" class="share-btn" data-share-cite title="${tr("Quote this page's best line, with a link back to it")}">${icon("quote")} ${tr("cite")}</button></span>`;
+  `<span class="share-acts"><button type="button" class="share-btn" data-share-chart disabled title="${tr("Share the chart in view as an image sized for X")}" aria-label="${tr("chart")}">${icon("share")}<span class="share-lbl"> ${tr("chart")}</span></button><button type="button" class="share-btn" data-share-cite title="${tr("Quote this page's best line, with a link back to it")}" aria-label="${tr("cite")}">${icon("quote")}<span class="share-lbl"> ${tr("cite")}</span></button></span>`;
 
 /**
  * Every word the script shows, in the reader's language. Handed in as one object at render time,
@@ -99,6 +103,7 @@ export const SHARE_CSS = `
 .share-btn{font:700 11px/14px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:transparent;border:1px solid var(--rule);padding:0 6px;cursor:pointer;white-space:nowrap}
 .share-btn:hover:not(:disabled){color:var(--accent);border-color:var(--accent)}
 .share-btn:disabled{opacity:.35;cursor:not-allowed}
+@media (max-width:480px){.share-lbl{display:none}}
 .dlg{position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
 .dlg .box{width:min(560px,100%);background:var(--panel);border:1px solid var(--rule);padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 18px 50px rgba(0,0,0,.6);max-height:92vh;overflow:auto}
 .dlg .hd{display:flex;justify-content:space-between;align-items:baseline;gap:12px}

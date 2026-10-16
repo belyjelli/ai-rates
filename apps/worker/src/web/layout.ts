@@ -81,6 +81,7 @@ const OG_LOCALE: Readonly<Record<Locale, string>> = {
   zh: "zh_CN",
   ja: "ja_JP",
   ko: "ko_KR",
+  ru: "ru_RU",
 };
 
 /** Pages that are a dataset in their own right, for the structured data below. */
