@@ -9,6 +9,13 @@
   // script breaks: the placeholder then says the commit was not recorded, and the site still ships.
   "build": { "command": "node apps/worker/scripts/stamp-build.mjs || true" },
   "compatibility_date": "2026-09-01",
+  // The pages' browser scripts embed server functions as text (`${formatTime}` and the readouts in
+  // slot-chart.ts). With wrangler's default keep_names, esbuild wraps every inner named function in
+  // `__name(fn, "fn")`, a helper that exists only in the bundle, so each embedded copy threw
+  // "__name is not defined" in the browser: local times never applied, the readouts died, and the CVD
+  // trading chart drew empty because its axis labels call formatTime (2026-10-16). Off, the text is
+  // the source's own. app.test.ts holds this setting.
+  "keep_names": false,
   // Custom Domains: Cloudflare creates the DNS record and the edge certificate for each. List both --
   // a deploy with custom domains replaces the Worker's set, so leaving one out would detach it.
   "routes": [

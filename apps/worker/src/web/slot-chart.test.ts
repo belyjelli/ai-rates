@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { formatPrice, formatUsd } from "./format";
 import { withLocale } from "./i18n";
 import {
@@ -118,6 +120,11 @@ describe("SLOT_SCRIPT", () => {
   test("is valid JavaScript once the helpers are embedded, and needs no bundler helper", () => {
     expect(() => new Function(SLOT_SCRIPT)).not.toThrow();
     expect(SLOT_SCRIPT).not.toContain("__name");
+    // That check runs under Bun, which never adds the helper; the deploy's esbuild does unless
+    // wrangler.jsonc turns keep_names off, and with it on every embedded function threw in the
+    // browser (2026-10-16: local times, the readouts and the CVD trading chart all broke).
+    const config = readFileSync(join(import.meta.dir, "../../../../wrangler.jsonc"), "utf8");
+    expect(config).toMatch(/^\s*"keep_names":\s*false,?\s*$/m);
     // A mouse gets a tooltip beside the cursor; everything else keeps the header line.
     expect(SLOT_SCRIPT).toContain("(hover: hover) and (pointer: fine)");
     expect(SLOT_SCRIPT).toContain("slot-tip");
