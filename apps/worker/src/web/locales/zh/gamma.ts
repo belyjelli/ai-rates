@@ -22,8 +22,25 @@ export const gamma: Catalog = {
   "Option book": "期权簿",
   Expiries: "到期日",
   "spot {price}": "现货价 {price}",
-  "net {net} per 1% move at spot {spot} · bars are each strike's calls and puts · hover or tap a strike to read it":
-    "现货价 {spot} 处每 1% 波动净敞口 {net} · 柱为各行权价的看涨与看跌 · 悬停或点按行权价查看",
+  "net {net} per 1% move at spot {spot} · {bars} · hover or tap a strike to read it":
+    "现货价 {spot} 处每 1% 波动净敞口 {net} · {bars} · 悬停或点按行权价查看",
+  "bars are each strike's calls and puts": "柱为各行权价的看涨与看跌",
+  "bars are each strike's calls and puts added": "柱为各行权价看涨与看跌之和",
+  "Net long": "净多",
+  "Net short": "净空",
+  "short gamma": "负 Gamma 区",
+  "long gamma": "正 Gamma 区",
+  View: "视图",
+  view: "视图",
+  "calls/puts": "看涨/看跌",
+  "Each strike's calls above zero and its puts below": "各行权价的看涨在零线上方，看跌在下方",
+  net: "净值",
+  "One bar per strike: its calls and puts added": "每个行权价一根柱：看涨与看跌相加",
+  zones: "区间",
+  "Net bars, with the prices shaded where dealers would be short gamma or long it":
+    "净值柱，并为做市商处于负 Gamma 或正 Gamma 的价格区间着色",
+  "The view switch beside the cursor draws the bars three ways: calls/puts, each strike's calls above zero and its puts below; net, the two added into one bar; and zones, the net bars with the prices shaded where the line is below zero (dealers short gamma, red) or above it (long gamma, blue).":
+    "光标旁的视图切换以三种方式绘制柱：看涨/看跌，各行权价的看涨在零线上方、看跌在下方；净值，两者相加为一根柱；区间，净值柱，并为曲线低于零（做市商负 Gamma，红色）或高于零（正 Gamma，蓝色）的价格区间着色。",
   "Strikes beyond ±{pct} of the spot are off the chart: {usd} of exposure, either sign.":
     "距现货价 ±{pct} 以外的行权价不在图内：敞口 {usd}，正负合计。",
   "flip {price}": "翻转点 {price}",

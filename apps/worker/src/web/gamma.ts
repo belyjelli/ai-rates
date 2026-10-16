@@ -205,6 +205,70 @@ export function curveAt(curve: readonly GammaPoint[], price: number): number | n
   return null;
 }
 
+/** A stretch of price where the profile curve keeps one sign: dealers short gamma there, or long it. */
+export interface GammaZone {
+  from: number;
+  to: number;
+  short: boolean;
+}
+
+/**
+ * The curve's stretches of one sign between `low` and `high`, each crossing interpolated between the
+ * two points either side of it: where dealers would be short gamma, or long it, were the spot to move
+ * there. Nothing where the curve does not reach, since the sign there is unknown.
+ */
+export function gammaZones(curve: readonly GammaPoint[], low: number, high: number): GammaZone[] {
+  const zones: GammaZone[] = [];
+  let from: number | null = null;
+  let short = false;
+  for (let i = 0; i < curve.length; i++) {
+    const p = curve[i] as GammaPoint;
+    const below = p.net_gex_usd < 0;
+    if (from === null) {
+      from = p.price;
+      short = below;
+      continue;
+    }
+    if (below !== short) {
+      const a = curve[i - 1] as GammaPoint;
+      const at = a.price + (a.net_gex_usd / (a.net_gex_usd - p.net_gex_usd)) * (p.price - a.price);
+      zones.push({ from, to: at, short });
+      from = at;
+      short = below;
+    }
+  }
+  const last = curve[curve.length - 1];
+  if (from !== null && last && curve.length > 1) zones.push({ from, to: last.price, short });
+  return zones
+    .map((z) => ({ ...z, from: Math.max(z.from, low), to: Math.min(z.to, high) }))
+    .filter((z) => z.to > z.from);
+}
+
+/**
+ * The chart's three ways of drawing the bars, switched beside the cursor (GX_VIEW_SCRIPT): "split",
+ * each band's calls above zero and puts below, the view the tab opened with and the one a reader
+ * without JavaScript keeps; "net", one bar per band with the two added; and "zones", the net bars
+ * over the curve's short- and long-gamma stretches. All three are in the markup and CSS shows one,
+ * so switching costs no request and survives every refresh.
+ */
+const GAMMA_VIEWS = ["split", "net", "zones"] as const;
+
+function gammaViewSwitch(): string {
+  const words: Record<(typeof GAMMA_VIEWS)[number], [string, string]> = {
+    split: [tr("calls/puts"), tr("Each strike's calls above zero and its puts below")],
+    net: [tr("net"), tr("One bar per strike: its calls and puts added")],
+    zones: [
+      tr("zones"),
+      tr("Net bars, with the prices shaded where dealers would be short gamma or long it"),
+    ],
+  };
+  const buttons = GAMMA_VIEWS.map(
+    (view) =>
+      `<button type="button" class="gx-view" data-gx-view="${view}" aria-pressed="${view === "split"}" title="${esc(words[view][1])}">${words[view][0]}</button>`,
+  ).join("");
+  return `<div class="slot-modes gx-views" role="group" aria-label="${esc(tr("View"))}" hidden><span>${tr("view")}</span>${buttons}</div>`;
+}
+
 function gammaChart(data: {
   currency: string;
   exposure: GammaExposure;
@@ -237,6 +301,30 @@ function gammaChart(data: {
       }
       return out;
     })
+    .join("");
+  const netBars = b.calls
+    .map((call, i) => {
+      const net = call + (b.puts[i] ?? 0);
+      if (!b.labels[i] || net === 0) return "";
+      const left = (i * slot + (slot - width) / 2).toFixed(2);
+      const height = ((Math.abs(net) / peak) * 500).toFixed(1);
+      return `<rect class="${net > 0 ? "gx-call" : "gx-put"}" x="${left}" y="${net > 0 ? y(net, peak).toFixed(1) : "500"}" width="${width.toFixed(2)}" height="${height}"></rect>`;
+    })
+    .join("");
+  const zones = gammaZones(curve, b.low, b.low + span);
+  const zoneRects = zones
+    .map(
+      (z) =>
+        `<rect class="${z.short ? "gx-zone-short" : "gx-zone-long"}" x="${x(z.from).toFixed(1)}" y="0" width="${(x(z.to) - x(z.from)).toFixed(1)}" height="1000"></rect>`,
+    )
+    .join("");
+  // A zone wide enough to hold its name says it at the top; a narrow one is read off the key.
+  const zoneLabels = zones
+    .filter((z) => x(z.to) - x(z.from) >= 120)
+    .map(
+      (z) =>
+        `<span class="gx-zl gx-v gx-v-zone ${z.short ? "gx-zl-short" : "gx-zl-long"}" style="left:${((x(z.from) + x(z.to)) / 20).toFixed(2)}%">${z.short ? tr("short gamma") : tr("long gamma")}</span>`,
+    )
     .join("");
   const line =
     inRange.length > 1
@@ -299,10 +387,11 @@ function gammaChart(data: {
   };
   const axes = esc(JSON.stringify({ l: ["usd", -peak, peak], r: ["usd", -curvePeak, curvePeak] }));
   const idle = tr(
-    "net {net} per 1% move at spot {spot} · bars are each strike's calls and puts · hover or tap a strike to read it",
+    "net {net} per 1% move at spot {spot} · {bars} · hover or tap a strike to read it",
     {
       net: `<b class="${tone(exposure.net_gex_usd)}">${signedUsd(exposure.net_gex_usd)}</b>`,
       spot: formatPrice(spot),
+      bars: `<span class="gx-v gx-v-split">${tr("bars are each strike's calls and puts")}</span><span class="gx-v gx-v-net">${tr("bars are each strike's calls and puts added")}</span>`,
     },
   );
   const beyond =
@@ -318,9 +407,9 @@ function gammaChart(data: {
       : "";
 
   return `<figure class="fchart cvd-chart gx-chart" data-live="gamma-chart" data-cursors>
-<div class="fchart-head"><p class="fchart-title">${tr("{currency} · Deribit options · gamma exposure by strike · {scope}", { currency, scope: scopeName })}</p><div class="fchart-keys"><span><i class="gx-key-call"></i>${tr("Calls")}</span><span><i class="gx-key-put"></i>${tr("Puts")}</span><span><i class="gx-key-curve"></i>${tr("Net if the spot moved there")}</span><span><i class="gx-key-spot"></i>${tr("Spot")}</span>${flipKey}${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle}</p></div>
+<div class="fchart-head"><p class="fchart-title">${tr("{currency} · Deribit options · gamma exposure by strike · {scope}", { currency, scope: scopeName })}</p><div class="fchart-keys"><span class="gx-v gx-v-split"><i class="gx-key-call"></i>${tr("Calls")}</span><span class="gx-v gx-v-split"><i class="gx-key-put"></i>${tr("Puts")}</span><span class="gx-v gx-v-net"><i class="gx-key-call"></i>${tr("Net long")}</span><span class="gx-v gx-v-net"><i class="gx-key-put"></i>${tr("Net short")}</span><span class="gx-v gx-v-zone"><i class="gx-key-zs"></i>${tr("short gamma")}</span><span class="gx-v gx-v-zone"><i class="gx-key-zl"></i>${tr("long gamma")}</span><span><i class="gx-key-curve"></i>${tr("Net if the spot moved there")}</span><span><i class="gx-key-spot"></i>${tr("Spot")}</span>${flipKey}${gammaViewSwitch()}${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle}</p></div>
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{currency} strike bands; arrow keys read one at a time", { currency }))}">
-<div class="fchart-plot gx-plot" data-axes="${axes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{currency} options gamma exposure by strike", { currency }))}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line>${bars}${line}${vertical(exposure.flip_price, "gx-flip")}${vertical(spot, "gx-spot")}${SLOT_CURSOR}${SLOT_HAIR}</svg>${leftLabels}${rightLabels}${xLabels}</div>
+<div class="fchart-plot gx-plot" data-axes="${axes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{currency} options gamma exposure by strike", { currency }))}"><g class="gx-v gx-v-zone">${zoneRects}</g>${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line><g class="gx-v gx-v-split">${bars}</g><g class="gx-v gx-v-net">${netBars}</g>${line}${vertical(exposure.flip_price, "gx-flip")}${vertical(spot, "gx-spot")}${SLOT_CURSOR}${SLOT_HAIR}</svg>${leftLabels}${rightLabels}${xLabels}${zoneLabels}</div>
 </div>
 ${beyond}
 ${slotData(payload)}
@@ -438,6 +527,8 @@ ${helpPanel(
   )}</p><p>${tr(
     "Positive net exposure means dealers sell into rises and buy into falls, which tends to damp moves; negative means they chase the price, which tends to add to them. The flip is where the net would change sign were the spot to move there, and the line shows the net at every such price. The walls are the strikes holding the most call and put gamma.",
   )}</p><p>${tr(
+    "The view switch beside the cursor draws the bars three ways: calls/puts, each strike's calls above zero and its puts below; net, the two added into one bar; and zones, the net bars with the prices shaded where the line is below zero (dealers short gamma, red) or above it (long gamma, blue).",
+  )}</p><p>${tr(
     "The options are Deribit's BTC and ETH books, which hold most listed crypto options; Bybit, OKX and Binance list far fewer and are not included. Open interest, mark volatility and each expiry's forward are Deribit's own; gamma is computed from them with Black-76, which reproduces Deribit's own delta and vega. Read every five minutes.",
   )}</p>`,
 )}`;
@@ -500,6 +591,41 @@ export function gammaPlaceholder(heatmap: HeatmapParams, params: GammaParams): s
   const href = `/rates${heatmapToQuery(heatmap, params)}#gamma`;
   return `<div class="lazy-wait" role="status" data-fail="${esc(tr("This tab did not load."))}" data-retry="${esc(tr("Try again"))}"><span class="spin" aria-hidden="true"></span><span class="lazy-msg">${tr("Loading…")}</span><noscript><a href="${esc(href)}">${tr("Open this tab")}</a></noscript></div>`;
 }
+
+/**
+ * The view switch (gammaViewSwitch): the reader's choice, kept in localStorage "gamma-view", goes on
+ * <html> as data-gxview, which the CSS reads, so the figure a refresh or a book switch brings in is
+ * drawn the same way. Each new copy of the switch arrives hidden and pressed as the server had it,
+ * and is set to the reader's choice as it arrives.
+ */
+export const GX_VIEW_SCRIPT = `(() => {
+  if (window.airratesGammaView) return;
+  window.airratesGammaView = true;
+  const views = ${JSON.stringify(GAMMA_VIEWS)};
+  let view = "split";
+  try { const kept = localStorage.getItem("gamma-view"); if (views.includes(kept)) view = kept; } catch (_) {}
+  const sync = () => {
+    document.documentElement.dataset.gxview = view;
+    for (const group of document.querySelectorAll(".gx-views")) {
+      group.hidden = false;
+      for (const button of group.querySelectorAll(".gx-view")) {
+        const on = String(button.dataset.gxView === view);
+        if (button.getAttribute("aria-pressed") !== on) button.setAttribute("aria-pressed", on);
+      }
+    }
+  };
+  sync();
+  new MutationObserver(() => {
+    if (document.querySelector('.gx-views[hidden], .gx-view[aria-pressed="true"]:not([data-gx-view="' + view + '"])')) sync();
+  }).observe(document.querySelector("main") || document.body, { childList: true, subtree: true });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest ? event.target.closest(".gx-view") : null;
+    if (!button || !views.includes(button.dataset.gxView)) return;
+    view = button.dataset.gxView;
+    try { localStorage.setItem("gamma-view", view); } catch (_) {}
+    sync();
+  });
+})();`;
 
 /**
  * Switches the tab's book and expiries in place: fetches the choice's `?panel=gamma`, swaps it in,

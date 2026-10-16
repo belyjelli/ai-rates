@@ -8,8 +8,10 @@ import {
   GAMMA_REFUSE_MS,
   GAMMA_STALE_MS,
   GX_SWAP_SCRIPT,
+  GX_VIEW_SCRIPT,
   gammaFragment,
   gammaPanel,
+  gammaZones,
   inScope,
   niceStep,
   strikeSpacing,
@@ -170,6 +172,32 @@ describe("binning", () => {
   });
 });
 
+describe("zones", () => {
+  const p = (price: number, net_gex_usd: number) => ({ price, net_gex_usd });
+
+  test("split where the line crosses zero, interpolated, and clipped to the axis", () => {
+    const curve = [p(70_000, -30), p(75_000, -10), p(80_000, 10), p(85_000, 30), p(90_000, -10)];
+    expect(gammaZones(curve, 72_000, 88_000)).toEqual([
+      { from: 72_000, to: 77_500, short: true },
+      { from: 77_500, to: 88_000, short: false },
+    ]);
+    const whole = gammaZones(curve, 60_000, 100_000);
+    expect(whole.map((z) => [z.from, z.to, z.short])).toEqual([
+      [70_000, 77_500, true],
+      [77_500, 88_750, false],
+      [88_750, 90_000, true],
+    ]);
+  });
+
+  test("none beyond the line's reach, and one sign is one zone", () => {
+    expect(gammaZones([], 0, 1)).toEqual([]);
+    expect(gammaZones([p(80_000, 5)], 0, 100_000)).toEqual([]);
+    expect(gammaZones([p(80_000, 5), p(90_000, 1)], 85_000, 100_000)).toEqual([
+      { from: 85_000, to: 90_000, short: false },
+    ]);
+  });
+});
+
 describe("panel", () => {
   test("tiles, chart and expiries, every switch keeping the grid's timeframe", () => {
     const html = gammaPanel({
@@ -209,6 +237,21 @@ describe("panel", () => {
     expect(html).not.toContain("gx-out");
     expect(html).toContain("17h 30m");
     expect(html).toContain("70d 17h");
+  });
+
+  test("draws all three views, opening on calls/puts, behind a switch the script shows", () => {
+    const html = panel(gammaData());
+    expect(html).toContain('class="slot-modes gx-views" role="group" aria-label="View" hidden>');
+    expect(html).toContain('data-gx-view="split" aria-pressed="true"');
+    expect(html).toContain('data-gx-view="net" aria-pressed="false"');
+    expect(html).toContain('data-gx-view="zones" aria-pressed="false"');
+    // The switch sits before the cursor's, in the same row.
+    expect(html.indexOf("gx-views")).toBeLessThan(html.indexOf('data-cursor="bar"'));
+    expect(html).toContain('<g class="gx-v gx-v-split"><rect class="gx-call"');
+    expect(html).toContain('<g class="gx-v gx-v-net"><rect class=');
+    expect(html).toMatch(/<g class="gx-v gx-v-zone"><rect class="gx-zone-(short|long)"/);
+    expect(html).toContain('<span class="gx-v gx-v-split">bars are each strike');
+    expect(() => new Function(GX_VIEW_SCRIPT)).not.toThrow();
   });
 
   test("a narrower scope dims the expiries it leaves out", () => {

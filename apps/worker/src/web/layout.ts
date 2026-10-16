@@ -661,6 +661,13 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .gx-chart .fchart-keys i.gx-key-spot{height:0;border-top:1px dashed var(--ink)}
 .gx-chart .fchart-keys i.gx-key-flip{height:0;border-top:1px dashed var(--warn)}
 .gx-yr{color:var(--accent)}
+/* The view switch (gamma.ts): the page opens on calls/puts, and only ever hides what a view leaves out. */
+html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gxview=zones]) .gx-v-zone,html[data-gxview=net] .gx-v-split,html[data-gxview=zones] .gx-v-split{display:none}
+.gx-zone-short{fill:var(--short);opacity:.13}.gx-zone-long{fill:var(--long);opacity:.09}
+.gx-chart .fchart-keys i.gx-key-zs,.gx-chart .fchart-keys i.gx-key-zl{width:10px;height:10px}
+.gx-key-zs{background:color-mix(in srgb,var(--short) 35%,transparent)}.gx-key-zl{background:color-mix(in srgb,var(--long) 30%,transparent)}
+.gx-zl{position:absolute;top:4px;z-index:1;transform:translateX(-50%);padding:0 4px;background:rgba(0,0,0,.7);font-size:11px;line-height:16px;white-space:nowrap;pointer-events:none}
+.gx-zl-short{color:var(--short)}.gx-zl-long{color:var(--long)}
 .gx-controls{align-items:center;gap:10px 16px}.gx-controls .tf{margin:0}
 .gx-table tr.gx-out td{opacity:.4}
 .gx-stale{color:var(--warn)}

@@ -64,6 +64,7 @@ import { type FundingHistory, renderFundingChart } from "./funding-chart";
 import {
   GAMMA_PANEL_ID,
   GX_SWAP_SCRIPT,
+  GX_VIEW_SCRIPT,
   gammaPanel,
   gammaPanelHref,
   gammaPlaceholder,
@@ -949,7 +950,8 @@ ${grid}
 ${gammaBody}
 </div>
 <script>${SLOT_SCRIPT}</script>
-<script>${GX_SWAP_SCRIPT}</script>`,
+<script>${GX_SWAP_SCRIPT}</script>
+<script>${GX_VIEW_SCRIPT}</script>`,
   });
 }
 
