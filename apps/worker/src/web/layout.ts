@@ -16,7 +16,7 @@ import {
   tr,
   trMsg,
 } from "./i18n";
-import { FAVICON_HREF, ICON_CSS, iconMask } from "./icons";
+import { ICON_CSS, iconMask } from "./icons";
 import { INSTALL_CSS, INSTALL_HEAD } from "./install";
 import { LIVE_SCRIPT } from "./live";
 import { localTimeScript } from "./localtime";
@@ -985,7 +985,7 @@ ${GA_TAG}
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} · airrates</title>
-<link rel="icon" type="image/svg+xml" href="${FAVICON_HREF}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📟</text></svg>">
 <meta name="description" content="${esc(description)}">
 ${discoverability(title, description, path)}
 ${INSTALL_HEAD}

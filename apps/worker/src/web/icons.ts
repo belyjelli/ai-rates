@@ -3,13 +3,13 @@
  *
  * WHY NOT GLYPHS. A glyph (⇪, ❝, ×, ▾, ▲, ⇄, →) is drawn by whichever font the reader's system picks
  * for it, at that font's weight, width and baseline, so the masthead's buttons and a table's sort mark
- * looked different on every machine; an emoji favicon is a different picture on every platform. An
- * SVG is the same lines everywhere. Each icon here is a 24-unit drawing in currentColor at 1em, so it
- * takes the text's colour and size, and is aria-hidden: the words beside it carry the meaning, and a
- * control with no words carries an aria-label.
+ * looked different on every machine. An SVG is the same lines everywhere. Each icon here is a
+ * 24-unit drawing in currentColor at 1em, so it takes the text's colour and size, and is aria-hidden:
+ * the words beside it carry the meaning, and a control with no words carries an aria-label.
  *
  * Arrows and signs that are part of a figure -- "↑ 3.1", a move's "↓ 12%", "1375×" -- are not icons:
- * they are read with the number (live.ts parses them as its sign) and stay text.
+ * they are read with the number (live.ts parses them as its sign) and stay text. The favicon stays
+ * the 📟 the owner chose (layout.ts).
  */
 const PATHS = {
   /** Share the chart as an image: out of the tray. */
@@ -55,12 +55,3 @@ export function iconMask(name: IconName): string {
  * size wherever it sits. Size one with font-size.
  */
 export const ICON_CSS = `svg.ico,.fchart svg.ico,.curve svg.ico{display:inline-block;position:static;inset:auto;width:1em;height:1em;overflow:hidden;vertical-align:-.125em;flex-shrink:0}`;
-
-/**
- * The tab's icon: the installed app's own drawing (app-icon.ts) -- the accent line, the rail with its
- * zero tick, the bar running long to short and the two markers -- in the same units, as SVG. It
- * replaced a 📟 emoji, which every platform drew differently and some not at all.
- */
-const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="b"><stop offset="0" stop-color="#5f87ff"/><stop offset="1" stop-color="#ff5f5f"/></linearGradient></defs><rect width="100" height="100" fill="#000"/><g transform="translate(8 56.72) scale(.84)"><rect y="-30" width="100" height="4" fill="#c8f5a8"/><rect y="-1" width="100" height="2" fill="#494949"/><rect x="48.8" y="-14" width="2.4" height="28" fill="#494949"/><rect x="14" y="-4" width="72" height="8" fill="url(#b)"/><rect x="6" y="-9" width="16" height="18" fill="#5f87ff"/><rect x="78" y="-9" width="16" height="18" fill="#ff5f5f"/></g></svg>`;
-
-export const FAVICON_HREF = `data:image/svg+xml,${encodeURIComponent(FAVICON_SVG)}`;
