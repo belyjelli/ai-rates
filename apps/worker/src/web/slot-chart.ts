@@ -45,7 +45,7 @@ export const MONTHS = [
 
 /** The formatters and words the readout uses, handed in so the text functions stay self-contained. */
 export interface SlotFormat {
-  usd: (value: number) => string;
+  usd: (value: number, symbol?: string) => string;
   price: (value: number) => string;
   pct: (value: number, digits: number) => string;
   when: (ms: number, words?: SlotWords, offset?: number, unit?: number) => string;
@@ -144,15 +144,18 @@ export const slotWords = (): SlotWords => ({
   noCandle: tr("no candle"),
 });
 
-/** Compact dollars, identical to format.ts's `formatUsd` for any finite number (a test holds them). */
-export function slotUsd(value: number): string {
+/**
+ * Compact dollars, or another currency by its `symbol`, identical to format.ts's `formatUsd` for any
+ * finite number (a test holds them).
+ */
+export function slotUsd(value: number, symbol = "$"): string {
   const abs = Math.abs(value);
   const sign = value < 0 ? "−" : "";
-  const size = abs >= 1e9 ? 1e9 : abs >= 1e6 ? 1e6 : abs >= 1e3 ? 1e3 : 1;
-  if (size === 1) return `${sign}$${abs.toFixed(0)}`;
+  const size = abs >= 1e12 ? 1e12 : abs >= 1e9 ? 1e9 : abs >= 1e6 ? 1e6 : abs >= 1e3 ? 1e3 : 1;
+  if (size === 1) return `${sign}${symbol}${abs.toFixed(0)}`;
   const scaled = abs / size;
-  const suffix = size === 1e9 ? "B" : size === 1e6 ? "M" : "k";
-  return `${sign}$${scaled >= 100 ? scaled.toFixed(0) : scaled.toFixed(1)}${suffix}`;
+  const suffix = size === 1e12 ? "T" : size === 1e9 ? "B" : size === 1e6 ? "M" : "k";
+  return `${sign}${symbol}${scaled >= 100 ? scaled.toFixed(0) : scaled.toFixed(1)}${suffix}`;
 }
 
 /** Prices, identical to format.ts's `formatPrice` for any finite number. */
@@ -360,8 +363,9 @@ export function gammaText(d: GammaSlots, i: number, f: SlotFormat): string {
   const low = d.low + i * d.step;
   const pct = f.pct(((low + d.step / 2) / d.spot - 1) * 100, 1);
   const signed = (usd: number) =>
-    `<b class="${usd > 0 ? "lq-ink-l" : usd < 0 ? "lq-ink-s" : ""}">${usd > 0 ? "+" : ""}${f.usd(usd)}</b>`;
-  const coins = (oi: number) => `${Math.round(oi).toLocaleString("en-US")} ${d.unit}`;
+    `<b class="${usd > 0 ? "lq-ink-l" : usd < 0 ? "lq-ink-s" : ""}">${usd > 0 ? "+" : ""}${f.usd(usd, d.cur)}</b>`;
+  const coins = (oi: number) =>
+    d.unit ? `${Math.round(oi).toLocaleString("en-US")} ${d.unit}` : f.usd(oi * d.spot, d.cur);
   const slot = d.slots[i];
   const parts: string[] = [];
   if (slot === null || slot === undefined) {
@@ -407,7 +411,8 @@ export function slotXPrice(
  * What a Gamma Exposure figure ships: one entry per strike band, low to high, [calls' exposure, puts'
  * exposure (negative), calls' open interest, puts' open interest, the strikes in the band as text],
  * or null for a band with no open interest; and for every band the profile curve at its middle, or
- * null beyond the curve's reach. Exposure is dollars per 1% move; open interest is in `unit` coins.
+ * null beyond the curve's reach. Exposure is per 1% move in the currency whose symbol is `cur`; open
+ * interest is in `unit` coins, or, where `unit` is empty, read as its value at the spot.
  */
 export interface GammaSlots {
   kind: "gex";
@@ -415,6 +420,7 @@ export interface GammaSlots {
   step: number;
   spot: number;
   unit: string;
+  cur: string;
   slots: ([number, number, number, number, string] | null)[];
   curve: (number | null)[];
 }
@@ -552,7 +558,8 @@ export function slotCursorSwitch(): string {
  * crosshair whose level line follows the pointer's height in the panel it is over, with that height
  * read on each axis in a tag. A panel's axes come in its data-axes, {"l"|"r": [kind, bottom, top]},
  * the values at the bottom and top edges of the plot, since the SVG maps them linearly; kind is
- * "price", "usd" (signed) or "amount" (dollars that have no sign). The vertical
+ * "price", "usd" (signed) or "amount" (dollars that have no sign), and an optional fourth entry is
+ * the currency symbol for those two, "$" when absent. The vertical
  * line still snaps to the slot being read. A keyboard step has no height, so it draws no level line.
  * The choice is kept on <html> (data-cursor), not on the figure, which a refresh replaces.
  */
@@ -676,7 +683,7 @@ export const SLOT_SCRIPT = `(() => {
         }
         const value = axis[2] - t * (axis[2] - axis[1]);
         tag.textContent =
-          axis[0] === "price" ? f.price(value) : axis[0] === "amount" ? f.usd(Math.max(0, value)) : (value > 0 ? "+" : "") + f.usd(value);
+          axis[0] === "price" ? f.price(value) : axis[0] === "amount" ? f.usd(Math.max(0, value), axis[3]) : (value > 0 ? "+" : "") + f.usd(value, axis[3]);
         tag.style.top = (t * 100).toFixed(2) + "%";
         tag.hidden = false;
       }

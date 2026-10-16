@@ -5,7 +5,9 @@
  * works without it), arrow keys, Escape and click-away.
  *
  * Markup: details.wh-pick > summary.wh-pick-btn, and in .wh-pick-panel an input.wh-pick-q, the
- * a.wh-pick-row links (each with the words it is found by in data-q) and a p.wh-pick-none.
+ * a.wh-pick-row links (each with the words it is found by in data-q) and a p.wh-pick-none. Rows may
+ * sit under p.wh-pick-group headings (the Gamma tab's regions), each hidden while a filter leaves it
+ * no row.
  *
  * Delegated from the document rather than bound to one picker: CVD swaps its <main> in place when
  * an asset is picked, and live.ts replaces the CVD rows every 30 seconds, so a picker or a row can
@@ -18,6 +20,11 @@ export const PICK_SCRIPT = `(() => {
   const filter = (pick) => {
     const words = pick.querySelector(".wh-pick-q").value.trim().toLowerCase().split(/\\s+/).filter(Boolean);
     for (const r of rows(pick)) r.hidden = !words.every((w) => r.dataset.q.includes(w));
+    for (const g of pick.querySelectorAll(".wh-pick-group")) {
+      let any = false;
+      for (let el = g.nextElementSibling; el && !el.matches(".wh-pick-group"); el = el.nextElementSibling) if (!el.hidden) any = true;
+      g.hidden = !any;
+    }
     pick.querySelector(".wh-pick-none").hidden = shown(pick).length > 0;
   };
   // Enter, or a search form's button: the first row still shown, as a click, so a page that takes

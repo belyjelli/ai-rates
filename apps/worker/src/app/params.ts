@@ -131,17 +131,20 @@ export function heatmapToQuery(params: HeatmapParams, gamma?: GammaParams): stri
 }
 
 /**
- * The Rates page's Gamma Exposure tab: which option book, and which expiries. Deribit's BTC and ETH
- * books are the only crypto options with open interest worth charting (collector internal/gamma).
+ * The Rates page's Gamma Exposure tab: which option book, and which expiries. The books are whatever
+ * the collector has stored (internal/gamma: Deribit's BTC and ETH, Cboe's US chains, and index options
+ * from HKEX, CFFEX, TAIFEX, NSE, BSE and Eurex), so the tab's picker lists them from the table rather
+ * than from here, and a book the collector adds appears without a site change. BTC is the default.
  * The scopes are the collector's own: every expiry, within 30 days, within 7, the nearest alone.
  */
-export const GAMMA_CURRENCIES = ["BTC", "ETH"] as const;
-export type GammaCurrency = (typeof GAMMA_CURRENCIES)[number];
+export const GAMMA_DEFAULT_BOOK = "BTC";
+/** A book's key as the collector stores it ("SPX", "HSI", "CSI1000", "BANKNIFTY"). */
+const GAMMA_BOOK = /^[A-Z0-9]{1,12}$/;
 export const GAMMA_SCOPES = ["all", "30d", "7d", "next"] as const;
 export type GammaScope = (typeof GAMMA_SCOPES)[number];
 
 export interface GammaParams {
-  currency: GammaCurrency;
+  currency: string;
   scope: GammaScope;
 }
 
@@ -149,10 +152,9 @@ export function parseGammaParams(params: URLSearchParams): GammaParams {
   const currency = (params.get("gex") ?? "").trim().toUpperCase();
   const scope = (params.get("gexp") ?? "").trim().toLowerCase();
   return {
-    // Exact matches against the allowlists: both go into the query as values, never as SQL.
-    currency: (GAMMA_CURRENCIES as readonly string[]).includes(currency)
-      ? (currency as GammaCurrency)
-      : GAMMA_CURRENCIES[0],
+    // The book by its shape, the scope against its allowlist: both go into the query as values, never
+    // as SQL, and a book with no rows says so in the tab.
+    currency: GAMMA_BOOK.test(currency) ? currency : GAMMA_DEFAULT_BOOK,
     scope: (GAMMA_SCOPES as readonly string[]).includes(scope)
       ? (scope as GammaScope)
       : GAMMA_SCOPES[0],

@@ -22,9 +22,11 @@ describe("slot formatters", () => {
     // in different words from the table beside it.
     for (const value of [
       0, 0.4, 640, 999, 1_000, 25_000, 99_949, 99_950, 999_949, 1_000_000, 912e6, 4.1e9, 123.4e9,
+      999.9e9, 6.87e12,
     ]) {
       expect(slotUsd(value)).toBe(formatUsd(value));
       expect(slotUsd(-value)).toBe(formatUsd(-value));
+      expect(slotUsd(-value, "HK$")).toBe(formatUsd(-value, "HK$"));
     }
     for (const value of [0.0001234, 0.5, 1, 2.573, 140, 999.99, 1_000, 77_766.74]) {
       expect(slotPrice(value)).toBe(formatPrice(value));
@@ -96,6 +98,7 @@ describe("the price at the crosshair's foot", () => {
       step: 500,
       spot: 81_000,
       unit: "BTC",
+      cur: "$",
       slots: [[1, -1, 1, 1, "80,000"] as [number, number, number, number, string], null],
       curve: [null, null],
     };

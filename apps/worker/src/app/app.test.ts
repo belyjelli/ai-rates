@@ -136,6 +136,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     whalePositions: async () => [],
     gamma: async ({ currency }) => ({
       currency,
+      books: [],
       scopes: [],
       exposure: null,
       strikes: [],
@@ -2564,6 +2565,7 @@ describe("pages", () => {
       scope,
       computed_at: new Date(NOW - 2 * 60_000),
       source: "deribit",
+      unit: "USD",
       spot: 2_400,
       options: 660,
       expiries: 12,
@@ -2583,8 +2585,10 @@ describe("pages", () => {
       fakeData({
         gamma: async (options) => {
           calls.push(options);
+          const book = (currency: string) => ({ ...gammaRow("all"), currency });
           return {
             currency: options.currency,
+            books: [book("BTC"), book("ETH"), { ...book("HSI"), source: "hkex", unit: "HKD" }],
             scopes: [gammaRow("all"), gammaRow("next")],
             exposure: gammaRow(options.scope),
             strikes: [
@@ -2636,8 +2640,11 @@ describe("pages", () => {
       expect(html).not.toContain("<html");
       expect(html).toContain('"kind":"gex"');
       expect(html).toContain(
-        'href="/rates?gex=ETH&gexp=next#gamma" data-gx-swap aria-current="true">',
+        'href="/rates?gex=ETH&amp;gexp=next#gamma" data-gx-swap aria-current="true">',
       );
+      // Every stored book in the picker, the asked one marked.
+      expect(html).toContain('class="wh-pick-row on" href="/rates?gex=ETH&amp;gexp=next#gamma"');
+      expect(html).toContain('href="/rates?gex=HSI&amp;gexp=next#gamma" data-gx-swap');
     });
 
     test("an address naming its choices opens the page on the tab, filled, keeping the grid's", async () => {
@@ -2646,11 +2653,18 @@ describe("pages", () => {
       expect(calls).toEqual([{ currency: "ETH", scope: "7d" }]);
       expect(html).toContain('class="btn-tab active" data-tab="gamma"');
       expect(html).not.toContain("panel=gamma");
-      expect(html).toContain('href="/rates?tf=7d&gex=BTC&gexp=7d#gamma" data-gx-swap>BTC<');
-      // Anything else in gex is BTC.
+      expect(html).toContain('href="/rates?tf=7d&amp;gex=BTC&amp;gexp=7d#gamma" data-gx-swap');
+      expect(html).toContain("<script>(() => {\n  const rows = (pick)");
+      // Any ticker-shaped book is asked for, since the collector may store it; anything else is BTC.
       const odd: { currency: string; scope: string }[] = [];
-      await get("/rates?gex=DOGE&gexp=99d", gammaSource(odd));
-      expect(odd).toEqual([{ currency: "BTC", scope: "all" }]);
+      await get("/rates?gex=hstech&gexp=99d", gammaSource(odd));
+      await get("/rates?gex=%3Cb%3E&gexp=7d", gammaSource(odd));
+      await get("/rates?gex=TOOLONGATICKER", gammaSource(odd));
+      expect(odd).toEqual([
+        { currency: "HSTECH", scope: "all" },
+        { currency: "BTC", scope: "7d" },
+        { currency: "BTC", scope: "all" },
+      ]);
     });
 
     test("a failed read says so in the tab and leaves the grid standing", async () => {

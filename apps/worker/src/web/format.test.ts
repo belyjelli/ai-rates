@@ -27,6 +27,8 @@ describe("formatApr", () => {
 
 describe("formatUsd", () => {
   test("compacts to k/M/B", () => {
+    expect(formatUsd(6_870e9)).toBe("$6.9T");
+    expect(formatUsd(-10_193e9, "HK$")).toBe("−HK$10.2T");
     expect(formatUsd(4_142_076_932)).toBe("$4.1B");
     expect(formatUsd(912_400_000)).toBe("$912M");
     expect(formatUsd(25_000)).toBe("$25.0k");

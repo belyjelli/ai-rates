@@ -21,22 +21,23 @@ export function formatApr(apr: number | null): string {
   return `${apr < 0 ? MINUS : "+"}${text}`;
 }
 
-/** Compact dollars: "$4.1B", "$912M", "$25.0k", "$640". */
-export function formatUsd(value: number | null): string {
+/** Compact dollars: "$6.9T", "$4.1B", "$912M", "$25.0k", "$640"; another currency by its `symbol` ("HK$4.1B"). */
+export function formatUsd(value: number | null, symbol = "$"): string {
   if (value === null || !Number.isFinite(value)) return "–";
   const abs = Math.abs(value);
   const sign = value < 0 ? MINUS : "";
   for (const [size, suffix] of [
+    [1e12, "T"],
     [1e9, "B"],
     [1e6, "M"],
     [1e3, "k"],
   ] as const) {
     if (abs >= size) {
       const scaled = abs / size;
-      return `${sign}$${scaled >= 100 ? scaled.toFixed(0) : scaled.toFixed(1)}${suffix}`;
+      return `${sign}${symbol}${scaled >= 100 ? scaled.toFixed(0) : scaled.toFixed(1)}${suffix}`;
     }
   }
-  return `${sign}$${abs.toFixed(0)}`;
+  return `${sign}${symbol}${abs.toFixed(0)}`;
 }
 
 /** Prices with precision that suits their size: "77,766.7", "2.573", "0.0001234". */

@@ -74,6 +74,7 @@ import { msg, tr, trMsg, withLocale } from "./i18n";
 import { icon } from "./icons";
 import { layout } from "./layout";
 import { FEEDS, liquidationFeedTable } from "./liquidation-feeds";
+import { PICK_SCRIPT } from "./picker";
 import { type RailScale, railPosition, railScale, renderRail } from "./rail";
 import { citeMark } from "./share";
 import { SLOT_SCRIPT } from "./slot-chart";
@@ -952,7 +953,8 @@ ${gammaBody}
 </div>
 <script>${SLOT_SCRIPT}</script>
 <script>${GX_SWAP_SCRIPT}</script>
-<script>${GX_VIEW_SCRIPT}</script>`,
+<script>${GX_VIEW_SCRIPT}</script>
+<script>${PICK_SCRIPT}</script>`,
   });
 }
 

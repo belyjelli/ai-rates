@@ -1,11 +1,15 @@
 import { describe, expect, test } from "bun:test";
-import type { GammaData, GammaExposure, GammaStrike } from "../app/data";
+import type { GammaBook, GammaData, GammaExposure, GammaStrike } from "../app/data";
 import type { GammaParams, HeatmapParams } from "../app/params";
 import {
   bandStrikes,
   curveAt,
   fitRange,
+  freshness,
+  GAMMA_DAYS_REFUSE_MS,
+  GAMMA_DAYS_STALE_MS,
   GAMMA_REFUSE_MS,
+  GAMMA_SESSION_STALE_MS,
   GAMMA_STALE_MS,
   GX_SWAP_SCRIPT,
   GX_VIEW_SCRIPT,
@@ -14,9 +18,11 @@ import {
   gammaZones,
   inScope,
   niceStep,
+  sortBooks,
   strikeSpacing,
 } from "./gamma";
 import { withLocale } from "./i18n";
+import { PICK_SCRIPT } from "./picker";
 import { type GammaSlots, gammaText, SLOT_FORMAT } from "./slot-chart";
 
 const NOW = Date.parse("2026-10-15T14:30:00Z");
@@ -36,6 +42,7 @@ function exposure(overrides: Partial<GammaExposure> = {}): GammaExposure {
     scope: "all",
     computed_at: new Date(NOW - 3 * 60_000),
     source: "deribit",
+    unit: "USD",
     spot: 80_000,
     options: 778,
     expiries: 12,
@@ -54,10 +61,38 @@ function exposure(overrides: Partial<GammaExposure> = {}): GammaExposure {
   };
 }
 
+const book = (currency: string, source: string, unit: string, over: Partial<GammaBook> = {}) => ({
+  currency,
+  source,
+  unit,
+  computed_at: new Date(NOW - 3 * 60_000),
+  spot: 80_000,
+  call_gex_usd: 312e6,
+  put_gex_usd: -282.1e6,
+  net_gex_usd: 29.9e6,
+  flip_price: 79_512.4,
+  ...over,
+});
+
+/** Every region, out of order, and a book the site has no name for. */
+const BOOKS: GammaBook[] = [
+  book("SX5E", "eurex", "EUR", { spot: 6_165.3, net_gex_usd: -6.5e9, flip_price: null }),
+  book("HSI", "hkex", "HKD", {
+    spot: 24_062,
+    net_gex_usd: -223e6,
+    computed_at: new Date("2026-10-14T08:10:00Z"),
+  }),
+  book("ETH", "deribit", "USD", { spot: 2_461.9, net_gex_usd: 13e6 }),
+  book("SPX", "cboe", "USD", { spot: 7_744.06, net_gex_usd: -7.1e9, flip_price: 7_749 }),
+  book("BTC", "deribit", "USD"),
+  book("ZZZ", "cboe", "USD", { spot: 12.5 }),
+];
+
 function gammaData(overrides: Partial<GammaData> = {}): GammaData {
   const all = exposure();
   return {
     currency: "BTC",
+    books: BOOKS,
     scopes: [all, exposure({ scope: "next", options: 48, expiries: 1, net_gex_usd: -54.9e6 })],
     exposure: all,
     strikes: [
@@ -225,12 +260,12 @@ describe("panel", () => {
     expect(html).toContain(">68,000 <");
     expect(html).toContain(">92,000 <");
     // The switches: in place, keeping tf, naming the book; the next expiry by its date.
-    expect(html).toContain('href="/rates?tf=7d&gex=ETH#gamma" data-gx-swap>ETH<');
+    expect(html).toContain('href="/rates?tf=7d&amp;gex=ETH#gamma" data-gx-swap data-q="eth ');
     expect(html).toContain(
-      'href="/rates?tf=7d&gex=BTC#gamma" data-gx-swap aria-current="true">BTC<',
+      'class="wh-pick-row on" href="/rates?tf=7d&amp;gex=BTC#gamma" data-gx-swap data-q="btc bitcoin bitcoin deribit usd" aria-current="true">',
     );
     expect(html).toContain(
-      'href="/rates?tf=7d&gex=BTC&gexp=next#gamma" data-gx-swap>Next: Oct 16<',
+      'href="/rates?tf=7d&amp;gex=BTC&amp;gexp=next#gamma" data-gx-swap>Next: Oct 16<',
     );
     // Both expiries in the table, neither dimmed in the all-expiry view.
     expect(html).toContain('<tr data-k="1792137600000">');
@@ -272,13 +307,14 @@ describe("panel", () => {
 
   test("a failed read, an empty book, a stale one and a dead one", () => {
     expect(panel(null)).toContain("The options data could not be read right now.");
-    expect(panel(gammaData({ exposure: null }))).toContain(
+    expect(panel(gammaData({ exposure: null, scopes: [] }))).toContain(
       "No gamma exposure has been computed for BTC yet.",
     );
     const stale = exposure({ computed_at: new Date(NOW - GAMMA_STALE_MS - 60_000) });
     expect(panel(gammaData({ exposure: stale }))).toContain("Not updated since 21m ago");
     const dead = exposure({ computed_at: new Date(NOW - GAMMA_REFUSE_MS - 60_000) });
     const html = panel(gammaData({ exposure: dead }));
+    expect(html).toContain("Deribit's BTC options were last read 6h 01m ago");
     expect(html).toContain("too long ago to show as current positioning");
     expect(html).not.toContain("gx-chart");
     // The controls stay, so a reader can still switch.
@@ -296,6 +332,213 @@ describe("panel", () => {
     expect(html).toContain("净 Gamma 敞口");
     expect(html).toContain("最近：10月16日");
     expect(html).not.toContain("Net gamma exposure");
+  });
+});
+
+describe("book picker", () => {
+  test("every stored book, by region and then the collector's order, each row a reading", () => {
+    const html = panel(gammaData());
+    const at = (text: string) => html.indexOf(text);
+    // Regions in order, each with its count; a ticker the site has no name for after the named ones.
+    expect(at(">Crypto <")).toBeLessThan(at(">United States <"));
+    expect(at(">United States <")).toBeLessThan(at(">Asia-Pacific <"));
+    expect(at(">Asia-Pacific <")).toBeLessThan(at(">Europe <"));
+    expect(html).toContain('<p class="wh-pick-group">United States <span class="dim">2</span></p>');
+    expect(html).not.toContain(">Other <");
+    expect(at("gex=BTC#gamma")).toBeLessThan(at("gex=ETH#gamma"));
+    expect(at("gex=SPX#gamma")).toBeLessThan(at("gex=ZZZ#gamma"));
+    expect(html).toContain("<b>ZZZ</b><small>ZZZ</small>");
+    // The button: the charted book, its name, its net, and how many books there are.
+    expect(html).toContain(
+      '<b>BTC</b><span class="gx-pick-name">Bitcoin</span><span class="num lq-ink-l">+$29.9M</span><span class="wh-pick-more dim">6 books</span>',
+    );
+    // A row: spot, net in its own currency, the calls/puts split, the flip from the spot, the age.
+    expect(html).toContain("<b>SPX</b><small>S&amp;P 500</small>");
+    expect(html).toContain('<span class="num lq-ink-s">−€6.5B</span>');
+    expect(html).toContain('<span class="num lq-ink-s">−HK$223M</span>');
+    expect(html).toContain('<i class="wh-pick-bid" style="width:52.5%"></i>');
+    expect(html).toContain('<span class="num">+0.1%</span>');
+    expect(html).toContain('<span class="gx-pick-when dim">Deribit · 3m ago</span>');
+    expect(html).toContain('<span class="gx-pick-when dim">HKEX · close Oct 14</span>');
+    // Found by its name in the page's language too, and grouped headings hide with their rows.
+    expect(html).toContain('data-q="hsi hang seng hang seng hkex hkd"');
+    expect(() => new Function(PICK_SCRIPT)).not.toThrow();
+    expect(PICK_SCRIPT).toContain(".wh-pick-group");
+  });
+
+  test("in Chinese, the names and regions are translated and still found in English", () => {
+    const html = withLocale("zh", () => panel(gammaData()));
+    expect(html).toContain("<b>HSI</b><small>恒生指数</small>");
+    expect(html).toContain('data-q="hsi hang seng 恒生指数 hkex hkd"');
+    expect(html).toContain('<p class="wh-pick-group">亚太 <span class="dim">1</span></p>');
+  });
+
+  test("an unknown publisher's book goes under Other, and an order holds without a name", () => {
+    const sorted = sortBooks([
+      book("NEW", "sgx", "SGD"),
+      book("AAA", "cboe", "USD"),
+      book("SPX", "cboe", "USD"),
+      book("ETH", "deribit", "USD"),
+    ]).map((b) => b.currency);
+    expect(sorted).toEqual(["ETH", "SPX", "AAA", "NEW"]);
+    const html = panel(gammaData({ books: [book("NEW", "sgx", "SGD")] }));
+    expect(html).toContain(">Other <");
+    expect(html).toContain('<span class="num lq-ink-l">+SGD 29.9M</span>');
+  });
+
+  test("before any book is stored, the asked one stands alone", () => {
+    const html = panel(gammaData({ books: [], exposure: null, scopes: [] }));
+    expect(html).not.toContain("wh-pick");
+    expect(html).toContain('data-gx-swap aria-current="true">BTC</a>');
+  });
+});
+
+describe("other publishers", () => {
+  const CLOSE = new Date("2026-10-14T08:10:00Z");
+  const hsi = (over: Partial<GammaExposure> = {}) =>
+    exposure({
+      source: "hkex",
+      unit: "HKD",
+      computed_at: CLOSE,
+      spot: 24_062,
+      call_oi: 40_000,
+      put_oi: 52_000,
+      call_gex_usd: 1.2e9,
+      put_gex_usd: -1.42e9,
+      net_gex_usd: -223e6,
+      flip_price: 24_400,
+      call_wall: 26_000,
+      put_wall: 23_000,
+      next_expiry: new Date("2026-10-15T08:00:00Z"),
+      ...over,
+    });
+  const hsiData = (over: Partial<GammaData> = {}) =>
+    gammaData({
+      currency: "HSI",
+      scopes: [hsi()],
+      exposure: hsi(),
+      strikes: [
+        { strike: 23_000, call_oi: 100, put_oi: 4_000, call_gex_usd: 1e6, put_gex_usd: -300e6 },
+        { strike: 24_000, call_oi: 3_000, put_oi: 3_000, call_gex_usd: 250e6, put_gex_usd: -260e6 },
+        { strike: 26_000, call_oi: 5_000, put_oi: 10, call_gex_usd: 400e6, put_gex_usd: -1e6 },
+      ],
+      curve: [
+        { price: 21_000, net_gex_usd: -900e6 },
+        { price: 24_062, net_gex_usd: -223e6 },
+        { price: 27_000, net_gex_usd: 600e6 },
+      ],
+      expiries: [
+        {
+          expiry: new Date("2026-10-15T08:00:00Z"),
+          options: 120,
+          call_oi: 8_000,
+          put_oi: 9_000,
+          call_gex_usd: 300e6,
+          put_gex_usd: -500e6,
+        },
+        {
+          expiry: new Date("2026-10-29T08:00:00Z"),
+          options: 400,
+          call_oi: 32_000,
+          put_oi: 43_000,
+          call_gex_usd: 900e6,
+          put_gex_usd: -920e6,
+        },
+      ],
+      ...over,
+    });
+  const HSI_ALL: GammaParams = { currency: "HSI", scope: "all" };
+
+  test("an index book reads in its own currency, from its exchange's file", () => {
+    const html = panel(hsiData(), HSI_ALL);
+    expect(html).toContain("HSI · HKEX options · gamma exposure by strike · All expiries");
+    expect(html).toContain('data-u="net">−HK$223M<');
+    expect(html).toContain('data-u="call-oi">HK$962M<');
+    expect(html).toContain(
+      'HKEX options, <span data-live="gamma-asof">from the end-of-day file for Oct 14</span>.',
+    );
+    // A day old and fresh: an end-of-day file is read once a day.
+    expect(html).not.toContain("gx-stale");
+    // Open interest by value at the spot; the expiry the file's evening read already passed.
+    expect(html).toContain('<th class="num">Call OI</th>');
+    expect(html).toContain('<td class="num">HK$192M</td>');
+    expect(html).toContain('<td class="num dim">expired</td>');
+    expect(html).toContain("Exposure in HKD per 1% move; open interest at its value at the spot.");
+    expect(html).not.toContain("Every Deribit option");
+    // The axis labels and the hover payload carry the symbol, and open interest by value.
+    expect(html).toContain('"cur":"HK$"');
+    expect(html).toContain('"unit":""');
+    expect(html).toContain('<span class="cvd-yl" style="top:25%">+HK$');
+    const json = /<script type="application\/json" class="slot-data">(.*?)<\/script>/.exec(
+      html,
+    )?.[1];
+    const d = JSON.parse(json ?? "null") as GammaSlots;
+    const i = Math.floor((24_000 - d.low) / d.step);
+    const text = gammaText(d, i, SLOT_FORMAT);
+    expect(text).toContain('calls <b class="lq-ink-l">+HK$250M</b> (HK$72.2M open)');
+  });
+
+  test("a US book says it is delayed, and is late only when the session should have read it", () => {
+    const at = Date.parse("2026-10-15T18:00:00Z"); // a Thursday, in the session
+    const spx = (minutes: number) =>
+      exposure({ source: "cboe", computed_at: new Date(at - minutes * 60_000), spot: 7_744 });
+    const html = panel(
+      gammaData({ currency: "SPX", exposure: spx(10) }),
+      { currency: "SPX", scope: "all" },
+      at,
+    );
+    expect(html).toContain(
+      'Cboe options, <span data-live="gamma-asof">15-minute delayed, read 10m ago</span>.',
+    );
+    expect(html).toContain('<th class="num">Call OI</th>');
+    const late = panel(
+      gammaData({ currency: "SPX", exposure: spx(60) }),
+      { currency: "SPX", scope: "all" },
+      at,
+    );
+    expect(late).toContain("nothing newer has been read from Cboe, a holiday or a failed read");
+  });
+
+  test("freshness follows each publisher's rhythm", () => {
+    const ago = (ms: number) => new Date(NOW - ms);
+    expect(freshness("deribit", ago(GAMMA_STALE_MS - 1), NOW)).toBe("fresh");
+    expect(freshness("deribit", ago(GAMMA_STALE_MS + 1), NOW)).toBe("late");
+    expect(freshness("deribit", ago(GAMMA_REFUSE_MS + 1), NOW)).toBe("dead");
+    // NOW is a Thursday at 14:30 UTC, the session's first core minute.
+    expect(freshness("cboe", ago(GAMMA_SESSION_STALE_MS + 1), NOW)).toBe("late");
+    const saturday = Date.parse("2026-10-17T15:00:00Z");
+    expect(freshness("cboe", new Date(saturday - 40 * 3600_000), saturday)).toBe("fresh");
+    expect(freshness("cboe", new Date(saturday - GAMMA_DAYS_STALE_MS - 1), saturday)).toBe("late");
+    expect(freshness("hkex", ago(3 * 86_400_000), NOW)).toBe("fresh");
+    expect(freshness("hkex", ago(GAMMA_DAYS_STALE_MS + 1), NOW)).toBe("late");
+    expect(freshness("cffex", ago(GAMMA_DAYS_REFUSE_MS + 1), NOW)).toBe("dead");
+    expect(freshness("sgx", ago(3 * 86_400_000), NOW)).toBe("fresh");
+  });
+
+  test("a late file says so, and a dead one names its exchange", () => {
+    const late = panel(
+      hsiData({ exposure: hsi({ computed_at: new Date(NOW - 5 * 86_400_000) }) }),
+      HSI_ALL,
+    );
+    expect(late).toContain("nothing newer has been read from HKEX");
+    const dead = panel(
+      hsiData({ exposure: hsi({ computed_at: new Date(NOW - 15 * 86_400_000) }) }),
+      HSI_ALL,
+    );
+    expect(dead).toContain("HKEX's HSI options were last read 15d 0h ago");
+    expect(dead).toContain("too long ago to show as current positioning");
+    expect(dead).not.toContain("gx-chart");
+  });
+
+  test("a range with no expiry in it says when the nearest is, not that nothing was computed", () => {
+    const html = panel(hsiData({ exposure: null }), { currency: "HSI", scope: "7d" });
+    expect(html).toContain("No HSI option expires in this range; the nearest expires Oct 15.");
+    // Only "all" is stored here, so the other three ranges are dimmed, "all" is not.
+    expect(html).toContain(
+      'href="/rates?gex=HSI&amp;gexp=7d#gamma" class="gx-none" title="No expiry in this range" data-gx-swap aria-current="true">',
+    );
+    expect(html).toContain('href="/rates?gex=HSI#gamma" data-gx-swap>All expiries<');
+    expect(html).not.toContain("has been computed");
   });
 });
 

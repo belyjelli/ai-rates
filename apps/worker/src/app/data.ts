@@ -792,12 +792,16 @@ export interface WhalePosition {
   read_at: Date;
 }
 
-/** One currency's gamma exposure in one scope (collector migration 034): Deribit's options, signed calls
- * positive and puts negative, in dollars per 1% move. */
+/** One book's gamma exposure in one scope (collector migrations 034 and 036), signed calls positive and
+ * puts negative, per 1% move, in `unit`. */
 export interface GammaExposure {
   scope: string;
+  /** The read, or for an end-of-day source the close its file is from. */
   computed_at: Date;
+  /** Who published the options: "deribit", "cboe", "hkex", "cffex", "taifex", "nse", "bse", "eurex". */
   source: string;
+  /** The currency every *_gex_usd figure is in, despite the name: USD, or the contract's own (HKD). */
+  unit: string;
   spot: number;
   options: number;
   expiries: number;
@@ -805,7 +809,7 @@ export interface GammaExposure {
   last_expiry: Date;
   /** The chain's nearest expiry, whatever the scope. */
   next_expiry: Date;
-  /** Open interest in coins. */
+  /** Open interest in units of the underlying: coins, shares, index units (contracts times multiplier). */
   call_oi: number;
   put_oi: number;
   call_gex_usd: number;
@@ -842,8 +846,23 @@ export interface GammaExpiry {
   put_gex_usd: number;
 }
 
+/** One stored book's headline, every scope's "all", for the tab's picker. */
+export interface GammaBook {
+  currency: string;
+  source: string;
+  unit: string;
+  computed_at: Date;
+  spot: number;
+  call_gex_usd: number;
+  put_gex_usd: number;
+  net_gex_usd: number;
+  flip_price: number | null;
+}
+
 export interface GammaData {
   currency: string;
+  /** Every book the collector has stored, for the picker; the asked one may be absent. */
+  books: GammaBook[];
   /** Every scope the collector computed, in the order it stores them; the asked scope's is `exposure`. */
   scopes: GammaExposure[];
   /** Null when the asked scope has no row (the collector has not run, or that scope was empty). */
@@ -962,9 +981,10 @@ export interface DataSource {
     assetClass: AssetClass | null;
   }): Promise<WhalePosition[]>;
   /**
-   * One currency's options gamma exposure in one scope, for the Rates page's Gamma Exposure tab: the
-   * collector's every-five-minutes read of Deribit (migration 034). Four small tables, a few hundred
-   * rows; the page bins the strikes itself.
+   * One book's options gamma exposure in one scope, for the Rates page's Gamma Exposure tab: the
+   * collector's reads of Deribit, Cboe and the exchanges' daily files (migrations 034 and 036), with
+   * every stored book's headline for the picker. Four small tables, a few hundred rows a book; the
+   * page bins the strikes itself.
    */
   gamma(options: { currency: string; scope: string }): Promise<GammaData>;
 }
@@ -2096,9 +2116,14 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
     async gamma({ currency, scope }) {
       const sql = connect();
-      const [scopes, strikes, curve, expiries] = await Promise.all([
+      const [books, scopes, strikes, curve, expiries] = await Promise.all([
+        sql<GammaBook[]>`
+          SELECT currency, source, unit, computed_at, spot, call_gex_usd, put_gex_usd, net_gex_usd,
+                 flip_price
+          FROM gamma_exposure
+          WHERE scope = 'all'`,
         sql<GammaExposure[]>`
-          SELECT scope, computed_at, source, spot, options, expiries, first_expiry, last_expiry,
+          SELECT scope, computed_at, source, unit, spot, options, expiries, first_expiry, last_expiry,
                  next_expiry, call_oi, put_oi, call_gex_usd, put_gex_usd, net_gex_usd, flip_price,
                  call_wall, put_wall
           FROM gamma_exposure
@@ -2122,6 +2147,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       ]);
       return {
         currency,
+        books: [...books],
         scopes: [...scopes],
         exposure: scopes.find((row) => row.scope === scope) ?? null,
         strikes: [...strikes],
