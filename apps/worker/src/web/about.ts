@@ -40,6 +40,64 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-10-16",
+    title: "BloFin's markets, and a CVD chart you can drag",
+    changes: [
+      "BloFin is collected: its 509 perpetual markets now appear across the site, with their funding, prices and open interest. It had been listed since October 10, but every run had failed until now.",
+      "The CVD chart is a trading chart: price candles, the CVD line on its own scale, and each bar's net flow below. Drag it to the left to look back through up to 35 days, zoom in and out, and new bars join the chart where you are reading.",
+    ],
+  },
+  {
+    date: "2026-10-15",
+    title: "Gamma exposure, and times in your own zone",
+    changes: [
+      "The rates page has a Gamma Exposure tab for BTC and ETH options on Deribit: dealer gamma by strike over all expiries, 30 days, 7 days or the next expiry, with the flip level, the call and put walls, open interest and the put/call ratio. It assumes dealers are long calls and short puts, since no exchange publishes who holds which side, and says so under the chart.",
+      "Times on the CVD, liquidations and whales pages are shown in your own time zone, or in UTC when the clock at the top is set to UTC. Funding times and option expiries stay in UTC.",
+      "A CVD bar's readout gives its whole time range, labels the price as the bar's close, and names the market the price comes from.",
+      "The whales chart draws candles at 5 minutes, 15 minutes, 1 hour or 4 hours, with a volume strip and a readout of each candle's open, high, low, close, volume and the large trades inside it.",
+    ],
+  },
+  {
+    date: "2026-10-14",
+    title: "A whale map, your own clock, and a CVD crosshair",
+    changes: [
+      "The liquidations page has a Whale map tab: large positions held by named accounts on Hyperliquid, Lighter and dYdX, by the price at which each would be liquidated, longs below the price and shorts above. Hyperliquid and Lighter report those prices; dYdX's are worked out from each account's balance and positions. Each trader links to its exchange's explorer. Centralized exchanges publish no account's positions, so they are not in it.",
+      "The clock at the top shows your own time. Click it to switch to UTC, the clock funding settles by; the choice is remembered.",
+      "On the CVD page the asset list is a picker beside the intervals, with the search inside it, and its headings sort it.",
+      "The CVD chart has a dashed crosshair that tags the price, CVD and net flow under the pointer. A cursor switch brings back the bar highlight.",
+    ],
+  },
+  {
+    date: "2026-10-12",
+    title: "Whale tables in one panel",
+    changes: [
+      "On a desktop, the whales page's resting walls, ended walls and largest trades open as one panel beside the market picker, instead of running three screens down the page. Phones keep them in the page.",
+    ],
+  },
+  {
+    date: "2026-10-11",
+    title: "A Telegram group",
+    changes: [
+      "Every page's footer links to the airrates community chat on Telegram, t.me/airratesnet.",
+    ],
+  },
+  {
+    date: "2026-10-10",
+    title: "A whales page, and link previews",
+    changes: [
+      "A new whales page, /whales, draws large resting limit orders as lines over the price, for the 40 Binance markets with the most open interest worldwide and for Hyperliquid. Large trades are circles sized by value, blue for buying and red for selling, and tables list the walls resting now, the walls that ended (pulled or filled) and the largest trades. On Hyperliquid, whose book is rounded, a wall is a price range proven to hold a whale's order, and each large trade names the account that took it.",
+      "A link to airrates shared on Facebook or X shows a picture card instead of bare text.",
+    ],
+  },
+  {
+    date: "2026-10-08",
+    title: "Hyperliquid liquidations, and a keyboard map",
+    changes: [
+      "Hyperliquid's forced closes are on the liquidations page, for its 20 deepest markets. Hyperliquid publishes no liquidation feed of its own, so they are read from an independent index of its trades.",
+      "Every keyboard shortcut is drawn on one page, /keys, as a Bloomberg terminal keyboard, and ? opens it. New keys: [ and ] for the previous and next tab, and Esc to leave a text field. Signed-in members can remap the keys.",
+    ],
+  },
+  {
     date: "2026-10-07",
     title: "Arbitrage reads cleaner, and liquidation controls work in place",
     changes: [
