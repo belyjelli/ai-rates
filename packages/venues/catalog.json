@@ -51,6 +51,16 @@
     "type": "cex"
   },
   {
+    "id": "deribit",
+    "name": "Deribit",
+    "type": "cex"
+  },
+  {
+    "id": "coinbase",
+    "name": "Coinbase",
+    "type": "cex"
+  },
+  {
     "id": "bitmart",
     "name": "BitMart",
     "type": "cex",

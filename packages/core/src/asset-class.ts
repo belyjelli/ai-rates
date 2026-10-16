@@ -59,6 +59,14 @@ export const INDEX_BASES: ReadonlySet<string> = new Set([
   // with NAS100, US100 or XYZ100: that pool is fragmented four ways and wants return correlation,
   // not price proximity, before any merge (USTECH at ~707 is a 41x scale variant).
   "NASDAQ100",
+  // Coinbase Derivatives Exchange's own indices (Tech 100, US 500, AI, Defense, China), each scaled to
+  // its own level (CDEUS5 at 3,131 on 2026-10-16 against the S&P 500's ~7,650), so pools of their own
+  // rather than aliases. Mirrors the Go collector's indexBases.
+  "CDETEK",
+  "CDEUS5",
+  "CDEAI",
+  "CDEDEF",
+  "CDECHN",
 ]);
 
 /**

@@ -185,6 +185,36 @@ const cex: Venue[] = [
     notes: "Per-symbol funding only.",
   },
   {
+    id: "deribit",
+    name: "Deribit",
+    type: "cex",
+    ccxt: "deribit",
+    verified: true,
+    probes: [
+      get(
+        "book-summary",
+        "https://www.deribit.com/api/v2/public/get_book_summary_by_currency?currency=USDC&kind=future",
+      ),
+    ],
+    notes:
+      "Added 2026-10-16. Coinbase International stopped trading 2026-10-01 and moved its perps here (drb.coinbase.com is the same book, never a second venue). USDC linear perps plus the BTC/ETH inverse perps; continuous funding, current_funding on an 8h basis; hourly history.",
+  },
+  {
+    id: "coinbase",
+    name: "Coinbase",
+    type: "cex",
+    ccxt: "coinbase",
+    verified: true,
+    probes: [
+      get(
+        "products",
+        "https://api.coinbase.com/api/v3/brokerage/market/products?product_type=FUTURE",
+      ),
+    ],
+    notes:
+      "Added 2026-10-16. Coinbase Derivatives Exchange (US) perpetual-style futures: one bulk call, funding per hour and final for its hour, OI and volume in contracts. No public funding history (it accrues from snapshots). Coinbase's offshore perps moved to Deribit on 2026-10-01 -- see deribit.",
+  },
+  {
     id: "bitmart",
     name: "BitMart",
     type: "cex",
