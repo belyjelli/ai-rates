@@ -126,4 +126,18 @@ export const whales: Catalog = {
   "hover or tap a candle to read it": "наведите или нажмите на свечу, чтобы увидеть значения",
   "{asset} candles; arrow keys read one at a time": "Свечи {asset}; стрелки читают по одной",
   "{asset} volume per candle": "Объём {asset} по свечам",
+  // web/whales.ts: the GEX switch over the chart
+  off: "выкл.",
+  "Hide the options book": "Скрыть опционы",
+  "Each strike's call and put gamma, as bars at the right edge":
+    "Гамма коллов и путов по каждому страйку — полосами у правого края",
+  "Strike {strike} · calls {calls} · puts {puts} · net {net} per 1% move":
+    "Страйк {strike} · коллы {calls} · путы {puts} · нетто {net} на 1% движения",
+  "call wall {price}": "колл-стена {price}",
+  "put wall {price}": "пут-стена {price}",
+  "call gamma": "гамма коллов",
+  "put gamma": "гамма путов",
+  "flip {flip} · call wall {call} · put wall {put}":
+    "разворот {flip} · колл-стена {call} · пут-стена {put}",
+  "{source} options, all expiries, {age}": "опционы {source}, все экспирации, {age}",
 };

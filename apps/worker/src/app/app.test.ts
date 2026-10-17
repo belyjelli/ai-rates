@@ -5223,6 +5223,85 @@ describe("whales", () => {
     const sitemap = await (await get("/sitemap.xml", fakeData().data)).text();
     expect(sitemap).toContain("<loc>https://airrates.net/whales</loc>");
   });
+
+  describe("the GEX switch over the chart", () => {
+    const exposure = (spot: number, computedAgoMs = 2 * 60_000) => ({
+      scope: "all",
+      computed_at: new Date(T - computedAgoMs),
+      source: "deribit",
+      unit: "USD",
+      spot,
+      options: 900,
+      expiries: 12,
+      first_expiry: new Date(T + 20 * 3600_000),
+      last_expiry: new Date(T + 300 * 86_400_000),
+      next_expiry: new Date(T + 20 * 3600_000),
+      call_oi: 1,
+      put_oi: 1,
+      call_gex_usd: 26e6,
+      put_gex_usd: -23e6,
+      net_gex_usd: 3e6,
+      flip_price: 83_100,
+      call_wall: 90_000,
+      put_wall: 80_000,
+    });
+    const gammaFor = (spot: number, computedAgoMs?: number) => {
+      const calls: string[] = [];
+      const { data } = fakeData({
+        whales: async () => book,
+        gamma: async ({ currency }) => {
+          calls.push(currency);
+          return {
+            currency,
+            books: [],
+            scopes: [],
+            exposure: exposure(spot, computedAgoMs),
+            strikes: [
+              { strike: 83_000, call_oi: 1, put_oi: 1, call_gex_usd: 4.2e6, put_gex_usd: -1.1e6 },
+              { strike: 70_000, call_oi: 1, put_oi: 1, call_gex_usd: 1e6, put_gex_usd: -9e6 },
+            ],
+            curve: [
+              { price: 82_000, net_gex_usd: -2e6 },
+              { price: 84_000, net_gex_usd: 5e6 },
+            ],
+            expiries: [],
+          };
+        },
+      });
+      return { data, calls };
+    };
+
+    test("a ticker with its own book gets the switch, off until the reader picks a view", async () => {
+      const { data, calls } = gammaFor(83_000);
+      const html = await (await get("/whales", data)).text();
+      expect(calls).toEqual(["BTC"]);
+      expect(html).toContain('<div class="slot-modes whx-modes" role="group"');
+      expect(html).toContain('data-whgex="off" aria-pressed="true"');
+      // The strike on the chart is drawn, with its reading; the one far below the candles is not.
+      expect(html).toContain("Strike 83,000 · calls +$4.2M · puts −$1.1M · net +$3.1M per 1% move");
+      expect(html).not.toContain("Strike 70,000");
+      // The flip falls inside the candles' range, so it is a line with its label; the walls do not.
+      expect(html).toContain('class="whx-flip"');
+      expect(html).toContain("flip 83,100</span>");
+      expect(html).not.toContain("call wall 90,000</span>");
+      expect(html).toContain("Deribit options, all expiries");
+      expect(html.match(/window\.airratesWhaleGex = true/g)).toHaveLength(1);
+    });
+
+    test("no switch where the book would sit wrong on the axis, is too old, or does not exist", async () => {
+      // A book quoting another unit: its spot 20% from the perp's price.
+      const far = await (await get("/whales", gammaFor(100_000).data)).text();
+      expect(far).not.toContain('class="slot-modes whx-modes"');
+      // Deribit is live: a read six hours old is too old to show as positioning.
+      const old = await (await get("/whales", gammaFor(83_000, 7 * 3600_000).data)).text();
+      expect(old).not.toContain('class="slot-modes whx-modes"');
+      // SOL has no option book, so nothing is read at all.
+      const { data, calls } = gammaFor(83_000);
+      const sol = await (await get("/whales/SOL", data)).text();
+      expect(calls).toEqual([]);
+      expect(sol).not.toContain('class="slot-modes whx-modes"');
+    });
+  });
 });
 
 describe("load shedding", () => {

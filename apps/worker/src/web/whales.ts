@@ -1,5 +1,6 @@
 import type { AssetClass } from "@ai-rates/core";
 import type {
+  GammaData,
   Overview,
   WhaleCandle,
   WhaleData,
@@ -15,7 +16,8 @@ import {
   type WhaleVenue,
   whaleToQuery,
 } from "../app/params";
-import { esc, formatPrice, formatUsd, since } from "./format";
+import { ageText, esc, formatPrice, formatUsd, since } from "./format";
+import { freshness, gammaZones, publisher, signedUsd, unitSymbol } from "./gamma";
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { tr } from "./i18n";
 import { icon } from "./icons";
@@ -149,6 +151,171 @@ function durationText(ms: number): string {
   return tr("{d}d {h}h", { d: Math.floor(hours / 24), h: hours % 24 });
 }
 
+/**
+ * THE GEX SWITCH (2026-10-18): the asset's option book drawn over the candles, off until a reader
+ * turns it on -- the Gamma Exposure tab's three views (web/gamma.ts) laid on the price axis. Bars at
+ * the right edge are each strike's gamma exposure, calls and puts or the two netted; zones shade the
+ * prices where dealers would be short gamma or long it were the price to move there; the flip and
+ * the call and put walls are lines across. All expiries, as the tab opens.
+ *
+ * ONLY WHERE IT FITS. A ticker with a book of its own (gammaBookFor: BTC, ETH, NVDA, MU among the
+ * tracked markets on 2026-10-18), not too old to show (gamma.ts freshness), and with the book's spot
+ * within GEX_SPOT_GAP of the perp's last price: a book quoting some other unit would put every strike
+ * at the wrong height, so it is left out rather than drawn wrong.
+ */
+const GEX_SPOT_GAP = 0.05;
+const GEX_MODES = ["off", "split", "net", "zones"] as const;
+/** The widest bar, in the plot's thousandths: the right quarter or so, clear of the candles' middle. */
+const GEX_BAR_REACH = 280;
+
+export function gexFits(gamma: GammaData, last: number | null, now: number): boolean {
+  const e = gamma.exposure;
+  return (
+    e !== null &&
+    gamma.strikes.length > 0 &&
+    last !== null &&
+    last > 0 &&
+    Math.abs(e.spot / last - 1) <= GEX_SPOT_GAP &&
+    freshness(e.source, e.computed_at, now) !== "dead"
+  );
+}
+
+function gexSwitch(): string {
+  const words: Record<(typeof GEX_MODES)[number], [string, string]> = {
+    off: [tr("off"), tr("Hide the options book")],
+    split: [tr("calls/puts"), tr("Each strike's call and put gamma, as bars at the right edge")],
+    net: [tr("net"), tr("One bar per strike: its calls and puts added")],
+    zones: [
+      tr("zones"),
+      tr("Net bars, with the prices shaded where dealers would be short gamma or long it"),
+    ],
+  };
+  const buttons = GEX_MODES.map(
+    (mode) =>
+      `<button type="button" class="whx-mode" data-whgex="${mode}" aria-pressed="${mode === "off"}" title="${esc(words[mode][1])}">${words[mode][0]}</button>`,
+  ).join("");
+  return `<div class="slot-modes whx-modes" role="group" aria-label="${esc(tr("Gamma Exposure"))}" hidden><span>GEX</span>${buttons}</div>`;
+}
+
+function gexOverlay(
+  gamma: GammaData,
+  y: (price: number) => number,
+  lo: number,
+  hi: number,
+  now: number,
+): { under: string; over: string; labels: string; keys: string } {
+  const e = gamma.exposure as NonNullable<GammaData["exposure"]>;
+  const sym = unitSymbol(e.unit);
+  const money = (usd: number) => (usd === 0 ? `${sym}0` : signedUsd(usd, sym));
+  const visible = gamma.strikes.filter((k) => k.strike >= lo && k.strike <= hi);
+  // Bar thickness from the tightest gap between drawn strikes, so neighbours never overlap.
+  const ys = visible.map((k) => y(k.strike)).sort((a, b) => a - b);
+  let gap = 60;
+  for (let i = 1; i < ys.length; i++)
+    gap = Math.min(gap, (ys[i] as number) - (ys[i - 1] as number));
+  const thick = Math.min(40, Math.max(3, gap * 0.7));
+  const peakSide = Math.max(
+    1,
+    ...visible.map((k) => Math.max(Math.abs(k.call_gex_usd), Math.abs(k.put_gex_usd))),
+  );
+  const peakNet = Math.max(1, ...visible.map((k) => Math.abs(k.call_gex_usd + k.put_gex_usd)));
+  const bar = (
+    cls: string,
+    top: number,
+    height: number,
+    usd: number,
+    peak: number,
+    tip: string,
+  ) => {
+    const width = Math.max(2, (Math.abs(usd) / peak) * GEX_BAR_REACH);
+    return `<rect class="${cls}" x="${(1000 - width).toFixed(1)}" y="${top.toFixed(2)}" width="${width.toFixed(1)}" height="${height.toFixed(2)}"><title>${esc(tip)}</title></rect>`;
+  };
+  const split: string[] = [];
+  const net: string[] = [];
+  for (const k of visible) {
+    const sy = y(k.strike);
+    const sum = k.call_gex_usd + k.put_gex_usd;
+    const tip = tr("Strike {strike} · calls {calls} · puts {puts} · net {net} per 1% move", {
+      strike: formatPrice(k.strike),
+      calls: money(k.call_gex_usd),
+      puts: money(k.put_gex_usd),
+      net: money(sum),
+    });
+    split.push(bar("whx-call", sy - thick / 2, thick / 2, k.call_gex_usd, peakSide, tip));
+    split.push(bar("whx-put", sy, thick / 2, k.put_gex_usd, peakSide, tip));
+    net.push(bar(sum >= 0 ? "whx-call" : "whx-put", sy - thick / 2, thick, sum, peakNet, tip));
+  }
+  const zones = gammaZones(gamma.curve, lo, hi)
+    .map(
+      (z) =>
+        `<rect class="${z.short ? "whx-zs" : "whx-zl"}" x="0" width="1000" y="${y(z.to).toFixed(2)}" height="${(y(z.from) - y(z.to)).toFixed(2)}"><title>${esc(z.short ? tr("short gamma") : tr("long gamma"))}</title></rect>`,
+    )
+    .join("");
+  // The three levels the tab names, as lines across where they fall on the chart.
+  const levels: [number | null, string, string][] = [
+    [e.flip_price, "whx-flip", tr("flip {price}")],
+    [e.call_wall, "whx-cw", tr("call wall {price}")],
+    [e.put_wall, "whx-pw", tr("put wall {price}")],
+  ];
+  const marks = levels.flatMap(([price, cls, text]) =>
+    price !== null && price >= lo && price <= hi ? [[price, cls, text] as const] : [],
+  );
+  const markLines = marks
+    .map(
+      ([price, cls]) =>
+        `<line class="${cls}" x1="0" x2="1000" y1="${y(price).toFixed(2)}" y2="${y(price).toFixed(2)}"></line>`,
+    )
+    .join("");
+  const labels = marks
+    .map(
+      ([price, cls, text]) =>
+        `<span class="whx whx-on whx-lbl ${cls}-t" style="top:${(y(price) / 10).toFixed(2)}%">${text.replace("{price}", formatPrice(price))}</span>`,
+    )
+    .join("");
+  const level = (price: number | null) => (price === null ? "–" : formatPrice(price));
+  const keys = `<span class="whx whx-split"><i class="whx-key-call"></i>${tr("call gamma")}</span><span class="whx whx-split"><i class="whx-key-put"></i>${tr("put gamma")}</span><span class="whx whx-net"><i class="whx-key-call"></i>${tr("Net long")}</span><span class="whx whx-net"><i class="whx-key-put"></i>${tr("Net short")}</span><span class="whx whx-zone"><i class="whx-key-zs"></i>${tr("short gamma")}</span><span class="whx whx-zone"><i class="whx-key-zl"></i>${tr("long gamma")}</span><span class="whx whx-on dim" title="${esc(tr("flip {flip} · call wall {call} · put wall {put}", { flip: level(e.flip_price), call: level(e.call_wall), put: level(e.put_wall) }))}">${tr("{source} options, all expiries, {age}", { source: esc(publisher(e.source).name), age: ageText(e.computed_at, now) })}</span>`;
+  return {
+    under: `<g class="whx whx-zone">${zones}</g>`,
+    over: `<g class="whx whx-split">${split.join("")}</g><g class="whx whx-net">${net.join("")}</g><g class="whx whx-on">${markLines}</g>`,
+    labels,
+    keys,
+  };
+}
+
+/**
+ * The GEX switch's browser half, as gamma.ts GX_VIEW_SCRIPT: the choice is kept in localStorage and
+ * set on <html> as data-whgex, which the CSS reads, so the chart a live refresh brings in is drawn the
+ * same way; each new copy of the switch arrives hidden and is set to the reader's choice.
+ */
+export const GEX_SCRIPT = `(() => {
+  if (window.airratesWhaleGex) return;
+  window.airratesWhaleGex = true;
+  const modes = ${JSON.stringify(GEX_MODES)};
+  let mode = "off";
+  try { const kept = localStorage.getItem("whale-gex"); if (modes.includes(kept)) mode = kept; } catch (_) {}
+  const sync = () => {
+    document.documentElement.dataset.whgex = mode;
+    for (const group of document.querySelectorAll(".whx-modes")) {
+      group.hidden = false;
+      for (const button of group.querySelectorAll(".whx-mode")) {
+        const on = String(button.dataset.whgex === mode);
+        if (button.getAttribute("aria-pressed") !== on) button.setAttribute("aria-pressed", on);
+      }
+    }
+  };
+  sync();
+  new MutationObserver(() => {
+    if (document.querySelector('.whx-modes[hidden], .whx-mode[aria-pressed="true"]:not([data-whgex="' + mode + '"])')) sync();
+  }).observe(document.querySelector("main") || document.body, { childList: true, subtree: true });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest ? event.target.closest(".whx-mode") : null;
+    if (!button || !modes.includes(button.dataset.whgex)) return;
+    mode = button.dataset.whgex;
+    try { localStorage.setItem("whale-gex", mode); } catch (_) {}
+    sync();
+  });
+})();`;
+
 function whaleChart(data: {
   label: string;
   /** "Binance", or "Hyperliquid xyz:GOLD" for a HIP-3 market. */
@@ -158,9 +325,11 @@ function whaleChart(data: {
   walls: readonly WhaleWall[];
   trades: readonly WhaleTrade[];
   params: WhaleParams;
+  /** The asset's option book, when it has one fit to draw (see gexFits); null leaves the switch out. */
+  gamma: GammaData | null;
   now: number;
 }): string {
-  const { label, venueLabel, step, candles, walls, trades, params, now } = data;
+  const { label, venueLabel, step, candles, walls, trades, params, gamma, now } = data;
   const { hours, barMinutes } = WHALE_INTERVALS[params.interval];
   // Bars on whole multiples of their length, as the query folds them, the last one still filling:
   // the same slots the hover reads, so a slot is always one candle.
@@ -311,6 +480,8 @@ function whaleChart(data: {
       : `<p class="wh-edge wh-edge-${above ? "top" : "bottom"}">${icon(above ? "up" : "down")} ${tr("off the chart:")} ${list.join(" · ")}</p>`;
   };
 
+  const gex = gamma ? gexOverlay(gamma, y, lo, hi, now) : null;
+
   const gridLines = [0.1, 0.37, 0.63, 0.9];
   const grid = gridLines
     .map((f) => `<line class="cvd-grid" x1="0" x2="1000" y1="${f * 1000}" y2="${f * 1000}"></line>`)
@@ -359,7 +530,7 @@ function whaleChart(data: {
           n: barMinutes,
           zone: zoneTag(),
         });
-  const keys = `<div class="fchart-keys wh-keys"><span><i class="wh-key-bid"></i>${tr("bid wall (buy orders)")}</span><span><i class="wh-key-ask"></i>${tr("ask wall (sell orders)")}</span><span><i class="wh-key-ended"></i>${tr("faded: filled or pulled")}</span><span><i class="wh-key-buy"></i>${tr("large taker buy")}</span><span><i class="wh-key-sell"></i>${tr("large taker sell")}</span><span><i class="wh-key-last"></i>${tr("last price")}</span>${slotCursorSwitch()}</div>`;
+  const keys = `<div class="fchart-keys wh-keys"><span><i class="wh-key-bid"></i>${tr("bid wall (buy orders)")}</span><span><i class="wh-key-ask"></i>${tr("ask wall (sell orders)")}</span><span><i class="wh-key-ended"></i>${tr("faded: filled or pulled")}</span><span><i class="wh-key-buy"></i>${tr("large taker buy")}</span><span><i class="wh-key-sell"></i>${tr("large taker sell")}</span><span><i class="wh-key-last"></i>${tr("last price")}</span>${gex?.keys ?? ""}${gex ? gexSwitch() : ""}${slotCursorSwitch()}</div>`;
 
   // The hover reading: one candle's open, high, low and close, its volume, and the large taker
   // bursts inside it (slot-chart.ts, kind "wcandle").
@@ -391,8 +562,8 @@ function whaleChart(data: {
 ${edge(true)}
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} candles; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}">
 <div class="fchart-plot wh-plot" data-axes="${axes}">
-<svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(title.replace(/<[^>]+>/g, ""))}">${grid}${SLOT_BAND}${lines}${body}${lastLine}${SLOT_CURSOR}${SLOT_HAIR}</svg>
-${circles}${leftLabels}${rightLabels}
+<svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(title.replace(/<[^>]+>/g, ""))}">${gex?.under ?? ""}${grid}${SLOT_BAND}${lines}${body}${gex?.over ?? ""}${lastLine}${SLOT_CURSOR}${SLOT_HAIR}</svg>
+${circles}${leftLabels}${rightLabels}${gex?.labels ?? ""}
 </div>
 <div class="fchart-plot wh-volume" data-axes="${esc(JSON.stringify({ l: ["amount", 0, volPeak] }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} volume per candle", { asset: label.replace(/<[^>]+>/g, "") }))}">${SLOT_BAND}${volBars}${SLOT_CURSOR}${SLOT_HAIR}</svg><span class="cvd-yl" style="top:0%">${formatUsd(volPeak)}</span>${xLabels.join("")}</div>
 </div>
@@ -514,6 +685,8 @@ export function whales(data: {
   asset: string;
   assetClass: AssetClass;
   params: WhaleParams;
+  /** The asset's option book (app.ts reads it only for a ticker gammaBookFor names). */
+  gamma?: GammaData | null;
   now: number;
 }): string {
   const { overview, whales: book, asset, assetClass, params, now } = data;
@@ -594,6 +767,10 @@ export function whales(data: {
           walls: book.walls,
           trades: book.trades,
           params,
+          gamma:
+            data.gamma && gexFits(data.gamma, book.candles.at(-1)?.close ?? null, now)
+              ? data.gamma
+              : null,
           now,
         });
 
@@ -725,6 +902,7 @@ ${tradeTable}
 }
 <script>${PICK_SCRIPT}</script>
 <script>${BOOK_SCRIPT}</script>
-<script>${SLOT_SCRIPT}</script>`,
+<script>${SLOT_SCRIPT}</script>
+<script>${GEX_SCRIPT}</script>`,
   });
 }

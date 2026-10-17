@@ -124,4 +124,17 @@ export const whales: Catalog = {
   "hover or tap a candle to read it": "봉에 마우스를 올리거나 탭하여 값 확인",
   "{asset} candles; arrow keys read one at a time": "{asset} 봉, 방향키로 하나씩 확인",
   "{asset} volume per candle": "{asset} 봉별 거래량",
+  // web/whales.ts: the GEX switch over the chart
+  off: "끄기",
+  "Hide the options book": "옵션 데이터 숨기기",
+  "Each strike's call and put gamma, as bars at the right edge":
+    "행사가별 콜·풋 감마를 오른쪽 막대로 표시",
+  "Strike {strike} · calls {calls} · puts {puts} · net {net} per 1% move":
+    "행사가 {strike} · 콜 {calls} · 풋 {puts} · 순 {net} (1% 변동당)",
+  "call wall {price}": "콜 월 {price}",
+  "put wall {price}": "풋 월 {price}",
+  "call gamma": "콜 감마",
+  "put gamma": "풋 감마",
+  "flip {flip} · call wall {call} · put wall {put}": "플립 {flip} · 콜 월 {call} · 풋 월 {put}",
+  "{source} options, all expiries, {age}": "{source} 옵션, 전체 만기, {age}",
 };

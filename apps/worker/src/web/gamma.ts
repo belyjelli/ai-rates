@@ -1,3 +1,4 @@
+import type { AssetClass } from "@ai-rates/core";
 import type {
   GammaBook,
   GammaData,
@@ -159,6 +160,16 @@ const rawName = (currency: string): string => {
   const name = BOOK_NAMES[currency];
   return name ? trMsg(name) : currency;
 };
+/**
+ * The option book that prices the same thing as a perp on `base`, or null. Only an exact ticker:
+ * BTC and ETH are Deribit's crypto books, every other book is tradfi (NVDA the stock, never an NVDA
+ * token), and an ETF never stands in for its commodity -- GLD is not gold's price.
+ */
+export function gammaBookFor(base: string, assetClass: AssetClass): string | null {
+  if (!(base in BOOK_NAMES)) return null;
+  return (base === "BTC" || base === "ETH") === (assetClass === "crypto") ? base : null;
+}
+
 /** Every book the site has a name for, as [ticker, name in the page's language], for the search. */
 export const namedBooks = (): [string, string][] =>
   BOOK_ORDER.map((currency) => [currency, rawName(currency)]);

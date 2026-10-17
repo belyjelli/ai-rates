@@ -10,7 +10,7 @@ import { BOOK_BASKET } from "../web/exchange-grade";
 import { exchangeCosts, exchangesPage, parseExchangeSort } from "../web/exchanges";
 import { esc } from "../web/format";
 import type { FundingHistory } from "../web/funding-chart";
-import { gammaFragment } from "../web/gamma";
+import { gammaBookFor, gammaFragment } from "../web/gamma";
 import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
 import { installAsset } from "../web/install";
 import { kBars, kRef, lwcAsset } from "../web/kchart";
@@ -399,7 +399,14 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const params = parseWhaleParams(url.searchParams);
       const { hours, barMinutes } = WHALE_INTERVALS[params.interval];
       const asset = address?.asset ?? "BTC";
-      const [overview, book] = await Promise.all([
+      // The option book drawn over the chart (whales.ts GEX switch), read alongside when the ticker
+      // has one; the market's class is checked once the book is in. A failed read only leaves the
+      // switch out.
+      const gexBook = gammaBookFor(
+        asset,
+        address?.assetClass ?? (asset === "BTC" || asset === "ETH" ? "crypto" : "equity"),
+      );
+      const [overview, book, gex] = await Promise.all([
         deps.data.overview(),
         deps.data.whales({
           venue: params.venue,
@@ -409,6 +416,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           barMinutes,
           pulled: params.pulled,
         }),
+        gexBook ? deps.data.gamma({ currency: gexBook, scope: "all" }).catch(() => null) : null,
       ]);
       if (address && book.markets.length > 0 && book.market === null) {
         return page(
@@ -425,7 +433,8 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         );
       }
       const assetClass = book.market?.asset_class ?? address?.assetClass ?? "crypto";
-      return page(() => whales({ overview, whales: book, asset, assetClass, params, now }));
+      const gamma = gex && gammaBookFor(asset, assetClass) === gex.currency ? gex : null;
+      return page(() => whales({ overview, whales: book, asset, assetClass, params, gamma, now }));
     }
 
     // One page, two tabs: the map and the priced grid are the same subject, and the address only

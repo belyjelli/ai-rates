@@ -123,4 +123,17 @@ export const whales: Catalog = {
   "hover or tap a candle to read it": "悬停或点按 K 线查看",
   "{asset} candles; arrow keys read one at a time": "{asset} K 线；方向键逐根查看",
   "{asset} volume per candle": "{asset} 每根 K 线成交额",
+  // web/whales.ts: the GEX switch over the chart
+  off: "关",
+  "Hide the options book": "隐藏期权数据",
+  "Each strike's call and put gamma, as bars at the right edge":
+    "每个行权价的看涨和看跌 Gamma，以右侧条形显示",
+  "Strike {strike} · calls {calls} · puts {puts} · net {net} per 1% move":
+    "行权价 {strike} · 看涨 {calls} · 看跌 {puts} · 净值 {net}（每 1% 变动）",
+  "call wall {price}": "看涨墙 {price}",
+  "put wall {price}": "看跌墙 {price}",
+  "call gamma": "看涨 Gamma",
+  "put gamma": "看跌 Gamma",
+  "flip {flip} · call wall {call} · put wall {put}": "翻转点 {flip} · 看涨墙 {call} · 看跌墙 {put}",
+  "{source} options, all expiries, {age}": "{source} 期权，全部到期日，{age}",
 };

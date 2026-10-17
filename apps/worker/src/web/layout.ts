@@ -590,6 +590,18 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .wh-chart .fchart-keys i.wh-key-buy,.wh-chart .fchart-keys i.wh-key-sell{width:9px;height:9px;border-radius:50%}
 .wh-key-buy{background:var(--long)}.wh-key-sell{background:var(--short)}
 .cvd-tiles.wh-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+/* The whale chart's GEX switch (whales.ts gexOverlay): every part hidden until <html> carries a mode.
+   "on" parts (the levels, the source note) show in every mode; zones also show the net bars. */
+.whx{display:none}
+html[data-whgex=split] .whx-split,html[data-whgex=net] .whx-net,html[data-whgex=zones] .whx-net,html[data-whgex=zones] .whx-zone,html[data-whgex=split] .whx-on,html[data-whgex=net] .whx-on,html[data-whgex=zones] .whx-on{display:inline}
+.whx-call{fill:var(--long);opacity:.5}.whx-put{fill:var(--short);opacity:.5}
+.whx-zs{fill:var(--short);opacity:.1}.whx-zl{fill:var(--long);opacity:.07}
+.whx-flip,.whx-cw,.whx-pw{stroke-width:1;stroke-dasharray:6 4;vector-effect:non-scaling-stroke}
+.whx-flip{stroke:var(--warn)}.whx-cw{stroke:var(--long)}.whx-pw{stroke:var(--short)}
+.whx-lbl{position:absolute;left:4px;transform:translateY(-100%);font-size:10px;white-space:nowrap;pointer-events:none;background:var(--bg);padding:0 3px}
+.whx-flip-t{color:var(--warn)}.whx-cw-t{color:var(--long)}.whx-pw-t{color:var(--short)}
+.wh-chart .fchart-keys i.whx-key-call{background:var(--long);opacity:.6}.wh-chart .fchart-keys i.whx-key-put{background:var(--short);opacity:.6}
+.wh-chart .fchart-keys i.whx-key-zs{background:var(--short);opacity:.3}.wh-chart .fchart-keys i.whx-key-zl{background:var(--long);opacity:.25}
 @media (max-width:640px){.wh-chart .wh-plot{height:300px}.cvd-chart.wh-chart .fchart-plot{margin:6px 8px 0 56px}.wh-yr{display:none}.cvd-tiles.wh-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .cvd-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 12px}
 @media (max-width:860px){.cvd-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}

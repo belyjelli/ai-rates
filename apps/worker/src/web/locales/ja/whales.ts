@@ -125,4 +125,18 @@ export const whales: Catalog = {
   "{asset} candles; arrow keys read one at a time":
     "{asset} のローソク足。矢印キーで1本ずつ確認できます",
   "{asset} volume per candle": "{asset} のローソク足ごとの出来高",
+  // web/whales.ts: the GEX switch over the chart
+  off: "オフ",
+  "Hide the options book": "オプションの表示をやめる",
+  "Each strike's call and put gamma, as bars at the right edge":
+    "権利行使価格ごとのコールとプットのガンマを右端の棒で表示",
+  "Strike {strike} · calls {calls} · puts {puts} · net {net} per 1% move":
+    "権利行使価格 {strike} · コール {calls} · プット {puts} · ネット {net}（1% 変動あたり）",
+  "call wall {price}": "コールウォール {price}",
+  "put wall {price}": "プットウォール {price}",
+  "call gamma": "コールのガンマ",
+  "put gamma": "プットのガンマ",
+  "flip {flip} · call wall {call} · put wall {put}":
+    "フリップ {flip} · コールウォール {call} · プットウォール {put}",
+  "{source} options, all expiries, {age}": "{source} のオプション、全満期、{age}",
 };
