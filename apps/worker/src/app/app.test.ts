@@ -142,6 +142,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     whalePositions: async () => [],
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
     bookQuality: async () => ({ rows: [], weights: {} }),
+    exchangeReserves: async () => [],
     gamma: async ({ currency }) => ({
       currency,
       books: [],
@@ -3125,7 +3126,20 @@ describe("pages", () => {
           ],
           weights: { BTC: 60e9, ETH: 30e9 },
         }),
+        exchangeReserves: async () => [
+          reserve("binance", 169e9, 143.6e9),
+          reserve("okx", 34.2e9, 32.8e9),
+          reserve("gate", 7.2e9, 6.1e9),
+        ],
       });
+    const reserve = (venue_id: string, total: number, clean: number) => ({
+      venue_id,
+      day: new Date(NOW - 3_600_000),
+      kind: "wallets" as const,
+      source: venue_id,
+      total_usd: total,
+      clean_usd: clean,
+    });
 
     test("measured exchanges rank first with a grade, cost and slippage; the rest are ungraded", async () => {
       const { data } = source();
@@ -3154,6 +3168,60 @@ describe("pages", () => {
       expect(html).toContain("Trading cost");
       expect(html).toContain("did not fill");
       expect(html).toContain("not listed");
+    });
+
+    test("each grade opens its four pillars, from a panel outside the live rows", async () => {
+      const { data } = source();
+      const html = await (await get("/markets", data)).text();
+      expect(html).toContain('popovertarget="xg-binance"');
+      expect(html).toContain('id="xg-binance" popover');
+      // Live refresh swaps the tbody; a panel inside it would close under the reader.
+      expect(html.indexOf('id="xg-binance"')).toBeGreaterThan(html.indexOf("</tbody>"));
+      for (const pillar of ["Reserves", "Execution", "Activity", "Liquidity"])
+        expect(html).toContain(`${pillar} <i>`);
+      expect(html).toContain("#1 of 2 CEXs");
+      expect(html).toContain('href="/markets#grade-method"');
+      expect(html).toContain('id="grade-method"');
+      // The reserves column, every exchange's, graded or not: Gate's book is not read, its wallets are.
+      expect(html).toContain("clean, of $169B in wallets");
+      expect(html).toContain("$144B clean of $169B in tracked wallets");
+      expect(html).toContain("$6.1B");
+    });
+
+    test("sorting by reserves puts the largest balance sheet first", async () => {
+      const { data } = source();
+      const html = await (await get("/markets?sort=reserves", data)).text();
+      expect(html.indexOf(">Binance<")).toBeLessThan(html.indexOf(">OKX<"));
+      expect(html.indexOf(">OKX<")).toBeLessThan(html.indexOf(">Gate<"));
+    });
+
+    test("a CEX with no published wallets scores zero on reserves", async () => {
+      const { data } = fakeData({
+        ...source().data,
+        exchangeReserves: async () => [reserve("binance", 169e9, 143.6e9)],
+      });
+      const html = await (await get("/markets", data)).text();
+      const okx = html.slice(html.indexOf('id="xg-okx"'));
+      expect(okx).toContain("no wallets published");
+      expect(okx).toMatch(
+        /Reserves <i>30%<\/i><\/span><span class="xg-bar"><b style="width:0%"><\/b><\/span><span class="xg-pv">0</,
+      );
+    });
+
+    test("a failed reserves read grades on the other three pillars", async () => {
+      const { data } = fakeData({
+        ...source().data,
+        exchangeReserves: async () => {
+          throw new Error("relation exchange_reserves does not exist");
+        },
+      });
+      const res = await get("/markets", data);
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("Reserves are not available right now");
+      expect(html).toMatch(/class="xg xg-[SABCD]"/);
+      expect(html).toContain("not measured");
+      expect((await get("/markets/exchange/binance", data)).status).toBe(200);
     });
 
     test("a failed read leaves every exchange ungraded and the page up", async () => {

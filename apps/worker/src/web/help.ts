@@ -87,6 +87,9 @@ opacity:0;transform:translateY(-4px);transition:opacity .14s ease-out,transform 
  *
  * The browser's own popover keeps light dismiss and one-at-a-time for the float; the expanded box
  * stays open until its badge is tapped again, like any disclosure.
+ *
+ * A badge marked `data-help-float` floats everywhere, phones included: the Exchanges page's grades,
+ * whose panels sit after the table (outside its live rows) and would open far from their row in the page.
  */
 export const HELP_SCRIPT = `(() => {
   const desktop = matchMedia("(hover: hover) and (pointer: fine) and (min-width: 861px)").matches;
@@ -97,7 +100,7 @@ export const HELP_SCRIPT = `(() => {
   if (!desktop) {
     const convert = (root) => {
       for (const b of root.querySelectorAll("[data-help]")) {
-        if (b.dataset.helpFor) continue;
+        if (b.dataset.helpFor || b.hasAttribute("data-help-float")) continue;
         const p = panelOf(b);
         if (!p) continue;
         b.dataset.helpFor = p.id;
@@ -113,7 +116,7 @@ export const HELP_SCRIPT = `(() => {
     window.airratesHelp = convert;
     document.addEventListener("click", (e) => {
       const b = e.target instanceof Element && e.target.closest("[data-help]");
-      if (!b) return;
+      if (!b || b.hasAttribute("data-help-float")) return;
       const p = panelOf(b);
       if (!p) return;
       p.hidden = !p.hidden;

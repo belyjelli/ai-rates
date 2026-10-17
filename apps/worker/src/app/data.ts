@@ -1064,6 +1064,20 @@ export interface BookQualityData {
   weights: Record<string, number>;
 }
 
+/**
+ * What one exchange holds, one day, as the collector's "exchange reserves" job reads it from DefiLlama
+ * (migration 043): a centralized exchange's tracked wallets, or a decentralized exchange's protocol
+ * collateral. `clean_usd` leaves out the exchange's own token; for collateral it is the whole.
+ */
+export interface ExchangeReserveRow {
+  venue_id: string;
+  day: Date;
+  kind: "wallets" | "collateral";
+  source: string;
+  total_usd: number;
+  clean_usd: number;
+}
+
 export interface DataSource {
   overview(): Promise<Overview>;
   screener(filters: ScreenerFilters, options?: PairingOptions): Promise<ScreenerPair[]>;
@@ -1167,6 +1181,11 @@ export interface DataSource {
    * About two hundred rows.
    */
   bookQuality(options: { basket: readonly string[]; venueId?: string }): Promise<BookQualityData>;
+  /**
+   * Every exchange's newest reserves within the last week (collector migration 043), for the grade's
+   * Reserves pillar. About forty rows.
+   */
+  exchangeReserves(): Promise<ExchangeReserveRow[]>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -2433,6 +2452,16 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       const out: Record<string, number> = {};
       for (const w of weights) out[w.base] = w.oi;
       return { rows: [...rows], weights: out };
+    },
+
+    async exchangeReserves() {
+      const sql = connect();
+      const rows = await sql<ExchangeReserveRow[]>`
+        SELECT DISTINCT ON (venue_id) venue_id, day, kind, source, total_usd, clean_usd
+        FROM exchange_reserves
+        WHERE day > current_date - 7
+        ORDER BY venue_id, day DESC`;
+      return [...rows];
     },
 
     async macro(needs) {

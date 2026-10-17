@@ -41,6 +41,16 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-17",
+    title: "Exchange grades on four pillars: reserves, execution, activity, liquidity",
+    changes: [
+      "The Exchanges page's grade now follows DefiLlama's REAL score: Reserves 30 points, Execution 30, Activity 20 and Liquidity 20, each 0 to 100. A pillar the site cannot measure for an exchange hands its weight to the others rather than counting as zero. CEXes and DEXes are scored together and ranked within their own kind.",
+      "Reserves are new, from DefiLlama, read every six hours: a CEX's wallets tracked on-chain, without its own token, and a DEX's protocol collateral. Two thirds of the pillar is size against the largest balance sheet; a third is whether the exchange's open interest, volume and displayed book are sizes those reserves could back. A new Reserves column sorts.",
+      "Each grade opens its breakdown: the score, the exchange's place among its kind, and each pillar's bar with what it was built from. How each pillar is built is under the table; each exchange's own page shows its breakdown.",
+      "Execution is still read from the order books, not fills: DefiLlama's markouts and fills-against-quote need trades, which the site does not record, so their weight goes to cost and slippage.",
+    ],
+  },
+  {
+    date: "2026-10-17",
     title: "Exchanges graded on what trading there costs",
     changes: [
       "The Exchanges page ranks every collected perpetual exchange with a grade from S to D, and shows what a $10k market order costs all in (the exchange's published standard taker fee plus slippage), what $10k and $100k orders pay beyond the mid, the spread, and the depth within 0.1% and 1% of the mid, beside open interest, volume and market count. Each column sorts.",

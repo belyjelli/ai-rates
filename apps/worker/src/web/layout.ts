@@ -693,6 +693,32 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .xc-type{font-size:10px;color:var(--muted);border:1px solid var(--rule);padding:0 3px;margin-left:4px}
 .xc-warn{color:#ff9f43;text-decoration:none;border:0;cursor:help}
 .xc-grade{text-align:center}
+button.xg{font:inherit;font-weight:700;line-height:1.2;cursor:pointer;background:transparent}
+button.xg.xg-S{background:var(--accent)}
+button.xg:hover,button.xg:focus-visible,button.xg[aria-expanded=true]{outline:1px solid var(--ink);outline-offset:1px}
+.xc-score{display:block;margin-top:2px;font-size:11px;color:var(--muted)}
+.xg-pop{width:min(44ch,calc(100vw - 24px))}
+/* A phone has no room beside the badge: the card opens centred, as a popover is born. */
+@media (max-width:860px){.help-pop.xg-pop{inset:0;margin:auto;height:fit-content}}
+.xg-top{display:flex;align-items:baseline;gap:8px;margin:0 0 10px}
+.xg-top b{font-size:18px;color:var(--ink)}
+.xg-rank{margin-left:auto;color:var(--muted)}
+.xg-bars{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:max-content 1fr 3ch;gap:0 10px;align-items:center}
+.xg-bars li{display:contents}
+.xg-pn i{font-style:normal;color:var(--muted)}
+.xg-bar{position:relative;height:6px;background:var(--rule)}
+.xg-bar b{position:absolute;top:0;bottom:0;left:0;background:var(--ink)}
+.xg-pv{text-align:right;font-weight:700;color:var(--ink)}
+.xg-why{grid-column:1/-1;margin:1px 0 7px;font-size:11px;color:var(--muted)}
+.xg-note{margin:6px 0 0;font-size:11px;color:var(--muted)}
+.xg-card{max-width:560px;margin:0 0 18px;padding:10px 14px 12px;border:1px solid var(--rule);border-top:2px solid var(--accent);font:12px/1.55 var(--mono)}
+.xg-method{margin-top:22px}
+.xg-pillars{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin:10px 0}
+.xg-pillar{padding:10px 12px;border:1px solid var(--rule)}
+.xg-pillar h3{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:13px}
+.xg-pillar h3 i{margin-left:auto;font-style:normal;font-weight:400;font-size:11px;color:var(--muted)}
+.xg-letter{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;color:#000;background:var(--accent);font-weight:700}
+.xg-pillar p{margin:0;font-size:12px;line-height:1.5;color:var(--muted)}
 .xc-tiles .cvd-big{font-size:clamp(20px,3vw,28px)}
 /* The macro tabs (macro.ts): each line its own colour, set once as --c and read by its stroke, its
    bar and its key; the reference lines (the Fed's 2% target) dotted in yellow. Long and short keep
