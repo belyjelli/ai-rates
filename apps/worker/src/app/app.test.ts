@@ -1011,7 +1011,7 @@ describe("pages", () => {
     expect(calls).toEqual([]);
     expect(html).toContain("ETH price levels");
     expect(html).toContain('data-lazy="/liquidations?panel=price"');
-    expect(html).toContain('class="lazy-wait"');
+    expect(html).toContain('class="chart-skel lazy-wait"');
     // Opening one reads that asset, once.
     const price = await tab("/liquidations", "price", data);
     expect(calls).toEqual(["ETH"]);

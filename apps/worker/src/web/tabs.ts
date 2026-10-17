@@ -153,7 +153,7 @@ export const TAB_SCRIPT = `(() => {
             panel.dataset.lazyState = "";
             load(panel);
           });
-          wait.appendChild(retry);
+          (wait.querySelector(".chart-skel-msg") || wait).appendChild(retry);
         });
     };
     const panelFor = (id) => panels.filter((p) => p.getAttribute("data-tab-panel") === id)[0];

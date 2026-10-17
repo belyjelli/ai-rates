@@ -10,6 +10,7 @@ import {
   cvdToQuery,
   isCvdLockedInterval,
 } from "../app/params";
+import { CHART_SKELETON_JS } from "./chart-skeleton";
 import { ageText, esc, formatPrice, formatUsd, LOCK_ICON } from "./format";
 import { helpHeading } from "./help";
 import { msg, tr, trMsg } from "./i18n";
@@ -369,21 +370,7 @@ export const CVD_SWITCH_SCRIPT = `(() => {
   if (!document.querySelector(".cvd-intervals") || !window.fetch || !window.DOMParser || !history.pushState) return;
   const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let busy = false;
-
-  const placeholder = (label) => {
-    const wrap = document.createElement("div");
-    wrap.className = "cvd-skel" + (still ? " cvd-skel-still" : "");
-    wrap.setAttribute("role", "status");
-    let bars = "";
-    for (let i = 0; i < 48; i++) {
-      // A fixed wave, not random: the same placeholder every time, so it reads as "loading", not data.
-      const h = 18 + Math.round(30 * Math.abs(Math.sin(i * 0.55)) + 12 * Math.abs(Math.cos(i * 1.7)));
-      bars += '<i class="' + (i % 3 === 0 ? "cvd-skel-sell" : "cvd-skel-buy") + '" style="height:' + h + '%;animation-delay:' + (i * 40) + 'ms"></i>';
-    }
-    wrap.innerHTML = '<div class="cvd-skel-bars">' + bars + '</div><p class="cvd-skel-msg"><span class="spin" aria-hidden="true"></span></p>';
-    wrap.querySelector(".cvd-skel-msg").append(label);
-    return wrap;
-  };
+  ${CHART_SKELETON_JS}
 
   const toChart = () => {
     const chart = document.getElementById("cvd-chart");
@@ -419,12 +406,9 @@ export const CVD_SWITCH_SCRIPT = `(() => {
       label = (nav.dataset.loadingAsset || "").replace("{asset}", link.dataset.cvdSelect || "");
       toChart();
     }
-    main.classList.add("cvd-switching");
+    main.classList.add("chart-switching");
     main.setAttribute("aria-busy", "true");
-    if (chart) {
-      chart.style.minHeight = chart.offsetHeight + "px";
-      chart.replaceChildren(placeholder(label));
-    }
+    if (chart) skeletonInto(chart, label);
     try {
       const res = await fetch(href, { credentials: "same-origin" });
       if (!res.ok) throw new Error("HTTP " + res.status);
@@ -435,7 +419,7 @@ export const CVD_SWITCH_SCRIPT = `(() => {
       main.innerHTML = fresh.innerHTML;
       // The tab's title names the charted asset ("ETH CVD"), so it moves with the chart.
       if (doc.title) document.title = doc.title;
-      main.classList.remove("cvd-switching");
+      main.classList.remove("chart-switching");
       main.removeAttribute("aria-busy");
       if (window.airratesHelp) window.airratesHelp(main);
       // Replacing <main> cuts a smooth scroll short; land it on the chart for a newly picked asset.

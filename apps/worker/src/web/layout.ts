@@ -611,20 +611,25 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .cvd-chart .fchart-note{margin-top:22px}
 .cvd-chart .cvd-plot{height:260px}
 .cvd-chart .cvd-strip{height:90px;margin-top:14px;margin-bottom:22px}
-/* Switching the CVD interval in place (cvd.ts CVD_SWITCH_SCRIPT): the chart gives way to bars that rise
-   and fall in the chart's own colours, under a spinner and "Loading 1h bars…"; the tiles and the asset
-   picker dim until the new page is in. Reduced motion keeps the shape and drops the movement. */
-.cvd-switching .cvd-tiles,.cvd-switching .cvd-pick,.cvd-switching [data-live=cvd-asof]{opacity:.35;transition:opacity .15s;pointer-events:none}
-.cvd-skel{position:relative;display:flex;flex-direction:column;justify-content:flex-end;height:100%;min-height:260px;padding:10px 64px 28px;border:1px solid var(--rule);background:var(--panel);box-sizing:border-box}
-.cvd-skel-bars{display:flex;align-items:center;gap:3px;height:200px}
-.cvd-skel-bars i{flex:1;min-width:2px;border-radius:1px;opacity:.28;animation:cvd-skel 1.1s ease-in-out infinite alternate}
-.cvd-skel-buy{background:var(--long)}.cvd-skel-sell{background:var(--short)}
-@keyframes cvd-skel{from{transform:scaleY(.35);opacity:.15}to{transform:scaleY(1);opacity:.45}}
-.cvd-skel-msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:8px;margin:0;padding:5px 12px;width:max-content;color:var(--ink);background:var(--bg);border:1px solid var(--rule)}
-.cvd-skel-msg .spin{margin-right:0;color:var(--accent)}
-.cvd-skel-still .cvd-skel-bars i{animation:none}
-@media (prefers-reduced-motion:reduce){.cvd-skel-bars i{animation:none}}
-@media (max-width:640px){.cvd-skel{padding:10px 8px 28px}}
+/* THE chart loading animation (chart-skeleton.ts), the only one: bars rising and falling in the long and
+   short colours behind a spinner and a label. A tab loading itself shows it (.lazy-wait), and so does
+   every chart an in-place switch is about to replace -- the CVD interval and asset, the Gamma book,
+   the Liquidations choices -- while the figures around it pulse, the tiles a step apart, until the new
+   copy is in (.chart-switching). A failed load stills it. Reduced motion keeps the shape and drops
+   the movement. */
+.chart-skel{position:relative;display:flex;flex-direction:column;justify-content:flex-end;height:100%;min-height:260px;padding:10px 64px 28px;border:1px solid var(--rule);background:var(--panel);box-sizing:border-box}
+.chart-skel-bars{display:flex;align-items:center;gap:3px;height:200px}
+.chart-skel-bars i{flex:1;min-width:2px;border-radius:1px;opacity:.28;animation:chart-skel 1.1s ease-in-out infinite alternate}
+.chart-skel-long{background:var(--long)}.chart-skel-short{background:var(--short)}
+@keyframes chart-skel{from{transform:scaleY(.35);opacity:.15}to{transform:scaleY(1);opacity:.45}}
+.chart-skel-msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:8px;margin:0;padding:5px 12px;width:max-content;max-width:calc(100% - 16px);color:var(--ink);background:var(--bg);border:1px solid var(--rule);box-sizing:border-box}
+.chart-skel-msg .spin{margin-right:0;color:var(--accent)}
+.chart-switching :is(.cvd-tile,.cvd-pick,[data-live=cvd-asof],.notes,.cvd-h2,.sheet-wrap){pointer-events:none;animation:chart-wait .8s ease-in-out infinite alternate}
+.chart-switching .cvd-tile:nth-child(2){animation-delay:-.2s}.chart-switching .cvd-tile:nth-child(3){animation-delay:-.4s}.chart-switching .cvd-tile:nth-child(4){animation-delay:-.6s}
+@keyframes chart-wait{from{opacity:.45}to{opacity:.15}}
+.lazy-failed .chart-skel-bars i{animation:none;opacity:.1}
+@media (prefers-reduced-motion:reduce){.chart-skel-bars i{animation:none}.chart-switching :is(.cvd-tile,.cvd-pick,[data-live=cvd-asof],.notes,.cvd-h2,.sheet-wrap){animation:none;opacity:.35}}
+@media (max-width:640px){.chart-skel{padding:10px 8px 28px}}
 .cvd-grid{stroke:var(--rule);stroke-width:1;vector-effect:non-scaling-stroke}
 .cvd-zero{stroke:var(--dim);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
 .cvd-area{fill:rgba(200,245,168,.07)}
@@ -723,7 +728,6 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .gx-controls{align-items:center;gap:10px 16px}.gx-controls .tf{margin:0}
 .gx-table tr.gx-out td{opacity:.4}
 .gx-stale{color:var(--warn)}
-.gx-switching>.lazy-body,.gx-switching>.gx-controls~*{opacity:.35;transition:opacity .15s;pointer-events:none}
 /* The book picker (gamma.ts bookPicker): the whales picker's dropdown, its rows under region headings,
    each a small reading -- spot, net, the calls/puts split as a bar, the flip from the spot, the age. A
    late book's age is in the warning colour. A phone keeps the book, its net and the bar. */
@@ -806,8 +810,6 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .tf .tf-locked{display:inline-flex;align-items:center;gap:3px;padding:0 6px;color:var(--dim);cursor:not-allowed}
 .tf-lock{opacity:.85}
 .sheet td.locked{color:var(--dim);cursor:not-allowed}
-.lq-switching :is(.lqc-body,.heat-wrap){opacity:.4;transition:opacity .12s;pointer-events:none}
-.lq-switching nav.tf .spin{margin-left:6px;align-self:center}
 .tf a:hover{color:var(--accent)}
 .pager{display:flex;gap:16px;margin-top:10px;color:var(--muted)}
 .sheet .asset a{font-weight:700;border:0}
@@ -961,10 +963,8 @@ input[type=checkbox]{accent-color:var(--accent)}
 /* The original's own fallback: no sliding, a static underline instead. */
 @media (prefers-reduced-motion:reduce){.tabbar-tabs--js .btn-tab.active{border-bottom-color:var(--accent)}.tab-underline{display:none}}
 @media (max-width:560px){.tab-label--full{display:none}.tab-label--short{display:inline}}
-/* A tab loading itself (tabs.ts): the shared spinner, a line of muted text, and room enough that the
-   page does not jump twice -- once to the placeholder and again to the tab. */
-.lazy-wait{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;min-height:180px;padding:16px 4px;color:var(--muted)}
-.lazy-wait .spin{margin-right:0;color:var(--accent)}
+/* A tab that failed to load itself (tabs.ts): the loading chart stills, the label turns to the warning
+   and a retry button joins it. */
 .lazy-failed .spin{display:none}
 .lazy-failed .lazy-msg{color:var(--warn)}
 .lazy-retry{font:700 12px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--ink);background:transparent;border:1px solid var(--rule);padding:3px 10px;cursor:pointer}
@@ -1057,7 +1057,7 @@ ${INSTALL_HEAD}
 <div class="wrap bar"><a class="brand" href="/">airrates<small>${tr("What settled. Not what might.")}</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${shareBar()}<button type="button" class="clock" id="clock">--:--:--</button></div>
 <div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><a class="keys" href="/keys" title="${tr("Keyboard shortcuts: change them on the keyboard page")}">${hotkeyLegend()}</a></div>
 </header>
-<main class="wrap">${body}</main>
+<main class="wrap" data-loading="${esc(tr("Loading…"))}">${body}</main>
 <footer><div class="wrap">
 <p class="sig"><span><a href="${MEMBER_URL}" target="_blank" rel="noopener">${tr("login")}</a> · <a href="${TELEGRAM_URL}" target="_blank" rel="noopener" title="${tr("Join the airrates group on Telegram: @airratesnet")}">${tr("telegram")}</a> · <a href="/status">${tr("status")}</a> · <a href="/probe">${tr("geo-probe")}</a> · <a href="/about">${tr("about")}</a> · <a class="kb-link" href="/keys">${keyboardIcon()}${tr("keyboard")}</a> · <a href="/referrals">${tr("referral links")}</a> · <a href="/legal">${tr("legal &amp; privacy")}</a> · <a href="/tos">${tr("terms")}</a></span><span>airrates</span></p>
 <nav class="langs" aria-label="${tr("Language")}"><span>${tr("language:")}</span>${languages}</nav>

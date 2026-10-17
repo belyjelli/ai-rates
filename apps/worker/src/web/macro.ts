@@ -6,6 +6,7 @@ import type {
   MacroPoint,
   MacroRelease,
 } from "../app/data";
+import { lazyPlaceholder } from "./chart-skeleton";
 import { esc, formatDuration, formatUsd, since } from "./format";
 import { helpButton, helpPanel } from "./help";
 import { tr, trMsg } from "./i18n";
@@ -1926,7 +1927,7 @@ export function macroFragment(panel: MacroPanel, data: MacroData | null, now: nu
   return `<div class="lazy-body" data-rendered="${now}">${macroPanel(panel, data, now)}</div>`;
 }
 
-/** The placeholder for a tab this render did not read, as gamma.ts's. */
+/** The placeholder for a tab this render did not read (chart-skeleton.ts). */
 export function macroPlaceholder(panel: MacroPanel): string {
-  return `<div class="lazy-wait" role="status" data-fail="${esc(tr("This tab did not load."))}" data-retry="${esc(tr("Try again"))}"><span class="spin" aria-hidden="true"></span><span class="lazy-msg">${tr("Loading…")}</span><noscript><a href="/rates?macro=${panel}#${panel}">${tr("Open this tab")}</a></noscript></div>`;
+  return lazyPlaceholder(`/rates?macro=${panel}#${panel}`);
 }

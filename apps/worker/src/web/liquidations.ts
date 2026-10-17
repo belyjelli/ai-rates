@@ -23,6 +23,7 @@ import {
   type WhaleZoom,
 } from "../app/params";
 import { PENDING_ROWS, PENDING_ZOOMS, type PendingZoom } from "../app/pending";
+import { CHART_SKELETON_JS, lazyPlaceholder } from "./chart-skeleton";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { tr } from "./i18n";
@@ -320,7 +321,7 @@ function venueStrip(
  *
  * The links stay real addresses, so this is an enhancement and never the only way: without the
  * script, or on any failure, the link is simply followed. With it, the clicked choice lights up at
- * once, the tab's chart and grid dim behind a spinner, and the tab's own fragment (`?panel=<tab>`,
+ * once, the tab's charts and grids give way to the loading chart (chart-skeleton.ts), and the tab's own fragment (`?panel=<tab>`,
  * the address a lazy tab loads from) replaces it. The address moves with pushState, and Back walks
  * the choices.
  *
@@ -335,6 +336,7 @@ const LQ_SWAP_SCRIPT = `(() => {
   if (!document.getElementById("panel-liq-map") || !window.fetch || !window.DOMParser || !history.pushState) return;
   let shown = location.href.split("#")[0];
   let busy = false;
+  ${CHART_SKELETON_JS}
   const panelOf = (id) => document.getElementById("panel-liq-" + id);
   const panelUrl = (base, id) => base + (base.indexOf("?") >= 0 ? "&" : "?") + "panel=" + id;
   const readable = (search) => search.replace(/%2C/g, ",");
@@ -357,7 +359,6 @@ const LQ_SWAP_SCRIPT = `(() => {
         if (all) light(all, !links.some((a) => a !== all && a.classList.contains("on")));
       }
     } else links.forEach((a) => light(a, a === link));
-    nav.insertAdjacentHTML("beforeend", '<span class="spin" aria-hidden="true"></span>');
   };
 
   const follow = (base, labels) => {
@@ -394,7 +395,8 @@ const LQ_SWAP_SCRIPT = `(() => {
     if (!panel) { location.href = href; return; }
     busy = true;
     const base = href.split("#")[0];
-    panel.classList.add("lq-switching");
+    for (const chart of panel.querySelectorAll(".lqc-body, .heat-wrap")) skeletonInto(chart);
+    panel.classList.add("chart-switching");
     panel.setAttribute("aria-busy", "true");
     try {
       const res = await fetch(panelUrl(base, tab), { credentials: "same-origin" });
@@ -412,7 +414,7 @@ const LQ_SWAP_SCRIPT = `(() => {
       location.href = href;
       return;
     }
-    panel.classList.remove("lq-switching");
+    panel.classList.remove("chart-switching");
     panel.removeAttribute("aria-busy");
     busy = false;
   };
@@ -1467,17 +1469,9 @@ export function panelHref(view: LiquidationView, id: LiquidationTab): string {
   return `${href}${href.includes("?") ? "&" : "?"}panel=${id}`;
 }
 
-/**
- * A tab this render did not fill: a spinner that tabs.ts replaces with the tab's own markup the
- * first time the tab is opened (or hovered, so a click usually lands on a loaded tab).
- *
- * The words the script needs on failure ride on the element, translated here, because the script
- * is one string shared by every language. Without JavaScript there is nothing to load the tab, so
- * the reader gets a plain link to it instead of a spinner that never ends.
- */
+/** A tab this render did not fill (chart-skeleton.ts), until tabs.ts loads it. */
 function lazyPanel(view: LiquidationView, id: LiquidationTab): string {
-  const href = esc(panelHref(view, id));
-  return `<div class="lazy-wait" role="status" data-fail="${esc(tr("This tab did not load."))}" data-retry="${esc(tr("Try again"))}"><span class="spin" aria-hidden="true"></span><span class="lazy-msg">${tr("Loading…")}</span><noscript><a href="${href}">${tr("Open this tab")}</a></noscript></div>`;
+  return lazyPlaceholder(panelHref(view, id));
 }
 
 /**

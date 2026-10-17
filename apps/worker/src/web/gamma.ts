@@ -7,12 +7,14 @@ import type {
   GammaStrike,
 } from "../app/data";
 import {
+  GAMMA_DEFAULT_BOOK,
   GAMMA_SCOPES,
   type GammaParams,
   type GammaScope,
   type HeatmapParams,
   heatmapToQuery,
 } from "../app/params";
+import { CHART_SKELETON_JS, lazyPlaceholder } from "./chart-skeleton";
 import { ageText, esc, formatDuration, formatPrice, formatUsd } from "./format";
 import { helpButton, helpPanel } from "./help";
 import { msg, tr, trMsg } from "./i18n";
@@ -800,7 +802,7 @@ export function gammaPanel(view: {
       stored.size > 0 && !stored.has(scope),
     ),
   ).join("");
-  const controls = `<div class="lq-controls gx-controls">${picker}<nav class="tf" aria-label="${esc(tr("Expiries"))}">${scopes}</nav>${helpButton("rates-gamma")}</div>
+  const controls = `<div class="lq-controls gx-controls" data-loading="${esc(tr("Loading {asset}…"))}">${picker}<nav class="tf" aria-label="${esc(tr("Expiries"))}">${scopes}</nav>${helpButton("rates-gamma")}</div>
 ${helpPanel(
   "rates-gamma",
   `<p>${tr(
@@ -890,13 +892,9 @@ export function gammaPanelHref(heatmap: HeatmapParams, params: GammaParams): str
   return `/rates${heatmapToQuery(heatmap, params)}&panel=gamma`;
 }
 
-/**
- * The tab's placeholder, when this render did not read it: a spinner tabs.ts replaces with the tab
- * the first time it is shown, and a plain link for a reader without JavaScript.
- */
+/** The tab's placeholder, when this render did not read it (chart-skeleton.ts). */
 export function gammaPlaceholder(heatmap: HeatmapParams, params: GammaParams): string {
-  const href = `/rates${heatmapToQuery(heatmap, params)}#gamma`;
-  return `<div class="lazy-wait" role="status" data-fail="${esc(tr("This tab did not load."))}" data-retry="${esc(tr("Try again"))}"><span class="spin" aria-hidden="true"></span><span class="lazy-msg">${tr("Loading…")}</span><noscript><a href="${esc(href)}">${tr("Open this tab")}</a></noscript></div>`;
+  return lazyPlaceholder(`/rates${heatmapToQuery(heatmap, params)}#gamma`);
 }
 
 /**
@@ -938,20 +936,41 @@ export const GX_VIEW_SCRIPT = `(() => {
  * Switches the tab's book and expiries in place: fetches the choice's `?panel=gamma`, swaps it in,
  * pushes the address, and points the tab's data-lazy at it so tabs.ts and live.ts refresh the copy
  * the reader chose. Anything that goes wrong falls back to loading the link as a page.
+ *
+ * While it loads, every section says so: the picker closes on the chosen row, the chart (or the
+ * empty-tab message) gives way to the loading chart (chart-skeleton.ts), "Loading NK225…", and the
+ * tiles, notes and expiry table pulse (layout.ts .chart-switching).
  */
 export const GX_SWAP_SCRIPT = `(() => {
   const panel = document.getElementById("${GAMMA_PANEL_ID}");
   if (!panel || !window.fetch || !window.DOMParser || !history.pushState) return;
   let busy = false;
+  ${CHART_SKELETON_JS}
+  const placehold = (href, link) => {
+    const pick = panel.querySelector(".gx-pick");
+    if (pick) pick.open = false;
+    if (link && link.classList.contains("wh-pick-row")) {
+      for (const row of panel.querySelectorAll(".wh-pick-row.on")) row.classList.remove("on");
+      link.classList.add("on");
+    }
+    const controls = panel.querySelector(".gx-controls");
+    const book = (new URL(href, location.href).searchParams.get("gex") || "${GAMMA_DEFAULT_BOOK}").toUpperCase();
+    const label = ((controls && controls.dataset.loading) || "").replace("{asset}", book);
+    const chart = panel.querySelector(".gx-chart");
+    const empty = panel.querySelector(".gx-controls ~ .empty");
+    if (chart) skeletonInto(chart, label);
+    else if (empty) empty.replaceWith(chartSkeleton(label));
+  };
   const panelUrl = (href) => {
     const url = new URL(href, location.href);
     url.hash = "";
     url.searchParams.set("panel", "gamma");
     return url.pathname + url.search;
   };
-  const load = async (href, push) => {
+  const load = async (href, push, link) => {
     busy = true;
-    panel.classList.add("gx-switching");
+    placehold(href, link);
+    panel.classList.add("chart-switching");
     panel.setAttribute("aria-busy", "true");
     try {
       const url = panelUrl(href);
@@ -969,7 +988,7 @@ export const GX_SWAP_SCRIPT = `(() => {
       location.href = href;
       return;
     }
-    panel.classList.remove("gx-switching");
+    panel.classList.remove("chart-switching");
     panel.removeAttribute("aria-busy");
     busy = false;
   };
@@ -978,7 +997,7 @@ export const GX_SWAP_SCRIPT = `(() => {
     const link = event.target.closest("a[data-gx-swap]");
     if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    if (!busy) load(link.href, true);
+    if (!busy) load(link.href, true, link);
   });
   addEventListener("popstate", () => {
     if (location.pathname !== "/rates") { location.reload(); return; }
