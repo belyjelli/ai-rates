@@ -91,8 +91,8 @@ export const gamma: Catalog = {
     "암호화폐: 상장된 암호화폐 옵션의 대부분을 차지하는 Deribit의 BTC·ETH 옵션 북입니다. Bybit, OKX, Binance는 상장 옵션이 훨씬 적어 포함하지 않습니다. 미결제약정, 마크 변동성, 각 만기의 선도가격은 Deribit 자체 데이터이며, 감마는 이를 바탕으로 Black-76으로 계산해 Deribit 자체의 델타와 베가를 재현합니다. 5분마다 읽습니다.",
   "United States: Cboe's 15-minute delayed chains for the S&amp;P 500, Nasdaq-100 and Russell 2000 indexes and the most traded ETFs and stocks, with Cboe's own volatility and open interest, the spot taken as the forward. Read every 15 minutes through the US session; outside it the figures are the last session's.":
     "미국: S&amp;P 500, 나스닥 100, 러셀 2000 지수와 거래가 가장 많은 ETF·주식에 대한 Cboe의 15분 지연 옵션 체인입니다. 변동성과 미결제약정은 Cboe 자체 데이터이며, 현물가를 선도가격으로 씁니다. 미국 정규장 동안 15분마다 읽으며, 장외 시간에는 직전 세션의 수치입니다.",
-  "Asia and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.":
-    "아시아·유럽: 각 거래소의 장 마감 파일을 발표 후 한 번 읽습니다 -- HKEX(항셍 지수 계열), CFFEX(CSI 300, SSE 50, CSI 1000), TAIFEX(대만 가권지수), NSE·BSE(니프티, 센섹스), Eurex(유로 스톡스 50, DAX, SMI). 이들 거래소는 정산가와 미결제약정은 공개하지만 변동성은 공개하지 않으므로, 각 행사가의 변동성은 외가격 옵션의 정산가에서 Black-76으로 역산하며, 선도가격은 풋-콜 패리티 또는 거래소 자체 선물에서 구합니다. 수치는 계약의 결제 통화 기준이며, 그날 종가 시점입니다.",
+  "Asia-Pacific and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, its three nearest months), ASX (S&amp;P/ASX 200), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement (for ASX, its closing theoretical price) with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.":
+    "아시아·태평양·유럽: 각 거래소의 장 마감 파일을 발표 후 한 번 읽습니다 -- HKEX(항셍 지수 계열), CFFEX(CSI 300, SSE 50, CSI 1000), TAIFEX(대만 가권지수), JPX(닛케이 225, 가장 가까운 3개 월물), ASX(S&amp;P/ASX 200), NSE·BSE(니프티, 센섹스), Eurex(유로 스톡스 50, DAX, SMI). 이들 거래소는 정산가와 미결제약정은 공개하지만 변동성은 공개하지 않으므로, 각 행사가의 변동성은 외가격 옵션의 정산가(ASX는 장 마감 이론가)에서 Black-76으로 역산하며, 선도가격은 풋-콜 패리티 또는 거래소 자체 선물에서 구합니다. 수치는 계약의 결제 통화 기준이며, 그날 종가 시점입니다.",
   "The options data could not be read right now.": "지금은 옵션 데이터를 읽을 수 없습니다.",
   "No gamma exposure has been computed for {currency} yet.":
     "{currency}의 감마 익스포저는 아직 계산되지 않았습니다.",
@@ -161,6 +161,8 @@ export const gamma: Catalog = {
   "SSE 50": "SSE 50",
   "CSI 1000": "CSI 1000",
   TAIEX: "대만 가권지수",
+  "Nikkei 225": "닛케이 225",
+  "S&P/ASX 200": "S&P/ASX 200(호주)",
   "Nifty 50": "니프티 50",
   "Nifty Bank": "니프티 뱅크",
   "BSE Sensex": "BSE 센섹스",

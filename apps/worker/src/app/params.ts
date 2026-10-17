@@ -133,8 +133,8 @@ export function heatmapToQuery(params: HeatmapParams, gamma?: GammaParams): stri
 /**
  * The Rates page's Gamma Exposure tab: which option book, and which expiries. The books are whatever
  * the collector has stored (internal/gamma: Deribit's BTC and ETH, Cboe's US chains, and index options
- * from HKEX, CFFEX, TAIFEX, NSE, BSE and Eurex), so the tab's picker lists them from the table rather
- * than from here, and a book the collector adds appears without a site change. BTC is the default.
+ * from HKEX, CFFEX, TAIFEX, JPX, ASX, NSE, BSE and Eurex), so the tab's picker lists them from the
+ * table rather than from here, and a book the collector adds appears without a site change. BTC is the default.
  * The scopes are the collector's own: every expiry, within 30 days, within 7, the nearest alone.
  */
 export const GAMMA_DEFAULT_BOOK = "BTC";

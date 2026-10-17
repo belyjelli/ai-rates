@@ -798,7 +798,10 @@ export interface GammaExposure {
   scope: string;
   /** The read, or for an end-of-day source the close its file is from. */
   computed_at: Date;
-  /** Who published the options: "deribit", "cboe", "hkex", "cffex", "taifex", "nse", "bse", "eurex". */
+  /**
+   * Who published the options: "deribit", "cboe", "hkex", "cffex", "taifex", "jpx", "asx", "nse", "bse"
+   * or "eurex".
+   */
   source: string;
   /** The currency every *_gex_usd figure is in, despite the name: USD, or the contract's own (HKD). */
   unit: string;

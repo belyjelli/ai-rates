@@ -29,7 +29,8 @@ import {
 /**
  * The Rates page's Gamma Exposure tab: options as dealer gamma by strike (collector internal/gamma,
  * migrations 034 and 036), for every book the collector stores -- Deribit's BTC and ETH, Cboe's US
- * chains, and index options from the end-of-day files of HKEX, CFFEX, TAIFEX, NSE, BSE and Eurex.
+ * chains, and index options from the end-of-day files of HKEX, CFFEX, TAIFEX, JPX, ASX, NSE, BSE and
+ * Eurex.
  *
  * WHAT THE NUMBERS ARE. Each option's gamma times its open interest times the forward squared times
  * 1%: what a hedger holding that open interest trades of the underlying for a 1% move, in the currency
@@ -94,6 +95,8 @@ const PUBLISHERS: Readonly<Record<string, Publisher>> = {
   taifex: { name: "TAIFEX", region: "asia", cadence: "daily" },
   nse: { name: "NSE", region: "asia", cadence: "daily" },
   bse: { name: "BSE", region: "asia", cadence: "daily" },
+  jpx: { name: "JPX", region: "asia", cadence: "daily" },
+  asx: { name: "ASX", region: "asia", cadence: "daily" },
   eurex: { name: "Eurex", region: "europe", cadence: "daily" },
 };
 export const publisher = (source: string): Publisher =>
@@ -138,6 +141,8 @@ const BOOK_NAMES: Readonly<Record<string, string>> = {
   SSE50: msg("SSE 50"),
   CSI1000: msg("CSI 1000"),
   TAIEX: msg("TAIEX"),
+  NK225: msg("Nikkei 225"),
+  XJO: msg("S&P/ASX 200"),
   NIFTY: msg("Nifty 50"),
   BANKNIFTY: msg("Nifty Bank"),
   SENSEX: msg("BSE Sensex"),
@@ -161,6 +166,7 @@ const SYMBOLS: Readonly<Record<string, string>> = {
   HKD: "HK$",
   CNY: "¥",
   TWD: "NT$",
+  AUD: "A$",
   INR: "₹",
   EUR: "€",
   CHF: "CHF ",
@@ -810,7 +816,7 @@ ${helpPanel(
   )}</p><p>${tr(
     "United States: Cboe's 15-minute delayed chains for the S&amp;P 500, Nasdaq-100 and Russell 2000 indexes and the most traded ETFs and stocks, with Cboe's own volatility and open interest, the spot taken as the forward. Read every 15 minutes through the US session; outside it the figures are the last session's.",
   )}</p><p>${tr(
-    "Asia and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.",
+    "Asia-Pacific and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, its three nearest months), ASX (S&amp;P/ASX 200), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement (for ASX, its closing theoretical price) with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.",
   )}</p>`,
 )}`;
 

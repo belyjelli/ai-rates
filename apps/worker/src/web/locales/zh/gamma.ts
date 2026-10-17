@@ -87,8 +87,8 @@ export const gamma: Catalog = {
     "加密货币：Deribit 的 BTC 和 ETH 期权簿，它们占上市加密期权的大部分；Bybit、OKX 和 Binance 的期权少得多，未计入。持仓量、标记波动率和各到期日的远期价格均为 Deribit 自己的数据；Gamma 由此按 Black-76 计算，可复现 Deribit 自己的 Delta 和 Vega。每五分钟读取一次。",
   "United States: Cboe's 15-minute delayed chains for the S&amp;P 500, Nasdaq-100 and Russell 2000 indexes and the most traded ETFs and stocks, with Cboe's own volatility and open interest, the spot taken as the forward. Read every 15 minutes through the US session; outside it the figures are the last session's.":
     "美国：Cboe 延迟 15 分钟的期权链，涵盖标普 500、纳斯达克 100 和罗素 2000 指数以及交易最活跃的 ETF 和个股，波动率和持仓量为 Cboe 自己的数据，以现货价作为远期价格。美股交易时段内每 15 分钟读取一次；时段外显示上一交易时段的数字。",
-  "Asia and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.":
-    "亚洲和欧洲：各交易所的日终文件，发布后读取一次 —— 港交所（恒生系列指数）、中金所（沪深 300、上证 50、中证 1000）、台湾期交所（台湾加权指数）、NSE 和 BSE（Nifty、Sensex）以及 Eurex（欧洲斯托克 50、DAX、SMI）。它们公布结算价和持仓量，但不公布波动率，因此各行权价的波动率由其价外结算价按 Black-76 反推，远期价格取自看涨看跌平价或交易所自己的期货。这些数字以合约结算货币计，截至当日收盘。",
+  "Asia-Pacific and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, its three nearest months), ASX (S&amp;P/ASX 200), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement (for ASX, its closing theoretical price) with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.":
+    "亚太和欧洲：各交易所的日终文件，发布后读取一次 —— 港交所（恒生系列指数）、中金所（沪深 300、上证 50、中证 1000）、台湾期交所（台湾加权指数）、日本交易所 JPX（日经 225，最近三个合约月）、澳交所 ASX（S&amp;P/ASX 200）、NSE 和 BSE（Nifty、Sensex）以及 Eurex（欧洲斯托克 50、DAX、SMI）。它们公布结算价和持仓量，但不公布波动率，因此各行权价的波动率由其价外结算价（ASX 为收盘理论价）按 Black-76 反推，远期价格取自看涨看跌平价或交易所自己的期货。这些数字以合约结算货币计，截至当日收盘。",
   "The options data could not be read right now.": "暂时无法读取期权数据。",
   "No gamma exposure has been computed for {currency} yet.": "{currency} 尚未计算 Gamma 敞口。",
   "{source}'s {currency} options were last read {ago}, too long ago to show as current positioning.":
@@ -156,6 +156,8 @@ export const gamma: Catalog = {
   "SSE 50": "上证 50",
   "CSI 1000": "中证 1000",
   TAIEX: "台湾加权指数",
+  "Nikkei 225": "日经 225",
+  "S&P/ASX 200": "S&P/ASX 200（澳洲）",
   "Nifty 50": "Nifty 50",
   "Nifty Bank": "Nifty 银行指数",
   "BSE Sensex": "孟买 Sensex",

@@ -96,8 +96,8 @@ export const gamma: Catalog = {
     "暗号資産：Deribit の BTC と ETH のオプション。上場している暗号資産オプションの大半を占めます。Bybit、OKX、Binance の上場数ははるかに少なく、含めていません。建玉、マークボラティリティ、各満期のフォワードは Deribit 自身のもので、ガンマはそこから Black-76 で計算しており、Deribit 自身のデルタとベガを再現します。5分ごとに取得します。",
   "United States: Cboe's 15-minute delayed chains for the S&amp;P 500, Nasdaq-100 and Russell 2000 indexes and the most traded ETFs and stocks, with Cboe's own volatility and open interest, the spot taken as the forward. Read every 15 minutes through the US session; outside it the figures are the last session's.":
     "米国：Cboe の15分遅延のオプションチェーン。S&amp;P 500、ナスダック100、ラッセル2000 の各指数と、取引の多い ETF・個別株が対象で、ボラティリティと建玉は Cboe 自身のもの、フォワードには現物価格を用います。米国の取引時間中は15分ごとに取得し、時間外は直前のセッションの数値です。",
-  "Asia and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.":
-    "アジアと欧州：各取引所の日次ファイルを、公開後に1回取得します：HKEX（ハンセン系指数）、CFFEX（CSI 300、上証50、CSI 1000）、TAIFEX（台湾加権指数）、NSE と BSE（ニフティ、センセックス）、Eurex（ユーロ・ストックス50、DAX、SMI）。これらは決済価格と建玉を公表しますがボラティリティは公表しないため、各行使価格のボラティリティはアウト・オブ・ザ・マネーの決済価格から Black-76 で逆算し、フォワードにはプット・コール・パリティまたは取引所自身の先物を用います。数値は契約の決済通貨建てで、その日の終値時点のものです。",
+  "Asia-Pacific and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, its three nearest months), ASX (S&amp;P/ASX 200), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement (for ASX, its closing theoretical price) with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.":
+    "アジア太平洋と欧州：各取引所の日次ファイルを、公開後に1回取得します：HKEX（ハンセン系指数）、CFFEX（CSI 300、上証50、CSI 1000）、TAIFEX（台湾加権指数）、JPX（日経225、直近3限月）、ASX（S&amp;P/ASX 200）、NSE と BSE（ニフティ、センセックス）、Eurex（ユーロ・ストックス50、DAX、SMI）。これらは決済価格と建玉を公表しますがボラティリティは公表しないため、各行使価格のボラティリティはアウト・オブ・ザ・マネーの決済価格（ASX は引け時点の理論価格）から Black-76 で逆算し、フォワードにはプット・コール・パリティまたは取引所自身の先物を用います。数値は契約の決済通貨建てで、その日の終値時点のものです。",
   "The options data could not be read right now.": "現在オプションデータを読み込めません。",
   "No gamma exposure has been computed for {currency} yet.":
     "{currency} のガンマエクスポージャーはまだ計算されていません。",
@@ -167,6 +167,8 @@ export const gamma: Catalog = {
   "SSE 50": "上証50",
   "CSI 1000": "CSI 1000",
   TAIEX: "台湾加権指数",
+  "Nikkei 225": "日経225",
+  "S&P/ASX 200": "S&P/ASX 200（豪州）",
   "Nifty 50": "ニフティ50",
   "Nifty Bank": "ニフティ・バンク",
   "BSE Sensex": "BSE センセックス",

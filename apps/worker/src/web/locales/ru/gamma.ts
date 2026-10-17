@@ -93,8 +93,8 @@ export const gamma: Catalog = {
     "Криптовалюта: книги BTC и ETH на Deribit, где сосредоточена большая часть биржевых криптоопционов; на Bybit, OKX и Binance опционов гораздо меньше, и они не учитываются. Открытый интерес, волатильность маркировки и форвард каждой экспирации — данные самой Deribit; гамма рассчитывается по ним через Black-76, что воспроизводит собственные дельту и вегу Deribit. Обновляется каждые пять минут.",
   "United States: Cboe's 15-minute delayed chains for the S&amp;P 500, Nasdaq-100 and Russell 2000 indexes and the most traded ETFs and stocks, with Cboe's own volatility and open interest, the spot taken as the forward. Read every 15 minutes through the US session; outside it the figures are the last session's.":
     "США: цепочки Cboe с задержкой 15 минут по индексам S&amp;P 500, Nasdaq-100 и Russell 2000 и самым торгуемым ETF и акциям, с собственными волатильностью и открытым интересом Cboe; спот принимается за форвард. Обновляется каждые 15 минут в американскую сессию; вне её показаны данные последней сессии.",
-  "Asia and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.":
-    "Азия и Европа: файл каждой биржи по итогам дня, читается один раз после публикации — HKEX (индексы Hang Seng), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), NSE и BSE (Nifty, Sensex) и Eurex (Euro Stoxx 50, DAX, SMI). Они публикуют расчётные цены и открытый интерес, но не волатильность, поэтому волатильность каждого страйка выводится по Black-76 из расчётной цены его опциона вне денег, относительно форварда из паритета пут-колл или собственного фьючерса биржи. Значения — в валюте расчётов по контракту, на закрытие того дня.",
+  "Asia-Pacific and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, its three nearest months), ASX (S&amp;P/ASX 200), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement (for ASX, its closing theoretical price) with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.":
+    "АТР и Европа: файл каждой биржи по итогам дня, читается один раз после публикации — HKEX (индексы Hang Seng), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, три ближайших месяца), ASX (S&amp;P/ASX 200), NSE и BSE (Nifty, Sensex) и Eurex (Euro Stoxx 50, DAX, SMI). Они публикуют расчётные цены и открытый интерес, но не волатильность, поэтому волатильность каждого страйка выводится по Black-76 из расчётной цены его опциона вне денег (для ASX — из теоретической цены на закрытие), относительно форварда из паритета пут-колл или собственного фьючерса биржи. Значения — в валюте расчётов по контракту, на закрытие того дня.",
   "The options data could not be read right now.":
     "Данные по опционам сейчас не удалось прочитать.",
   "No gamma exposure has been computed for {currency} yet.":
@@ -165,6 +165,8 @@ export const gamma: Catalog = {
   "SSE 50": "SSE 50",
   "CSI 1000": "CSI 1000",
   TAIEX: "TAIEX (Тайвань)",
+  "Nikkei 225": "Nikkei 225 (Япония)",
+  "S&P/ASX 200": "S&P/ASX 200 (Австралия)",
   "Nifty 50": "Nifty 50",
   "Nifty Bank": "Nifty Bank",
   "BSE Sensex": "BSE Sensex",
