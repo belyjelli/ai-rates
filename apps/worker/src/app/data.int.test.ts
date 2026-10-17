@@ -897,6 +897,13 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       venueTypes: null,
       maxAbsApr: null,
       sameQuote: false,
+
+      assetClass: null,
+      minSpreadApr: null,
+      maxSpreadApr: null,
+      intervalHours: null,
+      query: null,
+      unit: "apr",
       sort,
       limit: 200,
     });
@@ -925,6 +932,13 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       venueTypes: null,
       maxAbsApr: null,
       sameQuote: false,
+
+      assetClass: null,
+      minSpreadApr: null,
+      maxSpreadApr: null,
+      intervalHours: null,
+      query: null,
+      unit: "apr",
       sort: "stability",
       limit: 200,
     });
@@ -1354,6 +1368,13 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         venueTypes: null,
         maxAbsApr: 1000,
         sameQuote: false,
+
+        assetClass: null,
+        minSpreadApr: null,
+        maxSpreadApr: null,
+        intervalHours: null,
+        query: null,
+        unit: "apr",
         sort: "spread",
         limit: 1,
       }),
