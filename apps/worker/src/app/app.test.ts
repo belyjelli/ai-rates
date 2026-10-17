@@ -143,6 +143,24 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
     bookQuality: async () => ({ rows: [], weights: {} }),
     exchangeReserves: async () => [],
+    searchIndex: async () => [
+      {
+        base: "BTC",
+        asset_class: "crypto",
+        venues: 24,
+        open_interest_usd: 3.2e10,
+        quoted: true,
+        whale_venue: "binance",
+      },
+      {
+        base: "AAPL",
+        asset_class: "equity",
+        venues: 6,
+        open_interest_usd: null,
+        quoted: false,
+        whale_venue: null,
+      },
+    ],
     gamma: async ({ currency }) => ({
       currency,
       books: [],
@@ -5228,5 +5246,32 @@ describe("load shedding", () => {
     for (const path of ["/robots.txt", "/sitemap.xml", "/v1/openapi.json", "/v1/venues"]) {
       expect((await get(path, refused)).status).toBe(200);
     }
+  });
+});
+
+describe("site-wide search", () => {
+  test("/data/search lists every asset compactly, deepest first, cached five minutes", async () => {
+    const { data } = fakeData();
+    const response = await get("/data/search", data);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    // [ticker, class index, venues, open interest (0 unknown), quoted, whale venue or 0]
+    expect(await response.json()).toEqual({
+      a: [
+        ["BTC", 0, 24, 32_000_000_000, 1, "binance"],
+        ["AAPL", 1, 6, 0, 0, 0],
+      ],
+    });
+  });
+
+  test("every page carries the overlay, its button hidden until the script reveals it", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/screener", data)).text();
+    expect(html).toContain('<div class="cmdk" id="cmdk" hidden>');
+    expect(html).toMatch(/<button type="button" class="cmdk-btn" data-cmdk-open hidden/);
+    expect(html.match(/window\.airratesSearch = open/g)).toHaveLength(1);
+    // The plain K key is one of the site's shortcuts, so /keys lists it.
+    expect(html).toContain('"search":{"key":"k"');
   });
 });

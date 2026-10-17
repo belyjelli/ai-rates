@@ -2,6 +2,7 @@ import { ASSET_CLASSES, type AssetClass, backtestDaily, dailyWindowStart } from 
 import { VENUES } from "@ai-rates/venues";
 import { referralsFor } from "../referrals/policy";
 import { about } from "../web/about";
+import { SEARCH_PATH, searchJson } from "../web/command";
 import { convergencePage } from "../web/convergence-page";
 import { cvd } from "../web/cvd";
 import { docs } from "../web/docs";
@@ -214,6 +215,20 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           },
         },
       );
+    }
+
+    // The site-wide search's asset list (web/command.ts), fetched when a reader first opens it. The
+    // edge keeps it five minutes: a new listing waits that long to be found, and the query runs a few
+    // times an hour rather than once per search.
+    if (path === SEARCH_PATH) {
+      const rows = await deps.data.searchIndex();
+      return new Response(searchJson(rows), {
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "cache-control": "public, max-age=300",
+          "x-robots-tag": "noindex, nofollow",
+        },
+      });
     }
 
     if (path === "/") {

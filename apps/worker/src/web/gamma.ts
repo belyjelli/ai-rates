@@ -159,6 +159,9 @@ const rawName = (currency: string): string => {
   const name = BOOK_NAMES[currency];
   return name ? trMsg(name) : currency;
 };
+/** Every book the site has a name for, as [ticker, name in the page's language], for the search. */
+export const namedBooks = (): [string, string][] =>
+  BOOK_ORDER.map((currency) => [currency, rawName(currency)]);
 /** The same, escaped for markup. */
 export const bookName = (currency: string): string => esc(rawName(currency));
 

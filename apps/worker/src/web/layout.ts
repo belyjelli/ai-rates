@@ -1,6 +1,7 @@
 import type { Overview } from "../app/data";
 import { BUILD } from "../build-info";
 import { awaitScript } from "./await";
+import { SEARCH_CSS, searchButton, searchDialog, searchScript } from "./command";
 import { durationStrings, esc, sentimentLabel, sentimentTone, since } from "./format";
 import { HELP_CSS, HELP_SCRIPT } from "./help";
 import { hotkeyLegend, hotkeyScript, keyboardIcon } from "./hotkeys";
@@ -1249,11 +1250,11 @@ ${GA_TAG}
 <meta name="description" content="${esc(description)}">
 ${discoverability(title, description, path)}
 ${INSTALL_HEAD}
-<style>${CSS}${SHARE_CSS}${INSTALL_CSS}${HELP_CSS}</style>
+<style>${CSS}${SHARE_CSS}${INSTALL_CSS}${HELP_CSS}${SEARCH_CSS}</style>
 </head>
 <body data-rendered="${now}" data-build="${esc(BUILD.commit ?? "")}">
 <header class="mast">
-<div class="wrap bar"><a class="brand" href="/">airrates<small>${tr("What settled. Not what might.")}</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${shareBar()}<button type="button" class="clock" id="clock">--:--:--</button></div>
+<div class="wrap bar"><a class="brand" href="/">airrates<small>${tr("What settled. Not what might.")}</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${shareBar()}${searchButton()}<button type="button" class="clock" id="clock">--:--:--</button></div>
 <div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><a class="keys" href="/keys" title="${tr("Keyboard shortcuts: change them on the keyboard page")}">${hotkeyLegend()}</a></div>
 </header>
 <main class="wrap" data-loading="${esc(tr("Loading…"))}">${body}</main>
@@ -1262,9 +1263,11 @@ ${INSTALL_HEAD}
 <nav class="langs" aria-label="${tr("Language")}"><span>${tr("language:")}</span>${languages}</nav>
 <p>${tr("Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.")}</p>
 </div></footer>
+${searchDialog()}
 <script>${pageScript()}</script>
 <script>${localTimeScript()}</script>
 <script>${hotkeyScript()}</script>
+<script>${searchScript()}</script>
 <script>${HELP_SCRIPT}</script>
 <script>${LIVE_SCRIPT}</script>
 <script>${awaitScript()}</script>

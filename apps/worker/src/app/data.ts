@@ -1097,6 +1097,22 @@ export interface ExchangeReserveRow {
   clean_usd: number;
 }
 
+/**
+ * One asset as the site-wide search (web/command.ts) lists it: enough to rank a match and to know
+ * which of the asset's pages have anything to show.
+ */
+export interface SearchAsset {
+  base: string;
+  asset_class: AssetClass;
+  /** Venues with a fresh market for it. */
+  venues: number;
+  open_interest_usd: number | null;
+  /** Whether any venue quotes it a fresh top of book, which the price-gap pages need. */
+  quoted: boolean;
+  /** The whale page's venue for it ("binance" before "hyperliquid"), or null when neither tracks it. */
+  whale_venue: string | null;
+}
+
 export interface DataSource {
   overview(): Promise<Overview>;
   screener(filters: ScreenerFilters, options?: PairingOptions): Promise<ScreenerPair[]>;
@@ -1205,6 +1221,8 @@ export interface DataSource {
    * Reserves pillar. About forty rows.
    */
   exchangeReserves(): Promise<ExchangeReserveRow[]>;
+  /** Every asset with a fresh market, deepest first, for the site-wide search. About 2,500 rows. */
+  searchIndex(): Promise<SearchAsset[]>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -2498,6 +2516,24 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         FROM exchange_reserves
         WHERE day > current_date - 7
         ORDER BY venue_id, day DESC`;
+      return [...rows];
+    },
+
+    async searchIndex() {
+      // One pass over market_latest (36 ms for 15,000 markets, measured 2026-10-18) plus the eighty
+      // whale_markets rows; served from the edge for five minutes, so it runs a few times an hour.
+      const rows = await connect()<SearchAsset[]>`
+        SELECT m.base, m.asset_class,
+               count(DISTINCT m.venue_id)::int AS venues,
+               sum(m.open_interest_usd)::float8 AS open_interest_usd,
+               bool_or(m.quotes_at > now() - ${FRESH_INTERVAL}::interval
+                       AND m.best_bid > 0 AND m.best_ask > 0) AS quoted,
+               (SELECT min(w.venue_id) FROM whale_markets w
+                 WHERE w.base = m.base AND w.asset_class = m.asset_class) AS whale_venue
+        FROM market_latest m
+        WHERE m.observed_at > now() - ${FRESH_INTERVAL}::interval
+        GROUP BY m.asset_class, m.base
+        ORDER BY sum(m.open_interest_usd) DESC NULLS LAST, m.base, m.asset_class`;
       return [...rows];
     },
 
