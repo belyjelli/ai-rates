@@ -384,7 +384,8 @@ export const SCREENER_SCRIPT = `(() => {
   const search = form.querySelector("input[name=q]");
   const sift = () => {
     const words = search.value.trim().toLowerCase();
-    for (const r of rows()) r.hidden = words !== "" && !r.dataset.k.toLowerCase().includes(words);
+    // A row's key is "equity:SPY" for anything but crypto; match the asset, never the class.
+    for (const r of rows()) r.hidden = words !== "" && !r.dataset.k.replace(/^[a-z]+:/, "").toLowerCase().includes(words);
   };
   search.addEventListener("input", sift);
   // The live refresh swaps the table's rows every so often; a search still typed keeps them sifted.
