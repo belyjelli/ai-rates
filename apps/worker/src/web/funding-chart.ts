@@ -11,7 +11,7 @@ const HOURS_PER_YEAR = 8_760;
 
 /**
  * Colours for the exchanges that are not a leg. Long and short keep the site's blue and red, and
- * nothing here is either, so a toggled-on venue can never be read as a leg.
+ * nothing here is either, so an exchange shown beside them can never be read as a leg.
  */
 const PALETTE = [
   "#c8f5a8",
@@ -223,14 +223,8 @@ const chartScript = () => `(() => {
     const read = chart.querySelector(".fchart-read");
     const cursor = chart.querySelector(".fchart-cursor");
     const idle = read.textContent;
-    const boxes = new Map([...chart.querySelectorAll("input[data-series]")].map((box) => [box.dataset.series, box]));
-    for (const [key, box] of boxes) {
-      box.addEventListener("change", () => {
-        for (const line of chart.querySelectorAll("path[data-series]")) {
-          if (line.dataset.series === key) line.classList.toggle("off", !box.checked);
-        }
-      });
-    }
+    // A line is read while it is drawn; which ones are drawn is the page's choice (backtest-swap.ts).
+    const lines = new Map([...chart.querySelectorAll("path[data-series]")].map((line) => [line.dataset.series, line]));
     plot.addEventListener("pointermove", (event) => {
       const rect = plot.getBoundingClientRect();
       const f = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
@@ -240,7 +234,7 @@ const chartScript = () => `(() => {
       cursor.classList.remove("off");
       const parts = [when(data.from + offset * data.unit, data.grain === "hour")];
       for (const series of data.series) {
-        if (boxes.get(series.key) && !boxes.get(series.key).checked) continue;
+        if (lines.get(series.key) && lines.get(series.key).classList.contains("off")) continue;
         const point = holding(series.points, offset);
         if (point) parts.push(series.label + " " + pct(point[1]));
       }
@@ -260,8 +254,9 @@ const chartScript = () => `(() => {
 /**
  * The pair page's funding comparison: every listed market's funding over the window on one signed
  * log scale, the scale the rails use, so an ordinary 10% and a distressed 2,500% stay readable
- * together. With a pair chosen, its legs and their spread are drawn and every other exchange is a
- * toggle away; without one, every exchange is drawn.
+ * together. With a pair chosen, its legs and their spread are drawn; without one, every exchange is.
+ * The key names only the lines drawn: which exchanges those are is the page's exchange picker
+ * (backtest-swap.ts), not a checkbox per line.
  *
  * The scale spans every market, visible or not, so switching a venue on never rescales the lines
  * already being read.
@@ -318,10 +313,13 @@ export function renderFundingChart(
     ...all.filter((s) => s.role === "long"),
     ...all.filter((s) => s.role === "spread"),
   ];
+  // A market's line and key carry its exchange, for the page's exchange picker to show and hide.
+  const venueOf = (series: FundingSeries) =>
+    series.role === "spread" ? "" : ` data-venue="${esc(series.key.split("|")[0] ?? "")}"`;
   const lines = drawOrder
     .map(
       (series) =>
-        `<path class="fchart-line ${series.role}${on(series) ? "" : " off"}" data-series="${esc(series.key)}"${series.role === "other" ? ` style="stroke:${swatch(series)}"` : ""} d="${stepPath(series.points, x, y, grainMs, toMs)}"></path>`,
+        `<path class="fchart-line ${series.role}${on(series) ? "" : " off"}" data-series="${esc(series.key)}"${venueOf(series)}${series.role === "other" ? ` style="stroke:${swatch(series)}"` : ""} d="${stepPath(series.points, x, y, grainMs, toMs)}"></path>`,
     )
     .join("");
 
@@ -358,7 +356,7 @@ export function renderFundingChart(
   const keys = all
     .map(
       (series) =>
-        `<label><input type="checkbox" data-series="${esc(series.key)}"${series.role === "spread" ? "" : ` data-venue="${esc(series.key.split("|")[0] ?? "")}"`}${on(series) ? " checked" : ""}><i style="background:${swatch(series)}"></i>${esc(series.label)}</label>`,
+        `<span class="fchart-key${on(series) ? "" : " off"}" data-series="${esc(series.key)}"${venueOf(series)}><i style="background:${swatch(series)}"></i>${esc(series.label)}</span>`,
     )
     .join("");
 

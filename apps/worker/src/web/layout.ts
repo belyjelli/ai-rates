@@ -1025,8 +1025,7 @@ input[type=checkbox]{accent-color:var(--accent)}
 .fchart-head{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 16px;margin-bottom:8px}
 .fchart-title{color:var(--muted)}
 .fchart-keys{display:flex;flex-wrap:wrap;gap:2px 12px}
-.fchart-keys label{display:flex;align-items:center;gap:5px;color:var(--muted);cursor:pointer}
-.fchart-keys input{accent-color:var(--accent);margin:0}
+.fchart-keys .fchart-key{display:flex;align-items:center;gap:5px;color:var(--muted)}
 .fchart-keys i{display:inline-block;width:12px;height:2px}
 .fchart-plot{position:relative;height:220px;margin:6px 0 20px 48px}
 .fchart svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}

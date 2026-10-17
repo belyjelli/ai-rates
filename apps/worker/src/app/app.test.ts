@@ -3271,9 +3271,17 @@ describe("pages", () => {
     expect(html).toContain('<path class="fchart-line long" data-series="gate|BTC_USDT"');
     expect(html).toContain('<path class="fchart-line short" data-series="okx|BTC-USDT-SWAP"');
     expect(html).toContain('<path class="fchart-line spread" data-series="spread"');
-    expect(html).toContain('<path class="fchart-line other off" data-series="bybit|BTCUSDT"');
-    expect(html).toContain('data-series="gate|BTC_USDT" data-venue="gate" checked>');
-    expect(html).toContain('data-series="bybit|BTCUSDT" data-venue="bybit"><i');
+    expect(html).toContain(
+      '<path class="fchart-line other off" data-series="bybit|BTCUSDT" data-venue="bybit"',
+    );
+    // The key names the lines drawn and has no checkboxes: the exchange picker shows and hides them.
+    expect(html).toContain(
+      '<span class="fchart-key" data-series="gate|BTC_USDT" data-venue="gate"><i',
+    );
+    expect(html).toContain(
+      '<span class="fchart-key off" data-series="bybit|BTCUSDT" data-venue="bybit"><i',
+    );
+    expect(html).not.toContain('<input type="checkbox" data-series=');
     // The legs are picked in their pickers, and the chart's exchange picker starts on just them.
     expect(html).toContain(
       '<input type="radio" name="long" value="gate" data-vp-name="Gate" checked>',

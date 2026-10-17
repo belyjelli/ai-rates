@@ -13,13 +13,14 @@ import { CHART_SKELETON_JS } from "./chart-skeleton";
  * same rule as await.ts); anything else that is not a page navigates there, so the server's own page
  * explains it. Changes made while one is loading are kept, and only the last one runs next.
  *
- * The chart's exchange picker ([data-bt-lines]) only shows and hides lines. Once the reader has used
- * it, their set is kept across swaps, with the two legs always added back: a newly picked leg is
- * never hidden by an older choice.
+ * The chart's exchange picker ([data-bt-lines]) is the only way to show and hide its lines: it draws
+ * the chosen exchanges and names only them in the chart's key. Once the reader has used it, their
+ * set is kept across swaps, with the two legs always added back: a newly picked leg is never hidden
+ * by an older choice.
  *
  * Markup contract, set by pages.ts: form[data-bt] (data-loading: the placeholder's words),
  * [data-bt-view], a[data-bt-swap] for links that change the backtest, [data-bt-lines] with a
- * data-leg on each leg's tile, and data-venue on the chart's own line toggles (funding-chart.ts).
+ * data-leg on each leg's tile, and data-venue on each chart line and key entry (funding-chart.ts).
  * No backticks or dollar-brace in the script's own code: it is a template literal's text.
  */
 export const BT_SCRIPT = `(() => {
@@ -38,7 +39,11 @@ export const BT_SCRIPT = `(() => {
     return url.href;
   };
 
-  // The reader's chart lines onto a view: its picker's tiles and the chart's own toggles.
+  // An exchange's lines and key entries drawn or not; the spread has no exchange and stays.
+  const draw = (root, want) => {
+    for (const el of root.querySelectorAll(".fchart [data-venue]")) el.classList.toggle("off", !want.has(el.dataset.venue));
+  };
+  // The reader's chart lines onto a swapped-in view: its picker's tiles and the chart.
   const showLines = (root) => {
     if (!lines) return;
     const picker = root.querySelector("[data-bt-lines]");
@@ -49,10 +54,7 @@ export const BT_SCRIPT = `(() => {
       if (tile.checked !== want.has(tile.value)) { tile.checked = want.has(tile.value); changed = changed || tile; }
     }
     if (changed) changed.dispatchEvent(new Event("change", { bubbles: true }));
-    for (const box of root.querySelectorAll(".fchart-keys input[data-venue]")) {
-      const on = want.has(box.dataset.venue);
-      if (box.checked !== on) { box.checked = on; box.dispatchEvent(new Event("change")); }
-    }
+    draw(root, want);
   };
 
   const page = async (url) => {
@@ -113,10 +115,7 @@ export const BT_SCRIPT = `(() => {
     if (picker) {
       if (!t.matches(".sx-tile input")) return;
       lines = new Set([...picker.querySelectorAll(".sx-tile input")].filter((b) => b.checked).map((b) => b.value));
-      for (const box of document.querySelectorAll("[data-bt-view] .fchart-keys input[data-venue]")) {
-        const on = lines.has(box.dataset.venue);
-        if (box.checked !== on) { box.checked = on; box.dispatchEvent(new Event("change")); }
-      }
+      draw(view(), lines);
       return;
     }
     const f = t.form;
