@@ -910,6 +910,8 @@ i.sd{display:inline-block;flex-shrink:0;width:7px;height:7px;margin-right:6px;bo
 /* The backtest (pages.ts pair): leg pickers in the form, and a bar of window and chart lines above the
    chart, which backtest-swap.ts replaces in place. */
 .bt-form .field>span{display:block}
+/* .field lowercases its label; an exchange is spelled its own way. */
+.bt-form .sx-pop{text-transform:none}
 .bt-form .sx-btn{min-width:180px;padding:2px 8px}
 .bt-form .sx-btn b{color:var(--ink)}
 .bt-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin:0 0 6px}
