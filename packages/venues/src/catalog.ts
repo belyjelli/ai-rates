@@ -79,6 +79,8 @@ const cex: Venue[] = [
     id: "binance",
     name: "Binance",
     type: "cex",
+    // Published standard taker fee, checked 2026-10-17: USDⓈ-M regular user, 0.05% taker.
+    takerBps: 5,
     ccxt: "binanceusdm",
     verified: true,
     probes: [
@@ -94,6 +96,8 @@ const cex: Venue[] = [
     id: "bybit",
     name: "Bybit",
     type: "cex",
+    // Published standard taker fee, checked 2026-10-17: Bybit's fee table, VIP 0 USDT perpetual 0.055%.
+    takerBps: 5.5,
     ccxt: "bybit",
     verified: true,
     probes: [get("tickers", "https://api.bybit.com/v5/market/tickers?category=linear")],
@@ -103,6 +107,8 @@ const cex: Venue[] = [
     id: "okx",
     name: "OKX",
     type: "cex",
+    // Published standard taker fee, checked 2026-10-17: regular Lv1 perpetual, 0.05% taker.
+    takerBps: 5,
     ccxt: "okx",
     verified: true,
     probes: [
@@ -130,6 +136,8 @@ const cex: Venue[] = [
     id: "mexc",
     name: "MEXC",
     type: "cex",
+    // Published standard taker fee, checked 2026-10-17: web/app USDT-M 0.02% taker (third-party guides; MEXC changes it by region and promotion).
+    takerBps: 2,
     ccxt: "mexc",
     verified: true,
     probes: [
@@ -141,6 +149,8 @@ const cex: Venue[] = [
     id: "kucoin",
     name: "KuCoin",
     type: "cex",
+    // Published standard taker fee, checked 2026-10-17: KuCoin's futures fee guide, VIP 0 0.06% taker.
+    takerBps: 6,
     ccxt: "kucoinfutures",
     verified: true,
     probes: [get("contracts/active", "https://api-futures.kucoin.com/api/v1/contracts/active")],
@@ -150,6 +160,8 @@ const cex: Venue[] = [
     id: "gate",
     name: "Gate",
     type: "cex",
+    // Published standard taker fee, checked 2026-10-17: Gate's fee guide, VIP 0 futures 0.05% taker.
+    takerBps: 5,
     ccxt: "gate",
     verified: true,
     probes: [get("contracts", "https://api.gateio.ws/api/v4/futures/usdt/contracts")],
@@ -159,6 +171,8 @@ const cex: Venue[] = [
     id: "htx",
     name: "HTX",
     type: "cex",
+    // Published standard taker fee, checked 2026-10-17: HTX's USDT-M fee page example, 0.06% taker.
+    takerBps: 6,
     ccxt: "htx",
     verified: true,
     probes: [
@@ -169,6 +183,8 @@ const cex: Venue[] = [
     id: "bingx",
     name: "BingX",
     type: "cex",
+    // Published standard taker fee, checked 2026-10-17: BingX's perpetual fee article, 0.050% taker.
+    takerBps: 5,
     ccxt: "bingx",
     verified: true,
     probes: [get("premiumIndex", "https://open-api.bingx.com/openApi/swap/v2/quote/premiumIndex")],
@@ -188,6 +204,8 @@ const cex: Venue[] = [
     id: "deribit",
     name: "Deribit",
     type: "cex",
+    // Published standard taker fee, checked 2026-10-17: perpetual 0.05% taker.
+    takerBps: 5,
     ccxt: "deribit",
     verified: true,
     probes: [
@@ -293,6 +311,8 @@ const dex: Venue[] = [
     id: "hyperliquid",
     name: "Hyperliquid",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-17: docs fee table, tier 0 perps 0.045% taker.
+    takerBps: 4.5,
     ccxt: "hyperliquid",
     verified: true,
     probes: [
@@ -327,6 +347,8 @@ const dex: Venue[] = [
     id: "aster",
     name: "Aster",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-17: Pro mode 0.035% taker.
+    takerBps: 3.5,
     ccxt: "aster",
     verified: true,
     maxLeverage: 10,
@@ -348,6 +370,8 @@ const dex: Venue[] = [
     id: "lighter",
     name: "Lighter",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-17: standard accounts: its own orderBooks API lists taker_fee 0.0000.
+    takerBps: 0,
     ccxt: "lighter",
     verified: true,
     maxLeverage: 10,
@@ -358,6 +382,8 @@ const dex: Venue[] = [
     id: "pacifica",
     name: "Pacifica",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-17: about 0.04% taker (third-party guide).
+    takerBps: 4,
     verified: true,
     probes: [get("prices", "https://api.pacifica.fi/api/v1/info/prices")],
     notes: "Bulk: data[] funding, next_funding, mark, oracle, open_interest, volume_24h.",
@@ -389,6 +415,8 @@ const dex: Venue[] = [
     id: "extended",
     name: "Extended",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-17: 0.025% taker (third-party profile).
+    takerBps: 2.5,
     ccxt: "extended",
     verified: true,
     probes: [get("info/markets", "https://api.starknet.extended.exchange/api/v1/info/markets")],
@@ -398,6 +426,8 @@ const dex: Venue[] = [
     id: "grvt",
     name: "GRVT",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-17: entry tier 0.045% taker.
+    takerBps: 4.5,
     ccxt: "grvt",
     verified: true,
     probes: [
@@ -519,6 +549,8 @@ const dex: Venue[] = [
     id: "dydx",
     name: "dYdX",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-17: tier 1 0.05% taker.
+    takerBps: 5,
     ccxt: "dydx",
     verified: true,
     probes: [get("perpetualMarkets", "https://indexer.dydx.trade/v4/perpetualMarkets")],

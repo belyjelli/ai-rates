@@ -986,6 +986,36 @@ export interface MacroData {
   cot: CotRow[];
 }
 
+/**
+ * One venue's order book for one basket asset, as the collector's "book quality" job summarises it
+ * (migration 040): medians over the last seven days of snapshots taken every ten minutes. Slippage is
+ * in basis points beyond the mid, the average of buying and selling, over the snapshots where both
+ * filled; `unfilled_100k` is the share where $100k could not.
+ */
+export interface BookQualityRow {
+  venue_id: string;
+  base: string;
+  samples: number;
+  first_at: Date;
+  last_at: Date;
+  spread_bps: number;
+  slip_10k_bps: number | null;
+  slip_100k_bps: number | null;
+  unfilled_100k: number;
+  /** Dollars resting within 1% of the mid, and within 0.1%. */
+  depth_usd: number;
+  depth_near_usd: number;
+  /** The market's open interest over the window, the median. */
+  open_interest_usd: number;
+  reach_pct: number;
+}
+
+export interface BookQualityData {
+  rows: BookQualityRow[];
+  /** Each basket asset's open interest across every venue, the weight it carries in a venue's figures. */
+  weights: Record<string, number>;
+}
+
 export interface DataSource {
   overview(): Promise<Overview>;
   screener(filters: ScreenerFilters, options?: PairingOptions): Promise<ScreenerPair[]>;
@@ -1081,6 +1111,12 @@ export interface DataSource {
    * and, for the positioning tab, three years of the Commitments of Traders. A few thousand rows.
    */
   macro(needs: MacroNeeds): Promise<MacroData>;
+  /**
+   * The order-book medians behind the Exchanges page's trading costs and grades (collector migration
+   * 040), every measured venue's or one venue's, with each basket asset's open interest as its weight.
+   * About two hundred rows.
+   */
+  bookQuality(options: { basket: readonly string[]; venueId?: string }): Promise<BookQualityData>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -2278,6 +2314,30 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         curve: [...curve],
         expiries: [...expiries],
       };
+    },
+
+    async bookQuality({ basket, venueId }) {
+      const sql = connect();
+      // The basket's symbols are letters, so a comma-joined list splits safely (see macro()).
+      const list = basket.join(",");
+      const [rows, weights] = await Promise.all([
+        sql<BookQualityRow[]>`
+          SELECT venue_id, base, samples, first_at, last_at, spread_bps, slip_10k_bps, slip_100k_bps,
+                 unfilled_100k, depth_usd, depth_near_usd, open_interest_usd, reach_pct
+          FROM book_quality
+          WHERE window_days = 7 AND base = ANY(string_to_array(${list}, ','))
+            ${venueId ? sql`AND venue_id = ${venueId}` : sql``}
+          ORDER BY venue_id, base`,
+        sql<{ base: string; oi: number }[]>`
+          SELECT base, sum(open_interest_usd)::float8 AS oi
+          FROM market_latest
+          WHERE observed_at > now() - ${FRESH_INTERVAL}::interval AND asset_class = 'crypto'
+            AND base = ANY(string_to_array(${list}, ','))
+          GROUP BY base`,
+      ]);
+      const out: Record<string, number> = {};
+      for (const w of weights) out[w.base] = w.oi;
+      return { rows: [...rows], weights: out };
     },
 
     async macro(needs) {

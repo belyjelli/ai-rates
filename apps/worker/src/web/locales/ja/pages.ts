@@ -136,20 +136,13 @@ export const pages: Catalog = {
 
   // exchanges and one exchange
   Exchanges: "取引所",
-  "Perpetual futures exchanges tracked by airrates, with live market counts, open interest and volume.":
-    "airrates が追跡する無期限先物取引所。稼働中の銘柄数、建玉、出来高を掲載。",
-  "Every exchange with markets reported in the last five minutes. Open interest and volume are summed across its perpetual markets, where the exchange reports them.":
-    "直近5分間に銘柄データを報告したすべての取引所。建玉と出来高は、取引所が公表している場合に無期限先物銘柄全体で合計しています。",
   "No exchange has reported in the last five minutes.":
     "直近5分間、どの取引所からもデータがありません。",
   Exchange: "取引所",
   Type: "種類",
-  "Live markets": "稼働銘柄",
   "Open interest": "建玉",
   "24h volume": "24時間出来高",
   Updated: "更新",
-  "Not collected yet: {venues}. Some block access from our data location or don't publish a usable funding API.":
-    "未収集：{venues}。データ収集拠点からのアクセスを遮断している取引所や、利用可能な資金調達率 API を公開していない取引所があります。",
   "{venue}: {count} live perp markets, {oi} open interest. Richest funding {richest} at {richestApr} a year; cheapest {cheapest} at {cheapestApr}.":
     "{venue}：稼働中の無期限先物 {count}銘柄、建玉 {oi}。資金調達率が最も高いのは {richest}（年率 {richestApr}）、最も低いのは {cheapest}（年率 {cheapestApr}）。",
   "{venue} funding rates": "{venue} の資金調達率",

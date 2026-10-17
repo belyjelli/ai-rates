@@ -134,20 +134,13 @@ export const pages: Catalog = {
 
   // exchanges and one exchange
   Exchanges: "Биржи",
-  "Perpetual futures exchanges tracked by airrates, with live market counts, open interest and volume.":
-    "Биржи бессрочных фьючерсов, которые отслеживает airrates: число активных рынков, открытый интерес и объём.",
-  "Every exchange with markets reported in the last five minutes. Open interest and volume are summed across its perpetual markets, where the exchange reports them.":
-    "Все биржи, приславшие данные о рынках за последние пять минут. Открытый интерес и объём суммируются по бессрочным рынкам биржи, если она их публикует.",
   "No exchange has reported in the last five minutes.":
     "За последние пять минут ни одна биржа не прислала данные.",
   Exchange: "Биржа",
   Type: "Тип",
-  "Live markets": "Активные рынки",
   "Open interest": "Открытый интерес",
   "24h volume": "Объём за 24 ч",
   Updated: "Обновлено",
-  "Not collected yet: {venues}. Some block access from our data location or don't publish a usable funding API.":
-    "Пока не собираются: {venues}. Некоторые блокируют доступ из места, где находятся наши серверы, или не публикуют пригодный API фандинга.",
   "{venue}: {count} live perp markets, {oi} open interest. Richest funding {richest} at {richestApr} a year; cheapest {cheapest} at {cheapestApr}.":
     "{venue}: активных бессрочных рынков — {count}, открытый интерес {oi}. Самый высокий фандинг — {richest}, {richestApr} годовых; самый низкий — {cheapest}, {cheapestApr}.",
   "{venue} funding rates": "Ставки финансирования {venue}",

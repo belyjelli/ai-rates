@@ -41,6 +41,15 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-17",
+    title: "Exchanges graded on what trading there costs",
+    changes: [
+      "The Exchanges page ranks every collected perpetual exchange with a grade from S to D, and shows what a $10k market order costs all in (the exchange's published standard taker fee plus slippage), what $10k and $100k orders pay beyond the mid, the spread, and the depth within 0.1% and 1% of the mid, beside open interest, volume and market count. Each column sorts.",
+      "The costs come from each exchange's public order book, read every ten minutes for twelve majors (BTC, ETH, SOL, XRP, DOGE, BNB, HYPE, SUI, ADA, LINK, AVAX, LTC) on 17 exchanges, as seven-day medians, each asset counted by its open interest across all exchanges. They are what the books promise, not fills. Walls too big to fill are clipped, and depth beyond a tenth of a market's open interest or 2% of an exchange's daily volume does not raise its grade.",
+      "Each exchange's own page shows its grade and every asset's book: spread, slippage at $10k and $100k, depth, and how far its published book reaches.",
+    ],
+  },
+  {
+    date: "2026-10-17",
     title:
       "Macro on the Rates page: inflation, the Fed, jobs, growth, policy signals and positioning",
     changes: [

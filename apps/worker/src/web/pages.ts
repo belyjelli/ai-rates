@@ -620,49 +620,6 @@ ${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short
 </table></div>`;
 }
 
-export function exchanges(data: {
-  overview: Overview;
-  exchanges: ExchangeSummary[];
-  now: number;
-}): string {
-  const live = new Set(data.exchanges.map((e) => e.id));
-  const notCollected = VENUES.filter((v) => !live.has(v.id) && !v.aliasOf && !v.retired).map(
-    (v) => v.name,
-  );
-  const rows = data.exchanges
-    .map(
-      (e) => `<tr data-k="${esc(e.id)}">
-<td><a href="${exchangeHref(e.id)}">${esc(e.name)}</a></td>
-<td class="dim">${VENUE_TYPE_SHORT[e.type] ?? esc(e.type)}</td>
-<td class="num">${e.markets.toLocaleString("en-US")}</td>
-<td class="num">${formatUsd(e.open_interest_usd)}</td>
-<td class="num">${formatUsd(e.volume_24h_usd)}</td>
-<td class="num dim">${since(e.updated_at, data.now)}</td>
-</tr>`,
-    )
-    .join("");
-
-  return layout({
-    title: tr("Exchanges"),
-    description: tr(
-      "Perpetual futures exchanges tracked by airrates, with live market counts, open interest and volume.",
-    ),
-    path: "/markets",
-    overview: data.overview,
-    now: data.now,
-    body: `${helpHeading("h1", tr("Exchanges"), "exchanges", `<p>${tr("Every exchange with markets reported in the last five minutes. Open interest and volume are summed across its perpetual markets, where the exchange reports them.")}</p>`)}
-${
-  data.exchanges.length === 0
-    ? `<div class="sheet-wrap"><p class="empty">${tr("No exchange has reported in the last five minutes.")}</p></div>`
-    : `<div class="sheet-wrap"><table class="sheet"><thead><tr><th>${tr("Exchange")}</th><th>${tr("Type")}</th><th class="num">${tr("Live markets")}</th><th class="num">${tr("Open interest")}</th><th class="num">${tr("24h volume")}</th><th class="num">${tr("Updated")}</th></tr></thead><tbody data-live="exchanges">${rows}</tbody></table></div>`
-}
-<p class="notes">${tr(
-      "Not collected yet: {venues}. Some block access from our data location or don't publish a usable funding API.",
-      { venues: esc(notCollected.join(", ")) },
-    )}</p>`,
-  });
-}
-
 export function exchange(data: {
   venue: Venue;
   markets: MarketRow[];
@@ -671,6 +628,8 @@ export function exchange(data: {
   now: number;
   /** The venue's referral CTA, already geo-gated; empty or absent renders nothing. */
   cta?: string;
+  /** Its trading costs and grade from the order books (exchanges.ts), or empty where not measured. */
+  costs?: string;
 }): string {
   const { venue, markets, now } = data;
   const oi = markets.reduce((sum, m) => sum + (m.open_interest_usd ?? 0), 0);
@@ -729,6 +688,7 @@ export function exchange(data: {
     body: `<p class="eyebrow"><a href="/markets">${tr("Exchanges")}</a> / ${esc(trMsg(VENUE_TYPE_LABEL[venue.type] ?? venue.type))}</p>
 <h1>${esc(venue.name)}</h1>
 ${data.cta ?? ""}
+${data.costs ?? ""}
 ${
   markets.length === 0
     ? `<p class="lede">${tr(

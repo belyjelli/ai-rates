@@ -683,6 +683,17 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 /* The view switch (gamma.ts): the page opens on calls/puts, and only ever hides what a view leaves out. */
 html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gxview=zones]) .gx-v-zone,html[data-gxview=net] .gx-v-split,html[data-gxview=zones] .gx-v-split{display:none}
 .gx-zone-short{fill:var(--short);opacity:.13}.gx-zone-long{fill:var(--long);opacity:.09}
+/* The Exchanges page (exchanges.ts): a grade badge per venue, and cells that carry a second line --
+   the fee under the cost, the $100k slippage under the $10k. */
+.xg{display:inline-block;min-width:20px;padding:1px 4px;text-align:center;font-weight:700;border:1px solid currentColor;line-height:1.2}
+.xg-S{color:#000;background:var(--accent);border-color:var(--accent)}.xg-A{color:var(--accent)}.xg-B{color:#5fd7ff}.xg-C{color:#ff9f43}.xg-D{color:var(--muted)}.xg-none{color:var(--dim);border-color:var(--rule)}
+.xc-table td{vertical-align:top;padding-top:4px;padding-bottom:4px}
+.xc-sub{display:block;font-size:11px;color:var(--muted)}
+.xc-slip span{display:block;white-space:nowrap}.xc-slip i{font-style:normal;color:var(--muted);margin-right:4px}
+.xc-type{font-size:10px;color:var(--muted);border:1px solid var(--rule);padding:0 3px;margin-left:4px}
+.xc-warn{color:#ff9f43;text-decoration:none;border:0;cursor:help}
+.xc-grade{text-align:center}
+.xc-tiles .cvd-big{font-size:clamp(20px,3vw,28px)}
 /* The macro tabs (macro.ts): each line its own colour, set once as --c and read by its stroke, its
    bar and its key; the reference lines (the Fed's 2% target) dotted in yellow. Long and short keep
    their blue and red for who-pays-whom; nothing here is either. */

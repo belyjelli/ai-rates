@@ -3,6 +3,8 @@ import { VENUES } from "@ai-rates/venues";
 import { about } from "../web/about";
 import { cvd } from "../web/cvd";
 import { docs } from "../web/docs";
+import { BOOK_BASKET } from "../web/exchange-grade";
+import { exchangeCosts, exchangesPage, parseExchangeSort } from "../web/exchanges";
 import { esc } from "../web/format";
 import type { FundingHistory } from "../web/funding-chart";
 import { gammaFragment } from "../web/gamma";
@@ -637,11 +639,20 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     }
 
     if (path === "/markets") {
-      const [overview, exchanges] = await Promise.all([
+      const sort = parseExchangeSort(url.searchParams.get("sort"));
+      // The order-book grades read alongside; before the collector's migration 040 and the web role's
+      // grant the read fails, and the page shows every exchange ungraded rather than going down.
+      const [overview, exchanges, quality] = await Promise.all([
         deps.data.overview(),
         deps.data.exchanges(),
+        deps.data.bookQuality({ basket: BOOK_BASKET }).catch((error) => {
+          deps.log?.(
+            `book quality unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return null;
+        }),
       ]);
-      return page(() => pages.exchanges({ overview, exchanges, now }));
+      return page(() => exchangesPage({ overview, exchanges, quality, sort, now }));
     }
 
     if (segments[0] === "markets" && segments[1] === "exchange" && segments.length === 3) {
@@ -652,12 +663,25 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           404,
         );
       // The status line reads the overview; without it the page claimed no venue had reported.
-      const [overview, markets] = await Promise.all([
+      // The grade is relative, so its costs section reads every venue's medians and summaries; a failed
+      // read leaves the section out.
+      const [overview, markets, exchanges, quality] = await Promise.all([
         deps.data.overview(),
         deps.data.exchange(venue.id),
+        deps.data.exchanges(),
+        deps.data.bookQuality({ basket: BOOK_BASKET }).catch(() => null),
       ]);
       const cta = referralCta(venue, deps.referrals?.[venue.id], requestGeo(request));
-      return page(() => pages.exchange({ venue, markets, overview, now, cta }));
+      return page(() =>
+        pages.exchange({
+          venue,
+          markets,
+          overview,
+          now,
+          cta,
+          costs: exchangeCosts(venue.id, quality, exchanges),
+        }),
+      );
     }
 
     if (

@@ -129,19 +129,12 @@ export const pages: Catalog = {
 
   // exchanges and one exchange
   Exchanges: "交易所",
-  "Perpetual futures exchanges tracked by airrates, with live market counts, open interest and volume.":
-    "airrates 追踪的永续合约交易所，含在线市场数、持仓量和成交量。",
-  "Every exchange with markets reported in the last five minutes. Open interest and volume are summed across its perpetual markets, where the exchange reports them.":
-    "最近五分钟内上报过市场数据的所有交易所。持仓量和成交量按其永续合约市场汇总（以交易所公布的为准）。",
   "No exchange has reported in the last five minutes.": "最近五分钟没有交易所上报数据。",
   Exchange: "交易所",
   Type: "类型",
-  "Live markets": "在线市场",
   "Open interest": "持仓量",
   "24h volume": "24 小时成交量",
   Updated: "更新",
-  "Not collected yet: {venues}. Some block access from our data location or don't publish a usable funding API.":
-    "尚未采集：{venues}。其中一些屏蔽了我们数据所在地的访问，或没有提供可用的资金费率 API。",
   "{venue}: {count} live perp markets, {oi} open interest. Richest funding {richest} at {richestApr} a year; cheapest {cheapest} at {cheapestApr}.":
     "{venue}：{count} 个在线永续合约市场，持仓量 {oi}。资金费率最高的是 {richest}，年化 {richestApr}；最低的是 {cheapest}，年化 {cheapestApr}。",
   "{venue} funding rates": "{venue} 资金费率",

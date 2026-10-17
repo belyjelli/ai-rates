@@ -31,6 +31,7 @@
 
 import type { Catalog } from "../../i18n";
 import { charts } from "./charts";
+import { exchanges } from "./exchanges";
 import { gamma } from "./gamma";
 import { keyboard } from "./keyboard";
 import { layout } from "./layout";
@@ -51,6 +52,7 @@ export const ZH_PARTS: Readonly<Record<string, Catalog>> = {
   whales,
   gamma,
   macro,
+  exchanges,
 };
 
 export const zh: Catalog = Object.assign({}, ...Object.values(ZH_PARTS));

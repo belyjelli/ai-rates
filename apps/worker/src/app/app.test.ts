@@ -140,6 +140,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     liquidationFeeds: async () => [],
     whalePositions: async () => [],
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
+    bookQuality: async () => ({ rows: [], weights: {} }),
     gamma: async ({ currency }) => ({
       currency,
       books: [],
@@ -2925,6 +2926,100 @@ describe("pages", () => {
       const page = await get("/rates?gex=BTC", data);
       expect(page.status).toBe(200);
       expect(await page.text()).toContain("The options data could not be read right now.");
+    });
+  });
+
+  describe("exchanges page grades", () => {
+    const at = new Date(NOW - 3 * 86_400_000);
+    const book = (
+      venue_id: string,
+      base: string,
+      slip10: number,
+      slip100: number | null,
+      near: number,
+    ) => ({
+      venue_id,
+      base,
+      samples: 400,
+      first_at: at,
+      last_at: new Date(NOW - 600_000),
+      spread_bps: 0.2,
+      slip_10k_bps: slip10,
+      slip_100k_bps: slip100,
+      unfilled_100k: slip100 === null ? 1 : 0,
+      depth_usd: near * 4,
+      depth_near_usd: near,
+      open_interest_usd: 1e9,
+      reach_pct: 0.5,
+    });
+    const summary = (id: string, name: string, oi: number, volume: number) => ({
+      id,
+      name,
+      type: "cex",
+      markets: 300,
+      open_interest_usd: oi,
+      volume_24h_usd: volume,
+      updated_at: new Date(NOW - 5_000),
+    });
+    const source = () =>
+      fakeData({
+        exchanges: async () => [
+          summary("okx", "OKX", 6.7e9, 16e9),
+          summary("binance", "Binance", 26e9, 37e9),
+          summary("gate", "Gate", 11e9, 10e9),
+        ],
+        bookQuality: async () => ({
+          rows: [
+            book("binance", "BTC", 0.02, 0.2, 60e6),
+            book("binance", "ETH", 0.05, 0.6, 30e6),
+            book("okx", "BTC", 0.03, 1.5, 20e6),
+            book("okx", "ETH", 0.4, null, 5e6),
+          ],
+          weights: { BTC: 60e9, ETH: 30e9 },
+        }),
+      });
+
+    test("measured exchanges rank first with a grade, cost and slippage; the rest are ungraded", async () => {
+      const { data } = source();
+      const html = await (await get("/markets", data)).text();
+      expect(html.indexOf(">Binance<")).toBeLessThan(html.indexOf(">OKX<"));
+      expect(html.indexOf(">OKX<")).toBeLessThan(html.indexOf(">Gate<"));
+      expect(html).toMatch(/class="xg xg-[SABCD]"/);
+      // Binance: a 5 bp taker fee ($5.00 on $10k) plus the BTC/ETH mix's slippage, weighted 2:1.
+      expect(html).toContain("$5.03");
+      expect(html).toContain("fee $5.00");
+      // OKX's ETH book could not hold $100k: it is priced at the penalty and flagged.
+      expect(html).toContain('class="xc-warn"');
+      expect(html).toContain("Not measured: its order book is not read yet");
+    });
+
+    test("sorting by cost puts the cheapest measured exchange first", async () => {
+      const { data } = source();
+      const html = await (await get("/markets?sort=cost", data)).text();
+      expect(html.indexOf(">Binance<")).toBeLessThan(html.indexOf(">OKX<"));
+      expect(html).toContain('aria-sort="descending"><a href="/markets?sort=cost">');
+    });
+
+    test("an exchange's own page shows its grade and each asset's book", async () => {
+      const { data } = source();
+      const html = await (await get("/markets/exchange/okx", data)).text();
+      expect(html).toContain("Trading cost");
+      expect(html).toContain("did not fill");
+      expect(html).toContain("not listed");
+    });
+
+    test("a failed read leaves every exchange ungraded and the page up", async () => {
+      const { data } = fakeData({
+        bookQuality: async () => {
+          throw new Error("relation book_quality does not exist");
+        },
+      });
+      const res = await get("/markets", data);
+      expect(res.status).toBe(200);
+      const html = await res.text();
+      expect(html).toContain("Order books are not measured yet.");
+      expect(html).not.toMatch(/class="xg xg-[SABCD]"/);
+      expect((await get("/markets/exchange/okx", data)).status).toBe(200);
     });
   });
 

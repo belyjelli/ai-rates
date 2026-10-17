@@ -136,20 +136,13 @@ export const pages: Catalog = {
 
   // exchanges and one exchange
   Exchanges: "거래소",
-  "Perpetual futures exchanges tracked by airrates, with live market counts, open interest and volume.":
-    "airrates가 추적하는 무기한 선물 거래소와 활성 종목 수, 미결제약정, 거래량.",
-  "Every exchange with markets reported in the last five minutes. Open interest and volume are summed across its perpetual markets, where the exchange reports them.":
-    "최근 5분 안에 종목 데이터를 보낸 모든 거래소입니다. 미결제약정과 거래량은 거래소가 공개하는 경우 무기한 선물 종목 전체를 합산합니다.",
   "No exchange has reported in the last five minutes.":
     "최근 5분 동안 데이터를 보낸 거래소가 없습니다.",
   Exchange: "거래소",
   Type: "유형",
-  "Live markets": "활성 종목",
   "Open interest": "미결제약정",
   "24h volume": "24시간 거래량",
   Updated: "업데이트",
-  "Not collected yet: {venues}. Some block access from our data location or don't publish a usable funding API.":
-    "아직 수집하지 않음: {venues}. 일부는 저희 데이터 수집 위치의 접속을 차단하거나 쓸 만한 펀딩비 API를 제공하지 않습니다.",
   "{venue}: {count} live perp markets, {oi} open interest. Richest funding {richest} at {richestApr} a year; cheapest {cheapest} at {cheapestApr}.":
     "{venue}: 활성 무기한 선물 종목 {count}개, 미결제약정 {oi}. 펀딩비 최고 {richest}(연 {richestApr}), 최저 {cheapest}(연 {cheapestApr}).",
   "{venue} funding rates": "{venue} 펀딩비",

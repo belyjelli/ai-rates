@@ -37,6 +37,7 @@
 
 import type { Catalog } from "../../i18n";
 import { charts } from "./charts";
+import { exchanges } from "./exchanges";
 import { gamma } from "./gamma";
 import { keyboard } from "./keyboard";
 import { layout } from "./layout";
@@ -57,6 +58,7 @@ export const RU_PARTS: Readonly<Record<string, Catalog>> = {
   whales,
   gamma,
   macro,
+  exchanges,
 };
 
 export const ru: Catalog = Object.assign({}, ...Object.values(RU_PARTS));
