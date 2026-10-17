@@ -22,7 +22,6 @@ export const pages: Catalog = {
   day: "1 天",
   "{n} days": "{n} 天",
   Any: "不限",
-  Reset: "重置",
 
   // home: verified ranking and hero
   "No replay yet: the nightly run needs a week of settled funding on both legs of a pair.":
@@ -194,9 +193,6 @@ export const pages: Catalog = {
   "Price gaps": "价格差",
   "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.":
     "对每个资产，在各盘口最优档找出买入最便宜和卖出最贵的交易所。这些是<b>可报出的价差</b>，而不是可成交的交易：这里既没有反映一档以下的盘口和吃单手续费，也没有反映真实仓位所需的两次资金划转。最大的价差出现在最薄的盘口上——测量时，721 个资产中有 395 个出现价差，中位数为 1.6 个基点，而排名靠前的仅能容纳低至 $3 的挂单量。",
-  "Min gap, bps": "最小价差（基点）",
-  "Any, including 0.0": "不限，含 0.0",
-  "Min resting size": "最小挂单量",
   Apply: "应用",
   "This venue's mark disagrees with the rest, so it is excluded from the gap":
     "该交易所的标记价格与其他交易所不一致，因此不计入价差",
@@ -543,4 +539,6 @@ export const pages: Catalog = {
   "~1h": "约 1 小时",
   "~{n} days": "约 {n} 天",
   "~{n}h": "约 {n} 小时",
+  "Price gap (bps)": "价差（基点）",
+  "Min resting size, thinner side": "最小挂单规模，较薄一侧",
 };

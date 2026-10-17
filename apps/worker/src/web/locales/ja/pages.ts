@@ -26,7 +26,6 @@ export const pages: Catalog = {
   day: "1日",
   "{n} days": "{n}日間",
   Any: "指定なし",
-  Reset: "リセット",
 
   // home: verified ranking and hero
   "No replay yet: the nightly run needs a week of settled funding on both legs of a pair.":
@@ -203,9 +202,6 @@ export const pages: Catalog = {
   "Price gaps": "価格差",
   "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.":
     "資産ごとに、各板の最良気配で最も安く買える取引所と最も高く売れる取引所を示します。これは<b>提示されている差</b>であって、約定できる取引ではありません。最良気配より下の板、テイカー手数料、実際のポジションに必要な2回の送金は一切反映していません。最も広い差は最も薄い板に現れます。計測時には 721 資産のうち 395 資産に差があり、その中央値は 1.6 bps でしたが、上位の資産の板数量はわずか $3 でした。",
-  "Min gap, bps": "最小差（bps）",
-  "Any, including 0.0": "指定なし（0.0 を含む）",
-  "Min resting size": "最小板数量",
   Apply: "適用",
   "This venue's mark disagrees with the rest, so it is excluded from the gap":
     "この取引所のマーク価格は他と一致しないため、差の計算から除外しています",
@@ -555,4 +551,6 @@ export const pages: Catalog = {
   "~1h": "約1時間",
   "~{n} days": "約{n}日",
   "~{n}h": "約{n}時間",
+  "Price gap (bps)": "価格差（bps）",
+  "Min resting size, thinner side": "最小板厚（薄い側）",
 };

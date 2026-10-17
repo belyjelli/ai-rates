@@ -1855,6 +1855,41 @@ describe("pages", () => {
     expect(html).toContain("the taker fees, or the two transfers a real position needs");
   });
 
+  test("the arbitrage bar's filters reach the query, and the picker and panel show them", async () => {
+    const asked: unknown[] = [];
+    const { data } = fakeData({
+      arbitrage: async (params) => {
+        asked.push(params);
+        return [gap()];
+      },
+    });
+    const html = await (
+      await get(
+        "/arbitrage?gap=50-200&class=crypto&interval=8h&venues=gate,okx&min_depth=10k",
+        data,
+      )
+    ).text();
+    expect(asked[0]).toMatchObject({
+      minGapBps: 50,
+      maxGapBps: 200,
+      assetClass: "crypto",
+      intervalHours: 8,
+      venueIds: ["gate", "okx"],
+      minDepthUsd: 10_000,
+    });
+    expect(html).toContain('<form class="sx" method="get" action="/arbitrage" data-sx>');
+    expect(html).toContain('name="venues" value="gate" data-vp-name="Gate" checked>');
+    expect(html).toContain('name="venues" value="bybit" data-vp-name="Bybit">');
+    expect(html).toContain(
+      '<input type="radio" name="gap" value="50-200" data-default="" checked>',
+    );
+    expect(html).toContain('name="min_depth" value="10k"');
+    // "Every exchange" drops only the exchange choice and keeps every other filter.
+    expect(html).toContain(
+      'href="/arbitrage?gap=50-200&amp;min_depth=10000&amp;class=crypto&amp;interval=8h">Every exchange',
+    );
+  });
+
   test("an arbitrage row opens a strip: every pair for the asset, and this pair's own page", async () => {
     const { data } = fakeData({ arbitrage: async () => [gap()] });
     const html = await (await get("/arbitrage", data)).text();

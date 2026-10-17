@@ -32,9 +32,44 @@ describe("parseArbitrageParams", () => {
   test("uses defaults for an empty query", () => {
     expect(parseArbitrageParams(new URLSearchParams())).toEqual({
       minGapBps: DEFAULT_MIN_GAP_BPS,
+      maxGapBps: null,
       minDepthUsd: 0,
+      venueIds: null,
+      assetClass: null,
+      minOpenInterestUsd: 0,
+      minVolume24hUsd: 0,
+      intervalHours: null,
       limit: DEFAULT_ARBITRAGE_LIMIT,
       offset: 0,
+    });
+  });
+
+  test("the bar's filters parse, a gap band sets both ends, and the query round-trips", () => {
+    const p = parseArbitrageParams(
+      new URLSearchParams(
+        "gap=10-50&min_bps=3&class=tradfi&min_oi=1m&min_vol=100k&interval=4h&venues=okx,bybit",
+      ),
+    );
+    expect(p).toMatchObject({
+      minGapBps: 10,
+      maxGapBps: 50,
+      assetClass: "tradfi",
+      minOpenInterestUsd: 1_000_000,
+      minVolume24hUsd: 100_000,
+      intervalHours: 4,
+      venueIds: ["bybit", "okx"],
+    });
+    expect(arbitrageToQuery(p)).toBe(
+      "?gap=10-50&class=tradfi&min_oi=1000000&min_vol=100000&interval=4h&venues=bybit%2Cokx",
+    );
+    expect(parseArbitrageParams(new URLSearchParams("gap=200-"))).toMatchObject({
+      minGapBps: 200,
+      maxGapBps: null,
+    });
+    // A bare floor still works without a band, as links from before the bar do.
+    expect(parseArbitrageParams(new URLSearchParams("min_bps=25"))).toMatchObject({
+      minGapBps: 25,
+      maxGapBps: null,
     });
   });
 

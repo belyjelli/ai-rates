@@ -98,6 +98,12 @@ export const ENDPOINTS: Endpoint[] = [
     params: [
       { name: "min_bps", type: "number", description: "Minimum gap in basis points." },
       { name: "min_depth", description: "Minimum depth in USD." },
+      { name: "gap", description: "The gap as a band: 1-10, 10-50, 50-200 or 200- (bps)." },
+      { name: "venues", description: "Comma-separated exchange ids both legs come from." },
+      { name: "class", description: "crypto, or tradfi for every other asset class." },
+      { name: "min_oi", description: "Minimum open interest in USD on each leg." },
+      { name: "min_vol", description: "Minimum 24h volume in USD on each leg." },
+      { name: "interval", description: "Both legs settle at this interval: 1h, 4h or 8h." },
       { name: "limit", type: "integer", description: "Rows to return." },
     ],
   },

@@ -88,9 +88,7 @@ export function parseScreenerFilters(params: URLSearchParams): ScreenerFilters {
     venueTypes: types && types.length === VENUE_TYPES.length ? null : types,
     assetClass: oneOf(params.get("class"), SCREENER_CLASSES) as ScreenerClass | null,
     ...parseSpread(params.get("spread")),
-    intervalHours: (SCREENER_INTERVALS.find(
-      (h) => `${h}h` === (params.get("interval") ?? "").trim().toLowerCase(),
-    ) ?? null) as ScreenerInterval | null,
+    intervalHours: parseInterval(params.get("interval")),
     query: parseQuery(params.get("q")),
     unit: (oneOf(params.get("unit"), RATE_UNITS) as RateUnit | null) ?? DEFAULT_FILTERS.unit,
     sort: parseScreenerSort(params.get("sort")),
@@ -163,6 +161,12 @@ function parseSpread(value: string | null): Pick<ScreenerFilters, "minSpreadApr"
   return band
     ? { minSpreadApr: band[0], maxSpreadApr: band[1] }
     : { minSpreadApr: null, maxSpreadApr: null };
+}
+
+/** "1h", "4h" or "8h" as a funding interval; anything else is none. */
+function parseInterval(value: string | null): ScreenerInterval | null {
+  return (SCREENER_INTERVALS.find((h) => `${h}h` === (value ?? "").trim().toLowerCase()) ??
+    null) as ScreenerInterval | null;
 }
 
 /** An asset search, or null when empty or holding anything an asset name never does. */
@@ -310,8 +314,18 @@ export const MAX_MIN_GAP_BPS = 10_000;
 
 export interface ArbitrageParams {
   minGapBps: number;
+  /** Hides gaps at or above this; null keeps every gap. Set with minGapBps by a gap band. */
+  maxGapBps: number | null;
   /** Hides rows whose thinner side rests less than this in USD; 0 keeps every quote. */
   minDepthUsd: number;
+  /** The exchanges both legs come from; null for every exchange. */
+  venueIds: string[] | null;
+  assetClass: ScreenerClass | null;
+  /** Each leg's floors; 0 for none. */
+  minOpenInterestUsd: number;
+  minVolume24hUsd: number;
+  /** Both legs settle at this interval; null for any. */
+  intervalHours: ScreenerInterval | null;
   limit: number;
   offset: number;
 }
@@ -320,6 +334,23 @@ export interface ArbitrageParams {
  * Arbitrage table inputs. Every value is clamped rather than rejected, matching the other parsers:
  * a nonsense query yields the default page instead of an error.
  */
+/** Price-gap bands the arbitrage filters offer, in basis points, floor inclusive to ceiling exclusive. */
+export const GAP_BANDS = {
+  "1-10": [1, 10],
+  "10-50": [10, 50],
+  "50-200": [50, 200],
+  "200-": [200, null],
+} as const satisfies Record<string, readonly [number, number | null]>;
+export type GapBand = keyof typeof GAP_BANDS;
+
+/** The band a gap range is, or null when it is none of them. */
+export function gapBand(p: Pick<ArbitrageParams, "minGapBps" | "maxGapBps">): GapBand | null {
+  for (const [id, [min, max]] of Object.entries(GAP_BANDS)) {
+    if (p.minGapBps === min && p.maxGapBps === max) return id as GapBand;
+  }
+  return null;
+}
+
 export function parseArbitrageParams(params: URLSearchParams): ArbitrageParams {
   // Number("") is 0, not NaN, so an absent parameter would parse as an explicit zero floor and the
   // default would never apply. parseTakerBps guards the same way, for the same reason.
@@ -327,11 +358,21 @@ export function parseArbitrageParams(params: URLSearchParams): ArbitrageParams {
   const minBps = rawBps === null || rawBps.trim() === "" ? Number.NaN : Number(rawBps);
   const limit = Number.parseInt(params.get("limit") ?? "", 10);
   const offset = Number.parseInt(params.get("offset") ?? "", 10);
+  // A gap band ("10-50", "200-") sets both ends and wins over a bare floor.
+  const band = GAP_BANDS[(params.get("gap") ?? "").trim() as GapBand];
   return {
-    minGapBps: Number.isFinite(minBps)
-      ? Math.min(Math.max(minBps, 0), MAX_MIN_GAP_BPS)
-      : DEFAULT_MIN_GAP_BPS,
+    minGapBps: band
+      ? band[0]
+      : Number.isFinite(minBps)
+        ? Math.min(Math.max(minBps, 0), MAX_MIN_GAP_BPS)
+        : DEFAULT_MIN_GAP_BPS,
+    maxGapBps: band ? band[1] : null,
     minDepthUsd: parseUsd(params.get("min_depth")) ?? 0,
+    venueIds: everyListed(listParam(params, "venues", KNOWN_VENUES)),
+    assetClass: oneOf(params.get("class"), SCREENER_CLASSES) as ScreenerClass | null,
+    minOpenInterestUsd: parseUsd(params.get("min_oi")) ?? 0,
+    minVolume24hUsd: parseUsd(params.get("min_vol")) ?? 0,
+    intervalHours: parseInterval(params.get("interval")),
     limit: Number.isFinite(limit)
       ? Math.min(Math.max(limit, 1), MAX_ARBITRAGE_LIMIT)
       : DEFAULT_ARBITRAGE_LIMIT,
@@ -342,8 +383,15 @@ export function parseArbitrageParams(params: URLSearchParams): ArbitrageParams {
 /** Canonical query, so paging and filter links round-trip and stay cache-keyed. */
 export function arbitrageToQuery(params: ArbitrageParams): string {
   const query = new URLSearchParams();
-  if (params.minGapBps !== DEFAULT_MIN_GAP_BPS) query.set("min_bps", String(params.minGapBps));
+  const band = gapBand(params);
+  if (band) query.set("gap", band);
+  else if (params.minGapBps !== DEFAULT_MIN_GAP_BPS) query.set("min_bps", String(params.minGapBps));
   if (params.minDepthUsd !== 0) query.set("min_depth", String(params.minDepthUsd));
+  if (params.assetClass) query.set("class", params.assetClass);
+  if (params.minOpenInterestUsd !== 0) query.set("min_oi", String(params.minOpenInterestUsd));
+  if (params.minVolume24hUsd !== 0) query.set("min_vol", String(params.minVolume24hUsd));
+  if (params.intervalHours) query.set("interval", `${params.intervalHours}h`);
+  if (params.venueIds) query.set("venues", params.venueIds.join(","));
   if (params.limit !== DEFAULT_ARBITRAGE_LIMIT) query.set("limit", String(params.limit));
   if (params.offset !== 0) query.set("offset", String(params.offset));
   const encoded = query.toString();

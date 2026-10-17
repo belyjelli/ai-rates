@@ -279,6 +279,18 @@ export interface IdentityCheckRow {
 export interface ArbitrageOptions {
   /** Rows below this quoted gap are dropped; 0 keeps the mostly-zero tail. */
   minGapBps: number;
+  /** Rows at or above this gap are dropped; null keeps every gap. */
+  maxGapBps?: number | null;
+  /**
+   * Leg filters, applied before each asset's best pair is chosen, so an asset keeps its best pair
+   * among the legs allowed rather than vanishing: exchanges, crypto or everything else, each leg's
+   * open interest and 24h volume, and a funding interval both legs settle at. Null or 0 is none.
+   */
+  venueIds?: string[] | null;
+  assetClass?: ScreenerClass | null;
+  minOpenInterestUsd?: number;
+  minVolume24hUsd?: number;
+  intervalHours?: ScreenerInterval | null;
   /** Rows whose thinner side rests less than this are dropped; 0 keeps every quote. */
   minDepthUsd: number;
   limit: number;
@@ -1495,7 +1507,14 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       return [...rows];
     },
 
-    async arbitrage({ minGapBps, minDepthUsd, limit, offset }, pairing) {
+    async arbitrage(options, pairing) {
+      const { minGapBps, minDepthUsd, limit, offset } = options;
+      const venues = options.venueIds?.join(",") ?? null;
+      const tradfi = options.assetClass == null ? null : options.assetClass === "tradfi";
+      const minOi = options.minOpenInterestUsd ?? 0;
+      const minVol = options.minVolume24hUsd ?? 0;
+      const interval = options.intervalHours ?? null;
+      const maxGap = options.maxGapBps ?? null;
       // An FX market quoted the other way round joins its pair inverted when the page asks
       // (migration 041's market_latest_pairable); otherwise this reads market_latest, as before 041.
       // The shape mirrors screener_pairs deliberately -- median mark, deviation guard, best-per-
@@ -1521,6 +1540,13 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           FROM ${markets}
           WHERE quotes_at > now() - ${FRESH_INTERVAL}::interval
             AND best_bid > 0 AND best_ask > 0
+            -- The reader's leg filters. Each is a no-op at its default, so the unfiltered page reads
+            -- exactly as before; an unknown open interest or volume fails a floor, never passes it.
+            AND (${venues}::text IS NULL OR venue_id = ANY(string_to_array(${venues}::text, ',')))
+            AND (${tradfi}::boolean IS NULL OR (asset_class <> 'crypto') = ${tradfi}::boolean)
+            AND (${minOi}::float8 <= 0 OR open_interest_usd >= ${minOi}::float8)
+            AND (${minVol}::float8 <= 0 OR volume_24h_usd >= ${minVol}::float8)
+            AND (${interval}::float8 IS NULL OR interval_hours = ${interval}::float8)
         ),
         -- The anchor is the asset's deepest market by open interest, read from every fresh market
         -- rather than from the filtered candidates, so a reader's filters cannot move the
@@ -1593,6 +1619,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           -- is not true. A reader who asked for $25k of resting size must not be shown a quote
           -- whose size we could not determine.
           AND (${minDepthUsd}::float8 <= 0 OR thinner_depth_usd >= ${minDepthUsd}::float8)
+          AND (${maxGap}::float8 IS NULL OR gap_bps < ${maxGap}::float8)
         -- Total order: LIMIT/OFFSET over a partial one drops and repeats rows between pages.
         ORDER BY gap_bps DESC, asset, asset_class
         LIMIT ${limit} OFFSET ${offset}`;

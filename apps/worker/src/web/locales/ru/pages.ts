@@ -27,7 +27,6 @@ export const pages: Catalog = {
   day: "сутки",
   "{n} days": "{n} дн.",
   Any: "Любой",
-  Reset: "Сбросить",
 
   // home: verified ranking and hero
   "No replay yet: the nightly run needs a week of settled funding on both legs of a pair.":
@@ -200,9 +199,6 @@ export const pages: Catalog = {
   "Price gaps": "Ценовые разрывы",
   "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.":
     "Для каждого актива — самая дешёвая биржа для покупки и самая дорогая для продажи на вершине каждого стакана. Это <b>котируемые разрывы</b>, а не исполнимые сделки: здесь не учтены стакан ниже первого уровня, тейкер-комиссии и два перевода, которые нужны реальной позиции. Самые широкие разрывы — на самых тонких стаканах: на момент замера разрыв был у 395 из 721 актива с медианой 1.6 bps, а у лидеров выставленный объём составлял всего $3.",
-  "Min gap, bps": "Мин. разрыв, bps",
-  "Any, including 0.0": "Любой, включая 0.0",
-  "Min resting size": "Мин. выставленный объём",
   Apply: "Применить",
   "This venue's mark disagrees with the rest, so it is excluded from the gap":
     "Маркировка этой биржи расходится с остальными, поэтому она исключена из разрыва",
@@ -558,4 +554,6 @@ export const pages: Catalog = {
   "~1h": "~1 ч",
   "~{n} days": "~{n} дн.",
   "~{n}h": "~{n} ч",
+  "Price gap (bps)": "Ценовой разрыв (б.п.)",
+  "Min resting size, thinner side": "Мин. объём в книге, тонкая сторона",
 };

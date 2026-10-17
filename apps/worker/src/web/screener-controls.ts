@@ -1,6 +1,18 @@
 import { VENUES, type Venue } from "@ai-rates/venues";
 import type { RateUnit, ScreenerFilters, ScreenerSort } from "../app/data";
-import { DEFAULT_FILTERS, filtersToQuery, SPREAD_BANDS, spreadBand } from "../app/params";
+import {
+  type ArbitrageParams,
+  arbitrageToQuery,
+  DEFAULT_ARBITRAGE_LIMIT,
+  DEFAULT_FILTERS,
+  DEFAULT_MIN_GAP_BPS,
+  filtersToQuery,
+  GAP_BANDS,
+  gapBand,
+  parseArbitrageParams,
+  SPREAD_BANDS,
+  spreadBand,
+} from "../app/params";
 import { esc } from "./format";
 import { tr } from "./i18n";
 import { icon } from "./icons";
@@ -125,16 +137,22 @@ function shortUsd(value: number): string {
   return String(value);
 }
 
+const LEG_CHIPS = [
+  [100_000, "$100k+"],
+  [1_000_000, "$1M+"],
+  [10_000_000, "$10M+"],
+  [100_000_000, "$100M+"],
+] as const;
+
 /** A dollar floor: typed, or set by a chip ("$1M+"). The box is the field; the chips only fill it. */
-function dollarField(name: string, label: string, value: number, fallback: number): string {
-  const chips = (
-    [
-      [100_000, "$100k+"],
-      [1_000_000, "$1M+"],
-      [10_000_000, "$10M+"],
-      [100_000_000, "$100M+"],
-    ] as const
-  )
+function dollarField(
+  name: string,
+  label: string,
+  value: number,
+  fallback: number,
+  presets: readonly (readonly [number, string])[] = LEG_CHIPS,
+): string {
+  const chips = presets
     .map(
       ([v, text]) =>
         `<button type="button" class="chip${v === value ? " on" : ""}" data-sx-set="${name}" value="${shortUsd(v)}">${text}</button>`,
@@ -229,6 +247,85 @@ ${card("erratic", `< ${MIXED_FROM.toFixed(2)}`, tr("Flips often. Today's rate sa
  * The screener's control bar, above its table. `f` is the view the page shows; every link and the
  * form carry it, so changing one control keeps the others.
  */
+/**
+ * The arbitrage page's bar: the same exchange picker and filters panel as the screener's, over price
+ * gaps. Its legs are filtered before each asset's best pair is chosen (data.ts arbitrage), so an
+ * asset keeps its best pair among the exchanges and markets allowed. No unit or period: a price gap
+ * is a quote of the moment, in basis points.
+ */
+export function arbitrageControls(p: ArbitrageParams): string {
+  const exchanges = venuePicker({
+    label: tr("Exchanges"),
+    lead: icon("stack"),
+    venues: LISTED,
+    type: "checkbox",
+    name: "venues",
+    checked: (v) => p.venueIds === null || p.venueIds.includes(v.id),
+    foot: `<a class="btn ghost" href="/arbitrage${esc(arbitrageToQuery({ ...p, venueIds: null, offset: 0 }))}">${tr("Every exchange")}</a><button type="submit">${tr("Apply")}</button>`,
+  });
+  const active = [
+    p.assetClass !== null,
+    gapBand(p) !== null || p.minGapBps !== DEFAULT_MIN_GAP_BPS,
+    p.minDepthUsd !== 0,
+    p.minOpenInterestUsd !== 0,
+    p.minVolume24hUsd !== 0,
+    p.intervalHours !== null,
+    p.limit !== DEFAULT_ARBITRAGE_LIMIT,
+  ].filter(Boolean).length;
+  const bands = Object.keys(GAP_BANDS).map(
+    (id) => [id, id === "200-" ? "200+" : id.replace("-", "–")] as [string, string],
+  );
+  const reset = arbitrageToQuery({
+    ...parseArbitrageParams(new URLSearchParams()),
+    venueIds: p.venueIds,
+  });
+  const filters = `<details class="sx-pop"><summary class="sx-btn">${icon("sliders")} ${tr("Filters")}${active > 0 ? ` <b class="sx-badge">${active}</b>` : ""}${icon("caret")}</summary>
+<div class="sx-panel">
+<div class="sx-sect"><p class="sx-h">${tr("Asset class")}</p>${segment(
+    "class",
+    p.assetClass ?? "",
+    "",
+    [
+      ["crypto", tr("Crypto")],
+      ["tradfi", tr("TradFi")],
+      ["", tr("All")],
+    ],
+  )}</div>
+<div class="sx-sect"><p class="sx-h">${tr("Price gap (bps)")}</p>${segment("gap", gapBand(p) ?? "", "", [["", tr("Any")], ...bands])}</div>
+${dollarField("min_depth", tr("Min resting size, thinner side"), p.minDepthUsd, 0, [
+  [1_000, "$1k+"],
+  [10_000, "$10k+"],
+  [100_000, "$100k+"],
+])}
+${dollarField("min_oi", tr("Min open interest, each leg"), p.minOpenInterestUsd, 0)}
+${dollarField("min_vol", tr("Min 24h volume, each leg"), p.minVolume24hUsd, 0)}
+<div class="sx-sect"><p class="sx-h" title="${esc(tr("Both legs settle at this interval"))}">${tr("Funding interval")}</p>${segment(
+    "interval",
+    p.intervalHours ? `${p.intervalHours}h` : "",
+    "",
+    [
+      ["", tr("All")],
+      ["1h", "1H"],
+      ["4h", "4H"],
+      ["8h", "8H"],
+    ],
+  )}</div>
+<div class="sx-sect"><p class="sx-h">${tr("Rows")}</p>${segment(
+    "limit",
+    String(p.limit),
+    String(DEFAULT_ARBITRAGE_LIMIT),
+    [25, 50, 100, 200].map((v) => [String(v), String(v)] as [string, string]),
+  )}</div>
+<div class="sx-foot"><a class="btn ghost" href="/arbitrage${esc(reset)}">${tr("Reset all")}</a><button type="submit">${tr("Apply")}</button></div>
+</div></details>`;
+  return `<form class="sx" method="get" action="/arbitrage" data-sx>
+<div class="sx-bar">
+${exchanges}
+${filters}
+</div>
+</form>`;
+}
+
 export function screenerControls(f: ScreenerFilters): string {
   const periods = PERIODS.map(
     (p) =>
@@ -261,9 +358,7 @@ ${steadinessKey()}
  *     every one is ticked), so the address stays short enough to share.
  * No backticks or dollar-brace in here: this is a template literal's text.
  */
-export const SCREENER_SCRIPT = `(() => {
-  const form = document.querySelector("form[data-sx]");
-  if (!form) return;
+export const SCREENER_SCRIPT = `(() => { for (const form of document.querySelectorAll("form[data-sx]")) {
   form.addEventListener("click", (e) => {
     const t = e.target.closest("button[data-sx-set]");
     if (!t) return;
@@ -273,6 +368,7 @@ export const SCREENER_SCRIPT = `(() => {
 
   const rows = () => [...document.querySelectorAll("tbody[data-live=pairs] tr[data-k]")];
   const search = form.querySelector("input[name=q]");
+  if (search) {
   const sift = () => {
     const words = search.value.trim().toLowerCase();
     // A row's key is "equity:SPY" for anything but crypto; match the asset, never the class.
@@ -282,6 +378,7 @@ export const SCREENER_SCRIPT = `(() => {
   // The live refresh swaps the table's rows every so often; a search still typed keeps them sifted.
   const table = document.querySelector("tbody[data-live=pairs]")?.closest("table");
   if (table && window.MutationObserver) new MutationObserver(sift).observe(table, { childList: true, subtree: true });
+  }
 
   form.addEventListener("submit", () => {
     const all = [...form.querySelectorAll("input[name=venues]")];
@@ -301,4 +398,4 @@ export const SCREENER_SCRIPT = `(() => {
     // Disabled controls are not sent; re-enable them if the page is restored from the back cache.
     addEventListener("pageshow", () => { for (const el of form.elements) el.disabled = false; }, { once: true });
   });
-})();`;
+} })();`;

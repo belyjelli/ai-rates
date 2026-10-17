@@ -85,6 +85,7 @@ import { MACRO_PANELS, type MacroPanel, macroPanel, macroPlaceholder, macroTabs 
 import { PICK_SCRIPT } from "./picker";
 import { type RailScale, railPosition, railScale, renderRail } from "./rail";
 import {
+  arbitrageControls,
   SCREENER_SCRIPT,
   screenerControls,
   shownPeriod,
@@ -1093,7 +1094,9 @@ ${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_inverted)}
         "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.",
       )}</p>`,
     )}
-${filtersForArbitrage(params)}
+${arbitrageControls(params)}
+<script>${PICKER_SCRIPT}</script>
+<script>${SCREENER_SCRIPT}</script>
 ${table}`,
   });
 }
@@ -1155,32 +1158,6 @@ const ARB_SCRIPT = `(() => {
     row.classList.add("arb-open");
   });
 })();`;
-
-/** Two floors, both of which default to showing more rather than less. */
-function filtersForArbitrage(params: ArbitrageParams): string {
-  const option = (value: number, label: string, current: number) =>
-    `<option value="${value}"${value === current ? " selected" : ""}>${label}</option>`;
-  return `<form class="filters" method="get" action="/arbitrage">
-<label class="field">${tr("Min gap, bps")}<select name="min_bps">${[
-    [0, tr("Any, including 0.0")],
-    [1, "1"],
-    [5, "5"],
-    [25, "25"],
-    [100, "100"],
-  ]
-    .map(([value, label]) => option(value as number, label as string, params.minGapBps))
-    .join("")}</select></label>
-<label class="field">${tr("Min resting size")}<select name="min_depth">${[
-    [0, tr("Any")],
-    [1_000, "$1k"],
-    [10_000, "$10k"],
-    [100_000, "$100k"],
-  ]
-    .map(([value, label]) => option(value as number, label as string, params.minDepthUsd))
-    .join("")}</select></label>
-<div class="actions"><button type="submit">${tr("Apply")}</button><a href="/arbitrage">${tr("Reset")}</a></div>
-</form>`;
-}
 
 /**
  * One asset's top of book on every venue that quotes it.

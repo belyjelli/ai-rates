@@ -26,7 +26,6 @@ export const pages: Catalog = {
   day: "1일",
   "{n} days": "{n}일",
   Any: "전체",
-  Reset: "초기화",
 
   // home: verified ranking and hero
   "No replay yet: the nightly run needs a week of settled funding on both legs of a pair.":
@@ -203,9 +202,6 @@ export const pages: Catalog = {
   "Price gaps": "가격 차이",
   "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.":
     "자산마다 각 호가창의 최우선 호가에서 가장 싸게 살 수 있는 거래소와 가장 비싸게 팔 수 있는 거래소를 찾습니다. 이것은 체결 가능한 거래가 아니라 <b>호가상의 차이</b>입니다. 1호가 아래의 호가창, 테이커 수수료, 실제 포지션에 필요한 두 번의 이체는 반영하지 않습니다. 가장 큰 차이는 가장 얇은 호가창에 있습니다. 측정 당시 721개 자산 중 395개에 차이가 있었고 중앙값은 1.6 bps였으며, 상위 종목의 잔량은 고작 $3인 경우도 있었습니다.",
-  "Min gap, bps": "최소 차이(bps)",
-  "Any, including 0.0": "전체, 0.0 포함",
-  "Min resting size": "최소 잔량",
   Apply: "적용",
   "This venue's mark disagrees with the rest, so it is excluded from the gap":
     "이 거래소의 마크 가격이 다른 곳과 맞지 않아 차이 계산에서 제외했습니다",
@@ -555,4 +551,6 @@ export const pages: Catalog = {
   "~1h": "약 1시간",
   "~{n} days": "약 {n}일",
   "~{n}h": "약 {n}시간",
+  "Price gap (bps)": "가격 차이 (bps)",
+  "Min resting size, thinner side": "최소 잔량, 얇은 쪽",
 };
