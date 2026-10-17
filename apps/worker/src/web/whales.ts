@@ -266,11 +266,17 @@ function gexOverlay(
         `<line class="${cls}" x1="0" x2="1000" y1="${y(price).toFixed(2)}" y2="${y(price).toFixed(2)}"></line>`,
     )
     .join("");
-  const labels = marks
-    .map(
-      ([price, cls, text]) =>
-        `<span class="whx whx-on whx-lbl ${cls}-t" style="top:${(y(price) / 10).toFixed(2)}%">${text.replace("{price}", formatPrice(price))}</span>`,
-    )
+  // Each label sits above its line; one within a label's height of the label above it goes below its
+  // line instead (the flip is often a strike or two from a wall).
+  let above = Number.NEGATIVE_INFINITY;
+  const labels = [...marks]
+    .sort((a, b) => y(a[0]) - y(b[0]))
+    .map(([price, cls, text]) => {
+      const top = y(price) / 10;
+      const below = top - above < 4;
+      if (!below) above = top;
+      return `<span class="whx whx-on whx-lbl${below ? " whx-lbl-below" : ""} ${cls}-t" style="top:${top.toFixed(2)}%">${text.replace("{price}", formatPrice(price))}</span>`;
+    })
     .join("");
   const level = (price: number | null) => (price === null ? "–" : formatPrice(price));
   const keys = `<span class="whx whx-split"><i class="whx-key-call"></i>${tr("call gamma")}</span><span class="whx whx-split"><i class="whx-key-put"></i>${tr("put gamma")}</span><span class="whx whx-net"><i class="whx-key-call"></i>${tr("Net long")}</span><span class="whx whx-net"><i class="whx-key-put"></i>${tr("Net short")}</span><span class="whx whx-zone"><i class="whx-key-zs"></i>${tr("short gamma")}</span><span class="whx whx-zone"><i class="whx-key-zl"></i>${tr("long gamma")}</span><span class="whx whx-on dim">${tr("{source} options, all expiries, {age}", { source: esc(publisher(e.source).name), age: ageText(e.computed_at, now) })} · ${tr("flip {flip} · call wall {call} · put wall {put}", { flip: level(e.flip_price), call: level(e.call_wall), put: level(e.put_wall) })}</span>`;

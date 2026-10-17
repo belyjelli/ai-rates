@@ -599,6 +599,7 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
 .whx-flip,.whx-cw,.whx-pw{stroke-width:1;stroke-dasharray:6 4;vector-effect:non-scaling-stroke}
 .whx-flip{stroke:var(--warn)}.whx-cw{stroke:var(--long)}.whx-pw{stroke:var(--short)}
 .whx-lbl{position:absolute;left:4px;transform:translateY(-100%);font-size:10px;white-space:nowrap;pointer-events:none;background:var(--bg);padding:0 3px}
+.whx-lbl-below{transform:none}
 .whx-flip-t{color:var(--warn)}.whx-cw-t{color:var(--long)}.whx-pw-t{color:var(--short)}
 .wh-chart .fchart-keys i.whx-key-call{background:var(--long);opacity:.6}.wh-chart .fchart-keys i.whx-key-put{background:var(--short);opacity:.6}
 .wh-chart .fchart-keys i.whx-key-zs{background:var(--short);opacity:.3}.wh-chart .fchart-keys i.whx-key-zl{background:var(--long);opacity:.25}
