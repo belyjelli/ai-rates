@@ -1076,7 +1076,7 @@ ${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_inverted)}
 <thead><tr><th>${tr("Asset")}</th><th class="num" title="${tr("Highest bid against lowest ask, across two different exchanges")}">${tr("Gap, bps")}</th><th class="num" title="${tr("The sell price less the buy price, in the asset's own price units")}">${tr("Basis")}</th><th class="num">${tr("Buy price")}</th><th>${tr("Buy at")}</th><th class="num">${tr("Sell price")}</th><th>${tr("Sell at")}</th><th class="num" title="${tr("The smaller of the two resting sizes: what the gap is actually good for")}">${tr("Good for")}</th><th class="num" title="${tr("Exchanges quoting this asset that survived the mark-agreement check")}">${tr("Venues")}</th><th>${tr("Quoted")}</th></tr></thead>
 <tbody data-live="arb">${body}</tbody>
 </table></div>${pager}
-<template id="arb-more"><tr class="arb-more"><td colspan="10"><div class="arb-actions"><button type="button" class="ghost" data-arb-pairs aria-expanded="false">${tr("Every pair")} ${icon("caret")}</button><a class="btn" data-arb-best href="#"><span data-t>${tr("This pair: long {long}, short {short}", { long: "{long}", short: "{short}" })}</span> ${icon("right")}</a><a data-arb-quotes href="#">${tr("All quotes")}</a></div><div class="arb-pairs" hidden></div></td></tr></template>
+<template id="arb-more"><tr class="arb-more"><td colspan="10"><div class="arb-actions"><button type="button" class="ghost" data-arb-pairs aria-expanded="false">${tr("Every pair")} ${icon("caret")}</button><a class="btn" data-arb-best href="#"><span data-arb-words>${tr("This pair: long {long}, short {short}", { long: "{long}", short: "{short}" })}</span> ${icon("right")}</a><a data-arb-quotes href="#">${tr("All quotes")}</a></div><div class="arb-pairs" hidden></div></td></tr></template>
 <script>${ARB_SCRIPT}</script>`;
 
   return layout({
@@ -1147,7 +1147,7 @@ const ARB_SCRIPT = `(() => {
     const more = tpl.content.firstElementChild.cloneNode(true);
     const best = more.querySelector("[data-arb-best]");
     best.href = row.dataset.best;
-    const words = best.querySelector("[data-t]");
+    const words = best.querySelector("[data-arb-words]");
     words.textContent = words.textContent.replace("{long}", row.dataset.buy).replace("{short}", row.dataset.sell);
     more.querySelector("[data-arb-quotes]").href = row.dataset.pairs;
     more.querySelector("button[data-arb-pairs]").dataset.src = row.dataset.pairs;
