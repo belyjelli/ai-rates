@@ -1714,6 +1714,29 @@ describe("pages", () => {
 
   // Migration 041: MEXC's JPY_USDT quotes the yen in dollars, so in a USDJPY pair its long leg is a
   // short of that contract. Only the pages that say so ask for it; the API never gets such a row.
+  test("the screener's payback repays four retail taker fills from the 7-day spread, or says it cannot", async () => {
+    const { data } = fakeData({
+      screener: async () => [
+        // Gate 5 bps + Lighter 0, in and out: 10 bps, repaid at 8.2% a year in 4.45 days.
+        pair,
+        // No week of settlements: from the spread now, dimmed, 0.10% at 0.5% a year is 73 days.
+        { ...pair, asset: "ETH", spread_apr: 0.5, spread_apr_7d: null },
+        // A week that paid the wrong way never repays, whatever the spread now.
+        { ...pair, asset: "SOL", spread_apr_7d: -3 },
+      ],
+    });
+    const html = await (await get("/screener", data)).text();
+    const cells = [...html.matchAll(/<td class="num" title="([^"]*repay[^"]*)">(.*?)<\/td>/g)];
+    expect(cells.map((m) => m[2])).toEqual([
+      "<span>4</span>",
+      '<span class="dim">73</span>',
+      '<span class="never">never</span>',
+    ]);
+    expect(cells[0]?.[1]).toContain("Days of the 7-day spread it takes to repay 10 bps of fees");
+    expect(cells[1]?.[1]).toContain("from the spread now");
+    expect(html).toContain(">Payback, days</th>");
+  });
+
   test("an FX leg quoted the other way round names its contract's own side, on the pages that ask", async () => {
     const asked: { screener: unknown[]; arbitrage: unknown[] } = { screener: [], arbitrage: [] };
     const fx = {
@@ -2526,7 +2549,7 @@ describe("pages", () => {
     // Re-sorting a fixed top-twelve means nothing, and a link there would navigate off the page.
     // Matched on the full attribute: the bare word also appears in the inlined stylesheet.
     expect(html).not.toContain('aria-sort="descending"');
-    expect(html).toContain('title="Widest funding gap between two exchanges">Spread</th>');
+    expect(html).toMatch(/<th class="num" title="The funding spread now[^"]*">Now<\/th>/);
   });
 
   test("long tables stick their header to the page; the homepage teaser does not", async () => {

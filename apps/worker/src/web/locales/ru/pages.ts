@@ -120,14 +120,9 @@ export const pages: Catalog = {
   OI: "OI",
   "{asset} pays {spread} a year to hold both sides: long {long} at {longApr}, short {short} at {shortApr}. Same coin, two exchanges, price exposure cancelled.":
     "{asset} платит {spread} годовых за удержание обеих сторон: лонг {long} ({longApr}), шорт {short} ({shortApr}). Одна монета, две биржи, ценовой риск погашен.",
-  "Widest funding gap between two exchanges": "Самый большой разрыв фандинга между двумя биржами",
   "Signed log scale, so ordinary rates keep room next to extreme ones":
     "Логарифмическая шкала со знаком, чтобы обычным ставкам хватало места рядом с экстремальными",
   "Long − short, log scale": "Лонг − шорт, лог. шкала",
-  "Long APR": "APR лонга",
-  "Short APR": "APR шорта",
-  "Same two markets, averaged over the settlements of the last 7 days":
-    "Те же два рынка, среднее по выплатам за последние 7 дней",
   "Exchanges with a live market for this asset": "Биржи с активным рынком по этому активу",
   "How often the weaker leg held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score":
     "Как часто слабая нога сохраняла направление фандинга за 30 дней. 0.50 — подбрасывание монеты; 0.88 — максимум за полный месяц",
@@ -398,4 +393,24 @@ export const pages: Catalog = {
   "buy this contract": "купить этот контракт",
   "{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.":
     "{symbol} котирует эту пару в обратную сторону, поэтому эта сторона пары — противоположная сторона контракта. Цена показана обратной, а ставка финансирования — с обратным знаком, в терминах пары.",
+  Now: "Сейчас",
+  "7D APR": "APR за 7 д",
+  "Payback, days": "Окупаемость, дн.",
+  Long: "Лонг",
+  Short: "Шорт",
+  "7d {apr}": "7 д {apr}",
+  "The funding spread now: short leg's rate minus long leg's, a year":
+    "Разрыв фандинга сейчас: ставка шортовой ноги минус ставка лонговой, в год",
+  "The same two markets' spread, averaged over the settlements of the last 7 days, a year":
+    "Разрыв тех же двух рынков, средний по выплатам за последние 7 дней, в год",
+  "Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the 7-day spread; dimmed where there is only the spread now":
+    "Сколько дней фандинга нужно, чтобы окупить комиссии за открытие и закрытие обеих ног по публичным розничным тейкерским ставкам. По разрыву за 7 дней; бледным, где есть только текущий разрыв",
+  "Where to hold the long side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
+    "Где держать лонг: биржа и её фандинг сейчас; ниже контракт, интервал, открытый интерес и фандинг за 7 дней",
+  "Where to hold the short side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
+    "Где держать шорт: биржа и её фандинг сейчас; ниже контракт, интервал, открытый интерес и фандинг за 7 дней",
+  "Days of the 7-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates":
+    "Сколько дней разрыва за 7 дней нужно, чтобы окупить {bps} б.п. комиссий: по одной тейкерской сделке на вход и выход в обеих ногах, по публичным розничным ставкам",
+  "No 7 days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates":
+    "Выплат за 7 дней ещё нет, поэтому по текущему разрыву: сколько дней нужно, чтобы окупить {bps} б.п. комиссий, по одной тейкерской сделке на вход и выход в обеих ногах, по публичным розничным ставкам",
 };

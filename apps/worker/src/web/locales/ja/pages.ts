@@ -122,14 +122,9 @@ export const pages: Catalog = {
   OI: "建玉",
   "{asset} pays {spread} a year to hold both sides: long {long} at {longApr}, short {short} at {shortApr}. Same coin, two exchanges, price exposure cancelled.":
     "{asset} の両サイドを持つと年 {spread} の収益：{long} でロング（{longApr}）、{short} でショート（{shortApr}）。同じコイン、2つの取引所で、価格エクスポージャーは相殺。",
-  "Widest funding gap between two exchanges": "2つの取引所間で最大の資金調達率の差",
   "Signed log scale, so ordinary rates keep room next to extreme ones":
     "符号付き対数目盛。極端なレートの隣でも通常のレートが見えるようにしています",
   "Long − short, log scale": "ロング − ショート、対数目盛",
-  "Long APR": "ロング年率",
-  "Short APR": "ショート年率",
-  "Same two markets, averaged over the settlements of the last 7 days":
-    "同じ2銘柄の、直近7日間の精算の平均",
   "Exchanges with a live market for this asset": "この資産の銘柄が稼働中の取引所数",
   "How often the weaker leg held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score":
     "30日間で弱い方のレッグが資金調達率の向きを維持した頻度。0.50 はコイントスと同じ、0.88 は1か月で取り得る最高値です",
@@ -397,4 +392,24 @@ export const pages: Catalog = {
   "buy this contract": "この銘柄を買う",
   "{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.":
     "{symbol} はこの通貨ペアを逆向きに建てているため、ペアのこちら側はその銘柄の反対側にあたります。価格は逆数、資金調達率は符号を反転し、どちらもペア基準で表示しています。",
+  Now: "現在",
+  "7D APR": "7日年率",
+  "Payback, days": "回収日数",
+  Long: "ロング",
+  Short: "ショート",
+  "7d {apr}": "7日 {apr}",
+  "The funding spread now: short leg's rate minus long leg's, a year":
+    "現在の資金調達率の差：ショート側の率からロング側の率を引いた年率",
+  "The same two markets' spread, averaged over the settlements of the last 7 days, a year":
+    "同じ2銘柄の差を直近7日間の精算で平均した年率",
+  "Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the 7-day spread; dimmed where there is only the spread now":
+    "公開されている一般のテイカー手数料で、両レッグの建玉と決済の手数料を資金調達で回収するまでの日数。7日間の差から計算し、現在の差しかない場合は薄く表示",
+  "Where to hold the long side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
+    "ロングを持つ場所：取引所と現在の資金調達率。その下に銘柄、精算間隔、建玉、7日間の資金調達率",
+  "Where to hold the short side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
+    "ショートを持つ場所：取引所と現在の資金調達率。その下に銘柄、精算間隔、建玉、7日間の資金調達率",
+  "Days of the 7-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates":
+    "7日間の差で {bps} bps の手数料を回収するまでの日数：両レッグとも建玉と決済をテイカーで1回ずつ、公開の一般手数料で",
+  "No 7 days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates":
+    "7日分の精算がまだないため現在の差から計算：{bps} bps の手数料を回収するまでの日数、両レッグとも建玉と決済をテイカーで1回ずつ、公開の一般手数料で",
 };

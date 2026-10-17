@@ -115,14 +115,9 @@ export const pages: Catalog = {
   OI: "持仓量",
   "{asset} pays {spread} a year to hold both sides: long {long} at {longApr}, short {short} at {shortApr}. Same coin, two exchanges, price exposure cancelled.":
     "同时持有 {asset} 两侧，每年可获 {spread}：在 {long} 做多（{longApr}），在 {short} 做空（{shortApr}）。同一币种，两家交易所，价格敞口相互抵消。",
-  "Widest funding gap between two exchanges": "两家交易所之间最大的资金费率差",
   "Signed log scale, so ordinary rates keep room next to extreme ones":
     "带符号的对数刻度，让普通费率在极端费率旁边也有显示空间",
   "Long − short, log scale": "多头 − 空头，对数刻度",
-  "Long APR": "多头年化",
-  "Short APR": "空头年化",
-  "Same two markets, averaged over the settlements of the last 7 days":
-    "同样两个市场，按最近 7 天的结算取平均",
   "Exchanges with a live market for this asset": "有该资产在线市场的交易所数",
   "How often the weaker leg held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score":
     "30 天内较弱一腿保持资金费方向的频率。0.50 相当于抛硬币；0.88 是整月能得到的最高分",
@@ -386,4 +381,24 @@ export const pages: Catalog = {
   "buy this contract": "买入此合约",
   "{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.":
     "{symbol} 以相反方向报价这一货币对，因此货币对的这一侧就是该合约的反向。其价格已取倒数，资金费率已反转符号，均按货币对计算。",
+  Now: "当前",
+  "7D APR": "7 日年化",
+  "Payback, days": "回本天数",
+  Long: "做多",
+  Short: "做空",
+  "7d {apr}": "7 日 {apr}",
+  "The funding spread now: short leg's rate minus long leg's, a year":
+    "当前资金费率差：空头腿费率减多头腿费率，年化",
+  "The same two markets' spread, averaged over the settlements of the last 7 days, a year":
+    "同样两个市场的费率差，按最近 7 天的结算取平均，年化",
+  "Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the 7-day spread; dimmed where there is only the spread now":
+    "按公开零售吃单费率，资金费收入抵消双腿开仓和平仓手续费所需的天数。按 7 日费率差计算；只有当前费率差时显示为暗色",
+  "Where to hold the long side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
+    "在哪里持有多头：交易所及其当前资金费率；下方为合约、结算间隔、持仓量和 7 日资金费率",
+  "Where to hold the short side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
+    "在哪里持有空头：交易所及其当前资金费率；下方为合约、结算间隔、持仓量和 7 日资金费率",
+  "Days of the 7-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates":
+    "按 7 日费率差，抵消 {bps} 个基点手续费所需的天数：双腿各吃单开仓、平仓一次，按公开零售费率",
+  "No 7 days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates":
+    "尚无 7 天的结算，因此按当前费率差计算：抵消 {bps} 个基点手续费所需的天数，双腿各吃单开仓、平仓一次，按公开零售费率",
 };

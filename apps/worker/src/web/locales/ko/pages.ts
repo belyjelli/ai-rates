@@ -122,14 +122,9 @@ export const pages: Catalog = {
   OI: "미결제약정",
   "{asset} pays {spread} a year to hold both sides: long {long} at {longApr}, short {short} at {shortApr}. Same coin, two exchanges, price exposure cancelled.":
     "{asset} 양쪽을 보유하면 연 {spread}: 롱 {long}({longApr}), 숏 {short}({shortApr}). 같은 코인, 두 거래소, 가격 노출 상쇄.",
-  "Widest funding gap between two exchanges": "두 거래소 간 가장 큰 펀딩비 차이",
   "Signed log scale, so ordinary rates keep room next to extreme ones":
     "부호 있는 로그 척도라 극단적인 요율 옆에서도 보통 요율이 보입니다",
   "Long − short, log scale": "롱 − 숏, 로그 척도",
-  "Long APR": "롱 연환산",
-  "Short APR": "숏 연환산",
-  "Same two markets, averaged over the settlements of the last 7 days":
-    "같은 두 종목, 최근 7일 정산의 평균",
   "Exchanges with a live market for this asset": "이 자산의 활성 종목이 있는 거래소",
   "How often the weaker leg held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score":
     "30일 동안 약한 레그가 펀딩비 방향을 유지한 빈도. 0.50은 동전 던지기 수준이고, 0.88이 한 달 전체로 받을 수 있는 최고점입니다",
@@ -396,4 +391,24 @@ export const pages: Catalog = {
   "buy this contract": "이 종목 매수",
   "{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.":
     "{symbol}은(는) 이 통화쌍을 반대 방향으로 호가하므로, 통화쌍의 이쪽은 그 종목의 반대쪽입니다. 가격은 역수로, 펀딩비는 부호를 바꿔 통화쌍 기준으로 표시합니다.",
+  Now: "현재",
+  "7D APR": "7일 연환산",
+  "Payback, days": "회수 일수",
+  Long: "롱",
+  Short: "숏",
+  "7d {apr}": "7일 {apr}",
+  "The funding spread now: short leg's rate minus long leg's, a year":
+    "현재 펀딩비 차이: 숏 레그 비율에서 롱 레그 비율을 뺀 연환산",
+  "The same two markets' spread, averaged over the settlements of the last 7 days, a year":
+    "같은 두 종목의 차이를 최근 7일 정산으로 평균한 연환산",
+  "Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the 7-day spread; dimmed where there is only the spread now":
+    "공개된 일반 테이커 수수료 기준으로, 두 레그의 진입과 청산 수수료를 펀딩비로 회수하는 데 걸리는 일수. 7일 차이로 계산하며 현재 차이만 있으면 흐리게 표시",
+  "Where to hold the long side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
+    "롱을 보유할 곳: 거래소와 현재 펀딩비. 아래에 종목, 정산 주기, 미결제약정, 7일 펀딩비",
+  "Where to hold the short side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
+    "숏을 보유할 곳: 거래소와 현재 펀딩비. 아래에 종목, 정산 주기, 미결제약정, 7일 펀딩비",
+  "Days of the 7-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates":
+    "7일 차이로 {bps} bps 수수료를 회수하는 데 걸리는 일수: 두 레그 모두 테이커로 진입과 청산 한 번씩, 공개된 일반 수수료 기준",
+  "No 7 days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates":
+    "아직 7일치 정산이 없어 현재 차이로 계산: {bps} bps 수수료를 회수하는 데 걸리는 일수, 두 레그 모두 테이커로 진입과 청산 한 번씩, 공개된 일반 수수료 기준",
 };

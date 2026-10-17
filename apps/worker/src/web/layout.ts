@@ -832,6 +832,9 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .leg{display:grid;gap:0}
 .leg .venue{border:0}
 .leg .meta{color:var(--muted)}
+.leg .leg-top{display:flex;justify-content:space-between;gap:12px}
+/* A pair whose week of funding paid the wrong way: its fees never come back (pages.ts paybackCell). */
+.sheet .never{color:var(--warn)}
 /* A leg quoted the other way round (pages.ts invertedMark): the side to take on its own contract. */
 .leg .leg-inv{color:var(--warn);font-size:11px}
 .long-leg .venue{color:var(--long)}.short-leg .venue{color:var(--short)}
