@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { VENUES } from "@ai-rates/venues";
 import {
   arbitrageToQuery,
   type BacktestParams,
@@ -92,9 +93,62 @@ describe("parseScreenerFilters", () => {
       venueTypes: ["cex", "hip3"],
       maxAbsApr: DEFAULT_FILTERS.maxAbsApr,
       sameQuote: false,
+      assetClass: null,
+      minSpreadApr: null,
+      maxSpreadApr: null,
+      intervalHours: null,
+      query: null,
+      unit: "apr",
       sort: DEFAULT_FILTERS.sort,
       limit: 500,
     });
+  });
+
+  test("the bar's filters parse, reject what they do not know, and survive the round trip", () => {
+    const filters = parseScreenerFilters(
+      new URLSearchParams(
+        "class=TradFi&spread=10-50&interval=8H&q=xyz:SPY&unit=1h&sort=settled_60d",
+      ),
+    );
+    expect(filters).toMatchObject({
+      assetClass: "tradfi",
+      minSpreadApr: 10,
+      maxSpreadApr: 50,
+      intervalHours: 8,
+      query: "xyz:SPY",
+      unit: "1h",
+      sort: "settled_60d",
+    });
+    expect(filtersToQuery(filters)).toBe(
+      "?class=tradfi&spread=10-50&interval=8h&q=xyz%3ASPY&unit=1h&sort=settled_60d",
+    );
+    expect(parseScreenerFilters(new URLSearchParams("spread=200-"))).toMatchObject({
+      minSpreadApr: 200,
+      maxSpreadApr: null,
+    });
+    // Unknown values are the default, never an error and never passed on.
+    expect(
+      parseScreenerFilters(
+        new URLSearchParams("class=bonds&spread=5-6&interval=2h&q=a%20b&q2=x&unit=week"),
+      ),
+    ).toMatchObject({
+      assetClass: null,
+      minSpreadApr: null,
+      maxSpreadApr: null,
+      intervalHours: null,
+      query: null,
+      unit: "apr",
+    });
+  });
+
+  test("ticking every exchange the picker lists is no exchange filter", () => {
+    const listed = VENUES.filter((v) => !v.retired && !v.aliasOf).map((v) => v.id);
+    expect(
+      parseScreenerFilters(new URLSearchParams({ venues: listed.join(",") })).venueIds,
+    ).toBeNull();
+    expect(
+      parseScreenerFilters(new URLSearchParams({ venues: listed.slice(1).join(",") })).venueIds,
+    ).toHaveLength(listed.length - 1);
   });
 
   test("quote=same pairs within one settlement currency, and survives the round trip", () => {

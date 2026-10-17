@@ -47,7 +47,6 @@ import {
   HEATMAP_TIMEFRAMES,
   heatmapToQuery,
   MAX_TAKER_FEE_BPS,
-  VENUE_TYPES,
 } from "../app/params";
 import { retailSchedule } from "../app/retail-fees";
 import {
@@ -59,6 +58,7 @@ import {
   formatInterval,
   formatPrice,
   formatPriceGap,
+  formatRate,
   formatUsd,
   LOCK_ICON,
   since,
@@ -81,10 +81,17 @@ import { FEEDS, liquidationFeedTable } from "./liquidation-feeds";
 import { MACRO_PANELS, type MacroPanel, macroPanel, macroPlaceholder, macroTabs } from "./macro";
 import { PICK_SCRIPT } from "./picker";
 import { type RailScale, railPosition, railScale, renderRail } from "./rail";
+import {
+  SCREENER_SCRIPT,
+  screenerControls,
+  shownPeriod,
+  steadyDot,
+  unitLabel,
+} from "./screener-controls";
 import { citeMark } from "./share";
 import { SLOT_SCRIPT } from "./slot-chart";
 import { tabBar } from "./tabs";
-import { VENUE_TYPE_LABEL, VENUE_TYPE_SHORT, venueName } from "./venues";
+import { VENUE_TYPE_LABEL, venueName } from "./venues";
 
 /** Each class's tag, marked for translation; the class itself stays the English code in every URL. */
 const ASSET_CLASS_LABELS: Readonly<Record<AssetClass, string>> = {
@@ -378,59 +385,17 @@ export function screener(data: {
     overview: data.overview,
     now: data.now,
     body: `${helpHeading("h1", tr("Funding spread screener"), "screener", `<p>${tr("For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.")}</p>`)}
-${filtersForm(data.filters)}
+${screenerControls(data.filters)}
+<script>${SCREENER_SCRIPT}</script>
 ${pairsTable(data.pairs, tr("No pairs match these filters. Lower the minimum open interest or include more exchange types."), data.filters)}`,
   });
 }
 
-function filtersForm(f: ScreenerFilters): string {
-  const select = (name: string, label: string, current: number, options: [number, string][]) =>
-    `<label class="field">${label}<select name="${name}">${options
-      .map(
-        ([value, text]) =>
-          `<option value="${value}"${value === current ? " selected" : ""}>${text}</option>`,
-      )
-      .join("")}</select></label>`;
-  const types = VENUE_TYPES.map(
-    (type) =>
-      `<label><input type="checkbox" name="types" value="${type}"${!f.venueTypes || f.venueTypes.includes(type) ? " checked" : ""}> ${VENUE_TYPE_SHORT[type]}</label>`,
-  ).join("");
-  const venues = f.venueIds
-    ? `<input type="hidden" name="venues" value="${esc(f.venueIds.join(","))}">`
-    : "";
-
-  return `<form class="filters" method="get" action="/screener">
-${select("min_oi", tr("Min open interest, each leg"), f.minOpenInterestUsd, [
-  [0, tr("Any")],
-  [100_000, "$100k"],
-  [250_000, "$250k"],
-  [1_000_000, "$1M"],
-  [10_000_000, "$10M"],
-  [50_000_000, "$50M"],
-])}
-${select("min_vol", tr("Min 24h volume, each leg"), f.minVolume24hUsd, [
-  [0, tr("Any")],
-  [100_000, "$100k"],
-  [1_000_000, "$1M"],
-  [10_000_000, "$10M"],
-])}
-<fieldset class="field"><legend>${tr("Exchange types")}</legend><div class="checks">${types}</div></fieldset>
-<fieldset class="field"><legend>${tr("Settlement")}</legend><div class="checks"><label title="${tr("A USDT leg against a USDC leg carries the basis between the two stablecoins and needs collateral in both. Ticked, each asset is paired only within one quote currency")}"><input type="checkbox" name="quote" value="same"${f.sameQuote ? " checked" : ""}> ${tr("Same quote currency on both legs")}</label></div></fieldset>
-<fieldset class="field"><legend>${tr("Distressed markets")}</legend><div class="checks"><label title="${tr("Delisting and distressed listings can pay beyond ±2000% APR and crowd out tradeable spreads")}"><input type="checkbox" name="extremes" value="1"${f.maxAbsApr === null ? " checked" : ""}> ${tr("Include beyond ±1000% APR")}</label></div></fieldset>
-${select("limit", tr("Rows"), f.limit, [
-  [50, "50"],
-  [100, "100"],
-  [250, "250"],
-  [500, "500"],
-])}
-${venues}
-<div class="actions"><button type="submit">${tr("Apply filters")}</button><a href="/screener">${tr("Reset")}</a></div>
-</form>`;
-}
-
 const SORT_LABELS: Record<ScreenerSort, string> = {
   spread: msg("Now"),
-  settled_7d: msg("7D APR"),
+  settled_7d: "7D",
+  settled_30d: "30D",
+  settled_60d: "60D",
   venues: msg("Venues"),
   stability: msg("Stability"),
 };
@@ -454,12 +419,18 @@ function sortableTh(
   sort: ScreenerSort,
   title: string,
   filters: ScreenerFilters | undefined,
+  label = trMsg(SORT_LABELS[sort]),
 ): string {
   const head = `<th class="num" title="${esc(title)}"`;
-  if (!filters) return `${head}>${trMsg(SORT_LABELS[sort])}</th>`;
+  if (!filters) return `${head}>${label}</th>`;
   const active = filters.sort === sort;
   const href = `/screener${filtersToQuery({ ...filters, sort })}`;
-  return `${head}${active ? ' aria-sort="descending"' : ""}><a href="${href}">${trMsg(SORT_LABELS[sort])}</a></th>`;
+  return `${head}${active ? ' aria-sort="descending"' : ""}><a href="${href}">${label}</a></th>`;
+}
+
+/** A pair's spread averaged over the period a view shows, in the pair's terms. */
+function periodSpread(p: ScreenerPair, days: number): number | null {
+  return days === 60 ? p.spread_apr_60d : days === 30 ? p.spread_apr_30d : p.spread_apr_7d;
 }
 
 /**
@@ -529,26 +500,28 @@ function invertedMark(action: string, symbol: string): string {
 
 /**
  * Days of funding a pair needs to repay its own fees: a taker fill in and out of both legs at the
- * public retail rates, the same four-fill model as the backtest's payback. The 7-day spread is the
- * basis, because the rate of the moment is often a spike (a 900% spread that settled 12% over the
- * week); a pair with no week of history yet falls back to it, dimmed and saying so.
+ * public retail rates, the same four-fill model as the backtest's payback. The basis is the spread
+ * averaged over the period the view shows (7 days unless it asks for 30 or 60), because the rate of
+ * the moment is often a spike (a 900% spread that settled 12% over the week); a pair without that
+ * much history falls back to the spread now, dimmed and saying so.
  */
-function paybackCell(p: ScreenerPair, schedule: FeeSchedule): string {
+function paybackCell(p: ScreenerPair, schedule: FeeSchedule, period: number): string {
   const fees = backtestFeesFrom(schedule, p.long_venue_id, p.short_venue_id);
   if (fees === null) return '<td class="num"><span class="dim">–</span></td>';
-  const settled = p.spread_apr_7d !== null;
-  const spreadApr = p.spread_apr_7d ?? p.spread_apr;
+  const averaged = periodSpread(p, period);
+  const settled = averaged !== null;
+  const spreadApr = averaged ?? p.spread_apr;
   const feeBps = (fees.longTakerBps + fees.shortTakerBps) * 2;
   // Fees as a percent of one leg's notional, over the spread's percent a day.
   const days = spreadApr > 0 ? feeBps / 100 / (spreadApr / 365) : null;
   const title = settled
     ? tr(
-        "Days of the 7-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates",
-        { bps: formatBps(feeBps) },
+        "Days of the {days}-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates",
+        { bps: formatBps(feeBps), days: period },
       )
     : tr(
-        "No 7 days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates",
-        { bps: formatBps(feeBps) },
+        "No {days} days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates",
+        { bps: formatBps(feeBps), days: period },
       );
   const text =
     days === null
@@ -574,7 +547,14 @@ function pairsTable(
     "log",
   );
   const schedule = retailSchedule(pairs.flatMap((p) => [p.long_venue_id, p.short_venue_id]));
+  // The unit and the averaged period the bar chose; the homepage's teaser, with no bar, shows APR and 7D.
+  const unit = filters?.unit ?? "apr";
+  const period = shownPeriod(filters?.sort ?? "spread");
+  const rate = (value: number | null) =>
+    `<span class="${aprTone(value)}">${formatRate(value, unit)}</span>`;
+  const unitSuffix = unit === "apr" ? "APR" : tr("per {unit}", { unit: unitLabel(unit) });
   // One column per side: the venue and its funding now on top, the contract and its 7-day rate under.
+  // The dot before the venue is its steadiness (screener-controls.ts), keyed in the bar above.
   const leg = (
     side: "long" | "short",
     venueId: string,
@@ -583,11 +563,13 @@ function pairsTable(
     oi: number | null,
     aprNow: number,
     apr7d: number | null,
+    stability: number | null,
+    stabilityDays: number | null,
     quote: string | null,
     otherQuote: string | null,
     inverted: boolean | undefined,
   ) =>
-    `<td><div class="leg ${side}-leg"><span class="leg-top"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a>${apr(aprNow)}</span><span class="meta">${esc(symbol)} · ${formatInterval(interval)} · ${tr("OI")} <span data-u="${side}-oi">${formatUsd(oi)}</span> · ${tr("7d {apr}", { apr: apr7d === null ? "–" : formatApr(apr7d) })}${quoteMark(quote, otherQuote)}</span>${inverted ? invertedMark(side === "long" ? tr("short this contract") : tr("long this contract"), symbol) : ""}</div></td>`;
+    `<td><div class="leg ${side}-leg"><span class="leg-top"><span>${steadyDot(stability, stabilityDays)}<a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a></span>${rate(aprNow)}</span><span class="meta">${esc(symbol)} · ${formatInterval(interval)} · ${tr("OI")} <span data-u="${side}-oi">${formatUsd(oi)}</span> · ${tr("7d {apr}", { apr: formatRate(apr7d, unit) })}${quoteMark(quote, otherQuote)}</span>${inverted ? invertedMark(side === "long" ? tr("short this contract") : tr("long this contract"), symbol) : ""}</div></td>`;
   // A leg quoted the other way round is held on the opposite side of its contract; the rail says so.
   const railLabel = (label: string, inverted: boolean | undefined, side: "long" | "short") =>
     inverted
@@ -616,11 +598,11 @@ function pairsTable(
     .map(
       (p, i) => `<tr data-k="${esc(assetKey(p.asset, p.asset_class))}">
 <td class="asset"><a href="${assetHref(p.asset, p.asset_class)}">${assetName(p.asset, p.asset_class)}</a>${cite(p, i)}</td>
-<td class="num spread">${formatApr(p.spread_apr)}</td>
-<td class="num">${p.spread_apr_7d === null ? '<span class="dim">–</span>' : formatApr(p.spread_apr_7d)}</td>
-${paybackCell(p, schedule)}
-${leg("long", p.long_venue_id, p.long_symbol, p.long_interval_hours, p.long_open_interest_usd, p.long_apr, p.long_apr_7d, p.long_quote, p.short_quote, p.long_inverted)}
-${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short_open_interest_usd, p.short_apr, p.short_apr_7d, p.short_quote, p.long_quote, p.short_inverted)}
+<td class="num spread">${formatRate(p.spread_apr, unit)}</td>
+<td class="num">${periodSpread(p, period.days) === null ? '<span class="dim">–</span>' : formatRate(periodSpread(p, period.days), unit)}</td>
+${paybackCell(p, schedule, period.days)}
+${leg("long", p.long_venue_id, p.long_symbol, p.long_interval_hours, p.long_open_interest_usd, p.long_apr, p.long_apr_7d, p.long_stability, p.long_stability_days, p.long_quote, p.short_quote, p.long_inverted)}
+${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short_open_interest_usd, p.short_apr, p.short_apr_7d, p.short_stability, p.short_stability_days, p.short_quote, p.long_quote, p.short_inverted)}
 <td class="rail-cell">${renderRail({
         scale,
         marks: [
@@ -656,7 +638,7 @@ ${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short
   // The screener's table runs to hundreds of rows, so its header sticks under the masthead; the
   // homepage's twelve-row teaser, the other caller, has nothing to stick through.
   return `<div class="sheet-wrap${filters ? " stick" : ""}"><table class="sheet">
-<thead><tr><th>${tr("Asset")}</th>${sortableTh("spread", tr("The funding spread now: short leg's rate minus long leg's, a year"), filters)}${sortableTh("settled_7d", tr("The same two markets' spread, averaged over the settlements of the last 7 days, a year"), filters)}<th class="num" title="${tr("Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the 7-day spread; dimmed where there is only the spread now")}">${tr("Payback, days")}</th><th title="${tr("Where to hold the long side: exchange and its funding now; contract, interval, open interest and 7-day funding below")}">${tr("Long")}</th><th title="${tr("Where to hold the short side: exchange and its funding now; contract, interval, open interest and 7-day funding below")}">${tr("Short")}</th><th title="${tr("Signed log scale, so ordinary rates keep room next to extreme ones")}">${tr("Long − short, log scale")}</th>${sortableTh("venues", tr("Exchanges with a live market for this asset"), filters)}${sortableTh("stability", tr("How often the weaker leg held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score"), filters)}</tr></thead>
+<thead><tr><th>${tr("Asset")}</th>${sortableTh("spread", tr("The funding spread now: short leg's rate minus long leg's"), filters, unit === "apr" ? tr("Now") : `${tr("Now")} ${unitSuffix}`)}${sortableTh(period.sort, tr("The same two markets' spread, averaged over the settlements of the last {days} days", { days: period.days }), filters, `${period.label} ${unitSuffix}`)}<th class="num" title="${tr("Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the {days}-day spread; dimmed where there is only the spread now", { days: period.days })}">${tr("Payback, days")}</th><th title="${tr("Where to hold the long side: exchange and its funding now; contract, interval, open interest and 7-day funding below")}">${tr("Long")}</th><th title="${tr("Where to hold the short side: exchange and its funding now; contract, interval, open interest and 7-day funding below")}">${tr("Short")}</th><th title="${tr("Signed log scale, so ordinary rates keep room next to extreme ones")}">${tr("Long − short, log scale")}</th>${sortableTh("venues", tr("Exchanges with a live market for this asset"), filters)}${sortableTh("stability", tr("How often the weaker leg held its funding direction over 30 days. 0.50 is a coin flip; 0.88 is the most a full month can score"), filters)}</tr></thead>
 <tbody data-live="pairs">${rows}</tbody>
 </table></div>`;
 }

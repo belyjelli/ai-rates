@@ -92,17 +92,13 @@ export const pages: Catalog = {
     "条件に合うペアはありません。最低建玉を下げるか、取引所の種類を増やしてください。",
   "Min open interest, each leg": "各レッグの最低建玉",
   "Min 24h volume, each leg": "各レッグの最低24時間出来高",
-  "Exchange types": "取引所の種類",
-  Settlement: "決済通貨",
   "A USDT leg against a USDC leg carries the basis between the two stablecoins and needs collateral in both. Ticked, each asset is paired only within one quote currency":
     "USDT のレッグと USDC のレッグを組むと、2つのステーブルコイン間のベーシスを負い、両方に証拠金が必要です。チェックすると、各資産は同じ建て通貨の中だけでペアを組みます",
   "Same quote currency on both legs": "両レッグを同じ建て通貨に",
-  "Distressed markets": "問題銘柄",
   "Delisting and distressed listings can pay beyond ±2000% APR and crowd out tradeable spreads":
     "上場廃止予定の銘柄や問題銘柄は年率 ±2000% を超えることがあり、取引可能なスプレッドを押しのけてしまいます",
   "Include beyond ±1000% APR": "年率 ±1000% 超も含める",
   Rows: "表示件数",
-  "Apply filters": "フィルターを適用",
   Spread: "スプレッド",
   Venues: "取引所",
   "Neither leg has settled funding to score yet":
@@ -393,23 +389,65 @@ export const pages: Catalog = {
   "{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.":
     "{symbol} はこの通貨ペアを逆向きに建てているため、ペアのこちら側はその銘柄の反対側にあたります。価格は逆数、資金調達率は符号を反転し、どちらもペア基準で表示しています。",
   Now: "現在",
-  "7D APR": "7日年率",
   "Payback, days": "回収日数",
   Long: "ロング",
   Short: "ショート",
   "7d {apr}": "7日 {apr}",
-  "The funding spread now: short leg's rate minus long leg's, a year":
-    "現在の資金調達率の差：ショート側の率からロング側の率を引いた年率",
-  "The same two markets' spread, averaged over the settlements of the last 7 days, a year":
-    "同じ2銘柄の差を直近7日間の精算で平均した年率",
-  "Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the 7-day spread; dimmed where there is only the spread now":
-    "公開されている一般のテイカー手数料で、両レッグの建玉と決済の手数料を資金調達で回収するまでの日数。7日間の差から計算し、現在の差しかない場合は薄く表示",
   "Where to hold the long side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
     "ロングを持つ場所：取引所と現在の資金調達率。その下に銘柄、精算間隔、建玉、7日間の資金調達率",
   "Where to hold the short side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
     "ショートを持つ場所：取引所と現在の資金調達率。その下に銘柄、精算間隔、建玉、7日間の資金調達率",
-  "Days of the 7-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates":
-    "7日間の差で {bps} bps の手数料を回収するまでの日数：両レッグとも建玉と決済をテイカーで1回ずつ、公開の一般手数料で",
-  "No 7 days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates":
-    "7日分の精算がまだないため現在の差から計算：{bps} bps の手数料を回収するまでの日数、両レッグとも建玉と決済をテイカーで1回ずつ、公開の一般手数料で",
+  "Days of the {days}-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates":
+    "{days}日間の差で {bps} bps の手数料を回収するまでの日数：両レッグとも建玉と決済をテイカーで1回ずつ、公開の一般手数料で",
+  "No {days} days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates":
+    "{days}日分の精算がまだないため現在の差から計算：{bps} bps の手数料を回収するまでの日数、両レッグとも建玉と決済をテイカーで1回ずつ、公開の一般手数料で",
+  "per {unit}": "{unit}あたり",
+  "Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the {days}-day spread; dimmed where there is only the spread now":
+    "公開されている一般のテイカー手数料で、両レッグの建玉と決済の手数料を資金調達で回収するまでの日数。{days}日間の差から計算し、現在の差しかない場合は薄く表示",
+  "The funding spread now: short leg's rate minus long leg's":
+    "現在の資金調達率の差：ショート側の率からロング側の率を引いた値",
+  "The same two markets' spread, averaged over the settlements of the last {days} days":
+    "同じ2銘柄の差を直近{days}日間の精算で平均した値",
+  "dollars, or 250k, 1.5m": "ドル、または 250k、1.5m",
+  "Delete preset": "プリセットを削除",
+  "No presets yet.": "プリセットはまだありません。",
+  Presets: "プリセット",
+  "Preset name": "プリセット名",
+  "Preset name…": "プリセット名…",
+  Save: "保存",
+  "Clear all": "すべて解除",
+  "Select all": "すべて選択",
+  "{n} selected": "{n} 選択中",
+  Filters: "フィルター",
+  "Asset class": "資産クラス",
+  TradFi: "伝統的金融",
+  "Spread now (APR %)": "現在の差（年率 %）",
+  "Both legs settle at this interval": "両レッグともこの間隔で精算",
+  "Funding interval": "資金調達の間隔",
+  "No USDT leg against a USDC one": "USDT のレッグと USDC のレッグを組まない",
+  "Distressed and delisting markets": "経営難・上場廃止予定の銘柄",
+  "Reset all": "すべてリセット",
+  Steadiness: "安定度",
+  "Funding steadiness": "資金調達の安定度",
+  "How often a leg's funding kept its direction over the last 30 days: the dot beside each exchange in the Long and Short columns. The Stability column is the weaker leg's score.":
+    "過去30日間にレッグの資金調達率が方向を保った頻度：ロング列とショート列の各取引所の前にある点。安定性の列は弱い方のレッグのスコアです。",
+  "Holds its direction almost every day. Income you can plan on.":
+    "ほぼ毎日方向を保つ。見通しの立つ収入。",
+  "Flips now and then. Usable for a carry, but size for the days it pays the other way.":
+    "ときどき反転する。キャリーには使えるが、逆に支払う日を考えてサイズを決める。",
+  "Flips often. Today's rate says little about next week's, and a backtest of it says less.":
+    "頻繁に反転する。今日の率は来週についてほとんど何も語らず、そのバックテストはさらに語らない。",
+  "Scored by direction, not by the coefficient of variation: that explodes whenever the average rate sits near zero. 0.50 is a coin flip; 0.88 is the most a full month can score.":
+    "変動係数ではなく方向で評価：平均の率がゼロ付近だと変動係数は発散するため。0.50 はコイン投げ、0.88 は1か月で取り得る最高値です。",
+  "Search asset": "銘柄を検索",
+  "Search asset…": "銘柄を検索…",
+  Period: "期間",
+  "Rate unit": "率の単位",
+  Day: "日",
+  "No settled funding to score yet": "評価できる精算済みの資金調達がまだありません",
+  "Funding held its direction on {days} of its charging days in the last 30: {band}":
+    "過去30日のうち {days} の課金日で方向を保った：{band}",
+  erratic: "不安定",
+  mixed: "中程度",
+  steady: "安定",
 };

@@ -92,17 +92,13 @@ export const pages: Catalog = {
     "이 필터에 맞는 페어가 없습니다. 최소 미결제약정을 낮추거나 거래소 유형을 더 포함하세요.",
   "Min open interest, each leg": "레그별 최소 미결제약정",
   "Min 24h volume, each leg": "레그별 최소 24시간 거래량",
-  "Exchange types": "거래소 유형",
-  Settlement: "정산 통화",
   "A USDT leg against a USDC leg carries the basis between the two stablecoins and needs collateral in both. Ticked, each asset is paired only within one quote currency":
     "USDT 레그와 USDC 레그를 짝지으면 두 스테이블코인 사이의 베이시스를 떠안고 양쪽 모두에 담보가 필요합니다. 체크하면 자산마다 같은 견적 통화 안에서만 페어를 만듭니다",
   "Same quote currency on both legs": "두 레그 같은 견적 통화",
-  "Distressed markets": "부실 종목",
   "Delisting and distressed listings can pay beyond ±2000% APR and crowd out tradeable spreads":
     "상장 폐지 및 부실 상장 종목은 연환산 ±2000%를 넘을 수 있어 거래 가능한 스프레드를 밀어냅니다",
   "Include beyond ±1000% APR": "연환산 ±1000% 초과 포함",
   Rows: "행 수",
-  "Apply filters": "필터 적용",
   Spread: "스프레드",
   Venues: "거래소",
   "Neither leg has settled funding to score yet":
@@ -392,23 +388,65 @@ export const pages: Catalog = {
   "{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.":
     "{symbol}은(는) 이 통화쌍을 반대 방향으로 호가하므로, 통화쌍의 이쪽은 그 종목의 반대쪽입니다. 가격은 역수로, 펀딩비는 부호를 바꿔 통화쌍 기준으로 표시합니다.",
   Now: "현재",
-  "7D APR": "7일 연환산",
   "Payback, days": "회수 일수",
   Long: "롱",
   Short: "숏",
   "7d {apr}": "7일 {apr}",
-  "The funding spread now: short leg's rate minus long leg's, a year":
-    "현재 펀딩비 차이: 숏 레그 비율에서 롱 레그 비율을 뺀 연환산",
-  "The same two markets' spread, averaged over the settlements of the last 7 days, a year":
-    "같은 두 종목의 차이를 최근 7일 정산으로 평균한 연환산",
-  "Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the 7-day spread; dimmed where there is only the spread now":
-    "공개된 일반 테이커 수수료 기준으로, 두 레그의 진입과 청산 수수료를 펀딩비로 회수하는 데 걸리는 일수. 7일 차이로 계산하며 현재 차이만 있으면 흐리게 표시",
   "Where to hold the long side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
     "롱을 보유할 곳: 거래소와 현재 펀딩비. 아래에 종목, 정산 주기, 미결제약정, 7일 펀딩비",
   "Where to hold the short side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
     "숏을 보유할 곳: 거래소와 현재 펀딩비. 아래에 종목, 정산 주기, 미결제약정, 7일 펀딩비",
-  "Days of the 7-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates":
-    "7일 차이로 {bps} bps 수수료를 회수하는 데 걸리는 일수: 두 레그 모두 테이커로 진입과 청산 한 번씩, 공개된 일반 수수료 기준",
-  "No 7 days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates":
-    "아직 7일치 정산이 없어 현재 차이로 계산: {bps} bps 수수료를 회수하는 데 걸리는 일수, 두 레그 모두 테이커로 진입과 청산 한 번씩, 공개된 일반 수수료 기준",
+  "Days of the {days}-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates":
+    "{days}일 차이로 {bps} bps 수수료를 회수하는 데 걸리는 일수: 두 레그 모두 테이커로 진입과 청산 한 번씩, 공개된 일반 수수료 기준",
+  "No {days} days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates":
+    "아직 {days}일치 정산이 없어 현재 차이로 계산: {bps} bps 수수료를 회수하는 데 걸리는 일수, 두 레그 모두 테이커로 진입과 청산 한 번씩, 공개된 일반 수수료 기준",
+  "per {unit}": "{unit}당",
+  "Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the {days}-day spread; dimmed where there is only the spread now":
+    "공개된 일반 테이커 수수료 기준으로, 두 레그의 진입과 청산 수수료를 펀딩비로 회수하는 데 걸리는 일수. {days}일 차이로 계산하며 현재 차이만 있으면 흐리게 표시",
+  "The funding spread now: short leg's rate minus long leg's":
+    "현재 펀딩비 차이: 숏 레그 비율에서 롱 레그 비율을 뺀 값",
+  "The same two markets' spread, averaged over the settlements of the last {days} days":
+    "같은 두 종목의 차이를 최근 {days}일 정산으로 평균한 값",
+  "dollars, or 250k, 1.5m": "달러, 또는 250k, 1.5m",
+  "Delete preset": "프리셋 삭제",
+  "No presets yet.": "아직 프리셋이 없습니다.",
+  Presets: "프리셋",
+  "Preset name": "프리셋 이름",
+  "Preset name…": "프리셋 이름…",
+  Save: "저장",
+  "Clear all": "모두 해제",
+  "Select all": "모두 선택",
+  "{n} selected": "{n} 선택됨",
+  Filters: "필터",
+  "Asset class": "자산군",
+  TradFi: "전통 금융",
+  "Spread now (APR %)": "현재 차이 (연환산 %)",
+  "Both legs settle at this interval": "두 레그 모두 이 주기로 정산",
+  "Funding interval": "펀딩 주기",
+  "No USDT leg against a USDC one": "USDT 레그와 USDC 레그를 짝짓지 않음",
+  "Distressed and delisting markets": "부실·상장폐지 예정 종목",
+  "Reset all": "모두 초기화",
+  Steadiness: "안정도",
+  "Funding steadiness": "펀딩 안정도",
+  "How often a leg's funding kept its direction over the last 30 days: the dot beside each exchange in the Long and Short columns. The Stability column is the weaker leg's score.":
+    "지난 30일 동안 레그의 펀딩비가 방향을 유지한 빈도: 롱·숏 열의 각 거래소 앞에 있는 점. 안정성 열은 더 약한 레그의 점수입니다.",
+  "Holds its direction almost every day. Income you can plan on.":
+    "거의 매일 방향을 유지. 계획할 수 있는 수익.",
+  "Flips now and then. Usable for a carry, but size for the days it pays the other way.":
+    "가끔 뒤집힘. 캐리에는 쓸 수 있지만 반대로 지급하는 날을 감안해 규모를 정하세요.",
+  "Flips often. Today's rate says little about next week's, and a backtest of it says less.":
+    "자주 뒤집힘. 오늘의 비율은 다음 주에 대해 거의 말해주지 않고, 그 백테스트는 더더욱 그렇습니다.",
+  "Scored by direction, not by the coefficient of variation: that explodes whenever the average rate sits near zero. 0.50 is a coin flip; 0.88 is the most a full month can score.":
+    "변동계수가 아니라 방향으로 점수를 매깁니다: 평균 비율이 0 근처면 변동계수가 폭주하기 때문입니다. 0.50은 동전 던지기, 0.88은 한 달이 받을 수 있는 최고 점수입니다.",
+  "Search asset": "자산 검색",
+  "Search asset…": "자산 검색…",
+  Period: "기간",
+  "Rate unit": "비율 단위",
+  Day: "일",
+  "No settled funding to score yet": "점수를 매길 정산된 펀딩이 아직 없습니다",
+  "Funding held its direction on {days} of its charging days in the last 30: {band}":
+    "지난 30일 중 {days} 부과일에 방향을 유지: {band}",
+  erratic: "불안정",
+  mixed: "보통",
+  steady: "안정",
 };

@@ -93,17 +93,13 @@ export const pages: Catalog = {
     "Нет пар под эти фильтры. Снизьте минимальный открытый интерес или добавьте типы бирж.",
   "Min open interest, each leg": "Мин. открытый интерес, каждая нога",
   "Min 24h volume, each leg": "Мин. объём за 24 ч, каждая нога",
-  "Exchange types": "Типы бирж",
-  Settlement: "Валюта расчётов",
   "A USDT leg against a USDC leg carries the basis between the two stablecoins and needs collateral in both. Ticked, each asset is paired only within one quote currency":
     "Нога в USDT против ноги в USDC несёт базис между двумя стейблкоинами и требует залога в обоих. Если отмечено, пары для каждого актива строятся только внутри одной котируемой валюты",
   "Same quote currency on both legs": "Одна котируемая валюта на обеих ногах",
-  "Distressed markets": "Проблемные рынки",
   "Delisting and distressed listings can pay beyond ±2000% APR and crowd out tradeable spreads":
     "Делистинг и проблемные листинги могут платить свыше ±2000% годовых и вытесняют торгуемые спреды",
   "Include beyond ±1000% APR": "Включить свыше ±1000% годовых",
   Rows: "Строк",
-  "Apply filters": "Применить фильтры",
   Spread: "Спред",
   Venues: "Биржи",
   "Neither leg has settled funding to score yet": "Ни у одной ноги пока нет выплат для оценки",
@@ -394,23 +390,65 @@ export const pages: Catalog = {
   "{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.":
     "{symbol} котирует эту пару в обратную сторону, поэтому эта сторона пары — противоположная сторона контракта. Цена показана обратной, а ставка финансирования — с обратным знаком, в терминах пары.",
   Now: "Сейчас",
-  "7D APR": "APR за 7 д",
   "Payback, days": "Окупаемость, дн.",
   Long: "Лонг",
   Short: "Шорт",
   "7d {apr}": "7 д {apr}",
-  "The funding spread now: short leg's rate minus long leg's, a year":
-    "Разрыв фандинга сейчас: ставка шортовой ноги минус ставка лонговой, в год",
-  "The same two markets' spread, averaged over the settlements of the last 7 days, a year":
-    "Разрыв тех же двух рынков, средний по выплатам за последние 7 дней, в год",
-  "Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the 7-day spread; dimmed where there is only the spread now":
-    "Сколько дней фандинга нужно, чтобы окупить комиссии за открытие и закрытие обеих ног по публичным розничным тейкерским ставкам. По разрыву за 7 дней; бледным, где есть только текущий разрыв",
   "Where to hold the long side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
     "Где держать лонг: биржа и её фандинг сейчас; ниже контракт, интервал, открытый интерес и фандинг за 7 дней",
   "Where to hold the short side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
     "Где держать шорт: биржа и её фандинг сейчас; ниже контракт, интервал, открытый интерес и фандинг за 7 дней",
-  "Days of the 7-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates":
-    "Сколько дней разрыва за 7 дней нужно, чтобы окупить {bps} б.п. комиссий: по одной тейкерской сделке на вход и выход в обеих ногах, по публичным розничным ставкам",
-  "No 7 days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates":
-    "Выплат за 7 дней ещё нет, поэтому по текущему разрыву: сколько дней нужно, чтобы окупить {bps} б.п. комиссий, по одной тейкерской сделке на вход и выход в обеих ногах, по публичным розничным ставкам",
+  "Days of the {days}-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates":
+    "Сколько дней разрыва за {days} д нужно, чтобы окупить {bps} б.п. комиссий: по одной тейкерской сделке на вход и выход в обеих ногах, по публичным розничным ставкам",
+  "No {days} days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates":
+    "Выплат за {days} д ещё нет, поэтому по текущему разрыву: сколько дней нужно, чтобы окупить {bps} б.п. комиссий, по одной тейкерской сделке на вход и выход в обеих ногах, по публичным розничным ставкам",
+  "per {unit}": "за {unit}",
+  "Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the {days}-day spread; dimmed where there is only the spread now":
+    "Сколько дней фандинга нужно, чтобы окупить комиссии за открытие и закрытие обеих ног по публичным розничным тейкерским ставкам. По разрыву за {days} д; бледным, где есть только текущий разрыв",
+  "The funding spread now: short leg's rate minus long leg's":
+    "Разрыв фандинга сейчас: ставка шортовой ноги минус ставка лонговой",
+  "The same two markets' spread, averaged over the settlements of the last {days} days":
+    "Разрыв тех же двух рынков, средний по выплатам за последние {days} д",
+  "dollars, or 250k, 1.5m": "доллары, или 250k, 1.5m",
+  "Delete preset": "Удалить набор",
+  "No presets yet.": "Наборов пока нет.",
+  Presets: "Наборы",
+  "Preset name": "Название набора",
+  "Preset name…": "Название набора…",
+  Save: "Сохранить",
+  "Clear all": "Снять все",
+  "Select all": "Выбрать все",
+  "{n} selected": "Выбрано: {n}",
+  Filters: "Фильтры",
+  "Asset class": "Класс активов",
+  TradFi: "Традиционные",
+  "Spread now (APR %)": "Разрыв сейчас (APR %)",
+  "Both legs settle at this interval": "Обе ноги расчётные с этим интервалом",
+  "Funding interval": "Интервал фандинга",
+  "No USDT leg against a USDC one": "Без ноги в USDT против ноги в USDC",
+  "Distressed and delisting markets": "Проблемные и делистинговые рынки",
+  "Reset all": "Сбросить всё",
+  Steadiness: "Устойчивость",
+  "Funding steadiness": "Устойчивость фандинга",
+  "How often a leg's funding kept its direction over the last 30 days: the dot beside each exchange in the Long and Short columns. The Stability column is the weaker leg's score.":
+    "Как часто фандинг ноги сохранял направление за последние 30 дней: точка перед каждой биржей в колонках лонга и шорта. Колонка стабильности — оценка более слабой ноги.",
+  "Holds its direction almost every day. Income you can plan on.":
+    "Почти каждый день сохраняет направление. Доход, на который можно рассчитывать.",
+  "Flips now and then. Usable for a carry, but size for the days it pays the other way.":
+    "Иногда разворачивается. Годится для керри, но размер позиции учитывайте с поправкой на дни обратных выплат.",
+  "Flips often. Today's rate says little about next week's, and a backtest of it says less.":
+    "Часто разворачивается. Сегодняшняя ставка мало говорит о следующей неделе, а её бэктест — ещё меньше.",
+  "Scored by direction, not by the coefficient of variation: that explodes whenever the average rate sits near zero. 0.50 is a coin flip; 0.88 is the most a full month can score.":
+    "Оценка по направлению, а не по коэффициенту вариации: он взрывается, когда средняя ставка близка к нулю. 0.50 — подбрасывание монеты; 0.88 — максимум за полный месяц.",
+  "Search asset": "Поиск актива",
+  "Search asset…": "Поиск актива…",
+  Period: "Период",
+  "Rate unit": "Единица ставки",
+  Day: "День",
+  "No settled funding to score yet": "Пока нет выплаченного фандинга для оценки",
+  "Funding held its direction on {days} of its charging days in the last 30: {band}":
+    "Фандинг сохранял направление в {days} из дней начислений за последние 30: {band}",
+  erratic: "неустойчивый",
+  mixed: "средний",
+  steady: "устойчивый",
 };

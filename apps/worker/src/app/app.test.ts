@@ -2511,9 +2511,39 @@ describe("pages", () => {
       venueTypes: ["cex"],
       limit: 50,
     });
-    expect(html).toContain('<option value="1000000" selected>');
-    expect(html).toContain('value="cex" checked');
-    expect(html).not.toContain('value="dex" checked');
+    expect(html).toContain('name="min_oi" value="1m"');
+    // The exchange picker ticks the CEXs the address kept, and none of the rest.
+    expect(html).toContain('name="venues" value="binance" checked');
+    expect(html).toContain('name="venues" value="hyperliquid">');
+    expect(html).toContain(
+      '<input type="radio" name="limit" value="50" data-default="100" checked>',
+    );
+  });
+
+  test("the bar's period and unit restate the table: 30-day spreads per 8 hours, payback on 30 days", async () => {
+    const { data } = fakeData({
+      screener: async () => [{ ...pair, spread_apr_30d: 10.95, spread_apr_60d: null }],
+    });
+    const html = await (await get("/screener?sort=settled_30d&unit=8h", data)).text();
+    // 11.5% a year is 0.0105% an 8-hour period; 10.95% is 0.0100%.
+    expect(html).toContain('<td class="num spread">+0.0105%</td>');
+    expect(html).toContain('<td class="num">+0.0100%</td>');
+    expect(html).toMatch(/>30D per 8H<\/a><\/th>/);
+    // Gate 5 bps + Lighter 0, in and out, at 10.95% a year: 3.3 days.
+    expect(html).toContain("Days of the 30-day spread it takes to repay 10 bps of fees");
+    expect(html).toContain(
+      '<a href="/screener?unit=8h&amp;sort=settled_30d" aria-current="true">30D</a>',
+    );
+    expect(html).toMatch(/<a href="\/screener\?sort=settled_30d" ?>APR<\/a>/);
+  });
+
+  test("each leg carries its steadiness dot, hollow where it has no month to score", async () => {
+    const { data } = fakeData({
+      screener: async () => [{ ...pair, long_stability: 0.82, short_stability: null }],
+    });
+    const html = await (await get("/screener", data)).text();
+    expect(html).toContain('<i class="sd sd-steady" title="Funding held its direction on 30 of');
+    expect(html).toContain('<i class="sd sd-none" title="No settled funding to score yet"></i>');
   });
 
   test("screener column headers sort, and the active one says which", async () => {

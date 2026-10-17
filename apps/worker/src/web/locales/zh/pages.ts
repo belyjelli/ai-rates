@@ -88,17 +88,13 @@ export const pages: Catalog = {
     "没有符合这些筛选条件的配对。请降低最低持仓量，或纳入更多交易所类型。",
   "Min open interest, each leg": "每条腿最低持仓量",
   "Min 24h volume, each leg": "每条腿最低 24 小时成交量",
-  "Exchange types": "交易所类型",
-  Settlement: "结算",
   "A USDT leg against a USDC leg carries the basis between the two stablecoins and needs collateral in both. Ticked, each asset is paired only within one quote currency":
     "USDT 腿对 USDC 腿会承担两种稳定币之间的基差，且两边都需要保证金。勾选后，每个资产只在同一计价货币内配对",
   "Same quote currency on both legs": "两条腿使用相同计价货币",
-  "Distressed markets": "困境市场",
   "Delisting and distressed listings can pay beyond ±2000% APR and crowd out tradeable spreads":
     "下架和困境上市的合约年化可能超过 ±2000%，会挤掉可交易的价差",
   "Include beyond ±1000% APR": "包含年化超过 ±1000% 的市场",
   Rows: "行数",
-  "Apply filters": "应用筛选",
   Spread: "价差",
   Venues: "交易所",
   "Neither leg has settled funding to score yet": "两条腿都还没有可供评分的已结算资金费",
@@ -382,23 +378,65 @@ export const pages: Catalog = {
   "{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.":
     "{symbol} 以相反方向报价这一货币对，因此货币对的这一侧就是该合约的反向。其价格已取倒数，资金费率已反转符号，均按货币对计算。",
   Now: "当前",
-  "7D APR": "7 日年化",
   "Payback, days": "回本天数",
   Long: "做多",
   Short: "做空",
   "7d {apr}": "7 日 {apr}",
-  "The funding spread now: short leg's rate minus long leg's, a year":
-    "当前资金费率差：空头腿费率减多头腿费率，年化",
-  "The same two markets' spread, averaged over the settlements of the last 7 days, a year":
-    "同样两个市场的费率差，按最近 7 天的结算取平均，年化",
-  "Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the 7-day spread; dimmed where there is only the spread now":
-    "按公开零售吃单费率，资金费收入抵消双腿开仓和平仓手续费所需的天数。按 7 日费率差计算；只有当前费率差时显示为暗色",
   "Where to hold the long side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
     "在哪里持有多头：交易所及其当前资金费率；下方为合约、结算间隔、持仓量和 7 日资金费率",
   "Where to hold the short side: exchange and its funding now; contract, interval, open interest and 7-day funding below":
     "在哪里持有空头：交易所及其当前资金费率；下方为合约、结算间隔、持仓量和 7 日资金费率",
-  "Days of the 7-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates":
-    "按 7 日费率差，抵消 {bps} 个基点手续费所需的天数：双腿各吃单开仓、平仓一次，按公开零售费率",
-  "No 7 days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates":
-    "尚无 7 天的结算，因此按当前费率差计算：抵消 {bps} 个基点手续费所需的天数，双腿各吃单开仓、平仓一次，按公开零售费率",
+  "Days of the {days}-day spread it takes to repay {bps} bps of fees: a taker fill in and out of both legs, at public retail rates":
+    "按 {days} 日费率差，抵消 {bps} 个基点手续费所需的天数：双腿各吃单开仓、平仓一次，按公开零售费率",
+  "No {days} days of settlements yet, so this is from the spread now: days to repay {bps} bps of fees, a taker fill in and out of both legs, at public retail rates":
+    "尚无 {days} 天的结算，因此按当前费率差计算：抵消 {bps} 个基点手续费所需的天数，双腿各吃单开仓、平仓一次，按公开零售费率",
+  "per {unit}": "每{unit}",
+  "Days of funding it takes to repay the fees of opening and closing both legs, at public retail taker rates. From the {days}-day spread; dimmed where there is only the spread now":
+    "按公开零售吃单费率，资金费收入抵消双腿开仓和平仓手续费所需的天数。按 {days} 日费率差计算；只有当前费率差时显示为暗色",
+  "The funding spread now: short leg's rate minus long leg's":
+    "当前资金费率差：空头腿费率减多头腿费率",
+  "The same two markets' spread, averaged over the settlements of the last {days} days":
+    "同样两个市场的费率差，按最近 {days} 天的结算取平均",
+  "dollars, or 250k, 1.5m": "美元，或 250k、1.5m",
+  "Delete preset": "删除预设",
+  "No presets yet.": "还没有预设。",
+  Presets: "预设",
+  "Preset name": "预设名称",
+  "Preset name…": "预设名称…",
+  Save: "保存",
+  "Clear all": "全部清除",
+  "Select all": "全选",
+  "{n} selected": "已选 {n}",
+  Filters: "筛选",
+  "Asset class": "资产类别",
+  TradFi: "传统金融",
+  "Spread now (APR %)": "当前费率差（年化 %）",
+  "Both legs settle at this interval": "两条腿都按此间隔结算",
+  "Funding interval": "资金费结算间隔",
+  "No USDT leg against a USDC one": "不让 USDT 腿对 USDC 腿",
+  "Distressed and delisting markets": "受困和下架中的市场",
+  "Reset all": "全部重置",
+  Steadiness: "稳定度",
+  "Funding steadiness": "资金费稳定度",
+  "How often a leg's funding kept its direction over the last 30 days: the dot beside each exchange in the Long and Short columns. The Stability column is the weaker leg's score.":
+    "一条腿的资金费在过去 30 天里保持方向的频率：多头和空头列中每家交易所前的圆点。稳定性列是较弱一条腿的得分。",
+  "Holds its direction almost every day. Income you can plan on.":
+    "几乎每天都保持方向。可以计划的收入。",
+  "Flips now and then. Usable for a carry, but size for the days it pays the other way.":
+    "偶尔翻转。可以做套利，但仓位要考虑反向支付的日子。",
+  "Flips often. Today's rate says little about next week's, and a backtest of it says less.":
+    "经常翻转。今天的费率很难说明下周的情况，对它的回测更说明不了什么。",
+  "Scored by direction, not by the coefficient of variation: that explodes whenever the average rate sits near zero. 0.50 is a coin flip; 0.88 is the most a full month can score.":
+    "按方向评分，而不是变异系数：当平均费率接近零时，变异系数会急剧放大。0.50 相当于抛硬币；0.88 是整月所能得到的最高分。",
+  "Search asset": "搜索资产",
+  "Search asset…": "搜索资产…",
+  Period: "周期",
+  "Rate unit": "费率单位",
+  Day: "日",
+  "No settled funding to score yet": "尚无已结算的资金费可评分",
+  "Funding held its direction on {days} of its charging days in the last 30: {band}":
+    "过去 30 天中，资金费在 {days} 个收费日保持方向：{band}",
+  erratic: "不稳定",
+  mixed: "一般",
+  steady: "稳定",
 };

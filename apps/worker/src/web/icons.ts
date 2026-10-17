@@ -28,6 +28,16 @@ const PATHS = {
   swap: '<path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/>',
   left: '<path d="M20 12H4M10 6l-6 6 6 6"/>',
   right: '<path d="M4 12h16M14 6l6 6-6 6"/>',
+  /** Search: a lens. */
+  search: '<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',
+  /** Filters: three sliders. */
+  sliders:
+    '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+  /** Exchanges: a stack of venues. */
+  stack: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  /** An explanation: an i in a circle. */
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;

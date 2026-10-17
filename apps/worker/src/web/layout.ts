@@ -835,6 +835,82 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .leg .leg-top{display:flex;justify-content:space-between;gap:12px}
 /* A pair whose week of funding paid the wrong way: its fees never come back (pages.ts paybackCell). */
 .sheet .never{color:var(--warn)}
+/* The screener's control bar (screener-controls.ts): search, period, unit, and three dropdowns. Above
+   the table's sticky header, so an open panel is never painted under it. */
+form.sx{position:relative;z-index:5;margin:0 0 10px}
+.sx-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;padding:8px;border:1px solid var(--rule)}
+.sx-search{flex:1 1 220px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid var(--rule);background:var(--band);color:var(--muted)}
+.sx-search input{flex:1;min-width:0;font:13px var(--mono);color:var(--ink);background:none;border:0;padding:6px 0;outline:none}
+.sx-search:focus-within{border-color:var(--accent)}
+.seg{display:flex;gap:2px;padding:2px;border:1px solid var(--rule);background:var(--band)}
+.seg label{display:block;position:relative}
+.seg input{position:absolute;opacity:0;width:1px;height:1px;margin:0}
+.seg a,.seg label span{display:block;padding:4px 10px;border:0;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;cursor:pointer}
+.seg a:hover,.seg label:hover span{color:var(--ink)}
+.seg a[aria-current],.seg input:checked+span{background:var(--accent);color:var(--bg);font-weight:700}
+.seg input:focus-visible+span{outline:1px solid var(--accent);outline-offset:1px}
+.sx-pop{position:relative}
+.sx-btn{display:flex;align-items:center;gap:6px;height:100%;box-sizing:border-box;padding:4px 10px;border:1px solid var(--rule);background:var(--band);color:var(--ink);list-style:none;white-space:nowrap;cursor:pointer}
+.sx-btn::-webkit-details-marker{display:none}
+.sx-pop[open]>.sx-btn,.sx-btn:hover{border-color:var(--muted)}
+.sx-btn b{font-weight:400;color:var(--accent)}
+.sx-btn .sx-badge{padding:0 5px;background:var(--accent);color:var(--bg);font-weight:700}
+.sx-panel{position:absolute;z-index:30;top:calc(100% + 4px);left:0;width:min(400px,calc(100vw - 20px));max-height:min(78vh,720px);overflow-y:auto;box-sizing:border-box;display:grid;gap:14px;padding:12px;border:1px solid var(--muted);background:var(--bg);box-shadow:0 8px 24px rgba(0,0,0,.6);white-space:normal}
+.sx-wide{width:min(560px,calc(100vw - 20px))}
+.sx-right{left:auto;right:0}
+.sx-panel p{margin:0}
+.sx-h,.sx-gh{margin:0 0 6px!important;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sx-gh{display:flex;justify-content:space-between;gap:8px}
+.sx-sect .seg{width:max-content;max-width:100%;flex-wrap:wrap}
+.sx-num{width:140px;padding:4px 8px;font:13px var(--mono);color:var(--ink);background:var(--band);border:1px solid var(--rule)}
+.sx-num:invalid{border-color:var(--short)}
+.sx-note{margin-left:8px;font-size:11px;color:var(--dim)}
+.sx-presets .sx-note,.sx-all .sx-note{margin-left:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+button.chip{padding:2px 8px;font:12px var(--mono);letter-spacing:0;text-transform:none;color:var(--muted);background:var(--band);border:1px solid var(--rule)}
+button.chip:hover,button.chip.on{color:var(--ink);background:var(--band);border-color:var(--accent)}
+button.lnk{padding:0;font:inherit;letter-spacing:.04em;color:var(--accent);background:none;border:0}
+button.lnk:hover{color:var(--ink);background:none}
+button.ghost,a.btn.ghost{color:var(--ink);background:none;border:1px solid var(--rule)}
+button.ghost:hover,a.btn.ghost:hover{color:var(--bg);background:var(--accent);border-color:var(--accent)}
+.sx-toggles{display:grid;gap:6px}
+.sx-toggle{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 10px;border:1px solid var(--rule);background:var(--panel);cursor:pointer}
+.sx-toggle>span{display:grid;gap:2px}
+.sx-toggle b{font-weight:400;color:var(--ink)}
+.sx-toggle small{color:var(--dim)}
+.sx-toggle input{appearance:none;-webkit-appearance:none;position:relative;flex-shrink:0;width:34px;height:18px;margin:0;border:1px solid var(--rule);background:var(--band);cursor:pointer}
+.sx-toggle input::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;background:var(--muted);transition:left .12s}
+.sx-toggle input:checked{border-color:var(--accent)}
+.sx-toggle input:checked::after{left:18px;background:var(--accent)}
+.sx-toggle input:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+.sx-foot{display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--rule)}
+.sx-foot>*{flex:1;padding:5px 10px;text-align:center}
+.sx-all{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sx-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px}
+.sx-tile{display:flex;align-items:center;gap:8px;min-width:0;padding:5px 8px;border:1px solid var(--rule);background:var(--panel);cursor:pointer}
+.sx-tile:has(input:checked){border-color:#3a5a32;background:#0c140a}
+.sx-tile input{margin:0;accent-color:var(--accent)}
+.sx-tile .mono{display:inline-grid;place-items:center;flex-shrink:0;width:18px;height:18px;border-radius:50%;background:var(--rule);font-size:10px;font-weight:700;color:var(--ink)}
+.sx-tile .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sx-presets{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.sx-preset{display:inline-flex;align-items:center;gap:2px}
+.sx-save{display:flex;gap:6px;margin-top:8px}
+.sx-save input{flex:1;min-width:0;padding:4px 8px;font:13px var(--mono);color:var(--ink);background:var(--band);border:1px solid var(--rule)}
+.sx-dots{display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--muted)}
+.sx-card{padding:8px 10px;border:1px solid var(--rule);background:var(--panel)}
+.sx-card p+p{margin-top:4px;color:var(--muted)}
+/* Steadiness (screener-controls.ts): green, amber and red, deliberately not --long/--short, which
+   answer who pays whom. Hollow where a leg has no month of funding to score. */
+i.sd{display:inline-block;flex-shrink:0;width:7px;height:7px;margin-right:6px;border-radius:50%;vertical-align:.08em}
+.sd-steady{background:#3ddc84}.sd-mixed{background:#f0a030}.sd-erratic{background:#e5484d}
+.sd-none{box-sizing:border-box;border:1px solid var(--dim)}
+.sd-t-steady{color:#3ddc84}.sd-t-mixed{color:#f0a030}.sd-t-erratic{color:#e5484d}
+/* On a phone a panel may open from a button at the right edge: it spans the screen instead. */
+@media (max-width:640px){
+.sx-search{flex-basis:100%}
+.sx-panel,.sx-wide{position:fixed;top:calc(var(--mast) + 8px);left:10px;right:10px;width:auto;max-height:calc(100vh - var(--mast) - 20px);max-height:calc(100dvh - var(--mast) - 20px)}
+.sx-dots{display:none}
+}
 /* A leg quoted the other way round (pages.ts invertedMark): the side to take on its own contract. */
 .leg .leg-inv{color:var(--warn);font-size:11px}
 .long-leg .venue{color:var(--long)}.short-leg .venue{color:var(--short)}

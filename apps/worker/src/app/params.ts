@@ -1,6 +1,16 @@
 import { ASSET_CLASSES, type AssetClass } from "@ai-rates/core";
 import { VENUES } from "@ai-rates/venues";
-import { SCREENER_SORTS, type ScreenerFilters, type ScreenerSort } from "./data";
+import {
+  RATE_UNITS,
+  type RateUnit,
+  SCREENER_CLASSES,
+  SCREENER_INTERVALS,
+  SCREENER_SORTS,
+  type ScreenerClass,
+  type ScreenerFilters,
+  type ScreenerInterval,
+  type ScreenerSort,
+} from "./data";
 
 export const VENUE_TYPES = ["cex", "dex", "hip3"] as const;
 export const MAX_LIMIT = 500;
@@ -15,12 +25,45 @@ export const DEFAULT_FILTERS: ScreenerFilters = {
   maxAbsApr: 1000,
   // Mixed quotes stay in and are marked; ?quote=same pairs only within one settlement currency.
   sameQuote: false,
+  assetClass: null,
+  minSpreadApr: null,
+  maxSpreadApr: null,
+  intervalHours: null,
+  query: null,
+  unit: "apr",
   // The widest spread first, which is what the page is for. The homepage relies on this default.
   sort: "spread",
   limit: 100,
 };
 
+/**
+ * The spread bands the screener offers, by the id its address carries. Each runs from its floor to
+ * below its ceiling, so a pair falls in exactly one.
+ */
+export const SPREAD_BANDS = {
+  "1-10": [1, 10],
+  "10-50": [10, 50],
+  "50-200": [50, 200],
+  "200-": [200, null],
+} as const satisfies Record<string, readonly [number, number | null]>;
+export type SpreadBand = keyof typeof SPREAD_BANDS;
+
+/** The band a filter's spread range is, or null when it is none of them (the default, or by hand). */
+export function spreadBand(
+  f: Pick<ScreenerFilters, "minSpreadApr" | "maxSpreadApr">,
+): SpreadBand | null {
+  for (const [id, [min, max]] of Object.entries(SPREAD_BANDS)) {
+    if (f.minSpreadApr === min && f.maxSpreadApr === max) return id as SpreadBand;
+  }
+  return null;
+}
+
+/** Letters, digits and the few marks asset names use ("xyz:SPY", "1000PEPE", "BRK.B"); at most 24. */
+const QUERY_PATTERN = /^[a-z0-9:._-]{1,24}$/i;
+
 const KNOWN_VENUES = new Set(VENUES.map((v) => v.id));
+/** The exchanges the screener's picker lists: ticking every one of them is no exchange filter at all. */
+const LISTED_VENUES = VENUES.filter((v) => !v.retired && !v.aliasOf).map((v) => v.id);
 const KNOWN_TYPES = new Set<string>(VENUE_TYPES);
 const USD_SUFFIX: Record<string, number> = { k: 1e3, m: 1e6, b: 1e9 };
 
@@ -38,14 +81,46 @@ export function parseScreenerFilters(params: URLSearchParams): ScreenerFilters {
   return {
     minOpenInterestUsd: parseUsd(params.get("min_oi")) ?? DEFAULT_FILTERS.minOpenInterestUsd,
     minVolume24hUsd: parseUsd(params.get("min_vol")) ?? DEFAULT_FILTERS.minVolume24hUsd,
-    venueIds: listParam(params, "venues", KNOWN_VENUES),
+    venueIds: everyListed(listParam(params, "venues", KNOWN_VENUES)),
     maxAbsApr: isTruthyParam(params.get("extremes")) ? null : DEFAULT_FILTERS.maxAbsApr,
     sameQuote: (params.get("quote") ?? "").trim().toLowerCase() === "same",
     // Selecting every type is the same as not filtering by type.
     venueTypes: types && types.length === VENUE_TYPES.length ? null : types,
+    assetClass: oneOf(params.get("class"), SCREENER_CLASSES) as ScreenerClass | null,
+    ...parseSpread(params.get("spread")),
+    intervalHours: (SCREENER_INTERVALS.find(
+      (h) => `${h}h` === (params.get("interval") ?? "").trim().toLowerCase(),
+    ) ?? null) as ScreenerInterval | null,
+    query: parseQuery(params.get("q")),
+    unit: (oneOf(params.get("unit"), RATE_UNITS) as RateUnit | null) ?? DEFAULT_FILTERS.unit,
     sort: parseScreenerSort(params.get("sort")),
     limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), MAX_LIMIT) : DEFAULT_FILTERS.limit,
   };
+}
+
+/** Null for a list naming every exchange the picker lists, which the form sends when all are ticked. */
+function everyListed(ids: string[] | null): string[] | null {
+  return ids && LISTED_VENUES.every((id) => ids.includes(id)) ? null : ids;
+}
+
+/** The value when it is one of `allowed` (case-insensitive), else null. */
+function oneOf(value: string | null, allowed: readonly string[]): string | null {
+  const v = (value ?? "").trim().toLowerCase();
+  return allowed.includes(v) ? v : null;
+}
+
+/** A band id ("10-50") into its range; anything else leaves the spread unfiltered. */
+function parseSpread(value: string | null): Pick<ScreenerFilters, "minSpreadApr" | "maxSpreadApr"> {
+  const band = SPREAD_BANDS[(value ?? "").trim() as SpreadBand];
+  return band
+    ? { minSpreadApr: band[0], maxSpreadApr: band[1] }
+    : { minSpreadApr: null, maxSpreadApr: null };
+}
+
+/** An asset search, or null when empty or holding anything an asset name never does. */
+function parseQuery(value: string | null): string | null {
+  const q = (value ?? "").trim();
+  return QUERY_PATTERN.test(q) ? q : null;
 }
 
 /** Exact match against the allowlist: the sort key chooses an ORDER BY fragment. */
@@ -69,6 +144,12 @@ export function filtersToQuery(filters: ScreenerFilters): string {
   if (filters.venueTypes) params.set("types", filters.venueTypes.join(","));
   if (filters.venueIds) params.set("venues", filters.venueIds.join(","));
   if (filters.sameQuote) params.set("quote", "same");
+  if (filters.assetClass) params.set("class", filters.assetClass);
+  const band = spreadBand(filters);
+  if (band) params.set("spread", band);
+  if (filters.intervalHours) params.set("interval", `${filters.intervalHours}h`);
+  if (filters.query) params.set("q", filters.query);
+  if (filters.unit !== DEFAULT_FILTERS.unit) params.set("unit", filters.unit);
   if (filters.sort !== DEFAULT_FILTERS.sort) params.set("sort", filters.sort);
   if (filters.limit !== DEFAULT_FILTERS.limit) params.set("limit", String(filters.limit));
   const query = params.toString();

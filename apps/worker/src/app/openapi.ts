@@ -44,7 +44,17 @@ export const ENDPOINTS: Endpoint[] = [
         name: "quote",
         description: "Set to same to require the same quote currency on both legs.",
       },
-      { name: "sort", description: "Sort key." },
+      { name: "class", description: "crypto, or tradfi for every other asset class." },
+      {
+        name: "spread",
+        description: "The spread now, as a band: 1-10, 10-50, 50-200 or 200- (APR %).",
+      },
+      { name: "interval", description: "Both legs settle at this interval: 1h, 4h or 8h." },
+      { name: "q", description: "Assets whose name contains this text." },
+      {
+        name: "sort",
+        description: "spread, settled_7d, settled_30d, settled_60d, venues or stability.",
+      },
       { name: "limit", type: "integer", description: "Rows to return." },
     ],
   },

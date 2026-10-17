@@ -77,8 +77,27 @@ export interface VenueStatus {
  * than by depth (龙虾 shows $20.8M across two venues, above FLOCK's $6.8M across six). That
  * remains a number we would be inventing.
  */
-export const SCREENER_SORTS = ["spread", "settled_7d", "venues", "stability"] as const;
+export const SCREENER_SORTS = [
+  "spread",
+  "settled_7d",
+  "settled_30d",
+  "settled_60d",
+  "venues",
+  "stability",
+] as const;
 export type ScreenerSort = (typeof SCREENER_SORTS)[number];
+
+/** Crypto, or everything else (equities, FX, commodities, indexes): the screener's asset-class toggle. */
+export const SCREENER_CLASSES = ["crypto", "tradfi"] as const;
+export type ScreenerClass = (typeof SCREENER_CLASSES)[number];
+
+/** Funding intervals a pair can be held to, both legs alike. */
+export const SCREENER_INTERVALS = [1, 4, 8] as const;
+export type ScreenerInterval = (typeof SCREENER_INTERVALS)[number];
+
+/** How the page states a rate: a year, a day, or one 8-hour or 1-hour funding period. Display only. */
+export const RATE_UNITS = ["apr", "day", "8h", "1h"] as const;
+export type RateUnit = (typeof RATE_UNITS)[number];
 
 export interface ScreenerFilters {
   minOpenInterestUsd: number;
@@ -92,6 +111,17 @@ export interface ScreenerFilters {
    * (migration 019), so an asset keeps its best same-quote pair rather than vanishing.
    */
   sameQuote: boolean;
+  /** Crypto only, everything but crypto, or null for both. Applied to the chosen pair. */
+  assetClass: ScreenerClass | null;
+  /** The pair's spread now, from this APR (inclusive) to below that one; null leaves a side open. */
+  minSpreadApr: number | null;
+  maxSpreadApr: number | null;
+  /** Both legs settle every this many hours; null for any. Applied to the chosen pair. */
+  intervalHours: ScreenerInterval | null;
+  /** Assets whose name contains this, case-insensitive; null for every asset. */
+  query: string | null;
+  /** How the HTML page states rates. The data layer and the JSON never read it: they stay in APR. */
+  unit: RateUnit;
   sort: ScreenerSort;
   limit: number;
 }
@@ -103,6 +133,9 @@ export interface ScreenerPair {
   venue_count: number;
   spread_apr: number;
   spread_apr_7d: number | null;
+  /** The same two markets over 30 and 60 days of settlements, in the pair's terms; null without the history. */
+  spread_apr_30d: number | null;
+  spread_apr_60d: number | null;
   long_venue_id: string;
   long_symbol: string;
   long_apr: number;
@@ -1288,6 +1321,8 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       const order = {
         spread: sql`spread_apr DESC NULLS LAST, asset, asset_class`,
         settled_7d: sql`spread_apr_7d DESC NULLS LAST, asset, asset_class`,
+        settled_30d: sql`spread_apr_30d DESC NULLS LAST, asset, asset_class`,
+        settled_60d: sql`spread_apr_60d DESC NULLS LAST, asset, asset_class`,
         venues: sql`venue_count DESC NULLS LAST, spread_apr DESC NULLS LAST, asset, asset_class`,
         // pair_stability is already null when either leg is unscored -- the function uses a CASE
         // rather than least(), which skips nulls instead of propagating them. So NULLS LAST has a
@@ -1295,10 +1330,24 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         stability: sql`pair_stability DESC NULLS LAST, spread_apr DESC NULLS LAST, asset, asset_class`,
       }[f.sort];
 
+      // The pair-level filters below act on the pair each asset already chose: an asset whose widest
+      // pair fails them drops out rather than falling back to its next pair. Every one is a no-op
+      // when null, so the default call ranks exactly as before.
+      const tradfi = f.assetClass === null ? null : f.assetClass === "tradfi";
+      const like = f.query === null ? null : `%${f.query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
       // Without crossFx the call is exactly the pre-041 one; with it, a database still before
-      // migration 041 answers with the plain pairs (withoutCrossFx).
+      // migration 041 answers with the plain pairs (withoutCrossFx). The 30- and 60-day spreads
+      // join the same per-market stats the 7-day one comes from, two primary-key lookups a pair
+      // (timed on production at 111 ms against 117 without, 2026-10-17); an inverted leg's are
+      // negated, as screener_pairs does its 7-day rate.
       const run = (crossFx: boolean) => sql<ScreenerPair[]>`
-        SELECT * FROM screener_pairs(
+        SELECT p.*,
+          (CASE WHEN p.short_inverted THEN -ss.apr_30d ELSE ss.apr_30d END)
+            - (CASE WHEN p.long_inverted THEN -ls.apr_30d ELSE ls.apr_30d END) AS spread_apr_30d,
+          (CASE WHEN p.short_inverted THEN -ss.apr_60d ELSE ss.apr_60d END)
+            - (CASE WHEN p.long_inverted THEN -ls.apr_60d ELSE ls.apr_60d END) AS spread_apr_60d
+        FROM screener_pairs(
           ${f.minOpenInterestUsd}::float8,
           ${f.minVolume24hUsd}::float8,
           string_to_array(${f.venueIds?.join(",") ?? null}::text, ','),
@@ -1306,7 +1355,18 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           ${FRESH_INTERVAL}::interval,
           ${f.maxAbsApr}::float8,
           ${MARK_DEVIATION}::float8,
-          ${f.sameQuote}::boolean${crossFx ? sql`, true` : sql``})
+          ${f.sameQuote}::boolean${crossFx ? sql`, true` : sql``}) p
+        LEFT JOIN market_funding_stats ls
+          ON ls.venue_id = p.long_venue_id AND ls.venue_symbol = p.long_symbol
+        LEFT JOIN market_funding_stats ss
+          ON ss.venue_id = p.short_venue_id AND ss.venue_symbol = p.short_symbol
+        WHERE (${tradfi}::boolean IS NULL OR (p.asset_class <> 'crypto') = ${tradfi}::boolean)
+          AND (${f.minSpreadApr}::float8 IS NULL OR p.spread_apr >= ${f.minSpreadApr}::float8)
+          AND (${f.maxSpreadApr}::float8 IS NULL OR p.spread_apr < ${f.maxSpreadApr}::float8)
+          AND (${f.intervalHours}::float8 IS NULL
+               OR (p.long_interval_hours = ${f.intervalHours}::float8
+                   AND p.short_interval_hours = ${f.intervalHours}::float8))
+          AND (${like}::text IS NULL OR p.asset ILIKE ${like}::text)
         ORDER BY ${order}
         LIMIT ${f.limit}`;
       return [...(await withoutCrossFx(options?.crossFx ?? false, run))];

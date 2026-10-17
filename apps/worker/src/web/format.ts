@@ -21,6 +21,24 @@ export function formatApr(apr: number | null): string {
   return `${apr < 0 ? MINUS : "+"}${text}`;
 }
 
+/** Funding periods in a year, for stating an APR per day or per funding period. */
+const PERIODS_A_YEAR = { day: 365, "8h": 1095, "1h": 8760 } as const;
+
+/**
+ * An APR as the screener's display unit asks: unchanged for "apr", else the rate one day or one 8-
+ * or 1-hour period pays, with the decimals a small rate needs (914% a year is 0.835% per 8 hours).
+ * Simple division, as the venues themselves annualize: no compounding in either direction.
+ */
+export function formatRate(apr: number | null, unit: "apr" | keyof typeof PERIODS_A_YEAR): string {
+  if (unit === "apr") return formatApr(apr);
+  if (apr === null || !Number.isFinite(apr)) return "–";
+  const value = apr / PERIODS_A_YEAR[unit];
+  const abs = Math.abs(value);
+  const digits = abs >= 10 ? 1 : abs >= 1 ? 2 : abs >= 0.1 ? 3 : 4;
+  if (Number(abs.toFixed(digits)) === 0) return `0.${"0".repeat(digits)}%`;
+  return `${value < 0 ? MINUS : "+"}${abs.toFixed(digits)}%`;
+}
+
 /** Compact dollars: "$6.9T", "$4.1B", "$912M", "$25.0k", "$640"; another currency by its `symbol` ("HK$4.1B"). */
 export function formatUsd(value: number | null, symbol = "$"): string {
   if (value === null || !Number.isFinite(value)) return "–";
