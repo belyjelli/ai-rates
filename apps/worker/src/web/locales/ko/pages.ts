@@ -452,4 +452,107 @@ export const pages: Catalog = {
   Chart: "차트",
   "Running the backtest…": "백테스트 실행 중…",
   "pick one": "선택하세요",
+  "A price-convergence pair across two exchanges.": "두 거래소 간 가격 수렴 페어.",
+  "All quotes": "전체 호가",
+  Average: "평균",
+  "Best bid / ask": "최우선 매수 / 매도",
+  "Bid-ask, both books": "호가 스프레드, 양쪽 호가창",
+  "Breakeven move {pct}": "손익분기 변동 {pct}",
+  "Dollars resting at the best bid and the best ask": "최우선 매수·매도 호가에 걸린 달러 금액",
+  "Each hour's average mark on the two exchanges. Where a venue publishes no mark, its index stands in.":
+    "두 거래소의 시간별 평균 마크 가격. 마크 가격을 공개하지 않는 거래소는 지수 가격으로 대신합니다.",
+  "Entry at the top of the book": "호가창 최우선 가격 진입",
+  "Every time in the window the spread rose to at least today's width, the hours until it next fell to the window's median. Hourly averages, so nothing shorter than an hour is seen, and the past is not a promise.":
+    "기간 내 스프레드가 오늘 폭 이상으로 벌어질 때마다 다시 기간 중앙값까지 내려오기까지 걸린 시간. 시간 평균이라 1시간보다 짧은 움직임은 보이지 않으며, 과거가 미래를 보장하지 않습니다.",
+  "Exit target: the window's median spread, {median}. Full convergence to zero is rare, and waiting for it usually makes no sense.":
+    "청산 목표: 기간 중앙값 스프레드 {median}. 0까지 완전히 수렴하는 경우는 드물어 기다릴 의미가 거의 없습니다.",
+  "Fees, four taker fills": "수수료, 테이커 체결 4회",
+  "From {n} comparable episodes in the last {window}; {open} had not closed by the end.":
+    "최근 {window} 동안 비교 가능한 {n}번의 사례 기준; {open}번은 기간 끝까지 닫히지 않았습니다.",
+  "Funding, est. {hold} hold": "펀딩, 예상 보유 {hold}",
+  Gross: "총이익",
+  "Hold time, from history": "보유 시간 (과거 기준)",
+  "Hover the chart to read every line at one hour.":
+    "차트에 마우스를 올리면 한 시간의 모든 선 값을 볼 수 있습니다.",
+  "If the spread closes from where it is now to each target. Fees are four taker fills, in and out of both legs. The books are each exchange's own bid-ask, crossed half on the way in and half on the way out, at the top of the book only. Funding is the short leg's rate less the long leg's over the hold, which can pay or cost.":
+    "스프레드가 현재에서 각 목표까지 좁혀질 경우. 수수료는 두 레그의 진입과 청산, 테이커 체결 4회입니다. 호가창 비용은 각 거래소의 매수-매도 스프레드를 진입과 청산에 절반씩, 최우선 호가 기준으로만 계산합니다. 펀딩은 보유 기간 동안 숏 레그 비율에서 롱 레그 비율을 뺀 값으로, 수익일 수도 비용일 수도 있습니다.",
+  "If the spread closes to": "스프레드가 좁혀지는 수준",
+  "Long leg · {venue}": "롱 레그 · {venue}",
+  "Long the exchange where the asset is cheaper, short the one where it is dearer, and close when the two prices meet. Price moves cancel between the legs; what is left is the gap closing, less fees, the books and funding. Marks are the exchanges' own fair prices, not fills, and the history is hourly averages.":
+    "자산이 싼 거래소에서 롱, 비싼 거래소에서 숏을 잡고 두 가격이 만나면 청산합니다. 가격 변동은 레그끼리 상쇄되고, 남는 것은 차이가 좁혀지는 부분에서 수수료, 호가창, 펀딩을 뺀 것입니다. 마크 가격은 각 거래소의 공정 가격이지 체결가가 아니며, 과거 데이터는 시간 평균입니다.",
+  "Mark prices, hourly": "마크 가격, 시간별",
+  Median: "중앙값",
+  "Not verified for this exchange: the site's retail assumption of {bps} bps":
+    "이 거래소는 확인되지 않음: 사이트의 일반 가정 {bps} bps",
+  "Off the market median": "시장 중앙값 대비",
+  "One leg was listed recently or reported unevenly. The spread now is more trustworthy than the window's statistics.":
+    "한 레그가 최근 상장되었거나 보고가 고르지 않았습니다. 현재 스프레드가 기간 통계보다 더 믿을 만합니다.",
+  "Over the window's hours in which both legs reported a price, from each hour's average mark.":
+    "기간 중 두 레그 모두 가격을 보고한 시간에 대해, 시간별 평균 마크 가격으로 계산합니다.",
+  "Own bid-ask": "자체 호가 스프레드",
+  "Price history is unavailable right now. The live figures below are unaffected.":
+    "가격 기록을 지금 불러올 수 없습니다. 아래 실시간 수치는 영향이 없습니다.",
+  "Price spread, hourly": "가격 스프레드, 시간별",
+  "Profit calculator": "수익 계산기",
+  Range: "범위",
+  "Seen {age}": "{age} 확인",
+  "Short leg · {venue}": "숏 레그 · {venue}",
+  "Sparse history ({share}% of expected samples): statistics may be unreliable.":
+    "기록이 드묾 (예상 표본의 {share}%): 통계를 신뢰하기 어려울 수 있습니다.",
+  "Spread now (mark)": "현재 스프레드 (마크)",
+  "Spread statistics": "스프레드 통계",
+  "Std dev": "표준편차",
+  "Swap legs": "레그 바꾸기",
+  "Taker fee": "테이커 수수료",
+  "The exchange's published standard taker fee": "거래소가 공개한 표준 테이커 수수료",
+  "The price gap between {long} and {short} for {asset}: now, after costs, and over its history.":
+    "{asset}의 {long}와 {short} 간 가격 차이: 현재, 비용 차감 후, 그리고 과거 추이.",
+  "The short leg is not the dearer one right now, so there is no gap to close in this direction.":
+    "지금은 숏 레그가 더 비싼 쪽이 아니므로 이 방향으로 좁혀질 차이가 없습니다.",
+  "The short leg's hourly mark less the long leg's, as a share of the long leg's. The dashed lines are the spread now and the window's median.":
+    "숏 레그의 시간별 마크 가격에서 롱 레그를 뺀 값을 롱 레그 대비 비율로 표시. 점선은 현재 스프레드와 기간 중앙값입니다.",
+  "The short leg's mark less the long leg's, as a share of the long leg's. Marks are each exchange's fair price, not a price anyone traded at; the entry below is what the books offer.":
+    "숏 레그의 마크 가격에서 롱 레그를 뺀 값을 롱 레그 대비 비율로 표시. 마크 가격은 각 거래소의 공정 가격이지 실제 체결가가 아니며, 아래 진입가가 호가창이 제시하는 가격입니다.",
+  "The spread is already at or below its median for the window ({median}): nothing to wait for.":
+    "스프레드가 이미 기간 중앙값({median}) 이하입니다: 기다릴 것이 없습니다.",
+  "This leg's mark against the median mark of every exchange quoting the asset":
+    "이 레그의 마크 가격과 해당 자산을 호가하는 모든 거래소 마크 가격 중앙값의 비교",
+  "This pair: long {long}, short {short}": "이 페어: {long} 롱, {short} 숏",
+  Ticker: "티커",
+  "Too few comparable episodes in the last {window} to estimate how long this takes. Try a longer window.":
+    "최근 {window} 동안 비교 가능한 사례가 너무 적어 걸리는 시간을 추정할 수 없습니다. 더 긴 기간을 선택해 보세요.",
+  "Top of book": "최우선 호가 잔량",
+  "Trade long · {venue}": "롱 거래 · {venue}",
+  "Trade short · {venue}": "숏 거래 · {venue}",
+  "Window {window} · {n} hours of {expected}": "기간 {window} · {expected}시간 중 {n}시간",
+  "buying {venue}'s ask, selling {other}'s bid":
+    "{venue}의 매도 호가에 사고 {other}의 매수 호가에 팔기",
+  details: "상세",
+  "full convergence pays {times}× the round trip": "완전 수렴 시 왕복 비용의 {times}배",
+  "long {long} · short {short}": "롱 {long} · 숏 {short}",
+  "long {long} · short {short}, good for {size}; deeper fills cost more and are not shown":
+    "롱 {long} · 숏 {short}, 약 {size}까지 체결 가능; 더 깊은 체결은 비용이 더 들며 표시하지 않습니다",
+  "market median {price} · long {long} · short {short}":
+    "시장 중앙값 {price} · 롱 {long} · 숏 {short}",
+  median: "중앙값",
+  pair: "페어",
+  "seen {long} / {short}": "확인 {long} / {short}",
+  "sized at {size} a leg": "레그당 {size}",
+  "the book is thinner than this size": "호가창이 이 규모보다 얇습니다",
+  "thin book: only {size} rests at those prices": "얇은 호가창: 해당 가격에 {size}만 걸려 있습니다",
+  "typical time to close (middle half {from} to {to})":
+    "일반적인 해소 시간 (중간 절반 {from}~{to})",
+  "wider than {share}% of the last {window}'s hours": "최근 {window} 시간 중 {share}%보다 넓음",
+  "{asset} convergence trade": "{asset} 수렴 거래",
+  "{asset} convergence trade: long {long}, short {short}":
+    "{asset} 수렴 거래: {long} 롱, {short} 숏",
+  "{asset} · convergence trade": "{asset} · 수렴 거래",
+  "{long} bps on the long leg and {short} bps on the short, in and out":
+    "롱 레그 {long} bps, 숏 레그 {short} bps, 진입과 청산",
+  "{n}th percentile": "{n} 백분위",
+  "{venues} has no comparable {asset} book right now. Pick another exchange above.":
+    "{venues}에는 지금 비교 가능한 {asset} 호가창이 없습니다. 위에서 다른 거래소를 선택하세요.",
+  "~1h": "약 1시간",
+  "~{n} days": "약 {n}일",
+  "~{n}h": "약 {n}시간",
 };

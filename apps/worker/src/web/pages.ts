@@ -41,7 +41,9 @@ import {
   arbitrageToQuery,
   BACKTEST_WINDOWS,
   backtestToQuery,
+  convergenceToQuery,
   DEFAULT_BACKTEST_DAYS,
+  DEFAULT_CONVERGENCE_SIZE,
   DEFAULT_FILTERS,
   filtersToQuery,
   HEATMAP_TIMEFRAMES,
@@ -131,7 +133,7 @@ export const assetName = (asset: string, assetClass: AssetClass) =>
   `${esc(asset)}${assetClass === "crypto" ? "" : ` <span class="cls">${assetClassLabel(assetClass)}</span>`}`;
 const assetTitle = (asset: string, assetClass: AssetClass) =>
   assetClass === "crypto" ? asset : `${asset} (${assetClassLabel(assetClass)})`;
-const exchangeHref = (venueId: string) => `/markets/exchange/${encodeURIComponent(venueId)}`;
+export const exchangeHref = (venueId: string) => `/markets/exchange/${encodeURIComponent(venueId)}`;
 const apr = (value: number | null) => `<span class="${aprTone(value)}">${formatApr(value)}</span>`;
 /** A spread or gap for prose: always positive, so the "+" formatApr signs rates with is noise there. */
 const plainApr = (value: number | null) => formatApr(value).replace(/^\+/, "");
@@ -1025,8 +1027,10 @@ export function arbitrage(data: {
 
   const body = rows
     .map((r, i) => {
-      return `<tr data-k="${esc(assetKey(r.asset, r.asset_class))}">
-<td class="asset"><a href="${priceHref(r.asset, r.asset_class)}" data-row-link>${assetName(r.asset, r.asset_class)}</a>${
+      // A click on the row opens its strip (ARB_SCRIPT): every pair for the asset, and this pair's page.
+      const best = `${priceHref(r.asset, r.asset_class)}${convergenceToQuery({ longVenueId: r.buy_venue_id, shortVenueId: r.sell_venue_id, sizeUsd: DEFAULT_CONVERGENCE_SIZE, window: "7d" })}`;
+      return `<tr data-k="${esc(assetKey(r.asset, r.asset_class))}" data-arb data-pairs="${priceHref(r.asset, r.asset_class)}" data-best="${esc(best)}" data-buy="${esc(venueName(r.buy_venue_id))}" data-sell="${esc(venueName(r.sell_venue_id))}">
+<td class="asset"><a href="${priceHref(r.asset, r.asset_class)}">${assetName(r.asset, r.asset_class)}</a>${
         i < 3 && !r.buy_inverted && !r.sell_inverted
           ? citeMark(
               tr(
@@ -1071,7 +1075,9 @@ ${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_inverted)}
       : `<div class="sheet-wrap"><table class="sheet">
 <thead><tr><th>${tr("Asset")}</th><th class="num" title="${tr("Highest bid against lowest ask, across two different exchanges")}">${tr("Gap, bps")}</th><th class="num" title="${tr("The sell price less the buy price, in the asset's own price units")}">${tr("Basis")}</th><th class="num">${tr("Buy price")}</th><th>${tr("Buy at")}</th><th class="num">${tr("Sell price")}</th><th>${tr("Sell at")}</th><th class="num" title="${tr("The smaller of the two resting sizes: what the gap is actually good for")}">${tr("Good for")}</th><th class="num" title="${tr("Exchanges quoting this asset that survived the mark-agreement check")}">${tr("Venues")}</th><th>${tr("Quoted")}</th></tr></thead>
 <tbody data-live="arb">${body}</tbody>
-</table></div>${pager}`;
+</table></div>${pager}
+<template id="arb-more"><tr class="arb-more"><td colspan="10"><div class="arb-actions"><button type="button" class="ghost" data-arb-pairs aria-expanded="false">${tr("Every pair")} ${icon("caret")}</button><a class="btn" data-arb-best href="#"><span data-t>${tr("This pair: long {long}, short {short}", { long: "{long}", short: "{short}" })}</span> ${icon("right")}</a><a data-arb-quotes href="#">${tr("All quotes")}</a></div><div class="arb-pairs" hidden></div></td></tr></template>
+<script>${ARB_SCRIPT}</script>`;
 
   return layout({
     title: tr("Price gaps across exchanges"),
@@ -1091,6 +1097,64 @@ ${filtersForArbitrage(params)}
 ${table}`,
   });
 }
+
+/**
+ * The arbitrage rows' strip. A click anywhere on a row but its links opens a strip beneath it: a
+ * button that loads the asset's every-pair table in place (from its quotes page, [data-pairs-table]),
+ * the row's own pair as a convergence page, and the quotes page. Another click closes it. The live
+ * refresh holds while a strip is open (live.ts), since it would replace the rows under it.
+ * No backticks or dollar-brace in here: this is a template literal's text.
+ */
+const ARB_SCRIPT = `(() => {
+  const tpl = document.getElementById("arb-more");
+  if (!tpl || !window.fetch || !window.DOMParser) return;
+  const loading = () => (document.querySelector("main[data-loading]") || {}).dataset?.loading || "…";
+  const pairs = async (button) => {
+    const box = button.closest("td").querySelector(".arb-pairs");
+    if (box.dataset.loaded) {
+      box.hidden = !box.hidden;
+      button.setAttribute("aria-expanded", String(!box.hidden));
+      return;
+    }
+    box.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+    box.textContent = loading();
+    try {
+      const res = await fetch(button.dataset.src, { credentials: "same-origin" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const table = new DOMParser().parseFromString(await res.text(), "text/html").querySelector("[data-pairs-table]");
+      if (!table) throw new Error("no pairs");
+      box.replaceChildren(document.importNode(table, true));
+      box.dataset.loaded = "1";
+      if (window.airratesHelp) window.airratesHelp(box);
+    } catch (_) {
+      location.href = button.dataset.src;
+    }
+  };
+  document.addEventListener("click", (e) => {
+    const t = e.target;
+    if (!t.closest || e.defaultPrevented) return;
+    const button = t.closest("button[data-arb-pairs]");
+    if (button) return void pairs(button);
+    const row = t.closest("tr[data-arb]");
+    if (!row || t.closest("a, button, input, label")) return;
+    const open = row.nextElementSibling;
+    if (open && open.classList.contains("arb-more")) {
+      open.remove();
+      row.classList.remove("arb-open");
+      return;
+    }
+    const more = tpl.content.firstElementChild.cloneNode(true);
+    const best = more.querySelector("[data-arb-best]");
+    best.href = row.dataset.best;
+    const words = best.querySelector("[data-t]");
+    words.textContent = words.textContent.replace("{long}", row.dataset.buy).replace("{short}", row.dataset.sell);
+    more.querySelector("[data-arb-quotes]").href = row.dataset.pairs;
+    more.querySelector("button[data-arb-pairs]").dataset.src = row.dataset.pairs;
+    row.after(more);
+    row.classList.add("arb-open");
+  });
+})();`;
 
 /** Two floors, both of which default to showing more rather than less. */
 function filtersForArbitrage(params: ArbitrageParams): string {
@@ -1220,10 +1284,10 @@ export function pricePair(data: {
   const pairsTable =
     pairs.length === 0
       ? ""
-      : `<div class="section-head"><h2 class="has-help">${tr("Every pair")}${helpButton("pairs")}</h2></div>
+      : `<div data-pairs-table><div class="section-head"><h2 class="has-help">${tr("Every pair")}${helpButton("pairs")}</h2></div>
 ${helpPanel("pairs", `<p>${tr("One row per direction: buy at the first exchange, sell at the second. The widest gap is often not the one to take — a narrower pair can rest far more size behind it, and most directions lose outright.")}</p>`)}
 <div class="sheet-wrap"><table class="sheet">
-<thead><tr><th>${tr("Buy at")}</th><th>${tr("Sell at")}</th><th class="num">${tr("Gap, bps")}</th><th class="num" title="${tr("The smaller of the buying side's ask size and the selling side's bid size — what this direction is good for")}">${tr("Good for")}</th></tr></thead>
+<thead><tr><th>${tr("Buy at")}</th><th>${tr("Sell at")}</th><th class="num">${tr("Gap, bps")}</th><th class="num" title="${tr("The smaller of the buying side's ask size and the selling side's bid size — what this direction is good for")}">${tr("Good for")}</th><th></th></tr></thead>
 <tbody data-live="pp-pairs">${pairs
           .map(
             (p) => `<tr data-k="${esc(`pair:${p.buy.venue_id}|${p.sell.venue_id}`)}"${
@@ -1233,10 +1297,11 @@ ${helpPanel("pairs", `<p>${tr("One row per direction: buy at the first exchange,
 <td><div class="leg sell-leg"><a class="venue" href="${exchangeHref(p.sell.venue_id)}">${esc(venueName(p.sell.venue_id))}</a></div></td>
 <td class="num spread"><span data-u="pair-gap"${gapTone(p.gapBps)}>${formatGapBps(p.gapBps)}</span>${p.buy === lowestAsk && p.sell === highestBid ? ` <span class="dim">${tr("best")}</span>` : ""}</td>
 <td class="num"><span data-u="pair-depth">${formatUsd(p.goodForUsd)}</span></td>
+<td><a href="${priceHref(name, assetClass)}${convergenceToQuery({ longVenueId: p.buy.venue_id, shortVenueId: p.sell.venue_id, sizeUsd: DEFAULT_CONVERGENCE_SIZE, window: "7d" })}" data-row-link>${tr("details")} ${icon("right")}</a></td>
 </tr>`,
           )
           .join("")}</tbody>
-</table></div>`;
+</table></div></div>`;
 
   const headline =
     crossVenue === null

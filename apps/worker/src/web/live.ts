@@ -245,7 +245,7 @@ export const LIVE_SCRIPT = String.raw`(() => {
   };
 
   // Rows never move under a pointer, an open filter or an open picker; the hold lasts one period at most.
-  const engaged = () => document.querySelector("main [data-live]:hover, form.filters:focus-within, form.sx:focus-within, .sx-pop[open], .wh-pick[open]") !== null;
+  const engaged = () => document.querySelector("main [data-live]:hover, form.filters:focus-within, form.sx:focus-within, .sx-pop[open], .wh-pick[open], tr.arb-more") !== null;
   const settle = () => {
     if (!pending) return;
     // A button waiting on its report (await.ts) is about to leave the page: swapping its region would

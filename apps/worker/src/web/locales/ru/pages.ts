@@ -454,4 +454,108 @@ export const pages: Catalog = {
   Chart: "График",
   "Running the backtest…": "Идёт бэктест…",
   "pick one": "выберите",
+  "A price-convergence pair across two exchanges.": "Пара на схождение цен между двумя биржами.",
+  "All quotes": "Все котировки",
+  Average: "Среднее",
+  "Best bid / ask": "Лучшие бид / аск",
+  "Bid-ask, both books": "Бид-аск, обе книги",
+  "Breakeven move {pct}": "Безубыточное движение {pct}",
+  "Dollars resting at the best bid and the best ask": "Долларов на лучшем биде и лучшем аске",
+  "Each hour's average mark on the two exchanges. Where a venue publishes no mark, its index stands in.":
+    "Средняя марк-цена за каждый час на двух биржах. Где биржа не публикует марк, используется индекс.",
+  "Entry at the top of the book": "Вход по лучшим ценам книги",
+  "Every time in the window the spread rose to at least today's width, the hours until it next fell to the window's median. Hourly averages, so nothing shorter than an hour is seen, and the past is not a promise.":
+    "Каждый раз, когда спред в окне достигал сегодняшней ширины, — часы до его возврата к медиане окна. Часовые средние, поэтому движения короче часа не видны, а прошлое ничего не обещает.",
+  "Exit target: the window's median spread, {median}. Full convergence to zero is rare, and waiting for it usually makes no sense.":
+    "Цель выхода: медианный спред окна, {median}. Полное схождение к нулю редко, и ждать его обычно нет смысла.",
+  "Fees, four taker fills": "Комиссии, четыре тейкерских сделки",
+  "From {n} comparable episodes in the last {window}; {open} had not closed by the end.":
+    "По {n} сопоставимым эпизодам за последние {window}; {open} не закрылись к концу окна.",
+  "Funding, est. {hold} hold": "Фандинг, при удержании {hold}",
+  Gross: "Валовая прибыль",
+  "Hold time, from history": "Время удержания по истории",
+  "Hover the chart to read every line at one hour.":
+    "Наведите курсор на график, чтобы прочитать все линии за один час.",
+  "If the spread closes from where it is now to each target. Fees are four taker fills, in and out of both legs. The books are each exchange's own bid-ask, crossed half on the way in and half on the way out, at the top of the book only. Funding is the short leg's rate less the long leg's over the hold, which can pay or cost.":
+    "Если спред сойдётся от текущего к каждой цели. Комиссии — четыре тейкерских сделки, вход и выход в обеих ногах. Книги — собственный бид-аск каждой биржи, половина на входе и половина на выходе, только по лучшим ценам. Фандинг — ставка шортовой ноги минус ставка лонговой за время удержания; он может приносить или стоить.",
+  "If the spread closes to": "Если спред сойдётся к",
+  "Long leg · {venue}": "Лонговая нога · {venue}",
+  "Long the exchange where the asset is cheaper, short the one where it is dearer, and close when the two prices meet. Price moves cancel between the legs; what is left is the gap closing, less fees, the books and funding. Marks are the exchanges' own fair prices, not fills, and the history is hourly averages.":
+    "Лонг там, где актив дешевле, шорт там, где дороже, и закрытие, когда цены сойдутся. Движения цены взаимно гасятся; остаётся схождение разрыва за вычетом комиссий, книг и фандинга. Марк — справедливая цена биржи, а не сделка, а история — часовые средние.",
+  "Mark prices, hourly": "Марк-цены по часам",
+  Median: "Медиана",
+  "Not verified for this exchange: the site's retail assumption of {bps} bps":
+    "Не проверено для этой биржи: розничное допущение сайта {bps} б.п.",
+  "Off the market median": "Отклонение от медианы рынка",
+  "One leg was listed recently or reported unevenly. The spread now is more trustworthy than the window's statistics.":
+    "Одна из ног недавно листингована или отчитывалась неравномерно. Текущему спреду можно доверять больше, чем статистике окна.",
+  "Over the window's hours in which both legs reported a price, from each hour's average mark.":
+    "По часам окна, когда обе ноги сообщали цену, по средней марк-цене каждого часа.",
+  "Own bid-ask": "Собственный бид-аск",
+  "Price history is unavailable right now. The live figures below are unaffected.":
+    "История цен сейчас недоступна. Текущие данные ниже от этого не зависят.",
+  "Price spread, hourly": "Ценовой спред по часам",
+  "Profit calculator": "Калькулятор прибыли",
+  Range: "Диапазон",
+  "Seen {age}": "Получено {age}",
+  "Short leg · {venue}": "Шортовая нога · {venue}",
+  "Sparse history ({share}% of expected samples): statistics may be unreliable.":
+    "Редкая история ({share}% ожидаемых точек): статистика может быть ненадёжной.",
+  "Spread now (mark)": "Спред сейчас (марк)",
+  "Spread statistics": "Статистика спреда",
+  "Std dev": "Ст. откл.",
+  "Swap legs": "Поменять ноги",
+  "Taker fee": "Тейкерская комиссия",
+  "The exchange's published standard taker fee":
+    "Опубликованная биржей стандартная тейкерская комиссия",
+  "The price gap between {long} and {short} for {asset}: now, after costs, and over its history.":
+    "Ценовой разрыв {asset} между {long} и {short}: сейчас, после издержек и в истории.",
+  "The short leg is not the dearer one right now, so there is no gap to close in this direction.":
+    "Сейчас шортовая нога не дороже, поэтому в этом направлении нечему сходиться.",
+  "The short leg's hourly mark less the long leg's, as a share of the long leg's. The dashed lines are the spread now and the window's median.":
+    "Часовая марк-цена шортовой ноги минус лонговой, в доле от лонговой. Пунктир — текущий спред и медиана окна.",
+  "The short leg's mark less the long leg's, as a share of the long leg's. Marks are each exchange's fair price, not a price anyone traded at; the entry below is what the books offer.":
+    "Марк шортовой ноги минус марк лонговой, в доле от лонговой. Марк — справедливая цена биржи, а не цена сделки; вход ниже — то, что предлагают книги.",
+  "The spread is already at or below its median for the window ({median}): nothing to wait for.":
+    "Спред уже на медиане окна или ниже ({median}): ждать нечего.",
+  "This leg's mark against the median mark of every exchange quoting the asset":
+    "Марк этой ноги относительно медианы марков всех бирж, котирующих актив",
+  "This pair: long {long}, short {short}": "Эта пара: лонг {long}, шорт {short}",
+  Ticker: "Тикер",
+  "Too few comparable episodes in the last {window} to estimate how long this takes. Try a longer window.":
+    "Слишком мало сопоставимых эпизодов за последние {window}, чтобы оценить время. Попробуйте окно длиннее.",
+  "Top of book": "Объём на лучших ценах",
+  "Trade long · {venue}": "Торговать лонг · {venue}",
+  "Trade short · {venue}": "Торговать шорт · {venue}",
+  "Window {window} · {n} hours of {expected}": "Окно {window} · {n} ч из {expected}",
+  "buying {venue}'s ask, selling {other}'s bid": "покупка по аску {venue}, продажа по биду {other}",
+  details: "подробнее",
+  "full convergence pays {times}× the round trip": "полное схождение окупает круг в {times} раз",
+  "long {long} · short {short}": "лонг {long} · шорт {short}",
+  "long {long} · short {short}, good for {size}; deeper fills cost more and are not shown":
+    "лонг {long} · шорт {short}, хватит на {size}; более глубокие исполнения дороже и не показаны",
+  "market median {price} · long {long} · short {short}":
+    "медиана рынка {price} · лонг {long} · шорт {short}",
+  median: "медиана",
+  pair: "пара",
+  "seen {long} / {short}": "получено {long} / {short}",
+  "sized at {size} a leg": "по {size} на ногу",
+  "the book is thinner than this size": "книга тоньше этого объёма",
+  "thin book: only {size} rests at those prices": "тонкая книга: по этим ценам лишь {size}",
+  "typical time to close (middle half {from} to {to})":
+    "обычное время схождения (средняя половина от {from} до {to})",
+  "wider than {share}% of the last {window}'s hours":
+    "шире, чем в {share}% часов за последние {window}",
+  "{asset} convergence trade": "{asset}: сделка на схождение",
+  "{asset} convergence trade: long {long}, short {short}":
+    "{asset}: схождение, лонг {long}, шорт {short}",
+  "{asset} · convergence trade": "{asset} · сделка на схождение",
+  "{long} bps on the long leg and {short} bps on the short, in and out":
+    "{long} б.п. на лонговой ноге и {short} б.п. на шортовой, вход и выход",
+  "{n}th percentile": "{n}-й перцентиль",
+  "{venues} has no comparable {asset} book right now. Pick another exchange above.":
+    "У {venues} сейчас нет сопоставимой книги {asset}. Выберите другую биржу выше.",
+  "~1h": "~1 ч",
+  "~{n} days": "~{n} дн.",
+  "~{n}h": "~{n} ч",
 };

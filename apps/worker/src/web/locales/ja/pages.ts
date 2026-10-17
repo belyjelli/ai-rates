@@ -453,4 +453,106 @@ export const pages: Catalog = {
   Chart: "チャート",
   "Running the backtest…": "バックテストを実行中…",
   "pick one": "選択してください",
+  "A price-convergence pair across two exchanges.": "2つの取引所間の価格収束ペア。",
+  "All quotes": "すべての気配",
+  Average: "平均",
+  "Best bid / ask": "最良買気配 / 売気配",
+  "Bid-ask, both books": "売買スプレッド（両方の板）",
+  "Breakeven move {pct}": "損益分岐の変動 {pct}",
+  "Dollars resting at the best bid and the best ask": "最良買気配と最良売気配に並ぶドル額",
+  "Each hour's average mark on the two exchanges. Where a venue publishes no mark, its index stands in.":
+    "2つの取引所の1時間ごとの平均マーク価格。マーク価格を公開しない取引所はインデックス価格で代用。",
+  "Entry at the top of the book": "板の最良気配でのエントリー",
+  "Every time in the window the spread rose to at least today's width, the hours until it next fell to the window's median. Hourly averages, so nothing shorter than an hour is seen, and the past is not a promise.":
+    "期間内でスプレッドが今日の幅以上に広がるたびに、次に期間の中央値まで戻るまでの時間。1時間平均のため1時間未満の動きは見えず、過去は将来を約束しません。",
+  "Exit target: the window's median spread, {median}. Full convergence to zero is rare, and waiting for it usually makes no sense.":
+    "エグジット目標：期間の中央値スプレッド {median}。ゼロまでの完全収束はまれで、待つ意味はたいていありません。",
+  "Fees, four taker fills": "手数料（テイカー約定4回）",
+  "From {n} comparable episodes in the last {window}; {open} had not closed by the end.":
+    "直近 {window} の比較可能な {n} 回の局面から。うち {open} 回は期間終了時点で閉じていません。",
+  "Funding, est. {hold} hold": "資金調達（保有 {hold} 想定）",
+  Gross: "粗利益",
+  "Hold time, from history": "保有時間（過去から推定）",
+  "Hover the chart to read every line at one hour.":
+    "チャートにカーソルを合わせると、ある1時間の各線の値を読めます。",
+  "If the spread closes from where it is now to each target. Fees are four taker fills, in and out of both legs. The books are each exchange's own bid-ask, crossed half on the way in and half on the way out, at the top of the book only. Funding is the short leg's rate less the long leg's over the hold, which can pay or cost.":
+    "スプレッドが現在から各目標まで縮小した場合。手数料は両レッグの建玉と決済で計4回のテイカー約定。板コストは各取引所の売買スプレッドを、エントリーとエグジットで半分ずつ、最良気配のみで計算。資金調達は保有期間中のショート側の率からロング側の率を引いたもので、受け取りにも支払いにもなります。",
+  "If the spread closes to": "スプレッドの縮小先",
+  "Long leg · {venue}": "ロングレッグ · {venue}",
+  "Long the exchange where the asset is cheaper, short the one where it is dearer, and close when the two prices meet. Price moves cancel between the legs; what is left is the gap closing, less fees, the books and funding. Marks are the exchanges' own fair prices, not fills, and the history is hourly averages.":
+    "資産が安い取引所でロング、高い取引所でショートし、2つの価格が一致したら決済します。価格変動はレッグ間で相殺され、残るのは差の縮小から手数料・板・資金調達を引いたもの。マーク価格は各取引所の公正価格で約定価格ではなく、履歴は1時間平均です。",
+  "Mark prices, hourly": "マーク価格（1時間ごと）",
+  Median: "中央値",
+  "Not verified for this exchange: the site's retail assumption of {bps} bps":
+    "この取引所は未確認：サイトの一般向け想定 {bps} bps",
+  "Off the market median": "市場中央値からの乖離",
+  "One leg was listed recently or reported unevenly. The spread now is more trustworthy than the window's statistics.":
+    "一方のレッグが最近上場したか、報告が不規則でした。現在のスプレッドのほうが期間の統計より信頼できます。",
+  "Over the window's hours in which both legs reported a price, from each hour's average mark.":
+    "期間内で両レッグが価格を報告した時間について、各時間の平均マーク価格から算出。",
+  "Own bid-ask": "自板の売買スプレッド",
+  "Price history is unavailable right now. The live figures below are unaffected.":
+    "価格履歴は現在利用できません。以下のリアルタイムの数値には影響ありません。",
+  "Price spread, hourly": "価格スプレッド（1時間ごと）",
+  "Profit calculator": "利益計算",
+  Range: "レンジ",
+  "Seen {age}": "{age} に確認",
+  "Short leg · {venue}": "ショートレッグ · {venue}",
+  "Sparse history ({share}% of expected samples): statistics may be unreliable.":
+    "履歴がまばら（想定サンプルの {share}%）：統計は信頼できない可能性があります。",
+  "Spread now (mark)": "現在のスプレッド（マーク）",
+  "Spread statistics": "スプレッド統計",
+  "Std dev": "標準偏差",
+  "Swap legs": "レッグを入れ替え",
+  "Taker fee": "テイカー手数料",
+  "The exchange's published standard taker fee": "取引所が公表する標準テイカー手数料",
+  "The price gap between {long} and {short} for {asset}: now, after costs, and over its history.":
+    "{asset} の {long} と {short} の価格差：現在、コスト控除後、そして過去の推移。",
+  "The short leg is not the dearer one right now, so there is no gap to close in this direction.":
+    "現在ショート側の方が高いわけではないため、この方向では縮まる差がありません。",
+  "The short leg's hourly mark less the long leg's, as a share of the long leg's. The dashed lines are the spread now and the window's median.":
+    "ショート側の1時間ごとのマーク価格からロング側を引き、ロング側に対する割合で表示。破線は現在のスプレッドと期間の中央値。",
+  "The short leg's mark less the long leg's, as a share of the long leg's. Marks are each exchange's fair price, not a price anyone traded at; the entry below is what the books offer.":
+    "ショート側のマーク価格からロング側を引き、ロング側に対する割合で表示。マーク価格は各取引所の公正価格で、誰かが約定した価格ではありません。下のエントリーが板の提示価格です。",
+  "The spread is already at or below its median for the window ({median}): nothing to wait for.":
+    "スプレッドはすでに期間の中央値（{median}）以下です：待つものはありません。",
+  "This leg's mark against the median mark of every exchange quoting the asset":
+    "このレッグのマーク価格と、資産を提示する全取引所のマーク価格の中央値との比較",
+  "This pair: long {long}, short {short}": "このペア：{long} でロング、{short} でショート",
+  Ticker: "ティッカー",
+  "Too few comparable episodes in the last {window} to estimate how long this takes. Try a longer window.":
+    "直近 {window} の比較可能な局面が少なすぎて、所要時間を推定できません。より長い期間を試してください。",
+  "Top of book": "最良気配の数量",
+  "Trade long · {venue}": "ロングで取引 · {venue}",
+  "Trade short · {venue}": "ショートで取引 · {venue}",
+  "Window {window} · {n} hours of {expected}": "期間 {window} · {expected} 時間中 {n} 時間",
+  "buying {venue}'s ask, selling {other}'s bid": "{venue} の売気配で買い、{other} の買気配で売る",
+  details: "詳細",
+  "full convergence pays {times}× the round trip": "完全収束で往復コストの {times} 倍",
+  "long {long} · short {short}": "ロング {long} · ショート {short}",
+  "long {long} · short {short}, good for {size}; deeper fills cost more and are not shown":
+    "ロング {long} · ショート {short}、約 {size} まで約定可能。より深い約定はコストが高く、ここには表示しません",
+  "market median {price} · long {long} · short {short}":
+    "市場中央値 {price} · ロング {long} · ショート {short}",
+  median: "中央値",
+  pair: "ペア",
+  "seen {long} / {short}": "確認 {long} / {short}",
+  "sized at {size} a leg": "1レッグ {size}",
+  "the book is thinner than this size": "板はこのサイズより薄い",
+  "thin book: only {size} rests at those prices": "板が薄い：その価格には {size} しかありません",
+  "typical time to close (middle half {from} to {to})":
+    "典型的な解消までの時間（中央の半分は {from}〜{to}）",
+  "wider than {share}% of the last {window}'s hours": "直近 {window} の {share}% の時間より広い",
+  "{asset} convergence trade": "{asset} 収束トレード",
+  "{asset} convergence trade: long {long}, short {short}":
+    "{asset} 収束トレード：{long} でロング、{short} でショート",
+  "{asset} · convergence trade": "{asset} · 収束トレード",
+  "{long} bps on the long leg and {short} bps on the short, in and out":
+    "ロング側 {long} bps、ショート側 {short} bps、建玉と決済で",
+  "{n}th percentile": "{n} パーセンタイル",
+  "{venues} has no comparable {asset} book right now. Pick another exchange above.":
+    "{venues} には現在比較可能な {asset} の板がありません。上で別の取引所を選んでください。",
+  "~1h": "約1時間",
+  "~{n} days": "約{n}日",
+  "~{n}h": "約{n}時間",
 };

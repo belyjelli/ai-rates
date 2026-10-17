@@ -337,6 +337,21 @@ export interface ArbitrageRow {
  * it: `mark_agrees` is false and `anchor_mark` is carried alongside, so the page can say how far
  * out the quote is rather than silently omitting a venue the reader can see listed elsewhere.
  */
+/** One market by its exchange and symbol. */
+export interface MarketKey {
+  venue_id: string;
+  venue_symbol: string;
+}
+
+/** One hour of a market's price, from the collector's rollup (market_price_hourly, migration 021). */
+export interface PriceHourRow extends MarketKey {
+  hour: Date;
+  /** The hour's average mark, or its average index where the venue publishes no mark. */
+  price: number | null;
+  /** Snapshots folded into the hour; a healthy market reads 60. */
+  samples: number;
+}
+
 export interface PriceQuote {
   venue_id: string;
   asset_class: AssetClass;
@@ -1073,6 +1088,8 @@ export interface DataSource {
   arbitrage(options: ArbitrageOptions, pairing?: PairingOptions): Promise<ArbitrageRow[]>;
   /** Every venue's top of book for one asset, mismatched instruments flagged rather than dropped. */
   priceQuotes(base: string, assetClass: AssetClass | null): Promise<PriceQuote[]>;
+  /** Hourly prices for up to two markets over the last `days`, oldest first (a convergence pair). */
+  priceHistory(markets: readonly MarketKey[], days: number): Promise<PriceHourRow[]>;
   /** Per-venue collecting health: are we getting data, and what went wrong if not. */
   venueStatus(): Promise<VenueStatus[]>;
   /** Markets whose price disagrees with their asset pool's deepest market, and the verdict on why. */
@@ -1614,6 +1631,24 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         FROM candidates c LEFT JOIN anchor a ON true
         -- Cheapest to buy first, which is the order the page reads in.
         ORDER BY c.best_ask, c.venue_id`;
+      return [...rows];
+    },
+
+    async priceHistory(markets, days) {
+      const [a, b] = markets;
+      if (!a) return [];
+      const other = b ?? a;
+      // Two primary-key range reads (venue_id, venue_symbol, hour): 26 ms for 90 days of two markets
+      // on production, 2026-10-17. HTX and BitMart publish no mark in bulk, so their index stands in,
+      // as screener_pairs does (migration 020).
+      const rows = await connect()<PriceHourRow[]>`
+        SELECT venue_id, venue_symbol, hour, samples,
+               CASE WHEN mark_samples > 0 THEN mark_avg ELSE index_avg END AS price
+        FROM market_price_hourly
+        WHERE ((venue_id = ${a.venue_id} AND venue_symbol = ${a.venue_symbol})
+            OR (venue_id = ${other.venue_id} AND venue_symbol = ${other.venue_symbol}))
+          AND hour >= date_trunc('hour', now()) - ${days}::int * interval '1 day'
+        ORDER BY hour, venue_id, venue_symbol`;
       return [...rows];
     },
 

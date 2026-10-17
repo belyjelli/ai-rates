@@ -442,4 +442,105 @@ export const pages: Catalog = {
   Chart: "图表",
   "Running the backtest…": "正在运行回测…",
   "pick one": "请选择",
+  "A price-convergence pair across two exchanges.": "两家交易所之间的价格收敛对。",
+  "All quotes": "全部报价",
+  Average: "平均",
+  "Best bid / ask": "最优买价 / 卖价",
+  "Bid-ask, both books": "买卖价差，两边订单簿",
+  "Breakeven move {pct}": "保本所需变动 {pct}",
+  "Dollars resting at the best bid and the best ask": "最优买价和最优卖价上挂单的美元金额",
+  "Each hour's average mark on the two exchanges. Where a venue publishes no mark, its index stands in.":
+    "两家交易所每小时的平均标记价格。交易所不公布标记价格时，以指数价格代替。",
+  "Entry at the top of the book": "按订单簿最优价入场",
+  "Every time in the window the spread rose to at least today's width, the hours until it next fell to the window's median. Hourly averages, so nothing shorter than an hour is seen, and the past is not a promise.":
+    "窗口内每次价差升至不低于今日宽度时，到其下次回落至窗口中位数所用的小时数。基于小时平均值，因此看不到短于一小时的变化，过去也不代表未来。",
+  "Exit target: the window's median spread, {median}. Full convergence to zero is rare, and waiting for it usually makes no sense.":
+    "退出目标：窗口的中位价差 {median}。完全收敛到零很少见，等待它通常没有意义。",
+  "Fees, four taker fills": "手续费，四次吃单成交",
+  "From {n} comparable episodes in the last {window}; {open} had not closed by the end.":
+    "基于最近 {window} 内 {n} 次可比情形；其中 {open} 次到窗口结束仍未收敛。",
+  "Funding, est. {hold} hold": "资金费，预计持有 {hold}",
+  Gross: "毛利",
+  "Hold time, from history": "持有时间（据历史）",
+  "Hover the chart to read every line at one hour.": "将鼠标悬停在图表上，可读取某一小时的每条线。",
+  "If the spread closes from where it is now to each target. Fees are four taker fills, in and out of both legs. The books are each exchange's own bid-ask, crossed half on the way in and half on the way out, at the top of the book only. Funding is the short leg's rate less the long leg's over the hold, which can pay or cost.":
+    "若价差从当前水平收敛到各目标。手续费为四次吃单成交，两条腿各进出一次。订单簿成本为各交易所自身的买卖价差，入场和出场各穿越一半，仅按最优价计算。资金费为持有期间空头腿费率减多头腿费率，可能是收入也可能是成本。",
+  "If the spread closes to": "若价差收敛至",
+  "Long leg · {venue}": "多头腿 · {venue}",
+  "Long the exchange where the asset is cheaper, short the one where it is dearer, and close when the two prices meet. Price moves cancel between the legs; what is left is the gap closing, less fees, the books and funding. Marks are the exchanges' own fair prices, not fills, and the history is hourly averages.":
+    "在价格较低的交易所做多，在价格较高的交易所做空，两边价格靠拢时平仓。两条腿的价格变动相互抵消，剩下的是价差收敛，扣除手续费、订单簿成本和资金费。标记价格是各交易所自己的公允价格，不是成交价，历史数据为小时平均值。",
+  "Mark prices, hourly": "标记价格，按小时",
+  Median: "中位数",
+  "Not verified for this exchange: the site's retail assumption of {bps} bps":
+    "此交易所未核实：采用本站零售假设 {bps} 个基点",
+  "Off the market median": "偏离市场中位数",
+  "One leg was listed recently or reported unevenly. The spread now is more trustworthy than the window's statistics.":
+    "一条腿上市不久或报价不连续。当前价差比窗口统计更可信。",
+  "Over the window's hours in which both legs reported a price, from each hour's average mark.":
+    "基于窗口内两条腿都有报价的小时，按每小时平均标记价格计算。",
+  "Own bid-ask": "自身买卖价差",
+  "Price history is unavailable right now. The live figures below are unaffected.":
+    "价格历史暂时无法获取。下方实时数据不受影响。",
+  "Price spread, hourly": "价格价差，按小时",
+  "Profit calculator": "利润计算器",
+  Range: "区间",
+  "Seen {age}": "更新于 {age}",
+  "Short leg · {venue}": "空头腿 · {venue}",
+  "Sparse history ({share}% of expected samples): statistics may be unreliable.":
+    "历史数据稀疏（预期样本的 {share}%）：统计可能不可靠。",
+  "Spread now (mark)": "当前价差（标记价格）",
+  "Spread statistics": "价差统计",
+  "Std dev": "标准差",
+  "Swap legs": "交换两条腿",
+  "Taker fee": "吃单手续费",
+  "The exchange's published standard taker fee": "交易所公布的标准吃单手续费",
+  "The price gap between {long} and {short} for {asset}: now, after costs, and over its history.":
+    "{asset} 在 {long} 与 {short} 之间的价差：当前、扣除成本后以及历史表现。",
+  "The short leg is not the dearer one right now, so there is no gap to close in this direction.":
+    "目前空头腿并非价格较高的一方，因此这个方向没有可收敛的价差。",
+  "The short leg's hourly mark less the long leg's, as a share of the long leg's. The dashed lines are the spread now and the window's median.":
+    "空头腿每小时标记价格减多头腿，占多头腿的比例。虚线为当前价差和窗口中位数。",
+  "The short leg's mark less the long leg's, as a share of the long leg's. Marks are each exchange's fair price, not a price anyone traded at; the entry below is what the books offer.":
+    "空头腿标记价格减多头腿，占多头腿的比例。标记价格是各交易所的公允价格，并非实际成交价；下方入场价才是订单簿实际提供的价格。",
+  "The spread is already at or below its median for the window ({median}): nothing to wait for.":
+    "价差已处于或低于窗口中位数（{median}）：无需等待。",
+  "This leg's mark against the median mark of every exchange quoting the asset":
+    "该腿标记价格相对所有报价交易所标记价格中位数的偏离",
+  "This pair: long {long}, short {short}": "此配对：做多 {long}，做空 {short}",
+  Ticker: "交易代码",
+  "Too few comparable episodes in the last {window} to estimate how long this takes. Try a longer window.":
+    "最近 {window} 内可比情形太少，无法估算所需时间。请尝试更长的窗口。",
+  "Top of book": "最优价挂单",
+  "Trade long · {venue}": "做多 · {venue}",
+  "Trade short · {venue}": "做空 · {venue}",
+  "Window {window} · {n} hours of {expected}": "窗口 {window} · {expected} 小时中有 {n} 小时",
+  "buying {venue}'s ask, selling {other}'s bid": "买入 {venue} 的卖价，卖出 {other} 的买价",
+  details: "详情",
+  "full convergence pays {times}× the round trip": "完全收敛可覆盖往返成本的 {times} 倍",
+  "long {long} · short {short}": "多头 {long} · 空头 {short}",
+  "long {long} · short {short}, good for {size}; deeper fills cost more and are not shown":
+    "多头 {long} · 空头 {short}，可成交约 {size}；更深的成交成本更高，此处未显示",
+  "market median {price} · long {long} · short {short}":
+    "市场中位数 {price} · 多头 {long} · 空头 {short}",
+  median: "中位数",
+  pair: "配对",
+  "seen {long} / {short}": "更新于 {long} / {short}",
+  "sized at {size} a leg": "每条腿 {size}",
+  "the book is thinner than this size": "订单簿深度小于此规模",
+  "thin book: only {size} rests at those prices": "订单簿较薄：这些价格上仅挂有 {size}",
+  "typical time to close (middle half {from} to {to})":
+    "通常收敛所需时间（中间一半为 {from} 至 {to}）",
+  "wider than {share}% of the last {window}'s hours": "宽于最近 {window} 中 {share}% 的小时",
+  "{asset} convergence trade": "{asset} 收敛交易",
+  "{asset} convergence trade: long {long}, short {short}":
+    "{asset} 收敛交易：做多 {long}，做空 {short}",
+  "{asset} · convergence trade": "{asset} · 收敛交易",
+  "{long} bps on the long leg and {short} bps on the short, in and out":
+    "多头腿 {long} 个基点，空头腿 {short} 个基点，进出各一次",
+  "{n}th percentile": "第 {n} 百分位",
+  "{venues} has no comparable {asset} book right now. Pick another exchange above.":
+    "{venues} 目前没有可比的 {asset} 订单簿。请在上方选择其他交易所。",
+  "~1h": "约 1 小时",
+  "~{n} days": "约 {n} 天",
+  "~{n}h": "约 {n} 小时",
 };

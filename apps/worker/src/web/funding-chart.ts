@@ -170,7 +170,7 @@ function dayLabel(ms: number): string {
 }
 
 /** Time labels along the bottom: hours across a single day, whole days otherwise. */
-function timeTicks(fromMs: number, toMs: number): { ms: number; label: string }[] {
+export function timeTicks(fromMs: number, toMs: number): { ms: number; label: string }[] {
   const span = toMs - fromMs;
   if (span <= 1.5 * DAY_MS) {
     const ticks = [];

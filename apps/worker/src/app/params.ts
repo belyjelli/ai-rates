@@ -98,6 +98,54 @@ export function parseScreenerFilters(params: URLSearchParams): ScreenerFilters {
   };
 }
 
+/** The windows a convergence pair's statistics and charts span, in days. */
+export const CONVERGENCE_WINDOWS = {
+  "1d": 1,
+  "3d": 3,
+  "7d": 7,
+  "15d": 15,
+  "30d": 30,
+  "90d": 90,
+} as const;
+export type ConvergenceWindow = keyof typeof CONVERGENCE_WINDOWS;
+export const DEFAULT_CONVERGENCE_SIZE = 10_000;
+
+/** One price-convergence pair: long the cheaper exchange, short the dearer (/price-pair/:asset). */
+export interface ConvergenceParams {
+  longVenueId: string;
+  shortVenueId: string;
+  /** Notional per leg. */
+  sizeUsd: number;
+  window: ConvergenceWindow;
+}
+
+/** The pair from ?long=&short=, or null unless they name two different known exchanges. */
+export function parseConvergenceParams(params: URLSearchParams): ConvergenceParams | null {
+  const longVenueId = (params.get("long") ?? "").trim().toLowerCase();
+  const shortVenueId = (params.get("short") ?? "").trim().toLowerCase();
+  if (!KNOWN_VENUES.has(longVenueId) || !KNOWN_VENUES.has(shortVenueId)) return null;
+  if (longVenueId === shortVenueId) return null;
+  const size = parseUsd(params.get("size"));
+  const window = (params.get("w") ?? "").trim().toLowerCase();
+  return {
+    longVenueId,
+    shortVenueId,
+    sizeUsd:
+      size === null
+        ? DEFAULT_CONVERGENCE_SIZE
+        : Math.min(Math.max(Math.round(size), 100), 10_000_000),
+    window: window in CONVERGENCE_WINDOWS ? (window as ConvergenceWindow) : "7d",
+  };
+}
+
+/** The pair's address query: the legs always, size and window only when not the defaults. */
+export function convergenceToQuery(p: ConvergenceParams): string {
+  const query = new URLSearchParams({ long: p.longVenueId, short: p.shortVenueId });
+  if (p.sizeUsd !== DEFAULT_CONVERGENCE_SIZE) query.set("size", String(p.sizeUsd));
+  if (p.window !== "7d") query.set("w", p.window);
+  return `?${query.toString()}`;
+}
+
 /** Null for a list naming every exchange the picker lists, which the form sends when all are ticked. */
 function everyListed(ids: string[] | null): string[] | null {
   return ids && LISTED_VENUES.every((id) => ids.includes(id)) ? null : ids;

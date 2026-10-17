@@ -916,6 +916,65 @@ i.sd{display:inline-block;flex-shrink:0;width:7px;height:7px;margin-right:6px;bo
 .bt-form .sx-btn b{color:var(--ink)}
 .bt-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin:0 0 6px}
 .bt-bar .tf{margin:0}
+/* The arbitrage rows open a strip beneath them (pages.ts ARB_SCRIPT). */
+.sheet tbody tr[data-arb]{cursor:pointer}
+.sheet tbody tr.arb-open td{background:var(--band)}
+.sheet tbody tr.arb-more td{white-space:normal;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--rule)}
+.arb-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.arb-actions button,.arb-actions .btn{padding:3px 10px}
+.arb-pairs{margin-top:8px}
+.arb-pairs .section-head{margin-top:0}
+/* The convergence pair page (convergence-page.ts). */
+.pc-form{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px}
+.pc-pick{display:flex;align-items:center;gap:6px}
+.pc-pick .sx-btn{min-width:150px}
+.pc-pick .sx-btn b{color:var(--ink)}
+.pc-side{font-size:11px;letter-spacing:.06em;text-transform:uppercase}
+.pc-long .pc-side{color:var(--long)}.pc-short .pc-side{color:var(--short)}
+.pc-swap{padding:3px 8px}
+.pc-size{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.pc-size input{width:90px;padding:3px 6px;font:13px var(--mono);color:var(--ink);background:var(--band);border:1px solid var(--rule)}
+.pc-size input:invalid{border-color:var(--short)}
+.pc-window{margin-left:auto}
+.pc-warn{margin:0 0 12px;padding:10px 12px;border:1px solid #5a4a12;background:#16120a;color:var(--warn)}
+.pc-warn b{display:block;margin-bottom:2px}
+.pc-card{margin:0 0 12px;padding:12px 14px;border:1px solid var(--rule);background:var(--panel)}
+.pc-card h2{margin:0 0 8px}
+.pc-card p{margin:4px 0}
+.pc-label{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.pc-big{font-size:30px;font-weight:700;line-height:1.1}
+.pc-big .pc-sub{font-size:13px;font-weight:400;color:var(--muted)}
+.pc-big .pc-sub b{color:var(--ink)}
+.pc-inner{margin:8px 0;padding:8px 10px;border:1px solid var(--rule)}
+.pc-flag{display:inline-block;padding:0 6px;border:1px solid #5a4a12;color:var(--warn);font-size:11px}
+.pc-chip{margin-left:8px;padding:1px 6px;border:1px solid var(--rule);font-size:11px;font-weight:400;color:var(--muted)}
+.pc-card .up{color:var(--long)}.pc-card .down{color:var(--short)}
+.pc-trades{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 6px}
+.pc-trade{display:block;padding:8px 10px;text-align:center;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+a.pc-trade.pc-long{color:var(--long);background:#0b1020;border:1px solid var(--long)}
+a.pc-trade.pc-short{color:var(--short);background:#1c0b0b;border:1px solid var(--short)}
+a.pc-trade:hover{color:var(--bg)}
+a.pc-trade.pc-long:hover{background:var(--long)}a.pc-trade.pc-short:hover{background:var(--short)}
+.pc-calc th[scope=row]{color:var(--muted);text-transform:none;text-align:left}
+.pc-calc tr.pc-net th,.pc-calc tr.pc-net td{border-top:1px solid var(--rule);color:var(--ink)}
+.pc-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+.pc-tiles>div{display:grid;gap:2px;padding:8px 10px;border:1px solid var(--rule)}
+.pc-tiles span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.pc-tiles b{font-size:15px}
+.pc-tiles small{color:var(--dim)}
+.pc-chart .fchart-line.spread{stroke:#3ddc84;stroke-width:1.4;stroke-dasharray:none}
+.pc-ref{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 4;vector-effect:non-scaling-stroke}
+.pc-ref-label{position:absolute;left:4px;transform:translateY(-110%);padding:0 4px;font-size:10px;color:var(--bg);background:var(--muted);pointer-events:none}
+.pc-key-long{background:var(--long)}.pc-key-short{background:var(--short)}.pc-key-spread{background:#3ddc84}
+.pc-legs{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 12px}
+.pc-leg{padding:12px 14px;border:1px solid var(--rule);background:var(--panel)}
+.pc-leg-head{margin:0 0 8px;font-size:15px}
+.pc-leg-head a{font-weight:700;border:0}
+.pc-row{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px solid var(--rule)}
+.pc-row span{color:var(--muted)}
+.pc-row b{font-weight:400;text-align:right}
+.pc-leg .pc-trade{margin-top:10px}
+@media (max-width:640px){.pc-trades,.pc-legs{grid-template-columns:1fr}.pc-window{margin-left:0}.pc-big{font-size:24px}}
 /* On a phone a panel may open from a button at the right edge: it spans the screen instead. */
 @media (max-width:640px){
 .sx-search{flex-basis:100%}

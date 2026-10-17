@@ -1,6 +1,8 @@
 import { ASSET_CLASSES, type AssetClass, backtestDaily, dailyWindowStart } from "@ai-rates/core";
 import { VENUES } from "@ai-rates/venues";
+import { referralsFor } from "../referrals/policy";
 import { about } from "../web/about";
+import { convergencePage } from "../web/convergence-page";
 import { cvd } from "../web/cvd";
 import { docs } from "../web/docs";
 import { BOOK_BASKET } from "../web/exchange-grade";
@@ -48,6 +50,7 @@ import {
   arbitrageToQuery,
   asksForGamma,
   type BacktestParams,
+  CONVERGENCE_WINDOWS,
   CVD_INTERVALS,
   DEFAULT_FILTERS,
   DEFAULT_WHALE_ZOOM,
@@ -63,6 +66,7 @@ import {
   parseArbitrageParams,
   parseBacktestDays,
   parseBacktestParams,
+  parseConvergenceParams,
   parseCvdHistoryParams,
   parseCvdParams,
   parseGammaParams,
@@ -562,6 +566,48 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
               tr("No exchange is quoting a {asset} book right now.", { asset }),
             ),
           404,
+        );
+      }
+      // A pair named in the address is the convergence page: the two legs' history and costs.
+      const pair = parseConvergenceParams(url.searchParams);
+      if (pair) {
+        const legs = [pair.longVenueId, pair.shortVenueId].flatMap((id) => {
+          const quote = quotes.find((q) => q.venue_id === id && q.mark_agrees);
+          return quote ? [{ venue_id: quote.venue_id, venue_symbol: quote.venue_symbol }] : [];
+        });
+        const [markets, history] = await Promise.all([
+          deps.data.asset(asset, first.asset_class),
+          legs.length === 2
+            ? deps.data
+                .priceHistory(legs, CONVERGENCE_WINDOWS[pair.window])
+                // The history is extra: without it the page still prices the gap now.
+                .catch(() => null)
+            : Promise.resolve([]),
+        ]);
+        // A sign-up link for each leg, only where this visitor may see that exchange's public offer.
+        const geo = requestGeo(request);
+        const offers = Object.fromEntries(
+          [pair.longVenueId, pair.shortVenueId].flatMap((id) => {
+            const referral = deps.referrals?.[id];
+            return referral ? [[id, referral]] : [];
+          }),
+        );
+        const allowed = referralsFor(offers, "public", geo);
+        const links = Object.fromEntries(
+          Object.entries(allowed).map(([id, referral]) => [id, referral?.url]),
+        );
+        return page(() =>
+          convergencePage({
+            asset,
+            assetClass: first.asset_class,
+            quotes,
+            markets,
+            params: pair,
+            history,
+            links,
+            overview,
+            now,
+          }),
         );
       }
       return page(() =>

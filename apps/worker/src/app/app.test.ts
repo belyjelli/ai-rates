@@ -126,6 +126,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     heatmap: async () => [],
     arbitrage: async () => [],
     priceQuotes: async () => [],
+    priceHistory: async () => [],
     venueStatus: async () => [],
     identityChecks: async () => [],
     leverageTiers: async () => [],
@@ -1853,15 +1854,109 @@ describe("pages", () => {
     expect(html).toContain("the taker fees, or the two transfers a real position needs");
   });
 
-  test("an arbitrage row opens its asset from anywhere on the row, through the asset's own link", async () => {
+  test("an arbitrage row opens a strip: every pair for the asset, and this pair's own page", async () => {
     const { data } = fakeData({ arbitrage: async () => [gap()] });
     const html = await (await get("/arbitrage", data)).text();
-    // The asset link is the row's target; the venue links keep their own.
-    expect(html).toMatch(/<td class="asset"><a href="\/price-pair\/[^"]+" data-row-link>/);
-    expect(html).not.toMatch(/class="venue"[^>]*data-row-link/);
-    // The script ships site-wide, once.
-    expect(html.split('a[data-row-link]").').length - 1).toBeLessThanOrEqual(1);
-    expect(html).toContain('row.querySelector("a[data-row-link]")');
+    // The row, not its asset link, is the target now: a click opens the strip beneath it.
+    expect(html).toMatch(
+      /<tr data-k="[^"]+" data-arb data-pairs="\/price-pair\/[^"]+" data-best="\/price-pair\/[^"]+\?long=[a-z-]+&amp;short=[a-z-]+"/,
+    );
+    expect(html).not.toMatch(/<td class="asset"><a [^>]*data-row-link/);
+    expect(html).toContain('<template id="arb-more">');
+    expect(html).toContain("data-arb-pairs");
+  });
+
+  test("the price page's every-pair rows open each pair's convergence page", async () => {
+    const { data } = fakeData({
+      priceQuotes: async () => [
+        quote({ venue_id: "gate", best_bid: 100, best_ask: 100.1 }),
+        quote({ venue_id: "okx", best_bid: 100.5, best_ask: 100.6 }),
+      ],
+    });
+    const html = await (await get("/price-pair/BTC", data)).text();
+    expect(html).toContain("<div data-pairs-table>");
+    expect(html).toContain('href="/price-pair/BTC?long=gate&short=okx" data-row-link>details');
+  });
+
+  test("a pair in the address is its convergence page: spread now, costs, history and both legs", async () => {
+    const H = 3_600_000;
+    const top = Math.floor(NOW / H) * H;
+    const history = Array.from({ length: 48 }, (_, i) => [
+      {
+        venue_id: "gate",
+        venue_symbol: "BTC_USDT",
+        hour: new Date(top - (47 - i) * H),
+        samples: 60,
+        price: 100,
+      },
+      {
+        venue_id: "okx",
+        venue_symbol: "BTC-USDT-SWAP",
+        hour: new Date(top - (47 - i) * H),
+        samples: 60,
+        price: 100 + (i % 6) * 0.2,
+      },
+    ]).flat();
+    const asked: unknown[] = [];
+    const { data } = fakeData({
+      priceQuotes: async () => [
+        quote({
+          venue_id: "gate",
+          venue_symbol: "BTC_USDT",
+          best_bid: 99.95,
+          best_ask: 100.05,
+          mark_price: 100,
+        }),
+        quote({
+          venue_id: "okx",
+          venue_symbol: "BTC-USDT-SWAP",
+          best_bid: 101.45,
+          best_ask: 101.55,
+          mark_price: 101.5,
+        }),
+      ],
+      priceHistory: async (markets, days) => {
+        asked.push({ markets, days });
+        return history;
+      },
+    });
+    const html = await (await get("/price-pair/BTC?long=gate&short=okx&w=3d&size=5k", data)).text();
+    expect(asked).toEqual([
+      {
+        markets: [
+          { venue_id: "gate", venue_symbol: "BTC_USDT" },
+          { venue_id: "okx", venue_symbol: "BTC-USDT-SWAP" },
+        ],
+        days: 3,
+      },
+    ]);
+    // 101.5 against 100: +1.500%, wider than every hour of the window.
+    expect(html).toContain('<p class="pc-big up">+1.500%');
+    expect(html).toContain("wider than <b>100</b>% of the last 3D's hours");
+    expect(html).toContain("sized at $5.0k a leg");
+    expect(html).toContain('<a href="/price-pair/BTC?long=gate&short=okx&size=5000&w=3d"');
+    expect(html).toContain(
+      '<input type="radio" name="long" value="gate" data-vp-name="Gate" checked>',
+    );
+    expect(html).toContain('class="fchart pc-chart"');
+    expect(html).toContain("Spread statistics");
+  });
+
+  test("a pair the history cannot be read for still prices the gap now", async () => {
+    const { data } = fakeData({
+      priceQuotes: async () => [
+        quote({ venue_id: "gate", best_bid: 99.95, best_ask: 100.05, mark_price: 100 }),
+        quote({ venue_id: "okx", best_bid: 101.45, best_ask: 101.55, mark_price: 101.5 }),
+      ],
+      priceHistory: async () => {
+        throw new Error("permission denied for table market_price_hourly");
+      },
+    });
+    const res = await get("/price-pair/BTC?long=gate&short=okx", data);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Price history is unavailable right now.");
+    expect(html).toContain("+1.500%");
   });
 
   test("/v1/arbitrage echoes the parsed params and their canonical query", async () => {
