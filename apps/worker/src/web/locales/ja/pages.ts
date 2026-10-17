@@ -397,4 +397,11 @@ export const pages: Catalog = {
   "Every server is screaming, the funding rates are on fire, and one intern is running the whole thing on foot. Go touch grass and try again later.":
     "サーバーは悲鳴を上げ、資金調達率は燃え上がり、インターン1人が全部を走って回しています。外の空気でも吸って、しばらくしてからまたどうぞ。",
   "Try again": "再試行",
+  // pages.ts invertedMark: an FX leg quoted the other way round (migration 041).
+  "short this contract": "この銘柄をショート",
+  "long this contract": "この銘柄をロング",
+  "sell this contract": "この銘柄を売る",
+  "buy this contract": "この銘柄を買う",
+  "{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.":
+    "{symbol} はこの通貨ペアを逆向きに建てているため、ペアのこちら側はその銘柄の反対側にあたります。価格は逆数、資金調達率は符号を反転し、どちらもペア基準で表示しています。",
 };

@@ -821,6 +821,8 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .leg{display:grid;gap:0}
 .leg .venue{border:0}
 .leg .meta{color:var(--muted)}
+/* A leg quoted the other way round (pages.ts invertedMark): the side to take on its own contract. */
+.leg .leg-inv{color:var(--warn);font-size:11px}
 .long-leg .venue{color:var(--long)}.short-leg .venue{color:var(--short)}
 /* Buy and sell are a direction of trade, not a funding polarity, so they deliberately do NOT reuse
    --long/--short: on every other page those colours answer "who pays whom". Accent for the side

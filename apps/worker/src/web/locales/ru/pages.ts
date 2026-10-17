@@ -398,4 +398,11 @@ export const pages: Catalog = {
   "Every server is screaming, the funding rates are on fire, and one intern is running the whole thing on foot. Go touch grass and try again later.":
     "Все серверы кричат, ставки финансирования горят, а один стажёр тащит всё это на своих двоих. Сходите потрогать траву и попробуйте позже.",
   "Try again": "Повторить",
+  // pages.ts invertedMark: an FX leg quoted the other way round (migration 041).
+  "short this contract": "шорт этого контракта",
+  "long this contract": "лонг этого контракта",
+  "sell this contract": "продать этот контракт",
+  "buy this contract": "купить этот контракт",
+  "{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.":
+    "{symbol} котирует эту пару в обратную сторону, поэтому эта сторона пары — противоположная сторона контракта. Цена показана обратной, а ставка финансирования — с обратным знаком, в терминах пары.",
 };

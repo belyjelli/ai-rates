@@ -242,7 +242,9 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const filters = parseScreenerFilters(url.searchParams);
       const [overview, pairs] = await Promise.all([
         deps.data.overview(),
-        deps.data.screener(filters),
+        // The one screener view that names a flipped leg's side, so it alone pairs an FX market
+        // quoted the other way round (data.ts PairingOptions).
+        deps.data.screener(filters, { crossFx: true }),
       ]);
       return page(() => pages.screener({ overview, pairs, filters, now }));
     }
@@ -310,7 +312,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const params = parseArbitrageParams(url.searchParams);
       const [overview, rows] = await Promise.all([
         deps.data.overview(),
-        deps.data.arbitrage(params),
+        deps.data.arbitrage(params, { crossFx: true }),
       ]);
       return page(() => pages.arbitrage({ overview, rows, params, now }));
     }

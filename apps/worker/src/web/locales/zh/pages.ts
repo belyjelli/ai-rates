@@ -386,4 +386,11 @@ export const pages: Catalog = {
   "Every server is screaming, the funding rates are on fire, and one intern is running the whole thing on foot. Go touch grass and try again later.":
     "每台服务器都在尖叫，资金费率在燃烧，只有一个实习生在徒步撑起整个系统。出去走走，稍后再试。",
   "Try again": "重试",
+  // pages.ts invertedMark: an FX leg quoted the other way round (migration 041).
+  "short this contract": "做空此合约",
+  "long this contract": "做多此合约",
+  "sell this contract": "卖出此合约",
+  "buy this contract": "买入此合约",
+  "{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.":
+    "{symbol} 以相反方向报价这一货币对，因此货币对的这一侧就是该合约的反向。其价格已取倒数，资金费率已反转符号，均按货币对计算。",
 };

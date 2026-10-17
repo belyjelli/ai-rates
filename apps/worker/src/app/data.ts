@@ -130,6 +130,22 @@ export interface ScreenerPair {
   /** Settlement currency of each leg; null where the venue does not declare one. */
   long_quote: string | null;
   short_quote: string | null;
+  /**
+   * The leg's market quotes the pair the other way round (MEXC's JPY_USDT in a USDJPY pair), so its
+   * APR here is the venue's with the sign flipped and the reader takes the OPPOSITE side of that
+   * contract. Only ever true when the caller asked for crossFx (migration 041).
+   */
+  long_inverted?: boolean;
+  short_inverted?: boolean;
+}
+
+/**
+ * How a pairing view treats an FX pair quoted both ways. `crossFx` joins a market quoted the other
+ * way round (JPYUSD) to its pair (USDJPY), inverted -- only for a page that names the flipped side;
+ * the API, MCP and a2a leave it off, so a client reading long_venue_id is never told the wrong side.
+ */
+export interface PairingOptions {
+  crossFx?: boolean;
 }
 
 export interface Overview {
@@ -262,6 +278,12 @@ export interface ArbitrageRow {
   sell_depth_usd: number | null;
   /** The smaller of the two sides, or null when either is unknown. The size the gap is good for. */
   thinner_depth_usd: number | null;
+  /**
+   * The leg's market quotes the pair the other way round: its price here is the venue's inverted
+   * (bid from its ask), and buying the pair there means SELLING that contract. crossFx only.
+   */
+  buy_inverted?: boolean;
+  sell_inverted?: boolean;
   /** The older leg's funding-row age: when the mark, rate and open interest were last fetched. */
   oldest_observed_at: Date;
   /**
@@ -966,7 +988,7 @@ export interface MacroData {
 
 export interface DataSource {
   overview(): Promise<Overview>;
-  screener(filters: ScreenerFilters): Promise<ScreenerPair[]>;
+  screener(filters: ScreenerFilters, options?: PairingOptions): Promise<ScreenerPair[]>;
   /** The newest nightly ranking of pairs by what they actually settled. Empty until a run lands. */
   verifiedPairs(limit: number): Promise<VerifiedPair[]>;
   /**
@@ -985,7 +1007,7 @@ export interface DataSource {
   /** Every venue's funding for the top assets by open interest, one row per populated cell. */
   heatmap(options: HeatmapOptions): Promise<HeatmapCell[]>;
   /** Widest quotable price gap per asset, behind the same mark-agreement guard the screener uses. */
-  arbitrage(options: ArbitrageOptions): Promise<ArbitrageRow[]>;
+  arbitrage(options: ArbitrageOptions, pairing?: PairingOptions): Promise<ArbitrageRow[]>;
   /** Every venue's top of book for one asset, mismatched instruments flagged rather than dropped. */
   priceQuotes(base: string, assetClass: AssetClass | null): Promise<PriceQuote[]>;
   /** Per-venue collecting health: are we getting data, and what went wrong if not. */
@@ -1176,6 +1198,25 @@ export const QUOTE_SUFFIX = "[-_]?(USDT|USDC|USD)([-_]?(SWAP|PERP))?$";
  * Read queries against the collector's read models (packages/db/migrations/002_screener.sql).
  * `connect` is called lazily so routes that don't touch the database never open a connection.
  */
+/**
+ * Runs a pairing query with crossFx (PairingOptions), and again without it when the database is
+ * still before the collector's migration 041 -- Postgres 42883, undefined function: no
+ * market_latest_pairable, no ninth screener_pairs argument -- so the site and the collector can
+ * ship in either order. Without crossFx the query is the pre-041 one and runs once.
+ */
+async function withoutCrossFx<R>(
+  crossFx: boolean,
+  run: (crossFx: boolean) => PromiseLike<R>,
+): Promise<R> {
+  if (!crossFx) return run(false);
+  try {
+    return await run(true);
+  } catch (error) {
+    if ((error as { code?: unknown } | null)?.code !== "42883") throw error;
+    return run(false);
+  }
+}
+
 export function createDataSource(connect: () => postgres.Sql): DataSource {
   return {
     async overview() {
@@ -1202,7 +1243,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       };
     },
 
-    async screener(f) {
+    async screener(f, options) {
       const sql = connect();
       // The sort key indexes a fixed set of fragments; it is never interpolated. Every fragment
       // ends with `asset, asset_class` because LIMIT over a partial order drops and repeats rows between
@@ -1218,7 +1259,9 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         stability: sql`pair_stability DESC NULLS LAST, spread_apr DESC NULLS LAST, asset, asset_class`,
       }[f.sort];
 
-      const rows = await sql<ScreenerPair[]>`
+      // Without crossFx the call is exactly the pre-041 one; with it, a database still before
+      // migration 041 answers with the plain pairs (withoutCrossFx).
+      const run = (crossFx: boolean) => sql<ScreenerPair[]>`
         SELECT * FROM screener_pairs(
           ${f.minOpenInterestUsd}::float8,
           ${f.minVolume24hUsd}::float8,
@@ -1227,10 +1270,10 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           ${FRESH_INTERVAL}::interval,
           ${f.maxAbsApr}::float8,
           ${MARK_DEVIATION}::float8,
-          ${f.sameQuote}::boolean)
+          ${f.sameQuote}::boolean${crossFx ? sql`, true` : sql``})
         ORDER BY ${order}
         LIMIT ${f.limit}`;
-      return [...rows];
+      return [...(await withoutCrossFx(options?.crossFx ?? false, run))];
     },
 
     async verifiedPairs(limit) {
@@ -1320,12 +1363,17 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       return [...rows];
     },
 
-    async arbitrage({ minGapBps, minDepthUsd, limit, offset }) {
+    async arbitrage({ minGapBps, minDepthUsd, limit, offset }, pairing) {
+      // An FX market quoted the other way round joins its pair inverted when the page asks
+      // (migration 041's market_latest_pairable); otherwise this reads market_latest, as before 041.
       // The shape mirrors screener_pairs deliberately -- median mark, deviation guard, best-per-
       // venue, then pair across two different venues -- because a price view that skipped the
       // guard would reprint the mismatched-instrument gaps migration 005 already fixed for funding.
       // It is inlined rather than a SQL function only because it reads different columns.
-      const rows = await connect()<ArbitrageRow[]>`
+      const sql = connect();
+      const run = (crossFx: boolean) => {
+        const markets = crossFx ? sql`market_latest_pairable(true)` : sql`market_latest`;
+        return sql<ArbitrageRow[]>`
         WITH candidates AS (
           SELECT venue_id, venue_symbol, asset_class, base, observed_at, quotes_at,
                  best_bid, best_ask, best_bid_size_usd, best_ask_size_usd,
@@ -1336,8 +1384,9 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                  -- guard's own escape, since a missing mark is not evidence of a mismatch -- so a
                  -- venue that is streaming while its poll is dead keeps quoting and stops gating,
                  -- which is exactly the pair of behaviours this split exists to separate.
-                 CASE WHEN observed_at > now() - ${FRESH_INTERVAL}::interval THEN mark_price END AS mark_price
-          FROM market_latest
+                 CASE WHEN observed_at > now() - ${FRESH_INTERVAL}::interval THEN mark_price END AS mark_price,
+                 ${crossFx ? sql`inverted` : sql`false AS inverted`}
+          FROM ${markets}
           WHERE quotes_at > now() - ${FRESH_INTERVAL}::interval
             AND best_bid > 0 AND best_ask > 0
         ),
@@ -1349,7 +1398,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         -- data it drops Hyperliquid's $11.15M PURR leg in favour of three thin venues (migration 016).
         anchors AS (
           SELECT DISTINCT ON (asset_class, base) asset_class, base, mark_price AS anchor_mark
-          FROM market_latest
+          FROM ${markets}
           WHERE observed_at > now() - ${FRESH_INTERVAL}::interval AND mark_price > 0
           ORDER BY asset_class, base, open_interest_usd DESC NULLS LAST, venue_id, venue_symbol
         ),
@@ -1398,7 +1447,9 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
             -- milliseconds while its funding row is refreshed once a minute, and a leg whose poll
             -- has died can still be quoting. The page reads this one, because these are the numbers
             -- it prints.
-            least(a.quotes_at, b.quotes_at) AS oldest_quoted_at
+            least(a.quotes_at, b.quotes_at) AS oldest_quoted_at,
+            a.inverted AS buy_inverted,
+            b.inverted AS sell_inverted
           FROM cheapest a
           JOIN counts c ON c.asset_class = a.asset_class AND c.base = a.base
           JOIN richest b ON b.asset_class = a.asset_class AND b.base = a.base AND b.venue_id <> a.venue_id
@@ -1413,7 +1464,8 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         -- Total order: LIMIT/OFFSET over a partial one drops and repeats rows between pages.
         ORDER BY gap_bps DESC, asset, asset_class
         LIMIT ${limit} OFFSET ${offset}`;
-      return [...rows];
+      };
+      return [...(await withoutCrossFx(pairing?.crossFx ?? false, run))];
     },
 
     async priceQuotes(base, assetClass) {

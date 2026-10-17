@@ -1711,6 +1711,58 @@ describe("pages", () => {
     expect(res.status).toBe(404);
   });
 
+  // Migration 041: MEXC's JPY_USDT quotes the yen in dollars, so in a USDJPY pair its long leg is a
+  // short of that contract. Only the pages that say so ask for it; the API never gets such a row.
+  test("an FX leg quoted the other way round names its contract's own side, on the pages that ask", async () => {
+    const asked: { screener: unknown[]; arbitrage: unknown[] } = { screener: [], arbitrage: [] };
+    const fx = {
+      ...pair,
+      asset: "USDJPY",
+      asset_class: "fx" as const,
+      long_venue_id: "mexc",
+      long_symbol: "JPY_USDT",
+      long_apr: -43.8,
+      long_inverted: true,
+      short_venue_id: "bybit",
+      short_symbol: "USDJPYUSDT",
+      short_apr: 5,
+      short_inverted: false,
+      spread_apr: 48.8,
+    };
+    const { data } = fakeData({
+      screener: async (_filters, options) => {
+        asked.screener.push(options?.crossFx ?? false);
+        return [fx];
+      },
+      arbitrage: async (_params, pairing) => {
+        asked.arbitrage.push(pairing?.crossFx ?? false);
+        return [
+          gap({
+            asset: "USDJPY",
+            asset_class: "fx",
+            buy_venue_id: "mexc",
+            buy_symbol: "JPY_USDT",
+            buy_inverted: true,
+          }),
+        ];
+      },
+    });
+
+    const screener = await (await get("/screener", data)).text();
+    expect(screener).toContain('<span class="leg-inv"');
+    expect(screener).toContain("short this contract");
+    expect(screener).toContain("JPY_USDT quotes this pair the other way round");
+    // The quotable "long X, short Y" sentence would be wrong for this row, so there is none.
+    expect(screener).not.toContain("Same coin, two exchanges");
+    const arbitrage = await (await get("/arbitrage", data)).text();
+    expect(arbitrage).toContain("sell this contract");
+    expect(arbitrage).not.toContain("A 269.6 bps gap at the top of the book");
+
+    await get("/v1/screener", data);
+    await get("/v1/arbitrage", data);
+    expect(asked).toEqual({ screener: [true, false], arbitrage: [true, false] });
+  });
+
   test("the size a gap is good for is a locked column, with no figure anywhere on the page", async () => {
     const { data } = fakeData({ arbitrage: async () => [gap()] });
     const html = await (await get("/arbitrage", data)).text();

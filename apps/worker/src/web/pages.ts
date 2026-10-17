@@ -515,6 +515,15 @@ function quoteMark(quote: string | null, otherQuote: string | null): string {
   return ` · <span class="qmix" title="${esc(title)}">${esc(quote ?? tr("quote ?"))}</span>`;
 }
 
+/**
+ * The note under a leg whose market quotes its pair the other way round (MEXC's JPY_USDT in a
+ * USDJPY pair, migration 041): the side to take on THAT contract, which is the opposite of the
+ * column's, and why. Its figures in the row are already in the pair's terms.
+ */
+function invertedMark(action: string, symbol: string): string {
+  return `<span class="leg-inv" title="${esc(tr("{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.", { symbol }))}">${action}</span>`;
+}
+
 function pairsTable(
   pairs: ScreenerPair[],
   emptyMessage: string,
@@ -534,11 +543,18 @@ function pairsTable(
     oi: number | null,
     quote: string | null,
     otherQuote: string | null,
+    inverted: boolean | undefined,
   ) =>
-    `<td><div class="leg ${side}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)} · ${formatInterval(interval)} · ${tr("OI")} <span data-u="${side}-oi">${formatUsd(oi)}</span>${quoteMark(quote, otherQuote)}</span></div></td>`;
+    `<td><div class="leg ${side}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)} · ${formatInterval(interval)} · ${tr("OI")} <span data-u="${side}-oi">${formatUsd(oi)}</span>${quoteMark(quote, otherQuote)}</span>${inverted ? invertedMark(side === "long" ? tr("short this contract") : tr("long this contract"), symbol) : ""}</div></td>`;
+  // A leg quoted the other way round is held on the opposite side of its contract; the rail says so.
+  const railLabel = (label: string, inverted: boolean | undefined, side: "long" | "short") =>
+    inverted
+      ? `${label} · ${side === "long" ? tr("short this contract") : tr("long this contract")}`
+      : label;
 
+  // The quotable sentence says "long X, short Y", which a flipped leg would make wrong.
   const cite = (p: ScreenerPair, i: number) =>
-    i < 3
+    i < 3 && !p.long_inverted && !p.short_inverted
       ? citeMark(
           tr(
             "{asset} pays {spread} a year to hold both sides: long {long} at {longApr}, short {short} at {shortApr}. Same coin, two exchanges, price exposure cancelled.",
@@ -565,21 +581,29 @@ function pairsTable(
           {
             apr: p.long_apr,
             tone: "long",
-            label: tr("Long on {venue}", { venue: venueName(p.long_venue_id) }),
+            label: railLabel(
+              tr("Long on {venue}", { venue: venueName(p.long_venue_id) }),
+              p.long_inverted,
+              "long",
+            ),
             key: "long",
           },
           {
             apr: p.short_apr,
             tone: "short",
-            label: tr("Short on {venue}", { venue: venueName(p.short_venue_id) }),
+            label: railLabel(
+              tr("Short on {venue}", { venue: venueName(p.short_venue_id) }),
+              p.short_inverted,
+              "short",
+            ),
             key: "short",
           },
         ],
         bar: [p.long_apr, p.short_apr],
       })}</td>
-${leg("long", p.long_venue_id, p.long_symbol, p.long_interval_hours, p.long_open_interest_usd, p.long_quote, p.short_quote)}
+${leg("long", p.long_venue_id, p.long_symbol, p.long_interval_hours, p.long_open_interest_usd, p.long_quote, p.short_quote, p.long_inverted)}
 <td class="num">${apr(p.long_apr)}</td>
-${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short_open_interest_usd, p.short_quote, p.long_quote)}
+${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short_open_interest_usd, p.short_quote, p.long_quote, p.short_inverted)}
 <td class="num">${apr(p.short_apr)}</td>
 <td class="num">${p.spread_apr_7d === null ? '<span class="dim">–</span>' : formatApr(p.spread_apr_7d)}</td>
 <td class="num dim">${p.venue_count}</td>
@@ -1003,15 +1027,21 @@ export function arbitrage(data: {
       : `<span class="dim">${label}</span>`;
 
   // Price first, then the venue it was quoted on.
-  const side = (kind: "buy" | "sell", venueId: string, symbol: string, price: number) =>
+  const side = (
+    kind: "buy" | "sell",
+    venueId: string,
+    symbol: string,
+    price: number,
+    inverted: boolean | undefined,
+  ) =>
     `<td class="num"><span data-u="${kind}-price">${formatPrice(price)}</span></td>
-<td><div class="leg ${kind}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)}</span></div></td>`;
+<td><div class="leg ${kind}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)}</span>${inverted ? invertedMark(kind === "buy" ? tr("sell this contract") : tr("buy this contract"), symbol) : ""}</div></td>`;
 
   const body = rows
     .map((r, i) => {
       return `<tr data-k="${esc(assetKey(r.asset, r.asset_class))}">
 <td class="asset"><a href="${priceHref(r.asset, r.asset_class)}" data-row-link>${assetName(r.asset, r.asset_class)}</a>${
-        i < 3
+        i < 3 && !r.buy_inverted && !r.sell_inverted
           ? citeMark(
               tr(
                 "{asset}: buy on {buyVenue} at {buyPrice}, sell on {sellVenue} at {sellPrice}. A {gap} bps gap at the top of the book.",
@@ -1030,8 +1060,8 @@ export function arbitrage(data: {
       }</td>
 <td class="num spread"><span data-u="gap"${gapTone(r.gap_bps)}>${formatGapBps(r.gap_bps)}</span></td>
 <td class="num"><span data-u="basis"${gapTone(r.gap_bps)}>${formatPriceGap(r.sell_price, r.buy_price)}</span></td>
-${side("buy", r.buy_venue_id, r.buy_symbol, r.buy_price)}
-${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price)}
+${side("buy", r.buy_venue_id, r.buy_symbol, r.buy_price, r.buy_inverted)}
+${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_inverted)}
 <td class="num locked" title="${esc(tr("Not available yet"))}">${LOCK_ICON}</td>
 <td class="num dim">${r.venue_count}</td>
 <td class="dim" title="${esc(tr("Quotes seen {quoted}; the older leg's funding row fetched {fetched}", { quoted: ageText(r.oldest_quoted_at, now), fetched: ageText(r.oldest_observed_at, now) }))}">${since(r.oldest_quoted_at, now)}</td>

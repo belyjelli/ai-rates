@@ -396,4 +396,11 @@ export const pages: Catalog = {
   "Every server is screaming, the funding rates are on fire, and one intern is running the whole thing on foot. Go touch grass and try again later.":
     "서버는 전부 비명을 지르고, 펀딩비는 불타고, 인턴 한 명이 두 발로 뛰며 전부를 떠받치고 있습니다. 바람 좀 쐬고 나중에 다시 오세요.",
   "Try again": "다시 시도",
+  // pages.ts invertedMark: an FX leg quoted the other way round (migration 041).
+  "short this contract": "이 종목 숏",
+  "long this contract": "이 종목 롱",
+  "sell this contract": "이 종목 매도",
+  "buy this contract": "이 종목 매수",
+  "{symbol} quotes this pair the other way round, so this side of the pair is the opposite side of that contract. Its price is shown inverted and its funding with the sign flipped, in the pair's terms.":
+    "{symbol}은(는) 이 통화쌍을 반대 방향으로 호가하므로, 통화쌍의 이쪽은 그 종목의 반대쪽입니다. 가격은 역수로, 펀딩비는 부호를 바꿔 통화쌍 기준으로 표시합니다.",
 };
