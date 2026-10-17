@@ -678,6 +678,44 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 /* The view switch (gamma.ts): the page opens on calls/puts, and only ever hides what a view leaves out. */
 html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gxview=zones]) .gx-v-zone,html[data-gxview=net] .gx-v-split,html[data-gxview=zones] .gx-v-split{display:none}
 .gx-zone-short{fill:var(--short);opacity:.13}.gx-zone-long{fill:var(--long);opacity:.09}
+/* The macro tabs (macro.ts): each line its own colour, set once as --c and read by its stroke, its
+   bar and its key; the reference lines (the Fed's 2% target) dotted in yellow. Long and short keep
+   their blue and red for who-pays-whom; nothing here is either. */
+.mc-a{--c:#c8f5a8}.mc-b{--c:#5fd7ff}.mc-c{--c:#b69cff}.mc-d{--c:#ff9f43}.mc-e{--c:#a8b3bf}
+.mc-chart .fchart-plot{margin:6px 14px 0 58px}
+.mc-chart .mc-plot{height:240px}
+.mc-chart .slot-area{padding-bottom:20px}
+.mc-chart .fchart-note{margin-top:2px}
+.mc-line{fill:none;stroke:var(--c);stroke-width:1.6;vector-effect:non-scaling-stroke}
+.mc-dashed{stroke-dasharray:5 4}
+.mc-bar{fill:var(--c)}.mc-bar.mc-neg{fill:#ff9f43}.mc-bar.mc-e{opacity:.55}
+.mc-ref{stroke:var(--warn);stroke-width:1;stroke-dasharray:2 4;vector-effect:non-scaling-stroke}
+.mc-ref-l{position:absolute;right:4px;transform:translateY(-115%);color:var(--warn);font-size:11px;white-space:nowrap;pointer-events:none}
+.mc-x-start{transform:none}
+.mc-chart .fchart-keys i.mc-key{width:12px;height:0;border-top:2px solid var(--c)}
+.mc-chart .fchart-keys i.mc-key-dash{border-top-style:dashed}
+.mc-chart .fchart-keys i.mc-key-bar{width:10px;height:10px;border:0;background:var(--c)}
+.mc-up{color:var(--accent)}.mc-down{color:#ff9f43}
+.mc-head{display:flex;align-items:center;gap:8px;margin:4px 0 10px}
+.mc-cal{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 18px;margin:-2px 0 12px}
+.mc-cal .eyebrow{margin:0}
+.mc-cal b{font-weight:600}
+.mc-ladders{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin:0 0 16px}
+.mc-ladder{border:1px solid var(--rule);background:var(--panel);padding:8px 10px}
+.mc-ladder-t{margin:0;font-weight:600}
+.mc-mid{margin:2px 0 6px}
+.mc-ladder table.sheet td{padding:1px 4px}
+.mc-ladder .sheet tbody tr:nth-child(n){background:none}
+.mc-bar-cell{width:45%;min-width:70px}
+.mc-p{display:block;height:8px;background:var(--accent);opacity:.75}
+.mc-stack{display:flex;width:150px;height:10px;background:var(--rule)}
+.mc-dec{display:block;height:100%}
+.mc-dec-0{background:#ff9f43}.mc-dec-1{background:#ffcf9e}.mc-dec-2{background:var(--muted)}.mc-dec-3{background:#a5e6ff}.mc-dec-4{background:#5fd7ff}
+.mc-hi{color:var(--ink);font-weight:700}
+.mc-tag{font-size:10px;border:1px solid var(--muted);color:var(--muted);padding:0 3px}
+.mc-spark{display:block;width:110px;height:20px}
+.mc-spark .mc-line{stroke-width:1.2}
+@media (max-width:640px){.mc-chart .fchart-plot{margin:6px 6px 0 50px}.mc-chart .mc-plot{height:200px}.mc-stack{width:90px}}
 .gx-chart .fchart-keys i.gx-key-zs,.gx-chart .fchart-keys i.gx-key-zl{width:10px;height:10px}
 .gx-key-zs{background:color-mix(in srgb,var(--short) 35%,transparent)}.gx-key-zl{background:color-mix(in srgb,var(--long) 30%,transparent)}
 .gx-zl{position:absolute;top:4px;z-index:1;transform:translateX(-50%);padding:0 4px;background:rgba(0,0,0,.7);font-size:11px;line-height:16px;white-space:nowrap;pointer-events:none}

@@ -14,6 +14,7 @@ import type {
   IdentityCheckRow,
   LeverageTierRow,
   LiquidationFeedRow,
+  MacroData,
   MarketRow,
   Overview,
   PriceQuote,
@@ -74,6 +75,7 @@ import { msg, tr, trMsg, withLocale } from "./i18n";
 import { icon } from "./icons";
 import { layout } from "./layout";
 import { FEEDS, liquidationFeedTable } from "./liquidation-feeds";
+import { MACRO_PANELS, type MacroPanel, macroPanel, macroPlaceholder, macroTabs } from "./macro";
 import { PICK_SCRIPT } from "./picker";
 import { type RailScale, railPosition, railScale, renderRail } from "./rail";
 import { citeMark } from "./share";
@@ -819,9 +821,14 @@ export function heatmap(data: {
    */
   gamma?: GammaData | null;
   gammaParams: GammaParams;
+  /**
+   * A macro tab's read, when the address named one (`?macro=`, for a reader without JavaScript): that
+   * tab ships filled and opens. Every other macro tab is a placeholder that loads itself.
+   */
+  macro?: { panel: MacroPanel; data: MacroData | null };
   now: number;
 }): string {
-  const { overview, cells, params, gamma, gammaParams, now } = data;
+  const { overview, cells, params, gamma, gammaParams, macro, now } = data;
   const { rows, venueIds } = pivot(cells);
   const cellValue = HEATMAP_VALUE[params.tf];
 
@@ -941,8 +948,9 @@ ${tabBar({
   tabs: [
     { id: "rates", label: tr("Funding rates"), shortLabel: tr("Funding") },
     { id: "gamma", label: tr("Gamma Exposure"), shortLabel: tr("Gamma") },
+    ...macroTabs(),
   ],
-  activeId: gammaFilled ? "gamma" : "rates",
+  activeId: macro ? macro.panel : gammaFilled ? "gamma" : "rates",
 })}
 <div class="tabpanel" role="tabpanel" id="panel-rates-rates" data-tab-panel="rates" aria-labelledby="tab-rates-rates">
 <div class="tf">${strip}</div>
@@ -951,6 +959,12 @@ ${grid}
 <div class="tabpanel" role="tabpanel" id="${GAMMA_PANEL_ID}" data-tab-panel="gamma" aria-labelledby="tab-rates-gamma"${gammaLazy}>
 ${gammaBody}
 </div>
+${MACRO_PANELS.map((id) => {
+  const filled = macro?.panel === id;
+  return `<div class="tabpanel mc-panel" role="tabpanel" id="panel-rates-${id}" data-tab-panel="${id}" aria-labelledby="tab-rates-${id}"${filled ? "" : ` data-lazy="/rates?panel=${id}"`}>
+${filled ? macroPanel(id, macro.data, now) : macroPlaceholder(id)}
+</div>`;
+}).join("\n")}
 <script>${SLOT_SCRIPT}</script>
 <script>${GX_SWAP_SCRIPT}</script>
 <script>${GX_VIEW_SCRIPT}</script>

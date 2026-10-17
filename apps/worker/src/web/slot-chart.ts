@@ -98,6 +98,10 @@ export interface SlotWords {
   burstBuys: string;
   burstSells: string;
   noCandle: string;
+  /** The macro charts': a slot's month, quarter or week. */
+  macroMonth: string;
+  macroQuarter: string;
+  macroWeek: string;
 }
 
 /** The words in the current render's language. */
@@ -142,6 +146,9 @@ export const slotWords = (): SlotWords => ({
   burstBuys: tr("large taker buys {usd} ({n})"),
   burstSells: tr("large taker sells {usd} ({n})"),
   noCandle: tr("no candle"),
+  macroMonth: tr("{month} {year}"),
+  macroQuarter: tr("Q{q} {year}"),
+  macroWeek: tr("week of {month} {day}, {year}"),
 });
 
 /**
@@ -397,7 +404,7 @@ export function gammaText(d: GammaSlots, i: number, f: SlotFormat): string {
  * a chart across time. Self-contained: it ships as text.
  */
 export function slotXPrice(
-  d: CvdSlots | SidesSlots | WhaleSlots | GammaSlots | WhaleCandleSlots,
+  d: CvdSlots | SidesSlots | WhaleSlots | GammaSlots | WhaleCandleSlots | MacroSlots,
   i: number,
   price: (value: number) => string,
 ): string | null {
@@ -478,6 +485,55 @@ export interface WhaleCandleSlots {
 }
 
 /**
+ * What a macro chart ships (web/macro.ts): each slot's start, epoch milliseconds UTC, and its grain --
+ * "m" a month, "q" a quarter, "w" a week -- and each line's label, values (null where the series has
+ * none), the suffix its values read with ("%", " pp", "k"; "$" reads as compact dollars instead) and
+ * its decimals, and whether it reads signed.
+ */
+export interface MacroSlots {
+  kind: "macro";
+  g: "m" | "q" | "w";
+  slots: number[];
+  lines: { l: string; v: (number | null)[]; u: string; d: number; s: boolean }[];
+}
+
+/** One macro reading: slot i's period, and every line's value there. */
+export function macroText(d: MacroSlots, i: number, f: SlotFormat): string {
+  const w = f.words;
+  const at = new Date(d.slots[i] ?? 0);
+  const month = w.months.split("|")[at.getUTCMonth()] ?? "";
+  const year = String(at.getUTCFullYear());
+  const head =
+    d.g === "q"
+      ? w.macroQuarter
+          .replace("{q}", () => String(Math.floor(at.getUTCMonth() / 3) + 1))
+          .replace("{year}", () => year)
+      : d.g === "w"
+        ? w.macroWeek
+            .replace("{month}", () => month)
+            .replace("{day}", () => String(at.getUTCDate()))
+            .replace("{year}", () => year)
+        : w.macroMonth.replace("{month}", () => month).replace("{year}", () => year);
+  const parts = [head];
+  for (const line of d.lines) {
+    const v = line.v[i];
+    if (v === null || v === undefined) continue;
+    const sign = v < 0 ? "−" : line.s && v > 0 ? "+" : "";
+    const text =
+      line.u === "$"
+        ? sign + f.usd(Math.abs(v))
+        : sign +
+          Math.abs(v).toLocaleString("en-US", {
+            minimumFractionDigits: line.d,
+            maximumFractionDigits: line.d,
+          }) +
+          line.u;
+    parts.push(`${line.l} <b>${text}</b>`);
+  }
+  return parts.join(" · ");
+}
+
+/**
  * What a whale-map figure ships: one entry per price band, low to high, [longs liquidating in it,
  * shorts liquidating in it, how many of each], or null for a band where none does; and for every
  * band, empty or not, everything that liquidates between the mark and it.
@@ -516,7 +572,7 @@ export interface SidesSlots {
  * words in the render's language, which the browser copy of the text functions reads them from.
  */
 export function slotData(
-  payload: CvdSlots | SidesSlots | WhaleSlots | GammaSlots | WhaleCandleSlots,
+  payload: CvdSlots | SidesSlots | WhaleSlots | GammaSlots | WhaleCandleSlots | MacroSlots,
 ): string {
   return `<script type="application/json" class="slot-data">${JSON.stringify({ ...payload, words: slotWords() }).replace(/</g, "\\u003c")}</script>`;
 }
@@ -559,7 +615,8 @@ export function slotCursorSwitch(): string {
  * read on each axis in a tag. A panel's axes come in its data-axes, {"l"|"r": [kind, bottom, top]},
  * the values at the bottom and top edges of the plot, since the SVG maps them linearly; kind is
  * "price", "usd" (signed) or "amount" (dollars that have no sign), and an optional fourth entry is
- * the currency symbol for those two, "$" when absent. The vertical
+ * the currency symbol for those two, "$" when absent; or "num", a plain figure, whose fourth entry
+ * is its suffix ("%") and fifth its decimals. The vertical
  * line still snaps to the slot being read. A keyboard step has no height, so it draws no level line.
  * The choice is kept on <html> (data-cursor), not on the figure, which a refresh replaces.
  */
@@ -574,6 +631,7 @@ export const SLOT_SCRIPT = `(() => {
   const whaleText = ${whaleText};
   const gammaText = ${gammaText};
   const candleText = ${candleText};
+  const macroText = ${macroText};
   const xPrice = ${slotXPrice};
   const parsed = new WeakMap();
   const idle = new WeakMap();
@@ -593,6 +651,7 @@ export const SLOT_SCRIPT = `(() => {
     if (d.kind === "wmap") return whaleText(d, i, fw);
     if (d.kind === "gex") return gammaText(d, i, fw);
     if (d.kind === "wcandle") return candleText(d, i, fw);
+    if (d.kind === "macro") return macroText(d, i, fw);
     const when = f.when(d.from + i * d.unit, d.words, 0, d.unit);
     const head = i === d.slots.length - 1 ? d.words.filling.replace("{when}", () => when) : when;
     const slot = d.slots[i];
@@ -683,7 +742,7 @@ export const SLOT_SCRIPT = `(() => {
         }
         const value = axis[2] - t * (axis[2] - axis[1]);
         tag.textContent =
-          axis[0] === "price" ? f.price(value) : axis[0] === "amount" ? f.usd(Math.max(0, value), axis[3]) : (value > 0 ? "+" : "") + f.usd(value, axis[3]);
+          axis[0] === "num" ? (value < 0 ? "−" : "") + Math.abs(value).toFixed(axis[4] || 0) + (axis[3] || "") : axis[0] === "price" ? f.price(value) : axis[0] === "amount" ? f.usd(Math.max(0, value), axis[3]) : (value > 0 ? "+" : "") + f.usd(value, axis[3]);
         tag.style.top = (t * 100).toFixed(2) + "%";
         tag.hidden = false;
       }

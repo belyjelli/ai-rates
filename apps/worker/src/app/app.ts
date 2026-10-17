@@ -13,6 +13,7 @@ import { keyboard } from "../web/keyboard";
 import { SITE_ORIGIN } from "../web/layout";
 import { legal } from "../web/legal";
 import { liquidations, liquidationsPanel } from "../web/liquidations";
+import { isMacroPanel, MACRO_NEEDS, type MacroPanel, macroFragment } from "../web/macro";
 import * as pages from "../web/pages";
 import { assetHref } from "../web/pages";
 import { referralCta } from "../web/referral";
@@ -273,7 +274,23 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           gammaFragment({ data: gamma, params: gammaParams, heatmap: params, now }),
         );
       }
-      const [overview, cells, gamma] = await Promise.all([
+      // The macro tabs, each read for its own `?panel=<tab>` alone; `?macro=<tab>` fills that one in
+      // the page, for a reader without JavaScript. A failed read says so in the tab, as gamma's does.
+      const readMacro = (panel: MacroPanel) =>
+        deps.data.macro(MACRO_NEEDS[panel]).catch((error) => {
+          deps.log?.(
+            `macro ${panel} unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return null;
+        });
+      const askedPanel = url.searchParams.get("panel");
+      if (isMacroPanel(askedPanel)) {
+        const data = await readMacro(askedPanel);
+        return page(() => macroFragment(askedPanel, data, now));
+      }
+      const askedMacro = url.searchParams.get("macro");
+      const macroTab = isMacroPanel(askedMacro) ? askedMacro : null;
+      const [overview, cells, gamma, macroData] = await Promise.all([
         deps.data.overview(),
         deps.data.heatmap({
           limit: params.limit,
@@ -281,8 +298,10 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           minVenues: HEATMAP_MIN_VENUES,
         }),
         asksForGamma(url.searchParams) ? readGamma() : undefined,
+        macroTab ? readMacro(macroTab) : undefined,
       ]);
-      return page(() => pages.heatmap({ overview, cells, params, gamma, gammaParams, now }));
+      const macro = macroTab ? { panel: macroTab, data: macroData ?? null } : undefined;
+      return page(() => pages.heatmap({ overview, cells, params, gamma, gammaParams, macro, now }));
     }
 
     // The phase's actual title: where one venue's bid sits above another's ask. Only three venues

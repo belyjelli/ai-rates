@@ -900,6 +900,70 @@ export const EMPTY_TALLY: WhaleTally = {
   sell_usd: 0,
 };
 
+/**
+ * The US macro data behind the Rates page's macro tabs (collector migration 038): FRED's series and
+ * DefiLlama's stablecoin supply by series id, the release calendar, Kalshi's odds and the CFTC's
+ * Commitments of Traders. What a tab reads is the tab's own list (web/macro.ts, MACRO_NEEDS).
+ */
+export interface MacroNeeds {
+  /** Each series id and how many years of it. */
+  series: Readonly<Record<string, number>>;
+  /** Release keys ("cpi", "fomc"): the last few months' and every scheduled one. */
+  releases: readonly string[];
+  /** Kalshi series ("KXFEDDECISION"): every open market. */
+  odds: readonly string[];
+  /** Whether to read the Commitments of Traders. */
+  cot: boolean;
+}
+
+/** One observation: the date's start, epoch milliseconds UTC, and the value. */
+export type MacroPoint = [number, number];
+
+export interface MacroRelease {
+  release: string;
+  at: Date;
+  /** An FOMC meeting that brings a Summary of Economic Projections. */
+  projections: boolean;
+}
+
+/** One open Kalshi market, its price read as a probability. */
+export interface MacroOdds {
+  market: string;
+  series: string;
+  event: string;
+  /** "2026-10" for a month's print or meeting, "2026-Q3" for a quarter's GDP. */
+  period: string;
+  label: string;
+  /** A threshold's level ("above 0.3%" is 0.3), or a decision's move in basis points (-25 a cut). */
+  strike: number | null;
+  strike_type: string;
+  closes_at: Date;
+  probability: number;
+  volume: number;
+  fetched_at: Date;
+}
+
+/** One market's weekly report: its open interest, and each trader group's net (longs less shorts). */
+export interface CotRow {
+  key: string;
+  /** The Tuesday the positions are as of, epoch milliseconds UTC. */
+  ms: number;
+  report: string;
+  open_interest: number;
+  trader_group: string;
+  net: number;
+}
+
+export interface MacroData {
+  /** Each series asked for, oldest first; a series with no rows is absent. */
+  series: Record<string, MacroPoint[]>;
+  /** When the collector last read each series. */
+  readAt: Record<string, Date>;
+  releases: MacroRelease[];
+  odds: MacroOdds[];
+  cot: CotRow[];
+}
+
 export interface DataSource {
   overview(): Promise<Overview>;
   screener(filters: ScreenerFilters): Promise<ScreenerPair[]>;
@@ -990,6 +1054,11 @@ export interface DataSource {
    * page bins the strikes itself.
    */
   gamma(options: { currency: string; scope: string }): Promise<GammaData>;
+  /**
+   * One macro tab's data, for the Rates page (collector migration 038): its series, releases, odds
+   * and, for the positioning tab, three years of the Commitments of Traders. A few thousand rows.
+   */
+  macro(needs: MacroNeeds): Promise<MacroData>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -2157,6 +2226,74 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         curve: [...curve],
         expiries: [...expiries],
       };
+    },
+
+    async macro(needs) {
+      const sql = connect();
+      const ids = Object.keys(needs.series);
+      const now = Date.now();
+      // One (id, since) tuple per series, as leverageTiers binds its markets: an array parameter is
+      // not usable with fetch_types off. FRED's ids are letters and digits, the releases' and Kalshi's
+      // keys too, so their lists can be joined and split on a comma.
+      const windows = ids.length
+        ? ids
+            .map((id) => {
+              const since = new Date(now - (needs.series[id] ?? 1) * 365.25 * 86_400_000);
+              return sql`(${id}, ${since.toISOString().slice(0, 10)}::date)`;
+            })
+            .reduce((all, one) => sql`${all}, ${one}`)
+        : null;
+      const [observations, read, releases, odds, cot] = await Promise.all([
+        windows
+          ? sql<{ series_id: string; ms: number; value: number }[]>`
+              SELECT o.series_id, (extract(epoch FROM o.date) * 1000)::float8 AS ms, o.value
+              FROM macro_observations o
+              JOIN (VALUES ${windows}) AS w(id, since) ON o.series_id = w.id AND o.date >= w.since
+              ORDER BY o.series_id, o.date`
+          : [],
+        ids.length
+          ? sql<{ series_id: string; fetched_at: Date }[]>`
+              SELECT series_id, fetched_at FROM macro_series
+              WHERE series_id = ANY(string_to_array(${ids.join(",")}, ','))`
+          : [],
+        needs.releases.length
+          ? sql<MacroRelease[]>`
+              SELECT release, at, projections FROM macro_releases
+              WHERE release = ANY(string_to_array(${needs.releases.join(",")}, ','))
+                AND at > now() - interval '400 days'
+              ORDER BY at`
+          : [],
+        needs.odds.length
+          ? sql<MacroOdds[]>`
+              SELECT market, series, event, period, label, strike, strike_type, closes_at, probability,
+                     volume, fetched_at
+              FROM macro_odds
+              WHERE series = ANY(string_to_array(${needs.odds.join(",")}, ',')) AND closes_at > now()
+              ORDER BY closes_at, strike`
+          : [],
+        // Three years and a week, each market's speculators, the other side and the dealers: the
+        // groups the tab shows, net. "other" and the non-reportable positions stay in the table.
+        needs.cot
+          ? sql<CotRow[]>`
+              SELECT p.key, (extract(epoch FROM p.report_date) * 1000)::float8 AS ms, r.report,
+                     r.open_interest::float8 AS open_interest, p.trader_group,
+                     (p.longs - p.shorts)::float8 AS net
+              FROM cot_positions p
+              JOIN cot_reports r ON r.key = p.key AND r.report_date = p.report_date
+              WHERE p.report_date > now() - interval '3 years 7 days'
+                AND p.trader_group IN ('leveraged', 'asset_manager', 'dealer', 'managed_money', 'producer', 'swap_dealer')
+              ORDER BY p.key, p.report_date`
+          : [],
+      ]);
+      const series: Record<string, MacroPoint[]> = {};
+      for (const row of observations) {
+        const points = series[row.series_id] ?? [];
+        points.push([row.ms, row.value]);
+        series[row.series_id] = points;
+      }
+      const readAt: Record<string, Date> = {};
+      for (const row of read) readAt[row.series_id] = row.fetched_at;
+      return { series, readAt, releases: [...releases], odds: [...odds], cot: [...cot] };
     },
 
     async sentimentHistory(hours) {

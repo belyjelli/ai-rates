@@ -17,6 +17,10 @@ import type {
   HeatmapCell,
   LiquidationAssetMap,
   LiquidationMap,
+  MacroData,
+  MacroNeeds,
+  MacroOdds,
+  MacroPoint,
   MarketRow,
   Overview,
   PriceQuote,
@@ -135,6 +139,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     cvdHistory: async () => [],
     liquidationFeeds: async () => [],
     whalePositions: async () => [],
+    macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
     gamma: async ({ currency }) => ({
       currency,
       books: [],
@@ -192,6 +197,194 @@ const dailied = (venue_id: string, venue_symbol: string, rate: number, count = 3
   }
   return [...days.values()];
 };
+
+const DAY_MS = 86_400_000;
+
+/**
+ * A macro tab's data, made up but shaped like the collector's (migration 038): every series a tab
+ * asks for, monthly, quarterly, weekly or daily up to NOW, with releases and Kalshi odds after it and
+ * twenty weeks of the Commitments of Traders.
+ */
+function synthMacro(needs: MacroNeeds): MacroData {
+  const end = NOW;
+  const monthly = (base: number, step: number, last = 0): MacroPoint[] => {
+    const out: MacroPoint[] = [];
+    // January 2017 to August 2026, or `last` months earlier.
+    for (let k = 2017 * 12; k <= 2026 * 12 + 7 - last; k++)
+      out.push([Date.UTC(Math.floor(k / 12), k % 12, 1), base * (1 + step) ** out.length]);
+    return out;
+  };
+  const daily = (base: number, wiggle: number): MacroPoint[] => {
+    const out: MacroPoint[] = [];
+    for (let t = end - 7 * 365 * DAY_MS, i = 0; t <= end; t += DAY_MS, i++)
+      if (new Date(t).getUTCDay() % 6 !== 0)
+        out.push([t - (t % DAY_MS), base + wiggle * Math.sin(i / 20)]);
+    return out;
+  };
+  const weekly = (base: number, wiggle: number): MacroPoint[] =>
+    daily(base, wiggle).filter(([t]) => new Date(t).getUTCDay() === 3);
+  const quarterly = (values: number[], from: number): MacroPoint[] =>
+    values.map((v, i) => [Date.UTC(from + Math.floor(i / 4), (i % 4) * 3, 1), v]);
+  const sep = (values: number[]): MacroPoint[] =>
+    values.map((v, i) => [Date.UTC(2026 + i, 0, 1), v]);
+  const all: Record<string, MacroPoint[]> = {
+    CPIAUCSL: monthly(245, 0.003),
+    CPILFESL: monthly(250, 0.0027),
+    PCEPI: monthly(108, 0.0022, 1),
+    PCEPILFE: monthly(109, 0.002, 1),
+    T5YIE: daily(2.35, 0.1),
+    T10YIE: daily(2.3, 0.08),
+    T5YIFR: daily(2.25, 0.06),
+    DFEDTARU: daily(4, 0),
+    DFEDTARL: daily(3.75, 0),
+    EFFR: daily(3.88, 0),
+    SOFR: daily(3.89, 0.01),
+    IORB: daily(3.9, 0),
+    WALCL: weekly(6.7e6, 1e5),
+    WTREGEN: weekly(8e5, 5e4),
+    RRPONTSYD: daily(80, 40),
+    FEDTARMD: sep([4.1, 4.1, 3.9, 3.6]),
+    FEDTARMDLR: [
+      [Date.UTC(2026, 5, 17), 3.1],
+      [Date.UTC(2026, 8, 16), 3.2],
+    ],
+    PCECTPIMD: sep([3.7, 2.3, 2.1, 2]),
+    JCXFEMD: sep([3.4, 2.5, 2.2, 2]),
+    UNRATEMD: sep([4.1, 4.1, 4.1, 4.1]),
+    GDPC1MD: sep([2.3, 2.4, 2.2, 2.1]),
+    PAYEMS: monthly(150000, 0.0006),
+    UNRATE: monthly(4, 0.0005),
+    ICSA: weekly(220000, 15000),
+    CCSA: weekly(1.8e6, 5e4),
+    JTSJOL: monthly(7500, -0.002, 1),
+    CES0500000003: monthly(30, 0.003),
+    SAHMREALTIME: monthly(0.1, 0),
+    A191RL1Q225SBEA: quarterly([1.2, -0.5, 2.8, 3.1, 2.2, 1.6, 3, 2.4, 0.4, 3.9, 2.1], 2024),
+    GDPNOW: [[Date.UTC(2026, 6, 1), 3.6]],
+    INDPRO: monthly(100, 0.001),
+    RSAFS: monthly(620000, 0.004),
+    RECPROUSM156N: monthly(1, 0, 1),
+    DGS3MO: daily(4.2, 0.1),
+    DGS2: daily(4.7, 0.2),
+    DGS10: daily(5, 0.2),
+    DGS30: daily(5.3, 0.2),
+    T10Y2Y: daily(0.3, 0.6),
+    T10Y3M: daily(0.8, 0.9),
+    DFII10: daily(2.7, 0.1),
+    DTWEXBGS: daily(120, 2),
+    NFCI: weekly(-0.5, 0.05),
+    M2SL: monthly(21000, 0.004),
+    STABLECOINS: daily(2.8e11, 1e10),
+  };
+  const series: Record<string, MacroPoint[]> = {};
+  const readAt: Record<string, Date> = {};
+  for (const id of Object.keys(needs.series)) {
+    const points = all[id];
+    if (!points) continue;
+    series[id] = points;
+    readAt[id] = new Date(NOW - 20 * 60_000);
+  }
+  const release = (key: string, days: number, projections = false) => ({
+    release: key,
+    at: new Date(NOW + days * DAY_MS),
+    projections,
+  });
+  const releases = [
+    release("fomc", -45),
+    release("claims", 5),
+    release("fomc", 4, true),
+    release("pce", 10),
+    release("gdp", 10),
+    release("jolts", 15),
+    release("jobs", 20),
+    release("cpi", 24),
+    release("retail", 30),
+    release("indpro", 30),
+  ].filter((r) => needs.releases.includes(r.release));
+  const market = (
+    series: string,
+    event: string,
+    period: string,
+    label: string,
+    strike: number,
+    p: number,
+    days: number,
+  ): MacroOdds => ({
+    market: `${event}-${strike}`,
+    series,
+    event,
+    period,
+    label,
+    strike,
+    strike_type: series === "KXFEDDECISION" ? "decision" : "greater",
+    closes_at: new Date(NOW + days * DAY_MS),
+    probability: p,
+    volume: 1000,
+    fetched_at: new Date(NOW - 5 * 60_000),
+  });
+  const decisionEvent = (event: string, period: string, days: number, ps: number[]) =>
+    [-50, -25, 0, 25, 50].map((bps, i) =>
+      market("KXFEDDECISION", event, period, `move ${bps}`, bps, ps[i] ?? 0, days),
+    );
+  const ladderEvent = (
+    series: string,
+    period: string,
+    strikes: number[],
+    ps: number[],
+    days: number,
+  ) =>
+    strikes.map((k, i) =>
+      market(series, `${series}-${period}`, period, `Above ${k}`, k, ps[i] ?? 0, days),
+    );
+  const odds = [
+    ...decisionEvent("KXFEDDECISION-26SEP", "2026-09", 4, [0.01, 0.01, 0.84, 0.13, 0.01]),
+    ...decisionEvent("KXFEDDECISION-26OCT", "2026-10", 45, [0.01, 0.02, 0.21, 0.72, 0.04]),
+    ...ladderEvent(
+      "KXCPI",
+      "2026-09",
+      [0, 0.1, 0.2, 0.3, 0.4],
+      [0.97, 0.86, 0.645, 0.29, 0.15],
+      24,
+    ),
+    ...ladderEvent("KXCPICORE", "2026-09", [0, 0.1, 0.2, 0.3], [0.95, 0.82, 0.48, 0.15], 24),
+    ...ladderEvent(
+      "KXCPIYOY",
+      "2026-09",
+      [3.6, 3.7, 3.8, 3.9, 4],
+      [0.91, 0.83, 0.7, 0.44, 0.29],
+      24,
+    ),
+    ...ladderEvent(
+      "KXPAYROLLS",
+      "2026-09",
+      [0, 50000, 100000, 150000],
+      [0.87, 0.56, 0.31, 0.1],
+      20,
+    ),
+    ...ladderEvent("KXU3", "2026-09", [4, 4.1, 4.2, 4.3], [0.92, 0.64, 0.3, 0.07], 20),
+    ...ladderEvent("KXGDP", "2026-Q3", [1, 2, 3, 4], [0.97, 0.92, 0.68, 0.22], 10),
+  ].filter((o) => needs.odds.includes(o.series));
+  const cot = needs.cot
+    ? ["BTC", "GC"].flatMap((key) =>
+        Array.from({ length: 20 }, (_, w) => {
+          const ms = Date.UTC(2026, 3, 28) + w * 7 * DAY_MS;
+          const groups =
+            key === "BTC"
+              ? { leveraged: -6000 + w * 10, asset_manager: 3600 - w * 5, dealer: 1800 }
+              : { managed_money: 100000 + w * 300, producer: -18000, swap_dealer: -220000 };
+          return Object.entries(groups).map(([trader_group, net]) => ({
+            key,
+            ms,
+            report: key === "BTC" ? "tff" : "disagg",
+            open_interest: key === "BTC" ? 20752 : 396345,
+            trader_group,
+            net,
+          }));
+        }).flat(),
+      )
+    : [];
+  return { series, readAt, releases, odds, cot };
+}
 
 const get = (path: string, data: DataSource) =>
   handleApp(new Request(`https://airates.test${path}`), { data, now: () => NOW });
@@ -2680,6 +2873,118 @@ describe("pages", () => {
       const page = await get("/rates?gex=BTC", data);
       expect(page.status).toBe(200);
       expect(await page.text()).toContain("The options data could not be read right now.");
+    });
+  });
+
+  describe("rates macro tabs", () => {
+    const panels = ["inflation", "fed", "jobs", "growth", "signals", "flows"];
+
+    test("the page lists every macro tab after gamma, each a placeholder that loads itself", async () => {
+      const asked: MacroNeeds[] = [];
+      const { data } = fakeData({
+        macro: async (needs) => {
+          asked.push(needs);
+          return synthMacro(needs);
+        },
+      });
+      const html = await (await get("/rates", data)).text();
+      for (const id of panels) {
+        expect(html).toContain(`data-tab="${id}"`);
+        expect(html).toContain(`data-lazy="/rates?panel=${id}"`);
+        expect(html).toContain(`href="/rates?macro=${id}#${id}"`);
+      }
+      expect(html.indexOf('data-tab="gamma"')).toBeLessThan(html.indexOf('data-tab="inflation"'));
+      // The grid's readers pay nothing for the macro tabs.
+      expect(asked).toEqual([]);
+    });
+
+    for (const id of panels) {
+      test(`${id}: the tab on its own renders its figures, chart and sources`, async () => {
+        const { data } = fakeData({ macro: async (needs) => synthMacro(needs) });
+        const res = await get(`/rates?panel=${id}`, data);
+        expect(res.status).toBe(200);
+        const html = await res.text();
+        expect(html).toContain('<div class="lazy-body"');
+        expect(html).toContain('class="cvd-tiles mc-tiles"');
+        expect(html).toContain('class="fchart cvd-chart mc-chart"');
+        expect(html).toContain('"kind":"macro"');
+        expect(html).toContain("Sources:");
+        expect(html).not.toContain("NaN");
+        expect(html).not.toContain("undefined");
+        expect(html).not.toContain("Infinity");
+        expect(html).not.toContain("<html");
+      });
+    }
+
+    test("?macro= serves the page with that tab filled and open", async () => {
+      const { data } = fakeData({ macro: async (needs) => synthMacro(needs) });
+      const html = await (await get("/rates?macro=fed", data)).text();
+      expect(html).toContain("<html");
+      expect(html).toContain('id="tab-rates-fed"');
+      expect(html).toMatch(/data-tab="fed"[^>]*aria-selected="true"/);
+      expect(html).not.toContain('data-lazy="/rates?panel=fed"');
+      expect(html).toContain('data-lazy="/rates?panel=jobs"');
+      expect(html).toContain("Each meeting's odds, from Kalshi");
+    });
+
+    test("the Fed tab reads the next meeting's odds and the path they imply", async () => {
+      const { data } = fakeData({ macro: async (needs) => synthMacro(needs) });
+      const html = await (await get("/rates?panel=fed", data)).text();
+      expect(html).toContain("3.75%–4.00%");
+      expect(html).toContain("Kalshi: hold 84%");
+      // +3 bp expected at the first meeting (13% of +25, 1% of +50, 2% of cuts), +19 bp at the second:
+      // 22 bp on today's 3.875% midpoint.
+      expect(html).toContain("+3 bp");
+      expect(html).toContain("+19 bp");
+      expect(html).toContain("+22 bp from today's 3.875%");
+      expect(html).toContain("The Fed's own projections");
+    });
+
+    test("the inflation tab's middle estimate is where the chance of above crosses one half", async () => {
+      const { data } = fakeData({ macro: async (needs) => synthMacro(needs) });
+      const html = await (await get("/rates?panel=inflation", data)).text();
+      // 64.5% above 0.2%, 29% above 0.3%: the half falls 41% of the way between them.
+      expect(html).toContain("Kalshi: +0.24% on the month");
+      expect(html).toContain("middle estimate <b>+0.24%</b>");
+      expect(html).toContain("Fed&#39;s 2% target");
+    });
+
+    test("the positioning tab ranks speculators against their own history", async () => {
+      const { data } = fakeData({ macro: async (needs) => synthMacro(needs) });
+      const html = await (await get("/rates?panel=flows", data)).text();
+      expect(html).toContain("Bitcoin (CME)");
+      expect(html).toContain("Gold");
+      // Leveraged funds' short shrinks every week, so this week's is the least short: rank 100%.
+      expect(html).toContain("3-year rank 100%");
+      expect(html).toContain("Stablecoin supply");
+    });
+
+    test("a failed read says so in the tab and leaves the page up", async () => {
+      const { data } = fakeData({
+        macro: async () => {
+          throw new Error("relation macro_observations does not exist");
+        },
+      });
+      const tab = await get("/rates?panel=signals", data);
+      expect(tab.status).toBe(200);
+      expect(await tab.text()).toContain("The macro data could not be read right now.");
+      const page = await get("/rates?macro=signals", data);
+      expect(page.status).toBe(200);
+      expect(await page.text()).toContain("The macro data could not be read right now.");
+    });
+
+    test("an empty store says no figures have been read yet", async () => {
+      const { data } = fakeData();
+      for (const id of panels) {
+        const html = await (await get(`/rates?panel=${id}`, data)).text();
+        expect(html).toContain("yet.");
+      }
+    });
+
+    test("an unknown panel is the page, not a fragment", async () => {
+      const { data } = fakeData();
+      const html = await (await get("/rates?panel=cpi", data)).text();
+      expect(html).toContain("<html");
     });
   });
 

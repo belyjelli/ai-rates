@@ -35,6 +35,7 @@ import { gamma } from "./gamma";
 import { keyboard } from "./keyboard";
 import { layout } from "./layout";
 import { liquidations } from "./liquidations";
+import { macro } from "./macro";
 import { pages } from "./pages";
 import { site } from "./site";
 import { whales } from "./whales";
@@ -49,6 +50,7 @@ export const ZH_PARTS: Readonly<Record<string, Catalog>> = {
   keyboard,
   whales,
   gamma,
+  macro,
 };
 
 export const zh: Catalog = Object.assign({}, ...Object.values(ZH_PARTS));

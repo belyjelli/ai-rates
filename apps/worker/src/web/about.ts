@@ -41,6 +41,16 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-17",
+    title:
+      "Macro on the Rates page: inflation, the Fed, jobs, growth, policy signals and positioning",
+    changes: [
+      "Six new tabs on the Rates page, after Gamma Exposure. Inflation: CPI and PCE, headline and core, on the month, annualized over three and six months and on the year, with the inflation the Treasury market prices in. Fed policy: the target range and the overnight rates, the next FOMC meeting, each meeting's odds from Kalshi and the rate path they imply, the committee's own projections and the balance sheet. Employment: payrolls, unemployment and the Sahm rule, jobless claims, job openings and wages. Growth: real GDP, the Atlanta Fed's GDPNow, industrial production and retail sales.",
+      "Policy signals: the 2-year yield against fed funds, the yield curve, real yields, net liquidity (the Fed's balance sheet less the Treasury's account and reverse repos), the dollar, financial conditions and M2. Positioning and flows: who holds the futures, from the CFTC's weekly Commitments of Traders, for CME Bitcoin and Ether, the stock indexes, VIX, Treasuries, SOFR, fed funds, currencies, gold, silver, oil and copper, each ranked against its last three years; and the dollar stablecoins in circulation.",
+      "Each tab says when the next release is due, in your own time zone, and what Kalshi's traders expect of it: the middle of their odds on the next CPI, payrolls, unemployment and GDP prints. The figures come from FRED (the BLS, BEA, Federal Reserve and Treasury series), the Federal Reserve's FOMC calendar, Kalshi, the CFTC and DefiLlama, read every hour (odds every 15 minutes).",
+    ],
+  },
+  {
+    date: "2026-10-17",
     title: "The site in Japanese, Korean and Russian",
     changes: [
       "Every page can be read in Japanese, Korean and Russian: switch with language: 日本語, 한국어 or Русский at the foot of the page. A first visit follows your browser's language. As with Chinese, the legal and status pages and this changelog stay in English, and the API is never translated.",

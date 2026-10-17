@@ -41,6 +41,7 @@ import { gamma } from "./gamma";
 import { keyboard } from "./keyboard";
 import { layout } from "./layout";
 import { liquidations } from "./liquidations";
+import { macro } from "./macro";
 import { pages } from "./pages";
 import { site } from "./site";
 import { whales } from "./whales";
@@ -55,6 +56,7 @@ export const RU_PARTS: Readonly<Record<string, Catalog>> = {
   keyboard,
   whales,
   gamma,
+  macro,
 };
 
 export const ru: Catalog = Object.assign({}, ...Object.values(RU_PARTS));
