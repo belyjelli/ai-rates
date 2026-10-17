@@ -451,4 +451,7 @@ export const pages: Catalog = {
   erratic: "неустойчивый",
   mixed: "средний",
   steady: "устойчивый",
+  Chart: "График",
+  "Running the backtest…": "Идёт бэктест…",
+  "pick one": "выберите",
 };

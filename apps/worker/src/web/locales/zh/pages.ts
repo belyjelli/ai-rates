@@ -439,4 +439,7 @@ export const pages: Catalog = {
   erratic: "不稳定",
   mixed: "一般",
   steady: "稳定",
+  Chart: "图表",
+  "Running the backtest…": "正在运行回测…",
+  "pick one": "请选择",
 };

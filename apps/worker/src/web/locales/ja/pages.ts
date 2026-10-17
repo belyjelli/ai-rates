@@ -450,4 +450,7 @@ export const pages: Catalog = {
   erratic: "不安定",
   mixed: "中程度",
   steady: "安定",
+  Chart: "チャート",
+  "Running the backtest…": "バックテストを実行中…",
+  "pick one": "選択してください",
 };

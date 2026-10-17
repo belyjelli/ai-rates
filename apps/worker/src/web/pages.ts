@@ -49,6 +49,7 @@ import {
   MAX_TAKER_FEE_BPS,
 } from "../app/params";
 import { retailSchedule } from "../app/retail-fees";
+import { BT_SCRIPT } from "./backtest-swap";
 import {
   ageText,
   aprTone,
@@ -91,7 +92,8 @@ import {
 import { citeMark } from "./share";
 import { SLOT_SCRIPT } from "./slot-chart";
 import { tabBar } from "./tabs";
-import { VENUE_TYPE_LABEL, venueName } from "./venues";
+import { PICKER_SCRIPT, venuePicker } from "./venue-picker";
+import { VENUE_BY_ID, VENUE_TYPE_LABEL, venueName } from "./venues";
 
 /** Each class's tag, marked for translation; the class itself stays the English code in every URL. */
 const ASSET_CLASS_LABELS: Readonly<Record<AssetClass, string>> = {
@@ -386,6 +388,7 @@ export function screener(data: {
     now: data.now,
     body: `${helpHeading("h1", tr("Funding spread screener"), "screener", `<p>${tr("For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.")}</p>`)}
 ${screenerControls(data.filters)}
+<script>${PICKER_SCRIPT}</script>
 <script>${SCREENER_SCRIPT}</script>
 ${pairsTable(data.pairs, tr("No pairs match these filters. Lower the minimum open interest or include more exchange types."), data.filters)}`,
   });
@@ -1858,6 +1861,32 @@ function feeField(name: string, label: string, current: number | null): string {
   return `<label class="field" title="${tr("Taker fee in basis points, per fill. Both legs must be filled in before costs are charged.")}">${label} (bps)<input type="number" name="${name}" value="${esc(value)}" min="0" max="${MAX_TAKER_FEE_BPS}" step="0.1" placeholder="${tr("blank = ignore")}" inputmode="decimal"></label>`;
 }
 
+/** The exchanges listing an asset, as catalog entries, for a picker. */
+function listingVenues(markets: readonly MarketRow[]): Venue[] {
+  return [...new Set(markets.map((m) => m.venue_id))].map(
+    (id) => VENUE_BY_ID.get(id) ?? ({ id, name: id, type: "cex" } as Venue),
+  );
+}
+
+/**
+ * Which exchanges the chart draws, picked the way the screener picks exchanges. It only shows and
+ * hides lines already on the page (backtest-swap.ts), so it needs the script and sends nothing. As
+ * the chart does: the two legs when a pair is chosen, every exchange when not.
+ */
+function chartLines(markets: readonly MarketRow[], result: BacktestResult | null): string {
+  const legs = new Set(result ? [result.long.venueId, result.short.venueId] : []);
+  return `<span data-js-only hidden>${venuePicker({
+    label: tr("Chart"),
+    lead: icon("stack"),
+    venues: listingVenues(markets),
+    type: "checkbox",
+    checked: (v) => legs.size === 0 || legs.has(v.id),
+    inputAttrs: (v) => (legs.has(v.id) ? " data-leg" : ""),
+    attrs: " data-bt-lines",
+    panelClass: "sx-right",
+  })}</span>`;
+}
+
 /**
  * The window as links, marked the way the rates page marks its timeframe. Each keeps the legs, size
  * and fees already chosen, so switching window never throws away the pair being read.
@@ -1874,7 +1903,7 @@ function windowStrip(
       : n === DEFAULT_BACKTEST_DAYS
         ? ""
         : `?days=${n}`;
-    return `<a href="${pairHref(asset, assetClass)}${query}"${n === days ? ' aria-current="true"' : ""}>${n}d</a>`;
+    return `<a href="${pairHref(asset, assetClass)}${query}" data-bt-swap${n === days ? ' aria-current="true"' : ""}>${n}d</a>`;
   }).join("");
   return `<div class="tf" aria-label="${tr("Window")}">${links}</div>`;
 }
@@ -1886,16 +1915,25 @@ function backtestForm(
   params: BacktestParams | null,
   days: number,
 ): string {
-  const venues = [...new Set(markets.map((m) => m.venue_id))].sort((a, b) =>
-    venueName(a).localeCompare(venueName(b)),
-  );
+  const venues = listingVenues(markets);
+  // Each exchange's tile shows the funding it charges now, on its deepest market for the asset: the
+  // market a leg on that exchange is priced from (app.ts pickMarket).
+  const deepest = (venueId: string) =>
+    markets
+      .filter((m) => m.venue_id === venueId)
+      .sort((a, b) => (b.open_interest_usd ?? 0) - (a.open_interest_usd ?? 0))[0];
   const venueField = (name: "long" | "short", current: string | undefined) =>
-    `<label class="field">${name === "long" ? tr("Long on") : tr("Short on")}<select name="${name}">${venues
-      .map(
-        (id) =>
-          `<option value="${esc(id)}"${id === current ? " selected" : ""}>${esc(venueName(id))}</option>`,
-      )
-      .join("")}</select></label>`;
+    `<div class="field"><span>${name === "long" ? tr("Long on") : tr("Short on")}</span>${venuePicker(
+      {
+        label: "",
+        venues,
+        type: "radio",
+        name,
+        checked: (v) => v.id === current,
+        meta: (v) => apr(deepest(v.id)?.apr ?? null),
+        attrs: ` data-leg-pick="${name}"`,
+      },
+    )}</div>`;
   const numberField = (name: string, label: string, current: number, options: [number, string][]) =>
     `<label class="field">${label}<select name="${name}">${options
       .map(
@@ -1904,7 +1942,7 @@ function backtestForm(
       )
       .join("")}</select></label>`;
 
-  return `<form class="filters" method="get" action="${pairHref(asset, assetClass)}" data-await>
+  return `<form class="filters bt-form" method="get" action="${pairHref(asset, assetClass)}" data-bt data-loading="${esc(tr("Running the backtest…"))}">
 ${venueField("long", params?.longVenueId)}
 ${venueField("short", params?.shortVenueId)}
 ${numberField("size", tr("Size per leg"), params?.sizeUsd ?? 10_000, [
@@ -1919,7 +1957,7 @@ ${feeField("fee_long", tr("Long taker fee"), params?.longTakerBps ?? null)}
 ${feeField("fee_short", tr("Short taker fee"), params?.shortTakerBps ?? null)}
 <div class="actions"><button type="submit">${tr("Run backtest")}</button>${
     params
-      ? `<a class="btn" href="${pairHref(asset, assetClass)}${backtestToQuery({ ...params, longVenueId: params.shortVenueId, shortVenueId: params.longVenueId })}" data-await>${icon("swap")} ${tr("swap legs")}</a>`
+      ? `<a class="btn" href="${pairHref(asset, assetClass)}${backtestToQuery({ ...params, longVenueId: params.shortVenueId, shortVenueId: params.longVenueId })}" data-bt-swap>${icon("swap")} ${tr("swap legs")}</a>`
       : ""
   }<a class="btn" href="${priceHref(asset, assetClass)}" title="${tr("What entering and exiting would cost at each exchange's top of book")}">${tr("price gap")}</a></div>
 </form>`;
@@ -2154,9 +2192,13 @@ ${result.costsUsd === null ? `<p class="notes">${tr("Funding only, before tradin
     body: `<p class="eyebrow"><a href="${assetHref(asset, assetClass)}">${assetName(asset, assetClass)}</a> / ${tr("backtest")}</p>
 ${helpHeading("h1", tr("{asset} carry", { asset: assetName(asset, assetClass) }), "pair", `<p>${tr("Every exchange's funding over one window, and what the two legs you pick actually settled, summed per UTC day. Windows are whole calendar days ending today, and the figures refresh hourly.")}</p>`)}
 ${backtestForm(asset, assetClass, markets, params, days)}
-${windowStrip(asset, assetClass, params, days)}
+<div class="bt-view" data-bt-view>
+<div class="bt-bar">${windowStrip(asset, assetClass, params, days)}${chartLines(markets, result)}</div>
 ${renderFundingChart(history, legs)}
-${body}`,
+${body}
+</div>
+<script>${PICKER_SCRIPT}</script>
+<script>${BT_SCRIPT}</script>`,
   });
 }
 

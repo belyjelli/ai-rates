@@ -2513,8 +2513,8 @@ describe("pages", () => {
     });
     expect(html).toContain('name="min_oi" value="1m"');
     // The exchange picker ticks the CEXs the address kept, and none of the rest.
-    expect(html).toContain('name="venues" value="binance" checked');
-    expect(html).toContain('name="venues" value="hyperliquid">');
+    expect(html).toContain('name="venues" value="binance" data-vp-name="Binance" checked>');
+    expect(html).toContain('name="venues" value="hyperliquid" data-vp-name="Hyperliquid">');
     expect(html).toContain(
       '<input type="radio" name="limit" value="50" data-default="100" checked>',
     );
@@ -3217,11 +3217,15 @@ describe("pages", () => {
     const html = await (await get("/pair/BTC", data)).text();
 
     expect(html).toContain("Pick two exchanges to hold against each other.");
-    expect(html).toContain('<form class="filters" method="get" action="/pair/BTC" data-await>');
+    expect(html).toContain(
+      '<form class="filters bt-form" method="get" action="/pair/BTC" data-bt ',
+    );
+    // No leg is picked yet, so both pickers say so, and the chart's lines are every exchange.
+    expect(html.match(/<b data-vp-current>pick one<\/b>/g)).toHaveLength(2);
     expect(html).not.toContain('class="headline');
     // The window is chosen before any legs: the default 30 days is marked and carries no query.
-    expect(html).toContain('href="/pair/BTC" aria-current="true">30d</a>');
-    expect(html).toContain('href="/pair/BTC?days=7">7d</a>');
+    expect(html).toContain('href="/pair/BTC" data-bt-swap aria-current="true">30d</a>');
+    expect(html).toContain('href="/pair/BTC?days=7" data-bt-swap>7d</a>');
     expect(html).toContain("No stored funding for this window yet");
     expect((await get("/pair/NOPE", data)).status).toBe(404);
   });
@@ -3268,15 +3272,26 @@ describe("pages", () => {
     expect(html).toContain('<path class="fchart-line short" data-series="okx|BTC-USDT-SWAP"');
     expect(html).toContain('<path class="fchart-line spread" data-series="spread"');
     expect(html).toContain('<path class="fchart-line other off" data-series="bybit|BTCUSDT"');
-    expect(html).toContain('data-series="gate|BTC_USDT" checked>');
-    expect(html).toContain('data-series="bybit|BTCUSDT"><i');
+    expect(html).toContain('data-series="gate|BTC_USDT" data-venue="gate" checked>');
+    expect(html).toContain('data-series="bybit|BTCUSDT" data-venue="bybit"><i');
+    // The legs are picked in their pickers, and the chart's exchange picker starts on just them.
+    expect(html).toContain(
+      '<input type="radio" name="long" value="gate" data-vp-name="Gate" checked>',
+    );
+    expect(html).toContain(
+      '<input type="radio" name="short" value="okx" data-vp-name="OKX" checked>',
+    );
+    expect(html).toContain(
+      '<input type="checkbox" value="gate" data-vp-name="Gate" data-leg checked>',
+    );
+    expect(html).toContain('<input type="checkbox" value="bybit" data-vp-name="Bybit">');
     // The window strip keeps the legs and marks the current window; swapping reverses the legs.
     expect(html).toContain(
-      'href="/pair/BTC?long=gate&short=okx&days=7" aria-current="true">7d</a>',
+      'href="/pair/BTC?long=gate&short=okx&days=7" data-bt-swap aria-current="true">7d</a>',
     );
-    expect(html).toContain('href="/pair/BTC?long=gate&short=okx">30d</a>');
+    expect(html).toContain('href="/pair/BTC?long=gate&short=okx" data-bt-swap>30d</a>');
     expect(html).toContain(
-      `<a class="btn" href="/pair/BTC?long=okx&short=gate&days=7" data-await>${icon("swap")} swap legs</a>`,
+      `<a class="btn" href="/pair/BTC?long=okx&short=gate&days=7" data-bt-swap>${icon("swap")} swap legs</a>`,
     );
     // The way back to the asset is the breadcrumb, not a button among the form's actions.
     expect(html).not.toContain("Back to BTC");

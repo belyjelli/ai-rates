@@ -449,4 +449,7 @@ export const pages: Catalog = {
   erratic: "불안정",
   mixed: "보통",
   steady: "안정",
+  Chart: "차트",
+  "Running the backtest…": "백테스트 실행 중…",
+  "pick one": "선택하세요",
 };

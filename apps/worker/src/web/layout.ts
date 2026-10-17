@@ -905,6 +905,15 @@ i.sd{display:inline-block;flex-shrink:0;width:7px;height:7px;margin-right:6px;bo
 .sd-steady{background:#3ddc84}.sd-mixed{background:#f0a030}.sd-erratic{background:#e5484d}
 .sd-none{box-sizing:border-box;border:1px solid var(--dim)}
 .sd-t-steady{color:#3ddc84}.sd-t-mixed{color:#f0a030}.sd-t-erratic{color:#e5484d}
+/* A tile's figure at its right edge: a backtest leg picker shows each exchange's funding now. */
+.sx-tile .vp-meta{margin-left:auto;padding-left:6px;white-space:nowrap}
+/* The backtest (pages.ts pair): leg pickers in the form, and a bar of window and chart lines above the
+   chart, which backtest-swap.ts replaces in place. */
+.bt-form .field>span{display:block}
+.bt-form .sx-btn{min-width:180px;padding:2px 8px}
+.bt-form .sx-btn b{color:var(--ink)}
+.bt-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin:0 0 6px}
+.bt-bar .tf{margin:0}
 /* On a phone a panel may open from a button at the right edge: it spans the screen instead. */
 @media (max-width:640px){
 .sx-search{flex-basis:100%}

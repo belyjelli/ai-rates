@@ -1,22 +1,16 @@
 import { VENUES, type Venue } from "@ai-rates/venues";
 import type { RateUnit, ScreenerFilters, ScreenerSort } from "../app/data";
-import {
-  DEFAULT_FILTERS,
-  filtersToQuery,
-  SPREAD_BANDS,
-  spreadBand,
-  VENUE_TYPES,
-} from "../app/params";
+import { DEFAULT_FILTERS, filtersToQuery, SPREAD_BANDS, spreadBand } from "../app/params";
 import { esc } from "./format";
 import { tr } from "./i18n";
 import { icon } from "./icons";
-import { VENUE_TYPE_SHORT } from "./venues";
+import { venuePicker } from "./venue-picker";
 
 /**
  * The screener's controls: a bar with the asset search, the period and the unit, and three dropdowns
  * (exchanges, filters, the steadiness key). One GET form, so every control works without the script
- * and every view is an address to share; SCREENER_SCRIPT adds presets, select-all, the dollar chips,
- * typing-to-filter and a clean address.
+ * and every view is an address to share; PICKER_SCRIPT (venue-picker.ts) runs the dropdowns and the
+ * exchange picker, and SCREENER_SCRIPT adds the dollar chips, typing-to-filter and a clean address.
  *
  * The period and unit are links rather than inputs: one click is the whole choice, and the filters
  * already in the address travel with them.
@@ -83,22 +77,8 @@ function bandName(band: Steadiness): string {
   return band === "steady" ? tr("steady") : band === "mixed" ? tr("mixed") : tr("erratic");
 }
 
-/** Exchanges the picker lists: every one collected, by type (CEX, DEX, HIP-3), in name order. */
-function listedVenues(): Map<string, Venue[]> {
-  const groups = new Map<string, Venue[]>(VENUE_TYPES.map((type) => [type, []]));
-  for (const venue of [...VENUES]
-    .filter((v) => !v.retired && !v.aliasOf)
-    .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }))) {
-    const group = groups.get(venue.type) ?? [];
-    group.push(venue);
-    groups.set(venue.type, group);
-  }
-  for (const [type, venues] of groups) if (venues.length === 0) groups.delete(type);
-  return groups;
-}
-
-const LISTED = listedVenues();
-const LISTED_COUNT = [...LISTED.values()].reduce((n, g) => n + g.length, 0);
+/** Exchanges the picker lists: every one collected. */
+const LISTED = VENUES.filter((v) => !v.retired && !v.aliasOf);
 
 const selected = (f: ScreenerFilters, v: Venue) =>
   (f.venueIds === null || f.venueIds.includes(v.id)) &&
@@ -167,28 +147,15 @@ function dollarField(name: string, label: string, value: number, fallback: numbe
 }
 
 function venuesPanel(f: ScreenerFilters): string {
-  let ticked = 0;
-  const groups = [...LISTED.entries()]
-    .map(([type, venues]) => {
-      const on = venues.filter((v) => selected(f, v)).length;
-      ticked += on;
-      const tiles = venues
-        .map(
-          (v) =>
-            `<label class="sx-tile"><input type="checkbox" name="venues" value="${esc(v.id)}"${selected(f, v) ? " checked" : ""}><span class="mono">${esc(v.name.slice(0, 1).toUpperCase())}</span><span class="nm">${esc(v.name)}</span></label>`,
-        )
-        .join("");
-      return `<div class="sx-group" data-sx-group="${type}"><p class="sx-gh"><span>${VENUE_TYPE_SHORT[type] ?? esc(type)} (<b data-sx-n>${on}</b>/${venues.length})</span><span data-js-only hidden><button type="button" class="lnk" data-sx-tick="${type}">${tr("all")}</button> <button type="button" class="lnk" data-sx-untick="${type}">${tr("clear")}</button></span></p><div class="sx-tiles">${tiles}</div></div>`;
-    })
-    .join("");
-  return `<details class="sx-pop" data-sx-venues><summary class="sx-btn">${icon("stack")} ${tr("Exchanges")} <b data-sx-total>${ticked}/${LISTED_COUNT}</b>${icon("caret")}</summary>
-<div class="sx-panel sx-wide">
-<div class="sx-sect" data-js-only hidden><p class="sx-h">${tr("Presets")}</p><div class="sx-presets" data-sx-presets data-drop-label="${esc(tr("Delete preset"))}"><span class="sx-note">${tr("No presets yet.")}</span></div>
-<div class="sx-save"><input type="text" maxlength="32" placeholder="${esc(tr("Preset name…"))}" data-sx-preset-name aria-label="${esc(tr("Preset name"))}"><button type="button" class="ghost" data-sx-preset-save>${icon("plus")} ${tr("Save")}</button></div></div>
-<p class="sx-all"><span data-js-only hidden><button type="button" class="lnk" data-sx-tick="">${tr("Select all")}</button> / <button type="button" class="lnk" data-sx-untick="">${tr("Clear all")}</button></span><span class="sx-note">${tr("{n} selected", { n: `<b data-sx-count>${ticked}/${LISTED_COUNT}</b>` })}</span></p>
-${groups}
-<div class="sx-foot"><a class="btn ghost" href="/screener${esc(filtersToQuery({ ...f, venueIds: null, venueTypes: null }))}">${tr("Every exchange")}</a><button type="submit">${tr("Apply")}</button></div>
-</div></details>`;
+  return venuePicker({
+    label: tr("Exchanges"),
+    lead: icon("stack"),
+    venues: LISTED,
+    type: "checkbox",
+    name: "venues",
+    checked: (v) => selected(f, v),
+    foot: `<a class="btn ghost" href="/screener${esc(filtersToQuery({ ...f, venueIds: null, venueTypes: null }))}">${tr("Every exchange")}</a><button type="submit">${tr("Apply")}</button>`,
+  });
 }
 
 function filtersPanel(f: ScreenerFilters): string {
@@ -286,98 +253,22 @@ ${steadinessKey()}
 }
 
 /**
- * The bar's script. Without it every control still submits; with it:
- *   - one dropdown open at a time, closed by a click elsewhere or Escape;
- *   - select all / clear, for every exchange or one type, and the counts that follow them;
- *   - presets: named sets of exchanges, kept in this browser only (a convenience, not an account);
+ * The bar's own script; the dropdowns and the exchange picker are PICKER_SCRIPT's (venue-picker.ts).
+ * Without either, every control still submits. With this:
  *   - the dollar chips fill their box;
  *   - typing in the search hides rows that do not match at once; Enter asks the server;
  *   - on submit, a value at its default is left out, and the exchanges go as one list (or none when
  *     every one is ticked), so the address stays short enough to share.
- * No backticks or dollar-brace in the script's own code: it is a template literal's text. The one
- * interpolation is the close icon's markup, put in at build time.
+ * No backticks or dollar-brace in here: this is a template literal's text.
  */
 export const SCREENER_SCRIPT = `(() => {
   const form = document.querySelector("form[data-sx]");
   if (!form) return;
-  for (const el of form.querySelectorAll("[data-js-only]")) el.hidden = false;
-  const pops = () => [...form.querySelectorAll(".sx-pop")];
-  form.addEventListener("toggle", (e) => {
-    if (e.target.open) for (const p of pops()) if (p !== e.target) p.open = false;
-  }, true);
-  document.addEventListener("click", (e) => {
-    for (const p of pops()) if (p.open && !p.contains(e.target)) p.open = false;
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape") return;
-    for (const p of pops()) if (p.open) { p.open = false; p.querySelector("summary").focus(); }
-  });
-
-  const boxes = (type) => [...form.querySelectorAll(type ? "[data-sx-group='" + type + "'] input[name=venues]" : "input[name=venues]")];
-  const count = () => {
-    const all = boxes("");
-    const on = all.filter((b) => b.checked).length;
-    const text = on + "/" + all.length;
-    for (const el of form.querySelectorAll("[data-sx-total],[data-sx-count]")) el.textContent = text;
-    for (const g of form.querySelectorAll("[data-sx-group]")) {
-      g.querySelector("[data-sx-n]").textContent = boxes(g.dataset.sxGroup).filter((b) => b.checked).length;
-    }
-  };
-  form.addEventListener("change", (e) => { if (e.target.name === "venues") count(); });
-
-  const KEY = "airrates.venuePresets";
-  const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || "[]") || []; } catch { return []; } };
-  const store = (list) => { try { localStorage.setItem(KEY, JSON.stringify(list)); } catch {} };
-  const shelf = form.querySelector("[data-sx-presets]");
-  const draw = () => {
-    if (!shelf) return;
-    const list = load();
-    const none = shelf.querySelector(".sx-note");
-    for (const el of shelf.querySelectorAll(".sx-preset")) el.remove();
-    none.hidden = list.length > 0;
-    for (const p of list) {
-      const wrap = document.createElement("span");
-      wrap.className = "sx-preset";
-      const use = document.createElement("button");
-      use.type = "button"; use.className = "chip"; use.textContent = p.name + " (" + p.venues.length + ")";
-      use.addEventListener("click", () => {
-        const want = new Set(p.venues);
-        for (const b of boxes("")) b.checked = want.has(b.value);
-        count();
-      });
-      const drop = document.createElement("button");
-      drop.type = "button"; drop.className = "lnk sx-drop"; drop.innerHTML = '${icon("close")}';
-      drop.setAttribute("aria-label", drop.title = shelf.dataset.dropLabel || "Delete");
-      drop.addEventListener("click", () => { store(load().filter((q) => q.name !== p.name)); draw(); });
-      wrap.append(use, drop);
-      shelf.append(wrap);
-    }
-  };
-  draw();
-  const name = form.querySelector("[data-sx-preset-name]");
-  const save = () => {
-    const label = (name.value || "").trim().slice(0, 32);
-    if (!label) return name.focus();
-    const venues = boxes("").filter((b) => b.checked).map((b) => b.value);
-    store([...load().filter((q) => q.name !== label), { name: label, venues }].slice(-12));
-    name.value = "";
-    draw();
-  };
-  form.querySelector("[data-sx-preset-save]")?.addEventListener("click", save);
-  name?.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); save(); } });
-
   form.addEventListener("click", (e) => {
-    const t = e.target.closest("button");
+    const t = e.target.closest("button[data-sx-set]");
     if (!t) return;
-    if (t.dataset.sxTick !== undefined || t.dataset.sxUntick !== undefined) {
-      const on = t.dataset.sxTick !== undefined;
-      for (const b of boxes(on ? t.dataset.sxTick : t.dataset.sxUntick)) b.checked = on;
-      count();
-    } else if (t.dataset.sxSet) {
-      const box = form.querySelector("input[name='" + t.dataset.sxSet + "']");
-      box.value = t.value;
-      for (const c of t.parentNode.children) c.classList.toggle("on", c === t);
-    }
+    form.querySelector("input[name='" + t.dataset.sxSet + "']").value = t.value;
+    for (const c of t.parentNode.children) c.classList.toggle("on", c === t);
   });
 
   const rows = () => [...document.querySelectorAll("tbody[data-live=pairs] tr[data-k]")];
@@ -393,7 +284,7 @@ export const SCREENER_SCRIPT = `(() => {
   if (table && window.MutationObserver) new MutationObserver(sift).observe(table, { childList: true, subtree: true });
 
   form.addEventListener("submit", () => {
-    const all = boxes("");
+    const all = [...form.querySelectorAll("input[name=venues]")];
     const on = all.filter((b) => b.checked).map((b) => b.value);
     for (const b of all) b.disabled = true;
     if (on.length > 0 && on.length < all.length) {

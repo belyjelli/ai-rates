@@ -191,8 +191,12 @@ function timeTicks(fromMs: number, toMs: number): { ms: number; label: string }[
  * Hover readout and toggles. Points travel as [bucket offset, APR] so the payload stays small, and
  * each visible line reports the rate it holds at the cursor, the same hold-last rule the lines use.
  * Built per render, so the month names and the date's word order are the page's language.
+ *
+ * Binds each chart once, and leaves `window.airratesFchart(root)` behind for a chart that arrives
+ * later: the backtest swaps its chart in place, and a script that came with it does not run.
  */
 const chartScript = () => `(() => {
+  if (window.airratesFchart) return void window.airratesFchart(document);
   const MINUS = "−";
   const W = ${scriptStrings({ months: MONTHS.map((month) => trMsg(month)).join("|"), day: tr("{month} {day}") })};
   const MONTHS = W.months.split("|");
@@ -212,7 +216,8 @@ const chartScript = () => `(() => {
     }
     return found;
   };
-  for (const chart of document.querySelectorAll(".fchart")) {
+  const bind = (chart) => {
+    chart.dataset.bound = "1";
     const data = JSON.parse(chart.querySelector(".fchart-data").textContent);
     const plot = chart.querySelector(".fchart-plot");
     const read = chart.querySelector(".fchart-read");
@@ -245,7 +250,11 @@ const chartScript = () => `(() => {
       cursor.classList.add("off");
       read.textContent = idle;
     });
-  }
+  };
+  window.airratesFchart = (root) => {
+    for (const chart of root.querySelectorAll(".fchart:not([data-bound])")) if (chart.querySelector(".fchart-data")) bind(chart);
+  };
+  window.airratesFchart(document);
 })();`;
 
 /**
@@ -349,7 +358,7 @@ export function renderFundingChart(
   const keys = all
     .map(
       (series) =>
-        `<label><input type="checkbox" data-series="${esc(series.key)}"${on(series) ? " checked" : ""}><i style="background:${swatch(series)}"></i>${esc(series.label)}</label>`,
+        `<label><input type="checkbox" data-series="${esc(series.key)}"${series.role === "spread" ? "" : ` data-venue="${esc(series.key.split("|")[0] ?? "")}"`}${on(series) ? " checked" : ""}><i style="background:${swatch(series)}"></i>${esc(series.label)}</label>`,
     )
     .join("");
 
