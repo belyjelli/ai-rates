@@ -590,10 +590,10 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 .wh-chart .fchart-keys i.wh-key-buy,.wh-chart .fchart-keys i.wh-key-sell{width:9px;height:9px;border-radius:50%}
 .wh-key-buy{background:var(--long)}.wh-key-sell{background:var(--short)}
 .cvd-tiles.wh-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
-/* The whale chart's GEX switch (whales.ts gexOverlay): every part hidden until <html> carries a mode.
-   "on" parts (the levels, the source note) show in every mode; zones also show the net bars. */
-.whx{display:none}
-html[data-whgex=split] .whx-split,html[data-whgex=net] .whx-net,html[data-whgex=zones] .whx-net,html[data-whgex=zones] .whx-zone,html[data-whgex=split] .whx-on,html[data-whgex=net] .whx-on,html[data-whgex=zones] .whx-on{display:inline}
+/* The whale chart's GEX switch (whales.ts gexOverlay): each part hidden unless <html> carries its mode,
+   so a shown part keeps its own display (the key's swatches are flex). "on" parts (the levels, the
+   source note) show in every mode; zones also show the net bars. Without the script, none show. */
+html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whgex=zones]) .whx-net,html:not([data-whgex=zones]) .whx-zone,html:not([data-whgex=split]):not([data-whgex=net]):not([data-whgex=zones]) .whx-on{display:none!important}
 .whx-call{fill:var(--long);opacity:.5}.whx-put{fill:var(--short);opacity:.5}
 .whx-zs{fill:var(--short);opacity:.1}.whx-zl{fill:var(--long);opacity:.07}
 .whx-flip,.whx-cw,.whx-pw{stroke-width:1;stroke-dasharray:6 4;vector-effect:non-scaling-stroke}
