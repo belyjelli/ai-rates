@@ -30,6 +30,7 @@ export const exchanges: Catalog = {
   "{clean} clean of {total} in tracked wallets": "추적 지갑 {total} 중 자체 토큰 제외 {clean}",
   "{usd} protocol collateral": "프로토콜 담보 {usd}",
   "{cost} to trade $10k, {slip} slippage at $100k": "$10k 거래 비용 {cost}, $100k 슬리피지 {slip}",
+  "{volume} volume; no open interest published": "거래량 {volume}, 미결제약정 미공개",
   "{oi} open interest, {volume} volume": "미결제약정 {oi}, 거래량 {volume}",
   "{usd} credited within 0.1%; {n} of {total} markets hold $100k":
     "0.1% 이내 반영 깊이 {usd}; 종목 {total}개 중 {n}개에 $100k 이상 걸림",
@@ -118,8 +119,8 @@ export const exchanges: Catalog = {
     "거래소가 보유한 자산으로, DefiLlama 데이터입니다. CEX는 온체인에서 추적되는 지갑에서 자체 토큰을 뺀 금액이고, DEX는 프로토콜 담보입니다. 마켓 메이커의 자금은 다른 곳에 있을 수 있으므로 DEX의 값은 하한값입니다. 3분의 2는 가장 큰 거래소 대비 규모이고, 3분의 1은 미결제약정, 하루 거래량, 1% 이내에 보이는 호가창 잔량이 이 자산으로 뒷받침할 수 있는 규모인지, 그리고 그중 자체 토큰이 얼마나 되는지입니다. 지갑을 공개하지 않는 CEX는 0점, 담보를 확인할 수 없는 DEX는 DEX 중앙값을 받습니다.",
   "What a market order costs, from each exchange's book every ten minutes over seven days: $10k all in (the published standard taker fee and the walk through the book), and what $10k and $100k pay beyond the mid, each against the cheapest exchange. DefiLlama also scores markouts and fills against the quote; those need trades, which this site does not record, so their weight goes to cost and slippage.":
     "시장가 주문에 드는 비용으로, 각 거래소의 호가창을 7일 동안 10분마다 읽어 계산합니다. $10k 총비용(공개된 기본 테이커 수수료와 호가창을 따라 체결되며 붙는 비용), 그리고 $10k와 $100k가 중간가보다 더 내는 금액을 각각 가장 저렴한 거래소와 비교합니다. DefiLlama는 마크아웃과 호가 대비 실제 체결 가격도 점수에 넣지만, 이는 거래 데이터가 필요하고 이 사이트는 거래를 기록하지 않으므로 그 가중치는 비용과 슬리피지로 넘어갑니다.",
-  "Open interest, credited up to three times clean reserves, and a day's volume, credited up to five times open interest, each against the leader.":
-    "미결제약정(자체 토큰을 제외한 준비금의 3배까지 반영)과 하루 거래량(미결제약정의 5배까지 반영)을 각각 선두 거래소와 비교합니다.",
+  "Open interest, credited up to three times clean reserves, and a day's volume, credited up to five times open interest, each against the leader. An exchange that publishes no open interest is scored on volume alone, credited up to three times clean reserves.":
+    "미결제약정(자체 토큰을 제외한 준비금의 3배까지 반영)과 하루 거래량(미결제약정의 5배까지 반영)을 각각 선두 거래소와 비교합니다. 미결제약정을 공개하지 않는 거래소는 거래량만으로 평가하며, 자체 토큰을 제외한 준비금의 3배까지 반영합니다.",
   "Depth within 0.1% of the mid across the twelve majors, credited up to a tenth of each market's open interest, 2% of the exchange's daily volume and 5% of its clean reserves; and breadth, how many of the twelve hold $100k within 0.1%. Halved for a CEX publishing no reserves.":
     "주요 자산 12개의 중간가 0.1% 이내 깊이(각 종목 미결제약정의 10분의 1, 거래소 일일 거래량의 2%, 자체 토큰을 제외한 준비금의 5%까지 반영), 그리고 폭, 즉 12개 중 0.1% 이내에 $100k 이상이 걸린 자산 수입니다. 준비금을 공개하지 않는 CEX는 이 점수를 절반으로 깎습니다.",
   "These are this site's grades by DefiLlama's method, not DefiLlama's scores. What exchanges report about themselves counts only as far as it can be checked: open interest up to three times reserves, volume up to five times open interest. Reputation, age, brand and listings count not at all.":

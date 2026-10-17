@@ -61,6 +61,26 @@
     "type": "cex"
   },
   {
+    "id": "kraken",
+    "name": "Kraken",
+    "type": "cex"
+  },
+  {
+    "id": "bitunix",
+    "name": "Bitunix",
+    "type": "cex"
+  },
+  {
+    "id": "kalshi",
+    "name": "Kalshi",
+    "type": "cex"
+  },
+  {
+    "id": "qfex",
+    "name": "QFEX",
+    "type": "cex"
+  },
+  {
     "id": "bitmart",
     "name": "BitMart",
     "type": "cex",

@@ -67,6 +67,10 @@ export const INDEX_BASES: ReadonlySet<string> = new Set([
   "CDEAI",
   "CDEDEF",
   "CDECHN",
+  // Kalshi's "US500" and "US Tech 100" perps track its own MQ5CT (13,488.6) and MQBUSTQT (36,538) on
+  // 2026-10-17, 1.77x the S&P 500 and 1.25x the Nasdaq-100: pools of their own, as CDEUS5 is.
+  "MQ5CT",
+  "MQBUSTQT",
 ]);
 
 /**

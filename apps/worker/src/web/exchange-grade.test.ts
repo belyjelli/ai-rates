@@ -111,6 +111,20 @@ describe("the grade", () => {
     }
   });
 
+  test("a venue publishing no open interest is scored on volume alone, capped by its reserves", () => {
+    // okx's markets report no open interest: the summary sums them to 0.
+    const noOi = summaries.map((s) => (s.id === "okx" ? { ...s, open_interest_usd: 0 } : s));
+    const rows = [reserve("binance", "wallets", 100e9), reserve("okx", "wallets", 2e9)];
+    const q = venueQualities(data, noOi, rows);
+    const okx = q.find((v) => v.id === "okx");
+    const binance = q.find((v) => v.id === "binance");
+    // Not zeroed through the 5x-OI cap: $10B of volume credited up to 3x its $2B, so $6B.
+    expect(okx?.volumeCreditedUsd).toBeCloseTo(6e9);
+    // Volume alone against the leader's $10B credited: 100 - 30 * log10(10 / 6).
+    expect(okx?.pillars.activity).toBeCloseTo(100 - 30 * Math.log10(10 / 6), 1);
+    expect(binance?.pillars.activity).toBeCloseTo(100);
+  });
+
   test("a book bigger than the balance sheet behind it loses on backing and its depth credit", () => {
     const small = [reserve("binance", "wallets", 100e9), reserve("okx", "wallets", 0.05e9)];
     const q = venueQualities(data, summaries, small);

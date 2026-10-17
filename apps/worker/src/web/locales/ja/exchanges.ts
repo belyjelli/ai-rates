@@ -31,6 +31,7 @@ export const exchanges: Catalog = {
   "{usd} protocol collateral": "プロトコルの担保 {usd}",
   "{cost} to trade $10k, {slip} slippage at $100k":
     "$10k の取引に {cost}、$100k でのスリッページ {slip}",
+  "{volume} volume; no open interest published": "出来高 {volume}、建玉は非公表",
   "{oi} open interest, {volume} volume": "建玉 {oi}、出来高 {volume}",
   "{usd} credited within 0.1%; {n} of {total} markets hold $100k":
     "0.1%以内の計上額 {usd}、{total}銘柄中 {n}銘柄が $100k 以上",
@@ -52,8 +53,8 @@ export const exchanges: Catalog = {
     "取引所が保有する資産で、DefiLlama のデータを使います：CEX はオンチェーンで追跡されているウォレット（自社トークンを除く）、DEX はプロトコルの担保です。マーケットメイカーの資金は別の場所にあることもあるため、DEX の担保は下限値です。3分の2は最大の取引所と比べた規模、3分の1は、建玉、1日の出来高、1%以内に表示している板がその保有資産で裏付けられる規模かどうかと、保有資産のうち自社トークンが占める割合です。ウォレットを公開していない CEX は0、担保を特定できない DEX は DEX の中央値になります。",
   "What a market order costs, from each exchange's book every ten minutes over seven days: $10k all in (the published standard taker fee and the walk through the book), and what $10k and $100k pay beyond the mid, each against the cheapest exchange. DefiLlama also scores markouts and fills against the quote; those need trades, which this site does not record, so their weight goes to cost and slippage.":
     "成行注文にかかるコストで、各取引所の板を7日間、10分ごとに読み取って算出します：$10k の総コスト（公表されている標準テイカー手数料と、板を食っていく分）と、$10k と $100k の注文がミッド価格より余分に支払う額を、それぞれ最安の取引所と比較します。DefiLlama はマークアウトと気配値に対する約定価格も採点しますが、これには取引データが必要で、当サイトは記録していないため、その重みはコストとスリッページに回します。",
-  "Open interest, credited up to three times clean reserves, and a day's volume, credited up to five times open interest, each against the leader.":
-    "建玉（自社トークンを除いた準備金の3倍まで計上）と1日の出来高（建玉の5倍まで計上）を、それぞれ首位の取引所と比較します。",
+  "Open interest, credited up to three times clean reserves, and a day's volume, credited up to five times open interest, each against the leader. An exchange that publishes no open interest is scored on volume alone, credited up to three times clean reserves.":
+    "建玉（自社トークンを除いた準備金の3倍まで計上）と1日の出来高（建玉の5倍まで計上）を、それぞれ首位の取引所と比較します。建玉を公表していない取引所は出来高のみで評価し、自社トークンを除いた準備金の3倍まで計上します。",
   "Depth within 0.1% of the mid across the twelve majors, credited up to a tenth of each market's open interest, 2% of the exchange's daily volume and 5% of its clean reserves; and breadth, how many of the twelve hold $100k within 0.1%. Halved for a CEX publishing no reserves.":
     "主要12銘柄のミッド価格から0.1%以内の板の厚み（各銘柄の建玉の10分の1、取引所の1日の出来高の2%、自社トークンを除いた準備金の5%まで計上）と、広がり（12銘柄のうち0.1%以内に $100k 以上ある銘柄の数）です。準備金を公開していない CEX はこの柱のスコアが半分になります。",
   "These are this site's grades by DefiLlama's method, not DefiLlama's scores. What exchanges report about themselves counts only as far as it can be checked: open interest up to three times reserves, volume up to five times open interest. Reputation, age, brand and listings count not at all.":

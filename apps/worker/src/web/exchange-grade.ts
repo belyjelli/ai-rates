@@ -131,7 +131,8 @@ export interface VenueQuality {
   slip100kUsd: number;
   /** What the venue holds; null where DefiLlama has nothing for it, or the read failed. */
   reserves: VenueReserves | null;
-  /** Open interest and volume as reported, and as the grade credits them. */
+  /** Open interest and volume as reported, and as the grade credits them. Open interest is 0 where the
+   * venue publishes none, and then its activity is volume alone. */
   openInterestUsd: number;
   volumeUsd: number;
   oiCreditedUsd: number;
@@ -298,9 +299,18 @@ export function venueQualities(
       const type: VenueType = VENUES.find((v) => v.id === id)?.type ?? (s.type as VenueType);
       const fee = takerFee(id);
       const r = held?.get(id) ?? null;
+      // A venue publishing no open interest at all (Bitunix) sums to 0. That is unknown, not none: it
+      // must not zero the volume credit through the 5x-OI cap, so its volume is capped by its reserves
+      // instead, at the backing limit, and its activity is volume alone.
+      const hasOi = s.open_interest_usd > 0;
       const oiCredited = r
         ? Math.min(s.open_interest_usd, OI_RESERVES_CAP * r.cleanUsd)
         : s.open_interest_usd;
+      const volumeCap = hasOi
+        ? 5 * s.open_interest_usd
+        : r
+          ? BACKING_LIMITS.volume * r.cleanUsd
+          : Number.POSITIVE_INFINITY;
       return {
         id,
         type,
@@ -310,8 +320,9 @@ export function venueQualities(
         fee,
         r,
         cost: fee.bps + figures.slip10kBps,
+        hasOi,
         oiCredited,
-        volumeCredited: Math.min(s.volume_24h_usd, 5 * s.open_interest_usd),
+        volumeCredited: Math.min(s.volume_24h_usd, volumeCap),
         depthCredited: Math.min(
           figures.creditedUsd,
           s.volume_24h_usd > 0 ? DEPTH_VOLUME_CAP * s.volume_24h_usd : Number.POSITIVE_INFINITY,
@@ -343,11 +354,12 @@ export function venueQualities(
     let reservesPillar: number | null = null;
     if (held && v.r) {
       const clean = Math.max(v.r.cleanUsd, 1);
-      const backing =
-        (within(v.s.open_interest_usd / clean, BACKING_LIMITS.openInterest) +
-          within(v.s.volume_24h_usd / clean, BACKING_LIMITS.volume) +
-          within(v.figures.depthUsd / clean, BACKING_LIMITS.depth)) /
-        3;
+      const checks = [
+        within(v.s.volume_24h_usd / clean, BACKING_LIMITS.volume),
+        within(v.figures.depthUsd / clean, BACKING_LIMITS.depth),
+      ];
+      if (v.hasOi) checks.push(within(v.s.open_interest_usd / clean, BACKING_LIMITS.openInterest));
+      const backing = checks.reduce((a, b) => a + b, 0) / checks.length;
       const custody = (100 * v.r.cleanUsd) / v.r.totalUsd;
       reservesPillar =
         (2 / 3) * versusLeader(v.r.cleanUsd, largest) + (1 / 3) * ((custody + 2 * backing) / 3);
@@ -359,8 +371,9 @@ export function venueQualities(
       (0.75 * versusLeader(v.depthCredited, deepest) +
         (0.25 * 100 * v.figures.broad) / BOOK_BASKET.length) *
       (noReserves ? 0.5 : 1);
-    const activity =
-      0.6 * versusLeader(v.oiCredited, topOi) + 0.4 * versusLeader(v.volumeCredited, topVolume);
+    const activity = v.hasOi
+      ? 0.6 * versusLeader(v.oiCredited, topOi) + 0.4 * versusLeader(v.volumeCredited, topVolume)
+      : versusLeader(v.volumeCredited, topVolume);
     return { v, pillars: { reserves: reservesPillar, execution, activity, liquidity } };
   });
   // A DEX whose collateral is not identified: the median of the DEXes whose is.

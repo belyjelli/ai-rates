@@ -40,6 +40,17 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-10-18",
+    title: "Four new exchanges: Kraken, Bitunix, Kalshi and QFEX",
+    changes: [
+      "Kraken Futures joins with its 207 USD perpetuals, crypto plus a few stocks, metals, oil, EUR, GBP, CHF and the Nasdaq 100. Funding is hourly.",
+      "Bitunix joins with 781 perpetuals, about 210 of them stocks, ETFs and pre-IPO shares and 8 commodities. Each market keeps its own 1, 4 or 8 hour funding. Bitunix publishes no open interest, so its markets show none.",
+      "Kalshi's US perpetuals join: 28 markets regulated by the CFTC, crypto, gold, silver, platinum, palladium, copper, aluminium, WTI oil and Kalshi's own US 500 and US Tech 100. Kalshi's two indices trade at their own level (1.77x the S&P 500 and 1.25x the Nasdaq 100), so they are kept apart from the S&P 500 and Nasdaq pools.",
+      "QFEX joins with 214 perpetuals and no crypto at all: US and Asian stocks, pre-IPO shares, country ETFs, metals, oil and the S&P 500 and Nasdaq 100. Funding is hourly and is zero outside each market's trading hours. Its markets priced in won, yen, yuan or krona are left out.",
+      "Kraken, Bitunix and Kalshi's order books are measured for the Exchanges page grade. QFEX lists none of the coins the grade measures, and only Bitunix has reserves on DefiLlama.",
+    ],
+  },
+  {
     date: "2026-10-17",
     title: "Exchange grades on four pillars: reserves, execution, activity, liquidity",
     changes: [

@@ -233,6 +233,48 @@ const cex: Venue[] = [
       "Added 2026-10-16. Coinbase Derivatives Exchange (US) perpetual-style futures: one bulk call, funding per hour and final for its hour, OI and volume in contracts. No public funding history (it accrues from snapshots). Coinbase's offshore perps moved to Deribit on 2026-10-01 -- see deribit.",
   },
   {
+    id: "kraken",
+    name: "Kraken",
+    type: "cex",
+    ccxt: "krakenfutures",
+    verified: true,
+    takerBps: 5,
+    probes: [get("tickers", "https://futures.kraken.com/derivatives/api/v3/tickers")],
+    notes:
+      "Added 2026-10-18. Kraken Futures' multi-collateral USD perps (PF_); the inverse PI_ ones are left out (thin, delisting 2026-10-30). One ticker call; instruments hourly declare a category (Equities, Pre-IPO, Commodities, Forex, Indices, xStocks, crypto). Funding hourly: relativeFundingRate is final for the hour in progress, and each hour is recorded as it ends; v4 history is a year of hourly rows per call, for backfill. Taker 0.05% at Tier 1 (kraken.com/features/fee-schedule, 2026-10-18).",
+  },
+  {
+    id: "bitunix",
+    name: "Bitunix",
+    type: "cex",
+    verified: true,
+    takerBps: 6,
+    probes: [
+      get("funding-batch", "https://fapi.bitunix.com/api/v1/futures/market/funding_rate/batch"),
+    ],
+    notes:
+      "Added 2026-10-18. USDT/USDC linear perps plus 15 inverse USD perps: one funding batch (rate in PERCENT, each contract's own 1/4/8h interval) and one ticker call, listing hourly. Stocks and commodities are classed from Bitunix's coin tags on api.bitunix.com, which refuses Hong Kong (HTTP 469), so the venue is collected through VENUE_PROXIES. No public open interest. History newest first, 200 a page, back to launch. Taker 0.06% (takerFeeRate in Bitunix's symbol API, 2026-10-18).",
+  },
+  {
+    id: "kalshi",
+    name: "Kalshi",
+    type: "cex",
+    verified: true,
+    probes: [get("markets", "https://external-api.kalshi.com/trade-api/v2/margin/markets")],
+    notes:
+      "Added 2026-10-18. Kalshi's CFTC-regulated US perpetuals (the API calls them margin markets): one listing call plus one funding estimate per market, no bulk estimate. Prices are per contract and divided by contract_size. Funding is a fraction of the period: crypto 8h (04/12/20 UTC); metals, indices and WTI daily, measured from settlements because the schedule endpoint is clearing-member only. US500 and US Tech 100 track Kalshi's own MQ5CT and MQBUSTQT indices (1.77x and 1.25x the S&P 500 and Nasdaq-100), never those pools. Public funding history since launch (2026-06-03) in one call. Taker fee left unknown: the June 2026 CFTC filing's 12 bps base tier was revised in September and not confirmed.",
+  },
+  {
+    id: "qfex",
+    name: "QFEX",
+    type: "cex",
+    verified: true,
+    takerBps: 10,
+    probes: [get("contracts", "https://api.qfex.com/md/contracts")],
+    notes:
+      "Added 2026-10-18. Equities (incl. pre-IPO), country ETFs, metals, oil and two US index levels; no crypto. Custodial (BitGo, KYC, ACH) although DefiLlama files it as a DEX. One bulk call (/md/contracts) plus /refdata hourly. Funding hourly, 0 outside each symbol's market_hours; next_funding_rate is the live rate. open_interest counts both sides (long side used). The 8 markets quoted in KRW, JPY, CNY or SEK are left out: they would pool with dollar twins at ~1,000x. History /funding/{symbol}, forward-filled, kept from 2026-04-01. Taker 10 bps single stocks, 5 bps commodities/indices (docs.qfex.com/qfex/fees, 2026-10-18).",
+  },
+  {
     id: "bitmart",
     name: "BitMart",
     type: "cex",

@@ -92,6 +92,10 @@ function pillarWhy(q: VenueQuality, p: Pillar): string {
         slip: usd2(q.slip100kUsd),
       });
     case "activity":
+      if (q.openInterestUsd <= 0)
+        return tr("{volume} volume; no open interest published", {
+          volume: formatUsd(q.volumeUsd),
+        });
       return tr("{oi} open interest, {volume} volume", {
         oi: formatUsd(q.openInterestUsd),
         volume: formatUsd(q.volumeUsd),
@@ -194,7 +198,7 @@ function method(): string {
 <div class="xg-pillars">
 ${pillar("R", tr("Reserves"), PILLAR_WEIGHTS.reserves, tr("What the exchange holds, from DefiLlama: a CEX's wallets tracked on-chain, without its own token; a DEX's protocol collateral, a floor, since market makers' money can sit elsewhere. Two thirds is size against the largest; one third is whether its open interest, a day's volume and the book it shows within 1% are sizes it could back, and how much of it is its own token. A CEX publishing no wallets scores 0; a DEX whose collateral is not identified scores the DEXes' median."))}
 ${pillar("E", tr("Execution"), PILLAR_WEIGHTS.execution, tr("What a market order costs, from each exchange's book every ten minutes over seven days: $10k all in (the published standard taker fee and the walk through the book), and what $10k and $100k pay beyond the mid, each against the cheapest exchange. DefiLlama also scores markouts and fills against the quote; those need trades, which this site does not record, so their weight goes to cost and slippage."))}
-${pillar("A", tr("Activity"), PILLAR_WEIGHTS.activity, tr("Open interest, credited up to three times clean reserves, and a day's volume, credited up to five times open interest, each against the leader."))}
+${pillar("A", tr("Activity"), PILLAR_WEIGHTS.activity, tr("Open interest, credited up to three times clean reserves, and a day's volume, credited up to five times open interest, each against the leader. An exchange that publishes no open interest is scored on volume alone, credited up to three times clean reserves."))}
 ${pillar("L", tr("Liquidity"), PILLAR_WEIGHTS.liquidity, tr("Depth within 0.1% of the mid across the twelve majors, credited up to a tenth of each market's open interest, 2% of the exchange's daily volume and 5% of its clean reserves; and breadth, how many of the twelve hold $100k within 0.1%. Halved for a CEX publishing no reserves."))}
 </div>
 <p class="notes">${tr("These are this site's grades by DefiLlama's method, not DefiLlama's scores. What exchanges report about themselves counts only as far as it can be checked: open interest up to three times reserves, volume up to five times open interest. Reputation, age, brand and listings count not at all.")}</p>
@@ -256,7 +260,7 @@ ${cost}
 ${slip}
 <td class="num">${q ? tr("{n} bp", { n: q.spreadBps.toFixed(2) }) : dash}</td>
 ${depth}
-<td class="num">${formatUsd(s.open_interest_usd)}</td>
+<td class="num">${s.open_interest_usd > 0 ? formatUsd(s.open_interest_usd) : dash}</td>
 <td class="num">${formatUsd(s.volume_24h_usd)}</td>
 <td class="num">${s.markets.toLocaleString("en-US")}</td>
 <td class="num dim">${since(s.updated_at, now)}</td>

@@ -40,6 +40,7 @@ export const exchanges: Catalog = {
   "{clean} clean of {total} in tracked wallets": "追踪钱包中共 {total}，其中净储备 {clean}",
   "{usd} protocol collateral": "协议抵押资产 {usd}",
   "{cost} to trade $10k, {slip} slippage at $100k": "交易 $10k 成本 {cost}，$100k 滑点 {slip}",
+  "{volume} volume; no open interest published": "成交量 {volume}；未公布持仓量",
   "{oi} open interest, {volume} volume": "持仓量 {oi}，成交量 {volume}",
   "{usd} credited within 0.1%; {n} of {total} markets hold $100k":
     "0.1% 内计入深度 {usd}；{total} 个市场中有 {n} 个深度达 $100k",
@@ -100,8 +101,8 @@ export const exchanges: Catalog = {
     "交易所持有的资产，数据来自 DefiLlama：CEX 为链上追踪到的钱包，不含其自身代币；DEX 为协议抵押资产，这只是下限，因为做市商的资金可能放在别处。三分之二看规模，与最大的交易所相比；三分之一看其持仓量、一天的成交量和 1% 内显示的订单簿是否在其储备能够支撑的规模之内，以及储备中有多少是其自身代币。未公布钱包的 CEX 得 0 分；未识别出抵押资产的 DEX 取 DEX 的中位数。",
   "What a market order costs, from each exchange's book every ten minutes over seven days: $10k all in (the published standard taker fee and the walk through the book), and what $10k and $100k pay beyond the mid, each against the cheapest exchange. DefiLlama also scores markouts and fills against the quote; those need trades, which this site does not record, so their weight goes to cost and slippage.":
     "一笔市价单的成本，来自七天内每十分钟读取一次的各交易所订单簿：$10k 的全部成本（公布的标准吃单手续费，加上沿订单簿逐档成交的成本），以及 $10k 和 $100k 在中间价之外多付的部分，均与成本最低的交易所相比。DefiLlama 还会对 markout 以及成交价相对报价的表现评分；这些需要成交数据，而本站不记录成交，因此它们的权重归入成本和滑点。",
-  "Open interest, credited up to three times clean reserves, and a day's volume, credited up to five times open interest, each against the leader.":
-    "持仓量，最多计入净储备金的三倍；一天的成交量，最多计入持仓量的五倍；两者均与第一名相比。",
+  "Open interest, credited up to three times clean reserves, and a day's volume, credited up to five times open interest, each against the leader. An exchange that publishes no open interest is scored on volume alone, credited up to three times clean reserves.":
+    "持仓量，最多计入净储备金的三倍；一天的成交量，最多计入持仓量的五倍；两者均与第一名相比。不公布持仓量的交易所只按成交量计分，最多计入净储备金的三倍。",
   "Depth within 0.1% of the mid across the twelve majors, credited up to a tenth of each market's open interest, 2% of the exchange's daily volume and 5% of its clean reserves; and breadth, how many of the twelve hold $100k within 0.1%. Halved for a CEX publishing no reserves.":
     "十二个主流币在中间价 0.1% 内的深度，计入上限为各市场持仓量的十分之一、交易所日成交量的 2% 和其净储备金的 5%；以及广度，即十二个主流币中有多少个在 0.1% 内深度达 $100k。未公布储备金的 CEX 此项减半。",
   "These are this site's grades by DefiLlama's method, not DefiLlama's scores. What exchanges report about themselves counts only as far as it can be checked: open interest up to three times reserves, volume up to five times open interest. Reputation, age, brand and listings count not at all.":

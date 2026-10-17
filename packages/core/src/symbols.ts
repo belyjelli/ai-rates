@@ -62,6 +62,10 @@ const ALIASES: Record<string, string> = {
   CATSTOCK: "CAT", // equity: 816.8 on bybit, htx, mexc, weex vs 815.1 on 3 venues (1.0021)
   RTXSTOCK: "RTX", // 199.47 on bitget, mexc, weex vs 199.13 (1.0017)
   QNTSTOCK: "QNT", // Quantinuum, equity: 48.76 on bitget, mexc, weex vs 48.49 on 5 venues (1.0057)
+  // Bitunix's spelled-out equities, checked 2026-10-18 against the same-class pool's median mark.
+  CATERPILLAR: "CAT", // 732.95 vs 732.48 on 8 venues
+  GAMESTOP: "GME", // 27.14 vs 27.13 on 13 venues
+  PENGSTOCK: "PENG", // Penguin Solutions: 57.76 on bitunix, 57.48 on bybit vs 57.45 on 8 venues
 };
 
 /**
