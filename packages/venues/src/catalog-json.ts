@@ -11,12 +11,13 @@ import { VENUES } from "./catalog";
  * Regenerate with `bun packages/venues/scripts/emit-catalog-json.ts`.
  */
 export function catalogJson(): string {
-  const venues = VENUES.map(({ id, name, type, maxLeverage, retired }) => ({
+  const venues = VENUES.map(({ id, name, type, maxLeverage, retired, aliasOf }) => ({
     id,
     name,
     type,
     ...(maxLeverage === undefined ? {} : { maxLeverage }),
     ...(retired === undefined ? {} : { retired }),
+    ...(aliasOf === undefined ? {} : { aliasOf }),
   }));
   return `${JSON.stringify(venues, null, 2)}\n`;
 }

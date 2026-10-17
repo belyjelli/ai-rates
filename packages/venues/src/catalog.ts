@@ -121,8 +121,6 @@ const cex: Venue[] = [
     id: "bitget",
     name: "Bitget",
     type: "cex",
-    retired:
-      "2026-09-27: retired on counterparty risk -- about $352M was drained from Bitget's hot and warm wallets on 2026-09-24 and withdrawals were suspended; same grounds as BitMart.",
     ccxt: "bitget",
     verified: true,
     probes: [
@@ -131,6 +129,8 @@ const cex: Venue[] = [
         "https://api.bitget.com/api/v2/mix/market/current-fund-rate?productType=usdt-futures",
       ),
     ],
+    notes:
+      "Retired 2026-09-27 on counterparty risk (about $388M drained from hot and warm wallets on 2026-09-24, withdrawals suspended); reinstated 2026-10-18 by the venue review: withdrawals reopened 09-28 to 10-02 (4,648 of 5,111 chains withdrawable), proof of reserves 131%, $5.5B clean reserves on DefiLlama with -$9.7M net over a month, volume 0.45x open interest, funding identical to Binance on 0 of 651 shared markets.",
   },
   {
     id: "mexc",
@@ -279,7 +279,7 @@ const cex: Venue[] = [
     name: "BitMart",
     type: "cex",
     retired:
-      "2026-09-27: retired on counterparty risk -- BitMart's hot wallets were drained in December 2021; the site does not want to point readers at an exchange with that history.",
+      "2026-09-27: retired on counterparty risk (hot wallets drained December 2021). Re-checked 2026-10-18: the exchange has wound down -- trading ended 2026-08-26 01:00 UTC, the platform closes 2027-01-31, and its API hosts no longer resolve.",
     ccxt: "bitmart",
     verified: true,
     probes: [get("details", "https://api-cloud-v2.bitmart.com/contract/public/details")],
@@ -671,7 +671,7 @@ const dex: Venue[] = [
     name: "edgeX V1",
     type: "dex",
     retired:
-      "2026-09-15: superseded by edgeX V2 (`edgex-v2`), which is collected; the V1 endpoint answers 200 with an empty `data` array.",
+      "2026-09-15: superseded by edgeX V2 (`edgex-v2`), which is collected; the V1 endpoint answered 200 with an empty `data` array. Re-checked 2026-10-18: every V1 route answers 503; V2 is 200.",
     verified: true,
     probes: [
       get(
@@ -685,7 +685,7 @@ const dex: Venue[] = [
     name: "Ethereal",
     type: "dex",
     retired:
-      "2026-09-15: /v1/product lists 18 markets, all DELISTED, with zero open interest and 24h volume; funding last updated 2026-08-26T01:00Z.",
+      "2026-09-15: /v1/product lists 18 markets, all DELISTED, with zero open interest and 24h volume; funding last updated 2026-08-26T01:00Z. Re-checked 2026-10-18: unchanged, 18 of 18 DELISTED, no relaunch announced.",
     verified: true,
     probes: [get("product", "https://api.ethereal.trade/v1/product")],
     notes: "Funding history ~1 month max.",
@@ -696,7 +696,7 @@ const dex: Venue[] = [
     name: "Bitkub",
     type: "cex",
     retired:
-      "2026-09-30: spot only -- /api/v3/market/symbols lists 474 markets, all `market_segment: SPOT`; no futures, funding or liquidation endpoints exist (404) and the official API docs cover none.",
+      "2026-09-30: spot only -- /api/v3/market/symbols lists 474 markets, all `market_segment: SPOT`; no futures, funding or liquidation endpoints exist (404) and the official API docs cover none. Re-checked 2026-10-18: still 474 of 474 markets SPOT; Thailand's SEC consulted on licensed derivatives (closed 2026-05-20), no Bitkub futures yet.",
     verified: true,
     probes: [get("symbols", "https://api.bitkub.com/api/v3/market/symbols")],
     notes: "Thai spot exchange (THB pairs). Revisit only if it launches derivatives.",

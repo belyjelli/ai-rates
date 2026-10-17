@@ -17,8 +17,7 @@
   {
     "id": "bitget",
     "name": "Bitget",
-    "type": "cex",
-    "retired": "2026-09-27: retired on counterparty risk -- about $352M was drained from Bitget's hot and warm wallets on 2026-09-24 and withdrawals were suspended; same grounds as BitMart."
+    "type": "cex"
   },
   {
     "id": "mexc",
@@ -84,7 +83,7 @@
     "id": "bitmart",
     "name": "BitMart",
     "type": "cex",
-    "retired": "2026-09-27: retired on counterparty risk -- BitMart's hot wallets were drained in December 2021; the site does not want to point readers at an exchange with that history."
+    "retired": "2026-09-27: retired on counterparty risk (hot wallets drained December 2021). Re-checked 2026-10-18: the exchange has wound down -- trading ended 2026-08-26 01:00 UTC, the platform closes 2027-01-31, and its API hosts no longer resolve."
   },
   {
     "id": "toobit",
@@ -124,7 +123,8 @@
   {
     "id": "bullpen",
     "name": "Bullpen",
-    "type": "dex"
+    "type": "dex",
+    "aliasOf": "hyperliquid"
   },
   {
     "id": "hl-xyz",
@@ -313,19 +313,19 @@
     "id": "edgex",
     "name": "edgeX V1",
     "type": "dex",
-    "retired": "2026-09-15: superseded by edgeX V2 (`edgex-v2`), which is collected; the V1 endpoint answers 200 with an empty `data` array."
+    "retired": "2026-09-15: superseded by edgeX V2 (`edgex-v2`), which is collected; the V1 endpoint answered 200 with an empty `data` array. Re-checked 2026-10-18: every V1 route answers 503; V2 is 200."
   },
   {
     "id": "ethereal",
     "name": "Ethereal",
     "type": "dex",
-    "retired": "2026-09-15: /v1/product lists 18 markets, all DELISTED, with zero open interest and 24h volume; funding last updated 2026-08-26T01:00Z."
+    "retired": "2026-09-15: /v1/product lists 18 markets, all DELISTED, with zero open interest and 24h volume; funding last updated 2026-08-26T01:00Z. Re-checked 2026-10-18: unchanged, 18 of 18 DELISTED, no relaunch announced."
   },
   {
     "id": "bitkub",
     "name": "Bitkub",
     "type": "cex",
-    "retired": "2026-09-30: spot only -- /api/v3/market/symbols lists 474 markets, all `market_segment: SPOT`; no futures, funding or liquidation endpoints exist (404) and the official API docs cover none."
+    "retired": "2026-09-30: spot only -- /api/v3/market/symbols lists 474 markets, all `market_segment: SPOT`; no futures, funding or liquidation endpoints exist (404) and the official API docs cover none. Re-checked 2026-10-18: still 474 of 474 markets SPOT; Thailand's SEC consulted on licensed derivatives (closed 2026-05-20), no Bitkub futures yet."
   },
   {
     "id": "aevo",

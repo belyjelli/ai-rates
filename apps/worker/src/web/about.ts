@@ -41,6 +41,16 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-18",
+    title: "Bitget is back, and about 450 markets join their real asset",
+    changes: [
+      "Bitget is collected again. It was dropped on 2026-09-27 after its hot wallets were drained and withdrawals stopped; withdrawals reopened between 09-28 and 10-02, its reserves have held at about $5.5B, and its volume, open interest and funding look like its own.",
+      "About 450 markets now sit with the asset they really track. Gold, silver and oil that Hotcoin and Pionex list as crypto now pair with every other gold, silver and oil market, as do stock perps on SoDEX, Orderly, Reya, Lighter RH, LBank and CoinW, and the pre-IPO shares Variational lists as crypto. Each was checked against its asset's other markets: within 2% on price and moving with them over a week.",
+      "Two tickers that named two different coins are split apart. Pearl (PRL on Hyperliquid's EntropyIO, Lighter, ApeX and Polymarket) is now PEARL, which brings Perle (PRL on Binance, Bybit, KuCoin and 15 more) back into pairing. Gensyn on OKX and MEXC is now GENSYN, apart from the AI token on Lighter, Aster and Aevo.",
+      "OKX's ANTHROPIC contract is a tenth of a share, so it is now priced per share and pairs with the other Anthropic markets.",
+    ],
+  },
+  {
+    date: "2026-10-18",
     title: "Four new exchanges: Kraken, Bitunix, Kalshi and QFEX",
     changes: [
       "Kraken Futures joins with its 207 USD perpetuals, crypto plus a few stocks, metals, oil, EUR, GBP, CHF and the Nasdaq 100. Funding is hourly.",
