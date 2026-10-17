@@ -605,6 +605,10 @@ describe("pages", () => {
     // Newer than observed_at, which is the ordinary case once a feed is running: the book is
     // refreshed continuously while the funding row behind it is refreshed once a cycle.
     oldest_quoted_at: new Date(NOW - 2_000),
+    buy_quoted_at: new Date(NOW - 2_000),
+    sell_quoted_at: new Date(NOW - 1_000),
+    buy_volume_24h_usd: 5_000_000,
+    sell_volume_24h_usd: 9_000_000,
     ...overrides,
   });
 
@@ -1888,6 +1892,55 @@ describe("pages", () => {
     expect(html).toContain(
       'href="/arbitrage?gap=50-200&amp;min_depth=10000&amp;class=crypto&amp;interval=8h">Every exchange',
     );
+  });
+
+  test("each leg's ticker carries its badges: its side, and only the context that applies", async () => {
+    const { data } = fakeData({
+      arbitrage: async () => [
+        // The buy leg trades $3k a day and was quoted 90 s before the sell leg, on a HIP-3 dex.
+        gap({
+          buy_venue_id: "hl-xyz",
+          buy_symbol: "xyz:ONE",
+          buy_volume_24h_usd: 3_000,
+          buy_quoted_at: new Date(NOW - 91_000),
+          sell_quoted_at: new Date(NOW - 1_000),
+        }),
+        // Unknown turnover is not "no liquidity", and 30 s apart is in sync.
+        gap({ asset: "TWO", buy_volume_24h_usd: null, buy_quoted_at: new Date(NOW - 31_000) }),
+      ],
+    });
+    const html = await (await get("/arbitrage", data)).text();
+    const [one, two] = html.split('<tr data-k="').slice(1, 3);
+    expect(one).toContain(
+      'xyz:ONE <span class="bdg bdg-long">LONG</span><span class="bdg bdg-noliq"',
+    );
+    expect(one).toContain(
+      '<span class="bdg bdg-offsync" title="Quoted 90s before the price it is compared with">',
+    );
+    expect(one).toContain('<span class="bdg bdg-viahl"');
+    expect(one).toContain('ONE_USDT <span class="bdg bdg-short">SHORT</span></span>');
+    expect(two).not.toContain("bdg-noliq");
+    expect(two).not.toContain("bdg-offsync");
+    expect(html).toContain("What the badges mean");
+  });
+
+  test("the quotes page badges its outliers beside the ticker, with the reason", async () => {
+    const { data } = fakeData({
+      priceQuotes: async () => [
+        quote({ venue_id: "gate", best_bid: 0.0113, best_ask: 0.01131 }),
+        quote({
+          venue_id: "okx",
+          venue_symbol: "ONE-USDT-SWAP",
+          best_bid: 0.01135,
+          best_ask: 0.01136,
+        }),
+        quote({ venue_id: "bybit", venue_symbol: "ONEUSDT", mark_price: 15.6, mark_agrees: false }),
+      ],
+    });
+    const html = await (await get("/price-pair/ONE", data)).text();
+    expect(html).toContain('ONE_USDT <span class="bdg bdg-long">LONG</span>');
+    expect(html).toContain('ONE-USDT-SWAP <span class="bdg bdg-short">SHORT</span>');
+    expect(html).toMatch(/ONEUSDT <span class="bdg bdg-outlier" title="Marked [0-9.]+× above/);
   });
 
   test("an arbitrage row opens a strip: every pair for the asset, and this pair's own page", async () => {

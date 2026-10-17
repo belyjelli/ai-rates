@@ -553,4 +553,30 @@ export const pages: Catalog = {
   "~{n}h": "약 {n}시간",
   "Price gap (bps)": "가격 차이 (bps)",
   "Min resting size, thinner side": "최소 잔량, 얇은 쪽",
+  "A HIP-3 market: listed by a third-party deployer and settled on Hyperliquid":
+    "HIP-3 시장: 제3자 배포자가 상장하고 Hyperliquid에서 정산",
+  "A HIP-3 market: listed by a third-party deployer and settled on Hyperliquid, with its own book and its own risks.":
+    "HIP-3 시장: 제3자 배포자가 상장하고 Hyperliquid에서 정산하며, 자체 호가창과 자체 위험이 있습니다.",
+  "A row offers a trade only with a LONG and a SHORT leg. Everything else is context.":
+    "롱과 숏 레그가 모두 있는 행만 거래가 됩니다. 나머지는 참고 정보입니다.",
+  Badges: "배지",
+  LONG: "롱",
+  "Left out of the gap: its price disagrees with the asset's deepest market by more than a real arbitrage ever does, so it is a different instrument. Hover it for how far out.":
+    "가격 차이에서 제외: 자산의 가장 깊은 시장과의 차이가 실제 차익거래로는 있을 수 없을 만큼 커서 다른 상품입니다. 얼마나 벗어났는지는 마우스를 올려 확인하세요.",
+  "NO LIQ": "유동성 없음",
+  "OFF-SYNC": "시점 불일치",
+  OUTLIER: "이상치",
+  "Quoted more than a minute before the price it is compared with. Pairing the two would read the asset's own move in the meantime as a gap.":
+    "비교하는 가격보다 1분 이상 앞선 호가입니다. 둘을 짝지으면 그 사이 자산 자체의 움직임을 가격 차이로 잘못 읽게 됩니다.",
+  "Quoted {seconds}s before the price it is compared with":
+    "비교하는 가격보다 {seconds}초 앞선 호가",
+  SHORT: "숏",
+  "The cheapest venue: the leg you buy.": "가장 싼 거래소: 매수하는 레그.",
+  "The dearest venue: the leg you sell.": "가장 비싼 거래소: 매도하는 레그.",
+  "Under {volume} traded in 24 hours: a price with almost no trading behind it, which you may not be able to fill.":
+    "24시간 거래가 {volume} 미만: 거의 거래가 없는 가격이라 체결되지 않을 수 있습니다.",
+  "VIA HL": "HL 경유",
+  "What the badges mean": "배지의 의미",
+  "{volume} traded in 24 hours: a price with almost no trading behind it":
+    "24시간 거래 {volume}: 거의 거래가 없는 가격",
 };

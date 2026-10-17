@@ -942,6 +942,18 @@ i.sd{display:inline-block;flex-shrink:0;width:7px;height:7px;margin-right:6px;bo
 .bt-form .sx-btn b{color:var(--ink)}
 .bt-bar{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;margin:0 0 6px}
 .bt-bar .tf{margin:0}
+/* A leg's badges beside its ticker (badges.ts). Long and short keep the site's own colours. */
+.bdg{display:inline-block;margin-left:4px;padding:0 4px;border:1px solid;font-size:9.5px;font-weight:700;letter-spacing:.05em;line-height:1.45;vertical-align:.08em;white-space:nowrap}
+.bdg-long{color:var(--long);border-color:var(--long);background:#0b1020}
+.bdg-short{color:var(--short);border-color:var(--short);background:#1c0b0b}
+.bdg-outlier{color:var(--warn);border-color:#6a5a12;background:#16120a}
+.bdg-noliq{color:var(--muted);border-color:var(--dim);background:var(--band)}
+.bdg-offsync{color:var(--muted);border-color:var(--rule);border-style:dashed}
+.bdg-viahl{color:#5fd7ff;border-color:#24566a;background:#08141a}
+.bdg-row{display:grid;grid-template-columns:76px 1fr;gap:10px;align-items:start}
+.bdg-row .bdg{margin:2px 0 0;justify-self:start}
+.bdg-row p{margin:0;color:var(--ink)}
+.section-head .sx-key{margin-left:auto}
 /* The arbitrage rows open a strip beneath them (pages.ts ARB_SCRIPT). */
 .sheet tbody tr[data-arb]{cursor:pointer}
 .sheet tbody tr.arb-open td{background:var(--band)}

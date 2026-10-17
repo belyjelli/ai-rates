@@ -13,6 +13,7 @@ import {
   SPREAD_BANDS,
   spreadBand,
 } from "../app/params";
+import { badgeKey } from "./badges";
 import { esc } from "./format";
 import { tr } from "./i18n";
 import { icon } from "./icons";
@@ -322,6 +323,7 @@ ${dollarField("min_vol", tr("Min 24h volume, each leg"), p.minVolume24hUsd, 0)}
 <div class="sx-bar">
 ${exchanges}
 ${filters}
+${badgeKey()}
 </div>
 </form>`;
 }

@@ -323,6 +323,11 @@ export interface ArbitrageRow {
   sell_depth_usd: number | null;
   /** The smaller of the two sides, or null when either is unknown. The size the gap is good for. */
   thinner_depth_usd: number | null;
+  /** Each leg's quote time and 24h turnover, for the cell badges (web/badges.ts). */
+  buy_quoted_at: Date;
+  sell_quoted_at: Date;
+  buy_volume_24h_usd: number | null;
+  sell_volume_24h_usd: number | null;
   /**
    * The leg's market quotes the pair the other way round: its price here is the venue's inverted
    * (bid from its ask), and buying the pair there means SELLING that contract. crossFx only.
@@ -380,6 +385,8 @@ export interface PriceQuote {
   observed_at: Date;
   /** When these two prices were last seen. The age the quote should be rendered with. */
   quotes_at: Date;
+  /** The market's 24h turnover, for the NO LIQ badge; null where the venue reports none. */
+  volume_24h_usd: number | null;
 }
 
 export interface MarketRow {
@@ -1527,7 +1534,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         return sql<ArbitrageRow[]>`
         WITH candidates AS (
           SELECT venue_id, venue_symbol, asset_class, base, observed_at, quotes_at,
-                 best_bid, best_ask, best_bid_size_usd, best_ask_size_usd,
+                 best_bid, best_ask, best_bid_size_usd, best_ask_size_usd, volume_24h_usd,
                  -- The row now carries two ages (migration 022) and each column is gated by the one
                  -- that describes it. A quote is admitted on quotes_at; the MARK it is guarded
                  -- against is a funding-path value, so a row whose poll has died contributes no
@@ -1606,6 +1613,8 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
             -- has died can still be quoting. The page reads this one, because these are the numbers
             -- it prints.
             least(a.quotes_at, b.quotes_at) AS oldest_quoted_at,
+            a.quotes_at AS buy_quoted_at, b.quotes_at AS sell_quoted_at,
+            a.volume_24h_usd AS buy_volume_24h_usd, b.volume_24h_usd AS sell_volume_24h_usd,
             a.inverted AS buy_inverted,
             b.inverted AS sell_inverted
           FROM cheapest a
@@ -1636,7 +1645,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         WITH chosen AS (${chosenClass(connect(), base, assetClass)}),
         candidates AS (
           SELECT venue_id, venue_symbol, asset_class, observed_at, quotes_at,
-                 best_bid, best_ask, best_bid_size_usd, best_ask_size_usd,
+                 best_bid, best_ask, best_bid_size_usd, best_ask_size_usd, volume_24h_usd,
                  -- Same split as arbitrage(): the quote is admitted on quotes_at, and a mark whose
                  -- funding poll has gone stale is withheld from the gate rather than used. Here the
                  -- withheld mark is also VISIBLE as a null in the output, which is the point of a
@@ -1663,6 +1672,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         )
         SELECT c.venue_id, c.venue_symbol, c.asset_class, c.best_bid, c.best_ask,
                c.best_bid_size_usd, c.best_ask_size_usd, c.mark_price, c.observed_at, c.quotes_at,
+               c.volume_24h_usd,
                a.anchor_mark,
                -- Unknown marks agree by default, matching the gate's own null escapes: a missing
                -- mark is not evidence of a mismatch, and excluding it would punish a venue for a

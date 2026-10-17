@@ -52,6 +52,7 @@ import {
 } from "../app/params";
 import { retailSchedule } from "../app/retail-fees";
 import { BT_SCRIPT } from "./backtest-swap";
+import { badge, badgeKey, legBadges } from "./badges";
 import {
   ageText,
   aprTone,
@@ -1016,15 +1017,17 @@ export function arbitrage(data: {
       : `<span class="dim">${label}</span>`;
 
   // Price first, then the venue it was quoted on.
+  // The ticker carries the leg's badges (web/badges.ts): its side, then anything to know about it.
   const side = (
     kind: "buy" | "sell",
     venueId: string,
     symbol: string,
     price: number,
     inverted: boolean | undefined,
+    leg: { volume: number | null; quotedAt: Date; against: Date },
   ) =>
     `<td class="num"><span data-u="${kind}-price">${formatPrice(price)}</span></td>
-<td><div class="leg ${kind}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)}</span>${inverted ? invertedMark(kind === "buy" ? tr("sell this contract") : tr("buy this contract"), symbol) : ""}</div></td>`;
+<td><div class="leg ${kind}-leg"><a class="venue" href="${exchangeHref(venueId)}">${esc(venueName(venueId))}</a><span class="meta">${esc(symbol)} ${badge(kind === "buy" ? "long" : "short")}${legBadges({ venueId, volume24hUsd: leg.volume, quotedAt: leg.quotedAt, against: leg.against })}</span>${inverted ? invertedMark(kind === "buy" ? tr("sell this contract") : tr("buy this contract"), symbol) : ""}</div></td>`;
 
   const body = rows
     .map((r, i) => {
@@ -1051,8 +1054,8 @@ export function arbitrage(data: {
       }</td>
 <td class="num spread"><span data-u="gap"${gapTone(r.gap_bps)}>${formatGapBps(r.gap_bps)}</span></td>
 <td class="num"><span data-u="basis"${gapTone(r.gap_bps)}>${formatPriceGap(r.sell_price, r.buy_price)}</span></td>
-${side("buy", r.buy_venue_id, r.buy_symbol, r.buy_price, r.buy_inverted)}
-${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_inverted)}
+${side("buy", r.buy_venue_id, r.buy_symbol, r.buy_price, r.buy_inverted, { volume: r.buy_volume_24h_usd, quotedAt: r.buy_quoted_at, against: r.sell_quoted_at })}
+${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_inverted, { volume: r.sell_volume_24h_usd, quotedAt: r.sell_quoted_at, against: r.buy_quoted_at })}
 <td class="num locked" title="${esc(tr("Not available yet"))}">${LOCK_ICON}</td>
 <td class="num dim">${r.venue_count}</td>
 <td class="dim" title="${esc(tr("Quotes seen {quoted}; the older leg's funding row fetched {fetched}", { quoted: ageText(r.oldest_quoted_at, now), fetched: ageText(r.oldest_observed_at, now) }))}">${since(r.oldest_quoted_at, now)}</td>
@@ -1201,6 +1204,11 @@ export function pricePair(data: {
       ? null
       : Math.min(lowestAsk.best_ask_size_usd, highestBid.best_bid_size_usd);
 
+  // The moment the agreeing quotes were seen, their median: a quote far older than it is OFF-SYNC.
+  const quotedMid = (() => {
+    const times = agreeing.map((q) => q.quotes_at.getTime()).sort((a, b) => a - b);
+    return times.length === 0 ? null : new Date(times[times.length >> 1] as number);
+  })();
   const row = (q: PriceQuote) => {
     const inVenueBps = ((q.best_ask - q.best_bid) / q.best_bid) * 10000;
     const off =
@@ -1220,7 +1228,7 @@ export function pricePair(data: {
               { ratio: (1 / off).toFixed(1) },
             );
     return `<tr data-k="${esc(`${q.venue_id}|${q.venue_symbol}`)}"${q.mark_agrees ? "" : ` class="dim" title="${esc(why)}"`}>
-<td><div class="leg${q === lowestAsk ? " buy-leg" : q === highestBid ? " sell-leg" : ""}"><a class="venue" href="${exchangeHref(q.venue_id)}">${esc(venueName(q.venue_id))}</a><span class="meta">${esc(q.venue_symbol)}</span></div></td>
+<td><div class="leg${q === lowestAsk ? " buy-leg" : q === highestBid ? " sell-leg" : ""}"><a class="venue" href="${exchangeHref(q.venue_id)}">${esc(venueName(q.venue_id))}</a><span class="meta">${esc(q.venue_symbol)} ${q === lowestAsk ? badge("long") : ""}${q === highestBid ? badge("short") : ""}${q.mark_agrees ? "" : badge("outlier", why)}${legBadges({ venueId: q.venue_id, volume24hUsd: q.volume_24h_usd ?? null, quotedAt: q.quotes_at, against: q.mark_agrees ? quotedMid : null })}</span></div></td>
 <td class="num"><span data-u="bid">${formatPrice(q.best_bid)}</span>${q === highestBid ? ` <span class="dim">${tr("best")}</span>` : ""}</td>
 <td class="num">${formatUsd(q.best_bid_size_usd)}</td>
 <td class="num"><span data-u="ask">${formatPrice(q.best_ask)}</span>${q === lowestAsk ? ` <span class="dim">${tr("best")}</span>` : ""}</td>
@@ -1334,7 +1342,7 @@ ${helpPanel("pairs", `<p>${tr("One row per direction: buy at the first exchange,
 ${helpHeading("h1", assetName(name, assetClass), "price-pair", `<p>${tr("That is a quote at the size shown, not a fillable trade: it is before fees, before the book below level 1, and before the transfer between two exchanges.")}</p>`)}
 ${headline}
 ${pairsTable}
-<div class="section-head"><h2 class="has-help">${tr("Every exchange")}${helpButton("quotes")}</h2></div>
+<div class="section-head"><h2 class="has-help">${tr("Every exchange")}${helpButton("quotes")}</h2>${badgeKey()}</div>
 ${helpPanel("quotes", `<p>${tr("Sizes are the money resting at the very top of each book, converted to USD because the three venues that publish depth count it differently — Gate in contracts, OKX in contracts against <code>ctVal</code>, Bybit in base coin. Reading those raw, side by side, is a 10,000× error.")}</p>`)}
 <div class="sheet-wrap"><table class="sheet">
 <thead><tr><th>${tr("Exchange")}</th><th class="num">${tr("Best bid")}</th><th class="num">${tr("Bid size")}</th><th class="num">${tr("Best ask")}</th><th class="num">${tr("Ask size")}</th><th class="num" title="${tr("The venue's own bid-ask spread in basis points")}">${tr("Own spread")}</th><th class="num">${tr("Mark")}</th><th>${tr("Quoted")}</th></tr></thead>

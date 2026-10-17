@@ -541,4 +541,29 @@ export const pages: Catalog = {
   "~{n}h": "约 {n} 小时",
   "Price gap (bps)": "价差（基点）",
   "Min resting size, thinner side": "最小挂单规模，较薄一侧",
+  "A HIP-3 market: listed by a third-party deployer and settled on Hyperliquid":
+    "HIP-3 市场：由第三方部署方上线，在 Hyperliquid 上结算",
+  "A HIP-3 market: listed by a third-party deployer and settled on Hyperliquid, with its own book and its own risks.":
+    "HIP-3 市场：由第三方部署方上线，在 Hyperliquid 上结算，有自己的订单簿和自身风险。",
+  "A row offers a trade only with a LONG and a SHORT leg. Everything else is context.":
+    "一行只有同时有做多和做空两条腿时才构成交易。其余都是背景信息。",
+  Badges: "标签",
+  LONG: "做多",
+  "Left out of the gap: its price disagrees with the asset's deepest market by more than a real arbitrage ever does, so it is a different instrument. Hover it for how far out.":
+    "不计入价差：其价格与该资产最深市场的偏离超过任何真实套利，因此是另一种合约。悬停可查看偏离多少。",
+  "NO LIQ": "无流动性",
+  "OFF-SYNC": "不同步",
+  OUTLIER: "异常",
+  "Quoted more than a minute before the price it is compared with. Pairing the two would read the asset's own move in the meantime as a gap.":
+    "报价比所比较的价格早一分钟以上。把两者配对，会把资产在这段时间内自身的变动误读为价差。",
+  "Quoted {seconds}s before the price it is compared with": "比所比较的价格早 {seconds} 秒报价",
+  SHORT: "做空",
+  "The cheapest venue: the leg you buy.": "价格最低的交易所：你买入的一腿。",
+  "The dearest venue: the leg you sell.": "价格最高的交易所：你卖出的一腿。",
+  "Under {volume} traded in 24 hours: a price with almost no trading behind it, which you may not be able to fill.":
+    "24 小时成交不足 {volume}：几乎没有交易支撑的价格，可能无法成交。",
+  "VIA HL": "经 HL",
+  "What the badges mean": "标签含义",
+  "{volume} traded in 24 hours: a price with almost no trading behind it":
+    "24 小时成交 {volume}：几乎没有交易支撑的价格",
 };

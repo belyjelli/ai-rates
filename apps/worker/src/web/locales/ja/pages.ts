@@ -553,4 +553,29 @@ export const pages: Catalog = {
   "~{n}h": "約{n}時間",
   "Price gap (bps)": "価格差（bps）",
   "Min resting size, thinner side": "最小板厚（薄い側）",
+  "A HIP-3 market: listed by a third-party deployer and settled on Hyperliquid":
+    "HIP-3 市場：第三者のデプロイヤーが上場し、Hyperliquid で決済",
+  "A HIP-3 market: listed by a third-party deployer and settled on Hyperliquid, with its own book and its own risks.":
+    "HIP-3 市場：第三者のデプロイヤーが上場し Hyperliquid で決済。独自の板と独自のリスクがあります。",
+  "A row offers a trade only with a LONG and a SHORT leg. Everything else is context.":
+    "ロングとショートの両レッグがそろった行だけが取引になります。それ以外は参考情報です。",
+  Badges: "バッジ",
+  LONG: "ロング",
+  "Left out of the gap: its price disagrees with the asset's deepest market by more than a real arbitrage ever does, so it is a different instrument. Hover it for how far out.":
+    "価格差から除外：資産の最も厚い市場との乖離が実際の裁定ではあり得ないほど大きく、別の商品です。どれだけ離れているかはカーソルで確認できます。",
+  "NO LIQ": "流動性なし",
+  "OFF-SYNC": "時刻ずれ",
+  OUTLIER: "外れ値",
+  "Quoted more than a minute before the price it is compared with. Pairing the two would read the asset's own move in the meantime as a gap.":
+    "比較する価格より1分以上前の気配です。2つを組み合わせると、その間の資産自体の値動きを価格差と読み違えます。",
+  "Quoted {seconds}s before the price it is compared with": "比較する価格より {seconds} 秒前の気配",
+  SHORT: "ショート",
+  "The cheapest venue: the leg you buy.": "最も安い取引所：買うレッグ。",
+  "The dearest venue: the leg you sell.": "最も高い取引所：売るレッグ。",
+  "Under {volume} traded in 24 hours: a price with almost no trading behind it, which you may not be able to fill.":
+    "24時間の売買が {volume} 未満：ほとんど取引のない価格で、約定できない可能性があります。",
+  "VIA HL": "HL経由",
+  "What the badges mean": "バッジの意味",
+  "{volume} traded in 24 hours: a price with almost no trading behind it":
+    "24時間の売買 {volume}：ほとんど取引のない価格",
 };

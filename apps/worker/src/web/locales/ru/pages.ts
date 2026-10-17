@@ -556,4 +556,30 @@ export const pages: Catalog = {
   "~{n}h": "~{n} ч",
   "Price gap (bps)": "Ценовой разрыв (б.п.)",
   "Min resting size, thinner side": "Мин. объём в книге, тонкая сторона",
+  "A HIP-3 market: listed by a third-party deployer and settled on Hyperliquid":
+    "Рынок HIP-3: листинг от стороннего деплоера, расчёт на Hyperliquid",
+  "A HIP-3 market: listed by a third-party deployer and settled on Hyperliquid, with its own book and its own risks.":
+    "Рынок HIP-3: листинг от стороннего деплоера, расчёт на Hyperliquid, со своей книгой и своими рисками.",
+  "A row offers a trade only with a LONG and a SHORT leg. Everything else is context.":
+    "Строка даёт сделку, только если в ней есть ЛОНГ и ШОРТ. Всё остальное — контекст.",
+  Badges: "Метки",
+  LONG: "ЛОНГ",
+  "Left out of the gap: its price disagrees with the asset's deepest market by more than a real arbitrage ever does, so it is a different instrument. Hover it for how far out.":
+    "Исключён из разрыва: цена расходится с самым глубоким рынком актива сильнее, чем бывает при реальном арбитраже, значит это другой инструмент. Наведите, чтобы увидеть насколько.",
+  "NO LIQ": "НЕТ ЛИКВ.",
+  "OFF-SYNC": "НЕ СИНХР.",
+  OUTLIER: "ВЫБРОС",
+  "Quoted more than a minute before the price it is compared with. Pairing the two would read the asset's own move in the meantime as a gap.":
+    "Котировка старше сравниваемой цены более чем на минуту. Сопоставив их, вы примете собственное движение актива за это время за разрыв.",
+  "Quoted {seconds}s before the price it is compared with":
+    "Котировка на {seconds} с старше сравниваемой цены",
+  SHORT: "ШОРТ",
+  "The cheapest venue: the leg you buy.": "Самая дешёвая биржа: нога, которую покупаете.",
+  "The dearest venue: the leg you sell.": "Самая дорогая биржа: нога, которую продаёте.",
+  "Under {volume} traded in 24 hours: a price with almost no trading behind it, which you may not be able to fill.":
+    "Меньше {volume} оборота за 24 часа: цена почти без торгов, по ней может не получиться исполнить.",
+  "VIA HL": "ЧЕРЕЗ HL",
+  "What the badges mean": "Что означают метки",
+  "{volume} traded in 24 hours: a price with almost no trading behind it":
+    "{volume} оборота за 24 часа: цена почти без торгов",
 };
