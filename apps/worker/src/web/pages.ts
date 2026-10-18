@@ -650,6 +650,19 @@ ${leg("short", p.short_venue_id, p.short_symbol, p.short_interval_hours, p.short
 </table></div>`;
 }
 
+/**
+ * A quarantined exchange's page says so above everything else, with the dated evidence from the
+ * catalog (packages/venues `quarantined`): its numbers are shown but not ranked by default.
+ */
+function quarantineLede(venue: Venue): string {
+  const match = /^(\d{4}-\d{2}-\d{2}):\s*(.*)$/s.exec(venue.quarantined ?? "");
+  if (!match) return "";
+  return `<p class="lede xq-lede">${tr(
+    "Quarantined on {date}: {evidence}. Its numbers are still collected and shown here, but it is left out of the default Screener and Arbitrage rankings until the venue review clears it.",
+    { date: esc(match[1] as string), evidence: esc(match[2] as string) },
+  )}</p>`;
+}
+
 export function exchange(data: {
   venue: Venue;
   markets: MarketRow[];
@@ -717,6 +730,7 @@ export function exchange(data: {
     now,
     body: `<p class="eyebrow"><a href="/markets">${tr("Exchanges")}</a> / ${esc(trMsg(VENUE_TYPE_LABEL[venue.type] ?? venue.type))}</p>
 <h1>${esc(venue.name)}</h1>
+${quarantineLede(venue)}
 ${data.cta ?? ""}
 ${data.costs ?? ""}
 ${

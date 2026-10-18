@@ -41,6 +41,15 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-18",
+    title: "Six exchanges quarantined, and TxFlow joins",
+    changes: [
+      "Toobit, WEEX, LBank, CoinW, Hotcoin and Pionex are quarantined. The weekly venue review found numbers on each that are not their own or could not be real: Toobit, WEEX and LBank show Binance's exact funding rate on 20% to 36% of the markets they share with it, and CoinW shows Hotcoin's on a third; WEEX and LBank publish no open interest at all; Hotcoin's open interest is over 1,200 times its reserves, and Pionex and Toobit trade 13 and 51 times their open interest in a day.",
+      "A quarantined exchange is still collected and still shown, on its own page and on the Exchanges page, where it carries a Quarantined tag with the evidence. It is left out of the Screener and Arbitrage by default, and out of the home page's top spreads, so a copied rate can no longer pose as an opportunity. Tick it in the exchange picker to rank it anyway. The review checks each one again and lifts the quarantine once its numbers hold up.",
+      "TxFlow joins with 235 USDC perpetuals: 131 crypto, 78 stocks (mostly American, with SK hynix, Samsung and SpaceX among them), 12 ETFs, 4 pre-IPO shares (OpenAI, Anthropic, Moonshot, Oura), gold, silver, platinum, palladium, copper, WTI and Brent oil, natural gas, and EUR/USD and USD/JPY. Funding is hourly. TxFlow publishes no funding history, so its markets show the live rate only, with no seven-day settled rate.",
+    ],
+  },
+  {
+    date: "2026-10-18",
     title: "Bitget is back, and about 450 markets join their real asset",
     changes: [
       "Bitget is collected again. It was dropped on 2026-09-27 after its hot wallets were drained and withdrawals stopped; withdrawals reopened between 09-28 and 10-02, its reserves have held at about $5.5B, and its volume, open interest and funding look like its own.",

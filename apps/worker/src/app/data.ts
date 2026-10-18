@@ -1,4 +1,5 @@
 import { type AssetClass, DIVERGENCE_TRIGGER, type IdentityVerdict } from "@ai-rates/core";
+import { DEFAULT_VENUE_IDS } from "@ai-rates/venues";
 import type postgres from "postgres";
 import { RETAIL_TAKER_BPS } from "./retail-fees";
 
@@ -99,9 +100,20 @@ export type ScreenerInterval = (typeof SCREENER_INTERVALS)[number];
 export const RATE_UNITS = ["apr", "day", "8h", "1h"] as const;
 export type RateUnit = (typeof RATE_UNITS)[number];
 
+/**
+ * The exchanges a ranking reads, as the comma-joined list the SQL splits: the ones named, or, when
+ * none are, the default set -- every listed exchange but the quarantined, whose numbers are kept and
+ * shown but not trusted to rank (packages/venues `quarantined`). Passing the list rather than adding
+ * a parameter keeps screener_pairs' signature, so no migration.
+ */
+export function rankedVenues(venueIds: readonly string[] | null | undefined): string {
+  return (venueIds ?? DEFAULT_VENUE_IDS).join(",");
+}
+
 export interface ScreenerFilters {
   minOpenInterestUsd: number;
   minVolume24hUsd: number;
+  /** The exchanges legs come from; null for the default set, every one but the quarantined. */
   venueIds: string[] | null;
   venueTypes: string[] | null;
   /** Drops legs beyond this absolute APR; null keeps distressed markets in. */
@@ -284,7 +296,8 @@ export interface ArbitrageOptions {
   /**
    * Leg filters, applied before each asset's best pair is chosen, so an asset keeps its best pair
    * among the legs allowed rather than vanishing: exchanges, crypto or everything else, each leg's
-   * open interest and 24h volume, and a funding interval both legs settle at. Null or 0 is none.
+   * open interest and 24h volume, and a funding interval both legs settle at. Null or 0 is none,
+   * except the exchanges: none named is the default set, every one but the quarantined.
    */
   venueIds?: string[] | null;
   assetClass?: ScreenerClass | null;
@@ -1423,7 +1436,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         FROM screener_pairs(
           ${f.minOpenInterestUsd}::float8,
           ${f.minVolume24hUsd}::float8,
-          string_to_array(${f.venueIds?.join(",") ?? null}::text, ','),
+          string_to_array(${rankedVenues(f.venueIds)}::text, ','),
           string_to_array(${f.venueTypes?.join(",") ?? null}::text, ','),
           ${FRESH_INTERVAL}::interval,
           ${f.maxAbsApr}::float8,
@@ -1534,7 +1547,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
     async arbitrage(options, pairing) {
       const { minGapBps, minDepthUsd, limit, offset } = options;
-      const venues = options.venueIds?.join(",") ?? null;
+      const venues = rankedVenues(options.venueIds);
       const tradfi = options.assetClass == null ? null : options.assetClass === "tradfi";
       const minOi = options.minOpenInterestUsd ?? 0;
       const minVol = options.minVolume24hUsd ?? 0;

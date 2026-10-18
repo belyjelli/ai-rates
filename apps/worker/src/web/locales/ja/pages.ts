@@ -578,4 +578,10 @@ export const pages: Catalog = {
   "What the badges mean": "バッジの意味",
   "{volume} traded in 24 hours: a price with almost no trading behind it":
     "24時間の売買 {volume}：ほとんど取引のない価格",
+  "Quarantined on {date}: {evidence}. Its numbers are still collected and shown here, but it is left out of the default Screener and Arbitrage rankings until the venue review clears it.":
+    "{date} に隔離：{evidence}。データは引き続き収集しここに表示していますが、取引所レビューで解除されるまで、スクリーナーとアービトラージの既定のランキングからは外しています。",
+  quarantined: "隔離中",
+  "Quarantined exchanges are left out unless you tick them: their numbers are still collected, but not trusted to rank.":
+    "隔離中の取引所は、チェックしない限り除外されます。データは収集していますが、ランキングに使えるほど信頼できません。",
+  "Default exchanges": "既定の取引所",
 };

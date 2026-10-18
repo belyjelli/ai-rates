@@ -32,12 +32,24 @@ export interface VenuePickerOptions {
   inputAttrs?: (venue: Venue) => string;
   /** Markup at the tile's right edge: a leg picker shows each exchange's funding now. */
   meta?: (venue: Venue) => string;
+  /** A line above the tiles, plain text: the screener's says quarantined exchanges are left out. */
+  note?: string;
   /** Markup closing the panel: Apply, a link. */
   foot?: string;
   /** Extra attributes on the details element. */
   attrs?: string;
   /** Extra classes on the panel (sx-right to open leftwards). */
   panelClass?: string;
+}
+
+/**
+ * A quarantined exchange's tag on its tile: still listed and pickable, but left out of the default
+ * rankings, with the dated evidence (packages/venues `quarantined`) as the tag's title.
+ */
+function quarantineTag(v: Venue): string {
+  if (!v.quarantined) return "";
+  const evidence = v.quarantined.replace(/^\d{4}-\d{2}-\d{2}:\s*/, "");
+  return `<span class="vp-q" title="${esc(evidence)}">${tr("quarantined")}</span>`;
 }
 
 /** The venues by type, CEX then DEX then HIP-3, each in name order; empty groups left out. */
@@ -61,7 +73,7 @@ export function venuePicker(o: VenuePickerOptions): string {
       const tiles = venues
         .map(
           (v) =>
-            `<label class="sx-tile"><input type="${o.type}"${name} value="${esc(v.id)}" data-vp-name="${esc(v.name)}"${o.inputAttrs?.(v) ?? ""}${o.checked(v) ? " checked" : ""}><span class="mono">${esc(v.name.slice(0, 1).toUpperCase())}</span><span class="nm">${esc(v.name)}</span>${o.meta ? `<span class="vp-meta">${o.meta(v)}</span>` : ""}</label>`,
+            `<label class="sx-tile"><input type="${o.type}"${name} value="${esc(v.id)}" data-vp-name="${esc(v.name)}"${o.inputAttrs?.(v) ?? ""}${o.checked(v) ? " checked" : ""}><span class="mono">${esc(v.name.slice(0, 1).toUpperCase())}</span><span class="nm">${esc(v.name)}</span>${quarantineTag(v)}${o.meta ? `<span class="vp-meta">${o.meta(v)}</span>` : ""}</label>`,
         )
         .join("");
       const counts = multiple
@@ -82,9 +94,10 @@ export function venuePicker(o: VenuePickerOptions): string {
 <div class="sx-save"><input type="text" maxlength="32" placeholder="${esc(tr("Preset name…"))}" data-vp-preset-name aria-label="${esc(tr("Preset name"))}"><button type="button" class="ghost" data-vp-preset-save>${icon("plus")} ${tr("Save")}</button></div></div>
 <p class="sx-all"><span data-js-only hidden><button type="button" class="lnk" data-vp-tick="">${tr("Select all")}</button> / <button type="button" class="lnk" data-vp-untick="">${tr("Clear all")}</button></span><span class="sx-note">${tr("{n} selected", { n: `<b data-vp-count>${ticked}/${total}</b>` })}</span></p>`
     : "";
+  const note = o.note ? `<p class="sx-note vp-note">${esc(o.note)}</p>` : "";
   return `<details class="sx-pop" data-vp="${o.type}"${o.attrs ?? ""}><summary class="sx-btn">${[o.lead, o.label, summary].filter(Boolean).join(" ")}${icon("caret")}</summary>
 <div class="sx-panel sx-wide${o.panelClass ? ` ${o.panelClass}` : ""}">
-${head}${body}${o.foot ? `\n<div class="sx-foot">${o.foot}</div>` : ""}
+${head}${note}${body}${o.foot ? `\n<div class="sx-foot">${o.foot}</div>` : ""}
 </div></details>`;
 }
 

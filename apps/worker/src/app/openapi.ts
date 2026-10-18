@@ -30,14 +30,23 @@ export const ENDPOINTS: Endpoint[] = [
     summary: "Whether the collector has reported recently. Answers 503 when it has not.",
     params: [],
   },
-  { path: "/v1/venues", summary: "Every exchange airrates reads, with its type.", params: [] },
+  {
+    path: "/v1/venues",
+    summary:
+      "Every exchange airrates reads, with its type. A quarantined exchange (quarantined: date and evidence) is collected but left out of the default rankings.",
+    params: [],
+  },
   {
     path: "/v1/screener",
     summary: "Funding-rate spreads between exchanges for the same asset, widest first.",
     params: [
       { name: "min_oi", description: "Minimum open interest in USD on the thinner leg." },
       { name: "min_vol", description: "Minimum 24h volume in USD." },
-      { name: "venues", description: "Comma-separated exchange ids to include." },
+      {
+        name: "venues",
+        description:
+          "Comma-separated exchange ids to include. Without it, every exchange but the quarantined ones (see quarantined in /v1/venues), which are ranked only when named here.",
+      },
       { name: "types", description: "Comma-separated exchange types to include." },
       { name: "extremes", description: "Set to 1 to keep rates above the usual APR ceiling." },
       {
@@ -99,7 +108,11 @@ export const ENDPOINTS: Endpoint[] = [
       { name: "min_bps", type: "number", description: "Minimum gap in basis points." },
       { name: "min_depth", description: "Minimum depth in USD." },
       { name: "gap", description: "The gap as a band: 1-10, 10-50, 50-200 or 200- (bps)." },
-      { name: "venues", description: "Comma-separated exchange ids both legs come from." },
+      {
+        name: "venues",
+        description:
+          "Comma-separated exchange ids both legs come from. Without it, every exchange but the quarantined ones (see quarantined in /v1/venues), which are ranked only when named here.",
+      },
       { name: "class", description: "crypto, or tradfi for every other asset class." },
       { name: "min_oi", description: "Minimum open interest in USD on each leg." },
       { name: "min_vol", description: "Minimum 24h volume in USD on each leg." },

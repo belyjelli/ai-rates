@@ -183,6 +183,17 @@ function sortRows(rows: Row[], sort: ExchangeSort): Row[] {
   }
 }
 
+/**
+ * The tag on a quarantined exchange's row: its numbers are shown but not ranked by default, and the
+ * tag's title is the dated evidence (packages/venues `quarantined`).
+ */
+function quarantineBadge(venueId: string): string {
+  const quarantined = VENUES.find((v) => v.id === venueId)?.quarantined;
+  if (!quarantined) return "";
+  const evidence = quarantined.replace(/^\d{4}-\d{2}-\d{2}:\s*/, "");
+  return ` <abbr class="xc-q" title="${esc(tr("Quarantined: left out of the default rankings. {evidence}", { evidence }))}">${tr("Quarantined")}</abbr>`;
+}
+
 function th(sort: ExchangeSort, active: ExchangeSort, label: string, title: string): string {
   const href = sort === "grade" ? "/markets" : `/markets?sort=${sort}`;
   return `<th class="num" title="${esc(title)}"${active === sort ? ' aria-sort="descending"' : ""}><a href="${href}">${label}</a></th>`;
@@ -254,7 +265,7 @@ export function exchangesPage(data: {
       return `<tr data-k="${esc(s.id)}">
 <td class="num dim">${i + 1}</td>
 <td class="xc-grade">${q ? `${gradeButton(q)}<span class="xc-score">${Math.round(q.score)}</span>` : `<span class="xg xg-none" title="${esc(tr("Not measured: its order book is not read yet"))}">–</span>`}</td>
-<td><a href="${exchangeHref(s.id)}">${esc(s.name)}</a> <span class="xc-type">${VENUE_TYPE_SHORT[s.type] ?? esc(s.type)}</span></td>
+<td><a href="${exchangeHref(s.id)}">${esc(s.name)}</a> <span class="xc-type">${VENUE_TYPE_SHORT[s.type] ?? esc(s.type)}</span>${quarantineBadge(s.id)}</td>
 ${reservesCell(r)}
 ${cost}
 ${slip}
@@ -287,6 +298,7 @@ ${depth}
   const notCollected = VENUES.filter((v) => !live.has(v.id) && !v.aliasOf && !v.retired).map(
     (v) => v.name,
   );
+  const quarantined = VENUES.filter((v) => v.quarantined && live.has(v.id)).map((v) => esc(v.name));
   const unverified = qualities.filter((q) => !q.feeVerified).map((q) => venueName(q.id));
   const names = new Map(exchanges.map((e) => [e.id, e.name]));
 
@@ -357,6 +369,12 @@ ${table}
               venues: unverified.join(", "),
               bps: takerFee("").bps,
             },
+          )
+        : "",
+      quarantined.length
+        ? tr(
+            "Quarantined: {venues}. Their numbers failed the venue review's checks (funding copied from another exchange, or volume and open interest far beyond what their reserves could back), so they are still collected and shown here but left out of the default Screener and Arbitrage rankings; tick them in the exchange picker to rank them.",
+            { venues: quarantined.join(", ") },
           )
         : "",
       tr("Not graded yet: exchanges whose order book is not read. Not collected yet: {venues}.", {

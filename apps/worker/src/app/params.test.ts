@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { VENUES } from "@ai-rates/venues";
+import { DEFAULT_VENUE_IDS, VENUES } from "@ai-rates/venues";
+import { rankedVenues } from "./data";
 import {
   arbitrageToQuery,
   type BacktestParams,
@@ -176,14 +177,33 @@ describe("parseScreenerFilters", () => {
     });
   });
 
-  test("ticking every exchange the picker lists is no exchange filter", () => {
+  test("the picker as it opens is no exchange filter; ticking a quarantined one is", () => {
     const listed = VENUES.filter((v) => !v.retired && !v.aliasOf).map((v) => v.id);
+    const quarantined = VENUES.filter((v) => v.quarantined).map((v) => v.id);
+    const defaults = listed.filter((id) => !quarantined.includes(id));
+    expect(quarantined.length).toBeGreaterThan(0);
+    expect(DEFAULT_VENUE_IDS).toEqual(defaults);
+    expect(
+      parseScreenerFilters(new URLSearchParams({ venues: defaults.join(",") })).venueIds,
+    ).toBeNull();
+    // Every exchange, quarantined too, stays an explicit list: null would rank the default set.
     expect(
       parseScreenerFilters(new URLSearchParams({ venues: listed.join(",") })).venueIds,
-    ).toBeNull();
+    ).toHaveLength(listed.length);
     expect(
-      parseScreenerFilters(new URLSearchParams({ venues: listed.slice(1).join(",") })).venueIds,
-    ).toHaveLength(listed.length - 1);
+      parseArbitrageParams(new URLSearchParams({ venues: listed.join(",") })).venueIds,
+    ).toHaveLength(listed.length);
+    expect(
+      parseScreenerFilters(new URLSearchParams({ venues: defaults.slice(1).join(",") })).venueIds,
+    ).toHaveLength(defaults.length - 1);
+  });
+
+  test("a ranking with no exchange named reads the default set, never a quarantined one", () => {
+    const quarantined = VENUES.filter((v) => v.quarantined).map((v) => v.id);
+    const ranked = rankedVenues(null).split(",");
+    expect(ranked).toEqual([...DEFAULT_VENUE_IDS]);
+    for (const id of quarantined) expect(ranked).not.toContain(id);
+    expect(rankedVenues(["okx", "toobit"])).toBe("okx,toobit");
   });
 
   test("quote=same pairs within one settlement currency, and survives the round trip", () => {

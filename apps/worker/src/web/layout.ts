@@ -705,6 +705,8 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .xc-sub{display:block;font-size:11px;color:var(--muted)}
 .xc-slip span{display:block;white-space:nowrap}.xc-slip i{font-style:normal;color:var(--muted);margin-right:4px}
 .xc-type{font-size:10px;color:var(--muted);border:1px solid var(--rule);padding:0 3px;margin-left:4px}
+.xc-q{font-size:10px;color:var(--warn);border:1px solid var(--rule);padding:0 3px;margin-left:4px;text-decoration:none;cursor:help}
+.xq-lede{border-left:2px solid var(--warn);padding-left:10px}
 .xc-warn{color:#ff9f43;text-decoration:none;border:0;cursor:help}
 .xc-grade{text-align:center}
 button.xg{font:inherit;font-weight:700;line-height:1.2;cursor:pointer;background:transparent}
@@ -947,6 +949,9 @@ i.sd{display:inline-block;flex-shrink:0;width:7px;height:7px;margin-right:6px;bo
 .sd-t-steady{color:#3ddc84}.sd-t-mixed{color:#f0a030}.sd-t-erratic{color:#e5484d}
 /* A tile's figure at its right edge: a backtest leg picker shows each exchange's funding now. */
 .sx-tile .vp-meta{margin-left:auto;padding-left:6px;white-space:nowrap}
+/* A quarantined exchange: listed and pickable, left out of the default rankings. */
+.sx-tile .vp-q{flex-shrink:0;padding:0 4px;border:1px solid var(--rule);font-size:10px;line-height:15px;color:var(--warn)}
+.vp-note{display:block;margin:0 0 10px!important;line-height:1.4}
 /* The backtest (pages.ts pair): leg pickers in the form, and a bar of window and chart lines above the
    chart, which backtest-swap.ts replaces in place. */
 .bt-form .field>span{display:block}

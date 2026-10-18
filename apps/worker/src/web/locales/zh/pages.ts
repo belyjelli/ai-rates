@@ -566,4 +566,10 @@ export const pages: Catalog = {
   "What the badges mean": "标签含义",
   "{volume} traded in 24 hours: a price with almost no trading behind it":
     "24 小时成交 {volume}：几乎没有交易支撑的价格",
+  "Quarantined on {date}: {evidence}. Its numbers are still collected and shown here, but it is left out of the default Screener and Arbitrage rankings until the venue review clears it.":
+    "已于 {date} 隔离：{evidence}。其数据仍在采集并显示于此，但在交易所审查解除隔离之前，不计入资金费率筛选器与套利的默认排名。",
+  quarantined: "已隔离",
+  "Quarantined exchanges are left out unless you tick them: their numbers are still collected, but not trusted to rank.":
+    "已隔离的交易所默认不计入，勾选后才会纳入：其数据仍在采集，但不足以信任用于排名。",
+  "Default exchanges": "默认交易所",
 };

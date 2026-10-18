@@ -24,6 +24,9 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
   const tag = crypto.randomUUID().slice(0, 6);
   const venueA = `it-${tag}-a`;
   const venueB = `it-${tag}-b`;
+  // The test venues are in no catalog, so the rankings must name them: none named is the default
+  // set, the catalog's listed exchanges but the quarantined.
+  const itVenues = [venueA, venueB];
   // Deliberately contains a comma: splitting a delimited list would match the wrong rows.
   const symbolA = `IT,${tag.toUpperCase()}-USDT`;
   const symbolB = `IT-${tag.toUpperCase()}-PERP`;
@@ -483,7 +486,14 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
 
     const mine = async (options = {}) =>
       (
-        await data.arbitrage({ minGapBps: 0, minDepthUsd: 0, limit: 50, offset: 0, ...options })
+        await data.arbitrage({
+          venueIds: itVenues,
+          minGapBps: 0,
+          minDepthUsd: 0,
+          limit: 50,
+          offset: 0,
+          ...options,
+        })
       ).filter((r) => r.asset === base4);
 
     test("drops a mismatched instrument instead of quoting a fictional gap", async () => {
@@ -515,6 +525,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
 
       const all = await data.arbitrage({
+        venueIds: itVenues,
         minGapBps: 0,
         minDepthUsd: 0,
         limit: 50,
@@ -525,6 +536,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       expect(unknown?.thinner_depth_usd).toBeNull();
 
       const floored = await data.arbitrage({
+        venueIds: itVenues,
         minGapBps: 0,
         minDepthUsd: 1_000,
         limit: 50,
@@ -552,7 +564,13 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
 
       const [row] = (
-        await data.arbitrage({ minGapBps: 0, minDepthUsd: 0, limit: 50, offset: 0 })
+        await data.arbitrage({
+          venueIds: itVenues,
+          minGapBps: 0,
+          minDepthUsd: 0,
+          limit: 50,
+          offset: 0,
+        })
       ).filter((r) => r.asset === base6);
       expect(row?.gap_bps).toBeCloseTo(50, 6);
       expect(row?.buy_venue_id).toBe(venueA);
@@ -584,7 +602,13 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
         ])} ON CONFLICT (venue_id, venue_symbol) DO NOTHING`;
 
       const rows = (
-        await data.arbitrage({ minGapBps: 0, minDepthUsd: 0, limit: 50, offset: 0 })
+        await data.arbitrage({
+          venueIds: itVenues,
+          minGapBps: 0,
+          minDepthUsd: 0,
+          limit: 50,
+          offset: 0,
+        })
       ).filter((r) => r.asset === base7);
       // One leg left, and a gap needs two: the asset drops out entirely rather than pairing a live
       // quote against a stale one.
@@ -893,7 +917,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     const forSort = (sort: ScreenerSort): ScreenerFilters => ({
       minOpenInterestUsd: 0,
       minVolume24hUsd: 0,
-      venueIds: null,
+      venueIds: itVenues,
       venueTypes: null,
       maxAbsApr: null,
       sameQuote: false,
@@ -928,7 +952,7 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
     const rows = await data.screener({
       minOpenInterestUsd: 0,
       minVolume24hUsd: 0,
-      venueIds: null,
+      venueIds: itVenues,
       venueTypes: null,
       maxAbsApr: null,
       sameQuote: false,

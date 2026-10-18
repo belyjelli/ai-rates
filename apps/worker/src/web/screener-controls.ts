@@ -1,4 +1,4 @@
-import { VENUES, type Venue } from "@ai-rates/venues";
+import { LISTED_VENUES, type Venue } from "@ai-rates/venues";
 import type { RateUnit, ScreenerFilters, ScreenerSort } from "../app/data";
 import {
   type ArbitrageParams,
@@ -90,12 +90,24 @@ function bandName(band: Steadiness): string {
   return band === "steady" ? tr("steady") : band === "mixed" ? tr("mixed") : tr("erratic");
 }
 
-/** Exchanges the picker lists: every one collected. */
-const LISTED = VENUES.filter((v) => !v.retired && !v.aliasOf);
+/**
+ * Whether the exchange is in the ranking: the ones named, or with none named the default set, every
+ * listed exchange but the quarantined (data.ts rankedVenues). The picker opens showing exactly that.
+ */
+const inRanking = (venueIds: string[] | null, v: Venue) =>
+  venueIds === null ? !v.quarantined : venueIds.includes(v.id);
 
 const selected = (f: ScreenerFilters, v: Venue) =>
-  (f.venueIds === null || f.venueIds.includes(v.id)) &&
-  (f.venueTypes === null || f.venueTypes.includes(v.type));
+  inRanking(f.venueIds, v) && (f.venueTypes === null || f.venueTypes.includes(v.type));
+
+/** The line the exchange pickers carry while any listed exchange is quarantined. */
+function quarantineNote(): string | undefined {
+  return LISTED_VENUES.some((v) => v.quarantined)
+    ? tr(
+        "Quarantined exchanges are left out unless you tick them: their numbers are still collected, but not trusted to rank.",
+      )
+    : undefined;
+}
 
 /** How many of the filters panel's settings differ from the defaults, for its button. */
 function activeFilters(f: ScreenerFilters): number {
@@ -169,11 +181,12 @@ function venuesPanel(f: ScreenerFilters): string {
   return venuePicker({
     label: tr("Exchanges"),
     lead: icon("stack"),
-    venues: LISTED,
+    venues: LISTED_VENUES,
     type: "checkbox",
     name: "venues",
     checked: (v) => selected(f, v),
-    foot: `<a class="btn ghost" href="/screener${esc(filtersToQuery({ ...f, venueIds: null, venueTypes: null }))}">${tr("Every exchange")}</a><button type="submit">${tr("Apply")}</button>`,
+    note: quarantineNote(),
+    foot: `<a class="btn ghost" href="/screener${esc(filtersToQuery({ ...f, venueIds: null, venueTypes: null }))}">${tr("Default exchanges")}</a><button type="submit">${tr("Apply")}</button>`,
   });
 }
 
@@ -258,11 +271,12 @@ export function arbitrageControls(p: ArbitrageParams): string {
   const exchanges = venuePicker({
     label: tr("Exchanges"),
     lead: icon("stack"),
-    venues: LISTED,
+    venues: LISTED_VENUES,
     type: "checkbox",
     name: "venues",
-    checked: (v) => p.venueIds === null || p.venueIds.includes(v.id),
-    foot: `<a class="btn ghost" href="/arbitrage${esc(arbitrageToQuery({ ...p, venueIds: null, offset: 0 }))}">${tr("Every exchange")}</a><button type="submit">${tr("Apply")}</button>`,
+    checked: (v) => inRanking(p.venueIds, v),
+    note: quarantineNote(),
+    foot: `<a class="btn ghost" href="/arbitrage${esc(arbitrageToQuery({ ...p, venueIds: null, offset: 0 }))}">${tr("Default exchanges")}</a><button type="submit">${tr("Apply")}</button>`,
   });
   const active = [
     p.assetClass !== null,

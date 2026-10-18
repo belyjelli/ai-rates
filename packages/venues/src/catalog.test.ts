@@ -46,6 +46,17 @@ describe("venue catalog", () => {
     }
   });
 
+  test("quarantined venues say when and on what evidence, and are still collected", () => {
+    const quarantined = VENUES.filter((v) => v.quarantined !== undefined);
+    expect(quarantined.length).toBeGreaterThan(0);
+    for (const venue of quarantined) {
+      expect(venue.quarantined).toMatch(/^\d{4}-\d{2}-\d{2}: \S/);
+      // Retired is not collected and an alias has no markets of its own: neither can be quarantined.
+      expect(venue.retired).toBeUndefined();
+      expect(venue.aliasOf).toBeUndefined();
+    }
+  });
+
   test("verified venues have at least one probe", () => {
     for (const venue of VENUES.filter((v) => v.verified)) {
       expect(venue.probes.length).toBeGreaterThan(0);

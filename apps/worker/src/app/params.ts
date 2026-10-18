@@ -1,5 +1,5 @@
 import { ASSET_CLASSES, type AssetClass } from "@ai-rates/core";
-import { VENUES } from "@ai-rates/venues";
+import { DEFAULT_VENUE_IDS, LISTED_VENUES, VENUES } from "@ai-rates/venues";
 import {
   RATE_UNITS,
   type RateUnit,
@@ -62,8 +62,11 @@ export function spreadBand(
 const QUERY_PATTERN = /^[a-z0-9:._-]{1,24}$/i;
 
 const KNOWN_VENUES = new Set(VENUES.map((v) => v.id));
-/** The exchanges the screener's picker lists: ticking every one of them is no exchange filter at all. */
-const LISTED_VENUES = VENUES.filter((v) => !v.retired && !v.aliasOf).map((v) => v.id);
+/**
+ * The listed exchanges left out of the default rankings: still collected and shown, but ranked only
+ * when the reader names them (packages/venues `quarantined`).
+ */
+const QUARANTINED_VENUES = LISTED_VENUES.filter((v) => v.quarantined).map((v) => v.id);
 const KNOWN_TYPES = new Set<string>(VENUE_TYPES);
 const USD_SUFFIX: Record<string, number> = { k: 1e3, m: 1e6, b: 1e9 };
 
@@ -144,9 +147,15 @@ export function convergenceToQuery(p: ConvergenceParams): string {
   return `?${query.toString()}`;
 }
 
-/** Null for a list naming every exchange the picker lists, which the form sends when all are ticked. */
+/**
+ * Null for a list naming exactly the default exchanges, which the picker's form sends when it is left
+ * as it opened: every listed exchange ticked but the quarantined ones. A list that names a
+ * quarantined exchange stays explicit, so "every exchange, quarantined too" can be asked for.
+ */
 function everyListed(ids: string[] | null): string[] | null {
-  return ids && LISTED_VENUES.every((id) => ids.includes(id)) ? null : ids;
+  if (!ids) return null;
+  const defaultSet = DEFAULT_VENUE_IDS.every((id) => ids.includes(id));
+  return defaultSet && !QUARANTINED_VENUES.some((id) => ids.includes(id)) ? null : ids;
 }
 
 /** The value when it is one of `allowed` (case-insensitive), else null. */
@@ -318,7 +327,7 @@ export interface ArbitrageParams {
   maxGapBps: number | null;
   /** Hides rows whose thinner side rests less than this in USD; 0 keeps every quote. */
   minDepthUsd: number;
-  /** The exchanges both legs come from; null for every exchange. */
+  /** The exchanges both legs come from; null for the default set (every one but the quarantined). */
   venueIds: string[] | null;
   assetClass: ScreenerClass | null;
   /** Each leg's floors; 0 for none. */

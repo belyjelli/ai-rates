@@ -1908,10 +1908,31 @@ describe("pages", () => {
       '<input type="radio" name="gap" value="50-200" data-default="" checked>',
     );
     expect(html).toContain('name="min_depth" value="10k"');
-    // "Every exchange" drops only the exchange choice and keeps every other filter.
+    // "Default exchanges" drops only the exchange choice and keeps every other filter.
     expect(html).toContain(
-      'href="/arbitrage?gap=50-200&amp;min_depth=10000&amp;class=crypto&amp;interval=8h">Every exchange',
+      'href="/arbitrage?gap=50-200&amp;min_depth=10000&amp;class=crypto&amp;interval=8h">Default exchanges',
     );
+  });
+
+  test("the pickers open on the default set: a quarantined exchange is listed, tagged and unticked", async () => {
+    const asked: unknown[] = [];
+    const { data } = fakeData({
+      arbitrage: async (params) => {
+        asked.push(params);
+        return [gap()];
+      },
+    });
+    for (const path of ["/arbitrage", "/screener"]) {
+      const html = await (await get(path, data)).text();
+      // Toobit is quarantined in the catalog; OKX is not.
+      expect(html).toContain('name="venues" value="okx" data-vp-name="OKX" checked>');
+      expect(html).toMatch(
+        /name="venues" value="toobit" data-vp-name="Toobit"><span class="mono">T<\/span><span class="nm">Toobit<\/span><span class="vp-q" title="relays Binance/,
+      );
+      expect(html).toContain("Quarantined exchanges are left out unless you tick them");
+    }
+    // No exchange named reaches the query as null, which data.ts ranks as the default set.
+    expect(asked[0]).toMatchObject({ venueIds: null });
   });
 
   test("each leg's ticker carries its badges: its side, and only the context that applies", async () => {
@@ -3262,6 +3283,26 @@ describe("pages", () => {
       // OKX's ETH book could not hold $100k: it is priced at the penalty and flagged.
       expect(html).toContain('class="xc-warn"');
       expect(html).toContain("Not measured: its order book is not read yet");
+    });
+
+    test("a quarantined exchange is shown with its tag, evidence and what quarantine means", async () => {
+      const { data } = fakeData({
+        exchanges: async () => [
+          summary("okx", "OKX", 6.7e9, 16e9),
+          summary("toobit", "Toobit", 1.9e8, 9.5e9),
+        ],
+      });
+      const html = await (await get("/markets", data)).text();
+      expect(html).toMatch(
+        />Toobit<\/a> <span class="xc-type">CEX<\/span> <abbr class="xc-q" title="Quarantined: left out of the default rankings\. relays Binance/,
+      );
+      expect(html).not.toMatch(/>OKX<\/a> <span class="xc-type">CEX<\/span> <abbr/);
+      expect(html).toContain("Quarantined: Toobit. Their numbers failed the venue review");
+      const page = await (await get("/markets/exchange/toobit", data)).text();
+      expect(page).toContain('<p class="lede xq-lede">Quarantined on 2026-10-18: relays Binance');
+      expect(await (await get("/markets/exchange/okx", data)).text()).not.toContain(
+        '<p class="lede xq-lede">',
+      );
     });
 
     test("sorting by cost puts the cheapest measured exchange first", async () => {

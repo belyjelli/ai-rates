@@ -145,4 +145,9 @@ export const exchanges: Catalog = {
   Samples: "サンプル数",
   "Medians of the last seven days of snapshots of {venue}'s public order book, every ten minutes; the costs are the book's, not fills. Reserves are DefiLlama's.":
     "{venue} の公開板を10分ごとに記録した直近7日間のスナップショットの中央値です。コストは板から算出したもので、実際の約定ではありません。準備金は DefiLlama のデータです。",
+  "Quarantined: left out of the default rankings. {evidence}":
+    "隔離中：既定のランキングから除外。{evidence}",
+  Quarantined: "隔離中",
+  "Quarantined: {venues}. Their numbers failed the venue review's checks (funding copied from another exchange, or volume and open interest far beyond what their reserves could back), so they are still collected and shown here but left out of the default Screener and Arbitrage rankings; tick them in the exchange picker to rank them.":
+    "隔離中：{venues}。取引所レビューの検査に通らなかったため（資金調達率が他の取引所の写しである、または出来高や建玉が準備金で裏付けられる規模を大きく超える）、データは引き続き収集しここに表示していますが、スクリーナーとアービトラージの既定のランキングからは外しています。ランキングに含めるには取引所の選択でチェックしてください。",
 };

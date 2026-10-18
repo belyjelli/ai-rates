@@ -579,4 +579,10 @@ export const pages: Catalog = {
   "What the badges mean": "배지의 의미",
   "{volume} traded in 24 hours: a price with almost no trading behind it":
     "24시간 거래 {volume}: 거의 거래가 없는 가격",
+  "Quarantined on {date}: {evidence}. Its numbers are still collected and shown here, but it is left out of the default Screener and Arbitrage rankings until the venue review clears it.":
+    "{date}에 격리됨: {evidence}. 데이터는 계속 수집해 여기에 보여 주지만, 거래소 점검에서 해제될 때까지 스크리너와 차익거래의 기본 순위에서는 제외합니다.",
+  quarantined: "격리됨",
+  "Quarantined exchanges are left out unless you tick them: their numbers are still collected, but not trusted to rank.":
+    "격리된 거래소는 체크하지 않으면 제외됩니다. 데이터는 계속 수집하지만 순위에 쓸 만큼 신뢰하지 않습니다.",
+  "Default exchanges": "기본 거래소",
 };

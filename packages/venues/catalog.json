@@ -88,32 +88,38 @@
   {
     "id": "toobit",
     "name": "Toobit",
-    "type": "cex"
+    "type": "cex",
+    "quarantined": "2026-10-18: relays Binance's funding (live rate identical on 35.8% of 763 shared markets off the clamp values); a day's volume $9.5B is 50.9x its open interest and 131.9x its $72.3M clean reserves"
   },
   {
     "id": "hotcoin",
     "name": "Hotcoin",
-    "type": "cex"
+    "type": "cex",
+    "quarantined": "2026-10-18: open interest 1,243x and volume 2,157x its $1.7M clean reserves"
   },
   {
     "id": "weex",
     "name": "WEEX",
-    "type": "cex"
+    "type": "cex",
+    "quarantined": "2026-10-18: live funding equals Toobit's on 30% of 725 shared markets (Binance's on 30% of 766); no open interest on any of 1,040 markets against $5.8B of volume, 31.5x its clean reserves"
   },
   {
     "id": "coinw",
     "name": "CoinW",
-    "type": "cex"
+    "type": "cex",
+    "quarantined": "2026-10-18: live funding equals Hotcoin's on 34% of 261 shared markets (88 off the clamp values)"
   },
   {
     "id": "lbank",
     "name": "LBank",
-    "type": "cex"
+    "type": "cex",
+    "quarantined": "2026-10-18: live funding equals Binance's on 20% of 481 shared markets; no open interest on any of 834 markets; volume $4.2B is 448.5x its $9.3M clean reserves"
   },
   {
     "id": "pionex",
     "name": "Pionex",
-    "type": "cex"
+    "type": "cex",
+    "quarantined": "2026-10-18: a day's volume $4.8B is 12.7x its open interest and 38.8x its $124.2M clean reserves"
   },
   {
     "id": "hyperliquid",

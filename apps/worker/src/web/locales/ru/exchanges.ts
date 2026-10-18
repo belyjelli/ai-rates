@@ -142,4 +142,9 @@ export const exchanges: Catalog = {
   Samples: "Замеры",
   "Medians of the last seven days of snapshots of {venue}'s public order book, every ten minutes; the costs are the book's, not fills. Reserves are DefiLlama's.":
     "Медианы за последние семь дней по снимкам публичного стакана {venue} каждые десять минут; затраты — по стакану, а не по исполнениям. Резервы — по данным DefiLlama.",
+  "Quarantined: left out of the default rankings. {evidence}":
+    "В карантине: не входит в рейтинги по умолчанию. {evidence}",
+  Quarantined: "В карантине",
+  "Quarantined: {venues}. Their numbers failed the venue review's checks (funding copied from another exchange, or volume and open interest far beyond what their reserves could back), so they are still collected and shown here but left out of the default Screener and Arbitrage rankings; tick them in the exchange picker to rank them.":
+    "В карантине: {venues}. Их данные не прошли проверку бирж (ставка финансирования скопирована с другой биржи или объём и открытый интерес намного больше, чем могут обеспечить их резервы), поэтому они по-прежнему собираются и показаны здесь, но не входят в рейтинги скринера и арбитража по умолчанию; чтобы включить их в рейтинг, отметьте их в выборе бирж.",
 };

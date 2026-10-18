@@ -146,4 +146,8 @@ export const exchanges: Catalog = {
   Samples: "样本数",
   "Medians of the last seven days of snapshots of {venue}'s public order book, every ten minutes; the costs are the book's, not fills. Reserves are DefiLlama's.":
     "{venue} 公开订单簿最近七天快照（每十分钟一次）的中位数；成本来自订单簿，而非实际成交。储备金数据来自 DefiLlama。",
+  "Quarantined: left out of the default rankings. {evidence}": "已隔离：不计入默认排名。{evidence}",
+  Quarantined: "已隔离",
+  "Quarantined: {venues}. Their numbers failed the venue review's checks (funding copied from another exchange, or volume and open interest far beyond what their reserves could back), so they are still collected and shown here but left out of the default Screener and Arbitrage rankings; tick them in the exchange picker to rank them.":
+    "已隔离：{venues}。它们的数据未通过交易所审查（资金费率照抄其他交易所，或成交量与持仓量远超其储备金所能支撑的规模），因此仍在采集并显示于此，但不计入资金费率筛选器与套利的默认排名；在交易所选择器中勾选即可将其纳入排名。",
 };

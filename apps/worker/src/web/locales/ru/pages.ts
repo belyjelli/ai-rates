@@ -582,4 +582,10 @@ export const pages: Catalog = {
   "What the badges mean": "Что означают метки",
   "{volume} traded in 24 hours: a price with almost no trading behind it":
     "{volume} оборота за 24 часа: цена почти без торгов",
+  "Quarantined on {date}: {evidence}. Its numbers are still collected and shown here, but it is left out of the default Screener and Arbitrage rankings until the venue review clears it.":
+    "В карантине с {date}: {evidence}. Её данные по-прежнему собираются и показаны здесь, но до снятия карантина проверкой бирж она не входит в рейтинги скринера и арбитража по умолчанию.",
+  quarantined: "в карантине",
+  "Quarantined exchanges are left out unless you tick them: their numbers are still collected, but not trusted to rank.":
+    "Биржи в карантине не учитываются, пока вы их не отметите: их данные собираются, но им не доверяют настолько, чтобы ранжировать.",
+  "Default exchanges": "Биржи по умолчанию",
 };

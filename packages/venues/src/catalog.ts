@@ -45,6 +45,15 @@ export interface Venue {
    * because `venues` rows and anything keyed on its id must keep resolving. Clear it to reinstate.
    */
   retired?: string;
+  /**
+   * When and why the venue's numbers stopped being trusted, as "YYYY-MM-DD: evidence": funding
+   * copied from another venue, volume or open interest far beyond what its reserves could back.
+   * A quarantined venue is still collected and still shown, but it is left out of the default
+   * Screener and Arbitrage rankings (pages and API); a reader adds it back by naming it in the
+   * exchange picker or `venues=`. The weekly venue review re-checks it (collector
+   * docs/venue-review-sop.md 4.4). Clear it to release the venue.
+   */
+  quarantined?: string;
   /** True when the probe URLs were checked live (2xx JSON) during research. */
   verified: boolean;
   /** Public endpoints hit by the Phase 0 geo-probe. Empty means no public REST endpoint found yet. */
@@ -291,6 +300,8 @@ const cex: Venue[] = [
     name: "Toobit",
     type: "cex",
     ccxt: "toobit",
+    quarantined:
+      "2026-10-18: relays Binance's funding (live rate identical on 35.8% of 763 shared markets off the clamp values); a day's volume $9.5B is 50.9x its open interest and 131.9x its $72.3M clean reserves",
     verified: true,
     probes: [
       get("fundingRate", "https://api.toobit.com/api/v1/futures/fundingRate?symbol=BTC-SWAP-USDT"),
@@ -301,6 +312,7 @@ const cex: Venue[] = [
     id: "hotcoin",
     name: "Hotcoin",
     type: "cex",
+    quarantined: "2026-10-18: open interest 1,243x and volume 2,157x its $1.7M clean reserves",
     verified: true,
     probes: [get("perpetual/public", "https://api-ct.hotcoin.fit/api/v1/perpetual/public")],
     notes: "Bulk (~750KB): data[] fund (rate), markPrice, indexPrice, amount24.",
@@ -310,6 +322,8 @@ const cex: Venue[] = [
     name: "WEEX",
     type: "cex",
     ccxt: "weex",
+    quarantined:
+      "2026-10-18: live funding equals Toobit's on 30% of 725 shared markets (Binance's on 30% of 766); no open interest on any of 1,040 markets against $5.8B of volume, 31.5x its clean reserves",
     verified: true,
     probes: [get("premiumIndex", "https://api-contract.weex.com/capi/v3/market/premiumIndex")],
     // Confirmed 2026-09-14: collectCycle matches each symbol's `delivery` schedule on all 1,016 rows.
@@ -320,6 +334,8 @@ const cex: Venue[] = [
     id: "coinw",
     name: "CoinW",
     type: "cex",
+    quarantined:
+      "2026-10-18: live funding equals Hotcoin's on 34% of 261 shared markets (88 off the clamp values)",
     verified: true,
     probes: [get("fundingRate", "https://api.coinw.com/v1/perpum/fundingRate?instrument=BTC")],
     notes: "Returns last settled rate; 8 req/s.",
@@ -329,6 +345,8 @@ const cex: Venue[] = [
     name: "LBank",
     type: "cex",
     ccxt: "lbank",
+    quarantined:
+      "2026-10-18: live funding equals Binance's on 20% of 481 shared markets; no open interest on any of 834 markets; volume $4.2B is 448.5x its $9.3M clean reserves",
     verified: true,
     probes: [
       get(
@@ -343,6 +361,8 @@ const cex: Venue[] = [
     id: "pionex",
     name: "Pionex",
     type: "cex",
+    quarantined:
+      "2026-10-18: a day's volume $4.8B is 12.7x its open interest and 38.8x its $124.2M clean reserves",
     verified: true,
     probes: [get("indexes", "https://api.pionex.com/api/v1/market/indexes")],
   },
@@ -561,10 +581,17 @@ const dex: Venue[] = [
     id: "txflow",
     name: "TxFlow",
     type: "dex",
-    verified: false,
-    probes: [],
+    verified: true,
+    probes: [
+      {
+        label: "perpMeta",
+        url: "https://api.txflow.com/info",
+        method: "POST",
+        body: { type: "perpMeta", dex: "" },
+      },
+    ],
     notes:
-      "Platform API 'coming soon'; api.txflow.com/info (Hyperliquid-style) returns 403 to public POSTs. Possibly WS-only.",
+      "Collected from 2026-10-18 through the proxy: Hong Kong gets 'not available in your region'. perpMeta lists 235 USDC perps; live funding, marks and open interest come from the wss://api.txflow.com/ws allAssetCtxs snapshot, 24h volume from marketTicker per instrument. Funding is in PERCENT per hour. fundingHistory answers 403, so there is no settled history.",
   },
   {
     id: "orderly",
@@ -736,3 +763,14 @@ const dex: Venue[] = [
 ];
 
 export const VENUES: readonly Venue[] = [...cex, ...dex];
+
+/** The venues the site lists: still collected (not retired), with markets of their own (not an alias). */
+export const LISTED_VENUES: readonly Venue[] = VENUES.filter((v) => !v.retired && !v.aliasOf);
+
+/**
+ * The exchanges the Screener and Arbitrage rank when the reader names none: every listed venue that
+ * is not quarantined. A quarantined venue joins only when it is named.
+ */
+export const DEFAULT_VENUE_IDS: readonly string[] = LISTED_VENUES.filter((v) => !v.quarantined).map(
+  (v) => v.id,
+);
