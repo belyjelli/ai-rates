@@ -955,6 +955,11 @@ function fed(data: MacroData, now: number): string {
     },
   ];
 
+  // Each outcome's column head carries its colour in the bar, so the bar reads without a key.
+  const outcomes = [tr("Cut &gt;25"), tr("Cut 25"), tr("Hold"), tr("Hike 25"), tr("Hike &gt;25")];
+  const outcomeHeads = outcomes
+    .map((label, i) => `<th class="num"><i class="mc-sw mc-dec-${i}"></i>${label}</th>`)
+    .join("");
   const oddsRows = path
     .map((p) => {
       const meeting = meetings.find(
@@ -969,7 +974,7 @@ function fed(data: MacroData, now: number): string {
       const bar = p.buckets
         .map((b, i) =>
           b > 0
-            ? `<span class="mc-dec mc-dec-${i}" style="width:${(b * 100).toFixed(1)}%"></span>`
+            ? `<span class="mc-dec mc-dec-${i}" style="width:${(b * 100).toFixed(1)}%" title="${outcomes[i]} ${Math.round(b * 100)}%"></span>`
             : "",
         )
         .join("");
@@ -978,7 +983,7 @@ function fed(data: MacroData, now: number): string {
     .join("");
   const oddsTable = path.length
     ? `${h3(tr("Each meeting's odds, from Kalshi"))}<div class="sheet-wrap"><table class="sheet mc-table mc-fed">
-<thead><tr><th>${tr("Meeting")}</th><th class="num">${tr("Cut &gt;25")}</th><th class="num">${tr("Cut 25")}</th><th class="num">${tr("Hold")}</th><th class="num">${tr("Hike 25")}</th><th class="num">${tr("Hike &gt;25")}</th><th></th><th class="num" title="${esc(tr("Each outcome's move times its chance, added up"))}">${tr("Expected move")}</th><th class="num" title="${esc(tr("Today's midpoint plus every expected move to this meeting"))}">${tr("Implied midpoint")}</th></tr></thead>
+<thead><tr><th>${tr("Meeting")}</th>${outcomeHeads}<th></th><th class="num" title="${esc(tr("Each outcome's move times its chance, added up"))}">${tr("Expected move")}</th><th class="num" title="${esc(tr("Today's midpoint plus every expected move to this meeting"))}">${tr("Implied midpoint")}</th></tr></thead>
 <tbody data-live="macro-fed-odds">${oddsRows}</tbody></table></div>`
     : "";
 

@@ -768,6 +768,7 @@ button.xg:hover,button.xg:focus-visible,button.xg[aria-expanded=true]{outline:1p
 .mc-p{display:block;height:8px;background:var(--accent);opacity:.75}
 .mc-stack{display:flex;width:150px;height:10px;background:var(--rule)}
 .mc-dec{display:block;height:100%}
+.mc-sw{display:inline-block;width:8px;height:8px;margin-right:5px;vertical-align:1px}
 .mc-dec-0{background:#ff9f43}.mc-dec-1{background:#ffcf9e}.mc-dec-2{background:var(--muted)}.mc-dec-3{background:#a5e6ff}.mc-dec-4{background:#5fd7ff}
 .mc-hi{color:var(--ink);font-weight:700}
 .mc-tag{font-size:10px;border:1px solid var(--muted);color:var(--muted);padding:0 3px}
