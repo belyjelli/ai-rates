@@ -16,6 +16,7 @@ import {
   type WhaleVenue,
   whaleToQuery,
 } from "../app/params";
+import { expectedMoves } from "./expected-move";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
 import { freshness, gammaZones, publisher, signedUsd, unitSymbol } from "./gamma";
 import { helpButton, helpHeading, helpPanel } from "./help";
@@ -164,7 +165,7 @@ function durationText(ms: number): string {
  * at the wrong height, so it is left out rather than drawn wrong.
  */
 const GEX_SPOT_GAP = 0.05;
-const GEX_MODES = ["off", "split", "net", "zones"] as const;
+const GEX_MODES = ["off", "split", "net", "zones", "move"] as const;
 /** The widest bar, in the plot's thousandths: the right quarter or so, clear of the candles' middle. */
 const GEX_BAR_REACH = 280;
 
@@ -188,6 +189,10 @@ function gexSwitch(): string {
     zones: [
       tr("zones"),
       tr("Net bars, with the prices shaded where dealers would be short gamma or long it"),
+    ],
+    move: [
+      tr("IV move"),
+      tr("The expected move a day ahead: one and two standard deviations either side of the price"),
     ],
   };
   const buttons = GEX_MODES.map(
@@ -251,6 +256,44 @@ function gexOverlay(
         `<rect class="${z.short ? "whx-zs" : "whx-zl"}" x="0" width="1000" y="${y(z.to).toFixed(2)}" height="${(y(z.from) - y(z.to)).toFixed(2)}"><title>${esc(z.short ? tr("short gamma") : tr("long gamma"))}</title></rect>`,
     )
     .join("");
+  // The expected move a day ahead (expected-move.ts), as bands across: the 1σ range shaded over the
+  // fainter 2σ one, each wall a line. Clipped to the chart; each wall in view labelled at the left,
+  // clear of the newest candles.
+  const day = expectedMoves({
+    expiries: gamma.expiries,
+    bands: gamma.bands,
+    spot: e.spot,
+    at: e.computed_at,
+    nextExpiry: e.next_expiry,
+  }).find((m) => m.horizon === "1d");
+  const clip = (price: number) => Math.min(hi, Math.max(lo, price));
+  const band = (from: number, to: number, cls: string) =>
+    clip(to) > clip(from)
+      ? `<rect class="${cls}" x="0" width="1000" y="${y(clip(to)).toFixed(2)}" height="${(y(clip(from)) - y(clip(to))).toFixed(2)}"></rect>`
+      : "";
+  const walls: [number, string][] = day
+    ? [
+        [day.high2, "2σ"],
+        [day.high1, "1σ"],
+        [day.low1, "1σ"],
+        [day.low2, "2σ"],
+      ]
+    : [];
+  const inView = walls.filter(([price]) => price >= lo && price <= hi);
+  const moveDrawn = day
+    ? `${band(day.low2, day.high2, "whx-em2")}${band(day.low1, day.high1, "whx-em1")}${inView
+        .map(
+          ([price]) =>
+            `<line class="whx-em" x1="0" x2="1000" y1="${y(price).toFixed(2)}" y2="${y(price).toFixed(2)}"></line>`,
+        )
+        .join("")}`
+    : "";
+  const moveLabels = inView
+    .map(
+      ([price, name]) =>
+        `<span class="whx whx-move whx-lbl whx-em-t" style="top:${(y(price) / 10).toFixed(2)}%">${name} ${formatPrice(price >= 1000 ? Math.round(price) : Number(price.toPrecision(4)))}</span>`,
+    )
+    .join("");
   // The three levels the tab names, as lines across where they fall on the chart.
   const levels: [number | null, string, string][] = [
     [e.flip_price, "whx-flip", tr("flip {price}")],
@@ -279,11 +322,11 @@ function gexOverlay(
     })
     .join("");
   const level = (price: number | null) => (price === null ? "–" : formatPrice(price));
-  const keys = `<span class="whx whx-split"><i class="whx-key-call"></i>${tr("call gamma")}</span><span class="whx whx-split"><i class="whx-key-put"></i>${tr("put gamma")}</span><span class="whx whx-net"><i class="whx-key-call"></i>${tr("Net long")}</span><span class="whx whx-net"><i class="whx-key-put"></i>${tr("Net short")}</span><span class="whx whx-zone"><i class="whx-key-zs"></i>${tr("short gamma")}</span><span class="whx whx-zone"><i class="whx-key-zl"></i>${tr("long gamma")}</span><span class="whx whx-on dim">${tr("{source} options, all expiries, {age}", { source: esc(publisher(e.source).name), age: ageText(e.computed_at, now) })} · ${tr("flip {flip} · call wall {call} · put wall {put}", { flip: level(e.flip_price), call: level(e.call_wall), put: level(e.put_wall) })}</span>`;
+  const keys = `<span class="whx whx-split"><i class="whx-key-call"></i>${tr("call gamma")}</span><span class="whx whx-split"><i class="whx-key-put"></i>${tr("put gamma")}</span><span class="whx whx-net"><i class="whx-key-call"></i>${tr("Net long")}</span><span class="whx whx-net"><i class="whx-key-put"></i>${tr("Net short")}</span><span class="whx whx-zone"><i class="whx-key-zs"></i>${tr("short gamma")}</span><span class="whx whx-zone"><i class="whx-key-zl"></i>${tr("long gamma")}</span>${day ? `<span class="whx whx-move"><i class="whx-key-em"></i>${tr("expected move, 1σ and 2σ, {horizon}", { horizon: tr("1 day ahead") })} · IV ${(day.iv * 100).toFixed(1)}%</span>` : ""}<span class="whx whx-on dim">${tr("{source} options, all expiries, {age}", { source: esc(publisher(e.source).name), age: ageText(e.computed_at, now) })} · ${tr("flip {flip} · call wall {call} · put wall {put}", { flip: level(e.flip_price), call: level(e.call_wall), put: level(e.put_wall) })}</span>`;
   return {
-    under: `<g class="whx whx-zone">${zones}</g>`,
+    under: `<g class="whx whx-zone">${zones}</g><g class="whx whx-move">${moveDrawn}</g>`,
     over: `<g class="whx whx-split">${split.join("")}</g><g class="whx whx-net">${net.join("")}</g><g class="whx whx-on">${markLines}</g>`,
-    labels,
+    labels: labels + moveLabels,
     keys,
   };
 }

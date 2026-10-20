@@ -172,4 +172,22 @@ export const gamma: Catalog = {
   "puts {usd} ({oi} open)": "看跌 {usd}（持仓 {oi}）",
   "net {usd}": "净额 {usd}",
   "if the spot were here: net {usd}": "若现货价在此：净额 {usd}",
+  "Expected price move": "预期价格波幅",
+  "1 day ahead": "未来 1 天",
+  "1 week ahead": "未来 1 周",
+  "30 days ahead": "未来 30 天",
+  "to the {date} expiry": "至 {date} 到期",
+  "IV {iv}": "IV {iv}",
+  "ATM IV": "平值 IV",
+  "Implied volatility at the expiry's forward, a year": "该到期日远期价处的隐含波动率（年化）",
+  "closed inside 1σ on {one} and 2σ on {two} of days since {year}":
+    "自 {year} 年起，{one} 的日子收于 1σ 内，{two} 收于 2σ 内",
+  "expected move, 1σ and 2σ, {horizon}": "预期波幅 1σ 与 2σ，{horizon}",
+  "spot · {source} IV": "现货价 · {source} IV",
+  "One standard deviation is the price × IV × √(days/365), from each expiry's at-the-money implied volatility (between two expiries, their total variance interpolated). The walls are one and two deviations either side of the spot. A normal distribution ends inside them 68% and 95% of the time; real prices have fatter tails, and options usually price in more movement than follows.":
+    "一个标准差 = 价格 × IV × √(天数/365)，取各到期日的平值隐含波动率（两个到期日之间按总方差插值）。墙位于现货价两侧一个和两个标准差处。正态分布有 68% 和 95% 的时间收于其内；实际价格尾部更厚，期权定价的波动通常也大于随后的实际波动。",
+  "The last line of a branch is how often it really did, from Deribit's 30-day volatility index (DVOL) and the perpetual's daily settlement: one 30-day IV for every horizon, and overlapping windows, so frequencies rather than independent trials.":
+    "每个分支的最后一行是实际发生的频率，依据 Deribit 30 天波动率指数（DVOL）与永续合约每日结算价：所有期限都用同一个 30 天 IV，且窗口相互重叠，因此是频率而非独立试验。",
+  "The expected move is the range the options have priced in: one standard deviation is the price times the at-the-money implied volatility times the square root of the days ahead over 365, and the walls sit one and two deviations either side of the spot. The chart draws them for the chosen expiries (30 days ahead for all of them); the mind map under it gives every horizon. They are not support or resistance, only the market's own estimate of how far price may travel.":
+    "预期波幅是期权已定价的区间：一个标准差等于价格乘以平值隐含波动率，再乘以（未来天数/365）的平方根；墙位于现货价两侧一个和两个标准差处。图表按所选到期范围画出（全部到期日时为未来 30 天）；其下的思维导图列出每个期限。它们不是支撑或阻力，只是市场自身对价格可能走多远的估计。",
 };

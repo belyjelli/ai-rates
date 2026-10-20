@@ -181,4 +181,23 @@ export const gamma: Catalog = {
   "puts {usd} ({oi} open)": "путы {usd} (OI {oi})",
   "net {usd}": "нетто {usd}",
   "if the spot were here: net {usd}": "если бы спот был здесь: нетто {usd}",
+  "Expected price move": "Ожидаемое движение цены",
+  "1 day ahead": "1 день вперёд",
+  "1 week ahead": "1 неделя вперёд",
+  "30 days ahead": "30 дней вперёд",
+  "to the {date} expiry": "до экспирации {date}",
+  "IV {iv}": "IV {iv}",
+  "ATM IV": "ATM IV",
+  "Implied volatility at the expiry's forward, a year":
+    "Подразумеваемая волатильность на форварде экспирации, годовая",
+  "closed inside 1σ on {one} and 2σ on {two} of days since {year}":
+    "с {year} года закрывался внутри 1σ в {one} дней и внутри 2σ в {two}",
+  "expected move, 1σ and 2σ, {horizon}": "ожидаемое движение, 1σ и 2σ, {horizon}",
+  "spot · {source} IV": "спот · IV {source}",
+  "One standard deviation is the price × IV × √(days/365), from each expiry's at-the-money implied volatility (between two expiries, their total variance interpolated). The walls are one and two deviations either side of the spot. A normal distribution ends inside them 68% and 95% of the time; real prices have fatter tails, and options usually price in more movement than follows.":
+    "Одно стандартное отклонение = цена × IV × √(дни/365), по подразумеваемой волатильности на деньгах для каждой экспирации (между двумя экспирациями интерполируется суммарная дисперсия). Стены стоят на одно и два отклонения по обе стороны от спота. Нормальное распределение заканчивается внутри них в 68% и 95% случаев; у реальных цен хвосты толще, а опционы обычно закладывают больше движения, чем происходит потом.",
+  "The last line of a branch is how often it really did, from Deribit's 30-day volatility index (DVOL) and the perpetual's daily settlement: one 30-day IV for every horizon, and overlapping windows, so frequencies rather than independent trials.":
+    "Последняя строка ветки — как часто так было на деле, по 30-дневному индексу волатильности Deribit (DVOL) и ежедневному расчёту бессрочного контракта: одна 30-дневная IV для всех горизонтов и перекрывающиеся окна, поэтому это частоты, а не независимые испытания.",
+  "The expected move is the range the options have priced in: one standard deviation is the price times the at-the-money implied volatility times the square root of the days ahead over 365, and the walls sit one and two deviations either side of the spot. The chart draws them for the chosen expiries (30 days ahead for all of them); the mind map under it gives every horizon. They are not support or resistance, only the market's own estimate of how far price may travel.":
+    "Ожидаемое движение — диапазон, заложенный в цены опционов: одно стандартное отклонение равно цене, умноженной на подразумеваемую волатильность на деньгах и на квадратный корень из числа дней вперёд, делённого на 365; стены стоят на одно и два отклонения по обе стороны от спота. График рисует их для выбранных экспираций (для всех — на 30 дней вперёд), а интеллект-карта под ним — для каждого горизонта. Это не поддержка и не сопротивление, а лишь собственная оценка рынка того, как далеко может уйти цена.",
 };

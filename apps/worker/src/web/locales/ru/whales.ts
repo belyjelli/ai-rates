@@ -140,4 +140,7 @@ export const whales: Catalog = {
   "flip {flip} · call wall {call} · put wall {put}":
     "разворот {flip} · колл-стена {call} · пут-стена {put}",
   "{source} options, all expiries, {age}": "опционы {source}, все экспирации, {age}",
+  "IV move": "IV-движение",
+  "The expected move a day ahead: one and two standard deviations either side of the price":
+    "Ожидаемое движение на день вперёд: одно и два стандартных отклонения по обе стороны от цены",
 };

@@ -16,6 +16,7 @@ import {
   heatmapToQuery,
 } from "../app/params";
 import { CHART_SKELETON_JS, lazyPlaceholder } from "./chart-skeleton";
+import { type ExpectedMove, expectedMoves, type MoveHorizon } from "./expected-move";
 import { ageText, esc, formatDuration, formatPrice, formatUsd } from "./format";
 import { helpButton, helpPanel } from "./help";
 import { msg, tr, trMsg } from "./i18n";
@@ -454,8 +455,10 @@ function gammaChart(data: {
   strikes: readonly GammaStrike[];
   curve: readonly GammaPoint[];
   scopeName: string;
+  /** The expected move at the scope's horizon (scopeHorizon), drawn as its walls; null for none. */
+  move: ExpectedMove | null;
 }): string {
-  const { currency, exposure, strikes, curve, scopeName } = data;
+  const { currency, exposure, strikes, curve, scopeName, move } = data;
   const spot = exposure.spot;
   const sym = unitSymbol(exposure.unit);
   const b = bandStrikes(strikes, spot);
@@ -514,6 +517,17 @@ function gammaChart(data: {
     price !== null && price >= b.low && price <= b.low + span
       ? `<line class="${cls}" x1="${x(price).toFixed(1)}" x2="${x(price).toFixed(1)}" y1="0" y2="1000"></line>`
       : "";
+  // The expected move's walls, one and two deviations either side of the spot, where they fall.
+  const moveLines = move
+    ? [
+        [move.low2, "gx-em2"],
+        [move.low1, "gx-em1"],
+        [move.high1, "gx-em1"],
+        [move.high2, "gx-em2"],
+      ]
+        .map(([price, cls]) => vertical(price as number, cls as string))
+        .join("")
+    : "";
   const levels = [0.25, 0.5, 0.75];
   const grid = levels
     .map((f) => `<line class="cvd-grid" x1="0" x2="1000" y1="${f * 1000}" y2="${f * 1000}"></line>`)
@@ -587,15 +601,18 @@ function gammaChart(data: {
           { pct: `${Math.round(b.range * 100)}%`, usd: formatUsd(b.beyond, sym) },
         )}</p>`
       : "";
+  const moveKey = move
+    ? `<span><i class="gx-key-em"></i>${tr("expected move, 1σ and 2σ, {horizon}", { horizon: horizonName(move) })}</span>`
+    : "";
   const flipKey =
     exposure.flip_price !== null
       ? `<span><i class="gx-key-flip"></i>${tr("flip {price}", { price: formatPrice(level(exposure.flip_price)) })}</span>`
       : "";
 
   return `<figure class="fchart cvd-chart gx-chart" data-live="gamma-chart" data-cursors>
-<div class="fchart-head"><p class="fchart-title">${tr("{currency} · {source} options · gamma exposure by strike · {scope}", { currency: esc(currency), source: esc(publisher(exposure.source).name), scope: scopeName })}</p><div class="fchart-keys"><span class="gx-v gx-v-split"><i class="gx-key-call"></i>${tr("Calls")}</span><span class="gx-v gx-v-split"><i class="gx-key-put"></i>${tr("Puts")}</span><span class="gx-v gx-v-net"><i class="gx-key-call"></i>${tr("Net long")}</span><span class="gx-v gx-v-net"><i class="gx-key-put"></i>${tr("Net short")}</span><span class="gx-v gx-v-zone"><i class="gx-key-zs"></i>${tr("short gamma")}</span><span class="gx-v gx-v-zone"><i class="gx-key-zl"></i>${tr("long gamma")}</span><span><i class="gx-key-curve"></i>${tr("Net if the spot moved there")}</span><span><i class="gx-key-spot"></i>${tr("Spot")}</span>${flipKey}${gammaViewSwitch()}${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle}</p></div>
+<div class="fchart-head"><p class="fchart-title">${tr("{currency} · {source} options · gamma exposure by strike · {scope}", { currency: esc(currency), source: esc(publisher(exposure.source).name), scope: scopeName })}</p><div class="fchart-keys"><span class="gx-v gx-v-split"><i class="gx-key-call"></i>${tr("Calls")}</span><span class="gx-v gx-v-split"><i class="gx-key-put"></i>${tr("Puts")}</span><span class="gx-v gx-v-net"><i class="gx-key-call"></i>${tr("Net long")}</span><span class="gx-v gx-v-net"><i class="gx-key-put"></i>${tr("Net short")}</span><span class="gx-v gx-v-zone"><i class="gx-key-zs"></i>${tr("short gamma")}</span><span class="gx-v gx-v-zone"><i class="gx-key-zl"></i>${tr("long gamma")}</span><span><i class="gx-key-curve"></i>${tr("Net if the spot moved there")}</span><span><i class="gx-key-spot"></i>${tr("Spot")}</span>${flipKey}${moveKey}${gammaViewSwitch()}${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle}</p></div>
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{currency} strike bands; arrow keys read one at a time", { currency: esc(currency) }))}">
-<div class="fchart-plot gx-plot" data-axes="${axes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{currency} options gamma exposure by strike", { currency: esc(currency) }))}"><g class="gx-v gx-v-zone">${zoneRects}</g>${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line><g class="gx-v gx-v-split">${bars}</g><g class="gx-v gx-v-net">${netBars}</g>${line}${vertical(exposure.flip_price, "gx-flip")}${vertical(spot, "gx-spot")}${SLOT_CURSOR}${SLOT_HAIR}</svg>${leftLabels}${rightLabels}${xLabels}${zoneLabels}</div>
+<div class="fchart-plot gx-plot" data-axes="${axes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{currency} options gamma exposure by strike", { currency: esc(currency) }))}"><g class="gx-v gx-v-zone">${zoneRects}</g>${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line><g class="gx-v gx-v-split">${bars}</g><g class="gx-v gx-v-net">${netBars}</g>${line}${moveLines}${vertical(exposure.flip_price, "gx-flip")}${vertical(spot, "gx-spot")}${SLOT_CURSOR}${SLOT_HAIR}</svg>${leftLabels}${rightLabels}${xLabels}${zoneLabels}</div>
 </div>
 ${beyond}
 ${slotData(payload)}
@@ -675,6 +692,7 @@ function expiryTable(data: {
 <td>${dayLabel(x.expiry)} <span class="dim">${x.expiry.getUTCFullYear()}</span></td>
 <td class="num dim">${leftText(x.expiry, now)}</td>
 <td class="num">${x.options}</td>
+<td class="num">${x.atm_iv === null ? '<span class="dim">–</span>' : `${(x.atm_iv * 100).toFixed(1)}%`}</td>
 <td class="num">${oi(x.call_oi)}</td>
 <td class="num">${oi(x.put_oi)}</td>
 <td class="num lq-ink-l">${signedUsd(x.call_gex_usd, sym)}</td>
@@ -686,7 +704,7 @@ function expiryTable(data: {
     .join("");
   return `<h2 class="cvd-h2 wm-h2">${tr("By expiry")}</h2>
 <div class="sheet-wrap"><table class="sheet gx-table">
-<thead><tr><th>${tr("Expiry")}</th><th class="num">${tr("Left")}</th><th class="num">${tr("Options")}</th><th class="num">${coins ? tr("Call OI ({unit})", { unit: esc(currency) }) : tr("Call OI")}</th><th class="num">${coins ? tr("Put OI ({unit})", { unit: esc(currency) }) : tr("Put OI")}</th><th class="num">${tr("Calls")}</th><th class="num">${tr("Puts")}</th><th class="num">${tr("Net")}</th><th class="num" title="${esc(tr("Of the chain's exposure, either sign counted"))}">${tr("Share")}</th></tr></thead>
+<thead><tr><th>${tr("Expiry")}</th><th class="num">${tr("Left")}</th><th class="num">${tr("Options")}</th><th class="num" title="${esc(tr("Implied volatility at the expiry's forward, a year"))}">${tr("ATM IV")}</th><th class="num">${coins ? tr("Call OI ({unit})", { unit: esc(currency) }) : tr("Call OI")}</th><th class="num">${coins ? tr("Put OI ({unit})", { unit: esc(currency) }) : tr("Put OI")}</th><th class="num">${tr("Calls")}</th><th class="num">${tr("Puts")}</th><th class="num">${tr("Net")}</th><th class="num" title="${esc(tr("Of the chain's exposure, either sign counted"))}">${tr("Share")}</th></tr></thead>
 <tbody data-live="gamma-expiries">${rows}</tbody>
 </table></div>
 <p class="notes">${
@@ -699,6 +717,88 @@ function expiryTable(data: {
           { unit: esc(exposure.unit) },
         )
   }</p>`;
+}
+
+/** The horizon the chart draws the expected move for: the scope's own, and 30 days for all expiries. */
+const SCOPE_HORIZON: Readonly<Record<GammaScope, MoveHorizon>> = {
+  next: "next",
+  "7d": "7d",
+  "30d": "30d",
+  all: "30d",
+};
+
+/** "to the 21 Oct expiry", "1 day ahead". */
+function horizonName(m: ExpectedMove): string {
+  switch (m.horizon) {
+    case "next":
+      return tr("to the {date} expiry", { date: m.expiry ? dayLabel(m.expiry) : "" });
+    case "1d":
+      return tr("1 day ahead");
+    case "7d":
+      return tr("1 week ahead");
+    case "30d":
+      return tr("30 days ahead");
+  }
+}
+
+const pctText = (fraction: number) => `${(fraction * 100).toFixed(fraction < 0.1 ? 2 : 1)}%`;
+
+/** One horizon of the mind map: its node (when and the IV) and its leaves (the move and the walls). */
+function moveBranch(m: ExpectedMove): string {
+  // Prices bare, as the tab's spot, flip and walls are: the book's own currency.
+  const price = (v: number) => formatPrice(level(v));
+  const hits = m.hits
+    ? `<li class="em-hits">${tr("closed inside 1σ on {one} and 2σ on {two} of days since {year}", {
+        one: `<b>${Math.round((100 * m.hits.inside_1s) / m.hits.samples)}%</b>`,
+        two: `<b>${Math.round((100 * m.hits.inside_2s) / m.hits.samples)}%</b>`,
+        year: m.hits.first_day.slice(0, 4),
+      })}</li>`
+    : "";
+  const when =
+    m.horizon === "next"
+      ? `${tr("Next expiry")} <span class="dim">${m.expiry ? dayLabel(m.expiry) : ""}</span>`
+      : horizonName(m);
+  return `<li class="em-branch" data-k="${m.horizon}"><div class="em-node"><span class="em-when">${when}</span><span class="em-iv">${tr("IV {iv}", { iv: pctText(m.iv) })}</span></div><ul class="em-leaves" role="list">
+<li class="em-move">±${price(m.move)} <span class="dim">±${pctText(m.pct)}</span></li>
+<li><i class="em-sw em-sw1"></i>1σ ${price(m.low1)} – ${price(m.high1)}</li>
+<li><i class="em-sw em-sw2"></i>2σ ${price(m.low2)} – ${price(m.high2)}</li>
+${hits}</ul></li>`;
+}
+
+/**
+ * The expected move as one mind map: the book and its spot at the centre, a branch per horizon
+ * (next expiry and a day ahead to the left, a week and 30 days to the right), each with its leaves --
+ * the move, the 1σ and 2σ walls and, for BTC and ETH, how often price really ended inside them.
+ * Nested lists, so it reads in order as text; the CSS draws the connectors, and folds it into one
+ * column on a phone.
+ */
+function expectedMoveMap(data: {
+  currency: string;
+  exposure: GammaExposure;
+  moves: readonly ExpectedMove[];
+}): string {
+  const { currency, exposure, moves } = data;
+  if (moves.length === 0) return "";
+  const near = moves.filter((m) => m.horizon === "next" || m.horizon === "1d");
+  const far = moves.filter((m) => m.horizon === "7d" || m.horizon === "30d");
+  const side = (list: readonly ExpectedMove[], cls: string) =>
+    list.length
+      ? `<ul class="em-side ${cls}" role="list">${list.map((m) => moveBranch(m)).join("")}</ul>`
+      : "";
+  const checked = moves.some((m) => m.hits !== null);
+  return `<section class="em" aria-labelledby="em-h">
+<h2 class="cvd-h2 wm-h2" id="em-h">${tr("Expected price move")}</h2>
+<div class="em-map${near.length ? " em-has-l" : ""}${far.length ? " em-has-r" : ""}" data-live="gamma-move"><div class="em-root"><span class="em-cur">${esc(currency)}</span><span class="em-spot">${formatPrice(exposure.spot)}</span><span class="dim">${tr("spot · {source} IV", { source: esc(publisher(exposure.source).name) })}</span></div>${side(near, "em-l")}${side(far, "em-r")}</div>
+<p class="notes">${tr(
+    "One standard deviation is the price × IV × √(days/365), from each expiry's at-the-money implied volatility (between two expiries, their total variance interpolated). The walls are one and two deviations either side of the spot. A normal distribution ends inside them 68% and 95% of the time; real prices have fatter tails, and options usually price in more movement than follows.",
+  )}${
+    checked
+      ? ` ${tr(
+          "The last line of a branch is how often it really did, from Deribit's 30-day volatility index (DVOL) and the perpetual's daily settlement: one 30-day IV for every horizon, and overlapping windows, so frequencies rather than independent trials.",
+        )}`
+      : ""
+  }</p>
+</section>`;
 }
 
 /** The address that switches the tab to other choices. */
@@ -828,6 +928,8 @@ ${helpPanel(
   )}</p><p>${tr(
     "The view switch beside the cursor draws the bars three ways: calls/puts, each strike's calls above zero and its puts below; net, the two added into one bar; and zones, the net bars with the prices shaded where the line is below zero (dealers short gamma, red) or above it (long gamma, blue).",
   )}</p><p>${tr(
+    "The expected move is the range the options have priced in: one standard deviation is the price times the at-the-money implied volatility times the square root of the days ahead over 365, and the walls sit one and two deviations either side of the spot. The chart draws them for the chosen expiries (30 days ahead for all of them); the mind map under it gives every horizon. They are not support or resistance, only the market's own estimate of how far price may travel.",
+  )}</p><p>${tr(
     "Crypto: Deribit's BTC and ETH books, which hold most listed crypto options; Bybit, OKX and Binance list far fewer and are not included. Open interest, mark volatility and each expiry's forward are Deribit's own; gamma is computed from them with Black-76, which reproduces Deribit's own delta and vega. Read every five minutes.",
   )}</p><p>${tr(
     "United States: Cboe's 15-minute delayed chains for the S&amp;P 500, Nasdaq-100 and Russell 2000 indexes and the most traded ETFs and stocks, with Cboe's own volatility and open interest, the spot taken as the forward. Read every 15 minutes through the US session; outside it the figures are the last session's.",
@@ -869,6 +971,13 @@ ${helpPanel(
       : pub.cadence === "live"
         ? `<p class="notes gx-stale">${tr("Not updated since {ago}: the latest read of {source} failed, so these figures are that old.", { ago: agoText(exposure.computed_at, now), source: esc(pub.name) })}</p>`
         : `<p class="notes gx-stale">${tr("Not updated since {ago}: nothing newer has been read from {source}, a holiday or a failed read, so these figures are that old.", { ago: agoText(exposure.computed_at, now), source: esc(pub.name) })}</p>`;
+  const moves = expectedMoves({
+    expiries: data.expiries,
+    bands: data.bands,
+    spot: exposure.spot,
+    at: exposure.computed_at,
+    nextExpiry: exposure.next_expiry,
+  });
   const chart =
     data.strikes.length === 0
       ? `<p class="empty">${tr("No strike has open interest in this range.")}</p>`
@@ -878,6 +987,7 @@ ${helpPanel(
           strikes: data.strikes,
           curve: data.curve,
           scopeName,
+          move: moves.find((m) => m.horizon === SCOPE_HORIZON[params.scope]) ?? null,
         });
   const asOf =
     pub.cadence === "live"
@@ -889,6 +999,7 @@ ${helpPanel(
 ${stale}${tiles(exposure)}
 ${chart}
 <p class="notes">${tr("Calls positive, puts negative: dealers assumed long calls and short puts, since no exchange publishes who holds which side. {source} options, {asof}.", { source: esc(pub.name), asof: `<span data-live="gamma-asof">${asOf}</span>` })}</p>
+${expectedMoveMap({ currency: data.currency, exposure, moves })}
 ${expiryTable({ currency: data.currency, exposure, expiries: data.expiries, scope: params.scope, now })}`;
 }
 

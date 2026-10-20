@@ -136,4 +136,7 @@ export const whales: Catalog = {
   "put gamma": "看跌 Gamma",
   "flip {flip} · call wall {call} · put wall {put}": "翻转点 {flip} · 看涨墙 {call} · 看跌墙 {put}",
   "{source} options, all expiries, {age}": "{source} 期权，全部到期日，{age}",
+  "IV move": "IV 波幅",
+  "The expected move a day ahead: one and two standard deviations either side of the price":
+    "未来 1 天的预期波幅：价格两侧一个和两个标准差",
 };

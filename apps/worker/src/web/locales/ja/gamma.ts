@@ -183,4 +183,23 @@ export const gamma: Catalog = {
   "puts {usd} ({oi} open)": "プット {usd}（建玉 {oi}）",
   "net {usd}": "ネット {usd}",
   "if the spot were here: net {usd}": "現物価格がここなら：ネット {usd}",
+  "Expected price move": "予想価格変動幅",
+  "1 day ahead": "1日先",
+  "1 week ahead": "1週間先",
+  "30 days ahead": "30日先",
+  "to the {date} expiry": "{date} 満期まで",
+  "IV {iv}": "IV {iv}",
+  "ATM IV": "ATM IV",
+  "Implied volatility at the expiry's forward, a year":
+    "満期のフォワード価格でのインプライド・ボラティリティ（年率）",
+  "closed inside 1σ on {one} and 2σ on {two} of days since {year}":
+    "{year} 年以降、{one} の日が 1σ 内、{two} が 2σ 内で終了",
+  "expected move, 1σ and 2σ, {horizon}": "予想変動幅 1σ・2σ、{horizon}",
+  "spot · {source} IV": "現物価格 · {source} の IV",
+  "One standard deviation is the price × IV × √(days/365), from each expiry's at-the-money implied volatility (between two expiries, their total variance interpolated). The walls are one and two deviations either side of the spot. A normal distribution ends inside them 68% and 95% of the time; real prices have fatter tails, and options usually price in more movement than follows.":
+    "1標準偏差＝価格 × IV × √(日数/365)。各満期の ATM インプライド・ボラティリティから求め、満期と満期の間は総分散を補間します。ウォールは現物価格の上下1標準偏差と2標準偏差の位置です。正規分布なら68%と95%の確率でその内側に収まりますが、実際の価格は裾が厚く、オプションは通常その後の実際の値動きより大きな変動を織り込みます。",
+  "The last line of a branch is how often it really did, from Deribit's 30-day volatility index (DVOL) and the perpetual's daily settlement: one 30-day IV for every horizon, and overlapping windows, so frequencies rather than independent trials.":
+    "各ブランチの最後の行は実際にそうなった頻度で、Deribit の30日ボラティリティ指数（DVOL）と無期限先物の日次決済価格から求めています。どの期間にも同じ30日 IV を使い、期間が重なり合うため、独立した試行ではなく頻度です。",
+  "The expected move is the range the options have priced in: one standard deviation is the price times the at-the-money implied volatility times the square root of the days ahead over 365, and the walls sit one and two deviations either side of the spot. The chart draws them for the chosen expiries (30 days ahead for all of them); the mind map under it gives every horizon. They are not support or resistance, only the market's own estimate of how far price may travel.":
+    "予想変動幅はオプションが織り込んでいる範囲です。1標準偏差は価格 × ATM インプライド・ボラティリティ × √(先の日数/365) で、ウォールは現物価格の上下1標準偏差と2標準偏差の位置にあります。チャートは選んだ満期範囲について描き（全満期では30日先）、その下のマインドマップがすべての期間を示します。サポートやレジスタンスではなく、価格がどこまで動きうるかについての市場自身の見積もりです。",
 };

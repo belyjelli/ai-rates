@@ -14,6 +14,7 @@ import type {
   CvdOptions,
   DailyFundingRow,
   DataSource,
+  GammaData,
   HeatmapCell,
   LiquidationAssetMap,
   LiquidationMap,
@@ -171,6 +172,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
       strikes: [],
       curve: [],
       expiries: [],
+      bands: [],
     }),
     whales: async () => ({
       markets: [],
@@ -3138,6 +3140,7 @@ describe("pages", () => {
               { price: 2_600, net_gex_usd: 9e6 },
             ],
             expiries: [],
+            bands: [],
           };
         },
       }).data;
@@ -5286,7 +5289,11 @@ describe("whales", () => {
       call_wall: 90_000,
       put_wall: 80_000,
     });
-    const gammaFor = (spot: number, computedAgoMs?: number) => {
+    const gammaFor = (
+      spot: number,
+      computedAgoMs?: number,
+      expiries: GammaData["expiries"] = [],
+    ) => {
       const calls: string[] = [];
       const { data } = fakeData({
         whales: async () => book,
@@ -5305,7 +5312,8 @@ describe("whales", () => {
               { price: 82_000, net_gex_usd: -2e6 },
               { price: 84_000, net_gex_usd: 5e6 },
             ],
-            expiries: [],
+            expiries,
+            bands: [],
           };
         },
       });
@@ -5327,6 +5335,35 @@ describe("whales", () => {
       expect(html).not.toContain("call wall 90,000</span>");
       expect(html).toContain("Deribit options, all expiries");
       expect(html.match(/window\.airratesWhaleGex = true/g)).toHaveLength(1);
+    });
+
+    test("a book with its IVs adds the expected move a day ahead, as bands across the candles", async () => {
+      const expiry = (ms: number, atm_iv: number) => ({
+        expiry: new Date(T + ms),
+        options: 10,
+        call_oi: 1,
+        put_oi: 1,
+        call_gex_usd: 1,
+        put_gex_usd: -1,
+        atm_iv,
+        forward: 83_000,
+      });
+      const { data } = gammaFor(83_000, undefined, [
+        expiry(20 * 3600_000, 0.05),
+        expiry(300 * 86_400_000, 0.05),
+      ]);
+      const html = await (await get("/whales", data)).text();
+      expect(html).toContain('data-whgex="move" aria-pressed="false"');
+      expect(html).toContain('<g class="whx whx-move"><rect class="whx-em2"');
+      expect(html).toContain('<rect class="whx-em1"');
+      // One flat IV: the move is 83,000 x 5% x sqrt(1/365) either side.
+      expect(html).toContain("expected move, 1σ and 2σ, 1 day ahead · IV 5.0%");
+      const move = 83_000 * 0.05 * Math.sqrt(1 / 365);
+      expect(html).toContain(`1σ ${Math.round(83_000 + move).toLocaleString("en-US")}</span>`);
+      // Without IVs (a book read before the collector kept them), the bands are left out.
+      const bare = await (await get("/whales", gammaFor(83_000).data)).text();
+      expect(bare).not.toContain('<rect class="whx-em1"');
+      expect(bare).not.toContain("expected move, 1σ and 2σ");
     });
 
     test("no switch where the book would sit wrong on the axis, is too old, or does not exist", async () => {

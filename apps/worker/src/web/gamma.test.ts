@@ -117,6 +117,8 @@ function gammaData(overrides: Partial<GammaData> = {}): GammaData {
         put_oi: 10_336,
         call_gex_usd: 21e6,
         put_gex_usd: -75.9e6,
+        atm_iv: null,
+        forward: null,
       },
       {
         expiry: new Date("2026-12-25T08:00:00Z"),
@@ -125,8 +127,11 @@ function gammaData(overrides: Partial<GammaData> = {}): GammaData {
         put_oi: 40_000,
         call_gex_usd: 90e6,
         put_gex_usd: -60e6,
+        atm_iv: null,
+        forward: null,
       },
     ],
+    bands: [],
     ...overrides,
   };
 }
@@ -335,6 +340,83 @@ describe("panel", () => {
   });
 });
 
+describe("expected move", () => {
+  // The fixture's two expiries with IVs: 23.3% to the next (17h30 ahead), 36% at Christmas.
+  const withIv = () =>
+    gammaData({
+      expiries: gammaData().expiries.map((x, i) => ({
+        ...x,
+        atm_iv: i === 0 ? 0.233 : 0.36,
+        forward: 80_000,
+      })),
+      bands: [
+        {
+          horizon_days: 1,
+          samples: 2035,
+          inside_1s: 1634,
+          inside_2s: 1960,
+          first_day: "2021-03-24",
+          last_day: "2026-10-18",
+        },
+      ],
+    });
+
+  test("one mind map: the book at the centre, a branch per horizon, the walls as leaves", () => {
+    const html = panel(withIv());
+    const map = html.slice(html.indexOf('<section class="em"'), html.indexOf("</section>"));
+    expect(map).toContain('<span class="em-cur">BTC</span>');
+    expect(map).toContain("em-has-l em-has-r");
+    expect([...map.matchAll(/class="em-branch" data-k="([a-z0-9]+)"/g)].map((m) => m[1])).toEqual([
+      "next",
+      "1d",
+      "7d",
+      "30d",
+    ]);
+    // The next expiry's IV, and its 1σ walls: 80,000 x 23.3% x sqrt(17.55h / 8760h).
+    expect(map).toContain("IV 23.3%");
+    const move =
+      80_000 *
+      0.233 *
+      Math.sqrt((Date.parse("2026-10-16T08:00:00Z") - (NOW - 3 * 60_000)) / (365 * 86_400_000));
+    expect(map).toContain(
+      `1σ ${Math.round(80_000 - move).toLocaleString("en-US")} – ${Math.round(80_000 + move).toLocaleString("en-US")}`,
+    );
+    // The band check on the day-ahead branch only.
+    expect(map.match(/class="em-hits"/g)?.length).toBe(1);
+    expect(map).toContain("closed inside 1σ on <b>80%</b> and 2σ on <b>96%</b> of days since 2021");
+  });
+
+  test("the chart draws the walls for the chosen expiries, 30 days ahead for all of them", () => {
+    const all = panel(withIv());
+    expect(all).toContain("expected move, 1σ and 2σ, 30 days ahead");
+    expect(all.match(/class="gx-em1"/g)?.length).toBe(2);
+    const next = panel(withIv(), { currency: "BTC", scope: "next" });
+    expect(next).toContain("expected move, 1σ and 2σ, to the Oct 16 expiry");
+  });
+
+  test("the expiry table gives each expiry's IV", () => {
+    const html = panel(withIv());
+    expect(html).toContain('<th class="num" title=');
+    expect(html).toContain("23.3%</td>");
+    expect(html).toContain("36.0%</td>");
+  });
+
+  test("a book read before the IVs were kept shows no map and no walls", () => {
+    const html = panel(gammaData());
+    expect(html).not.toContain('class="em"');
+    expect(html).not.toContain("gx-em1");
+    expect(html).toContain('<span class="dim">–</span></td>');
+  });
+
+  test("every language has the map's words", () => {
+    for (const locale of ["zh", "ja", "ko", "ru"] as const) {
+      const html = withLocale(locale, () => panel(withIv()));
+      expect(html).not.toContain("Expected price move");
+      expect(html).not.toContain("days ahead");
+    }
+  });
+});
+
 describe("book picker", () => {
   test("every stored book, by region and then the collector's order, each row a reading", () => {
     const html = panel(gammaData());
@@ -435,6 +517,8 @@ describe("other publishers", () => {
           put_oi: 9_000,
           call_gex_usd: 300e6,
           put_gex_usd: -500e6,
+          atm_iv: null,
+          forward: null,
         },
         {
           expiry: new Date("2026-10-29T08:00:00Z"),
@@ -443,6 +527,8 @@ describe("other publishers", () => {
           put_oi: 43_000,
           call_gex_usd: 900e6,
           put_gex_usd: -920e6,
+          atm_iv: null,
+          forward: null,
         },
       ],
       ...over,

@@ -177,4 +177,22 @@ export const gamma: Catalog = {
   "puts {usd} ({oi} open)": "풋 {usd} (미결제 {oi})",
   "net {usd}": "순액 {usd}",
   "if the spot were here: net {usd}": "현물가가 여기라면: 순액 {usd}",
+  "Expected price move": "예상 가격 변동폭",
+  "1 day ahead": "1일 후",
+  "1 week ahead": "1주 후",
+  "30 days ahead": "30일 후",
+  "to the {date} expiry": "{date} 만기까지",
+  "IV {iv}": "IV {iv}",
+  "ATM IV": "ATM IV",
+  "Implied volatility at the expiry's forward, a year": "만기 선도가격에서의 내재변동성(연율)",
+  "closed inside 1σ on {one} and 2σ on {two} of days since {year}":
+    "{year}년 이후 {one}의 날이 1σ 안, {two}가 2σ 안에서 마감",
+  "expected move, 1σ and 2σ, {horizon}": "예상 변동폭 1σ·2σ, {horizon}",
+  "spot · {source} IV": "현물가 · {source} IV",
+  "One standard deviation is the price × IV × √(days/365), from each expiry's at-the-money implied volatility (between two expiries, their total variance interpolated). The walls are one and two deviations either side of the spot. A normal distribution ends inside them 68% and 95% of the time; real prices have fatter tails, and options usually price in more movement than follows.":
+    "1표준편차 = 가격 × IV × √(일수/365)로, 각 만기의 등가격 내재변동성에서 구합니다(두 만기 사이는 총분산을 보간). 월은 현물가 위아래 1표준편차와 2표준편차 지점입니다. 정규분포라면 68%와 95%의 확률로 그 안에서 끝나지만, 실제 가격은 꼬리가 더 두껍고 옵션은 보통 이후 실제 움직임보다 큰 변동을 반영합니다.",
+  "The last line of a branch is how often it really did, from Deribit's 30-day volatility index (DVOL) and the perpetual's daily settlement: one 30-day IV for every horizon, and overlapping windows, so frequencies rather than independent trials.":
+    "각 가지의 마지막 줄은 실제로 그랬던 빈도로, Deribit 30일 변동성 지수(DVOL)와 무기한 선물의 일일 정산가에서 구했습니다. 모든 기간에 같은 30일 IV를 쓰고 구간이 겹치므로 독립 시행이 아닌 빈도입니다.",
+  "The expected move is the range the options have priced in: one standard deviation is the price times the at-the-money implied volatility times the square root of the days ahead over 365, and the walls sit one and two deviations either side of the spot. The chart draws them for the chosen expiries (30 days ahead for all of them); the mind map under it gives every horizon. They are not support or resistance, only the market's own estimate of how far price may travel.":
+    "예상 변동폭은 옵션이 반영한 범위입니다. 1표준편차는 가격 × 등가격 내재변동성 × √(앞으로의 일수/365)이고, 월은 현물가 위아래 1표준편차와 2표준편차에 있습니다. 차트는 선택한 만기 범위에 대해 그리며(전체 만기는 30일 후), 그 아래 마인드맵이 모든 기간을 보여 줍니다. 지지선이나 저항선이 아니라, 가격이 얼마나 움직일 수 있는지에 대한 시장 자체의 추정입니다.",
 };

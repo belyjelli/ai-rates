@@ -949,6 +949,27 @@ export interface GammaExpiry {
   put_oi: number;
   call_gex_usd: number;
   put_gex_usd: number;
+  /**
+   * The implied volatility at the expiry's forward, a fraction, and the forward (collector migration
+   * 044): the expected move's input. Null where the book has no strike near the forward.
+   */
+  atm_iv: number | null;
+  forward: number | null;
+}
+
+/**
+ * How often the close `horizon_days` later lay inside one and two standard deviations of the move
+ * Deribit's 30-day volatility index priced, over `samples` days from `first_day` (migration 044).
+ * BTC and ETH only.
+ */
+export interface GammaBandHit {
+  horizon_days: number;
+  samples: number;
+  inside_1s: number;
+  inside_2s: number;
+  /** YYYY-MM-DD. */
+  first_day: string;
+  last_day: string;
 }
 
 /** One stored book's headline, every scope's "all", for the tab's picker. */
@@ -975,6 +996,8 @@ export interface GammaData {
   strikes: GammaStrike[];
   curve: GammaPoint[];
   expiries: GammaExpiry[];
+  /** The band check for the book, by horizon; empty for a book it does not cover. */
+  bands: GammaBandHit[];
 }
 
 export interface WhaleData {
@@ -2458,7 +2481,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
     async gamma({ currency, scope }) {
       const sql = connect();
-      const [books, scopes, strikes, curve, expiries] = await Promise.all([
+      const [books, scopes, strikes, curve, expiries, bands] = await Promise.all([
         sql<GammaBook[]>`
           SELECT currency, source, unit, computed_at, spot, call_gex_usd, put_gex_usd, net_gex_usd,
                  flip_price
@@ -2482,10 +2505,16 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           WHERE currency = ${currency} AND scope = ${scope}
           ORDER BY step`,
         sql<GammaExpiry[]>`
-          SELECT expiry, options, call_oi, put_oi, call_gex_usd, put_gex_usd
+          SELECT expiry, options, call_oi, put_oi, call_gex_usd, put_gex_usd, atm_iv, forward
           FROM gamma_expiries
           WHERE currency = ${currency}
           ORDER BY expiry`,
+        sql<GammaBandHit[]>`
+          SELECT horizon_days, samples, inside_1s, inside_2s, first_day::text AS first_day,
+                 last_day::text AS last_day
+          FROM gamma_band_hits
+          WHERE currency = ${currency}
+          ORDER BY horizon_days`,
       ]);
       return {
         currency,
@@ -2495,6 +2524,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         strikes: [...strikes],
         curve: [...curve],
         expiries: [...expiries],
+        bands: [...bands],
       };
     },
 

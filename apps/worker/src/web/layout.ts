@@ -167,7 +167,7 @@ const SORT_DOWN = iconMask("down");
 
 const CSS = `
 :root{--mast:45px;--bg:#000;--band:#0e0e0e;--panel:#0a0a0a;--ink:#d8d8d8;--muted:#7a7a7a;--dim:#494949;--rule:#242424;
---long:#5f87ff;--short:#ff5f5f;--zero:#494949;--accent:#c8f5a8;--warn:#e5e500;
+--long:#5f87ff;--short:#ff5f5f;--zero:#494949;--accent:#c8f5a8;--warn:#e5e500;--em:#b69cff;
 --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
 --display:var(--mono);--body:var(--mono);--data:var(--mono)}
 *{box-sizing:border-box;border-radius:0}
@@ -593,7 +593,14 @@ line.wh-bid{stroke:var(--long)}line.wh-ask{stroke:var(--short)}
 /* The whale chart's GEX switch (whales.ts gexOverlay): each part hidden unless <html> carries its mode,
    so a shown part keeps its own display (the key's swatches are flex). "on" parts (the levels, the
    source note) show in every mode; zones also show the net bars. Without the script, none show. */
-html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whgex=zones]) .whx-net,html:not([data-whgex=zones]) .whx-zone,html:not([data-whgex=split]):not([data-whgex=net]):not([data-whgex=zones]) .whx-on{display:none!important}
+html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whgex=zones]) .whx-net,html:not([data-whgex=zones]) .whx-zone,html:not([data-whgex=move]) .whx-move,html:not([data-whgex=split]):not([data-whgex=net]):not([data-whgex=zones]):not([data-whgex=move]) .whx-on{display:none!important}
+/* "move": the expected move a day ahead (expected-move.ts), 1σ shaded over 2σ, in the options' own
+   violet; the flip and the walls stay on, so the walls dealers' gamma makes sit beside the ones IV
+   prices in. */
+.whx-em1{fill:var(--em);opacity:.12}.whx-em2{fill:var(--em);opacity:.06}
+.whx-em{stroke:var(--em);stroke-width:1;stroke-dasharray:2 3;vector-effect:non-scaling-stroke}
+.whx-em-t{color:var(--em)}
+.wh-chart .fchart-keys i.whx-key-em{background:var(--em);opacity:.35}
 .whx-call{fill:var(--long);opacity:.5}.whx-put{fill:var(--short);opacity:.5}
 .whx-zs{fill:var(--short);opacity:.1}.whx-zl{fill:var(--long);opacity:.07}
 .whx-flip,.whx-cw,.whx-pw{stroke-width:1;stroke-dasharray:6 4;vector-effect:non-scaling-stroke}
@@ -697,6 +704,57 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
 /* The view switch (gamma.ts): the page opens on calls/puts, and only ever hides what a view leaves out. */
 html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gxview=zones]) .gx-v-zone,html[data-gxview=net] .gx-v-split,html[data-gxview=zones] .gx-v-split{display:none}
 .gx-zone-short{fill:var(--short);opacity:.13}.gx-zone-long{fill:var(--long);opacity:.09}
+/* The expected move (gamma.ts, expected-move.ts) in violet: on the chart, the 1σ walls solid and the
+   2σ walls dashed; under it, one mind map -- the book at the centre, a branch per horizon, its leaves
+   the move and the walls. Each list item draws its own stub and its share of the spine, so items of
+   any height join up. Under 980px it folds into one column, an outline with the spine on the left. */
+.gx-em1{stroke:var(--em);stroke-width:1.2;vector-effect:non-scaling-stroke}
+.gx-em2{stroke:var(--em);stroke-width:1;stroke-dasharray:3 4;opacity:.7;vector-effect:non-scaling-stroke}
+.gx-chart .fchart-keys i.gx-key-em{height:0;border-top:1px solid var(--em)}
+.em-map{display:flex;align-items:center;justify-content:center;margin:10px 0 6px;font-size:12px;line-height:1.35}
+.em-map ul{list-style:none;margin:0;padding:0}
+.em-root{order:2;flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 16px;border:1px solid var(--em);position:relative;margin:0 22px;text-align:center}
+.em-cur{font-weight:700;color:var(--ink);font-size:14px}.em-spot{font-size:16px;color:var(--ink)}
+.em-l{order:1}.em-r{order:3}
+.em-has-l .em-root::before,.em-has-r .em-root::after{content:"";position:absolute;top:50%;width:22px;border-top:1px solid var(--em)}
+.em-root::before{right:100%}.em-root::after{left:100%}
+.em-side>li{position:relative;display:flex;align-items:center;padding:6px 0}
+.em-r>li{padding-left:22px}.em-l>li{padding-right:22px;flex-direction:row-reverse;text-align:right}
+.em-side>li::before{content:"";position:absolute;top:50%;width:22px;border-top:1px solid var(--em)}
+.em-side>li::after{content:"";position:absolute;top:0;bottom:0;border-left:1px solid var(--em)}
+.em-r>li::before,.em-r>li::after{left:0}.em-l>li::before,.em-l>li::after{right:0}
+.em-side>li:first-child::after{top:50%}.em-side>li:last-child::after{bottom:50%}.em-side>li:only-child::after{display:none}
+.em-node{flex:none;display:flex;flex-direction:column;gap:1px;padding:5px 9px;border:1px solid var(--rule);background:var(--panel);position:relative}
+.em-when{color:var(--ink);white-space:nowrap}.em-iv{color:var(--em)}
+.em-r .em-node{margin-right:18px}.em-l .em-node{margin-left:18px}
+.em-node::after{content:"";position:absolute;top:50%;width:18px;border-top:1px solid var(--rule)}
+.em-r .em-node::after{left:100%}.em-l .em-node::after{right:100%}
+.em-leaves>li{position:relative;padding:2px 0;white-space:nowrap;color:var(--ink)}
+.em-r .em-leaves>li{padding-left:14px}.em-l .em-leaves>li{padding-right:14px}
+.em-leaves>li::before{content:"";position:absolute;top:50%;width:10px;border-top:1px solid var(--rule)}
+.em-leaves>li::after{content:"";position:absolute;top:0;bottom:0;border-left:1px solid var(--rule)}
+.em-r .em-leaves>li::before,.em-r .em-leaves>li::after{left:0}.em-l .em-leaves>li::before,.em-l .em-leaves>li::after{right:0}
+.em-leaves>li:first-child::after{top:50%}.em-leaves>li:last-child::after{bottom:50%}
+.em-sw{display:inline-block;width:12px;height:0;border-top:1px solid var(--em);vertical-align:middle;margin:0 5px}
+.em-sw2{border-top-style:dashed;opacity:.7}
+.em-hits{color:var(--muted);white-space:normal!important;max-width:240px}.em-hits b{color:var(--ink);font-weight:500}
+@media (max-width:980px){
+.em-map{flex-direction:column;align-items:flex-start}
+.em-root{order:0;margin:0;align-items:flex-start;text-align:left}
+.em-has-l .em-root::before,.em-root::after{display:none}
+.em-l,.em-r{order:1;margin-left:16px}
+.em-side>li,.em-l>li{flex-direction:column;align-items:flex-start;text-align:left;padding:6px 0 6px 22px}
+.em-l>li::before,.em-l>li::after{right:auto;left:0}
+.em-side>li::before{top:28px}
+.em-side>li::after,.em-side>li:first-child::after,.em-side>li:last-child::after{top:0;bottom:0;height:auto}
+.em-r>li:last-child::after,.em-map:not(.em-has-r) .em-l>li:last-child::after{bottom:auto;height:28px}
+.em-r .em-node,.em-l .em-node{margin:0}
+.em-node::after{display:none}
+.em-leaves{margin:4px 0 0 12px}
+.em-r .em-leaves>li,.em-l .em-leaves>li{padding:2px 0 2px 14px}
+.em-l .em-leaves>li::before,.em-l .em-leaves>li::after{right:auto;left:0}
+.em-leaves>li:first-child::after{top:0}
+}
 /* The Exchanges page (exchanges.ts): a grade badge per venue, and cells that carry a second line --
    the fee under the cost, the $100k slippage under the $10k. */
 .xg{display:inline-block;min-width:20px;padding:1px 4px;text-align:center;font-weight:700;border:1px solid currentColor;line-height:1.2}

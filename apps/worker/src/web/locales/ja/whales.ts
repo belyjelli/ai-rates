@@ -139,4 +139,7 @@ export const whales: Catalog = {
   "flip {flip} · call wall {call} · put wall {put}":
     "フリップ {flip} · コールウォール {call} · プットウォール {put}",
   "{source} options, all expiries, {age}": "{source} のオプション、全満期、{age}",
+  "IV move": "IV 変動幅",
+  "The expected move a day ahead: one and two standard deviations either side of the price":
+    "1日先の予想変動幅：価格の上下1標準偏差と2標準偏差",
 };

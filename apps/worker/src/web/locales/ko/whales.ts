@@ -137,4 +137,7 @@ export const whales: Catalog = {
   "put gamma": "풋 감마",
   "flip {flip} · call wall {call} · put wall {put}": "플립 {flip} · 콜 월 {call} · 풋 월 {put}",
   "{source} options, all expiries, {age}": "{source} 옵션, 전체 만기, {age}",
+  "IV move": "IV 변동폭",
+  "The expected move a day ahead: one and two standard deviations either side of the price":
+    "1일 후 예상 변동폭: 가격 위아래 1표준편차와 2표준편차",
 };
