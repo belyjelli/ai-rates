@@ -178,7 +178,7 @@ function sideCard(input: {
   const list = mine
     .map((r) => {
       const gap = r.price - spot;
-      return `<li${r.zone ? ' class="cz-in"' : ""}><b class="${r.cls}">${r.name}</b><span class="num">${price(r.price)}</span><span class="num dim">${points(gap, spot)}</span><span class="num dim">${sigmas(gap, move1)}</span></li>`;
+      return `<li${r.zone ? ' class="cz-in"' : ""}><b class="${r.cls}"><i class="cz-sw ${r.cls}" aria-hidden="true"></i>${r.name}</b><span class="num">${price(r.price)}</span><span class="num dim">${points(gap, spot)}</span><span class="num dim">${sigmas(gap, move1)}</span></li>`;
     })
     .join("");
   return `<div class="cz-side"><p class="eyebrow">${side === 1 ? tr("Above the spot") : tr("Below the spot")}</p>${head}${
@@ -188,8 +188,8 @@ function sideCard(input: {
 
 /**
  * The rail: the levels across one horizontal price axis, the zones shaded, the spot marked. Only the
- * spot and the zones are labelled; the side cards under it name every level. Hidden from screen
- * readers, which read the cards.
+ * spot and the zones are labelled; the side cards under it name every level, each with its line's
+ * mark, and a key under the rail names the shading. Hidden from screen readers, which read the cards.
  */
 function rail(
   l: Levels,
@@ -235,7 +235,17 @@ function rail(
     flip && (flip.price < lo || flip.price > hi)
       ? `<span class="cz-edge ${flip.price < lo ? "cz-edge-l" : "cz-edge-r"}">${flip.price < lo ? "← " : ""}${tr("flip {price}", { price: price(flip.price) })}${flip.price > hi ? " →" : ""}</span>`
       : "";
-  return `<div class="cz-rail" aria-hidden="true">${bands}${zoneBoxes}${ticks}<i class="cz-spot" style="left:${x(spot).toFixed(2)}%"></i><span class="cz-spot-t" style="left:${x(spot).toFixed(2)}%">${tr("spot {price}", { price: price(spot) })}</span>${edge}</div>`;
+  return `<div class="cz-rail" aria-hidden="true">${bands}${zoneBoxes}${ticks}<i class="cz-spot" style="left:${x(spot).toFixed(2)}%"></i><span class="cz-spot-t" style="left:${x(spot).toFixed(2)}%">${tr("spot {price}", { price: price(spot) })}</span>${edge}</div>
+<p class="cz-key" aria-hidden="true">${[
+    l.lower1 !== null && l.upper1 !== null
+      ? `<span><i class="cz-k-iv"></i>${tr("between the IV walls")}</span>`
+      : "",
+    l.lower90 !== null && l.upper90 !== null
+      ? `<span><i class="cz-k-90"></i>${tr("between the 90% walls")}</span>`
+      : "",
+    zones.length ? `<span><i class="cz-k-hot"></i>${tr("reaction zone, today")}</span>` : "",
+    `<span>${tr("each line's mark is beside its name below")}</span>`,
+  ].join("")}</p>`;
 }
 
 /** The regime in one line: whose hedging damps moves and whose adds to them, and where it flips. */

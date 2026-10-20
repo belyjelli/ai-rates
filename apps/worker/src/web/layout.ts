@@ -826,10 +826,17 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .cz-band{position:absolute;top:0;bottom:0;display:block}.cz-band-iv{background:rgba(182,156,255,.13)}.cz-band-90{background:rgba(182,156,255,.05)}
 .cz-hot{position:absolute;top:-4px;bottom:-4px;display:block;background:rgba(200,245,168,.22);outline:1px solid var(--accent);z-index:1}
 .cz-hot-t{position:absolute;bottom:-20px;transform:translateX(-50%);font-size:10px;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:.06em}
-.cz-tick{position:absolute;top:6px;bottom:6px;width:0;border-left:2px solid var(--muted);transform:translateX(-1px);z-index:2}
-.cz-tick.cz-iv{border-left:2px solid var(--em)}.cz-tick.cz-90{border-left:2px dashed var(--em)}
-.cz-tick.cz-gc{border-left:3px solid var(--long)}.cz-tick.cz-gf{border-left:3px solid var(--short)}
-.cz-tick.cz-be{border-left:2px dashed #ff9f43}.cz-tick.cz-flip{top:0;bottom:0;border-left:1px dashed var(--warn)}
+.cz-tick{position:absolute;top:6px;bottom:6px;transform:translateX(-50%);z-index:2}
+.cz-sw{display:inline-block;height:14px;margin-right:8px;vertical-align:-3px}
+/* Each level's mark, on the rail and beside its name: drawn, not bordered, so a dash reads as one at any height. */
+:is(.cz-tick,.cz-sw){width:2px;background:var(--muted)}
+:is(.cz-tick,.cz-sw).cz-iv{background:var(--em)}
+:is(.cz-tick,.cz-sw).cz-90{background:repeating-linear-gradient(to bottom,var(--em) 0 3px,transparent 3px 6px)}
+:is(.cz-tick,.cz-sw).cz-gc{width:3px;background:var(--long)}:is(.cz-tick,.cz-sw).cz-gf{width:3px;background:var(--short)}
+:is(.cz-tick,.cz-sw).cz-be{background:repeating-linear-gradient(to bottom,#ff9f43 0 3px,transparent 3px 6px)}
+:is(.cz-tick,.cz-sw).cz-flip{width:1px;background:repeating-linear-gradient(to bottom,var(--warn) 0 2px,transparent 2px 4px)}.cz-tick.cz-flip{top:0;bottom:0}
+.cz-key{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 12px;font-size:11px;color:var(--muted)}.cz-key span{display:flex;align-items:center;gap:6px}
+.cz-key i{display:inline-block;width:14px;height:10px}.cz-k-iv{background:rgba(182,156,255,.3)}.cz-k-90{background:rgba(182,156,255,.12)}.cz-k-hot{background:rgba(200,245,168,.22);outline:1px solid var(--accent)}
 .cz-spot{position:absolute;top:-8px;bottom:-8px;width:0;border-left:2px solid var(--ink);z-index:3}
 .cz-spot-t{position:absolute;top:-24px;transform:translateX(-50%);font-size:11px;color:var(--ink);white-space:nowrap;background:var(--panel);padding:0 4px;z-index:3}
 .cz-edge{position:absolute;bottom:-20px;font-size:10px;color:var(--warn);white-space:nowrap}.cz-edge-l{left:0}.cz-edge-r{right:0}

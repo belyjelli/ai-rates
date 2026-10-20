@@ -447,4 +447,7 @@ export const gamma: Catalog = {
   "the day's 1σ move": "当日的 1σ 波动",
   "Reaction zones": "反应区",
   "σ is {unit}, {move}": "σ 为{unit}，{move}",
+  "between the IV walls": "IV 墙之间",
+  "between the 90% walls": "90% 墙之间",
+  "each line's mark is beside its name below": "每条线的样式标在下方名称旁",
 };

@@ -463,4 +463,7 @@ export const gamma: Catalog = {
   "the day's 1σ move": "1日の 1σ 変動",
   "Reaction zones": "反応ゾーン",
   "σ is {unit}, {move}": "σ は{unit}、{move}",
+  "between the IV walls": "IV ウォールの間",
+  "between the 90% walls": "90% ウォールの間",
+  "each line's mark is beside its name below": "各線の形は下の名前の横に表示",
 };

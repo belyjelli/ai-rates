@@ -454,4 +454,7 @@ export const gamma: Catalog = {
   "the day's 1σ move": "하루의 1σ 변동",
   "Reaction zones": "반응 구간",
   "σ is {unit}, {move}": "σ는 {unit}, {move}",
+  "between the IV walls": "IV 월 사이",
+  "between the 90% walls": "90% 월 사이",
+  "each line's mark is beside its name below": "각 선의 모양은 아래 이름 옆에 표시",
 };

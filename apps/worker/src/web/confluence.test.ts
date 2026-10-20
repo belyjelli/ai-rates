@@ -122,7 +122,9 @@ describe("reaction strip", () => {
     // The upper IV wall, 82,562, is under the spot once price has run past it.
     expect(below.indexOf("82,562")).toBeGreaterThan(-1);
     expect(below.indexOf("82,562")).toBeLessThan(below.indexOf("81,500"));
-    expect(below).toContain('<b class="cz-flip">gamma flip</b><span class="num">79,728</span>');
+    expect(below).toContain(
+      '<b class="cz-flip"><i class="cz-sw cz-flip" aria-hidden="true"></i>gamma flip</b><span class="num">79,728</span>',
+    );
   });
 
   test("says the regime and quotes the measured record, not 90%", () => {
