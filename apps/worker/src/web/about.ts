@@ -40,6 +40,16 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-10-20",
+    title: "The expected move on the Gamma Exposure tab",
+    changes: [
+      "Under the gamma chart, every option book has an expected-move map: the spot at the centre and, for the next expiry and a day, a week and 30 days ahead, the at-the-money implied volatility, the move it prices in (one standard deviation is the price × IV × √(days/365)), and the walls one and two deviations either side of the spot.",
+      "For BTC and ETH, each branch also says how often price really closed inside those walls since March 2021, from Deribit's 30-day volatility index: BTC stayed inside one deviation on 80% of days a day ahead, against 68% in theory, yet broke the two-deviation walls on 7.5% of 30-day windows, against 4.6%.",
+      "The gamma chart draws the walls for the chosen expiries (30 days ahead for all of them), and the by-expiry table gives each expiry's at-the-money IV.",
+      "On Whale orders, the GEX switch has a fifth view, IV move: the day-ahead one- and two-deviation ranges shaded across the candles, beside the flip and the call and put walls.",
+    ],
+  },
+  {
     date: "2026-10-18",
     title: "Six exchanges quarantined, and TxFlow joins",
     changes: [
