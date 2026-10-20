@@ -527,6 +527,181 @@ function levelTable(rows: readonly [string, number | null, string][], ref: numbe
   return `<div class="sheet-wrap"><table class="sheet lv-table"><thead><tr><th>${tr("Level")}</th><th class="num">${tr("Price")}</th><th class="num">${tr("From the reference")}</th><th></th></tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
+/** One level across the timeline: a value per day, oldest first, null where the day holds none. */
+interface Step {
+  cls: string;
+  values: readonly (number | null)[];
+}
+
+/** A range shaded across the timeline, a pair of values per day. */
+interface Shade {
+  cls: string;
+  lo: readonly (number | null)[];
+  hi: readonly (number | null)[];
+}
+
+/**
+ * THE DAY TIMELINE (2026-10-21, the owner's ask): the levels day by day over each day's candle, so a
+ * reader sees how often they move. The ladder above shows one day; every level on it is fixed by its
+ * day's first read (or its week's), so here each one is a step: flat across its day, moving only at
+ * the next. One slot per stored day, at most LEVEL_DAYS, the newest at the right.
+ *
+ * SVG on the whale chart's conventions (whales.ts): the candles in ink, rising hollow and falling
+ * filled, so the coloured levels read first; the price axis takes in the candles and every level
+ * drawn, since the levels are the subject. Each day's figures are in a native title over its slot.
+ * `weeks` draws a dotted rule where a week's expiry falls between two days: where a week view's
+ * levels step, and where a day view's nearest expiry rolls past a weekly one.
+ */
+function timeline(input: {
+  title: string;
+  keys: string;
+  live: string;
+  days: readonly GammaWallDay[];
+  shades: readonly Shade[];
+  steps: readonly Step[];
+  weeks: boolean;
+  tip: (r: GammaWallDay, i: number) => string;
+}): string {
+  const { days } = input;
+  const n = days.length;
+  const candle = (r: GammaWallDay) =>
+    r.day_high === null || r.day_low === null || r.last_price === null
+      ? null
+      : {
+          open: r.day_open ?? r.ref_price,
+          high: r.day_high,
+          low: r.day_low,
+          close: r.last_price,
+        };
+  const prices = [
+    ...days.flatMap((r) => {
+      const c = candle(r);
+      return c ? [c.high, c.low] : [];
+    }),
+    ...input.steps.flatMap((s) => s.values),
+    ...input.shades.flatMap((s) => [...s.lo, ...s.hi]),
+  ].filter((v): v is number => v !== null && v > 0);
+  if (n === 0 || prices.length === 0) return "";
+  const top = Math.max(...prices);
+  const bottom = Math.min(...prices);
+  const pad = Math.max((top - bottom) * 0.06, (days.at(-1) as GammaWallDay).ref_price * 0.002);
+  const hi = top + pad;
+  const lo = bottom - pad;
+  const y = (v: number) => 1000 - ((v - lo) / (hi - lo)) * 1000;
+  const slot = 1000 / n;
+  const sx = (i: number) => (i * slot).toFixed(2);
+
+  const shades = input.shades
+    .flatMap((s) =>
+      days.map((_, i) => {
+        const a = s.lo[i] ?? null;
+        const b = s.hi[i] ?? null;
+        if (a === null || b === null || !(b > a)) return "";
+        return `<rect class="${s.cls}" x="${sx(i)}" width="${slot.toFixed(2)}" y="${y(b).toFixed(2)}" height="${(y(a) - y(b)).toFixed(2)}"></rect>`;
+      }),
+    )
+    .join("");
+  // Each level as one path: flat across a day, a vertical join to the next day's value, lifted
+  // where a day has none so a gap is not drawn as a level.
+  const steps = input.steps
+    .map((s) => {
+      let d = "";
+      let down = false;
+      for (let i = 0; i < n; i++) {
+        const v = s.values[i] ?? null;
+        if (v === null) {
+          down = false;
+          continue;
+        }
+        d += `${down ? "V" : `M${sx(i)} `}${y(v).toFixed(2)}H${sx(i + 1)}`;
+        down = true;
+      }
+      return d ? `<path class="lv-tl ${s.cls}" d="${d}"></path>` : "";
+    })
+    .join("");
+  const weeks = input.weeks
+    ? days
+        .map((r, i) => {
+          const prev = days[i - 1];
+          if (!prev || weekKey(prev.day, prev.source) === weekKey(r.day, r.source)) return "";
+          return `<line class="lv-tl-wk" x1="${sx(i)}" x2="${sx(i)}" y1="0" y2="1000"></line>`;
+        })
+        .join("")
+    : "";
+  const candles = days
+    .map((r, i) => {
+      const c = candle(r);
+      if (c === null) return "";
+      const cx = ((i + 0.5) * slot).toFixed(2);
+      const up = c.close >= c.open;
+      const bodyTop = y(Math.max(c.open, c.close));
+      const height = Math.max(Math.abs(y(c.open) - y(c.close)), 1.5);
+      return `<line class="wh-wick" x1="${cx}" x2="${cx}" y1="${y(c.high).toFixed(2)}" y2="${y(c.low).toFixed(2)}"></line><rect class="${up ? "wh-up" : "wh-down"}" x="${((i + 0.5) * slot - Math.min(slot * 0.3, 14)).toFixed(2)}" y="${bodyTop.toFixed(2)}" width="${Math.min(slot * 0.6, 28).toFixed(2)}" height="${height.toFixed(2)}"></rect>`;
+    })
+    .join("");
+  // Over everything, one slot per day carrying that day's figures.
+  const hits = days
+    .map(
+      (r, i) =>
+        `<rect class="lv-tl-hit" x="${sx(i)}" y="0" width="${slot.toFixed(2)}" height="1000"><title>${esc(input.tip(r, i))}</title></rect>`,
+    )
+    .join("");
+
+  const gridLines = [0.1, 0.37, 0.63, 0.9];
+  const grid = gridLines
+    .map((f) => `<line class="cvd-grid" x1="0" x2="1000" y1="${f * 1000}" y2="${f * 1000}"></line>`)
+    .join("");
+  const leftLabels = gridLines
+    .map(
+      (f) =>
+        `<span class="cvd-yl" style="top:${(f * 100).toFixed(2)}%">${formatPrice(Number((hi - f * (hi - lo)).toPrecision(5)))}</span>`,
+    )
+    .join("");
+  // The newest day's value of each level at the right edge, in its colour; one that would sit on
+  // a label already placed is left to the key and the tooltip.
+  const placed: number[] = [];
+  const rightLabels = input.steps
+    .map((s) => {
+      const v = s.values[n - 1] ?? null;
+      if (v === null) return "";
+      const at = y(v) / 10;
+      if (placed.some((p) => Math.abs(p - at) < 4.5)) return "";
+      placed.push(at);
+      return `<span class="cvd-yr ${s.cls.split(" ")[0]}-t" style="top:${at.toFixed(2)}%"><b>${price(v)}</b></span>`;
+    })
+    .join("");
+  // Day labels counted back from the newest, so the newest is always named and the gaps are even.
+  const every = Math.max(1, Math.ceil(n / 8));
+  const xLabels = days
+    .map((r, i) => {
+      const back = n - 1 - i;
+      if (back % every !== 0) return "";
+      return `<span class="cvd-x${(back / every) % 2 ? " x-alt" : ""}" style="left:${(((i + 0.5) / n) * 100).toFixed(2)}%">${recordDay(r.day)}</span>`;
+    })
+    .join("");
+  const plain = input.title.replace(/<[^>]+>/g, "");
+  return `<figure class="fchart cvd-chart lv-chart lv-tl-chart" data-live="${input.live}">
+<div class="fchart-head"><p class="fchart-title">${input.title}</p>${input.keys}</div>
+<div class="fchart-plot lv-tl-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(plain)}">${shades}${grid}${weeks}${steps}${candles}${hits}</svg>${leftLabels}${rightLabels}${xLabels}</div>
+</figure>`;
+}
+
+/** A day's candle in words, for its slot's title; "no trade yet today" for a day not yet traded. */
+function candleWords(r: GammaWallDay): string {
+  if (r.day_high === null || r.day_low === null || r.last_price === null) {
+    return tr("no trade yet today");
+  }
+  return tr("open {open} · high {high} · low {low} · close {close}", {
+    open: price(r.day_open ?? r.ref_price),
+    high: price(r.day_high),
+    low: price(r.day_low),
+    close: price(r.last_price),
+  });
+}
+
+const timelineKeys = (keys: string) =>
+  `<div class="fchart-keys"><span><i class="lv-key-candle"></i>${tr("daily candle")}</span>${keys}</div>`;
+
 /** "Oct 20, from 08:00 UTC" for a Deribit day, "Oct 20 session" for a US one, or the next session. */
 function dayName(l: Levels): string {
   if (l.day === null) return tr("the next session");
@@ -728,6 +903,42 @@ ${levelTable(
   ],
   l.ref,
 )}`;
+  const series = [...data.days].reverse();
+  const dayWalls = series.map((r) => walls(r.ref_price, r.iv_day, r.k90, r.hist_sigma));
+  const drawn = timeline({
+    title: tr("{currency} · {source} options · IV walls day by day", {
+      currency: book,
+      source: esc(publisher(l.source).name),
+    }),
+    keys: timelineKeys(
+      `<span><i class="lv-key-iv"></i>${tr("IV wall, 1σ")}</span><span><i class="lv-key-90"></i>${tr("90% wall")}</span>`,
+    ),
+    live: "ivwalls-timeline",
+    days: series,
+    shades: [
+      {
+        cls: "lv-tl-b-90",
+        lo: dayWalls.map((w) => w.lower90),
+        hi: dayWalls.map((w) => w.upper90),
+      },
+      { cls: "lv-tl-b-iv", lo: dayWalls.map((w) => w.lower1), hi: dayWalls.map((w) => w.upper1) },
+    ],
+    steps: [
+      { cls: "lv-iv", values: dayWalls.map((w) => w.upper1) },
+      { cls: "lv-iv", values: dayWalls.map((w) => w.lower1) },
+      { cls: "lv-90", values: dayWalls.map((w) => w.upper90) },
+      { cls: "lv-90", values: dayWalls.map((w) => w.lower90) },
+    ],
+    weeks: false,
+    tip: (r, i) => {
+      const w = dayWalls[i] as ReturnType<typeof walls>;
+      return `${recordDay(r.day)} · ${candleWords(r)} · ${tr("IV wall")} ${price(w.lower1)} – ${price(w.upper1)} · ${tr("90% wall")} ${price(w.lower90)} – ${price(w.upper90)}`;
+    },
+  });
+  const chart = drawn
+    ? `${drawn}
+<p class="notes">${tr("Each day's candle under the walls it opened with. The walls are fixed by the day's first read, so they move only from one day to the next.")}</p>`
+    : "";
   const days = finishedDays(data, l);
   const iv = tally(days, (d) => [d.w.upper1, d.w.lower1]);
   const n90 = tally(days, (d) => [d.w.upper90, d.w.lower90]);
@@ -758,6 +969,7 @@ ${levelTable(
   return `${head}
 ${tiles}
 ${figure}
+${chart}
 <h2 class="cvd-h2 wm-h2">${tr("How price has behaved at the walls")}</h2>
 <p class="notes">${historyText(data.stats)}</p>
 ${record}
@@ -879,6 +1091,70 @@ ${levelTable(
     ? `<h2 class="cvd-h2 wm-h2">${tr("Dealer range by expiry")}</h2>
 <div class="sheet-wrap"><table class="sheet lv-table"><thead><tr><th>${tr("Expiry")}</th><th class="num">${tr("Left")}</th><th class="num">${tr("Premium")}</th><th class="num">${tr("Dealer floor")}</th><th class="num">${tr("Max pain")}</th><th class="num">${tr("Dealer ceiling")}</th><th class="num">${tr("From the spot")}</th></tr></thead><tbody data-live="levels-expiries">${expiries}</tbody></table></div>`
     : "";
+  // Each day under the levels it was read against: its own, or in the week view its week's, fixed by
+  // the week's first row, so those step only where a week's expiry falls.
+  const series = [...data.days].reverse();
+  const weekOf = new Map<string, GammaWallDay | null>();
+  if (week) {
+    for (const r of series) {
+      const k = weekKey(r.day, r.source);
+      if (!weekOf.has(k)) {
+        weekOf.set(k, weekRow(data.days.filter((x) => weekKey(x.day, x.source) === k)));
+      }
+    }
+  }
+  const read = series.map((r) => (week ? (weekOf.get(weekKey(r.day, r.source)) ?? null) : r));
+  const readWalls = read.map((x) =>
+    x === null
+      ? null
+      : walls(x.ref_price, x.iv_day, x.k90, x.hist_sigma, week ? weekYears(x) : DAY_YEARS),
+  );
+  const levelOf = (f: (x: GammaWallDay) => number | null) =>
+    read.map((x) => (x === null ? null : f(x)));
+  const drawn = timeline({
+    title: tr("{currency} · {source} options · ceiling and floor day by day", {
+      currency: book,
+      source: esc(publisher(l.source).name),
+    }),
+    keys: timelineKeys(
+      `<span><i class="lv-key-gc"></i>${tr("gamma ceiling")}</span><span><i class="lv-key-gf"></i>${tr("gamma floor")}</span><span><i class="lv-key-be"></i>${tr("dealer ceiling and floor")}</span><span><i class="lv-key-mp"></i>${tr("max pain")}</span><span><i class="lv-key-iv"></i>${tr("IV wall, 1σ")}</span><span><i class="lv-key-wk"></i>${tr("week's expiry")}</span>`,
+    ),
+    live: "levels-timeline",
+    days: series,
+    shades: [
+      {
+        cls: "lv-tl-b-iv lv-tl-faint",
+        lo: readWalls.map((w) => w?.lower1 ?? null),
+        hi: readWalls.map((w) => w?.upper1 ?? null),
+      },
+    ],
+    steps: [
+      { cls: "lv-gc", values: levelOf((x) => x.gamma_ceiling) },
+      { cls: "lv-gf", values: levelOf((x) => x.gamma_floor) },
+      { cls: "lv-be", values: levelOf((x) => x.be_ceiling) },
+      { cls: "lv-be", values: levelOf((x) => x.be_floor) },
+      { cls: "lv-mp", values: levelOf((x) => x.max_pain) },
+    ],
+    weeks: true,
+    tip: (r, i) => {
+      const x = read[i] ?? null;
+      const head = `${recordDay(r.day)} · ${candleWords(r)}`;
+      if (x === null) return head;
+      return `${head} · ${tr("gamma ceiling")} ${price(x.gamma_ceiling)} · ${tr("gamma floor")} ${price(x.gamma_floor)} · ${tr("dealer ceiling")} ${price(x.be_ceiling)} · ${tr("dealer floor")} ${price(x.be_floor)} · ${tr("max pain")} ${price(x.max_pain)}`;
+    },
+  });
+  const chart = drawn
+    ? `${drawn}
+<p class="notes">${
+        week
+          ? tr(
+              "Each day's candle under its week's levels. They are fixed by the week's first read, so they move only at a week's expiry, the dotted rule.",
+            )
+          : tr(
+              "Each day's candle under the levels it opened with. They are fixed by the day's first read, so they move only from one day to the next; the dotted rule marks each week's expiry.",
+            )
+      }</p>`
+    : "";
   const days = week ? finishedWeeks(data, l) : finishedDays(data, l);
   const rows: [string, (d: DayRecord) => [number | null, number | null]][] = [
     [tr("Gamma ceiling / floor"), (d) => [d.row.gamma_ceiling, d.row.gamma_floor]],
@@ -921,6 +1197,7 @@ ${levelTable(
   return `${head}
 ${tiles}
 ${figure}
+${chart}
 ${table}
 <h2 class="cvd-h2 wm-h2">${tr("How price has behaved at these levels")}</h2>
 ${record}

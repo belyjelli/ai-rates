@@ -327,4 +327,16 @@ export const gamma: Catalog = {
   Weeks: "週数",
   "Over {weeks} finished weeks since {since}, both sides counted; a level is reached when the week's high (or low) touches it, and held when the week closes back inside it.":
     "{since} 以降の終わった {weeks} 週、両側を数えています。その週の高値（または安値）が触れればタッチ、その週がその内側で引ければ維持です。",
+  "{currency} · {source} options · IV walls day by day":
+    "{currency} · {source} のオプション · IV ウォールの日次推移",
+  "{currency} · {source} options · ceiling and floor day by day":
+    "{currency} · {source} のオプション · 天井と底の日次推移",
+  "daily candle": "日足",
+  "week's expiry": "週次満期",
+  "Each day's candle under the walls it opened with. The walls are fixed by the day's first read, so they move only from one day to the next.":
+    "各日のローソク足を、その日の始まりのウォールの下に描きます。ウォールはその日の最初の読み取りで固定されるため、動くのは日が変わるときだけです。",
+  "Each day's candle under the levels it opened with. They are fixed by the day's first read, so they move only from one day to the next; the dotted rule marks each week's expiry.":
+    "各日のローソク足を、その日の始まりの水準の下に描きます。水準はその日の最初の読み取りで固定されるため、動くのは日が変わるときだけです。点線は各週の満期を示します。",
+  "Each day's candle under its week's levels. They are fixed by the week's first read, so they move only at a week's expiry, the dotted rule.":
+    "各日のローソク足を、その週の水準の下に描きます。水準はその週の最初の読み取りで固定されるため、動くのは週の満期（点線）のときだけです。",
 };

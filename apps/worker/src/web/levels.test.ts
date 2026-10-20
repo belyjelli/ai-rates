@@ -491,3 +491,128 @@ describe("the week", () => {
     expect(html).toContain("Over 1 finished weeks since Oct 9");
   });
 });
+
+describe("the day timeline", () => {
+  // Four Deribit days, newest first as the store returns them: Thursday Oct 15 closes the week of
+  // Oct 9, and Friday Oct 16 opens the week of Oct 16 that Monday Oct 19 and today (Oct 20) are in.
+  const days = () => [
+    row(),
+    row({
+      day: "2026-10-19",
+      set_at: new Date("2026-10-19T08:02:00Z"),
+      ref_price: 80_900,
+      day_open: 80_900,
+      day_high: 82_000,
+      day_low: 80_100,
+      last_price: 81_470,
+    }),
+    row({
+      day: "2026-10-16",
+      set_at: new Date("2026-10-16T08:02:00Z"),
+      ref_price: 80_000,
+      gamma_ceiling: 85_000,
+      wk_gamma_ceiling: 83_500,
+      day_open: 80_000,
+      day_high: 81_000,
+      day_low: 79_500,
+      last_price: 80_900,
+    }),
+    row({
+      day: "2026-10-15",
+      set_at: new Date("2026-10-15T08:02:00Z"),
+      ref_price: 82_000,
+      gamma_ceiling: 86_000,
+      wk_gamma_ceiling: 87_000,
+      day_open: 82_000,
+      day_high: 82_500,
+      day_low: 79_800,
+      last_price: 80_000,
+    }),
+  ];
+  /** The timeline figure alone, out of a tab's HTML. */
+  const figure = (html: string, live: string) => {
+    const at = html.indexOf(`data-live="${live}"`);
+    return at < 0 ? "" : html.slice(at, html.indexOf("</figure>", at));
+  };
+  /** The heights a level's step path sits at, one per day it holds, oldest first. */
+  const heights = (svg: string, cls: string) => {
+    const d = new RegExp(`<path class="lv-tl ${cls}" d="([^"]+)"`).exec(svg)?.[1] ?? "";
+    return [...d.matchAll(/(?:M[\d.]+ |V)([\d.]+)/g)].map((m) => Number(m[1]));
+  };
+
+  test("the IV Walls tab: a candle and the walls for every day, oldest at the left", () => {
+    const tl = figure(ivWallsPanel(view(levelsData({ days: days() }))), "ivwalls-timeline");
+    expect(tl).toContain("BTC · Deribit options · IV walls day by day");
+    expect(tl.match(/class="wh-(up|down)"/g)).toHaveLength(4);
+    // Oct 15 opened at 82,000 and closed at 80,000: a falling day, filled.
+    expect(tl.indexOf('class="wh-down"')).toBeLessThan(tl.indexOf('class="wh-up"'));
+    expect(tl.match(/class="lv-tl lv-iv"/g)).toHaveLength(2);
+    expect(tl.match(/class="lv-tl lv-90"/g)).toHaveLength(2);
+    expect(tl.match(/class="lv-tl-b-iv"/g)).toHaveLength(4);
+    expect(tl).not.toContain("lv-tl-wk");
+    const up = 82_000 + 82_000 * 0.256 * DAY;
+    const down = 82_000 - 82_000 * 0.256 * DAY;
+    expect(tl).toContain(
+      `Oct 15 · open 82,000 · high 82,500 · low 79,800 · close 80,000 · IV wall ${Math.round(down).toLocaleString("en-US")} – ${Math.round(up).toLocaleString("en-US")}`,
+    );
+    expect(tl).toContain(">Oct 15</span>");
+    expect(tl).toContain(">Oct 20</span>");
+  });
+
+  test("Ceiling & Floor by day: each level steps where its day's value changes, a rule at the week's expiry", () => {
+    const html = levelsPanel(view(levelsData({ days: days() })));
+    const tl = figure(html, "levels-timeline");
+    expect(tl).toContain("ceiling and floor day by day");
+    expect(tl.match(/class="lv-tl-wk"/g)).toHaveLength(1);
+    // 86,000, 85,000, then 84,000 on Monday and today: three levels, the last two one step.
+    const gc = heights(tl, "lv-gc");
+    expect(gc).toHaveLength(4);
+    expect(gc[0]).toBeLessThan(gc[1] as number);
+    expect(gc[1]).toBeLessThan(gc[2] as number);
+    expect(gc[2]).toBe(gc[3] as number);
+    expect(tl.match(/class="lv-tl lv-be"/g)).toHaveLength(2);
+    expect(html).toContain("the dotted rule marks each week's expiry");
+  });
+
+  test("Ceiling & Floor by week: every day carries its week's levels, so they step only at the expiry", () => {
+    const html = levelsPanel({
+      ...view(levelsData({ days: days() })),
+      params: { currency: "BTC", scope: "next", basis: "week" },
+    });
+    const tl = figure(html, "levels-timeline");
+    // Oct 15 reads its own week's 87,000; the week of Oct 16 is fixed by Oct 16's 83,500.
+    const gc = heights(tl, "lv-gc");
+    expect(gc).toHaveLength(4);
+    expect(gc[0]).toBeLessThan(gc[1] as number);
+    expect(new Set(gc.slice(1)).size).toBe(1);
+    expect(html).toContain("so they move only at a week's expiry");
+  });
+
+  test("a day not yet traded keeps its levels and has no candle; an end-of-day book has no timeline", () => {
+    const quiet = row({ day_high: null, day_low: null, last_price: null });
+    const tl = figure(
+      ivWallsPanel(view(levelsData({ days: [quiet, ...days().slice(1)] }))),
+      "ivwalls-timeline",
+    );
+    expect(tl.match(/class="wh-(up|down)"/g)).toHaveLength(3);
+    expect(heights(tl, "lv-iv")).toHaveLength(4);
+    expect(tl).toContain("Oct 20 · no trade yet today");
+    const eod = view(
+      levelsData({ days: [], stats: null }, exposure({ source: "hkex", unit: "HKD" })),
+    );
+    expect(ivWallsPanel(eod)).not.toContain("ivwalls-timeline");
+    expect(levelsPanel(eod)).not.toContain("levels-timeline");
+  });
+
+  test("every language names it in its own words", () => {
+    for (const locale of ["zh", "ja", "ko", "ru"] as const) {
+      const html = withLocale(locale, () => {
+        const v = view(levelsData({ days: days() }));
+        return ivWallsPanel(v) + levelsPanel(v);
+      });
+      expect(html).not.toContain("daily candle");
+      expect(html).not.toContain("day by day");
+      expect(html).not.toContain("week's expiry");
+    }
+  });
+});

@@ -319,4 +319,15 @@ export const gamma: Catalog = {
   Weeks: "주 수",
   "Over {weeks} finished weeks since {since}, both sides counted; a level is reached when the week's high (or low) touches it, and held when the week closes back inside it.":
     "{since} 이후 끝난 {weeks}주, 양쪽을 모두 셉니다. 그 주의 고가(또는 저가)가 닿으면 닿음, 그 주가 그 안에서 마감하면 지킨 것입니다.",
+  "{currency} · {source} options · IV walls day by day": "{currency} · {source} 옵션 · 일별 IV 월",
+  "{currency} · {source} options · ceiling and floor day by day":
+    "{currency} · {source} 옵션 · 일별 천장과 바닥",
+  "daily candle": "일봉",
+  "week's expiry": "주간 만기",
+  "Each day's candle under the walls it opened with. The walls are fixed by the day's first read, so they move only from one day to the next.":
+    "각 날의 캔들을 그날 시작 때의 월 아래에 그립니다. 월은 그날 첫 조회 때 고정되므로 날이 바뀔 때만 움직입니다.",
+  "Each day's candle under the levels it opened with. They are fixed by the day's first read, so they move only from one day to the next; the dotted rule marks each week's expiry.":
+    "각 날의 캔들을 그날 시작 때의 수준 아래에 그립니다. 수준은 그날 첫 조회 때 고정되므로 날이 바뀔 때만 움직입니다. 점선은 매주의 만기를 표시합니다.",
+  "Each day's candle under its week's levels. They are fixed by the week's first read, so they move only at a week's expiry, the dotted rule.":
+    "각 날의 캔들을 그 주의 수준 아래에 그립니다. 수준은 그 주 첫 조회 때 고정되므로 주간 만기(점선)에만 움직입니다.",
 };

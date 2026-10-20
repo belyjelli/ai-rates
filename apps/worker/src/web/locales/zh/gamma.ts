@@ -313,4 +313,15 @@ export const gamma: Catalog = {
   Weeks: "周数",
   "Over {weeks} finished weeks since {since}, both sides counted; a level is reached when the week's high (or low) touches it, and held when the week closes back inside it.":
     "基于自 {since} 起 {weeks} 个已结束的周，两侧都计入；当周最高（或最低）价触及即为触及，当周收回其内即为守住。",
+  "{currency} · {source} options · IV walls day by day": "{currency} · {source} 期权 · IV 墙逐日",
+  "{currency} · {source} options · ceiling and floor day by day":
+    "{currency} · {source} 期权 · 天花板与地板逐日",
+  "daily candle": "日 K 线",
+  "week's expiry": "周到期",
+  "Each day's candle under the walls it opened with. The walls are fixed by the day's first read, so they move only from one day to the next.":
+    "每天的 K 线画在它开盘时的墙下。墙由当天首次读取固定，所以只在换日时移动。",
+  "Each day's candle under the levels it opened with. They are fixed by the day's first read, so they move only from one day to the next; the dotted rule marks each week's expiry.":
+    "每天的 K 线画在它开盘时的水平下。水平由当天首次读取固定，所以只在换日时移动；虚线标出每周的到期。",
+  "Each day's candle under its week's levels. They are fixed by the week's first read, so they move only at a week's expiry, the dotted rule.":
+    "每天的 K 线画在其所在周的水平下。水平由本周首次读取固定，所以只在周到期（虚线）时移动。",
 };

@@ -792,6 +792,20 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .cvd-big.lv-span{font-size:clamp(18px,2.2vw,24px)}
 .lv-range,.lv-last,.lv-last-t{z-index:3}
 @media (max-width:640px){.lv-ladder{height:400px}.lv-range{right:10%}.lv-last{right:calc(10% - 7px)}.lv-last-t{right:calc(10% + 22px)}.lv-tag{font-size:10px;padding:0 3px}}
+/* The day timeline under each ladder (levels.ts timeline): each level a step in its ladder colour over
+   the day's candle, the walls' ranges shaded per day, a dotted rule at each week's expiry. */
+.cvd-chart.lv-tl-chart .fchart-plot{height:300px;margin:6px 64px 24px 64px}
+.lv-tl{fill:none;stroke-width:1.5;vector-effect:non-scaling-stroke}
+.lv-tl.lv-iv{stroke:var(--em)}.lv-tl.lv-90{stroke:var(--em);stroke-dasharray:4 3}
+.lv-tl.lv-gc{stroke:var(--long);stroke-width:2}.lv-tl.lv-gf{stroke:var(--short);stroke-width:2}
+.lv-tl.lv-be{stroke:#ff9f43;stroke-dasharray:4 3}.lv-tl.lv-mp{stroke:#ff9f43;stroke-dasharray:1 3}
+.lv-tl-b-iv{fill:rgba(182,156,255,.13)}.lv-tl-b-90{fill:rgba(182,156,255,.05)}.lv-tl-faint{opacity:.55}
+.lv-tl-wk{stroke:var(--muted);stroke-width:1;stroke-dasharray:1 3;vector-effect:non-scaling-stroke}
+.lv-tl-hit{fill:transparent}.lv-tl-hit:hover{fill:rgba(216,216,216,.06)}
+.lv-tl-chart .cvd-yr b{font-weight:500}
+.lv-chart .fchart-keys i.lv-key-candle{width:6px;height:10px;border:1px solid var(--ink);background:var(--bg)}
+.lv-chart .fchart-keys i.lv-key-wk{width:0;height:10px;border-left:1px dotted var(--muted)}
+@media (max-width:640px){.cvd-chart.lv-tl-chart .fchart-plot{height:240px;margin:6px 8px 24px 56px}.lv-tl-chart .cvd-yr{display:none}}
 /* The Exchanges page (exchanges.ts): a grade badge per venue, and cells that carry a second line --
    the fee under the cost, the $100k slippage under the $10k. */
 .xg{display:inline-block;min-width:20px;padding:1px 4px;text-align:center;font-weight:700;border:1px solid currentColor;line-height:1.2}

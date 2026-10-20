@@ -325,4 +325,16 @@ export const gamma: Catalog = {
   Weeks: "Недели",
   "Over {weeks} finished weeks since {since}, both sides counted; a level is reached when the week's high (or low) touches it, and held when the week closes back inside it.":
     "За {weeks} завершённых недель с {since}, обе стороны; уровень достигнут, если его коснулся максимум (или минимум) недели, и удержан, если неделя закрылась внутри.",
+  "{currency} · {source} options · IV walls day by day":
+    "{currency} · опционы {source} · IV-стены по дням",
+  "{currency} · {source} options · ceiling and floor day by day":
+    "{currency} · опционы {source} · потолок и пол по дням",
+  "daily candle": "дневная свеча",
+  "week's expiry": "недельная экспирация",
+  "Each day's candle under the walls it opened with. The walls are fixed by the day's first read, so they move only from one day to the next.":
+    "Свеча каждого дня под стенами, с которыми он открылся. Стены фиксируются первым чтением дня, поэтому меняются только от одного дня к следующему.",
+  "Each day's candle under the levels it opened with. They are fixed by the day's first read, so they move only from one day to the next; the dotted rule marks each week's expiry.":
+    "Свеча каждого дня под уровнями, с которыми он открылся. Они фиксируются первым чтением дня, поэтому меняются только от одного дня к следующему; пунктир отмечает экспирацию каждой недели.",
+  "Each day's candle under its week's levels. They are fixed by the week's first read, so they move only at a week's expiry, the dotted rule.":
+    "Свеча каждого дня под уровнями его недели. Они фиксируются первым чтением недели, поэтому меняются только на недельной экспирации, у пунктира.",
 };
