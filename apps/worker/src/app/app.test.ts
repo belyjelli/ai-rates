@@ -34,6 +34,15 @@ import { EMPTY_TALLY } from "./data";
 import type { Referral } from "./geo";
 import { DEFAULT_FILTERS } from "./params";
 
+const NO_GREEKS = {
+  call_delta: null,
+  put_delta: null,
+  call_vega: null,
+  put_vega: null,
+  call_theta: null,
+  put_theta: null,
+};
+
 const NOW = Date.parse("2026-09-12T12:00:00Z");
 
 const overview: Overview = {
@@ -3106,6 +3115,7 @@ describe("pages", () => {
 
   describe("rates gamma exposure tab", () => {
     const gammaRow = (scope: string) => ({
+      ...NO_GREEKS,
       scope,
       computed_at: new Date(NOW - 2 * 60_000),
       source: "deribit",
@@ -3137,6 +3147,7 @@ describe("pages", () => {
             exposure: gammaRow(options.scope),
             strikes: [
               {
+                ...NO_GREEKS,
                 strike: 2_300,
                 call_oi: 1_000,
                 put_oi: 9_000,
@@ -3144,6 +3155,7 @@ describe("pages", () => {
                 put_gex_usd: -5.2e6,
               },
               {
+                ...NO_GREEKS,
                 strike: 2_500,
                 call_oi: 9_000,
                 put_oi: 2_000,
@@ -3224,6 +3236,37 @@ describe("pages", () => {
       const page = await get("/rates?gex=BTC", data);
       expect(page.status).toBe(200);
       expect(await page.text()).toContain("The options data could not be read right now.");
+    });
+
+    test("Delta, Vega and Theta: three lazy tabs, each a fragment of the asked book and expiries", async () => {
+      const calls: { currency: string; scope: string }[] = [];
+      const html = await (await get("/rates", gammaSource(calls))).text();
+      for (const greek of ["delta", "vega", "theta"]) {
+        expect(html).toContain(`id="tab-rates-${greek}"`);
+        expect(html).toContain(`data-lazy="/rates?gex=BTC&amp;panel=${greek}"`);
+      }
+      // After Gamma Exposure, before IV Walls.
+      expect(html.indexOf('id="tab-rates-gamma"')).toBeLessThan(
+        html.indexOf('id="tab-rates-delta"'),
+      );
+      expect(html.indexOf('id="tab-rates-theta"')).toBeLessThan(
+        html.indexOf('id="tab-rates-ivwalls"'),
+      );
+      expect(calls).toEqual([]);
+      for (const greek of ["delta", "vega", "theta"]) {
+        const res = await get(`/rates?panel=${greek}&gex=eth&gexp=next`, gammaSource(calls));
+        const tab = await res.text();
+        expect(res.status).toBe(200);
+        expect(tab.startsWith('<div class="lazy-body"')).toBe(true);
+        expect(tab).toContain(
+          `class="wh-pick-row on" href="/rates?gex=ETH&amp;gexp=next#${greek}"`,
+        );
+      }
+      expect(calls).toEqual([
+        { currency: "ETH", scope: "next" },
+        { currency: "ETH", scope: "next" },
+        { currency: "ETH", scope: "next" },
+      ]);
     });
 
     test("IV Walls and Ceiling & Floor: two lazy tabs, each read for its own panel with the book picked", async () => {
@@ -5309,6 +5352,7 @@ describe("whales", () => {
 
   describe("the GEX switch over the chart", () => {
     const exposure = (spot: number, computedAgoMs = 2 * 60_000) => ({
+      ...NO_GREEKS,
       scope: "all",
       computed_at: new Date(T - computedAgoMs),
       source: "deribit",
@@ -5344,8 +5388,22 @@ describe("whales", () => {
             scopes: [],
             exposure: exposure(spot, computedAgoMs),
             strikes: [
-              { strike: 83_000, call_oi: 1, put_oi: 1, call_gex_usd: 4.2e6, put_gex_usd: -1.1e6 },
-              { strike: 70_000, call_oi: 1, put_oi: 1, call_gex_usd: 1e6, put_gex_usd: -9e6 },
+              {
+                ...NO_GREEKS,
+                strike: 83_000,
+                call_oi: 1,
+                put_oi: 1,
+                call_gex_usd: 4.2e6,
+                put_gex_usd: -1.1e6,
+              },
+              {
+                ...NO_GREEKS,
+                strike: 70_000,
+                call_oi: 1,
+                put_oi: 1,
+                call_gex_usd: 1e6,
+                put_gex_usd: -9e6,
+              },
             ],
             curve: [
               { price: 82_000, net_gex_usd: -2e6 },
@@ -5383,6 +5441,7 @@ describe("whales", () => {
 
     test("a book with its IVs adds the expected move a day ahead, as bands across the candles", async () => {
       const expiry = (ms: number, atm_iv: number) => ({
+        ...NO_GREEKS,
         expiry: new Date(T + ms),
         options: 10,
         call_oi: 1,

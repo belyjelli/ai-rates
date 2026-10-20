@@ -896,7 +896,7 @@ export interface WhalePosition {
 
 /** One book's gamma exposure in one scope (collector migrations 034 and 036), signed calls positive and
  * puts negative, per 1% move, in `unit`. */
-export interface GammaExposure {
+export interface GammaExposure extends OptionGreeks {
   scope: string;
   /** The read, or for an end-of-day source the close its file is from. */
   computed_at: Date;
@@ -927,8 +927,23 @@ export interface GammaExposure {
   put_wall: number | null;
 }
 
+/**
+ * Open interest's delta, vega and theta (collector migration 047), from the holder's side, in the row's
+ * unit: delta as the value of the underlying it moves like (puts negative), vega per IV point, theta per
+ * day (negative). Black-76 on the same inputs as gamma; no guess about who holds which side. Null on a
+ * book not read since the migration.
+ */
+export interface OptionGreeks {
+  call_delta: number | null;
+  put_delta: number | null;
+  call_vega: number | null;
+  put_vega: number | null;
+  call_theta: number | null;
+  put_theta: number | null;
+}
+
 /** One strike's open interest and exposure in a scope, its expiries summed. */
-export interface GammaStrike {
+export interface GammaStrike extends OptionGreeks {
   strike: number;
   call_oi: number;
   put_oi: number;
@@ -942,7 +957,7 @@ export interface GammaPoint {
   net_gex_usd: number;
 }
 
-export interface GammaExpiry {
+export interface GammaExpiry extends OptionGreeks {
   expiry: Date;
   options: number;
   call_oi: number;
@@ -2586,12 +2601,13 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         sql<GammaExposure[]>`
           SELECT scope, computed_at, source, unit, spot, options, expiries, first_expiry, last_expiry,
                  next_expiry, call_oi, put_oi, call_gex_usd, put_gex_usd, net_gex_usd, flip_price,
-                 call_wall, put_wall
+                 call_wall, put_wall, call_delta, put_delta, call_vega, put_vega, call_theta, put_theta
           FROM gamma_exposure
           WHERE currency = ${currency}
           ORDER BY array_position(ARRAY['all', '30d', '7d', 'next'], scope)`,
         sql<GammaStrike[]>`
-          SELECT strike, call_oi, put_oi, call_gex_usd, put_gex_usd
+          SELECT strike, call_oi, put_oi, call_gex_usd, put_gex_usd, call_delta, put_delta, call_vega,
+                 put_vega, call_theta, put_theta
           FROM gamma_strikes
           WHERE currency = ${currency} AND scope = ${scope}
           ORDER BY strike`,
@@ -2602,7 +2618,8 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           ORDER BY step`,
         sql<GammaExpiry[]>`
           SELECT expiry, options, call_oi, put_oi, call_gex_usd, put_gex_usd, atm_iv, forward, premium,
-                 max_pain, be_low, be_high
+                 max_pain, be_low, be_high, call_delta, put_delta, call_vega, put_vega, call_theta,
+                 put_theta
           FROM gamma_expiries
           WHERE currency = ${currency}
           ORDER BY expiry`,

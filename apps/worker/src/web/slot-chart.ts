@@ -573,8 +573,10 @@ export interface SidesSlots {
  */
 export function slotData(
   payload: CvdSlots | SidesSlots | WhaleSlots | GammaSlots | WhaleCandleSlots | MacroSlots,
+  /** Words a chart reads differently, over the defaults: the Vega tab's band "total" for "net". */
+  words: Partial<SlotWords> = {},
 ): string {
-  return `<script type="application/json" class="slot-data">${JSON.stringify({ ...payload, words: slotWords() }).replace(/</g, "\\u003c")}</script>`;
+  return `<script type="application/json" class="slot-data">${JSON.stringify({ ...payload, words: { ...slotWords(), ...words } }).replace(/</g, "\\u003c")}</script>`;
 }
 
 /**

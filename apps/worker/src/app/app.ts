@@ -11,6 +11,7 @@ import { exchangeCosts, exchangesPage, parseExchangeSort } from "../web/exchange
 import { esc } from "../web/format";
 import type { FundingHistory } from "../web/funding-chart";
 import { gammaBookFor, gammaFragment } from "../web/gamma";
+import { greekFragment, isGreek } from "../web/greeks";
 import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
 import { installAsset } from "../web/install";
 import { kBars, kRef, lwcAsset } from "../web/kchart";
@@ -296,6 +297,14 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         const gamma = await readGamma();
         return page(() =>
           gammaFragment({ data: gamma, params: gammaParams, heatmap: params, now }),
+        );
+      }
+      // The Delta, Vega and Theta tabs read the same book as gamma's (collector migration 047).
+      const greekTab = url.searchParams.get("panel");
+      if (isGreek(greekTab)) {
+        const gamma = await readGamma();
+        return page(() =>
+          greekFragment(greekTab, { data: gamma, params: gammaParams, heatmap: params, now }),
         );
       }
       // The IV Walls and Ceiling & Floor tabs: the book's nearest expiry, its days and its measured

@@ -278,9 +278,20 @@ export function niceStep(value: number): number {
   return 10 * power;
 }
 
+/** Which of a strike's figures a chart bands, its calls' and its puts': gamma's, or another Greek's. */
+export interface StrikeSides {
+  call: (k: GammaStrike) => number;
+  put: (k: GammaStrike) => number;
+}
+const GEX_SIDES: StrikeSides = { call: (k) => k.call_gex_usd, put: (k) => k.put_gex_usd };
+
 /** The narrowest reach in RANGES whose strikes hold COVER of the exposure, either sign counted. */
-export function fitRange(strikes: readonly GammaStrike[], spot: number): number {
-  const weight = (k: GammaStrike) => Math.abs(k.call_gex_usd) + Math.abs(k.put_gex_usd);
+export function fitRange(
+  strikes: readonly GammaStrike[],
+  spot: number,
+  sides: StrikeSides = GEX_SIDES,
+): number {
+  const weight = (k: GammaStrike) => Math.abs(sides.call(k)) + Math.abs(sides.put(k));
   const total = strikes.reduce((sum, k) => sum + weight(k), 0);
   const widest = RANGES[RANGES.length - 1] as number;
   if (!(total > 0)) return widest;
@@ -328,8 +339,12 @@ export interface GammaBands {
 }
 
 /** Groups the strikes into bands `step` wide, each starting on a multiple of `step`. */
-export function bandStrikes(strikes: readonly GammaStrike[], spot: number): GammaBands {
-  const range = fitRange(strikes, spot);
+export function bandStrikes(
+  strikes: readonly GammaStrike[],
+  spot: number,
+  sides: StrikeSides = GEX_SIDES,
+): GammaBands {
+  const range = fitRange(strikes, spot, sides);
   const near = strikes
     .filter((k) => Math.abs(k.strike / spot - 1) <= range + 1e-9)
     .map((k) => k.strike);
@@ -354,11 +369,11 @@ export function bandStrikes(strikes: readonly GammaStrike[], spot: number): Gamm
   for (const k of strikes) {
     const i = Math.floor((k.strike - low) / step + 1e-9);
     if (i < 0 || i >= count) {
-      bands.beyond += Math.abs(k.call_gex_usd) + Math.abs(k.put_gex_usd);
+      bands.beyond += Math.abs(sides.call(k)) + Math.abs(sides.put(k));
       continue;
     }
-    bands.calls[i] = (bands.calls[i] ?? 0) + k.call_gex_usd;
-    bands.puts[i] = (bands.puts[i] ?? 0) + k.put_gex_usd;
+    bands.calls[i] = (bands.calls[i] ?? 0) + sides.call(k);
+    bands.puts[i] = (bands.puts[i] ?? 0) + sides.put(k);
     bands.callOi[i] = (bands.callOi[i] ?? 0) + k.call_oi;
     bands.putOi[i] = (bands.putOi[i] ?? 0) + k.put_oi;
     members[i]?.push(k.strike);
@@ -802,9 +817,8 @@ function expectedMoveMap(data: {
 </section>`;
 }
 
-/** The address that switches the tab to other choices. */
-/** The three tabs that read an option book, by their tab id: each keeps the book picked in the others. */
-export type BookTab = "gamma" | "ivwalls" | "levels";
+/** The tabs that read an option book, by their tab id: each keeps the book picked in the others. */
+export type BookTab = "gamma" | "delta" | "vega" | "theta" | "ivwalls" | "levels";
 
 export const choiceHref = (heatmap: HeatmapParams, next: GammaParams, tab: BookTab = "gamma") =>
   `/rates${heatmapToQuery(heatmap, next)}#${tab}`;

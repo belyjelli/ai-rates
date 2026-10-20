@@ -2,10 +2,20 @@ import { describe, expect, test } from "bun:test";
 import type { GammaExpiry } from "../app/data";
 import { expectedMoves, horizonIv, moveFor, termStructure, YEAR_MS } from "./expected-move";
 
+const NO_GREEKS = {
+  call_delta: null,
+  put_delta: null,
+  call_vega: null,
+  put_vega: null,
+  call_theta: null,
+  put_theta: null,
+};
+
 const AT = Date.parse("2026-10-20T16:00:00Z");
 const DAY = 86_400_000;
 
 const expiry = (days: number, atm_iv: number | null): GammaExpiry => ({
+  ...NO_GREEKS,
   expiry: new Date(AT + days * DAY),
   options: 10,
   call_oi: 1,

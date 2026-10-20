@@ -703,6 +703,17 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
 .gx-chart .fchart-keys i.gx-key-spot{height:0;border-top:1px dashed var(--ink)}
 .gx-chart .fchart-keys i.gx-key-flip{height:0;border-top:1px dashed var(--warn)}
 .gx-yr{color:var(--accent)}
+/* The Delta, Vega and Theta tabs (greeks.ts): the Gamma chart's bands and colours. Delta's calls rise
+   above the middle and its puts hang below; vega's calls and puts stack up from the floor, theta's
+   down from the top, a hairline of the page between the two. No right-hand scale, so no right margin
+   to keep. Each expiry's share is a bar in its cell. */
+.gk-chart .gx-plot{height:320px}.cvd-chart.gk-chart .fchart-plot{margin:6px 16px 0 64px}
+.gk-chart .fchart-keys i.gx-key-call,.gk-chart .fchart-keys i.gx-key-put{width:10px;height:10px}
+.gk-chart .fchart-keys i.gx-key-spot{height:0;border-top:1px dashed var(--ink)}
+.gk-stack rect{stroke:var(--bg);stroke-width:1px;vector-effect:non-scaling-stroke}
+.gk-tiles .cvd-big span{white-space:nowrap}
+.gk-share{display:inline-block;width:44px;height:4px;margin-right:6px;vertical-align:middle;background:var(--rule)}.gk-share i{display:block;height:100%;background:var(--muted)}
+@media (max-width:640px){.gk-chart .gx-plot{height:280px}.cvd-chart.gk-chart .fchart-plot{margin:6px 8px 0 56px}.gk-share{display:none}}
 /* The view switch (gamma.ts): the page opens on calls/puts, and only ever hides what a view leaves out. */
 html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gxview=zones]) .gx-v-zone,html[data-gxview=net] .gx-v-split,html[data-gxview=zones] .gx-v-split{display:none}
 .gx-zone-short{fill:var(--short);opacity:.13}.gx-zone-long{fill:var(--long);opacity:.09}

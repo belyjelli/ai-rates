@@ -25,11 +25,21 @@ import { withLocale } from "./i18n";
 import { PICK_SCRIPT } from "./picker";
 import { type GammaSlots, gammaText, SLOT_FORMAT } from "./slot-chart";
 
+const NO_GREEKS = {
+  call_delta: null,
+  put_delta: null,
+  call_vega: null,
+  put_vega: null,
+  call_theta: null,
+  put_theta: null,
+};
+
 const NOW = Date.parse("2026-10-15T14:30:00Z");
 const HEATMAP: HeatmapParams = { tf: "now", limit: 50, offset: 0 };
 const BTC_ALL: GammaParams = { currency: "BTC", scope: "all" };
 
 const strike = (k: number, call: number, put: number): GammaStrike => ({
+  ...NO_GREEKS,
   strike: k,
   call_oi: call / 1000,
   put_oi: -put / 1000,
@@ -39,6 +49,7 @@ const strike = (k: number, call: number, put: number): GammaStrike => ({
 
 function exposure(overrides: Partial<GammaExposure> = {}): GammaExposure {
   return {
+    ...NO_GREEKS,
     scope: "all",
     computed_at: new Date(NOW - 3 * 60_000),
     source: "deribit",
@@ -111,6 +122,7 @@ function gammaData(overrides: Partial<GammaData> = {}): GammaData {
     ],
     expiries: [
       {
+        ...NO_GREEKS,
         expiry: new Date("2026-10-16T08:00:00Z"),
         options: 48,
         call_oi: 7_756,
@@ -125,6 +137,7 @@ function gammaData(overrides: Partial<GammaData> = {}): GammaData {
         be_high: null,
       },
       {
+        ...NO_GREEKS,
         expiry: new Date("2026-12-25T08:00:00Z"),
         options: 112,
         call_oi: 81_312,
@@ -512,9 +525,30 @@ describe("other publishers", () => {
       scopes: [hsi()],
       exposure: hsi(),
       strikes: [
-        { strike: 23_000, call_oi: 100, put_oi: 4_000, call_gex_usd: 1e6, put_gex_usd: -300e6 },
-        { strike: 24_000, call_oi: 3_000, put_oi: 3_000, call_gex_usd: 250e6, put_gex_usd: -260e6 },
-        { strike: 26_000, call_oi: 5_000, put_oi: 10, call_gex_usd: 400e6, put_gex_usd: -1e6 },
+        {
+          ...NO_GREEKS,
+          strike: 23_000,
+          call_oi: 100,
+          put_oi: 4_000,
+          call_gex_usd: 1e6,
+          put_gex_usd: -300e6,
+        },
+        {
+          ...NO_GREEKS,
+          strike: 24_000,
+          call_oi: 3_000,
+          put_oi: 3_000,
+          call_gex_usd: 250e6,
+          put_gex_usd: -260e6,
+        },
+        {
+          ...NO_GREEKS,
+          strike: 26_000,
+          call_oi: 5_000,
+          put_oi: 10,
+          call_gex_usd: 400e6,
+          put_gex_usd: -1e6,
+        },
       ],
       curve: [
         { price: 21_000, net_gex_usd: -900e6 },
@@ -523,6 +557,7 @@ describe("other publishers", () => {
       ],
       expiries: [
         {
+          ...NO_GREEKS,
           expiry: new Date("2026-10-15T08:00:00Z"),
           options: 120,
           call_oi: 8_000,
@@ -537,6 +572,7 @@ describe("other publishers", () => {
           be_high: null,
         },
         {
+          ...NO_GREEKS,
           expiry: new Date("2026-10-29T08:00:00Z"),
           options: 400,
           call_oi: 32_000,

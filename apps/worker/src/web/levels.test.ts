@@ -18,10 +18,20 @@ import {
   weekLevels,
 } from "./levels";
 
+const NO_GREEKS = {
+  call_delta: null,
+  put_delta: null,
+  call_vega: null,
+  put_vega: null,
+  call_theta: null,
+  put_theta: null,
+};
+
 const NOW = Date.parse("2026-10-20T17:45:00Z");
 const DAY = Math.sqrt(1 / 365);
 
 const exposure = (overrides: Partial<GammaExposure> = {}): GammaExposure => ({
+  ...NO_GREEKS,
   scope: "next",
   computed_at: new Date(NOW - 2 * 60_000),
   source: "deribit",
@@ -130,13 +140,28 @@ function levelsData(
       scopes: e ? [e] : [],
       exposure: e,
       strikes: [
-        { strike: 81_000, call_oi: 0, put_oi: 10, call_gex_usd: 0, put_gex_usd: -4e6 },
-        { strike: 82_000, call_oi: 5, put_oi: 5, call_gex_usd: 9e6, put_gex_usd: -2e6 },
-        { strike: 84_000, call_oi: 10, put_oi: 0, call_gex_usd: 6e6, put_gex_usd: 0 },
+        {
+          ...NO_GREEKS,
+          strike: 81_000,
+          call_oi: 0,
+          put_oi: 10,
+          call_gex_usd: 0,
+          put_gex_usd: -4e6,
+        },
+        {
+          ...NO_GREEKS,
+          strike: 82_000,
+          call_oi: 5,
+          put_oi: 5,
+          call_gex_usd: 9e6,
+          put_gex_usd: -2e6,
+        },
+        { ...NO_GREEKS, strike: 84_000, call_oi: 10, put_oi: 0, call_gex_usd: 6e6, put_gex_usd: 0 },
       ],
       curve: [],
       expiries: [
         {
+          ...NO_GREEKS,
           expiry: new Date("2026-10-21T08:00:00Z"),
           options: 33,
           call_oi: 1_838,
@@ -157,8 +182,8 @@ function levelsData(
     stats: STATS,
     weekStats: { ...STATS, period: "week", days: 290, k90: 2.07 },
     weekStrikes: [
-      { strike: 80_000, call_oi: 0, put_oi: 20, call_gex_usd: 0, put_gex_usd: -7e6 },
-      { strike: 85_000, call_oi: 20, put_oi: 0, call_gex_usd: 8e6, put_gex_usd: 0 },
+      { ...NO_GREEKS, strike: 80_000, call_oi: 0, put_oi: 20, call_gex_usd: 0, put_gex_usd: -7e6 },
+      { ...NO_GREEKS, strike: 85_000, call_oi: 20, put_oi: 0, call_gex_usd: 8e6, put_gex_usd: 0 },
     ],
     ...overrides,
   };

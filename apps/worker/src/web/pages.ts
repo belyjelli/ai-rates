@@ -78,6 +78,7 @@ import {
   gammaPlaceholder,
   gxSwapScript,
 } from "./gamma";
+import { GREEKS, greekPanelHref, greekPanelId, greekPlaceholder } from "./greeks";
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { msg, tr, trMsg, withLocale } from "./i18n";
 import { icon } from "./icons";
@@ -978,6 +979,9 @@ ${tabBar({
   tabs: [
     { id: "rates", label: tr("Funding rates"), shortLabel: tr("Funding") },
     { id: "gamma", label: tr("Gamma Exposure"), shortLabel: tr("Gamma") },
+    { id: "delta", label: tr("Delta"), shortLabel: tr("Delta") },
+    { id: "vega", label: tr("Vega"), shortLabel: tr("Vega") },
+    { id: "theta", label: tr("Theta"), shortLabel: tr("Theta") },
     { id: "ivwalls", label: tr("IV Walls"), shortLabel: tr("IV walls") },
     { id: "levels", label: tr("Ceiling & Floor"), shortLabel: tr("Ceiling") },
     ...macroTabs(),
@@ -991,6 +995,13 @@ ${grid}
 <div class="tabpanel" role="tabpanel" id="${GAMMA_PANEL_ID}" data-tab-panel="gamma" aria-labelledby="tab-rates-gamma"${gammaLazy}>
 ${gammaBody}
 </div>
+${GREEKS.map(
+  (
+    greek,
+  ) => `<div class="tabpanel" role="tabpanel" id="${greekPanelId(greek)}" data-tab-panel="${greek}" aria-labelledby="tab-rates-${greek}" data-lazy="${esc(greekPanelHref(params, gammaParams, greek))}">
+${greekPlaceholder(params, gammaParams, greek)}
+</div>`,
+).join("\n")}
 <div class="tabpanel" role="tabpanel" id="${IVWALLS_PANEL_ID}" data-tab-panel="ivwalls" aria-labelledby="tab-rates-ivwalls" data-lazy="${esc(levelsPanelHref(params, gammaParams, "ivwalls"))}">
 ${levelsPlaceholder(params, gammaParams, "ivwalls")}
 </div>
@@ -1005,6 +1016,7 @@ ${filled ? macroPanel(id, macro.data, now) : macroPlaceholder(id)}
 }).join("\n")}
 <script>${SLOT_SCRIPT}</script>
 <script>${GX_SWAP_SCRIPT}</script>
+${GREEKS.map((greek) => `<script>${gxSwapScript(greekPanelId(greek), greek)}</script>`).join("")}
 <script>${gxSwapScript(IVWALLS_PANEL_ID, "ivwalls")}</script>
 <script>${gxSwapScript(LEVELS_PANEL_ID, "levels")}</script>
 <script>${GX_VIEW_SCRIPT}</script>

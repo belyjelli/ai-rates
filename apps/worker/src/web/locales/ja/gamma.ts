@@ -339,4 +339,76 @@ export const gamma: Catalog = {
     "各日のローソク足を、その日の始まりの水準の下に描きます。水準はその日の最初の読み取りで固定されるため、動くのは日が変わるときだけです。点線は各週の満期を示します。",
   "Each day's candle under its week's levels. They are fixed by the week's first read, so they move only at a week's expiry, the dotted rule.":
     "各日のローソク足を、その週の水準の下に描きます。水準はその週の最初の読み取りで固定されるため、動くのは週の満期（点線）のときだけです。",
+  // The Delta, Vega and Theta tabs (web/greeks.ts).
+  Delta: "デルタ",
+  "{currency} · {source} options · delta by strike · {scope}":
+    "{currency} · {source} オプション · 行使価格別デルタ · {scope}",
+  "{currency} · {source} options · vega by strike · {scope}":
+    "{currency} · {source} オプション · 行使価格別ベガ · {scope}",
+  "{currency} · {source} options · theta by strike · {scope}":
+    "{currency} · {source} オプション · 行使価格別セータ · {scope}",
+  "net {net} at spot {spot} · calls above zero, puts below · hover or tap a strike to read it":
+    "現物価格 {spot} でのネット {net} · コールはゼロより上、プットは下 · 行使価格にカーソルを合わせるかタップで表示",
+  "{total} per IV point at spot {spot} · each strike's calls and puts stacked · hover or tap a strike to read it":
+    "現物価格 {spot} で IV 1ポイントあたり {total} · 各行使価格のコールとプットを積み上げ · 行使価格にカーソルを合わせるかタップで表示",
+  "{total} a day at spot {spot} · each strike's calls and puts stacked · hover or tap a strike to read it":
+    "現物価格 {spot} で1日あたり {total} · 各行使価格のコールとプットを積み上げ · 行使価格にカーソルを合わせるかタップで表示",
+  "Strikes beyond ±{pct} of the spot are off the chart: {usd} of the total.":
+    "現物価格の ±{pct} より外の行使価格はチャート外です：合計のうち {usd}。",
+  "total {usd}": "合計 {usd}",
+  "{share} of it in that expiry, {left} left": "その満期に {share}、残り {left}",
+  "≈ {coins} at the spot; what the open options move like, as their buyers hold them":
+    "現物価格で約 {coins}。未決済オプションが買い手にとって原資産いくら分の値動きをするか",
+  "what the open options move like, as their buyers hold them":
+    "未決済オプションが買い手にとって原資産いくら分の値動きをするか",
+  "Net delta": "ネットデルタ",
+  "calls' delta is positive, puts' negative": "コールのデルタはプラス、プットはマイナス",
+  "Most delta": "デルタ最大",
+  Vega: "ベガ",
+  "per IV point: what the open options gain if implied volatility rises one point, and their writers lose":
+    "IV 1ポイントあたり：インプライド・ボラティリティが1ポイント上がったときに未決済オプションが得る額で、売り手はその分を失います",
+  "every option gains as implied volatility rises":
+    "インプライド・ボラティリティが上がると、どのオプションも値上がりします",
+  "Most vega": "ベガ最大",
+  "of the options' value a day, {premium} in all":
+    "オプション価値に対する1日あたりの割合、総額 {premium}",
+  Theta: "セータ",
+  "a day: what the open options lose to time with price and IV unchanged, paid by their buyers to their writers":
+    "1日あたり：価格と IV が変わらないとき、時間の経過で未決済オプションが失う額。買い手から売り手へ支払われます",
+  "every option loses value as expiry nears, faster the closer it is":
+    "どのオプションも満期が近づくほど価値を失い、近いほど速くなります",
+  "Most theta": "セータ最大",
+  "Decay rate": "減価率",
+  "Delta in {unit}: the value of the underlying each expiry's open options move like. Expiries outside the chosen range are dimmed; an option in its last hour is left out.":
+    "デルタは {unit} 建て：各満期の未決済オプションが原資産いくら分の値動きをするか。選択範囲外の満期は薄く表示し、最後の1時間に入ったオプションは除外しています。",
+  "Vega in {unit} per IV point. Expiries outside the chosen range are dimmed; an option in its last hour is left out.":
+    "ベガは IV 1ポイントあたりの {unit} 建て。選択範囲外の満期は薄く表示し、最後の1時間に入ったオプションは除外しています。",
+  "Theta in {unit} a day. Expiries outside the chosen range are dimmed; an option in its last hour is left out.":
+    "セータは1日あたりの {unit} 建て。選択範囲外の満期は薄く表示し、最後の1時間に入ったオプションは除外しています。",
+  "Of the chain's total, either side counted": "全体の合計に占める割合（両サイドを計上）",
+  Total: "合計",
+  "Delta is how much an option's value moves with the underlying: about a half at the money, near 1 deep in the money and near 0 far out of it, negative for puts. Times open interest and the forward, it is the value of the underlying the open options move like, added up by strike.":
+    "デルタは、原資産の値動きに対してオプション価値がどれだけ動くかです。アット・ザ・マネーで約半分、ディープ・イン・ザ・マネーで1に近く、遠いアウト・オブ・ザ・マネーで0に近く、プットではマイナスです。建玉とフォワードを掛けると、未決済オプションが原資産いくら分の値動きをするかになり、行使価格ごとに合計します。",
+  "It is read from the side of whoever bought the options: calls positive, puts negative. Whoever wrote them holds exactly the opposite, so were every writer hedged, their hedges would hold this much of the underlying. Nothing here assumes who is on which side, unlike gamma exposure.":
+    "オプションを買った側から読んでいます：コールはプラス、プットはマイナス。売った側はちょうど反対を持つので、売り手が全員ヘッジしていれば、そのヘッジはこれだけの原資産を持つことになります。ガンマエクスポージャーと違い、誰がどちら側かは何も仮定していません。",
+  "Most delta sits in options already in the money, away from the spot, so this chart often reaches wider than the gamma chart.":
+    "デルタの大半はすでにイン・ザ・マネーで現物価格から離れたオプションにあるため、このチャートはガンマのチャートより広い範囲に及ぶことがよくあります。",
+  "Vega is how much an option's value moves when implied volatility moves one point, say from 40% to 41%: largest at the money and for options with long to run. Times open interest, it is what the open options gain if IV rises a point, added up by strike.":
+    "ベガは、インプライド・ボラティリティが1ポイント（たとえば40%から41%）動いたときのオプション価値の変化です。アット・ザ・マネーと残存期間の長いオプションで最大になります。建玉を掛けると、IV が1ポイント上がったときに未決済オプションが得る額になり、行使価格ごとに合計します。",
+  "Every option carries positive vega for whoever bought it and the same amount negative for whoever wrote it, so the total is what option writers stand to lose if IV rises a point, and gain if it falls one.":
+    "どのオプションも買い手にはプラスのベガ、売り手には同じ大きさのマイナスのベガがあるため、合計は IV が1ポイント上がったときにオプションの売り手が失いうる額で、1ポイント下がれば得る額です。",
+  "Theta is how much an option's value falls in a day with price and implied volatility unchanged: largest at the money and in an option's last days. Times open interest, it is what the open options lose in a day, added up by strike.":
+    "セータは、価格とインプライド・ボラティリティが変わらないときにオプション価値が1日で下がる額です。アット・ザ・マネーと満期直前の数日で最大になります。建玉を掛けると、未決済オプションが1日で失う額になり、行使価格ごとに合計します。",
+  "Buyers pay it and writers collect it: the total is roughly what option writers earn in a quiet day, the carry they are paid for taking on gamma. The decay rate divides it by what the options in range are worth.":
+    "買い手が支払い、売り手が受け取ります：合計はおおよそ、オプションの売り手が静かな1日に稼ぐ額で、ガンマを引き受ける対価です。減価率は、これを選択範囲のオプションの価値で割ったものです。",
+  "The same books and reads as Gamma Exposure: Deribit's BTC and ETH every five minutes, Cboe's US chains every 15 minutes through the session, and the exchanges' end-of-day files for Asia-Pacific and Europe. Each option's Greeks are Black-76 at a zero rate on its own open interest, implied volatility and forward, in the currency the contract pays; they reproduce Deribit's own to within 0.03%.":
+    "ガンマエクスポージャーと同じ原資産と取得です：Deribit の BTC と ETH は5分ごと、Cboe の米国チェーンは取引時間中15分ごと、アジア太平洋と欧州は各取引所の日次ファイル。各オプションのグリークスは、そのオプション自身の建玉、インプライド・ボラティリティ、フォワードから Black-76（金利ゼロ）で計算し、契約の決済通貨建てです。Deribit 自身の値を0.03%以内で再現します。",
+  "Delta as the options' buyers hold it: calls positive, puts negative; whoever wrote them holds the opposite. {source} options, {asof}.":
+    "オプションの買い手が持つデルタ：コールはプラス、プットはマイナス。売り手はその反対を持ちます。{source} オプション、{asof}。",
+  "Vega as the options' buyers hold it, per point of implied volatility; whoever wrote them holds the opposite. {source} options, {asof}.":
+    "オプションの買い手が持つベガ、インプライド・ボラティリティ1ポイントあたり。売り手はその反対を持ちます。{source} オプション、{asof}。",
+  "Theta as the options' buyers hold it, per day; whoever wrote them collects it. {source} options, {asof}.":
+    "オプションの買い手が持つセータ、1日あたり。売り手がそれを受け取ります。{source} オプション、{asof}。",
+  "Delta, vega and theta have not been computed for {currency} yet; they arrive with its next read.":
+    "{currency} のデルタ、ベガ、セータはまだ計算されていません。次の取得で表示されます。",
 };

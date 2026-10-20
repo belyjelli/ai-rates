@@ -330,4 +330,75 @@ export const gamma: Catalog = {
     "각 날의 캔들을 그날 시작 때의 수준 아래에 그립니다. 수준은 그날 첫 조회 때 고정되므로 날이 바뀔 때만 움직입니다. 점선은 매주의 만기를 표시합니다.",
   "Each day's candle under its week's levels. They are fixed by the week's first read, so they move only at a week's expiry, the dotted rule.":
     "각 날의 캔들을 그 주의 수준 아래에 그립니다. 수준은 그 주 첫 조회 때 고정되므로 주간 만기(점선)에만 움직입니다.",
+  // The Delta, Vega and Theta tabs (web/greeks.ts).
+  Delta: "델타",
+  "{currency} · {source} options · delta by strike · {scope}":
+    "{currency} · {source} 옵션 · 행사가별 델타 · {scope}",
+  "{currency} · {source} options · vega by strike · {scope}":
+    "{currency} · {source} 옵션 · 행사가별 베가 · {scope}",
+  "{currency} · {source} options · theta by strike · {scope}":
+    "{currency} · {source} 옵션 · 행사가별 세타 · {scope}",
+  "net {net} at spot {spot} · calls above zero, puts below · hover or tap a strike to read it":
+    "현물가 {spot}에서 순액 {net} · 콜은 0 위, 풋은 아래 · 행사가에 마우스를 올리거나 탭하여 확인",
+  "{total} per IV point at spot {spot} · each strike's calls and puts stacked · hover or tap a strike to read it":
+    "현물가 {spot}에서 IV 1포인트당 {total} · 행사가별 콜과 풋을 누적 · 행사가에 마우스를 올리거나 탭하여 확인",
+  "{total} a day at spot {spot} · each strike's calls and puts stacked · hover or tap a strike to read it":
+    "현물가 {spot}에서 하루 {total} · 행사가별 콜과 풋을 누적 · 행사가에 마우스를 올리거나 탭하여 확인",
+  "Strikes beyond ±{pct} of the spot are off the chart: {usd} of the total.":
+    "현물가 ±{pct} 밖의 행사가는 차트에 없습니다: 합계 중 {usd}.",
+  "total {usd}": "합계 {usd}",
+  "{share} of it in that expiry, {left} left": "해당 만기에 {share}, 남은 기간 {left}",
+  "≈ {coins} at the spot; what the open options move like, as their buyers hold them":
+    "현물가 기준 약 {coins}; 미결제 옵션이 매수자 기준으로 기초자산 얼마만큼처럼 움직이는지",
+  "what the open options move like, as their buyers hold them":
+    "미결제 옵션이 매수자 기준으로 기초자산 얼마만큼처럼 움직이는지",
+  "Net delta": "순 델타",
+  "calls' delta is positive, puts' negative": "콜의 델타는 양수, 풋은 음수",
+  "Most delta": "델타 최대",
+  Vega: "베가",
+  "per IV point: what the open options gain if implied volatility rises one point, and their writers lose":
+    "IV 1포인트당: 내재변동성이 1포인트 오를 때 미결제 옵션이 얻는 금액이며, 매도자는 그만큼 잃습니다",
+  "every option gains as implied volatility rises":
+    "내재변동성이 오르면 모든 옵션의 가치가 오릅니다",
+  "Most vega": "베가 최대",
+  "of the options' value a day, {premium} in all": "옵션 가치 대비 하루 비율, 총 {premium}",
+  Theta: "세타",
+  "a day: what the open options lose to time with price and IV unchanged, paid by their buyers to their writers":
+    "하루: 가격과 IV가 그대로일 때 시간 경과로 미결제 옵션이 잃는 금액으로, 매수자가 매도자에게 지불합니다",
+  "every option loses value as expiry nears, faster the closer it is":
+    "모든 옵션은 만기가 다가올수록 가치를 잃으며, 가까울수록 빨라집니다",
+  "Most theta": "세타 최대",
+  "Decay rate": "감가율",
+  "Delta in {unit}: the value of the underlying each expiry's open options move like. Expiries outside the chosen range are dimmed; an option in its last hour is left out.":
+    "델타는 {unit} 기준: 각 만기의 미결제 옵션이 기초자산 얼마만큼처럼 움직이는지입니다. 선택한 범위 밖의 만기는 흐리게 표시되며, 만기 전 마지막 1시간 안의 옵션은 제외합니다.",
+  "Vega in {unit} per IV point. Expiries outside the chosen range are dimmed; an option in its last hour is left out.":
+    "베가는 IV 1포인트당 {unit} 기준입니다. 선택한 범위 밖의 만기는 흐리게 표시되며, 만기 전 마지막 1시간 안의 옵션은 제외합니다.",
+  "Theta in {unit} a day. Expiries outside the chosen range are dimmed; an option in its last hour is left out.":
+    "세타는 하루 {unit} 기준입니다. 선택한 범위 밖의 만기는 흐리게 표시되며, 만기 전 마지막 1시간 안의 옵션은 제외합니다.",
+  "Of the chain's total, either side counted": "체인 전체 합계 대비 비중, 양쪽 모두 계산",
+  Total: "합계",
+  "Delta is how much an option's value moves with the underlying: about a half at the money, near 1 deep in the money and near 0 far out of it, negative for puts. Times open interest and the forward, it is the value of the underlying the open options move like, added up by strike.":
+    "델타는 기초자산이 움직일 때 옵션 가치가 얼마나 움직이는지입니다. 등가격에서 약 절반, 깊은 내가격에서 1에 가깝고, 먼 외가격에서 0에 가까우며, 풋은 음수입니다. 미결제약정과 선도가격을 곱하면 미결제 옵션이 기초자산 얼마만큼처럼 움직이는지가 되며, 행사가별로 합산합니다.",
+  "It is read from the side of whoever bought the options: calls positive, puts negative. Whoever wrote them holds exactly the opposite, so were every writer hedged, their hedges would hold this much of the underlying. Nothing here assumes who is on which side, unlike gamma exposure.":
+    "옵션을 산 쪽에서 읽습니다: 콜은 양수, 풋은 음수. 옵션을 판 쪽은 정확히 반대를 보유하므로, 모든 매도자가 헤지했다면 그 헤지는 이만큼의 기초자산을 보유하게 됩니다. 감마 익스포저와 달리 누가 어느 쪽인지 아무것도 가정하지 않습니다.",
+  "Most delta sits in options already in the money, away from the spot, so this chart often reaches wider than the gamma chart.":
+    "델타의 대부분은 이미 내가격이어서 현물가에서 떨어진 옵션에 있으므로, 이 차트는 감마 차트보다 넓게 펼쳐지는 경우가 많습니다.",
+  "Vega is how much an option's value moves when implied volatility moves one point, say from 40% to 41%: largest at the money and for options with long to run. Times open interest, it is what the open options gain if IV rises a point, added up by strike.":
+    "베가는 내재변동성이 1포인트(예: 40%에서 41%로) 움직일 때 옵션 가치의 변화입니다. 등가격과 잔존 기간이 긴 옵션에서 가장 큽니다. 미결제약정을 곱하면 IV가 1포인트 오를 때 미결제 옵션이 얻는 금액이 되며, 행사가별로 합산합니다.",
+  "Every option carries positive vega for whoever bought it and the same amount negative for whoever wrote it, so the total is what option writers stand to lose if IV rises a point, and gain if it falls one.":
+    "모든 옵션은 매수자에게 양의 베가, 매도자에게 같은 크기의 음의 베가를 가지므로, 합계는 IV가 1포인트 오를 때 옵션 매도자가 잃을 수 있는 금액이자 1포인트 내릴 때 얻는 금액입니다.",
+  "Theta is how much an option's value falls in a day with price and implied volatility unchanged: largest at the money and in an option's last days. Times open interest, it is what the open options lose in a day, added up by strike.":
+    "세타는 가격과 내재변동성이 그대로일 때 옵션 가치가 하루에 떨어지는 금액입니다. 등가격과 만기 직전 며칠에 가장 큽니다. 미결제약정을 곱하면 미결제 옵션이 하루에 잃는 금액이 되며, 행사가별로 합산합니다.",
+  "Buyers pay it and writers collect it: the total is roughly what option writers earn in a quiet day, the carry they are paid for taking on gamma. The decay rate divides it by what the options in range are worth.":
+    "매수자가 내고 매도자가 받습니다: 합계는 대략 옵션 매도자가 조용한 하루에 버는 금액으로, 감마를 떠안는 대가입니다. 감가율은 이를 범위 안 옵션의 가치로 나눈 값입니다.",
+  "The same books and reads as Gamma Exposure: Deribit's BTC and ETH every five minutes, Cboe's US chains every 15 minutes through the session, and the exchanges' end-of-day files for Asia-Pacific and Europe. Each option's Greeks are Black-76 at a zero rate on its own open interest, implied volatility and forward, in the currency the contract pays; they reproduce Deribit's own to within 0.03%.":
+    "감마 익스포저와 같은 옵션 북과 읽기입니다: Deribit의 BTC·ETH는 5분마다, Cboe의 미국 체인은 장중 15분마다, 아시아·태평양과 유럽은 각 거래소의 장 마감 파일. 각 옵션의 그릭스는 그 옵션 자체의 미결제약정, 내재변동성, 선도가격으로 Black-76(금리 0)으로 계산하며, 계약의 결제 통화 기준입니다. Deribit 자체 값을 0.03% 이내로 재현합니다.",
+  "Delta as the options' buyers hold it: calls positive, puts negative; whoever wrote them holds the opposite. {source} options, {asof}.":
+    "옵션 매수자가 보유한 델타: 콜은 양수, 풋은 음수; 매도자는 반대를 보유합니다. {source} 옵션, {asof}.",
+  "Vega as the options' buyers hold it, per point of implied volatility; whoever wrote them holds the opposite. {source} options, {asof}.":
+    "옵션 매수자가 보유한 베가, 내재변동성 1포인트당; 매도자는 반대를 보유합니다. {source} 옵션, {asof}.",
+  "Theta as the options' buyers hold it, per day; whoever wrote them collects it. {source} options, {asof}.":
+    "옵션 매수자가 보유한 세타, 하루 기준; 매도자가 이를 받습니다. {source} 옵션, {asof}.",
+  "Delta, vega and theta have not been computed for {currency} yet; they arrive with its next read.":
+    "{currency}의 델타, 베가, 세타는 아직 계산되지 않았습니다. 다음 읽기 때 나타납니다.",
 };

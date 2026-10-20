@@ -324,4 +324,74 @@ export const gamma: Catalog = {
     "每天的 K 线画在它开盘时的水平下。水平由当天首次读取固定，所以只在换日时移动；虚线标出每周的到期。",
   "Each day's candle under its week's levels. They are fixed by the week's first read, so they move only at a week's expiry, the dotted rule.":
     "每天的 K 线画在其所在周的水平下。水平由本周首次读取固定，所以只在周到期（虚线）时移动。",
+  // The Delta, Vega and Theta tabs (web/greeks.ts).
+  Delta: "Delta",
+  "{currency} · {source} options · delta by strike · {scope}":
+    "{currency} · {source} 期权 · 按行权价的 Delta · {scope}",
+  "{currency} · {source} options · vega by strike · {scope}":
+    "{currency} · {source} 期权 · 按行权价的 Vega · {scope}",
+  "{currency} · {source} options · theta by strike · {scope}":
+    "{currency} · {source} 期权 · 按行权价的 Theta · {scope}",
+  "net {net} at spot {spot} · calls above zero, puts below · hover or tap a strike to read it":
+    "现货价 {spot} 处净值 {net} · 看涨在零线上方，看跌在下方 · 悬停或点按行权价查看",
+  "{total} per IV point at spot {spot} · each strike's calls and puts stacked · hover or tap a strike to read it":
+    "现货价 {spot} 处每个 IV 点 {total} · 各行权价的看涨与看跌叠加 · 悬停或点按行权价查看",
+  "{total} a day at spot {spot} · each strike's calls and puts stacked · hover or tap a strike to read it":
+    "现货价 {spot} 处每天 {total} · 各行权价的看涨与看跌叠加 · 悬停或点按行权价查看",
+  "Strikes beyond ±{pct} of the spot are off the chart: {usd} of the total.":
+    "距现货价 ±{pct} 以外的行权价不在图内：占合计 {usd}。",
+  "total {usd}": "合计 {usd}",
+  "{share} of it in that expiry, {left} left": "该到期日占 {share}，剩余 {left}",
+  "≈ {coins} at the spot; what the open options move like, as their buyers hold them":
+    "按现货价约合 {coins}；未平仓期权相当于多少标的，按买方持有计",
+  "what the open options move like, as their buyers hold them":
+    "未平仓期权相当于多少标的，按买方持有计",
+  "Net delta": "净 Delta",
+  "calls' delta is positive, puts' negative": "看涨的 Delta 为正，看跌为负",
+  "Most delta": "Delta 最多",
+  Vega: "Vega",
+  "per IV point: what the open options gain if implied volatility rises one point, and their writers lose":
+    "每个 IV 点：隐含波动率上升 1 个点时未平仓期权的增值，也是卖方的损失",
+  "every option gains as implied volatility rises": "隐含波动率上升时，每个期权都会增值",
+  "Most vega": "Vega 最多",
+  "of the options' value a day, {premium} in all": "期权价值的每日占比，总价值 {premium}",
+  Theta: "Theta",
+  "a day: what the open options lose to time with price and IV unchanged, paid by their buyers to their writers":
+    "每天：价格与 IV 不变时，未平仓期权因时间流逝损失的价值，由买方付给卖方",
+  "every option loses value as expiry nears, faster the closer it is":
+    "每个期权都随到期临近而贬值，越临近越快",
+  "Most theta": "Theta 最多",
+  "Decay rate": "衰减率",
+  "Delta in {unit}: the value of the underlying each expiry's open options move like. Expiries outside the chosen range are dimmed; an option in its last hour is left out.":
+    "Delta 以 {unit} 计：各到期日的未平仓期权相当于多少价值的标的。所选范围外的到期日显示为灰色；最后一小时内的期权不计入。",
+  "Vega in {unit} per IV point. Expiries outside the chosen range are dimmed; an option in its last hour is left out.":
+    "Vega 以每个 IV 点的 {unit} 计。所选范围外的到期日显示为灰色；最后一小时内的期权不计入。",
+  "Theta in {unit} a day. Expiries outside the chosen range are dimmed; an option in its last hour is left out.":
+    "Theta 以每天的 {unit} 计。所选范围外的到期日显示为灰色；最后一小时内的期权不计入。",
+  "Of the chain's total, either side counted": "占全部合计的比例，两侧均计",
+  Total: "合计",
+  "Delta is how much an option's value moves with the underlying: about a half at the money, near 1 deep in the money and near 0 far out of it, negative for puts. Times open interest and the forward, it is the value of the underlying the open options move like, added up by strike.":
+    "Delta 是期权价值随标的变动的幅度：平值时约为一半，深度实值时接近 1，远虚值时接近 0，看跌为负。乘以持仓量和远期价格，就是未平仓期权相当于多少价值的标的，按行权价加总。",
+  "It is read from the side of whoever bought the options: calls positive, puts negative. Whoever wrote them holds exactly the opposite, so were every writer hedged, their hedges would hold this much of the underlying. Nothing here assumes who is on which side, unlike gamma exposure.":
+    "它按买方的角度读取：看涨为正，看跌为负。卖方持有完全相反的一面，所以如果每个卖方都做了对冲，他们的对冲头寸就持有这么多标的。与 Gamma 敞口不同，这里不假设谁在哪一边。",
+  "Most delta sits in options already in the money, away from the spot, so this chart often reaches wider than the gamma chart.":
+    "大部分 Delta 位于已经实值、远离现货价的期权中，所以这张图通常比 Gamma 图覆盖得更宽。",
+  "Vega is how much an option's value moves when implied volatility moves one point, say from 40% to 41%: largest at the money and for options with long to run. Times open interest, it is what the open options gain if IV rises a point, added up by strike.":
+    "Vega 是隐含波动率变动一个点（比如从 40% 到 41%）时期权价值的变动：平值和剩余期限长的期权最大。乘以持仓量，就是 IV 上升一个点时未平仓期权的增值，按行权价加总。",
+  "Every option carries positive vega for whoever bought it and the same amount negative for whoever wrote it, so the total is what option writers stand to lose if IV rises a point, and gain if it falls one.":
+    "每个期权对买方都是正 Vega，对卖方则是同样大小的负 Vega，所以合计就是 IV 上升一个点时期权卖方可能的损失，下降一个点时的收益。",
+  "Theta is how much an option's value falls in a day with price and implied volatility unchanged: largest at the money and in an option's last days. Times open interest, it is what the open options lose in a day, added up by strike.":
+    "Theta 是价格和隐含波动率不变时期权价值一天内的下降：平值和到期前最后几天最大。乘以持仓量，就是未平仓期权一天损失的价值，按行权价加总。",
+  "Buyers pay it and writers collect it: the total is roughly what option writers earn in a quiet day, the carry they are paid for taking on gamma. The decay rate divides it by what the options in range are worth.":
+    "买方支付、卖方收取：合计大致就是期权卖方在平静的一天里赚到的钱，即他们承担 Gamma 所得到的报酬。衰减率是它除以所选范围内期权的价值。",
+  "The same books and reads as Gamma Exposure: Deribit's BTC and ETH every five minutes, Cboe's US chains every 15 minutes through the session, and the exchanges' end-of-day files for Asia-Pacific and Europe. Each option's Greeks are Black-76 at a zero rate on its own open interest, implied volatility and forward, in the currency the contract pays; they reproduce Deribit's own to within 0.03%.":
+    "与 Gamma 敞口相同的期权簿和读取：Deribit 的 BTC 和 ETH 每五分钟一次，Cboe 的美国期权链在交易时段内每 15 分钟一次，亚太和欧洲则是各交易所的日终文件。每个期权的希腊值按 Black-76（零利率）由其自身的持仓量、隐含波动率和远期价格计算，以合约结算货币计；可在 0.03% 以内复现 Deribit 自己的数值。",
+  "Delta as the options' buyers hold it: calls positive, puts negative; whoever wrote them holds the opposite. {source} options, {asof}.":
+    "按期权买方持有计的 Delta：看涨为正，看跌为负；卖方持有相反的一面。{source} 期权，{asof}。",
+  "Vega as the options' buyers hold it, per point of implied volatility; whoever wrote them holds the opposite. {source} options, {asof}.":
+    "按期权买方持有计的 Vega，以每个隐含波动率点计；卖方持有相反的一面。{source} 期权，{asof}。",
+  "Theta as the options' buyers hold it, per day; whoever wrote them collects it. {source} options, {asof}.":
+    "按期权买方持有计的 Theta，以每天计；由卖方收取。{source} 期权，{asof}。",
+  "Delta, vega and theta have not been computed for {currency} yet; they arrive with its next read.":
+    "{currency} 的 Delta、Vega 和 Theta 尚未计算；将随下一次读取出现。",
 };

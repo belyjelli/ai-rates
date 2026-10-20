@@ -337,4 +337,75 @@ export const gamma: Catalog = {
     "Свеча каждого дня под уровнями, с которыми он открылся. Они фиксируются первым чтением дня, поэтому меняются только от одного дня к следующему; пунктир отмечает экспирацию каждой недели.",
   "Each day's candle under its week's levels. They are fixed by the week's first read, so they move only at a week's expiry, the dotted rule.":
     "Свеча каждого дня под уровнями его недели. Они фиксируются первым чтением недели, поэтому меняются только на недельной экспирации, у пунктира.",
+  // The Delta, Vega and Theta tabs (web/greeks.ts).
+  Delta: "Дельта",
+  "{currency} · {source} options · delta by strike · {scope}":
+    "{currency} · опционы {source} · дельта по страйкам · {scope}",
+  "{currency} · {source} options · vega by strike · {scope}":
+    "{currency} · опционы {source} · вега по страйкам · {scope}",
+  "{currency} · {source} options · theta by strike · {scope}":
+    "{currency} · опционы {source} · тета по страйкам · {scope}",
+  "net {net} at spot {spot} · calls above zero, puts below · hover or tap a strike to read it":
+    "нетто {net} при споте {spot} · коллы выше нуля, путы ниже · наведите или нажмите на страйк, чтобы прочитать",
+  "{total} per IV point at spot {spot} · each strike's calls and puts stacked · hover or tap a strike to read it":
+    "{total} на пункт IV при споте {spot} · коллы и путы каждого страйка сложены · наведите или нажмите на страйк, чтобы прочитать",
+  "{total} a day at spot {spot} · each strike's calls and puts stacked · hover or tap a strike to read it":
+    "{total} в день при споте {spot} · коллы и путы каждого страйка сложены · наведите или нажмите на страйк, чтобы прочитать",
+  "Strikes beyond ±{pct} of the spot are off the chart: {usd} of the total.":
+    "Страйки дальше ±{pct} от спота не показаны: {usd} от общего итога.",
+  "total {usd}": "итого {usd}",
+  "{share} of it in that expiry, {left} left": "{share} — в этой экспирации, осталось {left}",
+  "≈ {coins} at the spot; what the open options move like, as their buyers hold them":
+    "≈ {coins} по споту; сколько базового актива повторяют открытые опционы для их покупателей",
+  "what the open options move like, as their buyers hold them":
+    "сколько базового актива повторяют открытые опционы для их покупателей",
+  "Net delta": "Нетто-дельта",
+  "calls' delta is positive, puts' negative": "дельта коллов положительна, путов — отрицательна",
+  "Most delta": "Больше всего дельты",
+  Vega: "Вега",
+  "per IV point: what the open options gain if implied volatility rises one point, and their writers lose":
+    "на пункт IV: сколько открытые опционы выигрывают при росте подразумеваемой волатильности на пункт, а их продавцы теряют",
+  "every option gains as implied volatility rises":
+    "при росте подразумеваемой волатильности дорожает любой опцион",
+  "Most vega": "Больше всего веги",
+  "of the options' value a day, {premium} in all": "стоимости опционов в день, всего {premium}",
+  Theta: "Тета",
+  "a day: what the open options lose to time with price and IV unchanged, paid by their buyers to their writers":
+    "в день: сколько открытые опционы теряют со временем при неизменных цене и IV — это платят покупатели продавцам",
+  "every option loses value as expiry nears, faster the closer it is":
+    "любой опцион дешевеет по мере приближения экспирации, и тем быстрее, чем она ближе",
+  "Most theta": "Больше всего теты",
+  "Decay rate": "Скорость распада",
+  "Delta in {unit}: the value of the underlying each expiry's open options move like. Expiries outside the chosen range are dimmed; an option in its last hour is left out.":
+    "Дельта в {unit}: сколько базового актива повторяют открытые опционы каждой экспирации. Экспирации вне выбранного диапазона приглушены; опцион в последний час до экспирации не учитывается.",
+  "Vega in {unit} per IV point. Expiries outside the chosen range are dimmed; an option in its last hour is left out.":
+    "Вега в {unit} на пункт IV. Экспирации вне выбранного диапазона приглушены; опцион в последний час до экспирации не учитывается.",
+  "Theta in {unit} a day. Expiries outside the chosen range are dimmed; an option in its last hour is left out.":
+    "Тета в {unit} в день. Экспирации вне выбранного диапазона приглушены; опцион в последний час до экспирации не учитывается.",
+  "Of the chain's total, either side counted": "Доля общего итога цепочки, с учётом обеих сторон",
+  Total: "Итого",
+  "Delta is how much an option's value moves with the underlying: about a half at the money, near 1 deep in the money and near 0 far out of it, negative for puts. Times open interest and the forward, it is the value of the underlying the open options move like, added up by strike.":
+    "Дельта показывает, насколько стоимость опциона меняется вместе с базовым активом: около половины на деньгах, почти 1 глубоко в деньгах и почти 0 далеко вне денег, у путов — со знаком минус. Умноженная на открытый интерес и форвард, она показывает, сколько базового актива повторяют открытые опционы, с суммой по страйкам.",
+  "It is read from the side of whoever bought the options: calls positive, puts negative. Whoever wrote them holds exactly the opposite, so were every writer hedged, their hedges would hold this much of the underlying. Nothing here assumes who is on which side, unlike gamma exposure.":
+    "Она читается со стороны тех, кто купил опционы: коллы положительны, путы отрицательны. Продавцы держат ровно противоположное, поэтому если бы все продавцы хеджировались, их хеджи держали бы столько базового актива. В отличие от гамма-экспозиции, здесь ничего не предполагается о том, кто на какой стороне.",
+  "Most delta sits in options already in the money, away from the spot, so this chart often reaches wider than the gamma chart.":
+    "Большая часть дельты приходится на опционы, уже находящиеся в деньгах, вдали от спота, поэтому этот график часто шире графика гаммы.",
+  "Vega is how much an option's value moves when implied volatility moves one point, say from 40% to 41%: largest at the money and for options with long to run. Times open interest, it is what the open options gain if IV rises a point, added up by strike.":
+    "Вега показывает, насколько меняется стоимость опциона, когда подразумеваемая волатильность сдвигается на пункт, например с 40% до 41%: больше всего на деньгах и у опционов с долгим сроком. Умноженная на открытый интерес, она показывает, сколько открытые опционы выигрывают при росте IV на пункт, с суммой по страйкам.",
+  "Every option carries positive vega for whoever bought it and the same amount negative for whoever wrote it, so the total is what option writers stand to lose if IV rises a point, and gain if it falls one.":
+    "У покупателя любого опциона вега положительна, у продавца — такая же отрицательная, поэтому итог — это сколько продавцы опционов могут потерять при росте IV на пункт и заработать при падении на пункт.",
+  "Theta is how much an option's value falls in a day with price and implied volatility unchanged: largest at the money and in an option's last days. Times open interest, it is what the open options lose in a day, added up by strike.":
+    "Тета показывает, насколько стоимость опциона падает за день при неизменных цене и подразумеваемой волатильности: больше всего на деньгах и в последние дни до экспирации. Умноженная на открытый интерес, она показывает, сколько открытые опционы теряют за день, с суммой по страйкам.",
+  "Buyers pay it and writers collect it: the total is roughly what option writers earn in a quiet day, the carry they are paid for taking on gamma. The decay rate divides it by what the options in range are worth.":
+    "Её платят покупатели и получают продавцы: итог — это примерно то, что продавцы опционов зарабатывают за спокойный день, плата за то, что они берут на себя гамму. Скорость распада — это итог, делённый на стоимость опционов в диапазоне.",
+  "The same books and reads as Gamma Exposure: Deribit's BTC and ETH every five minutes, Cboe's US chains every 15 minutes through the session, and the exchanges' end-of-day files for Asia-Pacific and Europe. Each option's Greeks are Black-76 at a zero rate on its own open interest, implied volatility and forward, in the currency the contract pays; they reproduce Deribit's own to within 0.03%.":
+    "Те же книги и те же чтения, что и для гамма-экспозиции: BTC и ETH на Deribit каждые пять минут, американские цепочки Cboe каждые 15 минут в течение сессии и файлы бирж по итогам дня для АТР и Европы. Греки каждого опциона считаются по Black-76 при нулевой ставке из его собственных открытого интереса, подразумеваемой волатильности и форварда, в валюте расчётов по контракту; они воспроизводят собственные значения Deribit с точностью до 0,03%.",
+  "Delta as the options' buyers hold it: calls positive, puts negative; whoever wrote them holds the opposite. {source} options, {asof}.":
+    "Дельта так, как её держат покупатели опционов: коллы положительны, путы отрицательны; продавцы держат противоположное. Опционы {source}, {asof}.",
+  "Vega as the options' buyers hold it, per point of implied volatility; whoever wrote them holds the opposite. {source} options, {asof}.":
+    "Вега так, как её держат покупатели опционов, на пункт подразумеваемой волатильности; продавцы держат противоположное. Опционы {source}, {asof}.",
+  "Theta as the options' buyers hold it, per day; whoever wrote them collects it. {source} options, {asof}.":
+    "Тета так, как её держат покупатели опционов, в день; её получают продавцы. Опционы {source}, {asof}.",
+  "Delta, vega and theta have not been computed for {currency} yet; they arrive with its next read.":
+    "Дельта, вега и тета для {currency} ещё не рассчитаны; они появятся при следующем чтении.",
 };
