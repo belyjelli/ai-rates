@@ -17,6 +17,7 @@ import { kBars, kRef, lwcAsset } from "../web/kchart";
 import { keyboard } from "../web/keyboard";
 import { SITE_ORIGIN } from "../web/layout";
 import { legal } from "../web/legal";
+import { levelsFragment } from "../web/levels";
 import { liquidations, liquidationsPanel } from "../web/liquidations";
 import { isMacroPanel, MACRO_NEEDS, type MacroPanel, macroFragment } from "../web/macro";
 import * as pages from "../web/pages";
@@ -295,6 +296,20 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         const gamma = await readGamma();
         return page(() =>
           gammaFragment({ data: gamma, params: gammaParams, heatmap: params, now }),
+        );
+      }
+      // The IV Walls and Ceiling & Floor tabs: the book's nearest expiry, its days and its measured
+      // history (collector migration 045), each tab read for its own `?panel=`. A failed read says so.
+      const levelsTab = url.searchParams.get("panel");
+      if (levelsTab === "ivwalls" || levelsTab === "levels") {
+        const levels = await deps.data.levels({ currency: gammaParams.currency }).catch((error) => {
+          deps.log?.(
+            `levels unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return null;
+        });
+        return page(() =>
+          levelsFragment(levelsTab, { data: levels, params: gammaParams, heatmap: params, now }),
         );
       }
       // The macro tabs, each read for its own `?panel=<tab>` alone; `?macro=<tab>` fills that one in

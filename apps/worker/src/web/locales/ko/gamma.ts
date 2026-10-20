@@ -195,4 +195,111 @@ export const gamma: Catalog = {
     "각 가지의 마지막 줄은 실제로 그랬던 빈도로, Deribit 30일 변동성 지수(DVOL)와 무기한 선물의 일일 정산가에서 구했습니다. 모든 기간에 같은 30일 IV를 쓰고 구간이 겹치므로 독립 시행이 아닌 빈도입니다.",
   "The expected move is the range the options have priced in: one standard deviation is the price times the at-the-money implied volatility times the square root of the days ahead over 365, and the walls sit one and two deviations either side of the spot. The chart draws them for the chosen expiries (30 days ahead for all of them); the mind map under it gives every horizon. They are not support or resistance, only the market's own estimate of how far price may travel.":
     "예상 변동폭은 옵션이 반영한 범위입니다. 1표준편차는 가격 × 등가격 내재변동성 × √(앞으로의 일수/365)이고, 월은 현물가 위아래 1표준편차와 2표준편차에 있습니다. 차트는 선택한 만기 범위에 대해 그리며(전체 만기는 30일 후), 그 아래 마인드맵이 모든 기간을 보여 줍니다. 지지선이나 저항선이 아니라, 가격이 얼마나 움직일 수 있는지에 대한 시장 자체의 추정입니다.",
+  reference: "기준",
+  Level: "수준",
+  "From the reference": "기준에서",
+  "the next session": "다음 거래 시간",
+  "{date}, from 08:00 UTC": "{date}, 08:00 UTC부터",
+  "{date} session": "{date} 거래 시간",
+  "no trade yet today": "오늘은 아직 거래 없음",
+  "above it now": "지금은 그 위",
+  "below it now": "지금은 그 아래",
+  "reached it today and back inside": "오늘 닿았다가 안으로 돌아옴",
+  "inside all day so far": "오늘 지금까지 계속 안쪽",
+  "No history is kept for this book's walls yet, so its 90% wall is the normal distribution's 1.645 standard deviations of the options' own IV, not a measured one. Its record starts with its first day below.":
+    "이 옵션 북의 월에는 아직 기록이 없어서, 90% 월은 실측이 아니라 옵션 자체 IV에 대한 정규분포의 1.645 표준편차입니다. 기록은 아래 첫날부터 시작됩니다.",
+  "Measured on {days} sessions since {since} {year}, against Cboe's 1-day VIX: the S&amp;P 500 closed inside one standard deviation on {inside1}, and within {k90} of them on 90%, so that is where the 90% wall sits. Cboe's free history has the index's closes only, so touches of a wall during the day are not counted here; this book's own record below counts them.":
+    "{since} {year} 이후 {days}개 거래 시간을 Cboe의 1일 VIX와 비교해 측정: S&amp;P 500은 {inside1}가 1표준편차 안에서 마감했고, 90%는 {k90}표준편차 안에서 마감해 90% 월을 그곳에 둡니다. Cboe의 무료 기록은 지수 종가뿐이라 장중에 월에 닿은 횟수는 여기서 세지 않습니다. 아래 이 옵션 북 자체의 기록이 셉니다.",
+  "Measured on {days} Deribit days since {since} {year}, against the 30-day volatility index (DVOL) as each day began: the whole day stayed within {k90} standard deviations on 90% of days, so that is where the 90% wall sits. Within one, the whole day stayed on {inside1} and the close on {close1}. A touch of the 1σ wall closed back inside {rev1} of {touch1} times; a touch of the 90% wall, {rev90} of {touch90} times.":
+    "{since} {year} 이후 {days}개 Deribit 거래일을 매일 시작 시점의 30일 변동성 지수(DVOL)와 비교해 측정: 90%의 날에 하루 내내 {k90}표준편차 안에 머물러 90% 월을 그곳에 둡니다. 1표준편차 안에 머문 비율은 하루 전체 {inside1}, 종가 {close1}. 1σ 월에 닿은 {touch1}번 중 {rev1}가 안에서 마감했고, 90% 월에 닿은 {touch90}번 중 {rev90}입니다.",
+  "not reached": "닿지 않음",
+  "reached, closed back inside": "닿은 뒤 안에서 마감",
+  "closed beyond": "밖에서 마감",
+  "above: {what}": "위: {what}",
+  "below: {what}": "아래: {what}",
+  "The IV wall is the move the options price for the day: the reference close plus and minus one standard deviation, the close times the options' implied volatility a day ahead times the square root of 1/365. The levels are fixed when the day begins (Deribit's day at 08:00 UTC, a US session at its first read) so they do not drift through the day.":
+    "IV 월은 옵션이 그날 반영한 움직임입니다. 기준 종가의 위아래 1표준편차로, 종가 × 하루 앞 옵션 내재변동성 × √(1/365)입니다. 수준은 하루가 시작될 때 고정되며(Deribit의 하루는 08:00 UTC, 미국 거래 시간은 첫 조회 시점) 장중에 움직이지 않습니다.",
+  "The 90% wall is where history says price stayed: the multiple of a day's standard deviation that held on 90% of past days. BTC and ETH are measured on every Deribit day since 2021 against DVOL, their whole day's range; the S&amp;P 500 on every session since 2022 against Cboe's 1-day VIX, closes only. A book with no history uses the normal distribution's 1.645.":
+    "90% 월은 과거에 가격이 머문 범위입니다. 지난 날의 90%에서 깨지지 않은 하루 표준편차의 배수입니다. BTC와 ETH는 2021년 이후 모든 Deribit 거래일을 DVOL과 비교해 하루 전체 변동폭으로, S&amp;P 500은 2022년 이후 모든 거래 시간을 Cboe의 1일 VIX와 비교해 종가만으로 측정합니다. 기록이 없는 옵션 북은 정규분포의 1.645를 씁니다.",
+  "A wall is a probability, not a promise: a touch of the IV wall has closed back inside a little over half the time, not nine times in ten. The record under the ladder shows each day's outcome for this book.":
+    "월은 약속이 아니라 확률입니다. IV 월에 닿은 뒤 안으로 돌아온 비율은 절반을 조금 넘을 뿐, 열 번에 아홉 번이 아닙니다. 래더 아래 기록에 이 옵션 북의 날마다의 결과를 보여 줍니다.",
+  "{currency}'s options carry no implied volatility to draw walls from yet.":
+    "{currency}의 옵션에는 아직 월을 그릴 내재변동성이 없습니다.",
+  "1.645 standard deviations of the options' IV (normal distribution)":
+    "옵션 IV의 1.645표준편차(정규분포)",
+  "{k90} standard deviations of {method} {sigma}, measured":
+    "{method} {sigma}의 {k90}표준편차, 실측",
+  "IV wall, 1σ": "IV 월, 1σ",
+  "±{move} (±{pct}) from IV {iv} a day ahead": "±{move}(±{pct}), 하루 앞 IV {iv} 기준",
+  "90% wall": "90% 월",
+  "The day so far": "오늘 지금까지",
+  Reference: "기준",
+  "high {high} · low {low}": "고가 {high} · 저가 {low}",
+  "IV wall: {status}": "IV 월: {status}",
+  "the latest close, for the next session": "최근 종가, 다음 거래 시간용",
+  "Reference close": "기준 종가",
+  "{currency} · {source} options · IV walls · {day}": "{currency} · {source} 옵션 · IV 월 · {day}",
+  "The day's range": "그날의 변동폭",
+  "IV wall": "IV 월",
+  "90% wall, above": "90% 월, 위",
+  "IV wall, above": "IV 월, 위",
+  "1σ of the options' IV": "옵션 IV의 1σ",
+  "IV wall, below": "IV 월, 아래",
+  "90% wall, below": "90% 월, 아래",
+  "{currency} comes from an end-of-day file, so its walls are for the next session and are not kept day by day.":
+    "{currency}는 장 마감 파일에서 읽어서, 월은 다음 거래 시간용이며 날마다 기록하지 않습니다.",
+  "{currency}'s own record starts with today; each finished day is added here.":
+    "{currency} 자체 기록은 오늘부터 시작합니다. 끝난 날마다 여기에 추가됩니다.",
+  "{currency}'s own record, {days} finished days since {since}. IV wall: touched {reached}, closed back inside {held}. 90% wall: touched {reached90}, closed back inside {held90}.":
+    "{currency} 자체 기록, {since} 이후 끝난 {days}일. IV 월: 닿음 {reached}, 안에서 마감 {held}. 90% 월: 닿음 {reached90}, 안에서 마감 {held90}.",
+  "High / low": "고가 / 저가",
+  Close: "종가",
+  "At the IV wall": "IV 월에서",
+  "At the 90% wall": "90% 월에서",
+  "How price has behaved at the walls": "월에서의 가격 움직임",
+  "Prices in {unit}. {source} options, read {ago}.":
+    "가격은 {unit} 기준. {source} 옵션, {ago} 조회.",
+  "Two readings of where the market makers stand, side by side, for the nearest expiry. The gamma ceiling is the strike above the spot holding the most call gamma, and the gamma floor the strike below it holding the most put gamma: where hedging flows are largest.":
+    "가장 가까운 만기에 대해 마켓메이커의 위치를 두 가지로 읽어 나란히 보여 줍니다. 감마 천장은 현물가 위에서 콜 감마가 가장 많은 행사가, 감마 바닥은 현물가 아래에서 풋 감마가 가장 많은 행사가로, 헤지 흐름이 가장 큰 곳입니다.",
+  "The dealer range reads every option as sold by dealers who keep the premium, as max pain does: at expiry they pay out what the options are worth, so they earn most at the max pain strike and start losing beyond the break-evens either side, the dealer ceiling and floor. No exchange publishes who sold what, so this rests on that assumption, and the Gamma Exposure tab's sign assumes the opposite for calls.":
+    "딜러 범위는 맥스 페인과 마찬가지로 모든 옵션을 프리미엄을 받은 딜러가 판 것으로 읽습니다. 만기에 옵션의 가치를 지급하므로 맥스 페인 행사가에서 가장 많이 벌고, 양쪽 손익분기점인 딜러 천장과 바닥을 넘으면 손실이 나기 시작합니다. 누가 무엇을 팔았는지 공개하는 거래소는 없어 이 가정에 기대며, 감마 익스포저 탭의 부호는 콜에 대해 반대로 가정합니다.",
+  "A ceiling or floor within a quarter of the day's move of an IV wall is marked as lined up with it. Whether price turns there more often than elsewhere is what the record under the ladder is for: it starts with this tab and grows a day at a time.":
+    "IV 월에서 그날 움직임의 4분의 1 안에 있는 천장이나 바닥은 월과 겹친다고 표시합니다. 가격이 다른 곳보다 그곳에서 더 자주 돌아서는지는 래더 아래 기록이 답합니다. 기록은 이 탭과 함께 시작해 하루씩 늘어납니다.",
+  "gamma ceiling": "감마 천장",
+  "dealer ceiling": "딜러 천장",
+  "gamma floor": "감마 바닥",
+  "dealer floor": "딜러 바닥",
+  "Gamma ceiling / floor": "감마 천장 / 바닥",
+  "the strikes holding the most call gamma above the spot and put gamma below it, expiring {expiry}":
+    "현물가 위 콜 감마, 아래 풋 감마가 가장 많은 행사가, {expiry} 만기",
+  "Dealer ceiling / floor": "딜러 천장 / 바닥",
+  "where dealers who sold every option of that expiry break even; max pain {pain}":
+    "그 만기의 옵션을 모두 판 딜러의 손익분기점; 맥스 페인 {pain}",
+  "Lined up with an IV wall": "IV 월과 겹침",
+  "within a quarter of the day's 1σ move ({band}) of an IV wall or a 90% wall":
+    "IV 월 또는 90% 월에서 그날 1σ 움직임의 4분의 1({band}) 이내",
+  "max pain": "맥스 페인",
+  "{currency} · {source} options · ceiling and floor · expiring {expiry}":
+    "{currency} · {source} 옵션 · 천장과 바닥 · {expiry} 만기",
+  "dealer ceiling and floor": "딜러 천장과 바닥",
+  "lined up with a wall": "월과 겹침",
+  "Dealer range by expiry": "만기별 딜러 범위",
+  Premium: "프리미엄",
+  "Dealer floor": "딜러 바닥",
+  "Max pain": "맥스 페인",
+  "Dealer ceiling": "딜러 천장",
+  "From the spot": "현물가에서",
+  "Lined up with a wall": "월과 겹침",
+  "{currency} comes from an end-of-day file, so its levels are for the next session and are not kept day by day.":
+    "{currency}는 장 마감 파일에서 읽어서, 수준은 다음 거래 시간용이며 날마다 기록하지 않습니다.",
+  Days: "일수",
+  Reached: "닿음",
+  "Closed back inside": "안에서 마감",
+  "Over {days} finished days since {since}, both sides counted; a level is reached when the day's high (or low) touches it, and held when the day closes back inside it.":
+    "{since} 이후 끝난 {days}일, 양쪽을 모두 셉니다. 그날의 고가(또는 저가)가 닿으면 닿음, 그날 그 안에서 마감하면 지킨 것입니다.",
+  "How price has behaved at these levels": "이 수준에서의 가격 움직임",
+  "IV Walls": "IV 월",
+  "IV walls": "IV 월",
+  "Ceiling & Floor": "천장과 바닥",
+  Ceiling: "천장",
 };

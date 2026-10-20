@@ -217,7 +217,7 @@ export function freshness(source: string, at: Date, now: number): "fresh" | "lat
 }
 
 /** "3m ago", "6h 01m ago", and from two days on "2d 16h ago": a US weekend, a late file. */
-function agoText(at: Date, now: number): string {
+export function agoText(at: Date, now: number): string {
   const ms = now - at.getTime();
   if (ms < 2 * 86_400_000) return ageText(at, now);
   return tr("{time} ago", {
@@ -229,25 +229,26 @@ function agoText(at: Date, now: number): string {
 }
 
 /** How old a book's figures are, as its publisher makes them: a read's age, or a file's day. */
-function asOfText(source: string, at: Date, now: number): string {
+export function asOfText(source: string, at: Date, now: number): string {
   const cadence = publisher(source).cadence;
   if (cadence === "daily") return tr("close {date}", { date: dayLabel(at) });
   return agoText(at, now);
 }
 
 /** A modeled price, to the precision it means: whole dollars from $1,000 up, four figures below. */
-const level = (price: number) => (price >= 1000 ? Math.round(price) : Number(price.toPrecision(4)));
+export const level = (price: number) =>
+  price >= 1000 ? Math.round(price) : Number(price.toPrecision(4));
 
-const tone = (usd: number) => (usd > 0 ? "lq-ink-l" : usd < 0 ? "lq-ink-s" : "");
+export const tone = (usd: number) => (usd > 0 ? "lq-ink-l" : usd < 0 ? "lq-ink-s" : "");
 
-const signedPct = (fraction: number, digits = 1) => {
+export const signedPct = (fraction: number, digits = 1) => {
   const text = Math.abs(fraction * 100).toFixed(digits);
   if (Number(text) === 0) return `${(0).toFixed(digits)}%`;
   return `${fraction < 0 ? MINUS : "+"}${text}%`;
 };
 
 /** "Oct 16" in the page's language. */
-const dayLabel = (date: Date) =>
+export const dayLabel = (date: Date) =>
   tr("{month} {day}", {
     month: trMsg(MONTHS[date.getUTCMonth()] as string),
     day: date.getUTCDate(),
@@ -653,7 +654,7 @@ function tiles(e: GammaExposure): string {
 </div>`;
 }
 
-function leftText(expiry: Date, now: number): string {
+export function leftText(expiry: Date, now: number): string {
   const ms = expiry.getTime() - now;
   // An end-of-day file is read the evening after its close, so its nearest expiry may be gone by then.
   if (ms <= 0) return tr("expired");
@@ -802,8 +803,11 @@ function expectedMoveMap(data: {
 }
 
 /** The address that switches the tab to other choices. */
-const choiceHref = (heatmap: HeatmapParams, next: GammaParams) =>
-  `/rates${heatmapToQuery(heatmap, next)}#gamma`;
+/** The three tabs that read an option book, by their tab id: each keeps the book picked in the others. */
+export type BookTab = "gamma" | "ivwalls" | "levels";
+
+const choiceHref = (heatmap: HeatmapParams, next: GammaParams, tab: BookTab = "gamma") =>
+  `/rates${heatmapToQuery(heatmap, next)}#${tab}`;
 
 /** The link that switches the tab to other choices, in place (GX_SWAP_SCRIPT) or as a plain page. */
 function choice(
@@ -839,13 +843,16 @@ export function sortBooks(books: readonly GammaBook[]): GammaBook[] {
  * flip sits from the spot, and how old it is -- so a reader can pick one by what it shows. Each row is
  * a plain link that the swap script takes in place; filtering, arrows and Escape are PICK_SCRIPT's.
  */
-function bookPicker(data: {
+export function bookPicker(data: {
   books: readonly GammaBook[];
   heatmap: HeatmapParams;
   params: GammaParams;
   now: number;
+  /** The tab the rows open (each tab's swap script takes its own); the Gamma Exposure tab by default. */
+  tab?: BookTab;
 }): string {
   const { heatmap, params, now } = data;
+  const tab = data.tab ?? "gamma";
   const books = sortBooks(data.books);
   const row = (b: GammaBook) => {
     const pub = publisher(b.source);
@@ -862,7 +869,7 @@ function bookPicker(data: {
     const words = [b.currency, BOOK_NAMES[b.currency] ?? "", rawName(b.currency), pub.name, b.unit]
       .join(" ")
       .toLowerCase();
-    return `<a class="wh-pick-row${on ? " on" : ""}" href="${esc(choiceHref(heatmap, { ...params, currency: b.currency }))}" data-gx-swap data-q="${esc(words)}"${on ? ' aria-current="true"' : ""}>
+    return `<a class="wh-pick-row${on ? " on" : ""}" href="${esc(choiceHref(heatmap, { ...params, currency: b.currency }, tab))}" data-gx-swap data-q="${esc(words)}"${on ? ' aria-current="true"' : ""}>
 <span class="wh-pick-sym"><b>${esc(b.currency)}</b><small>${bookName(b.currency)}</small></span>
 <span class="num">${formatPrice(level(b.spot))}</span>
 <span class="num ${tone(b.net_gex_usd)}">${signedUsd(b.net_gex_usd, sym)}</span>
@@ -1066,8 +1073,8 @@ export const GX_VIEW_SCRIPT = `(() => {
  * empty-tab message) gives way to the loading chart (chart-skeleton.ts), "Loading NK225…", and the
  * tiles, notes and expiry table pulse (layout.ts .chart-switching).
  */
-export const GX_SWAP_SCRIPT = `(() => {
-  const panel = document.getElementById("${GAMMA_PANEL_ID}");
+export const gxSwapScript = (panelId: string, panelName: BookTab) => `(() => {
+  const panel = document.getElementById("${panelId}");
   if (!panel || !window.fetch || !window.DOMParser || !history.pushState) return;
   let busy = false;
   ${CHART_SKELETON_JS}
@@ -1081,7 +1088,7 @@ export const GX_SWAP_SCRIPT = `(() => {
     const controls = panel.querySelector(".gx-controls");
     const book = (new URL(href, location.href).searchParams.get("gex") || "${GAMMA_DEFAULT_BOOK}").toUpperCase();
     const label = ((controls && controls.dataset.loading) || "").replace("{asset}", book);
-    const chart = panel.querySelector(".gx-chart");
+    const chart = panel.querySelector(".gx-chart, [data-gx-chart]");
     const empty = panel.querySelector(".gx-controls ~ .empty");
     if (chart) skeletonInto(chart, label);
     else if (empty) empty.replaceWith(chartSkeleton(label));
@@ -1089,7 +1096,7 @@ export const GX_SWAP_SCRIPT = `(() => {
   const panelUrl = (href) => {
     const url = new URL(href, location.href);
     url.hash = "";
-    url.searchParams.set("panel", "gamma");
+    url.searchParams.set("panel", "${panelName}");
     return url.pathname + url.search;
   };
   const load = async (href, push, link) => {
@@ -1120,7 +1127,7 @@ export const GX_SWAP_SCRIPT = `(() => {
   document.addEventListener("click", (event) => {
     if (event.defaultPrevented || event.button !== 0 || !event.target.closest) return;
     const link = event.target.closest("a[data-gx-swap]");
-    if (!link || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (!link || !panel.contains(link) || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     if (!busy) load(link.href, true, link);
   });
@@ -1129,3 +1136,6 @@ export const GX_SWAP_SCRIPT = `(() => {
     if (!busy && panel.dataset.lazyState === "loaded") load(location.href, false);
   });
 })();`;
+
+/** The Gamma Exposure tab's swap script (gxSwapScript); the IV Walls and Ceiling & Floor tabs have their own. */
+export const GX_SWAP_SCRIPT = gxSwapScript(GAMMA_PANEL_ID, "gamma");

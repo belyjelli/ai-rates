@@ -955,7 +955,78 @@ export interface GammaExpiry {
    */
   atm_iv: number | null;
   forward: number | null;
+  /**
+   * The expiry read as every option sold by dealers who keep the premium (migration 045): the premium
+   * they took (in the book's unit), the max pain strike, and the break-evens either side where they
+   * start losing. Null for none.
+   */
+  premium: number | null;
+  max_pain: number | null;
+  be_low: number | null;
+  be_high: number | null;
 }
+
+/**
+ * A book's levels for one day (migration 045), fixed by the day's first read; the day's prices update.
+ * BTC and ETH (Deribit's day, from 08:00 UTC) and the US books (a session) only.
+ */
+export interface GammaWallDay {
+  /** YYYY-MM-DD: Deribit's day by the UTC date it starts on, a US session by its New York date. */
+  day: string;
+  source: string;
+  set_at: Date;
+  ref_price: number;
+  /** The options' IV a day ahead, a fraction a year. */
+  iv_day: number | null;
+  /** The history method's IV for the day (DVOL, VIX1D), a fraction a year; null for none. */
+  hist_sigma: number | null;
+  /** The multiple of a day's standard deviation the 90% wall sits at. */
+  k90: number;
+  method: "dvol" | "vix1d" | "theory";
+  expiry: Date | null;
+  gamma_ceiling: number | null;
+  gamma_floor: number | null;
+  be_ceiling: number | null;
+  be_floor: number | null;
+  max_pain: number | null;
+  day_open: number | null;
+  day_high: number | null;
+  day_low: number | null;
+  last_price: number | null;
+  updated_at: Date;
+}
+
+/** A book's measured history for the 90% wall (migration 045): counts of days and of wall touches. */
+export interface GammaWallStats {
+  method: "dvol" | "vix1d";
+  first_day: string;
+  last_day: string;
+  days: number;
+  k90: number;
+  k90_close: number;
+  inside1_close: number;
+  /** Null where only closes were read (the S&P 500), as are the touches. */
+  inside1_range: number | null;
+  inside90: number;
+  touch1: number | null;
+  rev1: number | null;
+  touch90: number | null;
+  rev90: number | null;
+  /** The method's IV for the day `sigma_for`, a fraction a year. */
+  sigma: number;
+  sigma_for: string;
+}
+
+/** What the IV Walls and Ceiling & Floor tabs read: the book's nearest-expiry view and its days. */
+export interface LevelsData {
+  gamma: GammaData;
+  /** Newest first, at most LEVEL_DAYS. */
+  days: GammaWallDay[];
+  stats: GammaWallStats | null;
+}
+
+/** How many of a book's days the tabs read: about three months of US sessions. */
+export const LEVEL_DAYS = 60;
 
 /**
  * How often the close `horizon_days` later lay inside one and two standard deviations of the move
@@ -1241,6 +1312,8 @@ export interface DataSource {
    * page bins the strikes itself.
    */
   gamma(options: { currency: string; scope: string }): Promise<GammaData>;
+  /** The IV Walls and Ceiling & Floor tabs: the nearest expiry's book, the book's days, its history. */
+  levels(options: { currency: string }): Promise<LevelsData>;
   /**
    * One macro tab's data, for the Rates page (collector migration 038): its series, releases, odds
    * and, for the positioning tab, three years of the Commitments of Traders. A few thousand rows.
@@ -1396,7 +1469,7 @@ async function withoutCrossFx<R>(
 }
 
 export function createDataSource(connect: () => postgres.Sql): DataSource {
-  return {
+  const source: DataSource = {
     async overview() {
       const sql = connect();
       // Two independent single-row reads, not a join: market_sentiment writes every 30 minutes
@@ -2505,7 +2578,8 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           WHERE currency = ${currency} AND scope = ${scope}
           ORDER BY step`,
         sql<GammaExpiry[]>`
-          SELECT expiry, options, call_oi, put_oi, call_gex_usd, put_gex_usd, atm_iv, forward
+          SELECT expiry, options, call_oi, put_oi, call_gex_usd, put_gex_usd, atm_iv, forward, premium,
+                 max_pain, be_low, be_high
           FROM gamma_expiries
           WHERE currency = ${currency}
           ORDER BY expiry`,
@@ -2526,6 +2600,28 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         expiries: [...expiries],
         bands: [...bands],
       };
+    },
+
+    async levels({ currency }) {
+      const sql = connect();
+      const [gamma, days, stats] = await Promise.all([
+        source.gamma({ currency, scope: "next" }),
+        sql<GammaWallDay[]>`
+          SELECT day::text AS day, source, set_at, ref_price, iv_day, hist_sigma, k90, method, expiry,
+                 gamma_ceiling, gamma_floor, be_ceiling, be_floor, max_pain, day_open, day_high,
+                 day_low, last_price, updated_at
+          FROM gamma_wall_days
+          WHERE currency = ${currency}
+          ORDER BY day DESC
+          LIMIT ${LEVEL_DAYS}`,
+        sql<GammaWallStats[]>`
+          SELECT method, first_day::text AS first_day, last_day::text AS last_day, days, k90, k90_close,
+                 inside1_close, inside1_range, inside90, touch1, rev1, touch90, rev90, sigma,
+                 sigma_for::text AS sigma_for
+          FROM gamma_wall_stats
+          WHERE currency = ${currency}`,
+      ]);
+      return { gamma, days: [...days], stats: stats[0] ?? null };
     },
 
     async bookQuality({ basket, venueId }) {
@@ -2680,4 +2776,5 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       return [...rows];
     },
   };
+  return source;
 }

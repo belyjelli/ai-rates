@@ -200,4 +200,112 @@ export const gamma: Catalog = {
     "Последняя строка ветки — как часто так было на деле, по 30-дневному индексу волатильности Deribit (DVOL) и ежедневному расчёту бессрочного контракта: одна 30-дневная IV для всех горизонтов и перекрывающиеся окна, поэтому это частоты, а не независимые испытания.",
   "The expected move is the range the options have priced in: one standard deviation is the price times the at-the-money implied volatility times the square root of the days ahead over 365, and the walls sit one and two deviations either side of the spot. The chart draws them for the chosen expiries (30 days ahead for all of them); the mind map under it gives every horizon. They are not support or resistance, only the market's own estimate of how far price may travel.":
     "Ожидаемое движение — диапазон, заложенный в цены опционов: одно стандартное отклонение равно цене, умноженной на подразумеваемую волатильность на деньгах и на квадратный корень из числа дней вперёд, делённого на 365; стены стоят на одно и два отклонения по обе стороны от спота. График рисует их для выбранных экспираций (для всех — на 30 дней вперёд), а интеллект-карта под ним — для каждого горизонта. Это не поддержка и не сопротивление, а лишь собственная оценка рынка того, как далеко может уйти цена.",
+  reference: "опора",
+  Level: "Уровень",
+  "From the reference": "От опорной цены",
+  "the next session": "следующая сессия",
+  "{date}, from 08:00 UTC": "{date}, с 08:00 UTC",
+  "{date} session": "сессия {date}",
+  "no trade yet today": "сегодня ещё нет сделок",
+  "above it now": "сейчас выше",
+  "below it now": "сейчас ниже",
+  "reached it today and back inside": "сегодня касалась и вернулась внутрь",
+  "inside all day so far": "весь день пока внутри",
+  "No history is kept for this book's walls yet, so its 90% wall is the normal distribution's 1.645 standard deviations of the options' own IV, not a measured one. Its record starts with its first day below.":
+    "Для стен этой книги истории пока нет, поэтому её 90%-стена — это 1,645 стандартного отклонения нормального распределения от собственной IV опционов, а не измеренная. Её запись начинается с первого дня ниже.",
+  "Measured on {days} sessions since {since} {year}, against Cboe's 1-day VIX: the S&amp;P 500 closed inside one standard deviation on {inside1}, and within {k90} of them on 90%, so that is where the 90% wall sits. Cboe's free history has the index's closes only, so touches of a wall during the day are not counted here; this book's own record below counts them.":
+    "Измерено на {days} сессиях с {since} {year} по однодневному VIX от Cboe: S&amp;P 500 закрывался внутри одного стандартного отклонения в {inside1} случаев, а внутри {k90} — в 90%, там и стоит 90%-стена. Бесплатная история Cboe содержит только закрытия индекса, поэтому касания стены внутри дня здесь не считаются; их считает собственная запись этой книги ниже.",
+  "Measured on {days} Deribit days since {since} {year}, against the 30-day volatility index (DVOL) as each day began: the whole day stayed within {k90} standard deviations on 90% of days, so that is where the 90% wall sits. Within one, the whole day stayed on {inside1} and the close on {close1}. A touch of the 1σ wall closed back inside {rev1} of {touch1} times; a touch of the 90% wall, {rev90} of {touch90} times.":
+    "Измерено на {days} днях Deribit с {since} {year} по 30-дневному индексу волатильности (DVOL) на начало каждого дня: в 90% дней весь день оставался в пределах {k90} стандартных отклонений, там и стоит 90%-стена. В пределах одного весь день оставался в {inside1} случаев, закрытие — в {close1}. Касание 1σ-стены закрывалось обратно внутри в {rev1} из {touch1} раз; касание 90%-стены — в {rev90} из {touch90}.",
+  "not reached": "не достигнута",
+  "reached, closed back inside": "достигнута, закрытие внутри",
+  "closed beyond": "закрытие за ней",
+  "above: {what}": "выше: {what}",
+  "below: {what}": "ниже: {what}",
+  "The IV wall is the move the options price for the day: the reference close plus and minus one standard deviation, the close times the options' implied volatility a day ahead times the square root of 1/365. The levels are fixed when the day begins (Deribit's day at 08:00 UTC, a US session at its first read) so they do not drift through the day.":
+    "IV-стена — это движение, которое опционы закладывают на день: опорное закрытие плюс-минус одно стандартное отклонение, то есть закрытие × подразумеваемая волатильность опционов на день вперёд × √(1/365). Уровни фиксируются в начале дня (день Deribit — с 08:00 UTC, сессия США — при первом чтении) и не дрейфуют в течение дня.",
+  "The 90% wall is where history says price stayed: the multiple of a day's standard deviation that held on 90% of past days. BTC and ETH are measured on every Deribit day since 2021 against DVOL, their whole day's range; the S&amp;P 500 on every session since 2022 against Cboe's 1-day VIX, closes only. A book with no history uses the normal distribution's 1.645.":
+    "90%-стена — это то, где, по истории, оставалась цена: множитель дневного стандартного отклонения, который держался в 90% прошедших дней. BTC и ETH измерены на каждом дне Deribit с 2021 года по DVOL, по диапазону всего дня; S&amp;P 500 — на каждой сессии с 2022 года по однодневному VIX от Cboe, только по закрытиям. Книга без истории использует 1,645 нормального распределения.",
+  "A wall is a probability, not a promise: a touch of the IV wall has closed back inside a little over half the time, not nine times in ten. The record under the ladder shows each day's outcome for this book.":
+    "Стена — это вероятность, а не обещание: после касания IV-стены цена закрывалась обратно внутри чуть больше чем в половине случаев, а не в девяти из десяти. Запись под лестницей показывает исход каждого дня для этой книги.",
+  "{currency}'s options carry no implied volatility to draw walls from yet.":
+    "У опционов {currency} пока нет подразумеваемой волатильности, чтобы построить стены.",
+  "1.645 standard deviations of the options' IV (normal distribution)":
+    "1,645 стандартного отклонения от IV опционов (нормальное распределение)",
+  "{k90} standard deviations of {method} {sigma}, measured":
+    "{k90} стандартного отклонения от {method} {sigma}, измерено",
+  "IV wall, 1σ": "IV-стена, 1σ",
+  "±{move} (±{pct}) from IV {iv} a day ahead": "±{move} (±{pct}) при IV {iv} на день вперёд",
+  "90% wall": "90%-стена",
+  "The day so far": "День на сейчас",
+  Reference: "Опора",
+  "high {high} · low {low}": "макс. {high} · мин. {low}",
+  "IV wall: {status}": "IV-стена: {status}",
+  "the latest close, for the next session": "последнее закрытие, для следующей сессии",
+  "Reference close": "Опорное закрытие",
+  "{currency} · {source} options · IV walls · {day}":
+    "{currency} · опционы {source} · IV-стены · {day}",
+  "The day's range": "Диапазон дня",
+  "IV wall": "IV-стена",
+  "90% wall, above": "90%-стена, выше",
+  "IV wall, above": "IV-стена, выше",
+  "1σ of the options' IV": "1σ от IV опционов",
+  "IV wall, below": "IV-стена, ниже",
+  "90% wall, below": "90%-стена, ниже",
+  "{currency} comes from an end-of-day file, so its walls are for the next session and are not kept day by day.":
+    "{currency} берётся из файла на конец дня, поэтому его стены — для следующей сессии и по дням не ведутся.",
+  "{currency}'s own record starts with today; each finished day is added here.":
+    "Собственная запись {currency} начинается сегодня; каждый завершённый день добавляется сюда.",
+  "{currency}'s own record, {days} finished days since {since}. IV wall: touched {reached}, closed back inside {held}. 90% wall: touched {reached90}, closed back inside {held90}.":
+    "Собственная запись {currency}, {days} завершённых дней с {since}. IV-стена: касаний {reached}, закрытий внутри {held}. 90%-стена: касаний {reached90}, закрытий внутри {held90}.",
+  "High / low": "Макс. / мин.",
+  Close: "Закрытие",
+  "At the IV wall": "У IV-стены",
+  "At the 90% wall": "У 90%-стены",
+  "How price has behaved at the walls": "Как цена вела себя у стен",
+  "Prices in {unit}. {source} options, read {ago}.":
+    "Цены в {unit}. Опционы {source}, прочитано {ago}.",
+  "Two readings of where the market makers stand, side by side, for the nearest expiry. The gamma ceiling is the strike above the spot holding the most call gamma, and the gamma floor the strike below it holding the most put gamma: where hedging flows are largest.":
+    "Два прочтения того, где стоят маркет-мейкеры, рядом, по ближайшей экспирации. Гамма-потолок — страйк выше спота с наибольшей колл-гаммой, гамма-пол — страйк ниже спота с наибольшей пут-гаммой: там потоки хеджирования крупнее всего.",
+  "The dealer range reads every option as sold by dealers who keep the premium, as max pain does: at expiry they pay out what the options are worth, so they earn most at the max pain strike and start losing beyond the break-evens either side, the dealer ceiling and floor. No exchange publishes who sold what, so this rests on that assumption, and the Gamma Exposure tab's sign assumes the opposite for calls.":
+    "Дилерский диапазон считает каждый опцион проданным дилерами, которые оставляют себе премию, как и max pain: при экспирации они выплачивают стоимость опционов, поэтому больше всего зарабатывают на страйке max pain и начинают терять за точками безубыточности по обе стороны — дилерским потолком и полом. Ни одна биржа не публикует, кто что продал, поэтому это держится на допущении, а знак на вкладке гамма-экспозиции для коллов предполагает обратное.",
+  "A ceiling or floor within a quarter of the day's move of an IV wall is marked as lined up with it. Whether price turns there more often than elsewhere is what the record under the ladder is for: it starts with this tab and grows a day at a time.":
+    "Потолок или пол в пределах четверти дневного движения от IV-стены отмечается как совпадающий с ней. Разворачивается ли цена там чаще, чем в других местах, покажет запись под лестницей: она начинается с этой вкладки и растёт по дню.",
+  "gamma ceiling": "гамма-потолок",
+  "dealer ceiling": "дилерский потолок",
+  "gamma floor": "гамма-пол",
+  "dealer floor": "дилерский пол",
+  "Gamma ceiling / floor": "Гамма-потолок / пол",
+  "the strikes holding the most call gamma above the spot and put gamma below it, expiring {expiry}":
+    "страйки с наибольшей колл-гаммой выше спота и пут-гаммой ниже, экспирация {expiry}",
+  "Dealer ceiling / floor": "Дилерский потолок / пол",
+  "where dealers who sold every option of that expiry break even; max pain {pain}":
+    "где дилеры, продавшие все опционы этой экспирации, выходят в ноль; max pain {pain}",
+  "Lined up with an IV wall": "Совпадает с IV-стеной",
+  "within a quarter of the day's 1σ move ({band}) of an IV wall or a 90% wall":
+    "в пределах четверти дневного 1σ-движения ({band}) от IV-стены или 90%-стены",
+  "max pain": "max pain",
+  "{currency} · {source} options · ceiling and floor · expiring {expiry}":
+    "{currency} · опционы {source} · потолок и пол · экспирация {expiry}",
+  "dealer ceiling and floor": "дилерский потолок и пол",
+  "lined up with a wall": "совпадает со стеной",
+  "Dealer range by expiry": "Дилерский диапазон по экспирациям",
+  Premium: "Премия",
+  "Dealer floor": "Дилерский пол",
+  "Max pain": "Max pain",
+  "Dealer ceiling": "Дилерский потолок",
+  "From the spot": "От спота",
+  "Lined up with a wall": "Совпадает со стеной",
+  "{currency} comes from an end-of-day file, so its levels are for the next session and are not kept day by day.":
+    "{currency} берётся из файла на конец дня, поэтому его уровни — для следующей сессии и по дням не ведутся.",
+  Days: "Дни",
+  Reached: "Касания",
+  "Closed back inside": "Закрытие внутри",
+  "Over {days} finished days since {since}, both sides counted; a level is reached when the day's high (or low) touches it, and held when the day closes back inside it.":
+    "За {days} завершённых дней с {since}, обе стороны; уровень достигнут, если его коснулся максимум (или минимум) дня, и удержан, если день закрылся внутри.",
+  "How price has behaved at these levels": "Как цена вела себя у этих уровней",
+  "IV Walls": "IV-стены",
+  "IV walls": "IV-стены",
+  "Ceiling & Floor": "Потолок и пол",
+  Ceiling: "Потолок",
 };

@@ -190,4 +190,110 @@ export const gamma: Catalog = {
     "每个分支的最后一行是实际发生的频率，依据 Deribit 30 天波动率指数（DVOL）与永续合约每日结算价：所有期限都用同一个 30 天 IV，且窗口相互重叠，因此是频率而非独立试验。",
   "The expected move is the range the options have priced in: one standard deviation is the price times the at-the-money implied volatility times the square root of the days ahead over 365, and the walls sit one and two deviations either side of the spot. The chart draws them for the chosen expiries (30 days ahead for all of them); the mind map under it gives every horizon. They are not support or resistance, only the market's own estimate of how far price may travel.":
     "预期波幅是期权已定价的区间：一个标准差等于价格乘以平值隐含波动率，再乘以（未来天数/365）的平方根；墙位于现货价两侧一个和两个标准差处。图表按所选到期范围画出（全部到期日时为未来 30 天）；其下的思维导图列出每个期限。它们不是支撑或阻力，只是市场自身对价格可能走多远的估计。",
+  reference: "参考价",
+  Level: "水平",
+  "From the reference": "距参考价",
+  "the next session": "下一交易时段",
+  "{date}, from 08:00 UTC": "{date}，自 08:00 UTC 起",
+  "{date} session": "{date} 交易时段",
+  "no trade yet today": "今天尚无成交",
+  "above it now": "现已在其上方",
+  "below it now": "现已在其下方",
+  "reached it today and back inside": "今天触及后已回到区间内",
+  "inside all day so far": "今天至今一直在区间内",
+  "No history is kept for this book's walls yet, so its 90% wall is the normal distribution's 1.645 standard deviations of the options' own IV, not a measured one. Its record starts with its first day below.":
+    "这个期权簿的墙还没有历史记录，所以它的 90% 墙用的是正态分布的 1.645 个标准差（基于期权自身的 IV），并非实测。它的记录从下方第一天开始。",
+  "Measured on {days} sessions since {since} {year}, against Cboe's 1-day VIX: the S&amp;P 500 closed inside one standard deviation on {inside1}, and within {k90} of them on 90%, so that is where the 90% wall sits. Cboe's free history has the index's closes only, so touches of a wall during the day are not counted here; this book's own record below counts them.":
+    "基于 {since} {year} 以来的 {days} 个交易时段，对照 Cboe 的 1 日 VIX 测得：标普 500 有 {inside1} 收于一个标准差之内，90% 收于 {k90} 个标准差之内，90% 墙就设在那里。Cboe 的免费历史只有指数收盘价，所以这里不计日内触墙；下方这个期权簿自己的记录会计入。",
+  "Measured on {days} Deribit days since {since} {year}, against the 30-day volatility index (DVOL) as each day began: the whole day stayed within {k90} standard deviations on 90% of days, so that is where the 90% wall sits. Within one, the whole day stayed on {inside1} and the close on {close1}. A touch of the 1σ wall closed back inside {rev1} of {touch1} times; a touch of the 90% wall, {rev90} of {touch90} times.":
+    "基于 {since} {year} 以来的 {days} 个 Deribit 交易日，对照每天开始时的 30 天波动率指数（DVOL）测得：90% 的日子里全天都在 {k90} 个标准差之内，90% 墙就设在那里。一个标准差之内：全天 {inside1}，收盘 {close1}。触及 1σ 墙后收回区间内 {rev1}（共 {touch1} 次）；触及 90% 墙后 {rev90}（共 {touch90} 次）。",
+  "not reached": "未触及",
+  "reached, closed back inside": "触及后收回区间内",
+  "closed beyond": "收于墙外",
+  "above: {what}": "上方：{what}",
+  "below: {what}": "下方：{what}",
+  "The IV wall is the move the options price for the day: the reference close plus and minus one standard deviation, the close times the options' implied volatility a day ahead times the square root of 1/365. The levels are fixed when the day begins (Deribit's day at 08:00 UTC, a US session at its first read) so they do not drift through the day.":
+    "IV 墙是期权为当天定价的波动：参考收盘价上下各一个标准差，即收盘价乘以未来一天的期权隐含波动率，再乘以 1/365 的平方根。这些水平在一天开始时固定（Deribit 的一天始于 08:00 UTC，美股交易时段以首次读取为准），不会随当天的变化漂移。",
+  "The 90% wall is where history says price stayed: the multiple of a day's standard deviation that held on 90% of past days. BTC and ETH are measured on every Deribit day since 2021 against DVOL, their whole day's range; the S&amp;P 500 on every session since 2022 against Cboe's 1-day VIX, closes only. A book with no history uses the normal distribution's 1.645.":
+    "90% 墙是历史上价格停留的范围：过去 90% 的日子里不被突破的日标准差倍数。BTC 和 ETH 用 2021 年以来每个 Deribit 交易日对照 DVOL 测得，按全天波幅；标普 500 用 2022 年以来每个交易时段对照 Cboe 的 1 日 VIX 测得，只看收盘。没有历史的期权簿用正态分布的 1.645。",
+  "A wall is a probability, not a promise: a touch of the IV wall has closed back inside a little over half the time, not nine times in ten. The record under the ladder shows each day's outcome for this book.":
+    "墙是概率，不是承诺：触及 IV 墙后收回区间内的比例略高于一半，而不是十次中九次。梯形图下方的记录列出这个期权簿每天的结果。",
+  "{currency}'s options carry no implied volatility to draw walls from yet.":
+    "{currency} 的期权还没有可用于画墙的隐含波动率。",
+  "1.645 standard deviations of the options' IV (normal distribution)":
+    "期权 IV 的 1.645 个标准差（正态分布）",
+  "{k90} standard deviations of {method} {sigma}, measured":
+    "{method} {sigma} 的 {k90} 个标准差，实测",
+  "IV wall, 1σ": "IV 墙，1σ",
+  "±{move} (±{pct}) from IV {iv} a day ahead": "±{move}（±{pct}），基于未来一天的 IV {iv}",
+  "90% wall": "90% 墙",
+  "The day so far": "今天至今",
+  Reference: "参考价",
+  "high {high} · low {low}": "高 {high} · 低 {low}",
+  "IV wall: {status}": "IV 墙：{status}",
+  "the latest close, for the next session": "最新收盘价，用于下一交易时段",
+  "Reference close": "参考收盘价",
+  "{currency} · {source} options · IV walls · {day}": "{currency} · {source} 期权 · IV 墙 · {day}",
+  "The day's range": "当天波幅",
+  "IV wall": "IV 墙",
+  "90% wall, above": "90% 墙，上方",
+  "IV wall, above": "IV 墙，上方",
+  "1σ of the options' IV": "期权 IV 的 1σ",
+  "IV wall, below": "IV 墙，下方",
+  "90% wall, below": "90% 墙，下方",
+  "{currency} comes from an end-of-day file, so its walls are for the next session and are not kept day by day.":
+    "{currency} 来自收盘后文件，所以它的墙是下一交易时段的，不逐日记录。",
+  "{currency}'s own record starts with today; each finished day is added here.":
+    "{currency} 自己的记录从今天开始；每个结束的交易日都会加到这里。",
+  "{currency}'s own record, {days} finished days since {since}. IV wall: touched {reached}, closed back inside {held}. 90% wall: touched {reached90}, closed back inside {held90}.":
+    "{currency} 自己的记录，自 {since} 起 {days} 个已结束的交易日。IV 墙：触及 {reached}，收回区间内 {held}。90% 墙：触及 {reached90}，收回区间内 {held90}。",
+  "High / low": "高 / 低",
+  Close: "收盘",
+  "At the IV wall": "在 IV 墙",
+  "At the 90% wall": "在 90% 墙",
+  "How price has behaved at the walls": "价格在墙边的表现",
+  "Prices in {unit}. {source} options, read {ago}.": "价格以 {unit} 计。{source} 期权，{ago}读取。",
+  "Two readings of where the market makers stand, side by side, for the nearest expiry. The gamma ceiling is the strike above the spot holding the most call gamma, and the gamma floor the strike below it holding the most put gamma: where hedging flows are largest.":
+    "并列两种解读做市商位置的方法，基于最近到期日。Gamma 天花板是现货价上方看涨 gamma 最多的行权价，gamma 地板是现货价下方看跌 gamma 最多的行权价：对冲流量最大的位置。",
+  "The dealer range reads every option as sold by dealers who keep the premium, as max pain does: at expiry they pay out what the options are worth, so they earn most at the max pain strike and start losing beyond the break-evens either side, the dealer ceiling and floor. No exchange publishes who sold what, so this rests on that assumption, and the Gamma Exposure tab's sign assumes the opposite for calls.":
+    "做市商区间把每张期权都看作由收取权利金的做市商卖出，与最大痛点的算法相同：到期时他们支付期权的价值，所以在最大痛点行权价赚得最多，越过两侧的盈亏平衡点就开始亏损，即做市商天花板和地板。没有交易所公布谁卖了什么，所以这建立在该假设之上；而 Gamma 敞口页对看涨期权的符号假设正好相反。",
+  "A ceiling or floor within a quarter of the day's move of an IV wall is marked as lined up with it. Whether price turns there more often than elsewhere is what the record under the ladder is for: it starts with this tab and grows a day at a time.":
+    "天花板或地板若在 IV 墙的当天波动的四分之一以内，就标为与墙重合。价格是否更常在那里掉头，正是梯形图下方记录要回答的：它从这个页签开始，逐日增加。",
+  "gamma ceiling": "gamma 天花板",
+  "dealer ceiling": "做市商天花板",
+  "gamma floor": "gamma 地板",
+  "dealer floor": "做市商地板",
+  "Gamma ceiling / floor": "Gamma 天花板 / 地板",
+  "the strikes holding the most call gamma above the spot and put gamma below it, expiring {expiry}":
+    "现货价上方看涨 gamma 最多和下方看跌 gamma 最多的行权价，{expiry} 到期",
+  "Dealer ceiling / floor": "做市商天花板 / 地板",
+  "where dealers who sold every option of that expiry break even; max pain {pain}":
+    "卖出该到期日全部期权的做市商在此盈亏平衡；最大痛点 {pain}",
+  "Lined up with an IV wall": "与 IV 墙重合",
+  "within a quarter of the day's 1σ move ({band}) of an IV wall or a 90% wall":
+    "在 IV 墙或 90% 墙的当天 1σ 波动四分之一（{band}）以内",
+  "max pain": "最大痛点",
+  "{currency} · {source} options · ceiling and floor · expiring {expiry}":
+    "{currency} · {source} 期权 · 天花板与地板 · {expiry} 到期",
+  "dealer ceiling and floor": "做市商天花板与地板",
+  "lined up with a wall": "与墙重合",
+  "Dealer range by expiry": "各到期日的做市商区间",
+  Premium: "权利金",
+  "Dealer floor": "做市商地板",
+  "Max pain": "最大痛点",
+  "Dealer ceiling": "做市商天花板",
+  "From the spot": "距现货价",
+  "Lined up with a wall": "与墙重合",
+  "{currency} comes from an end-of-day file, so its levels are for the next session and are not kept day by day.":
+    "{currency} 来自收盘后文件，所以它的水平是下一交易时段的，不逐日记录。",
+  Days: "天数",
+  Reached: "触及",
+  "Closed back inside": "收回区间内",
+  "Over {days} finished days since {since}, both sides counted; a level is reached when the day's high (or low) touches it, and held when the day closes back inside it.":
+    "基于自 {since} 起 {days} 个已结束的交易日，两侧都计入；当天最高（或最低）价触及即为触及，当天收回其内即为守住。",
+  "How price has behaved at these levels": "价格在这些水平的表现",
+  "IV Walls": "IV 墙",
+  "IV walls": "IV 墙",
+  "Ceiling & Floor": "天花板与地板",
+  Ceiling: "天花板",
 };

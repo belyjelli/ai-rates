@@ -76,11 +76,13 @@ import {
   gammaPanel,
   gammaPanelHref,
   gammaPlaceholder,
+  gxSwapScript,
 } from "./gamma";
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { msg, tr, trMsg, withLocale } from "./i18n";
 import { icon } from "./icons";
 import { layout } from "./layout";
+import { IVWALLS_PANEL_ID, LEVELS_PANEL_ID, levelsPanelHref, levelsPlaceholder } from "./levels";
 import { FEEDS, liquidationFeedTable } from "./liquidation-feeds";
 import { MACRO_PANELS, type MacroPanel, macroPanel, macroPlaceholder, macroTabs } from "./macro";
 import { PICK_SCRIPT } from "./picker";
@@ -976,6 +978,8 @@ ${tabBar({
   tabs: [
     { id: "rates", label: tr("Funding rates"), shortLabel: tr("Funding") },
     { id: "gamma", label: tr("Gamma Exposure"), shortLabel: tr("Gamma") },
+    { id: "ivwalls", label: tr("IV Walls"), shortLabel: tr("IV walls") },
+    { id: "levels", label: tr("Ceiling & Floor"), shortLabel: tr("Ceiling") },
     ...macroTabs(),
   ],
   activeId: macro ? macro.panel : gammaFilled ? "gamma" : "rates",
@@ -987,6 +991,12 @@ ${grid}
 <div class="tabpanel" role="tabpanel" id="${GAMMA_PANEL_ID}" data-tab-panel="gamma" aria-labelledby="tab-rates-gamma"${gammaLazy}>
 ${gammaBody}
 </div>
+<div class="tabpanel" role="tabpanel" id="${IVWALLS_PANEL_ID}" data-tab-panel="ivwalls" aria-labelledby="tab-rates-ivwalls" data-lazy="${esc(levelsPanelHref(params, gammaParams, "ivwalls"))}">
+${levelsPlaceholder(params, gammaParams, "ivwalls")}
+</div>
+<div class="tabpanel" role="tabpanel" id="${LEVELS_PANEL_ID}" data-tab-panel="levels" aria-labelledby="tab-rates-levels" data-lazy="${esc(levelsPanelHref(params, gammaParams, "levels"))}">
+${levelsPlaceholder(params, gammaParams, "levels")}
+</div>
 ${MACRO_PANELS.map((id) => {
   const filled = macro?.panel === id;
   return `<div class="tabpanel mc-panel" role="tabpanel" id="panel-rates-${id}" data-tab-panel="${id}" aria-labelledby="tab-rates-${id}"${filled ? "" : ` data-lazy="/rates?panel=${id}"`}>
@@ -995,6 +1005,8 @@ ${filled ? macroPanel(id, macro.data, now) : macroPlaceholder(id)}
 }).join("\n")}
 <script>${SLOT_SCRIPT}</script>
 <script>${GX_SWAP_SCRIPT}</script>
+<script>${gxSwapScript(IVWALLS_PANEL_ID, "ivwalls")}</script>
+<script>${gxSwapScript(LEVELS_PANEL_ID, "levels")}</script>
 <script>${GX_VIEW_SCRIPT}</script>
 <script>${PICK_SCRIPT}</script>`,
   });

@@ -757,6 +757,41 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .em-l .em-leaves>li::before,.em-l .em-leaves>li::after{right:auto;left:0}
 .em-leaves>li:first-child::after{top:0}
 }
+/* The IV Walls and Ceiling & Floor tabs (levels.ts): a price ladder -- each level a line across with its
+   label, the walls' ranges shaded, the day's range a bar with its last price -- in the options' violet
+   for the IV and 90% walls, the Gamma tab's blue and red for the gamma ceiling and floor, orange for the
+   dealer range, and the accent around a level lined up with a wall. */
+.lv-ladder{position:relative;height:440px;margin:8px 0 4px;border:1px solid var(--rule);background:var(--panel);overflow:hidden}
+.lv-line{position:absolute;left:0;right:0;height:0;border-top:1px solid var(--muted);z-index:1}
+.lv-tag{position:absolute;z-index:2;left:8px;transform:translateY(-50%);font-size:11px;line-height:16px;white-space:nowrap;background:var(--panel);padding:0 5px;color:var(--ink)}
+.lv-tag b{font-weight:500}.lv-tag small{color:var(--muted);font-size:10px}
+.lv-band{position:absolute;left:0;right:0;display:block}
+.lv-band-iv{background:rgba(182,156,255,.13)}.lv-band-90{background:rgba(182,156,255,.05)}.lv-band-faint{opacity:.55}
+.lv-range{position:absolute;right:18%;width:10px;background:rgba(216,216,216,.18);border:1px solid var(--muted);box-sizing:border-box}
+.lv-last{position:absolute;right:calc(18% - 7px);width:24px;height:0;border-top:2px solid var(--ink)}
+.lv-last-t{position:absolute;right:calc(18% + 22px);transform:translateY(-50%);font-size:11px;line-height:16px;color:var(--ink);background:var(--panel);padding:0 4px;white-space:nowrap}
+.lv-line.lv-iv{border-top:1px solid var(--em)}.lv-iv-t b{color:var(--em)}
+.lv-line.lv-90{border-top:1px dashed var(--em)}.lv-90-t b{color:var(--em)}
+.lv-line.lv-ref{border-top:1px dashed var(--muted)}.lv-ref-t b{color:var(--muted)}
+.lv-line.lv-gc{border-top:2px solid var(--long)}.lv-gc-t b{color:var(--long)}
+.lv-line.lv-gf{border-top:2px solid var(--short)}.lv-gf-t b{color:var(--short)}
+.lv-line.lv-be{border-top:1px dashed #ff9f43}.lv-be-t b{color:#ff9f43}
+.lv-line.lv-mp{border-top:1px dotted #ff9f43}.lv-mp-t b{color:#ff9f43}
+.lv-line.lv-faint{opacity:.5}.lv-faint-t{opacity:.7}
+.lv-tag.lv-on{outline:1px solid var(--accent);outline-offset:0}
+.lv-ink-iv,.lv-ink-90{color:var(--em)}.lv-ink-be{color:#ff9f43}.lv-ink-on{color:var(--accent)}
+.lv-held{color:var(--accent)}.lv-broke{color:#ff9f43}
+.lv-chart .fchart-keys span{display:flex;align-items:center;gap:5px;color:var(--muted)}
+.lv-chart .fchart-keys i{display:inline-block;width:14px;height:0}
+.lv-key-iv{border-top:1px solid var(--em)}.lv-key-90{border-top:1px dashed var(--em)}.lv-key-ref{border-top:1px dashed var(--muted)}
+.lv-chart .fchart-keys i.lv-key-range{width:8px;height:10px;background:rgba(216,216,216,.18);border:1px solid var(--muted)}
+.lv-key-gc{border-top:2px solid var(--long)}.lv-key-gf{border-top:2px solid var(--short)}
+.lv-key-be{border-top:1px dashed #ff9f43}.lv-key-mp{border-top:1px dotted #ff9f43}
+.lv-chart .fchart-keys i.lv-key-on{width:10px;height:10px;outline:1px solid var(--accent)}
+.lv-table td{white-space:nowrap}
+.cvd-big.lv-span{font-size:clamp(18px,2.2vw,24px)}
+.lv-range,.lv-last,.lv-last-t{z-index:3}
+@media (max-width:640px){.lv-ladder{height:400px}.lv-range{right:10%}.lv-last{right:calc(10% - 7px)}.lv-last-t{right:calc(10% + 22px)}.lv-tag{font-size:10px;padding:0 3px}}
 /* The Exchanges page (exchanges.ts): a grade badge per venue, and cells that carry a second line --
    the fee under the cost, the $100k slippage under the $10k. */
 .xg{display:inline-block;min-width:20px;padding:1px 4px;text-align:center;font-weight:700;border:1px solid currentColor;line-height:1.2}

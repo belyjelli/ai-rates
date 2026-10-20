@@ -202,4 +202,112 @@ export const gamma: Catalog = {
     "各ブランチの最後の行は実際にそうなった頻度で、Deribit の30日ボラティリティ指数（DVOL）と無期限先物の日次決済価格から求めています。どの期間にも同じ30日 IV を使い、期間が重なり合うため、独立した試行ではなく頻度です。",
   "The expected move is the range the options have priced in: one standard deviation is the price times the at-the-money implied volatility times the square root of the days ahead over 365, and the walls sit one and two deviations either side of the spot. The chart draws them for the chosen expiries (30 days ahead for all of them); the mind map under it gives every horizon. They are not support or resistance, only the market's own estimate of how far price may travel.":
     "予想変動幅はオプションが織り込んでいる範囲です。1標準偏差は価格 × ATM インプライド・ボラティリティ × √(先の日数/365) で、ウォールは現物価格の上下1標準偏差と2標準偏差の位置にあります。チャートは選んだ満期範囲について描き（全満期では30日先）、その下のマインドマップがすべての期間を示します。サポートやレジスタンスではなく、価格がどこまで動きうるかについての市場自身の見積もりです。",
+  reference: "基準",
+  Level: "水準",
+  "From the reference": "基準からの距離",
+  "the next session": "次の取引時間",
+  "{date}, from 08:00 UTC": "{date}、08:00 UTC から",
+  "{date} session": "{date} の取引時間",
+  "no trade yet today": "今日はまだ取引なし",
+  "above it now": "いまは上抜け",
+  "below it now": "いまは下抜け",
+  "reached it today and back inside": "今日タッチしてから内側に戻った",
+  "inside all day so far": "今日はここまでずっと内側",
+  "No history is kept for this book's walls yet, so its 90% wall is the normal distribution's 1.645 standard deviations of the options' own IV, not a measured one. Its record starts with its first day below.":
+    "この原資産のウォールにはまだ履歴がないため、90% ウォールは実測ではなく、オプション自身の IV に対する正規分布の 1.645 標準偏差です。記録は下の最初の日から始まります。",
+  "Measured on {days} sessions since {since} {year}, against Cboe's 1-day VIX: the S&amp;P 500 closed inside one standard deviation on {inside1}, and within {k90} of them on 90%, so that is where the 90% wall sits. Cboe's free history has the index's closes only, so touches of a wall during the day are not counted here; this book's own record below counts them.":
+    "{since} {year} 以降の {days} 取引時間を Cboe の 1 日 VIX と比べて測定：S&amp;P 500 が 1 標準偏差の内側で引けたのは {inside1}、90% は {k90} 標準偏差の内側で引けたため、90% ウォールはそこに置いています。Cboe の無料の履歴は指数の終値だけなので、日中のウォールへのタッチはここでは数えていません。下のこの原資産自身の記録では数えます。",
+  "Measured on {days} Deribit days since {since} {year}, against the 30-day volatility index (DVOL) as each day began: the whole day stayed within {k90} standard deviations on 90% of days, so that is where the 90% wall sits. Within one, the whole day stayed on {inside1} and the close on {close1}. A touch of the 1σ wall closed back inside {rev1} of {touch1} times; a touch of the 90% wall, {rev90} of {touch90} times.":
+    "{since} {year} 以降の {days} の Deribit の日を、各日の始まりの 30 日ボラティリティ指数（DVOL）と比べて測定：90% の日は一日中 {k90} 標準偏差の内側にとどまったため、90% ウォールはそこに置いています。1 標準偏差の内側にとどまったのは、一日中で {inside1}、終値で {close1}。1σ ウォールへのタッチのうち内側で引けたのは {touch1} 回中 {rev1}、90% ウォールへのタッチでは {touch90} 回中 {rev90}。",
+  "not reached": "届かず",
+  "reached, closed back inside": "タッチして内側で引けた",
+  "closed beyond": "外側で引けた",
+  "above: {what}": "上：{what}",
+  "below: {what}": "下：{what}",
+  "The IV wall is the move the options price for the day: the reference close plus and minus one standard deviation, the close times the options' implied volatility a day ahead times the square root of 1/365. The levels are fixed when the day begins (Deribit's day at 08:00 UTC, a US session at its first read) so they do not drift through the day.":
+    "IV ウォールはオプションがその日に織り込む値動きです。基準の終値の上下 1 標準偏差で、終値 × 1 日先のオプションのインプライド・ボラティリティ × √(1/365)。水準はその日の始まりに固定され（Deribit の日は 08:00 UTC、米国の取引時間は最初の読み取り）、日中に動きません。",
+  "The 90% wall is where history says price stayed: the multiple of a day's standard deviation that held on 90% of past days. BTC and ETH are measured on every Deribit day since 2021 against DVOL, their whole day's range; the S&amp;P 500 on every session since 2022 against Cboe's 1-day VIX, closes only. A book with no history uses the normal distribution's 1.645.":
+    "90% ウォールは過去に価格がとどまった範囲です。過去の日の 90% で破られなかった、1 日の標準偏差の倍数。BTC と ETH は 2021 年以降のすべての Deribit の日を DVOL と比べて一日の値幅で、S&amp;P 500 は 2022 年以降のすべての取引時間を Cboe の 1 日 VIX と比べて終値だけで測定しています。履歴のない原資産は正規分布の 1.645 を使います。",
+  "A wall is a probability, not a promise: a touch of the IV wall has closed back inside a little over half the time, not nine times in ten. The record under the ladder shows each day's outcome for this book.":
+    "ウォールは確率であって約束ではありません。IV ウォールへのタッチが内側に戻ったのは半分を少し上回る程度で、10 回に 9 回ではありません。ラダーの下の記録に、この原資産の毎日の結果を示します。",
+  "{currency}'s options carry no implied volatility to draw walls from yet.":
+    "{currency} のオプションには、まだウォールを引くためのインプライド・ボラティリティがありません。",
+  "1.645 standard deviations of the options' IV (normal distribution)":
+    "オプションの IV の 1.645 標準偏差（正規分布）",
+  "{k90} standard deviations of {method} {sigma}, measured":
+    "{method} {sigma} の {k90} 標準偏差（実測）",
+  "IV wall, 1σ": "IV ウォール、1σ",
+  "±{move} (±{pct}) from IV {iv} a day ahead": "±{move}（±{pct}）、1 日先の IV {iv} から",
+  "90% wall": "90% ウォール",
+  "The day so far": "今日ここまで",
+  Reference: "基準",
+  "high {high} · low {low}": "高値 {high} · 安値 {low}",
+  "IV wall: {status}": "IV ウォール：{status}",
+  "the latest close, for the next session": "最新の終値、次の取引時間向け",
+  "Reference close": "基準の終値",
+  "{currency} · {source} options · IV walls · {day}":
+    "{currency} · {source} のオプション · IV ウォール · {day}",
+  "The day's range": "その日の値幅",
+  "IV wall": "IV ウォール",
+  "90% wall, above": "90% ウォール、上",
+  "IV wall, above": "IV ウォール、上",
+  "1σ of the options' IV": "オプションの IV の 1σ",
+  "IV wall, below": "IV ウォール、下",
+  "90% wall, below": "90% ウォール、下",
+  "{currency} comes from an end-of-day file, so its walls are for the next session and are not kept day by day.":
+    "{currency} は引け後のファイルから読むため、ウォールは次の取引時間向けで、日ごとには記録しません。",
+  "{currency}'s own record starts with today; each finished day is added here.":
+    "{currency} 自身の記録は今日から始まります。終わった日ごとにここへ加わります。",
+  "{currency}'s own record, {days} finished days since {since}. IV wall: touched {reached}, closed back inside {held}. 90% wall: touched {reached90}, closed back inside {held90}.":
+    "{currency} 自身の記録、{since} 以降の終わった {days} 日。IV ウォール：タッチ {reached}、内側で引けた {held}。90% ウォール：タッチ {reached90}、内側で引けた {held90}。",
+  "High / low": "高値 / 安値",
+  Close: "終値",
+  "At the IV wall": "IV ウォールで",
+  "At the 90% wall": "90% ウォールで",
+  "How price has behaved at the walls": "ウォールでの値動き",
+  "Prices in {unit}. {source} options, read {ago}.":
+    "価格は {unit} 建て。{source} のオプション、{ago}に読み取り。",
+  "Two readings of where the market makers stand, side by side, for the nearest expiry. The gamma ceiling is the strike above the spot holding the most call gamma, and the gamma floor the strike below it holding the most put gamma: where hedging flows are largest.":
+    "直近満期について、マーケットメーカーの位置を 2 通りの読み方で並べます。ガンマの天井は現物価格より上でコールのガンマが最も多い行使価格、ガンマの底は現物価格より下でプットのガンマが最も多い行使価格です。ヘッジの流れが最も大きい場所です。",
+  "The dealer range reads every option as sold by dealers who keep the premium, as max pain does: at expiry they pay out what the options are worth, so they earn most at the max pain strike and start losing beyond the break-evens either side, the dealer ceiling and floor. No exchange publishes who sold what, so this rests on that assumption, and the Gamma Exposure tab's sign assumes the opposite for calls.":
+    "ディーラーのレンジは、マックスペインと同じく、すべてのオプションをプレミアムを受け取るディーラーが売ったものとして読みます。満期にオプションの価値を支払うので、マックスペインの行使価格で最も儲かり、両側の損益分岐点、つまりディーラーの天井と底を越えると損をし始めます。誰が何を売ったかを公表する取引所はないため、この前提に立っており、ガンマエクスポージャーのタブの符号はコールについて逆を仮定しています。",
+  "A ceiling or floor within a quarter of the day's move of an IV wall is marked as lined up with it. Whether price turns there more often than elsewhere is what the record under the ladder is for: it starts with this tab and grows a day at a time.":
+    "IV ウォールからその日の値動きの 4 分の 1 以内にある天井や底は、ウォールと重なると表示します。価格がほかよりそこで反転しやすいかは、ラダーの下の記録が答えます。記録はこのタブから始まり、1 日ずつ増えます。",
+  "gamma ceiling": "ガンマの天井",
+  "dealer ceiling": "ディーラーの天井",
+  "gamma floor": "ガンマの底",
+  "dealer floor": "ディーラーの底",
+  "Gamma ceiling / floor": "ガンマの天井 / 底",
+  "the strikes holding the most call gamma above the spot and put gamma below it, expiring {expiry}":
+    "現物価格の上でコールのガンマ、下でプットのガンマが最も多い行使価格、{expiry} 満期",
+  "Dealer ceiling / floor": "ディーラーの天井 / 底",
+  "where dealers who sold every option of that expiry break even; max pain {pain}":
+    "その満期のオプションをすべて売ったディーラーの損益分岐点。マックスペイン {pain}",
+  "Lined up with an IV wall": "IV ウォールと重なる",
+  "within a quarter of the day's 1σ move ({band}) of an IV wall or a 90% wall":
+    "IV ウォールまたは 90% ウォールから、その日の 1σ の値動きの 4 分の 1（{band}）以内",
+  "max pain": "マックスペイン",
+  "{currency} · {source} options · ceiling and floor · expiring {expiry}":
+    "{currency} · {source} のオプション · 天井と底 · {expiry} 満期",
+  "dealer ceiling and floor": "ディーラーの天井と底",
+  "lined up with a wall": "ウォールと重なる",
+  "Dealer range by expiry": "満期別のディーラーのレンジ",
+  Premium: "プレミアム",
+  "Dealer floor": "ディーラーの底",
+  "Max pain": "マックスペイン",
+  "Dealer ceiling": "ディーラーの天井",
+  "From the spot": "現物価格から",
+  "Lined up with a wall": "ウォールと重なる",
+  "{currency} comes from an end-of-day file, so its levels are for the next session and are not kept day by day.":
+    "{currency} は引け後のファイルから読むため、水準は次の取引時間向けで、日ごとには記録しません。",
+  Days: "日数",
+  Reached: "タッチ",
+  "Closed back inside": "内側で引けた",
+  "Over {days} finished days since {since}, both sides counted; a level is reached when the day's high (or low) touches it, and held when the day closes back inside it.":
+    "{since} 以降の終わった {days} 日、両側を数えています。その日の高値（または安値）が触れればタッチ、その日がその内側で引ければ維持です。",
+  "How price has behaved at these levels": "これらの水準での値動き",
+  "IV Walls": "IV ウォール",
+  "IV walls": "IV ウォール",
+  "Ceiling & Floor": "天井と底",
+  Ceiling: "天井",
 };

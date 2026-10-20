@@ -14,6 +14,10 @@ const expiry = (days: number, atm_iv: number | null): GammaExpiry => ({
   put_gex_usd: -1,
   atm_iv,
   forward: atm_iv === null ? null : 82_600,
+  premium: null,
+  max_pain: null,
+  be_low: null,
+  be_high: null,
 });
 
 describe("term structure", () => {

@@ -174,6 +174,20 @@ function fakeData(overrides: Partial<DataSource> = {}) {
       expiries: [],
       bands: [],
     }),
+    levels: async ({ currency }) => ({
+      gamma: {
+        currency,
+        books: [],
+        scopes: [],
+        exposure: null,
+        strikes: [],
+        curve: [],
+        expiries: [],
+        bands: [],
+      },
+      days: [],
+      stats: null,
+    }),
     whales: async () => ({
       markets: [],
       venues: [],
@@ -3209,6 +3223,29 @@ describe("pages", () => {
       expect(page.status).toBe(200);
       expect(await page.text()).toContain("The options data could not be read right now.");
     });
+
+    test("IV Walls and Ceiling & Floor: two lazy tabs, each read for its own panel with the book picked", async () => {
+      const calls: string[] = [];
+      const { data } = fakeData({
+        levels: async ({ currency }) => {
+          calls.push(currency);
+          throw new Error('relation "gamma_wall_days" does not exist');
+        },
+      });
+      const html = await (await get("/rates?gex=SPX", data)).text();
+      expect(html).toContain('id="tab-rates-ivwalls"');
+      expect(html).toContain('id="tab-rates-levels"');
+      expect(html).toContain('data-lazy="/rates?gex=SPX&amp;panel=ivwalls"');
+      expect(html).toContain('data-lazy="/rates?gex=SPX&amp;panel=levels"');
+      // The page itself reads neither: only the tab's own address does, and a failed read says so.
+      expect(calls).toEqual([]);
+      for (const panel of ["ivwalls", "levels"]) {
+        const tab = await get(`/rates?panel=${panel}&gex=spx`, data);
+        expect(tab.status).toBe(200);
+        expect(await tab.text()).toContain("The options data could not be read right now.");
+      }
+      expect(calls).toEqual(["SPX", "SPX"]);
+    });
   });
 
   describe("exchanges page grades", () => {
@@ -5327,7 +5364,9 @@ describe("whales", () => {
       expect(html).toContain('<div class="slot-modes whx-modes" role="group"');
       expect(html).toContain('data-whgex="off" aria-pressed="true"');
       // The switch sits under the market picker, not among the chart's keys.
-      expect(html).toMatch(/<div class="wh-pick-stack"><details class="wh-pick">[\s\S]*?<\/details><div class="slot-modes whx-modes"/);
+      expect(html).toMatch(
+        /<div class="wh-pick-stack"><details class="wh-pick">[\s\S]*?<\/details><div class="slot-modes whx-modes"/,
+      );
       expect(html).not.toMatch(/class="fchart-keys wh-keys">[^\n]*whx-modes/);
       // The strike on the chart is drawn, with its reading; the one far below the candles is not.
       expect(html).toContain("Strike 83,000 · calls +$4.2M · puts −$1.1M · net +$3.1M per 1% move");
@@ -5350,6 +5389,10 @@ describe("whales", () => {
         put_gex_usd: -1,
         atm_iv,
         forward: 83_000,
+        premium: null,
+        max_pain: null,
+        be_low: null,
+        be_high: null,
       });
       const { data } = gammaFor(83_000, undefined, [
         expiry(20 * 3600_000, 0.05),
