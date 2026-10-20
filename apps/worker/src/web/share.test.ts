@@ -38,6 +38,13 @@ describe("the masthead's chart button", () => {
     expect(SHARE_SCRIPT).toContain('$("figcaption", fig)');
   });
 
+  test("a plot drawn in HTML counts as a chart, and is painted from its boxes", () => {
+    // The levels ladder (levels.ts) has no SVG: without this the button was disabled on both tabs.
+    expect(SHARE_SCRIPT).toContain('$("[data-share-plot]", f)');
+    expect(SHARE_SCRIPT).toContain('".fchart-plot, [data-share-plot]"');
+    expect(SHARE_SCRIPT).toContain("paintHtml(g, p, x0, y, w, h)");
+  });
+
   test("only HTML labels are laid over a plot: an SVG's own shapes are not labels", () => {
     expect(SHARE_SCRIPT).toContain("l instanceof HTMLElement");
     expect(SHARE_SCRIPT).not.toContain('for (const l of $$(":scope > :not(svg)", p))');

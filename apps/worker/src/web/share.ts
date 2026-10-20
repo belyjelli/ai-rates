@@ -18,6 +18,11 @@
  * (a standalone SVG cannot read the page's CSS variables), rasterises it into the card, and draws
  * the labels at the same fractions of the box they sat at on screen. No library, no network.
  *
+ * A PLOT DRAWN IN HTML, marked `data-share-plot` (the levels ladder, levels.ts: its lines and bands
+ * are positioned boxes so they stay crisp), has no SVG to copy, so it is painted from its boxes
+ * instead: each one's background as a fill and its borders and outline as rules, in stacking order,
+ * and its labels written over them as on any plot. Without the mark it would not count as a chart.
+ *
  * With no chart in view -- a table page, or a tab whose panel is hidden -- the chart button is
  * disabled rather than removed, so the masthead does not shift as the reader moves between tabs.
  */
@@ -150,9 +155,9 @@ export const shareScript = (): string => String.raw`(() => {
   const labelsOf = (p) => $$(":scope > :not(svg)", p).filter((l) => l instanceof HTMLElement);
   const css = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
-  // Every figure in main drawing an SVG and visible now; the one nearest the middle of the viewport
-  // is the one the reader is looking at.
-  const charts = () => $$("main figure").filter((f) => $("svg", f) && shown(f));
+  // Every figure in main drawing an SVG or an HTML plot and visible now; the one nearest the middle
+  // of the viewport is the one the reader is looking at.
+  const charts = () => $$("main figure").filter((f) => ($("svg", f) || $("[data-share-plot]", f)) && shown(f));
   const pickChart = () => {
     const mid = innerHeight / 2;
     let best = null, gap = Infinity;
@@ -306,6 +311,56 @@ export const shareScript = (): string => String.raw`(() => {
     });
   };
 
+  // An HTML plot's boxes onto the card at (x0, y0, w, h): a fill for each background, a rule for
+  // each border and outline, dashed or dotted as on screen, lowest z-index first and document order
+  // within one. The labels are written afterwards, over all of it, as they sit on screen.
+  const paintHtml = (g, p, x0, y0, w, h) => {
+    const R = p.getBoundingClientRect();
+    const sx = w / R.width, sy = h / R.height;
+    const z = (el) => { const v = parseInt(getComputedStyle(el).zIndex, 10); return Number.isFinite(v) ? v : 0; };
+    const boxes = $$("*", p).filter((el) => el instanceof HTMLElement && shown(el)).map((el, i) => [el, i]);
+    boxes.sort((a, b) => z(a[0]) - z(b[0]) || a[1] - b[1]);
+    const clear = (c) => !c || c === "transparent" || c === "rgba(0, 0, 0, 0)";
+    const rule = (width, style, color, ax, ay, bx, by) => {
+      if (!(width > 0) || style === "none" || style === "hidden" || clear(color)) return;
+      const lw = Math.max(1, width * Math.min(2.5, sy));
+      g.strokeStyle = color; g.lineWidth = lw;
+      g.setLineDash(style === "dashed" ? [lw * 4, lw * 3] : style === "dotted" ? [lw, lw * 2] : []);
+      g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+    };
+    g.font = "400 16px " + MONO;
+    for (const [el] of boxes) {
+      const s = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      let bx = x0 + (r.left - R.left) * sx, bw = r.width * sx;
+      const by = y0 + (r.top - R.top) * sy, bh = r.height * sy;
+      // A label's box behind it, widened to the card's own text, which is set larger than the
+      // page's: a rule passing under the label must not show through its first letters.
+      const label = el.parentElement === p ? text(el) : "";
+      if (label) {
+        const tw = g.measureText(label).width + 12;
+        if (tw > bw) { bx -= (tw - bw) / 2; bw = tw; }
+      }
+      const alpha = parseFloat(s.opacity);
+      g.globalAlpha = Number.isFinite(alpha) ? alpha : 1;
+      if (!clear(s.backgroundColor)) { g.fillStyle = s.backgroundColor; g.fillRect(bx, by, bw, bh); }
+      const side = (name) => [parseFloat(s.getPropertyValue("border-" + name + "-width")), s.getPropertyValue("border-" + name + "-style"), s.getPropertyValue("border-" + name + "-color")];
+      rule(...side("top"), bx, by, bx + bw, by);
+      rule(...side("bottom"), bx, by + bh, bx + bw, by + bh);
+      rule(...side("left"), bx, by, bx, by + bh);
+      rule(...side("right"), bx + bw, by, bx + bw, by + bh);
+      const ow = parseFloat(s.outlineWidth);
+      if (ow > 0 && s.outlineStyle !== "none") {
+        const o = [ow, s.outlineStyle, s.outlineColor];
+        rule(...o, bx, by, bx + bw, by);
+        rule(...o, bx, by + bh, bx + bw, by + bh);
+        rule(...o, bx, by, bx, by + bh);
+        rule(...o, bx + bw, by, bx + bw, by + bh);
+      }
+    }
+    g.globalAlpha = 1; g.setLineDash([]);
+  };
+
   const fit = (g, s, max) => {
     if (g.measureText(s).width <= max) return s;
     while (s.length > 4 && g.measureText(s + "…").width > max) s = s.slice(0, -1);
@@ -364,7 +419,7 @@ export const shareScript = (): string => String.raw`(() => {
     }
 
     // Plots: each stretched SVG and the labels laid over it, stacked by their on-screen heights.
-    const plots = $$(".fchart-plot", fig).filter(shown);
+    const plots = $$(".fchart-plot, [data-share-plot]", fig).filter(shown);
     const parts = plots.length ? plots : $$("svg", fig).filter(shown);
     const top = ly + 34, bottom = H - 96;
     const hasLeft = parts.some((p) => labelsOf(p).some((l) => { const r = l.getBoundingClientRect(), R = p.getBoundingClientRect(); return shown(l) && r.right <= R.left + 2; }));
@@ -385,6 +440,8 @@ export const shareScript = (): string => String.raw`(() => {
         const grow = Math.max(1, Math.min(2.5, Math.min(w / R.width, h / R.height)));
         const img = await svgImage(svg, w, h, grow);
         if (img) g.drawImage(img, x0, y, w, h);
+      } else if (p.hasAttribute("data-share-plot")) {
+        paintHtml(g, p, x0, y, w, h);
       }
       g.font = "400 16px " + MONO;
       for (const l of labelsOf(p)) {

@@ -616,3 +616,13 @@ describe("the day timeline", () => {
     }
   });
 });
+
+describe("the share button", () => {
+  test("both ladders are marked as HTML plots, and every timeline is an SVG plot", () => {
+    const v = view(levelsData());
+    for (const html of [ivWallsPanel(v), levelsPanel(v)]) {
+      expect(html).toContain('<div class="lv-ladder" aria-hidden="true" data-share-plot>');
+      expect(html).toContain('<div class="fchart-plot lv-tl-plot"><svg');
+    }
+  });
+});

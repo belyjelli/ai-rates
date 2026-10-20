@@ -512,7 +512,8 @@ function ladder(input: {
     input.last !== null
       ? `<i class="lv-last" style="top:${y(input.last).toFixed(2)}%"></i><span class="lv-last-t" style="top:${y(input.last).toFixed(2)}%">${tr("last {price}", { price: price(input.last) })}</span>`
       : "";
-  return `<div class="lv-ladder" aria-hidden="true">${bands}${lines}${range}${last}</div>`;
+  // Marked for the share button (share.ts), which paints an HTML plot from its boxes.
+  return `<div class="lv-ladder" aria-hidden="true" data-share-plot>${bands}${lines}${range}${last}</div>`;
 }
 
 /** The table under a ladder: every level by name, price and distance from the reference. */

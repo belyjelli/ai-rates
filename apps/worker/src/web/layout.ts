@@ -803,7 +803,8 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .lv-tl-wk{stroke:var(--muted);stroke-width:1;stroke-dasharray:1 3;vector-effect:non-scaling-stroke}
 .lv-tl-hit{fill:transparent}.lv-tl-hit:hover{fill:rgba(216,216,216,.06)}
 .lv-tl-chart .cvd-yr b{font-weight:500}
-.lv-chart .fchart-keys i.lv-key-candle{width:6px;height:10px;border:1px solid var(--ink);background:var(--bg)}
+.lv-tl-chart .cvd-yr:is(.lv-iv-t,.lv-90-t){color:var(--em)}.lv-tl-chart .cvd-yr.lv-gc-t{color:var(--long)}.lv-tl-chart .cvd-yr.lv-gf-t{color:var(--short)}.lv-tl-chart .cvd-yr:is(.lv-be-t,.lv-mp-t){color:#ff9f43}
+.lv-chart .fchart-keys i.lv-key-candle{width:6px;height:10px;border:1px solid var(--ink);background:transparent}
 .lv-chart .fchart-keys i.lv-key-wk{width:0;height:10px;border-left:1px dotted var(--muted)}
 @media (max-width:640px){.cvd-chart.lv-tl-chart .fchart-plot{height:240px;margin:6px 8px 24px 56px}.lv-tl-chart .cvd-yr{display:none}}
 /* The Exchanges page (exchanges.ts): a grade badge per venue, and cells that carry a second line --
