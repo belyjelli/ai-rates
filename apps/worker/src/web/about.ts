@@ -40,6 +40,15 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-10-21",
+    title: "Delta, Vega and Theta tabs, and a By expiry chart on Gamma Exposure",
+    changes: [
+      "Three new Rates tabs after Gamma Exposure, for every option book the site reads: Delta, Vega and Theta, by strike and by expiry, with the same book picker and expiry ranges. They are Black-76 on each option's own open interest, implied volatility and forward, and reproduce Deribit's own greeks to within 0.03%.",
+      "They are read from the side of whoever bought the options, so unlike gamma exposure nothing is assumed about who holds them: calls' delta is positive and puts' negative, every option's vega is positive and its theta negative, and the writers hold the opposite. Delta is the value of the underlying the open options move like, vega is per point of implied volatility, theta is per day, and the Theta tab adds the decay rate, the day's theta over what the options are worth.",
+      "Gamma Exposure's By expiry table now has a chart over it: one bar per expiry, switching between open interest, gamma exposure (calls above zero, puts below) and the ATM IV term structure. Hover or tap an expiry for its open interest, put/call ratio, gamma, IV, max pain, dealer range and premium.",
+    ],
+  },
+  {
     date: "2026-10-20",
     title: "Two new Rates tabs: IV Walls, and Ceiling & Floor",
     changes: [

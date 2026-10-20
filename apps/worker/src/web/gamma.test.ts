@@ -1,9 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import type { GammaBook, GammaData, GammaExposure, GammaStrike } from "../app/data";
+import type { GammaBook, GammaData, GammaExpiry, GammaExposure, GammaStrike } from "../app/data";
 import type { GammaParams, HeatmapParams } from "../app/params";
 import {
   bandStrikes,
   curveAt,
+  expiryTicks,
   fitRange,
   freshness,
   GAMMA_DAYS_REFUSE_MS,
@@ -13,17 +14,25 @@ import {
   GAMMA_STALE_MS,
   GX_SWAP_SCRIPT,
   GX_VIEW_SCRIPT,
+  GXX_VIEW_SCRIPT,
   gammaFragment,
   gammaPanel,
   gammaZones,
   inScope,
+  ivScale,
   niceStep,
   sortBooks,
   strikeSpacing,
 } from "./gamma";
 import { withLocale } from "./i18n";
 import { PICK_SCRIPT } from "./picker";
-import { type GammaSlots, gammaText, SLOT_FORMAT } from "./slot-chart";
+import {
+  type ExpirySlots,
+  expiryText,
+  type GammaSlots,
+  gammaText,
+  SLOT_FORMAT,
+} from "./slot-chart";
 
 const NO_GREEKS = {
   call_delta: null,
@@ -714,4 +723,95 @@ describe("readout", () => {
 
 test("the swap script parses", () => {
   expect(() => new Function(GX_SWAP_SCRIPT)).not.toThrow();
+});
+
+describe("by expiry chart", () => {
+  const expiry = (iso: string, over: Partial<GammaExpiry> = {}): GammaExpiry => ({
+    ...NO_GREEKS,
+    expiry: new Date(iso),
+    options: 40,
+    call_oi: 1_000,
+    put_oi: 500,
+    call_gex_usd: 2e6,
+    put_gex_usd: -1e6,
+    atm_iv: 0.3,
+    forward: 80_000,
+    premium: 50e6,
+    max_pain: 79_000,
+    be_low: 76_000,
+    be_high: 83_000,
+    ...over,
+  });
+  const expiries = [
+    expiry("2026-10-16T08:00:00Z", { atm_iv: 0.25 }),
+    expiry("2026-10-23T08:00:00Z", { call_oi: 4_000, put_oi: 2_000, atm_iv: null }),
+    expiry("2026-12-25T08:00:00Z", { atm_iv: 0.4, premium: null, max_pain: null }),
+  ];
+  const slots = (html: string) => {
+    const all = [
+      ...html.matchAll(/<script type="application\/json" class="slot-data">(.*?)<\/script>/g),
+    ];
+    return JSON.parse(all.at(-1)?.[1] ?? "null") as ExpirySlots;
+  };
+
+  test("ticks and the IV scale", () => {
+    expect(expiryTicks(11)).toEqual([0, 2, 4, 6, 8, 10]);
+    expect(expiryTicks(3)).toEqual([0, 1, 2]);
+    expect(expiryTicks(54).length).toBe(7);
+    const [lo, quarter] = ivScale([0.194, 0.272, 0.389]);
+    expect([lo, quarter]).toEqual([0.1, 0.1]);
+    const [lo2, q2] = ivScale([0.114, 0.16]);
+    expect(lo2).toBeCloseTo(0.1, 9);
+    expect(q2).toBeCloseTo(0.02, 9);
+    expect(lo2 + 4 * q2).toBeGreaterThanOrEqual(0.16);
+  });
+
+  test("one bar per expiry for each reading, the IV line broken where an expiry has none", () => {
+    const html = panel(gammaData({ expiries }), { currency: "BTC", scope: "7d" });
+    const figure = html.slice(html.indexOf('<figure class="fchart cvd-chart gxx-chart"'));
+    expect(figure).toContain("BTC · Deribit options · by expiry");
+    const oi = /<g class="gxx-v gxx-v-oi">(.*?)<\/g>/.exec(figure)?.[1] ?? "";
+    expect(oi.match(/<rect/g)?.length).toBe(6);
+    // The second expiry's 4,000 calls are the peak: its bar fills the top half.
+    expect(oi).toContain('y="0.0" width');
+    // Read Oct 15 14:27, the 7-day range ends Oct 22: Oct 23 and December are dimmed, both bars each.
+    expect(oi.match(/gxx-out/g)?.length).toBe(4);
+    // Two IV points either side of a gap: no line can join them, only dots.
+    const iv = /<g class="gxx-v gxx-v-iv">(.*?)<\/g>/.exec(figure)?.[1] ?? "";
+    expect(iv).not.toContain("<polyline");
+    expect(iv.match(/gxx-dot/g)?.length).toBe(2);
+    expect(figure).toContain("3 expiries · open interest");
+    expect(figure).toContain("not to scale");
+    const d = slots(html);
+    expect(d.kind).toBe("gexx");
+    expect(d.coin).toBe("BTC");
+    expect(d.slots.length).toBe(3);
+    expect(d.slots[2]?.[8]).toBeNull();
+  });
+
+  test("the readout gives an expiry in full, leaving out what the book lacks", () => {
+    const d = slots(panel(gammaData({ expiries }), BTC_ALL));
+    const first = expiryText(d, 0, SLOT_FORMAT);
+    expect(first).toContain("Oct 16 2026");
+    expect(first).toContain("40 options");
+    expect(first).toContain("calls 1,000 BTC ($80.0M) open");
+    expect(first).toContain("put/call 0.50");
+    expect(first).toContain(
+      'gamma <b class="lq-ink-l">+$2.0M</b> / <b class="lq-ink-s">−$1.0M</b>',
+    );
+    expect(first).toContain("ATM IV 25.0%");
+    expect(first).toContain("max pain 79,000");
+    expect(first).toContain("dealer range 76,000 – 83,000");
+    expect(first).toContain("premium $50.0M");
+    const last = expiryText(d, 2, SLOT_FORMAT);
+    expect(last).not.toContain("max pain");
+    expect(last).not.toContain("premium");
+    expect(expiryText(d, 1, SLOT_FORMAT)).not.toContain("ATM IV");
+  });
+
+  test("the view switch keeps the reader's choice on <html>", () => {
+    expect(GXX_VIEW_SCRIPT).toContain('localStorage.getItem("gamma-expiry-view")');
+    expect(GXX_VIEW_SCRIPT).toContain("document.documentElement.dataset.gxx = view");
+    expect(() => new Function(GXX_VIEW_SCRIPT)).not.toThrow();
+  });
 });

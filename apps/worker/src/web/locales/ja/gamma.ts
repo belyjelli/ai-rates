@@ -411,4 +411,29 @@ export const gamma: Catalog = {
     "オプションの買い手が持つセータ、1日あたり。売り手がそれを受け取ります。{source} オプション、{asof}。",
   "Delta, vega and theta have not been computed for {currency} yet; they arrive with its next read.":
     "{currency} のデルタ、ベガ、セータはまだ計算されていません。次の取得で表示されます。",
+  // The Gamma Exposure tab's By expiry chart (web/gamma.ts) and its readout (web/slot-chart.ts).
+  "Each expiry's calls above zero and its puts below, at their value at the spot":
+    "各満期のコールをゼロより上、プットを下に、現物価格での評価額で表示",
+  "Each expiry's gamma exposure: calls above zero, puts below":
+    "各満期のガンマエクスポージャー：コールはゼロより上、プットは下",
+  gamma: "ガンマ",
+  "Each expiry's at-the-money implied volatility: the term structure":
+    "各満期のアット・ザ・マネーのインプライド・ボラティリティ：期間構造",
+  show: "表示",
+  "{n} expiries · open interest {calls} in calls, {puts} in puts · hover or tap an expiry to read it":
+    "満期{n}件 · 建玉はコール {calls}、プット {puts} · 満期にカーソルを合わせるかタップで表示",
+  "{currency} · {source} options · by expiry": "{currency} · {source} オプション · 満期別",
+  "{currency} expiries; arrow keys read one at a time": "{currency} の満期。矢印キーで1つずつ表示",
+  "One bar per expiry in date order, so the gaps between them are not to scale; expiries outside the chosen range are dimmed.":
+    "満期ごとに1本のバーを日付順に並べているため、間隔は時間に比例しません。選択範囲外の満期は薄く表示しています。",
+  "{date}, {left} left": "{date}、残り {left}",
+  "{n} options": "オプション{n}件",
+  "calls {oi} open": "コール建玉 {oi}",
+  "puts {oi} open": "プット建玉 {oi}",
+  "put/call {ratio}": "プット/コール {ratio}",
+  "gamma {calls} / {puts}, net {net}": "ガンマ {calls} / {puts}、ネット {net}",
+  "ATM IV {iv}": "ATM IV {iv}",
+  "max pain {price}": "マックスペイン {price}",
+  "dealer range {low} – {high}": "ディーラーレンジ {low} – {high}",
+  "premium {usd}": "プレミアム {usd}",
 };

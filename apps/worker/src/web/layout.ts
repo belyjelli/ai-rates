@@ -703,6 +703,17 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
 .gx-chart .fchart-keys i.gx-key-spot{height:0;border-top:1px dashed var(--ink)}
 .gx-chart .fchart-keys i.gx-key-flip{height:0;border-top:1px dashed var(--warn)}
 .gx-yr{color:var(--accent)}
+/* The Gamma Exposure tab's By expiry chart (gamma.ts expiryChart): one bar per expiry, calls above the
+   middle and puts below for open interest and for gamma, or the ATM IV term structure as a violet line
+   with a dot per expiry. The view switch shows one reading; expiries outside the range are dimmed. */
+.gxx-chart .gxx-plot{height:240px}.cvd-chart.gxx-chart .fchart-plot{margin:6px 16px 0 64px}
+html:not([data-gxx=gamma]):not([data-gxx=iv]) .gxx-v:not(.gxx-v-oi),html[data-gxx=gamma] .gxx-v:not(.gxx-v-gamma),html[data-gxx=iv] .gxx-v:not(.gxx-v-iv){display:none}
+.gxx-out{opacity:.35}
+.gxx-line{fill:none;stroke:var(--em);stroke-width:1.6;vector-effect:non-scaling-stroke}
+.gxx-dot{stroke:var(--em);stroke-width:7px;stroke-linecap:round;vector-effect:non-scaling-stroke}
+.gxx-chart .fchart-keys i.gx-key-call,.gxx-chart .fchart-keys i.gx-key-put{width:10px;height:10px}
+.gxx-chart .fchart-keys i.gxx-key-iv{height:0;border-top:2px solid var(--em)}
+@media (max-width:640px){.gxx-chart .gxx-plot{height:200px}.cvd-chart.gxx-chart .fchart-plot{margin:6px 8px 0 56px}}
 /* The Delta, Vega and Theta tabs (greeks.ts): the Gamma chart's bands and colours. Delta's calls rise
    above the middle and its puts hang below; vega's calls and puts stack up from the floor, theta's
    down from the top, a hairline of the page between the two. No right-hand scale, so no right margin

@@ -408,4 +408,30 @@ export const gamma: Catalog = {
     "Тета так, как её держат покупатели опционов, в день; её получают продавцы. Опционы {source}, {asof}.",
   "Delta, vega and theta have not been computed for {currency} yet; they arrive with its next read.":
     "Дельта, вега и тета для {currency} ещё не рассчитаны; они появятся при следующем чтении.",
+  // The Gamma Exposure tab's By expiry chart (web/gamma.ts) and its readout (web/slot-chart.ts).
+  "Each expiry's calls above zero and its puts below, at their value at the spot":
+    "Коллы каждой экспирации выше нуля, путы ниже, по стоимости при споте",
+  "Each expiry's gamma exposure: calls above zero, puts below":
+    "Гамма-экспозиция каждой экспирации: коллы выше нуля, путы ниже",
+  gamma: "гамма",
+  "Each expiry's at-the-money implied volatility: the term structure":
+    "Подразумеваемая волатильность на деньгах для каждой экспирации: временная структура",
+  show: "показать",
+  "{n} expiries · open interest {calls} in calls, {puts} in puts · hover or tap an expiry to read it":
+    "экспираций: {n} · открытый интерес {calls} в коллах, {puts} в путах · наведите или нажмите на экспирацию, чтобы прочитать",
+  "{currency} · {source} options · by expiry": "{currency} · опционы {source} · по экспирациям",
+  "{currency} expiries; arrow keys read one at a time":
+    "Экспирации {currency}; стрелки читают по одной",
+  "One bar per expiry in date order, so the gaps between them are not to scale; expiries outside the chosen range are dimmed.":
+    "Один столбец на экспирацию по порядку дат, поэтому промежутки не в масштабе времени; экспирации вне выбранного диапазона приглушены.",
+  "{date}, {left} left": "{date}, осталось {left}",
+  "{n} options": "опционов: {n}",
+  "calls {oi} open": "коллы: открыто {oi}",
+  "puts {oi} open": "путы: открыто {oi}",
+  "put/call {ratio}": "put/call {ratio}",
+  "gamma {calls} / {puts}, net {net}": "гамма {calls} / {puts}, нетто {net}",
+  "ATM IV {iv}": "ATM IV {iv}",
+  "max pain {price}": "max pain {price}",
+  "dealer range {low} – {high}": "дилерский диапазон {low} – {high}",
+  "premium {usd}": "премия {usd}",
 };

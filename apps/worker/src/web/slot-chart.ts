@@ -92,6 +92,17 @@ export interface SlotWords {
   gexPuts: string;
   gexNet: string;
   gexIf: string;
+  /** The Gamma Exposure tab's by-expiry chart: one expiry. */
+  xpWhen: string;
+  xpOptions: string;
+  xpCalls: string;
+  xpPuts: string;
+  xpRatio: string;
+  xpGamma: string;
+  xpIv: string;
+  xpPain: string;
+  xpRange: string;
+  xpPremium: string;
   /** The whale chart's: one candle. */
   ohlc: string;
   volume: string;
@@ -141,6 +152,16 @@ export const slotWords = (): SlotWords => ({
   gexPuts: tr("puts {usd} ({oi} open)"),
   gexNet: tr("net {usd}"),
   gexIf: tr("if the spot were here: net {usd}"),
+  xpWhen: tr("{date}, {left} left"),
+  xpOptions: tr("{n} options"),
+  xpCalls: tr("calls {oi} open"),
+  xpPuts: tr("puts {oi} open"),
+  xpRatio: tr("put/call {ratio}"),
+  xpGamma: tr("gamma {calls} / {puts}, net {net}"),
+  xpIv: tr("ATM IV {iv}"),
+  xpPain: tr("max pain {price}"),
+  xpRange: tr("dealer range {low} – {high}"),
+  xpPremium: tr("premium {usd}"),
   ohlc: tr("open {open} · high {high} · low {low} · close {close}"),
   volume: tr("volume {usd}"),
   burstBuys: tr("large taker buys {usd} ({n})"),
@@ -404,7 +425,7 @@ export function gammaText(d: GammaSlots, i: number, f: SlotFormat): string {
  * a chart across time. Self-contained: it ships as text.
  */
 export function slotXPrice(
-  d: CvdSlots | SidesSlots | WhaleSlots | GammaSlots | WhaleCandleSlots | MacroSlots,
+  d: CvdSlots | SidesSlots | WhaleSlots | GammaSlots | WhaleCandleSlots | MacroSlots | ExpirySlots,
   i: number,
   price: (value: number) => string,
 ): string | null {
@@ -430,6 +451,76 @@ export interface GammaSlots {
   cur: string;
   slots: ([number, number, number, number, string] | null)[];
   curve: (number | null)[];
+}
+
+/**
+ * One expiry of the Gamma Exposure tab's by-expiry chart: when, its open interest either side (and in
+ * coins for a Deribit book), the put/call ratio, its gamma, ATM IV, max pain, dealer range and premium,
+ * each where the book has it.
+ */
+export function expiryText(d: ExpirySlots, i: number, f: SlotFormat): string {
+  const w = f.words;
+  const s = d.slots[i];
+  if (!s) return "";
+  const oi = (units: number) =>
+    d.coin
+      ? `${Math.round(units).toLocaleString("en-US")} ${d.coin} (${f.usd(units * d.spot, d.cur)})`
+      : f.usd(units * d.spot, d.cur);
+  const signed = (usd: number) =>
+    `<b class="${usd > 0 ? "lq-ink-l" : usd < 0 ? "lq-ink-s" : ""}">${usd > 0 ? "+" : ""}${f.usd(usd, d.cur)}</b>`;
+  const parts = [
+    w.xpWhen.replace("{date}", () => s[0]).replace("{left}", () => s[1]),
+    w.xpOptions.replace("{n}", () => String(s[2])),
+    w.xpCalls.replace("{oi}", () => oi(s[3])),
+    w.xpPuts.replace("{oi}", () => oi(s[4])),
+  ];
+  if (s[3] > 0) parts.push(w.xpRatio.replace("{ratio}", () => (s[4] / s[3]).toFixed(2)));
+  parts.push(
+    w.xpGamma
+      .replace("{calls}", () => signed(s[5]))
+      .replace("{puts}", () => signed(s[6]))
+      .replace("{net}", () => signed(s[5] + s[6])),
+  );
+  const iv = s[7];
+  if (iv !== null) parts.push(w.xpIv.replace("{iv}", () => `${(iv * 100).toFixed(1)}%`));
+  const pain = s[8];
+  if (pain !== null) parts.push(w.xpPain.replace("{price}", () => f.price(pain)));
+  const low = s[9];
+  const high = s[10];
+  if (low !== null && high !== null)
+    parts.push(
+      w.xpRange.replace("{low}", () => f.price(low)).replace("{high}", () => f.price(high)),
+    );
+  const premium = s[11];
+  if (premium !== null) parts.push(w.xpPremium.replace("{usd}", () => f.usd(premium, d.cur)));
+  return parts.join(" · ");
+}
+
+/**
+ * What the by-expiry chart ships: one entry per expiry, nearest first -- [its date, time left, options,
+ * calls' and puts' open interest in units of the underlying, calls' and puts' gamma exposure, ATM IV,
+ * max pain, dealer floor, dealer ceiling, premium], null where the book has none. Amounts are in the
+ * currency whose symbol is `cur`; open interest reads in `coin` too where that is set (Deribit).
+ */
+export interface ExpirySlots {
+  kind: "gexx";
+  cur: string;
+  coin: string;
+  spot: number;
+  slots: [
+    string,
+    string,
+    number,
+    number,
+    number,
+    number,
+    number,
+    number | null,
+    number | null,
+    number | null,
+    number | null,
+    number | null,
+  ][];
 }
 
 /**
@@ -572,7 +663,14 @@ export interface SidesSlots {
  * words in the render's language, which the browser copy of the text functions reads them from.
  */
 export function slotData(
-  payload: CvdSlots | SidesSlots | WhaleSlots | GammaSlots | WhaleCandleSlots | MacroSlots,
+  payload:
+    | CvdSlots
+    | SidesSlots
+    | WhaleSlots
+    | GammaSlots
+    | WhaleCandleSlots
+    | MacroSlots
+    | ExpirySlots,
   /** Words a chart reads differently, over the defaults: the Vega tab's band "total" for "net". */
   words: Partial<SlotWords> = {},
 ): string {
@@ -632,6 +730,7 @@ export const SLOT_SCRIPT = `(() => {
   const sidesText = ${sidesText};
   const whaleText = ${whaleText};
   const gammaText = ${gammaText};
+  const expiryText = ${expiryText};
   const candleText = ${candleText};
   const macroText = ${macroText};
   const xPrice = ${slotXPrice};
@@ -652,6 +751,7 @@ export const SLOT_SCRIPT = `(() => {
     const fw = Object.assign({ words: d.words }, f);
     if (d.kind === "wmap") return whaleText(d, i, fw);
     if (d.kind === "gex") return gammaText(d, i, fw);
+    if (d.kind === "gexx") return expiryText(d, i, fw);
     if (d.kind === "wcandle") return candleText(d, i, fw);
     if (d.kind === "macro") return macroText(d, i, fw);
     const when = f.when(d.from + i * d.unit, d.words, 0, d.unit);

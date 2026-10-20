@@ -73,6 +73,7 @@ import {
   GAMMA_PANEL_ID,
   GX_SWAP_SCRIPT,
   GX_VIEW_SCRIPT,
+  GXX_VIEW_SCRIPT,
   gammaPanel,
   gammaPanelHref,
   gammaPlaceholder,
@@ -1020,6 +1021,7 @@ ${GREEKS.map((greek) => `<script>${gxSwapScript(greekPanelId(greek), greek)}</sc
 <script>${gxSwapScript(IVWALLS_PANEL_ID, "ivwalls")}</script>
 <script>${gxSwapScript(LEVELS_PANEL_ID, "levels")}</script>
 <script>${GX_VIEW_SCRIPT}</script>
+<script>${GXX_VIEW_SCRIPT}</script>
 <script>${PICK_SCRIPT}</script>`,
   });
 }

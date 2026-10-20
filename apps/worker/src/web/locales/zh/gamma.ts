@@ -394,4 +394,29 @@ export const gamma: Catalog = {
     "按期权买方持有计的 Theta，以每天计；由卖方收取。{source} 期权，{asof}。",
   "Delta, vega and theta have not been computed for {currency} yet; they arrive with its next read.":
     "{currency} 的 Delta、Vega 和 Theta 尚未计算；将随下一次读取出现。",
+  // The Gamma Exposure tab's By expiry chart (web/gamma.ts) and its readout (web/slot-chart.ts).
+  "Each expiry's calls above zero and its puts below, at their value at the spot":
+    "各到期日的看涨在零线上方、看跌在下方，按现货价计值",
+  "Each expiry's gamma exposure: calls above zero, puts below":
+    "各到期日的 Gamma 敞口：看涨在零线上方，看跌在下方",
+  gamma: "Gamma",
+  "Each expiry's at-the-money implied volatility: the term structure":
+    "各到期日的平值隐含波动率：期限结构",
+  show: "显示",
+  "{n} expiries · open interest {calls} in calls, {puts} in puts · hover or tap an expiry to read it":
+    "{n} 个到期日 · 持仓量看涨 {calls}、看跌 {puts} · 悬停或点按到期日查看",
+  "{currency} · {source} options · by expiry": "{currency} · {source} 期权 · 按到期日",
+  "{currency} expiries; arrow keys read one at a time": "{currency} 到期日；用方向键逐个查看",
+  "One bar per expiry in date order, so the gaps between them are not to scale; expiries outside the chosen range are dimmed.":
+    "每个到期日一根柱，按日期排列，柱间距不按时间比例；所选范围外的到期日显示为灰色。",
+  "{date}, {left} left": "{date}，剩余 {left}",
+  "{n} options": "{n} 个期权",
+  "calls {oi} open": "看涨持仓 {oi}",
+  "puts {oi} open": "看跌持仓 {oi}",
+  "put/call {ratio}": "看跌/看涨比 {ratio}",
+  "gamma {calls} / {puts}, net {net}": "Gamma 看涨 {calls} / 看跌 {puts}，净额 {net}",
+  "ATM IV {iv}": "平值 IV {iv}",
+  "max pain {price}": "最大痛点 {price}",
+  "dealer range {low} – {high}": "做市商区间 {low} – {high}",
+  "premium {usd}": "权利金 {usd}",
 };

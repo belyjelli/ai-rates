@@ -401,4 +401,29 @@ export const gamma: Catalog = {
     "옵션 매수자가 보유한 세타, 하루 기준; 매도자가 이를 받습니다. {source} 옵션, {asof}.",
   "Delta, vega and theta have not been computed for {currency} yet; they arrive with its next read.":
     "{currency}의 델타, 베가, 세타는 아직 계산되지 않았습니다. 다음 읽기 때 나타납니다.",
+  // The Gamma Exposure tab's By expiry chart (web/gamma.ts) and its readout (web/slot-chart.ts).
+  "Each expiry's calls above zero and its puts below, at their value at the spot":
+    "만기별 콜은 0 위, 풋은 아래, 현물가 기준 금액",
+  "Each expiry's gamma exposure: calls above zero, puts below":
+    "만기별 감마 익스포저: 콜은 0 위, 풋은 아래",
+  gamma: "감마",
+  "Each expiry's at-the-money implied volatility: the term structure":
+    "만기별 등가격 내재변동성: 기간 구조",
+  show: "보기",
+  "{n} expiries · open interest {calls} in calls, {puts} in puts · hover or tap an expiry to read it":
+    "만기 {n}개 · 미결제약정 콜 {calls}, 풋 {puts} · 만기에 마우스를 올리거나 탭하여 확인",
+  "{currency} · {source} options · by expiry": "{currency} · {source} 옵션 · 만기별",
+  "{currency} expiries; arrow keys read one at a time": "{currency} 만기; 화살표 키로 하나씩 확인",
+  "One bar per expiry in date order, so the gaps between them are not to scale; expiries outside the chosen range are dimmed.":
+    "만기마다 막대 하나를 날짜순으로 두었으므로 간격은 시간에 비례하지 않습니다. 선택한 범위 밖의 만기는 흐리게 표시됩니다.",
+  "{date}, {left} left": "{date}, 남은 기간 {left}",
+  "{n} options": "옵션 {n}개",
+  "calls {oi} open": "콜 미결제약정 {oi}",
+  "puts {oi} open": "풋 미결제약정 {oi}",
+  "put/call {ratio}": "풋/콜 {ratio}",
+  "gamma {calls} / {puts}, net {net}": "감마 {calls} / {puts}, 순액 {net}",
+  "ATM IV {iv}": "ATM IV {iv}",
+  "max pain {price}": "맥스 페인 {price}",
+  "dealer range {low} – {high}": "딜러 범위 {low} – {high}",
+  "premium {usd}": "프리미엄 {usd}",
 };

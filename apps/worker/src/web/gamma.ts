@@ -21,6 +21,7 @@ import { ageText, esc, formatDuration, formatPrice, formatUsd } from "./format";
 import { helpButton, helpPanel } from "./help";
 import { msg, tr, trMsg } from "./i18n";
 import {
+  type ExpirySlots,
   type GammaSlots,
   MONTHS,
   SLOT_BAND,
@@ -680,6 +681,191 @@ export function leftText(expiry: Date, now: number): string {
   });
 }
 
+/**
+ * The by-expiry chart's three readings, switched beside its title (GXX_SCRIPT): open interest, each
+ * expiry's calls above zero and puts below at their value at the spot, the view it opens on; gamma
+ * exposure the same way; and the ATM IV of each expiry as a line, the term structure. One axis at a
+ * time, all three in the markup, CSS showing one, so a switch costs no request and survives a refresh.
+ */
+const EXPIRY_VIEWS = ["oi", "gamma", "iv"] as const;
+
+function expiryViewSwitch(): string {
+  const words: Record<(typeof EXPIRY_VIEWS)[number], [string, string]> = {
+    oi: [
+      tr("open interest"),
+      tr("Each expiry's calls above zero and its puts below, at their value at the spot"),
+    ],
+    gamma: [tr("gamma"), tr("Each expiry's gamma exposure: calls above zero, puts below")],
+    iv: [tr("ATM IV"), tr("Each expiry's at-the-money implied volatility: the term structure")],
+  };
+  const buttons = EXPIRY_VIEWS.map(
+    (view) =>
+      `<button type="button" class="gxx-view" data-gxx-view="${view}" aria-pressed="${view === "oi"}" title="${esc(words[view][1])}">${words[view][0]}</button>`,
+  ).join("");
+  return `<div class="slot-modes gxx-views" role="group" aria-label="${esc(tr("View"))}" hidden><span>${tr("show")}</span>${buttons}</div>`;
+}
+
+/**
+ * The IV axis for `ivs`: its floor and a round step, the axis four steps tall, so its gridlines read as
+ * round percentages ("20% 30% 40%") and the line keeps most of the height.
+ */
+export function ivScale(ivs: readonly number[]): [number, number] {
+  if (ivs.length === 0) return [0, 0.25];
+  const min = Math.min(...ivs);
+  const max = Math.max(...ivs);
+  let quarter = niceStep(Math.max(0.005, (max - min) / 3.2));
+  let lo = Math.floor(min / quarter) * quarter;
+  while (lo + 4 * quarter < max) {
+    quarter = niceStep(quarter * 1.01);
+    lo = Math.floor(min / quarter) * quarter;
+  }
+  return [lo, quarter];
+}
+
+/** Which of `count` bars get a date under them: about seven, evenly, the first always. */
+export function expiryTicks(count: number): number[] {
+  const step = Math.max(1, Math.ceil(count / 7));
+  const out: number[] = [];
+  for (let i = 0; i < count; i += step) out.push(i);
+  return out;
+}
+
+/**
+ * The By expiry chart, over the table: one bar per expiry in date order, so a daily expiry and a
+ * yearly one each get a readable bar and the gaps are not to scale (the note says so). Expiries
+ * outside the chosen range are dimmed, as in the table. Hover or tap reads an expiry in full.
+ */
+function expiryChart(data: {
+  currency: string;
+  exposure: GammaExposure;
+  expiries: readonly GammaExpiry[];
+  scope: GammaScope;
+  now: number;
+}): string {
+  const { currency, exposure, expiries, scope, now } = data;
+  const n = expiries.length;
+  if (n === 0) return "";
+  const sym = unitSymbol(exposure.unit);
+  const spot = exposure.spot;
+  const slot = 1000 / n;
+  const width = slot * 0.72;
+  const left = (i: number) => (i * slot + (slot - width) / 2).toFixed(2);
+  const mid = (i: number) => ((i + 0.5) * slot).toFixed(2);
+  const dim = (x: GammaExpiry) =>
+    inScope(scope, x.expiry, exposure.next_expiry, exposure.computed_at) ? "" : " gxx-out";
+  // Split bars around the middle: calls up, puts (as given, or negated) down.
+  const split = (call: (x: GammaExpiry) => number, put: (x: GammaExpiry) => number) => {
+    const peak = Math.max(1, ...expiries.map((x) => Math.max(Math.abs(call(x)), Math.abs(put(x)))));
+    const bars = expiries
+      .map((x, i) => {
+        const c = (Math.abs(call(x)) / peak) * 500;
+        const p = (Math.abs(put(x)) / peak) * 500;
+        return `${c > 0 ? `<rect class="gx-call${dim(x)}" x="${left(i)}" y="${(500 - c).toFixed(1)}" width="${width.toFixed(2)}" height="${c.toFixed(1)}"></rect>` : ""}${p > 0 ? `<rect class="gx-put${dim(x)}" x="${left(i)}" y="500" width="${width.toFixed(2)}" height="${p.toFixed(1)}"></rect>` : ""}`;
+      })
+      .join("");
+    return { peak, bars };
+  };
+  const oi = split(
+    (x) => x.call_oi * spot,
+    (x) => x.put_oi * spot,
+  );
+  const gamma = split(
+    (x) => x.call_gex_usd,
+    (x) => x.put_gex_usd,
+  );
+  // The term structure: a line through each expiry's ATM IV, broken where one has none, on a scale of
+  // four round steps (ivScale) that holds them all.
+  const ivs = expiries.map((x) => x.atm_iv);
+  const known = ivs.filter((v): v is number => v !== null && v > 0);
+  const [lo, quarter] = ivScale(known);
+  const hi = lo + 4 * quarter;
+  const ivY = (v: number) => (1000 - ((v - lo) / (hi - lo)) * 1000).toFixed(1);
+  const runs: string[][] = [[]];
+  const dots: string[] = [];
+  ivs.forEach((v, i) => {
+    if (v === null || !(v > 0)) {
+      runs.push([]);
+      return;
+    }
+    runs[runs.length - 1]?.push(`${mid(i)},${ivY(v)}`);
+    dots.push(
+      `<line class="gxx-dot${dim(expiries[i] as GammaExpiry)}" x1="${mid(i)}" x2="${mid(i)}" y1="${ivY(v)}" y2="${ivY(v)}"></line>`,
+    );
+  });
+  const line = runs
+    .filter((r) => r.length > 1)
+    .map((r) => `<polyline class="gxx-line" points="${r.join(" ")}"></polyline>`)
+    .join("");
+
+  const levels = [0.25, 0.5, 0.75];
+  const grid = levels
+    .map((f) => `<line class="cvd-grid" x1="0" x2="1000" y1="${f * 1000}" y2="${f * 1000}"></line>`)
+    .join("");
+  const yLabels = (view: string, text: (f: number) => string) =>
+    levels
+      .map(
+        (f) => `<span class="cvd-yl gxx-v gxx-v-${view}" style="top:${f * 100}%">${text(f)}</span>`,
+      )
+      .join("");
+  // Open interest has no sign: both halves read as amounts, calls above and puts below.
+  const labels =
+    yLabels("oi", (f) => (f === 0.5 ? `${sym}0` : formatUsd(oi.peak * Math.abs(1 - 2 * f), sym))) +
+    yLabels("gamma", (f) => (f === 0.5 ? `${sym}0` : signedUsd(gamma.peak * (1 - 2 * f), sym))) +
+    (known.length
+      ? yLabels("iv", (f) => `${((hi - f * 4 * quarter) * 100).toFixed(quarter < 0.01 ? 1 : 0)}%`)
+      : "");
+  const xLabels = expiryTicks(n)
+    .map(
+      (i, k) =>
+        `<span class="cvd-x${k % 2 ? " x-alt" : ""}" style="left:${(Number(mid(i)) / 10).toFixed(2)}%">${dayLabel((expiries[i] as GammaExpiry).expiry)}</span>`,
+    )
+    .join("");
+
+  const payload: ExpirySlots = {
+    kind: "gexx",
+    cur: sym,
+    coin: exposure.source === "deribit" ? currency : "",
+    spot,
+    slots: expiries.map((x) => [
+      `${dayLabel(x.expiry)} ${x.expiry.getUTCFullYear()}`,
+      leftText(x.expiry, now),
+      x.options,
+      x.call_oi,
+      x.put_oi,
+      Math.round(x.call_gex_usd),
+      Math.round(x.put_gex_usd),
+      x.atm_iv,
+      // Modeled prices to the precision they mean, as the tab writes them elsewhere.
+      x.max_pain === null ? null : level(x.max_pain),
+      x.be_low === null ? null : level(x.be_low),
+      x.be_high === null ? null : level(x.be_high),
+      x.premium === null ? null : Math.round(x.premium),
+    ]),
+  };
+  const callOi = expiries.reduce((sum, x) => sum + x.call_oi, 0) * spot;
+  const putOi = expiries.reduce((sum, x) => sum + x.put_oi, 0) * spot;
+  const idle = tr(
+    "{n} expiries · open interest {calls} in calls, {puts} in puts · hover or tap an expiry to read it",
+    {
+      n,
+      calls: `<b class="lq-ink-l">${formatUsd(callOi, sym)}</b>`,
+      puts: `<b class="lq-ink-s">${formatUsd(putOi, sym)}</b>`,
+    },
+  );
+  const title = tr("{currency} · {source} options · by expiry", {
+    currency: esc(currency),
+    source: esc(publisher(exposure.source).name),
+  });
+  return `<figure class="fchart cvd-chart gxx-chart" data-live="gamma-expiry-chart">
+<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span class="gxx-v gxx-v-oi gxx-v-gamma"><i class="gx-key-call"></i>${tr("Calls")}</span><span class="gxx-v gxx-v-oi gxx-v-gamma"><i class="gx-key-put"></i>${tr("Puts")}</span><span class="gxx-v gxx-v-iv"><i class="gxx-key-iv"></i>${tr("ATM IV")}</span>${expiryViewSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle}</p></div>
+<div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{currency} expiries; arrow keys read one at a time", { currency: esc(currency) }))}">
+<div class="fchart-plot gxx-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(title)}">${grid}${SLOT_BAND}<line class="cvd-zero gxx-v gxx-v-oi gxx-v-gamma" x1="0" x2="1000" y1="500" y2="500"></line><g class="gxx-v gxx-v-oi">${oi.bars}</g><g class="gxx-v gxx-v-gamma">${gamma.bars}</g><g class="gxx-v gxx-v-iv">${line}${dots.join("")}</g>${SLOT_CURSOR}</svg>${labels}${xLabels}</div>
+</div>
+<p class="fchart-note dim">${tr("One bar per expiry in date order, so the gaps between them are not to scale; expiries outside the chosen range are dimmed.")}</p>
+${slotData(payload)}
+</figure>`;
+}
+
 function expiryTable(data: {
   currency: string;
   exposure: GammaExposure;
@@ -719,6 +905,7 @@ function expiryTable(data: {
     })
     .join("");
   return `<h2 class="cvd-h2 wm-h2">${tr("By expiry")}</h2>
+${expiryChart(data)}
 <div class="sheet-wrap"><table class="sheet gx-table">
 <thead><tr><th>${tr("Expiry")}</th><th class="num">${tr("Left")}</th><th class="num">${tr("Options")}</th><th class="num" title="${esc(tr("Implied volatility at the expiry's forward, a year"))}">${tr("ATM IV")}</th><th class="num">${coins ? tr("Call OI ({unit})", { unit: esc(currency) }) : tr("Call OI")}</th><th class="num">${coins ? tr("Put OI ({unit})", { unit: esc(currency) }) : tr("Put OI")}</th><th class="num">${tr("Calls")}</th><th class="num">${tr("Puts")}</th><th class="num">${tr("Net")}</th><th class="num" title="${esc(tr("Of the chain's exposure, either sign counted"))}">${tr("Share")}</th></tr></thead>
 <tbody data-live="gamma-expiries">${rows}</tbody>
@@ -1074,6 +1261,39 @@ export const GX_VIEW_SCRIPT = `(() => {
     if (!button || !views.includes(button.dataset.gxView)) return;
     view = button.dataset.gxView;
     try { localStorage.setItem("gamma-view", view); } catch (_) {}
+    sync();
+  });
+})();`;
+
+/**
+ * The by-expiry chart's view switch (expiryViewSwitch), as GX_VIEW_SCRIPT keeps the strike chart's: the
+ * reader's choice in localStorage "gamma-expiry-view", on <html> as data-gxx for the CSS.
+ */
+export const GXX_VIEW_SCRIPT = `(() => {
+  if (window.airratesExpiryView) return;
+  window.airratesExpiryView = true;
+  const views = ${JSON.stringify(EXPIRY_VIEWS)};
+  let view = "oi";
+  try { const kept = localStorage.getItem("gamma-expiry-view"); if (views.includes(kept)) view = kept; } catch (_) {}
+  const sync = () => {
+    document.documentElement.dataset.gxx = view;
+    for (const group of document.querySelectorAll(".gxx-views")) {
+      group.hidden = false;
+      for (const button of group.querySelectorAll(".gxx-view")) {
+        const on = String(button.dataset.gxxView === view);
+        if (button.getAttribute("aria-pressed") !== on) button.setAttribute("aria-pressed", on);
+      }
+    }
+  };
+  sync();
+  new MutationObserver(() => {
+    if (document.querySelector('.gxx-views[hidden], .gxx-view[aria-pressed="true"]:not([data-gxx-view="' + view + '"])')) sync();
+  }).observe(document.querySelector("main") || document.body, { childList: true, subtree: true });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest ? event.target.closest(".gxx-view") : null;
+    if (!button || !views.includes(button.dataset.gxxView)) return;
+    view = button.dataset.gxxView;
+    try { localStorage.setItem("gamma-expiry-view", view); } catch (_) {}
     sync();
   });
 })();`;
