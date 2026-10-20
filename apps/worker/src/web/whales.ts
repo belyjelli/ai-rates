@@ -579,7 +579,7 @@ function whaleChart(data: {
           n: barMinutes,
           zone: zoneTag(),
         });
-  const keys = `<div class="fchart-keys wh-keys"><span><i class="wh-key-bid"></i>${tr("bid wall (buy orders)")}</span><span><i class="wh-key-ask"></i>${tr("ask wall (sell orders)")}</span><span><i class="wh-key-ended"></i>${tr("faded: filled or pulled")}</span><span><i class="wh-key-buy"></i>${tr("large taker buy")}</span><span><i class="wh-key-sell"></i>${tr("large taker sell")}</span><span><i class="wh-key-last"></i>${tr("last price")}</span>${gex?.keys ?? ""}${gex ? gexSwitch() : ""}${slotCursorSwitch()}</div>`;
+  const keys = `<div class="fchart-keys wh-keys"><span><i class="wh-key-bid"></i>${tr("bid wall (buy orders)")}</span><span><i class="wh-key-ask"></i>${tr("ask wall (sell orders)")}</span><span><i class="wh-key-ended"></i>${tr("faded: filled or pulled")}</span><span><i class="wh-key-buy"></i>${tr("large taker buy")}</span><span><i class="wh-key-sell"></i>${tr("large taker sell")}</span><span><i class="wh-key-last"></i>${tr("last price")}</span>${gex?.keys ?? ""}${slotCursorSwitch()}</div>`;
 
   // The hover reading: one candle's open, high, low and close, its volume, and the large taker
   // bursts inside it (slot-chart.ts, kind "wcandle").
@@ -761,13 +761,21 @@ export function whales(data: {
         : `<a href="${href}">${whaleVenueName(v)}</a>`;
     },
   ).join("")}</nav>`;
-  const picker = marketPicker({
+  // The option book drawn over the chart, when the asset has one fit to draw; its switch sits under
+  // the picker, with the market it belongs to.
+  const gammaFit =
+    book.candles.length > 0 &&
+    data.gamma &&
+    gexFits(data.gamma, book.candles.at(-1)?.close ?? null, now)
+      ? data.gamma
+      : null;
+  const picker = `<div class="wh-pick-stack">${marketPicker({
     markets: book.markets,
     current: book.market,
     asset,
     assetClass,
     params,
-  });
+  })}${gammaFit && book.market ? gexSwitch() : ""}</div>`;
   const windowStrip = `<nav class="tf" aria-label="${tr("Interval")}">${WHALE_INTERVAL_KEYS.map(
     (key) => {
       const href = esc(selfPath + whaleToQuery({ ...params, interval: key }));
@@ -816,10 +824,7 @@ export function whales(data: {
           walls: book.walls,
           trades: book.trades,
           params,
-          gamma:
-            data.gamma && gexFits(data.gamma, book.candles.at(-1)?.close ?? null, now)
-              ? data.gamma
-              : null,
+          gamma: gammaFit,
           now,
         });
 

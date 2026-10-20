@@ -487,6 +487,8 @@ box-shadow:inset 0 0 0 1px var(--ink)}
    everywhere. Candles are ink and dim, so the walls read first; an ended wall fades, a pulled one is
    also dashed. */
 .wh-controls{align-items:center;gap:10px 16px}.wh-controls .tf{margin:0}
+.wh-pick-stack{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.wh-controls:has(.wh-pick-stack .whx-modes){align-items:flex-start}.wh-controls:has(.wh-pick-stack .whx-modes)>.tf,.wh-controls:has(.wh-pick-stack .whx-modes)>.wh-toggle{margin-top:6px}
 .wh-pick{position:relative}
 .wh-pick-btn{display:flex;gap:10px;align-items:baseline;cursor:pointer;list-style:none;padding:5px 10px;border:1px solid var(--rule);background:var(--panel);min-width:220px}
 .wh-pick-btn::-webkit-details-marker{display:none}
@@ -512,7 +514,7 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .wh-pick-bid{background:var(--long)}.wh-pick-ask{background:var(--short)}
 .wh-pick-sum{white-space:nowrap}
 .wh-pick-none{padding:8px 10px}
-@media (max-width:640px){.wh-pick{flex:1 1 100%}.wh-pick-btn{min-width:0}.wh-pick-panel{width:calc(100vw - 20px)}.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-head,.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-row{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr);gap:8px}.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-head span:nth-child(3),.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-row>span:nth-child(3),.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-head span:nth-child(5),.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-row>span:nth-child(5){display:none}}
+@media (max-width:640px){.wh-pick-stack{flex:1 1 100%;align-items:stretch}.wh-pick-stack .whx-modes{flex-wrap:wrap}.wh-pick{flex:1 1 100%}.wh-pick-btn{min-width:0}.wh-pick-panel{width:calc(100vw - 20px)}.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-head,.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-row{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr);gap:8px}.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-head span:nth-child(3),.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-row>span:nth-child(3),.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-head span:nth-child(5),.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-row>span:nth-child(5){display:none}}
 /* The CVD screener as a picker (cvd.ts assetPicker): the whales picker with the screener's eight
    columns, a search form for a box, and headings that sort. A phone keeps the asset, the change, the
    CVD and the signal. */

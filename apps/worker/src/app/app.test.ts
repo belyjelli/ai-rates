@@ -5092,7 +5092,7 @@ describe("whales", () => {
     const html = await (await get("/whales", fakeData({ whales: async () => book }).data)).text();
     // The button sits beside the market picker and counts the walls resting.
     expect(html).toContain(
-      '</details><button type="button" class="wh-book-btn" popovertarget="wh-book">',
+      '</details></div><button type="button" class="wh-book-btn" popovertarget="wh-book">',
     );
     expect(html).toContain('data-live="wh-book-n"><span data-u="open">3</span> resting</span>');
     // One copy of every table, all of them inside the panel: live refresh matches regions by name.
@@ -5326,6 +5326,9 @@ describe("whales", () => {
       expect(calls).toEqual(["BTC"]);
       expect(html).toContain('<div class="slot-modes whx-modes" role="group"');
       expect(html).toContain('data-whgex="off" aria-pressed="true"');
+      // The switch sits under the market picker, not among the chart's keys.
+      expect(html).toMatch(/<div class="wh-pick-stack"><details class="wh-pick">[\s\S]*?<\/details><div class="slot-modes whx-modes"/);
+      expect(html).not.toMatch(/class="fchart-keys wh-keys">[^\n]*whx-modes/);
       // The strike on the chart is drawn, with its reading; the one far below the candles is not.
       expect(html).toContain("Strike 83,000 · calls +$4.2M · puts −$1.1M · net +$3.1M per 1% move");
       expect(html).not.toContain("Strike 70,000");
