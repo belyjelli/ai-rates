@@ -41,6 +41,15 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-21",
+    title: "Reaction zones on every option tab",
+    changes: [
+      "Gamma Exposure, Delta, Vega, Theta, IV Walls and Ceiling & Floor now open with the day's reaction zones: where an IV wall (1σ or the 90% wall) and a market maker's level (the gamma ceiling or floor, or the dealer break-even) fall within a quarter of the day's 1σ move of each other. The zones are shaded on each tab's chart and ladder.",
+      "Above the chart, a rail lays every level around the spot on one price axis, and each side lists them nearest first with their distance in points and in the day's 1σ move, the options' own yardstick for every book. A line says the gamma regime: dealers long gamma sell rises and buy dips, which is what lets a wall hold; short gamma, their hedging chases price and walls give way more easily.",
+      "A zone is a place to wait for a rejection, not a promise: the strip quotes the measured record (since 2021 a touch of BTC's 1σ wall closed back inside 53% of the time, of its 90% wall 61%) rather than nine in ten.",
+    ],
+  },
+  {
+    date: "2026-10-21",
     title: "Delta, Vega and Theta tabs, and a By expiry chart on Gamma Exposure",
     changes: [
       "Three new Rates tabs after Gamma Exposure, for every option book the site reads: Delta, Vega and Theta, by strike and by expiry, with the same book picker and expiry ranges. They are Black-76 on each option's own open interest, implied volatility and forward, and reproduce Deribit's own greeks to within 0.03%.",
