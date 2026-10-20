@@ -302,4 +302,21 @@ export const gamma: Catalog = {
   "IV walls": "IV 월",
   "Ceiling & Floor": "천장과 바닥",
   Ceiling: "천장",
+  "the spot now": "현재 현물가",
+  "week from {date}": "{date}부터의 주",
+  "Levels for": "수준 기준",
+  "The Day and Week switch reads the same levels for the nearest expiry or for the week's: Deribit's Friday 08:00 UTC weekly, or a US book's last expiry of the week. The week's levels are fixed by its first read, its IV walls span the time to that expiry, and its 90% wall is measured on whole past weeks where there is history.":
+    "일/주 전환은 같은 수준을 가장 가까운 만기나 그 주의 만기 기준으로 읽습니다. Deribit의 금요일 08:00 UTC 주간 만기, 또는 미국 옵션 북의 그 주 마지막 만기입니다. 주의 수준은 그 주 첫 조회 때 고정되고, IV 월은 그 만기까지의 시간에 걸치며, 90% 월은 기록이 있는 곳에서 지난 온전한 주들로 측정합니다.",
+  "the strikes holding the most call gamma above the spot and put gamma below it, in everything expiring by {expiry}":
+    "{expiry}까지 만기인 모든 옵션 중 현물가 위 콜 감마, 아래 풋 감마가 가장 많은 행사가",
+  "within a quarter of the week's 1σ move ({band}) of an IV wall or a 90% wall":
+    "IV 월 또는 90% 월에서 그 주 1σ 움직임의 4분의 1({band}) 이내",
+  "The week so far": "이번 주 지금까지",
+  "the spot now; this week's levels are fixed by its first read":
+    "현재 현물가; 이번 주 수준은 그 주 첫 조회 때 고정됩니다",
+  "{currency}'s weekly record starts with this week; each finished week is added here.":
+    "{currency}의 주간 기록은 이번 주부터 시작합니다. 끝난 주마다 여기에 추가됩니다.",
+  Weeks: "주 수",
+  "Over {weeks} finished weeks since {since}, both sides counted; a level is reached when the week's high (or low) touches it, and held when the week closes back inside it.":
+    "{since} 이후 끝난 {weeks}주, 양쪽을 모두 셉니다. 그 주의 고가(또는 저가)가 닿으면 닿음, 그 주가 그 안에서 마감하면 지킨 것입니다.",
 };

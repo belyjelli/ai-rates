@@ -994,11 +994,30 @@ export interface GammaWallDay {
   day_low: number | null;
   last_price: number | null;
   updated_at: Date;
+  /**
+   * The week's levels as the day's first read saw them (migration 046): the week's expiry, its IV, the
+   * years to it from the day's reference close, the weekly 90% multiple and history IV, the gamma
+   * ceiling and floor of everything expiring by then, and that expiry's dealer range. Null for rows
+   * written before the migration.
+   */
+  wk_expiry: Date | null;
+  wk_iv: number | null;
+  wk_years: number | null;
+  wk_hist_sigma: number | null;
+  wk_k90: number | null;
+  wk_method: "dvol" | "vix9d" | "theory" | null;
+  wk_gamma_ceiling: number | null;
+  wk_gamma_floor: number | null;
+  wk_be_ceiling: number | null;
+  wk_be_floor: number | null;
+  wk_max_pain: number | null;
 }
 
-/** A book's measured history for the 90% wall (migration 045): counts of days and of wall touches. */
+/** A book's measured history for the 90% wall (migrations 045, 046): counts of days or weeks. */
 export interface GammaWallStats {
-  method: "dvol" | "vix1d";
+  /** "day": each day against its deviation; "week": each week (Deribit's Friday to Friday). */
+  period: "day" | "week";
+  method: "dvol" | "vix1d" | "vix9d";
   first_day: string;
   last_day: string;
   days: number;
@@ -1022,7 +1041,11 @@ export interface LevelsData {
   gamma: GammaData;
   /** Newest first, at most LEVEL_DAYS. */
   days: GammaWallDay[];
+  /** The daily history, and the weekly one. */
   stats: GammaWallStats | null;
+  weekStats: GammaWallStats | null;
+  /** The strikes of every expiry within seven days, for a week's gamma levels where no row has them. */
+  weekStrikes: GammaStrike[];
 }
 
 /** How many of a book's days the tabs read: about three months of US sessions. */
@@ -2604,24 +2627,36 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
     async levels({ currency }) {
       const sql = connect();
-      const [gamma, days, stats] = await Promise.all([
+      const [gamma, days, stats, weekStrikes] = await Promise.all([
         source.gamma({ currency, scope: "next" }),
         sql<GammaWallDay[]>`
           SELECT day::text AS day, source, set_at, ref_price, iv_day, hist_sigma, k90, method, expiry,
                  gamma_ceiling, gamma_floor, be_ceiling, be_floor, max_pain, day_open, day_high,
-                 day_low, last_price, updated_at
+                 day_low, last_price, updated_at, wk_expiry, wk_iv, wk_years, wk_hist_sigma, wk_k90,
+                 wk_method, wk_gamma_ceiling, wk_gamma_floor, wk_be_ceiling, wk_be_floor, wk_max_pain
           FROM gamma_wall_days
           WHERE currency = ${currency}
           ORDER BY day DESC
           LIMIT ${LEVEL_DAYS}`,
         sql<GammaWallStats[]>`
-          SELECT method, first_day::text AS first_day, last_day::text AS last_day, days, k90, k90_close,
-                 inside1_close, inside1_range, inside90, touch1, rev1, touch90, rev90, sigma,
+          SELECT period, method, first_day::text AS first_day, last_day::text AS last_day, days, k90,
+                 k90_close, inside1_close, inside1_range, inside90, touch1, rev1, touch90, rev90, sigma,
                  sigma_for::text AS sigma_for
           FROM gamma_wall_stats
           WHERE currency = ${currency}`,
+        sql<GammaStrike[]>`
+          SELECT strike, call_oi, put_oi, call_gex_usd, put_gex_usd
+          FROM gamma_strikes
+          WHERE currency = ${currency} AND scope = '7d'
+          ORDER BY strike`,
       ]);
-      return { gamma, days: [...days], stats: stats[0] ?? null };
+      return {
+        gamma,
+        days: [...days],
+        stats: stats.find((s) => s.period === "day") ?? null,
+        weekStats: stats.find((s) => s.period === "week") ?? null,
+        weekStrikes: [...weekStrikes],
+      };
     },
 
     async bookQuality({ basket, venueId }) {

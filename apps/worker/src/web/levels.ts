@@ -1,5 +1,17 @@
-import type { GammaExposure, GammaWallDay, GammaWallStats, LevelsData } from "../app/data";
-import { type GammaParams, type HeatmapParams, heatmapToQuery } from "../app/params";
+import type {
+  GammaExpiry,
+  GammaExposure,
+  GammaStrike,
+  GammaWallDay,
+  GammaWallStats,
+  LevelsData,
+} from "../app/data";
+import {
+  type GammaParams,
+  type HeatmapParams,
+  heatmapToQuery,
+  type LevelBasis,
+} from "../app/params";
 import { lazyPlaceholder } from "./chart-skeleton";
 import { horizonIv, termStructure, YEAR_MS } from "./expected-move";
 import { esc, formatPrice, formatUsd } from "./format";
@@ -7,6 +19,7 @@ import {
   agoText,
   type BookTab,
   bookPicker,
+  choiceHref,
   dayLabel,
   freshness,
   leftText,
@@ -50,7 +63,12 @@ export const ALIGN_SHARE = 0.25;
 const DAY_YEARS = 86_400_000 / YEAR_MS;
 
 export interface Levels {
-  /** "day": fixed by the day's first read; "next": an end-of-day book's next session, from its file. */
+  /** The day's levels, or the week's expiry's (Ceiling & Floor's week view). */
+  period: LevelBasis;
+  /**
+   * "day": fixed by the first read of the day (or of the week); "next": read from the book now, for an
+   * end-of-day book's next session or a week whose levels no row holds yet.
+   */
   basis: "day" | "next";
   /** The row's day, or null for an untracked book. */
   day: string | null;
@@ -61,7 +79,7 @@ export interface Levels {
   upper1: number | null;
   lower1: number | null;
   k90: number;
-  method: "dvol" | "vix1d" | "theory";
+  method: "dvol" | "vix1d" | "vix9d" | "theory";
   /** The IV the 90% wall scales: the history method's, else the options' own. */
   sigma90: number | null;
   move90: number | null;
@@ -78,11 +96,18 @@ export interface Levels {
   last: number | null;
 }
 
-/** The walls for a reference, a day IV and a 90% multiple. */
-function walls(ref: number, iv: number | null, k90: number, sigma90: number | null) {
-  const move1 = iv !== null && iv > 0 ? ref * iv * Math.sqrt(DAY_YEARS) : null;
+/** The walls for a reference, an IV, a 90% multiple and the years they span (a day, or to the week's expiry). */
+function walls(
+  ref: number,
+  iv: number | null,
+  k90: number,
+  sigma90: number | null,
+  years: number = DAY_YEARS,
+) {
+  const root = Math.sqrt(Math.max(0, years));
+  const move1 = iv !== null && iv > 0 && root > 0 ? ref * iv * root : null;
   const scale = sigma90 ?? iv;
-  const move90 = scale !== null && scale > 0 ? ref * scale * Math.sqrt(DAY_YEARS) * k90 : null;
+  const move90 = scale !== null && scale > 0 && root > 0 ? ref * scale * root * k90 : null;
   return {
     move1,
     upper1: move1 === null ? null : ref + move1,
@@ -93,13 +118,13 @@ function walls(ref: number, iv: number | null, k90: number, sigma90: number | nu
   };
 }
 
-/** The nearest expiry's gamma ceiling and floor from its strikes, for a book with no day row. */
-function strikeLevels(data: LevelsData["gamma"], spot: number) {
+/** The gamma ceiling and floor from a scope's strikes, for a book with no row to read them from. */
+function strikeLevels(strikes: readonly GammaStrike[], spot: number) {
   let ceiling: number | null = null;
   let floor: number | null = null;
   let bestCall = 0;
   let bestPut = 0;
-  for (const k of data.strikes) {
+  for (const k of strikes) {
     if (k.strike > spot && k.call_gex_usd > bestCall) {
       bestCall = k.call_gex_usd;
       ceiling = k.strike;
@@ -118,6 +143,7 @@ export function todayLevels(data: LevelsData, now: number): Levels | null {
   const row = data.days[0];
   if (row && now - row.set_at.getTime() < CURRENT_MS) {
     return {
+      period: "day",
       basis: "day",
       day: row.day,
       source: row.source,
@@ -143,8 +169,9 @@ export function todayLevels(data: LevelsData, now: number): Levels | null {
   const iv = horizonIv(termStructure(data.gamma.expiries, at), DAY_YEARS);
   const k90 = 1.6448536269514722;
   const next = data.gamma.expiries.find((x) => x.expiry.getTime() === e.next_expiry.getTime());
-  const { ceiling, floor } = strikeLevels(data.gamma, e.spot);
+  const { ceiling, floor } = strikeLevels(data.gamma.strikes, e.spot);
   return {
+    period: "day",
     basis: "next",
     day: null,
     source: e.source,
@@ -163,6 +190,151 @@ export function todayLevels(data: LevelsData, now: number): Levels | null {
     high: null,
     low: null,
     last: null,
+  };
+}
+
+const DAY_MS = 86_400_000;
+
+/** A week's key: Deribit's week (08:00 UTC Friday to Friday) by its Friday, a US week by its Monday. */
+export function weekKey(day: string, source: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  const back = source === "deribit" ? (d.getUTCDay() - 5 + 7) % 7 : (d.getUTCDay() - 1 + 7) % 7;
+  return new Date(d.getTime() - back * DAY_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * A week as a day-shaped row, so the ladder and the record read it as they read a day: its levels from
+ * its first row that holds them (rows written before migration 046 hold none), its range from all its
+ * rows, its close from the newest. `rows` is newest first. Null when no row holds the week's levels.
+ */
+export function weekRow(rows: readonly GammaWallDay[]): GammaWallDay | null {
+  const first = [...rows].reverse().find((r) => r.wk_expiry !== null);
+  if (!first) return null;
+  const highs = rows.flatMap((r) => (r.day_high === null ? [] : [r.day_high]));
+  const lows = rows.flatMap((r) => (r.day_low === null ? [] : [r.day_low]));
+  return {
+    ...first,
+    iv_day: first.wk_iv,
+    hist_sigma: first.wk_hist_sigma,
+    k90: first.wk_k90 ?? 1.6448536269514722,
+    method: (first.wk_method ?? "theory") as GammaWallDay["method"],
+    expiry: first.wk_expiry,
+    gamma_ceiling: first.wk_gamma_ceiling,
+    gamma_floor: first.wk_gamma_floor,
+    be_ceiling: first.wk_be_ceiling,
+    be_floor: first.wk_be_floor,
+    max_pain: first.wk_max_pain,
+    day_high: highs.length ? Math.max(...highs) : null,
+    day_low: lows.length ? Math.min(...lows) : null,
+    last_price: (rows[0] as GammaWallDay).last_price,
+  };
+}
+
+/** The years a week row's walls span: from its reference close to the week's expiry. */
+const weekYears = (r: GammaWallDay) =>
+  r.wk_years ?? (r.expiry ? Math.max(0, r.expiry.getTime() - r.set_at.getTime()) / YEAR_MS : 0);
+
+/** When the week holding `at` ends: Deribit's next Friday 08:00 UTC, a US week's Friday. */
+export function weekEnd(at: number, source: string): number {
+  const d = new Date(at);
+  const wd = d.getUTCDay();
+  if (source === "deribit") {
+    const friday = Date.UTC(
+      d.getUTCFullYear(),
+      d.getUTCMonth(),
+      d.getUTCDate() + ((5 - wd + 7) % 7),
+      8,
+    );
+    return friday > at ? friday : friday + 7 * DAY_MS;
+  }
+  const ahead = wd === 6 ? 6 : wd === 0 ? 5 : 5 - wd;
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + ahead, 23, 59, 59);
+}
+
+/** The week's expiry: the last one ahead on or before the week's end, else the next one. */
+export function weekExpiry(
+  expiries: readonly GammaExpiry[],
+  at: number,
+  end: number,
+): GammaExpiry | null {
+  const ahead = expiries.filter((x) => x.expiry.getTime() > at);
+  const inWeek = ahead.filter((x) => x.expiry.getTime() <= end);
+  if (inWeek.length) return inWeek.reduce((a, b) => (b.expiry > a.expiry ? b : a));
+  return ahead.reduce<GammaExpiry | null>(
+    (a, b) => (a === null || b.expiry < a.expiry ? b : a),
+    null,
+  );
+}
+
+/** The levels of a day-shaped row (a day's, or a week's from weekRow) as the tabs draw them. */
+function rowLevels(r: GammaWallDay, period: LevelBasis, years: number): Levels {
+  return {
+    period,
+    basis: "day",
+    day: r.day,
+    source: r.source,
+    ref: r.ref_price,
+    iv: r.iv_day,
+    k90: r.k90,
+    method: r.method,
+    sigma90: r.hist_sigma,
+    ...walls(r.ref_price, r.iv_day, r.k90, r.hist_sigma, years),
+    expiry: r.expiry,
+    gammaCeiling: r.gamma_ceiling,
+    gammaFloor: r.gamma_floor,
+    beCeiling: r.be_ceiling,
+    beFloor: r.be_floor,
+    maxPain: r.max_pain,
+    high: r.day_high,
+    low: r.day_low,
+    last: r.last_price,
+  };
+}
+
+/**
+ * This week's levels for its expiry: from the week's rows while they are current and hold them, else
+ * read from the book now (the week's expiry and its IV, the gamma levels of everything within seven
+ * days, the spot as the reference), with the week's range so far where the book keeps days.
+ */
+export function weekLevels(data: LevelsData, now: number): Levels | null {
+  const row = data.days[0];
+  const current = row && now - row.set_at.getTime() < CURRENT_MS ? row : null;
+  const thisWeek = current
+    ? data.days.filter((r) => weekKey(r.day, r.source) === weekKey(current.day, current.source))
+    : [];
+  const week = weekRow(thisWeek);
+  if (week) return rowLevels(week, "week", weekYears(week));
+  const e = data.gamma.exposure;
+  if (e === null || !(e.spot > 0)) return null;
+  const at = e.computed_at.getTime();
+  const x = weekExpiry(data.gamma.expiries, at, weekEnd(at, e.source));
+  if (x === null) return null;
+  const years = (x.expiry.getTime() - at) / YEAR_MS;
+  const stats = data.weekStats;
+  const k90 = stats?.k90 ?? 1.6448536269514722;
+  const { ceiling, floor } = strikeLevels(data.weekStrikes, e.spot);
+  const highs = thisWeek.flatMap((r) => (r.day_high === null ? [] : [r.day_high]));
+  const lows = thisWeek.flatMap((r) => (r.day_low === null ? [] : [r.day_low]));
+  return {
+    period: "week",
+    basis: "next",
+    day: null,
+    source: e.source,
+    ref: e.spot,
+    iv: x.atm_iv,
+    k90,
+    method: stats?.method ?? "theory",
+    sigma90: stats?.sigma ?? null,
+    ...walls(e.spot, x.atm_iv, k90, stats?.sigma ?? null, years),
+    expiry: x.expiry,
+    gammaCeiling: ceiling,
+    gammaFloor: floor,
+    beCeiling: x.be_high,
+    beFloor: x.be_low,
+    maxPain: x.max_pain,
+    high: highs.length ? Math.max(...highs) : null,
+    low: lows.length ? Math.min(...lows) : null,
+    last: current?.last_price ?? null,
   };
 }
 
@@ -210,6 +382,32 @@ export function finishedDays(data: LevelsData, today: Levels | null): DayRecord[
       row,
       w: walls(row.ref_price, row.iv_day, row.k90, row.hist_sigma),
     }));
+}
+
+/** The book's finished weeks, newest first, each as a day-shaped row (weekRow) with its walls. */
+export function finishedWeeks(data: LevelsData, current: Levels | null): DayRecord[] {
+  const keys: string[] = [];
+  const byWeek = new Map<string, GammaWallDay[]>();
+  for (const r of data.days) {
+    const k = weekKey(r.day, r.source);
+    if (!byWeek.has(k)) {
+      byWeek.set(k, []);
+      keys.push(k);
+    }
+    byWeek.get(k)?.push(r);
+  }
+  const now = current?.day ? weekKey(current.day, current.source) : null;
+  return keys.flatMap((k) => {
+    const week = k === now ? null : weekRow(byWeek.get(k) ?? []);
+    if (week === null || week.day_high === null || week.day_low === null) return [];
+    return [
+      {
+        day: k,
+        row: week,
+        w: walls(week.ref_price, week.iv_day, week.k90, week.hist_sigma, weekYears(week)),
+      },
+    ];
+  });
 }
 
 /** How often each side's level was reached, and of those how often it held: counts over the days. */
@@ -338,13 +536,19 @@ function dayName(l: Levels): string {
     : tr("{date} session", { date });
 }
 
+/** "week from Oct 20" for a week fixed by a row, or "the spot now" for one read from the book. */
+function weekName(l: Levels): string {
+  if (l.day === null) return tr("the spot now");
+  return tr("week from {date}", { date: dayLabel(new Date(`${l.day}T00:00:00Z`)) });
+}
+
 /** The tab's controls: the book picker (opening this tab) and the help. */
-function controls(view: PanelView, tab: BookTab, helpId: string, help: string): string {
+function controls(view: PanelView, tab: BookTab, helpId: string, help: string, extra = ""): string {
   const books = view.data?.gamma.books ?? [];
   const picker = books.length
     ? bookPicker({ books, heatmap: view.heatmap, params: view.params, now: view.now, tab })
     : `<nav class="tf" aria-label="${esc(tr("Option book"))}"><a href="#${tab}" aria-current="true">${esc(view.params.currency)}</a></nav>`;
-  return `<div class="lq-controls gx-controls" data-loading="${esc(tr("Loading {asset}…"))}">${picker}${helpButton(helpId)}</div>
+  return `<div class="lq-controls gx-controls" data-loading="${esc(tr("Loading {asset}…"))}">${picker}${extra}${helpButton(helpId)}</div>
 ${helpPanel(helpId, help)}`;
 }
 
@@ -561,7 +765,19 @@ ${record}
 }
 
 /** The Ceiling & Floor tab's body, from its controls down. */
+/** The Day / Week switch: each a link that reloads the tab in place with the other basis. */
+function basisSwitch(view: PanelView, basis: LevelBasis): string {
+  const link = (b: LevelBasis, label: string) => {
+    const { basis: _, ...rest } = view.params;
+    const next: GammaParams = b === "week" ? { ...rest, basis: "week" } : rest;
+    return `<a href="${esc(choiceHref(view.heatmap, next, "levels"))}" data-gx-swap${b === basis ? ' aria-current="true"' : ""}>${label}</a>`;
+  };
+  return `<nav class="tf" aria-label="${esc(tr("Levels for"))}">${link("day", tr("Day"))}${link("week", tr("Week"))}</nav>`;
+}
+
 export function levelsPanel(view: PanelView): string {
+  const basis: LevelBasis = view.params.basis ?? "day";
+  const week = basis === "week";
   const head = controls(
     view,
     "levels",
@@ -572,13 +788,16 @@ export function levelsPanel(view: PanelView): string {
       "The dealer range reads every option as sold by dealers who keep the premium, as max pain does: at expiry they pay out what the options are worth, so they earn most at the max pain strike and start losing beyond the break-evens either side, the dealer ceiling and floor. No exchange publishes who sold what, so this rests on that assumption, and the Gamma Exposure tab's sign assumes the opposite for calls.",
     )}</p><p>${tr(
       "A ceiling or floor within a quarter of the day's move of an IV wall is marked as lined up with it. Whether price turns there more often than elsewhere is what the record under the ladder is for: it starts with this tab and grows a day at a time.",
+    )}</p><p>${tr(
+      "The Day and Week switch reads the same levels for the nearest expiry or for the week's: Deribit's Friday 08:00 UTC weekly, or a US book's last expiry of the week. The week's levels are fixed by its first read, its IV walls span the time to that expiry, and its 90% wall is measured on whole past weeks where there is history.",
     )}</p>`,
+    basisSwitch(view, basis),
   );
   const missing = unavailable(view);
   if (missing !== null) return `${head}${missing}`;
   const data = view.data as LevelsData;
   const e = data.gamma.exposure as GammaExposure;
-  const l = todayLevels(data, view.now);
+  const l = week ? weekLevels(data, view.now) : todayLevels(data, view.now);
   if (l === null)
     return `${head}<p class="empty">${tr("The options data could not be read right now.")}</p>`;
   const book = esc(data.gamma.currency);
@@ -598,10 +817,16 @@ export function levelsPanel(view: PanelView): string {
   ].filter(Boolean);
   const expiry = l.expiry ? `${dayLabel(l.expiry)} (${leftText(l.expiry, view.now)})` : "–";
   const tiles = `<div class="cvd-tiles" data-live="levels-tiles">
-<div class="cvd-tile"><p class="eyebrow">${tr("Gamma ceiling / floor")}</p><p class="cvd-big lv-span"><span class="lq-ink-l">${price(l.gammaCeiling)}</span> / <span class="lq-ink-s">${price(l.gammaFloor)}</span></p><p class="dim">${tr("the strikes holding the most call gamma above the spot and put gamma below it, expiring {expiry}", { expiry })}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("Gamma ceiling / floor")}</p><p class="cvd-big lv-span"><span class="lq-ink-l">${price(l.gammaCeiling)}</span> / <span class="lq-ink-s">${price(l.gammaFloor)}</span></p><p class="dim">${week ? tr("the strikes holding the most call gamma above the spot and put gamma below it, in everything expiring by {expiry}", { expiry }) : tr("the strikes holding the most call gamma above the spot and put gamma below it, expiring {expiry}", { expiry })}</p></div>
 <div class="cvd-tile"><p class="eyebrow">${tr("Dealer ceiling / floor")}</p><p class="cvd-big lv-span lv-ink-be">${price(l.beCeiling)} / ${price(l.beFloor)}</p><p class="dim">${tr("where dealers who sold every option of that expiry break even; max pain {pain}", { pain: price(l.maxPain) })}</p></div>
-<div class="cvd-tile"><p class="eyebrow">${tr("Lined up with an IV wall")}</p><p class="cvd-big lv-span${alignedNames.length ? " lv-ink-on" : " dim"}">${alignedNames.length ? alignedNames.join(", ") : tr("none")}</p><p class="dim">${tr("within a quarter of the day's 1σ move ({band}) of an IV wall or a 90% wall", { band: price(l.move1 === null ? null : l.move1 * ALIGN_SHARE) })}</p></div>
-<div class="cvd-tile"><p class="eyebrow">${l.basis === "day" ? tr("The day so far") : tr("Reference")}</p><p class="cvd-big">${price(l.last ?? l.ref)}</p><p class="dim">${l.basis === "day" ? tr("high {high} · low {low}", { high: price(l.high), low: price(l.low) }) : tr("the latest close, for the next session")}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("Lined up with an IV wall")}</p><p class="cvd-big lv-span${alignedNames.length ? " lv-ink-on" : " dim"}">${alignedNames.length ? alignedNames.join(", ") : tr("none")}</p><p class="dim">${week ? tr("within a quarter of the week's 1σ move ({band}) of an IV wall or a 90% wall", { band: price(l.move1 === null ? null : l.move1 * ALIGN_SHARE) }) : tr("within a quarter of the day's 1σ move ({band}) of an IV wall or a 90% wall", { band: price(l.move1 === null ? null : l.move1 * ALIGN_SHARE) })}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${week ? tr("The week so far") : l.basis === "day" ? tr("The day so far") : tr("Reference")}</p><p class="cvd-big">${price(l.last ?? l.ref)}</p><p class="dim">${
+    l.high !== null && l.low !== null
+      ? tr("high {high} · low {low}", { high: price(l.high), low: price(l.low) })
+      : week
+        ? tr("the spot now; this week's levels are fixed by its first read")
+        : tr("the latest close, for the next session")
+  }</p></div>
 </div>`;
   const marks: Mark[] = [];
   const add = (v: number | null, name: string, cls: string, aligned = false) => {
@@ -635,7 +860,7 @@ ${levelTable(
     [tr("gamma ceiling"), l.gammaCeiling, align.gammaCeiling ? tr("lined up with a wall") : ""],
     [tr("dealer ceiling"), l.beCeiling, align.beCeiling ? tr("lined up with a wall") : ""],
     [tr("max pain"), l.maxPain, ""],
-    [tr("Reference close"), l.ref, dayName(l)],
+    [tr("Reference close"), l.ref, week ? weekName(l) : dayName(l)],
     [tr("dealer floor"), l.beFloor, align.beFloor ? tr("lined up with a wall") : ""],
     [tr("gamma floor"), l.gammaFloor, align.gammaFloor ? tr("lined up with a wall") : ""],
   ],
@@ -654,7 +879,7 @@ ${levelTable(
     ? `<h2 class="cvd-h2 wm-h2">${tr("Dealer range by expiry")}</h2>
 <div class="sheet-wrap"><table class="sheet lv-table"><thead><tr><th>${tr("Expiry")}</th><th class="num">${tr("Left")}</th><th class="num">${tr("Premium")}</th><th class="num">${tr("Dealer floor")}</th><th class="num">${tr("Max pain")}</th><th class="num">${tr("Dealer ceiling")}</th><th class="num">${tr("From the spot")}</th></tr></thead><tbody data-live="levels-expiries">${expiries}</tbody></table></div>`
     : "";
-  const days = finishedDays(data, l);
+  const days = week ? finishedWeeks(data, l) : finishedDays(data, l);
   const rows: [string, (d: DayRecord) => [number | null, number | null]][] = [
     [tr("Gamma ceiling / floor"), (d) => [d.row.gamma_ceiling, d.row.gamma_floor]],
     [tr("Dealer ceiling / floor"), (d) => [d.row.be_ceiling, d.row.be_floor]],
@@ -672,17 +897,27 @@ ${levelTable(
   };
   rows.push([tr("Lined up with a wall"), alignedOnly]);
   const record =
-    l.basis === "next"
+    data.days.length === 0
       ? `<p class="notes">${tr("{currency} comes from an end-of-day file, so its levels are for the next session and are not kept day by day.", { currency: book })}</p>`
       : days.length === 0
-        ? `<p class="notes">${tr("{currency}'s own record starts with today; each finished day is added here.", { currency: book })}</p>`
-        : `<div class="sheet-wrap"><table class="sheet lv-table"><thead><tr><th>${tr("Level")}</th><th class="num">${tr("Days")}</th><th class="num">${tr("Reached")}</th><th class="num">${tr("Closed back inside")}</th></tr></thead><tbody data-live="levels-record">${rows
+        ? `<p class="notes">${week ? tr("{currency}'s weekly record starts with this week; each finished week is added here.", { currency: book }) : tr("{currency}'s own record starts with today; each finished day is added here.", { currency: book })}</p>`
+        : `<div class="sheet-wrap"><table class="sheet lv-table"><thead><tr><th>${tr("Level")}</th><th class="num">${week ? tr("Weeks") : tr("Days")}</th><th class="num">${tr("Reached")}</th><th class="num">${tr("Closed back inside")}</th></tr></thead><tbody data-live="levels-record">${rows
             .map(([name, pick]) => {
               const t = tally(days, pick);
               return `<tr><td>${name}</td><td class="num">${t.days}</td><td class="num">${t.reached}</td><td class="num">${t.held} <span class="dim">${pct(t.held, t.reached)}</span></td></tr>`;
             })
             .join("")}</tbody></table></div>
-<p class="notes">${tr("Over {days} finished days since {since}, both sides counted; a level is reached when the day's high (or low) touches it, and held when the day closes back inside it.", { days: days.length, since: recordDay(days.at(-1)?.day as string) })}</p>`;
+<p class="notes">${
+            week
+              ? tr(
+                  "Over {weeks} finished weeks since {since}, both sides counted; a level is reached when the week's high (or low) touches it, and held when the week closes back inside it.",
+                  { weeks: days.length, since: recordDay(days.at(-1)?.day as string) },
+                )
+              : tr(
+                  "Over {days} finished days since {since}, both sides counted; a level is reached when the day's high (or low) touches it, and held when the day closes back inside it.",
+                  { days: days.length, since: recordDay(days.at(-1)?.day as string) },
+                )
+          }</p>`;
   return `${head}
 ${tiles}
 ${figure}

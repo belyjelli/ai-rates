@@ -268,6 +268,7 @@ export function heatmapToQuery(params: HeatmapParams, gamma?: GammaParams): stri
   // reader without JavaScript needs, since nothing else would load it.
   if (gamma) query.set("gex", gamma.currency);
   if (gamma && gamma.scope !== GAMMA_SCOPES[0]) query.set("gexp", gamma.scope);
+  if (gamma?.basis === "week") query.set("lvb", "week");
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
 }
@@ -288,7 +289,12 @@ export type GammaScope = (typeof GAMMA_SCOPES)[number];
 export interface GammaParams {
   currency: string;
   scope: GammaScope;
+  /** The Ceiling & Floor tab's basis (`lvb`): the day's levels, or the week's expiry's. */
+  basis?: LevelBasis;
 }
+
+export const LEVEL_BASES = ["day", "week"] as const;
+export type LevelBasis = (typeof LEVEL_BASES)[number];
 
 export function parseGammaParams(params: URLSearchParams): GammaParams {
   const currency = (params.get("gex") ?? "").trim().toUpperCase();
@@ -300,6 +306,8 @@ export function parseGammaParams(params: URLSearchParams): GammaParams {
     scope: (GAMMA_SCOPES as readonly string[]).includes(scope)
       ? (scope as GammaScope)
       : GAMMA_SCOPES[0],
+    // Named only for the week, so a day's choices read as they always have.
+    ...(params.get("lvb") === "week" ? { basis: "week" as const } : {}),
   };
 }
 

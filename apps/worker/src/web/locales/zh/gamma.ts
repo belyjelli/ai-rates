@@ -296,4 +296,21 @@ export const gamma: Catalog = {
   "IV walls": "IV 墙",
   "Ceiling & Floor": "天花板与地板",
   Ceiling: "天花板",
+  "the spot now": "当前现货价",
+  "week from {date}": "自 {date} 起的一周",
+  "Levels for": "水平周期",
+  "The Day and Week switch reads the same levels for the nearest expiry or for the week's: Deribit's Friday 08:00 UTC weekly, or a US book's last expiry of the week. The week's levels are fixed by its first read, its IV walls span the time to that expiry, and its 90% wall is measured on whole past weeks where there is history.":
+    "日与周切换会按最近到期日或本周到期日读取同样的水平：Deribit 的周五 08:00 UTC 周度期权，或美股期权簿本周最后一个到期日。一周的水平由本周首次读取固定，IV 墙覆盖到该到期日的时间，90% 墙在有历史的地方按过去的整周测得。",
+  "the strikes holding the most call gamma above the spot and put gamma below it, in everything expiring by {expiry}":
+    "在 {expiry} 前到期的全部期权中，现货价上方看涨 gamma 最多和下方看跌 gamma 最多的行权价",
+  "within a quarter of the week's 1σ move ({band}) of an IV wall or a 90% wall":
+    "在 IV 墙或 90% 墙的本周 1σ 波动四分之一（{band}）以内",
+  "The week so far": "本周至今",
+  "the spot now; this week's levels are fixed by its first read":
+    "当前现货价；本周的水平由本周首次读取固定",
+  "{currency}'s weekly record starts with this week; each finished week is added here.":
+    "{currency} 的周度记录从本周开始；每个结束的一周都会加到这里。",
+  Weeks: "周数",
+  "Over {weeks} finished weeks since {since}, both sides counted; a level is reached when the week's high (or low) touches it, and held when the week closes back inside it.":
+    "基于自 {since} 起 {weeks} 个已结束的周，两侧都计入；当周最高（或最低）价触及即为触及，当周收回其内即为守住。",
 };

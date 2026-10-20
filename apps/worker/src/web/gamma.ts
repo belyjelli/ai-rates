@@ -806,7 +806,7 @@ function expectedMoveMap(data: {
 /** The three tabs that read an option book, by their tab id: each keeps the book picked in the others. */
 export type BookTab = "gamma" | "ivwalls" | "levels";
 
-const choiceHref = (heatmap: HeatmapParams, next: GammaParams, tab: BookTab = "gamma") =>
+export const choiceHref = (heatmap: HeatmapParams, next: GammaParams, tab: BookTab = "gamma") =>
   `/rates${heatmapToQuery(heatmap, next)}#${tab}`;
 
 /** The link that switches the tab to other choices, in place (GX_SWAP_SCRIPT) or as a plain page. */

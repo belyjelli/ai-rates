@@ -310,4 +310,21 @@ export const gamma: Catalog = {
   "IV walls": "IV ウォール",
   "Ceiling & Floor": "天井と底",
   Ceiling: "天井",
+  "the spot now": "いまの現物価格",
+  "week from {date}": "{date} からの週",
+  "Levels for": "水準の期間",
+  "The Day and Week switch reads the same levels for the nearest expiry or for the week's: Deribit's Friday 08:00 UTC weekly, or a US book's last expiry of the week. The week's levels are fixed by its first read, its IV walls span the time to that expiry, and its 90% wall is measured on whole past weeks where there is history.":
+    "日と週の切り替えは、同じ水準を直近満期か、その週の満期で読みます。Deribit の金曜 08:00 UTC の週次、または米国の原資産のその週最後の満期です。週の水準はその週の最初の読み取りで固定され、IV ウォールはその満期までの時間にわたり、90% ウォールは履歴がある場合、過去の丸一週間で測定します。",
+  "the strikes holding the most call gamma above the spot and put gamma below it, in everything expiring by {expiry}":
+    "{expiry} までに満期を迎えるすべてのオプションで、現物価格の上でコールのガンマ、下でプットのガンマが最も多い行使価格",
+  "within a quarter of the week's 1σ move ({band}) of an IV wall or a 90% wall":
+    "IV ウォールまたは 90% ウォールから、その週の 1σ の値動きの 4 分の 1（{band}）以内",
+  "The week so far": "今週ここまで",
+  "the spot now; this week's levels are fixed by its first read":
+    "いまの現物価格。今週の水準は今週最初の読み取りで固定されます",
+  "{currency}'s weekly record starts with this week; each finished week is added here.":
+    "{currency} の週次の記録は今週から始まります。終わった週ごとにここへ加わります。",
+  Weeks: "週数",
+  "Over {weeks} finished weeks since {since}, both sides counted; a level is reached when the week's high (or low) touches it, and held when the week closes back inside it.":
+    "{since} 以降の終わった {weeks} 週、両側を数えています。その週の高値（または安値）が触れればタッチ、その週がその内側で引ければ維持です。",
 };

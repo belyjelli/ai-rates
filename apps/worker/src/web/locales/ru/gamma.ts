@@ -308,4 +308,21 @@ export const gamma: Catalog = {
   "IV walls": "IV-стены",
   "Ceiling & Floor": "Потолок и пол",
   Ceiling: "Потолок",
+  "the spot now": "спот сейчас",
+  "week from {date}": "неделя с {date}",
+  "Levels for": "Уровни за",
+  "The Day and Week switch reads the same levels for the nearest expiry or for the week's: Deribit's Friday 08:00 UTC weekly, or a US book's last expiry of the week. The week's levels are fixed by its first read, its IV walls span the time to that expiry, and its 90% wall is measured on whole past weeks where there is history.":
+    "Переключатель «день / неделя» показывает те же уровни для ближайшей экспирации или для недельной: недельной Deribit в пятницу в 08:00 UTC или последней экспирации недели для книг США. Уровни недели фиксируются её первым чтением, её IV-стены охватывают время до этой экспирации, а 90%-стена измеряется на целых прошлых неделях там, где есть история.",
+  "the strikes holding the most call gamma above the spot and put gamma below it, in everything expiring by {expiry}":
+    "страйки с наибольшей колл-гаммой выше спота и пут-гаммой ниже среди всего, что истекает до {expiry}",
+  "within a quarter of the week's 1σ move ({band}) of an IV wall or a 90% wall":
+    "в пределах четверти недельного 1σ-движения ({band}) от IV-стены или 90%-стены",
+  "The week so far": "Неделя на сейчас",
+  "the spot now; this week's levels are fixed by its first read":
+    "спот сейчас; уровни этой недели фиксируются её первым чтением",
+  "{currency}'s weekly record starts with this week; each finished week is added here.":
+    "Недельная запись {currency} начинается с этой недели; каждая завершённая неделя добавляется сюда.",
+  Weeks: "Недели",
+  "Over {weeks} finished weeks since {since}, both sides counted; a level is reached when the week's high (or low) touches it, and held when the week closes back inside it.":
+    "За {weeks} завершённых недель с {since}, обе стороны; уровень достигнут, если его коснулся максимум (или минимум) недели, и удержан, если неделя закрылась внутри.",
 };

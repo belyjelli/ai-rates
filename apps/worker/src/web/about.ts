@@ -47,6 +47,7 @@ export const CHANGELOG: readonly Release[] = [
       "The tab says how price has really behaved at the walls: since 2021, a touch of BTC's IV wall closed back inside 53% of 858 times, and a touch of its 90% wall 61% of 205 times. A wall is a probability, not a promise.",
       "Ceiling & Floor: two readings of where market makers stand for the nearest expiry, side by side. The gamma ceiling and floor are the strikes holding the most call gamma above the spot and put gamma below it. The dealer range reads every option as sold by dealers who keep the premium: max pain, and the break-evens either side where they start losing. Each is drawn with the IV walls, a level close to a wall is marked as lined up with it, and the dealer range is listed for each expiry.",
       "BTC, ETH and the US books keep a day-by-day record of what price did at every level, starting today; the Asian and European indexes, read from end-of-day files, show the next session's levels.",
+      "Ceiling & Floor has a Day | Week switch. Week reads the same levels for the week's expiry (Deribit's Friday weekly, a US book's last expiry of the week): the gamma ceiling and floor of everything expiring by then, that expiry's dealer range and max pain, and IV walls over the time to it. The week's 90% wall is measured on whole past weeks: 2.07 standard deviations for BTC over 290 weeks, 2.16 for ETH, 1.33 for the S&P 500 over 824 weeks against Cboe's 9-day VIX. Each finished week joins the record.",
     ],
   },
   {

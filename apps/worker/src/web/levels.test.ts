@@ -4,6 +4,7 @@ import { withLocale } from "./i18n";
 import {
   ALIGN_SHARE,
   finishedDays,
+  finishedWeeks,
   ivWallsPanel,
   levelsFragment,
   levelsPanel,
@@ -11,6 +12,10 @@ import {
   outcome,
   tally,
   todayLevels,
+  weekEnd,
+  weekExpiry,
+  weekKey,
+  weekLevels,
 } from "./levels";
 
 const NOW = Date.parse("2026-10-20T17:45:00Z");
@@ -58,10 +63,22 @@ const row = (overrides: Partial<GammaWallDay> = {}): GammaWallDay => ({
   day_low: 81_216,
   last_price: 82_662,
   updated_at: new Date(NOW - 60_000),
+  wk_expiry: new Date("2026-10-23T08:00:00Z"),
+  wk_iv: 0.298,
+  wk_years: 3 / 365,
+  wk_hist_sigma: 0.373,
+  wk_k90: 2.07,
+  wk_method: "dvol",
+  wk_gamma_ceiling: 83_000,
+  wk_gamma_floor: 82_000,
+  wk_be_ceiling: 84_451,
+  wk_be_floor: 80_207,
+  wk_max_pain: 82_000,
   ...overrides,
 });
 
 const STATS: GammaWallStats = {
+  period: "day",
   method: "dvol",
   first_day: "2021-03-25",
   last_day: "2026-10-19",
@@ -138,6 +155,11 @@ function levelsData(
     },
     days: [row()],
     stats: STATS,
+    weekStats: { ...STATS, period: "week", days: 290, k90: 2.07 },
+    weekStrikes: [
+      { strike: 80_000, call_oi: 0, put_oi: 20, call_gex_usd: 0, put_gex_usd: -7e6 },
+      { strike: 85_000, call_oi: 20, put_oi: 0, call_gex_usd: 8e6, put_gex_usd: 0 },
+    ],
     ...overrides,
   };
 }
@@ -324,5 +346,148 @@ describe("the Ceiling & Floor tab", () => {
       expect(html).not.toContain("gamma ceiling");
       expect(html).not.toContain("IV wall, 1σ");
     }
+  });
+});
+
+describe("the week", () => {
+  test("a week's key: Deribit's Friday, a US week's Monday", () => {
+    expect(weekKey("2026-10-20", "deribit")).toBe("2026-10-16");
+    expect(weekKey("2026-10-23", "deribit")).toBe("2026-10-23");
+    expect(weekKey("2026-10-22", "deribit")).toBe("2026-10-16");
+    expect(weekKey("2026-10-20", "cboe")).toBe("2026-10-19");
+    expect(weekKey("2026-10-19", "cboe")).toBe("2026-10-19");
+  });
+
+  test("the week ends at Deribit's next Friday 08:00, or a US week's Friday", () => {
+    const tue = Date.parse("2026-10-20T17:00:00Z");
+    expect(new Date(weekEnd(tue, "deribit")).toISOString()).toBe("2026-10-23T08:00:00.000Z");
+    expect(new Date(weekEnd(Date.parse("2026-10-23T09:00:00Z"), "deribit")).toISOString()).toBe(
+      "2026-10-30T08:00:00.000Z",
+    );
+    expect(new Date(weekEnd(tue, "cboe")).toISOString()).toBe("2026-10-23T23:59:59.000Z");
+    expect(new Date(weekEnd(Date.parse("2026-10-24T12:00:00Z"), "cboe")).toISOString()).toBe(
+      "2026-10-30T23:59:59.000Z",
+    );
+    const x = (iso: string) =>
+      ({
+        ...levelsData().gamma.expiries[0],
+        expiry: new Date(iso),
+      }) as LevelsData["gamma"]["expiries"][number];
+    const list = [x("2026-10-21T08:00:00Z"), x("2026-10-23T08:00:00Z"), x("2026-10-30T08:00:00Z")];
+    expect(weekExpiry(list, tue, weekEnd(tue, "deribit"))?.expiry.toISOString()).toBe(
+      "2026-10-23T08:00:00.000Z",
+    );
+  });
+
+  test("the week's levels come off its first row that holds them, its range off all of them", () => {
+    const data = levelsData({
+      days: [
+        row({ day: "2026-10-20", day_high: 83_375, day_low: 81_216, last_price: 82_662 }),
+        row({
+          day: "2026-10-19",
+          set_at: new Date("2026-10-19T08:02:00Z"),
+          ref_price: 80_900,
+          wk_gamma_ceiling: 84_500,
+          day_high: 82_000,
+          day_low: 80_100,
+          last_price: 81_470,
+        }),
+        row({
+          day: "2026-10-16",
+          set_at: new Date("2026-10-16T08:02:00Z"),
+          ref_price: 80_000,
+          wk_expiry: null,
+          day_high: 81_000,
+          day_low: 79_500,
+          last_price: 80_900,
+        }),
+      ],
+    });
+    const l = weekLevels(data, NOW);
+    // Oct 16 (Friday) holds no week levels (written before them), so Oct 19's fix the week.
+    expect(l?.basis).toBe("day");
+    expect(l?.day).toBe("2026-10-19");
+    expect([l?.ref, l?.gammaCeiling, l?.beCeiling, l?.high, l?.low, l?.last]).toEqual([
+      80_900, 84_500, 84_451, 83_375, 79_500, 82_662,
+    ]);
+    expect(l?.upper1).toBeCloseTo(80_900 + 80_900 * 0.298 * Math.sqrt(3 / 365), 6);
+    expect(l?.upper90).toBeCloseTo(80_900 + 80_900 * 0.373 * Math.sqrt(3 / 365) * 2.07, 6);
+  });
+
+  test("a week no row holds yet is read from the book now: its expiry, the seven-day strikes, the week's stats", () => {
+    const data = levelsData({ days: [row({ wk_expiry: null })] });
+    data.gamma.expiries.push({
+      ...data.gamma.expiries[0],
+      expiry: new Date("2026-10-23T08:00:00Z"),
+      atm_iv: 0.3,
+      be_high: 84_400,
+      be_low: 80_200,
+      max_pain: 82_500,
+    } as LevelsData["gamma"]["expiries"][number]);
+    const l = weekLevels(data, NOW);
+    expect(l?.basis).toBe("next");
+    expect(l?.expiry?.toISOString()).toBe("2026-10-23T08:00:00.000Z");
+    expect([
+      l?.ref,
+      l?.iv,
+      l?.gammaCeiling,
+      l?.gammaFloor,
+      l?.beCeiling,
+      l?.maxPain,
+      l?.k90,
+    ]).toEqual([82_600, 0.3, 85_000, 80_000, 84_400, 82_500, 2.07]);
+    // The week's range so far still comes from the day rows it has.
+    expect([l?.high, l?.low]).toEqual([83_375, 81_216]);
+  });
+
+  test("the switch, and a week view's words", () => {
+    const day = levelsPanel(view(levelsData()));
+    expect(day).toContain(
+      '<nav class="tf" aria-label="Levels for"><a href="/rates?gex=BTC&amp;gexp=next#levels" data-gx-swap aria-current="true">Day</a><a href="/rates?gex=BTC&amp;gexp=next&amp;lvb=week#levels" data-gx-swap>Week</a></nav>',
+    );
+    const week = levelsPanel({
+      ...view(levelsData()),
+      params: { currency: "BTC", scope: "next", basis: "week" },
+    });
+    expect(week).toContain('lvb=week#levels" data-gx-swap aria-current="true">Week</a>');
+    expect(week).toContain("The week so far");
+    expect(week).toContain("in everything expiring by Oct 23");
+    expect(week).toContain(
+      '<span class="lq-ink-l">83,000</span> / <span class="lq-ink-s">82,000</span>',
+    );
+    expect(week).toContain("BTC's weekly record starts with this week");
+  });
+
+  test("finished weeks are judged by their own levels and range", () => {
+    const data = levelsData({
+      days: [
+        row(),
+        row({
+          day: "2026-10-15",
+          set_at: new Date("2026-10-15T08:02:00Z"),
+          day_high: 84_600,
+          day_low: 80_000,
+          last_price: 83_000,
+        }),
+        row({
+          day: "2026-10-09",
+          set_at: new Date("2026-10-09T08:02:00Z"),
+          day_high: 82_100,
+          day_low: 81_000,
+          last_price: 81_500,
+        }),
+      ],
+    });
+    const weeks = finishedWeeks(data, weekLevels(data, NOW));
+    expect(weeks.map((w) => w.day)).toEqual(["2026-10-09"]);
+    // Oct 15 is a Thursday: with Oct 9 (a Friday) it makes the week of Oct 9; this week's is left out.
+    expect([weeks[0]?.row.day_high, weeks[0]?.row.day_low, weeks[0]?.row.last_price]).toEqual([
+      84_600, 80_000, 83_000,
+    ]);
+    const html = levelsPanel({
+      ...view(data),
+      params: { currency: "BTC", scope: "next", basis: "week" },
+    });
+    expect(html).toContain("Over 1 finished weeks since Oct 9");
   });
 });

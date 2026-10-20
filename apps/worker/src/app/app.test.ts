@@ -187,6 +187,8 @@ function fakeData(overrides: Partial<DataSource> = {}) {
       },
       days: [],
       stats: null,
+      weekStats: null,
+      weekStrikes: [],
     }),
     whales: async () => ({
       markets: [],
