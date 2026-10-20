@@ -13,6 +13,7 @@ import {
   type LevelBasis,
 } from "../app/params";
 import { lazyPlaceholder } from "./chart-skeleton";
+import { reactionStrip, reactionZones, regimeExposure } from "./confluence";
 import { horizonIv, termStructure, YEAR_MS } from "./expected-move";
 import { esc, formatPrice, formatUsd } from "./format";
 import {
@@ -445,6 +446,16 @@ interface Mark {
   cls: string;
   /** Marked as lined up with an IV wall. */
   aligned?: boolean;
+}
+
+/** The day's reaction zones (confluence.ts) as ladder bands, a sliver at least so a zone of one price shows. */
+function zoneBands(l: Levels) {
+  const least = (l.move1 ?? l.ref * 0.01) * 0.03;
+  return reactionZones(l).map((z) => ({
+    from: z.from,
+    to: Math.max(z.to, z.from + least),
+    cls: "lv-band-cz",
+  }));
 }
 
 /**
@@ -888,6 +899,7 @@ ${ladder({
   bands: [
     { from: l.lower90 as number, to: l.upper90 as number, cls: "lv-band-90" },
     { from: l.lower1 as number, to: l.upper1 as number, cls: "lv-band-iv" },
+    ...zoneBands(l),
   ],
   high: l.high,
   low: l.low,
@@ -969,6 +981,7 @@ ${levelTable(
             .join("")}</tbody></table></div>`;
   return `${head}
 ${tiles}
+${reactionStrip({ l, spot: e.spot, regime: regimeExposure(data.gamma), stats: data.stats, live: "ivwalls-zones" })}
 ${figure}
 ${chart}
 <h2 class="cvd-h2 wm-h2">${tr("How price has behaved at the walls")}</h2>
@@ -1059,10 +1072,12 @@ export function levelsPanel(view: PanelView): string {
 ${ladder({
   ref: l.ref,
   marks,
-  bands:
-    l.lower1 !== null && l.upper1 !== null
+  bands: [
+    ...(l.lower1 !== null && l.upper1 !== null
       ? [{ from: l.lower1, to: l.upper1, cls: "lv-band-iv lv-band-faint" }]
-      : [],
+      : []),
+    ...zoneBands(l),
+  ],
   high: l.high,
   low: l.low,
   last: l.last,
@@ -1197,6 +1212,7 @@ ${levelTable(
           }</p>`;
   return `${head}
 ${tiles}
+${reactionStrip({ l, spot: e.spot, regime: regimeExposure(data.gamma), stats: week ? data.weekStats : data.stats, live: "levels-zones" })}
 ${figure}
 ${chart}
 ${table}

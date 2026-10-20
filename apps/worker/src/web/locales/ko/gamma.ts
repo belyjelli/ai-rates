@@ -426,4 +426,32 @@ export const gamma: Catalog = {
   "max pain {price}": "맥스 페인 {price}",
   "dealer range {low} – {high}": "딜러 범위 {low} – {high}",
   "premium {usd}": "프리미엄 {usd}",
+  // Reaction zones (web/confluence.ts).
+  "reaction zone, today": "반응 구간 (오늘)",
+  "gamma wall": "감마 월",
+  "dealer break-even": "딜러 손익분기점",
+  "gamma flip": "감마 플립",
+  "the spot is inside it now": "현물가가 지금 구간 안에 있음",
+  "{points} ({pct}) away, {sigmas} of the day's move":
+    "{points} ({pct}) 거리, 하루 변동의 {sigmas}",
+  "No zone above": "위쪽 구간 없음",
+  "No zone below": "아래쪽 구간 없음",
+  "no IV wall lines up with a ceiling": "천장과 겹치는 IV 월 없음",
+  "no IV wall lines up with a floor": "바닥과 겹치는 IV 월 없음",
+  "Above the spot": "현물가 위",
+  "Below the spot": "현물가 아래",
+  zone: "구간",
+  "Dealers long gamma ({net} per 1% move, every expiry): their hedging sells rises and buys dips, which is what lets a wall hold.":
+    "딜러는 롱 감마 (1% 변동당 {net}, 전체 만기): 헤지가 상승 때 팔고 하락 때 사므로 월이 버티기 쉽다.",
+  "Dealers short gamma ({net} per 1% move, every expiry): their hedging chases the price, so walls give way more easily and fading them is riskier.":
+    "딜러는 숏 감마 (1% 변동당 {net}, 전체 만기): 헤지가 가격을 쫓으므로 월이 더 쉽게 뚫리고 역추세 매매는 더 위험하다.",
+  "Flip {price}, {pct} ({sigmas}).": "플립 {price}, {pct} ({sigmas}).",
+  "Since {year}, a touch of this book's 1σ wall closed back inside {rev1} of {touch1} times, of its 90% wall {rev90} of {touch90}: better than a coin toss, not nine in ten.":
+    "{year}년 이후 이 종목의 1σ 월 터치는 {touch1}번 중 {rev1}가 월 안으로 돌아와 마감했고, 90% 월은 {touch90}번 중 {rev90}: 동전 던지기보다는 낫지만 열에 아홉은 아니다.",
+  "A zone is where an IV wall and a market maker's level fall within a quarter of the day's 1σ move of each other: a place to wait for a rejection, not a trade on its own, and least reliable when dealers are short gamma.":
+    "구간은 IV 월과 마켓메이커의 수준이 하루 1σ 변동의 4분의 1 이내로 겹치는 곳이다: 반전 신호를 기다릴 자리이지 그 자체로 매매 근거가 아니며, 딜러가 숏 감마일 때 가장 믿기 어렵다.",
+  "the week's 1σ move": "한 주의 1σ 변동",
+  "the day's 1σ move": "하루의 1σ 변동",
+  "Reaction zones": "반응 구간",
+  "σ is {unit}, {move}": "σ는 {unit}, {move}",
 };

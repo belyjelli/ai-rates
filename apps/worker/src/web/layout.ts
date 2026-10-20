@@ -735,6 +735,7 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .gx-em1{stroke:var(--em);stroke-width:1.2;vector-effect:non-scaling-stroke}
 .gx-em2{stroke:var(--em);stroke-width:1;stroke-dasharray:3 4;opacity:.7;vector-effect:non-scaling-stroke}
 .gx-chart .fchart-keys i.gx-key-em{height:0;border-top:1px solid var(--em)}
+.gx-cz{fill:var(--accent);opacity:.26}.gx-chart .fchart-keys i.gx-key-cz{background:var(--accent);opacity:.45}
 .em-map{display:flex;align-items:center;justify-content:center;margin:10px 0 6px;font-size:12px;line-height:1.35}
 .em-map ul{list-style:none;margin:0;padding:0}
 .em-root{order:2;flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 16px;border:1px solid var(--em);position:relative;margin:0 22px;text-align:center}
@@ -814,6 +815,36 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .cvd-big.lv-span{font-size:clamp(18px,2.2vw,24px)}
 .lv-range,.lv-last,.lv-last-t{z-index:3}
 @media (max-width:640px){.lv-ladder{height:400px}.lv-range{right:10%}.lv-last{right:calc(10% - 7px)}.lv-last-t{right:calc(10% + 22px)}.lv-tag{font-size:10px;padding:0 3px}}
+/* Reaction zones (confluence.ts), above every option tab's chart: the gamma regime in a line, a rail of the
+   levels around the spot with the zones in the accent, and the levels each side with their distances. */
+.cz{margin:12px 0;padding:10px 12px;border:1px solid var(--rule);background:var(--panel)}
+.cz-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px}
+.cz-title{margin:0;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--accent)}
+.cz-head p{margin:0;font-size:11px}
+.cz-regime{margin:6px 0 0;font-size:12px;color:var(--ink)}
+.cz-rail{position:relative;height:44px;margin:26px 0 22px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.cz-band{position:absolute;top:0;bottom:0;display:block}.cz-band-iv{background:rgba(182,156,255,.13)}.cz-band-90{background:rgba(182,156,255,.05)}
+.cz-hot{position:absolute;top:-4px;bottom:-4px;display:block;background:rgba(200,245,168,.22);outline:1px solid var(--accent);z-index:1}
+.cz-hot-t{position:absolute;bottom:-20px;transform:translateX(-50%);font-size:10px;color:var(--accent);white-space:nowrap;text-transform:uppercase;letter-spacing:.06em}
+.cz-tick{position:absolute;top:6px;bottom:6px;width:0;border-left:2px solid var(--muted);transform:translateX(-1px);z-index:2}
+.cz-tick.cz-iv{border-left:2px solid var(--em)}.cz-tick.cz-90{border-left:2px dashed var(--em)}
+.cz-tick.cz-gc{border-left:3px solid var(--long)}.cz-tick.cz-gf{border-left:3px solid var(--short)}
+.cz-tick.cz-be{border-left:2px dashed #ff9f43}.cz-tick.cz-flip{top:0;bottom:0;border-left:1px dashed var(--warn)}
+.cz-spot{position:absolute;top:-8px;bottom:-8px;width:0;border-left:2px solid var(--ink);z-index:3}
+.cz-spot-t{position:absolute;top:-24px;transform:translateX(-50%);font-size:11px;color:var(--ink);white-space:nowrap;background:var(--panel);padding:0 4px;z-index:3}
+.cz-edge{position:absolute;bottom:-20px;font-size:10px;color:var(--warn);white-space:nowrap}.cz-edge-l{left:0}.cz-edge-r{right:0}
+.cz-sides{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}
+.cz-side .eyebrow{margin-bottom:2px}
+.cz-zone{margin:0;font-size:15px;color:var(--accent)}.cz-zone span{font-size:11px;color:var(--muted);margin-left:6px}.cz-zone.cz-none{color:var(--muted);font-size:13px}
+.cz-side>p.dim{margin:2px 0 6px;font-size:11px}
+.cz-list{list-style:none;margin:0;padding:0;font-size:11px;max-width:440px}
+.cz-list li{display:grid;grid-template-columns:minmax(0,1fr) auto 64px 48px;gap:8px;padding:1px 4px;border-left:2px solid transparent}
+.cz-list li.cz-in{border-left-color:var(--accent);background:rgba(200,245,168,.06)}
+.cz-list b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cz-list .cz-iv,.cz-list .cz-90{color:var(--em)}.cz-list .cz-gc{color:var(--long)}.cz-list .cz-gf{color:var(--short)}.cz-list .cz-be{color:#ff9f43}.cz-list .cz-flip{color:var(--warn)}
+.cz-odds{margin:10px 0 0}
+.lv-band-cz{background:rgba(200,245,168,.2);border-top:1px solid var(--accent);border-bottom:1px solid var(--accent);box-sizing:border-box;z-index:1}
+@media (max-width:640px){.cz-sides{grid-template-columns:1fr}.cz-list li{grid-template-columns:minmax(0,1fr) auto 56px 44px;gap:6px}}
 /* The day timeline under each ladder (levels.ts timeline): each level a step in its ladder colour over
    the day's candle, the walls' ranges shaded per day, a dotted rule at each week's expiry. */
 .cvd-chart.lv-tl-chart .fchart-plot{height:300px;margin:6px 64px 24px 64px}

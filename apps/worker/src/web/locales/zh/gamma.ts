@@ -419,4 +419,32 @@ export const gamma: Catalog = {
   "max pain {price}": "最大痛点 {price}",
   "dealer range {low} – {high}": "做市商区间 {low} – {high}",
   "premium {usd}": "权利金 {usd}",
+  // Reaction zones (web/confluence.ts).
+  "reaction zone, today": "反应区（今日）",
+  "gamma wall": "gamma 墙",
+  "dealer break-even": "做市商盈亏平衡点",
+  "gamma flip": "gamma 翻转点",
+  "the spot is inside it now": "现货价正在区内",
+  "{points} ({pct}) away, {sigmas} of the day's move":
+    "距离 {points}（{pct}），当日波动的 {sigmas}",
+  "No zone above": "上方无反应区",
+  "No zone below": "下方无反应区",
+  "no IV wall lines up with a ceiling": "没有 IV 墙与天花板重合",
+  "no IV wall lines up with a floor": "没有 IV 墙与地板重合",
+  "Above the spot": "现货价上方",
+  "Below the spot": "现货价下方",
+  zone: "反应区",
+  "Dealers long gamma ({net} per 1% move, every expiry): their hedging sells rises and buys dips, which is what lets a wall hold.":
+    "做市商为正 Gamma（每 1% 波动 {net}，全部到期）：他们的对冲在上涨时卖出、下跌时买入，墙因此才守得住。",
+  "Dealers short gamma ({net} per 1% move, every expiry): their hedging chases the price, so walls give way more easily and fading them is riskier.":
+    "做市商为负 Gamma（每 1% 波动 {net}，全部到期）：他们的对冲追随价格，墙更容易被突破，逆势交易风险更高。",
+  "Flip {price}, {pct} ({sigmas}).": "翻转点 {price}，{pct}（{sigmas}）。",
+  "Since {year}, a touch of this book's 1σ wall closed back inside {rev1} of {touch1} times, of its 90% wall {rev90} of {touch90}: better than a coin toss, not nine in ten.":
+    "自 {year} 年起，此标的触及 1σ 墙后收回墙内 {rev1}（共 {touch1} 次），触及 90% 墙后 {rev90}（共 {touch90} 次）：好过抛硬币，但远非十中有九。",
+  "A zone is where an IV wall and a market maker's level fall within a quarter of the day's 1σ move of each other: a place to wait for a rejection, not a trade on its own, and least reliable when dealers are short gamma.":
+    "反应区是 IV 墙与做市商水平相距不超过当日 1σ 波动四分之一的地方：是等待拒绝信号的位置，本身不是交易信号；做市商为负 Gamma 时最不可靠。",
+  "the week's 1σ move": "本周的 1σ 波动",
+  "the day's 1σ move": "当日的 1σ 波动",
+  "Reaction zones": "反应区",
+  "σ is {unit}, {move}": "σ 为{unit}，{move}",
 };

@@ -434,4 +434,32 @@ export const gamma: Catalog = {
   "max pain {price}": "max pain {price}",
   "dealer range {low} – {high}": "дилерский диапазон {low} – {high}",
   "premium {usd}": "премия {usd}",
+  // Reaction zones (web/confluence.ts).
+  "reaction zone, today": "зона реакции, сегодня",
+  "gamma wall": "гамма-стена",
+  "dealer break-even": "дилерская точка безубыточности",
+  "gamma flip": "разворот гаммы",
+  "the spot is inside it now": "спот сейчас внутри неё",
+  "{points} ({pct}) away, {sigmas} of the day's move":
+    "{points} ({pct}) до неё, {sigmas} дневного движения",
+  "No zone above": "Зоны выше нет",
+  "No zone below": "Зоны ниже нет",
+  "no IV wall lines up with a ceiling": "ни одна IV-стена не совпадает с потолком",
+  "no IV wall lines up with a floor": "ни одна IV-стена не совпадает с полом",
+  "Above the spot": "Выше спота",
+  "Below the spot": "Ниже спота",
+  zone: "зона",
+  "Dealers long gamma ({net} per 1% move, every expiry): their hedging sells rises and buys dips, which is what lets a wall hold.":
+    "Дилеры в длинной гамме ({net} на 1% движения, все экспирации): хеджируясь, они продают на росте и покупают на падении, поэтому стена и держится.",
+  "Dealers short gamma ({net} per 1% move, every expiry): their hedging chases the price, so walls give way more easily and fading them is riskier.":
+    "Дилеры в короткой гамме ({net} на 1% движения, все экспирации): их хеджирование гонится за ценой, стены пробиваются легче, и торговать от них рискованнее.",
+  "Flip {price}, {pct} ({sigmas}).": "Разворот {price}, {pct} ({sigmas}).",
+  "Since {year}, a touch of this book's 1σ wall closed back inside {rev1} of {touch1} times, of its 90% wall {rev90} of {touch90}: better than a coin toss, not nine in ten.":
+    "С {year} года касание 1σ-стены этого инструмента закрывалось обратно внутри в {rev1} из {touch1} случаев, 90%-стены — в {rev90} из {touch90}: лучше подбрасывания монеты, но не девять из десяти.",
+  "A zone is where an IV wall and a market maker's level fall within a quarter of the day's 1σ move of each other: a place to wait for a rejection, not a trade on its own, and least reliable when dealers are short gamma.":
+    "Зона — это место, где IV-стена и уровень маркетмейкера лежат в пределах четверти дневного 1σ-движения друг от друга: место ждать отбоя, а не сделка сама по себе, и надёжна меньше всего, когда дилеры в короткой гамме.",
+  "the week's 1σ move": "недельное 1σ-движение",
+  "the day's 1σ move": "дневное 1σ-движение",
+  "Reaction zones": "Зоны реакции",
+  "σ is {unit}, {move}": "σ — {unit}, {move}",
 };

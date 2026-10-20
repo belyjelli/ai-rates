@@ -16,6 +16,14 @@ import {
   heatmapToQuery,
 } from "../app/params";
 import { CHART_SKELETON_JS, lazyPlaceholder } from "./chart-skeleton";
+import {
+  bookLevels,
+  type ReactionZone,
+  reactionStrip,
+  reactionZones,
+  regimeExposure,
+  zoneShades,
+} from "./confluence";
 import { type ExpectedMove, expectedMoves, type MoveHorizon } from "./expected-move";
 import { ageText, esc, formatDuration, formatPrice, formatUsd } from "./format";
 import { helpButton, helpPanel } from "./help";
@@ -474,6 +482,8 @@ function gammaChart(data: {
   scopeName: string;
   /** The expected move at the scope's horizon (scopeHorizon), drawn as its walls; null for none. */
   move: ExpectedMove | null;
+  /** The day's reaction zones (confluence.ts), shaded where they fall. */
+  zones: readonly ReactionZone[];
 }): string {
   const { currency, exposure, strikes, curve, scopeName, move } = data;
   const spot = exposure.spot;
@@ -621,15 +631,17 @@ function gammaChart(data: {
   const moveKey = move
     ? `<span><i class="gx-key-em"></i>${tr("expected move, 1σ and 2σ, {horizon}", { horizon: horizonName(move) })}</span>`
     : "";
+  const hot = zoneShades(data.zones, x, b.low, b.low + span);
+  const hotKey = hot ? `<span><i class="gx-key-cz"></i>${tr("reaction zone, today")}</span>` : "";
   const flipKey =
     exposure.flip_price !== null
       ? `<span><i class="gx-key-flip"></i>${tr("flip {price}", { price: formatPrice(level(exposure.flip_price)) })}</span>`
       : "";
 
   return `<figure class="fchart cvd-chart gx-chart" data-live="gamma-chart" data-cursors>
-<div class="fchart-head"><p class="fchart-title">${tr("{currency} · {source} options · gamma exposure by strike · {scope}", { currency: esc(currency), source: esc(publisher(exposure.source).name), scope: scopeName })}</p><div class="fchart-keys"><span class="gx-v gx-v-split"><i class="gx-key-call"></i>${tr("Calls")}</span><span class="gx-v gx-v-split"><i class="gx-key-put"></i>${tr("Puts")}</span><span class="gx-v gx-v-net"><i class="gx-key-call"></i>${tr("Net long")}</span><span class="gx-v gx-v-net"><i class="gx-key-put"></i>${tr("Net short")}</span><span class="gx-v gx-v-zone"><i class="gx-key-zs"></i>${tr("short gamma")}</span><span class="gx-v gx-v-zone"><i class="gx-key-zl"></i>${tr("long gamma")}</span><span><i class="gx-key-curve"></i>${tr("Net if the spot moved there")}</span><span><i class="gx-key-spot"></i>${tr("Spot")}</span>${flipKey}${moveKey}${gammaViewSwitch()}${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle}</p></div>
+<div class="fchart-head"><p class="fchart-title">${tr("{currency} · {source} options · gamma exposure by strike · {scope}", { currency: esc(currency), source: esc(publisher(exposure.source).name), scope: scopeName })}</p><div class="fchart-keys"><span class="gx-v gx-v-split"><i class="gx-key-call"></i>${tr("Calls")}</span><span class="gx-v gx-v-split"><i class="gx-key-put"></i>${tr("Puts")}</span><span class="gx-v gx-v-net"><i class="gx-key-call"></i>${tr("Net long")}</span><span class="gx-v gx-v-net"><i class="gx-key-put"></i>${tr("Net short")}</span><span class="gx-v gx-v-zone"><i class="gx-key-zs"></i>${tr("short gamma")}</span><span class="gx-v gx-v-zone"><i class="gx-key-zl"></i>${tr("long gamma")}</span><span><i class="gx-key-curve"></i>${tr("Net if the spot moved there")}</span><span><i class="gx-key-spot"></i>${tr("Spot")}</span>${flipKey}${moveKey}${hotKey}${gammaViewSwitch()}${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle}</p></div>
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{currency} strike bands; arrow keys read one at a time", { currency: esc(currency) }))}">
-<div class="fchart-plot gx-plot" data-axes="${axes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{currency} options gamma exposure by strike", { currency: esc(currency) }))}"><g class="gx-v gx-v-zone">${zoneRects}</g>${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line><g class="gx-v gx-v-split">${bars}</g><g class="gx-v gx-v-net">${netBars}</g>${line}${moveLines}${vertical(exposure.flip_price, "gx-flip")}${vertical(spot, "gx-spot")}${SLOT_CURSOR}${SLOT_HAIR}</svg>${leftLabels}${rightLabels}${xLabels}${zoneLabels}</div>
+<div class="fchart-plot gx-plot" data-axes="${axes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{currency} options gamma exposure by strike", { currency: esc(currency) }))}"><g class="gx-v gx-v-zone">${zoneRects}</g>${hot}${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line><g class="gx-v gx-v-split">${bars}</g><g class="gx-v gx-v-net">${netBars}</g>${line}${moveLines}${vertical(exposure.flip_price, "gx-flip")}${vertical(spot, "gx-spot")}${SLOT_CURSOR}${SLOT_HAIR}</svg>${leftLabels}${rightLabels}${xLabels}${zoneLabels}</div>
 </div>
 ${beyond}
 ${slotData(payload)}
@@ -1179,6 +1191,14 @@ ${helpPanel(
       : pub.cadence === "live"
         ? `<p class="notes gx-stale">${tr("Not updated since {ago}: the latest read of {source} failed, so these figures are that old.", { ago: agoText(exposure.computed_at, now), source: esc(pub.name) })}</p>`
         : `<p class="notes gx-stale">${tr("Not updated since {ago}: nothing newer has been read from {source}, a holiday or a failed read, so these figures are that old.", { ago: agoText(exposure.computed_at, now), source: esc(pub.name) })}</p>`;
+  const today = bookLevels(data, now);
+  const strip = reactionStrip({
+    l: today,
+    spot: exposure.spot,
+    regime: regimeExposure(data),
+    stats: data.wall?.stats,
+    live: "gamma-zones",
+  });
   const moves = expectedMoves({
     expiries: data.expiries,
     bands: data.bands,
@@ -1196,6 +1216,7 @@ ${helpPanel(
           curve: data.curve,
           scopeName,
           move: moves.find((m) => m.horizon === SCOPE_HORIZON[params.scope]) ?? null,
+          zones: today ? reactionZones(today) : [],
         });
   const asOf =
     pub.cadence === "live"
@@ -1205,6 +1226,7 @@ ${helpPanel(
         : tr("from the end-of-day file for {date}", { date: dayLabel(exposure.computed_at) });
   return `${controls}
 ${stale}${tiles(exposure)}
+${strip}
 ${chart}
 <p class="notes">${tr("Calls positive, puts negative: dealers assumed long calls and short puts, since no exchange publishes who holds which side. {source} options, {asof}.", { source: esc(pub.name), asof: `<span data-live="gamma-asof">${asOf}</span>` })}</p>
 ${expectedMoveMap({ currency: data.currency, exposure, moves })}

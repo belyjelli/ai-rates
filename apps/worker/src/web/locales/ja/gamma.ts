@@ -436,4 +436,31 @@ export const gamma: Catalog = {
   "max pain {price}": "マックスペイン {price}",
   "dealer range {low} – {high}": "ディーラーレンジ {low} – {high}",
   "premium {usd}": "プレミアム {usd}",
+  // Reaction zones (web/confluence.ts).
+  "reaction zone, today": "反応ゾーン（今日）",
+  "gamma wall": "ガンマウォール",
+  "dealer break-even": "ディーラーの損益分岐点",
+  "gamma flip": "ガンマフリップ",
+  "the spot is inside it now": "現物価格はいまゾーンの中",
+  "{points} ({pct}) away, {sigmas} of the day's move": "{points}（{pct}）先、1日の変動の {sigmas}",
+  "No zone above": "上にゾーンなし",
+  "No zone below": "下にゾーンなし",
+  "no IV wall lines up with a ceiling": "天井と重なる IV ウォールなし",
+  "no IV wall lines up with a floor": "底と重なる IV ウォールなし",
+  "Above the spot": "現物価格の上",
+  "Below the spot": "現物価格の下",
+  zone: "ゾーン",
+  "Dealers long gamma ({net} per 1% move, every expiry): their hedging sells rises and buys dips, which is what lets a wall hold.":
+    "ディーラーはロングガンマ（1% の変動あたり {net}、全満期）：ヘッジは上昇で売り下落で買うため、ウォールが持ちこたえやすい。",
+  "Dealers short gamma ({net} per 1% move, every expiry): their hedging chases the price, so walls give way more easily and fading them is riskier.":
+    "ディーラーはショートガンマ（1% の変動あたり {net}、全満期）：ヘッジが価格を追うため、ウォールは破られやすく、逆張りはリスクが高い。",
+  "Flip {price}, {pct} ({sigmas}).": "フリップ {price}、{pct}（{sigmas}）。",
+  "Since {year}, a touch of this book's 1σ wall closed back inside {rev1} of {touch1} times, of its 90% wall {rev90} of {touch90}: better than a coin toss, not nine in ten.":
+    "{year} 年以降、この銘柄の 1σ ウォールへのタッチは {touch1} 回中 {rev1} がウォール内に戻って引け、90% ウォールは {touch90} 回中 {rev90}：コイントスよりは良いが、10 回に 9 回ではない。",
+  "A zone is where an IV wall and a market maker's level fall within a quarter of the day's 1σ move of each other: a place to wait for a rejection, not a trade on its own, and least reliable when dealers are short gamma.":
+    "ゾーンは IV ウォールとマーケットメーカーの水準が 1 日の 1σ 変動の 4 分の 1 以内に並ぶ場所：反転のサインを待つ場所であって、それだけで取引する根拠ではなく、ディーラーがショートガンマのときは最も当てにならない。",
+  "the week's 1σ move": "1週間の 1σ 変動",
+  "the day's 1σ move": "1日の 1σ 変動",
+  "Reaction zones": "反応ゾーン",
+  "σ is {unit}, {move}": "σ は{unit}、{move}",
 };

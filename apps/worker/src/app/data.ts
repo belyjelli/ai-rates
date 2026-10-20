@@ -1107,6 +1107,11 @@ export interface GammaData {
   expiries: GammaExpiry[];
   /** The band check for the book, by horizon; empty for a book it does not cover. */
   bands: GammaBandHit[];
+  /**
+   * The book's newest stored day and its daily history (collector migration 045), for the reaction
+   * zones; absent where a caller built the data without them.
+   */
+  wall?: { day: GammaWallDay | null; stats: GammaWallStats | null };
 }
 
 export interface WhaleData {
@@ -1505,6 +1510,27 @@ async function withoutCrossFx<R>(
     return run(false);
   }
 }
+
+/** A book's stored days, newest first (collector migrations 045 and 046). */
+const wallDays = (sql: postgres.Sql, currency: string, limit: number) =>
+  sql<GammaWallDay[]>`
+    SELECT day::text AS day, source, set_at, ref_price, iv_day, hist_sigma, k90, method, expiry,
+           gamma_ceiling, gamma_floor, be_ceiling, be_floor, max_pain, day_open, day_high,
+           day_low, last_price, updated_at, wk_expiry, wk_iv, wk_years, wk_hist_sigma, wk_k90,
+           wk_method, wk_gamma_ceiling, wk_gamma_floor, wk_be_ceiling, wk_be_floor, wk_max_pain
+    FROM gamma_wall_days
+    WHERE currency = ${currency}
+    ORDER BY day DESC
+    LIMIT ${limit}`;
+
+/** A book's measured wall history, daily and weekly (gamma_wall_stats). */
+const wallStats = (sql: postgres.Sql, currency: string) =>
+  sql<GammaWallStats[]>`
+    SELECT period, method, first_day::text AS first_day, last_day::text AS last_day, days, k90,
+           k90_close, inside1_close, inside1_range, inside90, touch1, rev1, touch90, rev90, sigma,
+           sigma_for::text AS sigma_for
+    FROM gamma_wall_stats
+    WHERE currency = ${currency}`;
 
 export function createDataSource(connect: () => postgres.Sql): DataSource {
   const source: DataSource = {
@@ -2592,44 +2618,50 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
     async gamma({ currency, scope }) {
       const sql = connect();
-      const [books, scopes, strikes, curve, expiries, bands] = await Promise.all([
-        sql<GammaBook[]>`
+      const [books, scopes, strikes, curve, expiries, bands, wallDay, wallStat] = await Promise.all(
+        [
+          sql<GammaBook[]>`
           SELECT currency, source, unit, computed_at, spot, call_gex_usd, put_gex_usd, net_gex_usd,
                  flip_price
           FROM gamma_exposure
           WHERE scope = 'all'`,
-        sql<GammaExposure[]>`
+          sql<GammaExposure[]>`
           SELECT scope, computed_at, source, unit, spot, options, expiries, first_expiry, last_expiry,
                  next_expiry, call_oi, put_oi, call_gex_usd, put_gex_usd, net_gex_usd, flip_price,
                  call_wall, put_wall, call_delta, put_delta, call_vega, put_vega, call_theta, put_theta
           FROM gamma_exposure
           WHERE currency = ${currency}
           ORDER BY array_position(ARRAY['all', '30d', '7d', 'next'], scope)`,
-        sql<GammaStrike[]>`
+          sql<GammaStrike[]>`
           SELECT strike, call_oi, put_oi, call_gex_usd, put_gex_usd, call_delta, put_delta, call_vega,
                  put_vega, call_theta, put_theta
           FROM gamma_strikes
           WHERE currency = ${currency} AND scope = ${scope}
           ORDER BY strike`,
-        sql<GammaPoint[]>`
+          sql<GammaPoint[]>`
           SELECT price, net_gex_usd
           FROM gamma_curve
           WHERE currency = ${currency} AND scope = ${scope}
           ORDER BY step`,
-        sql<GammaExpiry[]>`
+          sql<GammaExpiry[]>`
           SELECT expiry, options, call_oi, put_oi, call_gex_usd, put_gex_usd, atm_iv, forward, premium,
                  max_pain, be_low, be_high, call_delta, put_delta, call_vega, put_vega, call_theta,
                  put_theta
           FROM gamma_expiries
           WHERE currency = ${currency}
           ORDER BY expiry`,
-        sql<GammaBandHit[]>`
+          sql<GammaBandHit[]>`
           SELECT horizon_days, samples, inside_1s, inside_2s, first_day::text AS first_day,
                  last_day::text AS last_day
           FROM gamma_band_hits
           WHERE currency = ${currency}
           ORDER BY horizon_days`,
-      ]);
+          // The day's walls, for the reaction zones every option tab shows. Without them (a book the
+          // levels job does not keep, or a failed read) the zones are read from the book itself.
+          wallDays(sql, currency, 1).catch(() => [] as GammaWallDay[]),
+          wallStats(sql, currency).catch(() => [] as GammaWallStats[]),
+        ],
+      );
       return {
         currency,
         books: [...books],
@@ -2639,6 +2671,10 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         curve: [...curve],
         expiries: [...expiries],
         bands: [...bands],
+        wall: {
+          day: wallDay[0] ?? null,
+          stats: wallStat.find((s) => s.period === "day") ?? null,
+        },
       };
     },
 
@@ -2646,21 +2682,8 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       const sql = connect();
       const [gamma, days, stats, weekStrikes] = await Promise.all([
         source.gamma({ currency, scope: "next" }),
-        sql<GammaWallDay[]>`
-          SELECT day::text AS day, source, set_at, ref_price, iv_day, hist_sigma, k90, method, expiry,
-                 gamma_ceiling, gamma_floor, be_ceiling, be_floor, max_pain, day_open, day_high,
-                 day_low, last_price, updated_at, wk_expiry, wk_iv, wk_years, wk_hist_sigma, wk_k90,
-                 wk_method, wk_gamma_ceiling, wk_gamma_floor, wk_be_ceiling, wk_be_floor, wk_max_pain
-          FROM gamma_wall_days
-          WHERE currency = ${currency}
-          ORDER BY day DESC
-          LIMIT ${LEVEL_DAYS}`,
-        sql<GammaWallStats[]>`
-          SELECT period, method, first_day::text AS first_day, last_day::text AS last_day, days, k90,
-                 k90_close, inside1_close, inside1_range, inside90, touch1, rev1, touch90, rev90, sigma,
-                 sigma_for::text AS sigma_for
-          FROM gamma_wall_stats
-          WHERE currency = ${currency}`,
+        wallDays(sql, currency, LEVEL_DAYS),
+        wallStats(sql, currency),
         sql<GammaStrike[]>`
           SELECT strike, call_oi, put_oi, call_gex_usd, put_gex_usd
           FROM gamma_strikes
