@@ -1108,10 +1108,11 @@ export interface GammaData {
   /** The band check for the book, by horizon; empty for a book it does not cover. */
   bands: GammaBandHit[];
   /**
-   * The book's newest stored day and its daily history (collector migration 045), for the reaction
-   * zones; absent where a caller built the data without them.
+   * The book's stored days, newest first (at most LEVEL_DAYS), and its daily history (collector
+   * migration 045), for the reaction zones and their record; absent where a caller built the data
+   * without them.
    */
-  wall?: { day: GammaWallDay | null; stats: GammaWallStats | null };
+  wall?: { days: GammaWallDay[]; stats: GammaWallStats | null };
 }
 
 export interface WhaleData {
@@ -2658,7 +2659,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           ORDER BY horizon_days`,
           // The day's walls, for the reaction zones every option tab shows. Without them (a book the
           // levels job does not keep, or a failed read) the zones are read from the book itself.
-          wallDays(sql, currency, 1).catch(() => [] as GammaWallDay[]),
+          wallDays(sql, currency, LEVEL_DAYS).catch(() => [] as GammaWallDay[]),
           wallStats(sql, currency).catch(() => [] as GammaWallStats[]),
         ],
       );
@@ -2672,7 +2673,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         expiries: [...expiries],
         bands: [...bands],
         wall: {
-          day: wallDay[0] ?? null,
+          days: [...wallDay],
           stats: wallStat.find((s) => s.period === "day") ?? null,
         },
       };

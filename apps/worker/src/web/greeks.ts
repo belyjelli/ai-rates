@@ -9,6 +9,7 @@ import {
 import { lazyPlaceholder } from "./chart-skeleton";
 import {
   bookLevels,
+  bookRecord,
   type ReactionZone,
   reactionStrip,
   reactionZones,
@@ -22,6 +23,8 @@ import {
   bookPicker,
   choiceHref,
   dayLabel,
+  type ExpiryMeasure,
+  expiryChart,
   freshness,
   inScope,
   leftText,
@@ -348,9 +351,43 @@ ${openInterestTile(e)}
 </div>`;
 }
 
+/** The By expiry chart's Greek view for a tab (gamma.ts expiryChart), drawn as its strike chart is. */
+function expiryMeasure(greek: Greek): ExpiryMeasure {
+  const base = {
+    call: (x: GammaExpiry) => callOf(greek, x),
+    put: (x: GammaExpiry) => putOf(greek, x),
+    shape: SHAPE[greek],
+  };
+  if (greek === "delta")
+    return {
+      ...base,
+      label: tr("delta"),
+      title: tr("Each expiry's delta: calls above zero, puts below"),
+      readout: tr("delta {calls} / {puts}, net {net}"),
+    };
+  if (greek === "vega")
+    return {
+      ...base,
+      label: tr("vega"),
+      title: tr("Each expiry's vega, its calls and puts stacked"),
+      readout: tr("vega {calls} / {puts}, total {net}"),
+    };
+  return {
+    ...base,
+    label: tr("theta"),
+    title: tr("Each expiry's theta a day, its calls and puts stacked down from the top"),
+    readout: tr("theta {calls} / {puts} a day, total {net}"),
+  };
+}
+
 function expiryTable(
   greek: Greek,
-  data: { exposure: GammaExposure; expiries: readonly GammaExpiry[]; now: number },
+  data: {
+    currency: string;
+    exposure: GammaExposure;
+    expiries: readonly GammaExpiry[];
+    now: number;
+  },
 ): string {
   const { exposure, expiries, now } = data;
   const rows = expiries.filter((x) => x[FIELDS[greek][0]] !== null);
@@ -377,7 +414,7 @@ function expiryTable(
 <td class="num lq-ink-l">${money(call)}</td>
 <td class="num lq-ink-s">${money(put)}</td>
 <td class="num ${greek === "delta" ? tone(net) : ""}"><span data-u="net">${money(net)}</span></td>
-<td class="num dim"><span class="gk-share"><i style="width:${(share * 100).toFixed(1)}%"></i></span>${Math.round(share * 100)}%</td>
+<td class="num dim">${Math.round(share * 100)}%</td>
 </tr>`;
     })
     .join("");
@@ -396,7 +433,19 @@ function expiryTable(
             "Theta in {unit} a day. Expiries outside the chosen range are dimmed; an option in its last hour is left out.",
             { unit: esc(exposure.unit) },
           );
+  const chart = expiryChart(
+    {
+      currency: data.currency,
+      exposure,
+      expiries: rows,
+      scope: exposure.scope as GammaScope,
+      now,
+    },
+    expiryMeasure(greek),
+    `${greek}-expiry-chart`,
+  );
   return `<h2 class="cvd-h2 wm-h2">${tr("By expiry")}</h2>
+${chart}
 <div class="sheet-wrap"><table class="sheet gx-table">
 <thead><tr><th>${tr("Expiry")}</th><th class="num">${tr("Left")}</th><th class="num" title="${esc(tr("Implied volatility at the expiry's forward, a year"))}">${tr("ATM IV")}</th><th class="num">${tr("Calls")}</th><th class="num">${tr("Puts")}</th><th class="num">${greek === "delta" ? tr("Net") : tr("Total")}</th><th class="num" title="${esc(tr("Of the chain's total, either side counted"))}">${tr("Share")}</th></tr></thead>
 <tbody data-live="greek-expiries">${body}</tbody>
@@ -517,7 +566,9 @@ ${helpPanel(`rates-${greek}`, help(greek))}`;
     spot: exposure.spot,
     regime: regimeExposure(data),
     stats: data.wall?.stats,
+    record: bookRecord(data, today),
     live: "greek-zones",
+    fold: true,
   });
   const chart =
     data.strikes.length === 0
@@ -540,7 +591,7 @@ ${stale}${tiles(greek, { currency: data.currency, exposure, expiries: data.expir
 ${strip}
 ${chart}
 <p class="notes">${notes(greek, { source: esc(pub.name), asof: `<span data-live="greek-asof">${asOf}</span>` })}</p>
-${expiryTable(greek, { exposure, expiries: data.expiries, now })}`;
+${expiryTable(greek, { currency: data.currency, exposure, expiries: data.expiries, now })}`;
 }
 
 /** The tab on its own, for `/rates?panel=delta|vega|theta`. */

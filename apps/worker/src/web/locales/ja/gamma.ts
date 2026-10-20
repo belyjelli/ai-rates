@@ -283,9 +283,6 @@ export const gamma: Catalog = {
   "Dealer ceiling / floor": "ディーラーの天井 / 底",
   "where dealers who sold every option of that expiry break even; max pain {pain}":
     "その満期のオプションをすべて売ったディーラーの損益分岐点。マックスペイン {pain}",
-  "Lined up with an IV wall": "IV ウォールと重なる",
-  "within a quarter of the day's 1σ move ({band}) of an IV wall or a 90% wall":
-    "IV ウォールまたは 90% ウォールから、その日の 1σ の値動きの 4 分の 1（{band}）以内",
   "max pain": "マックスペイン",
   "{currency} · {source} options · ceiling and floor · expiring {expiry}":
     "{currency} · {source} のオプション · 天井と底 · {expiry} 満期",
@@ -317,8 +314,6 @@ export const gamma: Catalog = {
     "日と週の切り替えは、同じ水準を直近満期か、その週の満期で読みます。Deribit の金曜 08:00 UTC の週次、または米国の原資産のその週最後の満期です。週の水準はその週の最初の読み取りで固定され、IV ウォールはその満期までの時間にわたり、90% ウォールは履歴がある場合、過去の丸一週間で測定します。",
   "the strikes holding the most call gamma above the spot and put gamma below it, in everything expiring by {expiry}":
     "{expiry} までに満期を迎えるすべてのオプションで、現物価格の上でコールのガンマ、下でプットのガンマが最も多い行使価格",
-  "within a quarter of the week's 1σ move ({band}) of an IV wall or a 90% wall":
-    "IV ウォールまたは 90% ウォールから、その週の 1σ の値動きの 4 分の 1（{band}）以内",
   "The week so far": "今週ここまで",
   "the spot now; this week's levels are fixed by its first read":
     "いまの現物価格。今週の水準は今週最初の読み取りで固定されます",
@@ -466,4 +461,37 @@ export const gamma: Catalog = {
   "between the IV walls": "IV ウォールの間",
   "between the 90% walls": "90% ウォールの間",
   "each line's mark is beside its name below": "各線の形は下の名前の横に表示",
+  "Each expiry's delta: calls above zero, puts below":
+    "満期ごとのデルタ：コールはゼロより上、プットは下",
+  "Each expiry's theta a day, its calls and puts stacked down from the top":
+    "満期ごとの1日あたりのセータ、コールとプットを上から下へ積み上げ",
+  "Each expiry's vega, its calls and puts stacked": "満期ごとのベガ、コールとプットを積み上げ",
+  "Its own zone record, {days} finished days since {since}: {zones} zones, price reached {reached} and closed back on the near side of {held}; its IV walls on those days were reached {wallReached} times and held {wallHeld}.":
+    "この銘柄自身のゾーン記録、{since} 以降の終了した {days} 日：ゾーン {zones} 個、価格が到達したのは {reached} 個、そのうち手前側に戻って引けたのは {held} 個。同じ日の IV ウォールは {wallReached} 回到達し、{wallHeld} 回持ちこたえた。",
+  "This book's zone record starts with today: each finished day adds whether price reached a zone and turned there.":
+    "この銘柄のゾーン記録は今日から始まります：終了した日ごとに、価格がゾーンに到達してそこで反転したかを記録します。",
+  "Zone record": "ゾーン記録",
+  "dealers long gamma": "ディーラーはロングガンマ",
+  "dealers short gamma": "ディーラーはショートガンマ",
+  delta: "デルタ",
+  "delta {calls} / {puts}, net {net}": "デルタ {calls} / {puts}、ネット {net}",
+  "each finished day adds whether price reached a zone and closed back on its near side":
+    "終了した日ごとに、価格がゾーンに到達して手前側に戻って引けたかを記録します",
+  "no zone above": "上にゾーンなし",
+  "no zone below": "下にゾーンなし",
+  "starts this week": "今週から",
+  "starts today": "今日から",
+  "the spot is in the zone {range}": "現物価格はゾーン {range} の中",
+  theta: "セータ",
+  "theta {calls} / {puts} a day, total {net}": "セータ {calls} / {puts} 1日あたり、合計 {net}",
+  "this book's days are not kept, so its zones have no record":
+    "この銘柄の日次データは保存されないため、ゾーンの記録はありません",
+  vega: "ベガ",
+  "vega {calls} / {puts}, total {net}": "ベガ {calls} / {puts}、合計 {net}",
+  "zone above {range}, {sigmas} away": "上のゾーン {range}、{sigmas} 先",
+  "zone below {range}, {sigmas} away": "下のゾーン {range}、{sigmas} 先",
+  "zones reached and held over {days} finished days; the IV walls alone: {wallHeld} / {wallReached}":
+    "終了した {days} 日でゾーンに到達して持ちこたえた数。IV ウォールのみ：{wallHeld} / {wallReached}",
+  "zones reached and held over {days} finished weeks; the IV walls alone: {wallHeld} / {wallReached}":
+    "終了した {days} 週でゾーンに到達して持ちこたえた数。IV ウォールのみ：{wallHeld} / {wallReached}",
 };

@@ -275,9 +275,6 @@ export const gamma: Catalog = {
   "Dealer ceiling / floor": "딜러 천장 / 바닥",
   "where dealers who sold every option of that expiry break even; max pain {pain}":
     "그 만기의 옵션을 모두 판 딜러의 손익분기점; 맥스 페인 {pain}",
-  "Lined up with an IV wall": "IV 월과 겹침",
-  "within a quarter of the day's 1σ move ({band}) of an IV wall or a 90% wall":
-    "IV 월 또는 90% 월에서 그날 1σ 움직임의 4분의 1({band}) 이내",
   "max pain": "맥스 페인",
   "{currency} · {source} options · ceiling and floor · expiring {expiry}":
     "{currency} · {source} 옵션 · 천장과 바닥 · {expiry} 만기",
@@ -309,8 +306,6 @@ export const gamma: Catalog = {
     "일/주 전환은 같은 수준을 가장 가까운 만기나 그 주의 만기 기준으로 읽습니다. Deribit의 금요일 08:00 UTC 주간 만기, 또는 미국 옵션 북의 그 주 마지막 만기입니다. 주의 수준은 그 주 첫 조회 때 고정되고, IV 월은 그 만기까지의 시간에 걸치며, 90% 월은 기록이 있는 곳에서 지난 온전한 주들로 측정합니다.",
   "the strikes holding the most call gamma above the spot and put gamma below it, in everything expiring by {expiry}":
     "{expiry}까지 만기인 모든 옵션 중 현물가 위 콜 감마, 아래 풋 감마가 가장 많은 행사가",
-  "within a quarter of the week's 1σ move ({band}) of an IV wall or a 90% wall":
-    "IV 월 또는 90% 월에서 그 주 1σ 움직임의 4분의 1({band}) 이내",
   "The week so far": "이번 주 지금까지",
   "the spot now; this week's levels are fixed by its first read":
     "현재 현물가; 이번 주 수준은 그 주 첫 조회 때 고정됩니다",
@@ -457,4 +452,36 @@ export const gamma: Catalog = {
   "between the IV walls": "IV 월 사이",
   "between the 90% walls": "90% 월 사이",
   "each line's mark is beside its name below": "각 선의 모양은 아래 이름 옆에 표시",
+  "Each expiry's delta: calls above zero, puts below": "만기별 델타: 콜은 0 위, 풋은 아래",
+  "Each expiry's theta a day, its calls and puts stacked down from the top":
+    "만기별 하루 세타, 콜과 풋을 위에서 아래로 쌓음",
+  "Each expiry's vega, its calls and puts stacked": "만기별 베가, 콜과 풋을 쌓음",
+  "Its own zone record, {days} finished days since {since}: {zones} zones, price reached {reached} and closed back on the near side of {held}; its IV walls on those days were reached {wallReached} times and held {wallHeld}.":
+    "이 종목 자체의 구간 기록, {since} 이후 끝난 {days}일: 구간 {zones}개, 가격이 닿은 것 {reached}개, 그중 가까운 쪽으로 돌아와 마감한 것 {held}개. 같은 날 IV 월은 {wallReached}번 닿고 {wallHeld}번 버텼다.",
+  "This book's zone record starts with today: each finished day adds whether price reached a zone and turned there.":
+    "이 종목의 구간 기록은 오늘 시작한다: 끝난 날마다 가격이 구간에 닿아 거기서 돌아섰는지를 더한다.",
+  "Zone record": "구간 기록",
+  "dealers long gamma": "딜러는 롱 감마",
+  "dealers short gamma": "딜러는 숏 감마",
+  delta: "델타",
+  "delta {calls} / {puts}, net {net}": "델타 {calls} / {puts}, 순 {net}",
+  "each finished day adds whether price reached a zone and closed back on its near side":
+    "끝난 날마다 가격이 구간에 닿아 가까운 쪽으로 돌아와 마감했는지를 더한다",
+  "no zone above": "위쪽 구간 없음",
+  "no zone below": "아래쪽 구간 없음",
+  "starts this week": "이번 주 시작",
+  "starts today": "오늘 시작",
+  "the spot is in the zone {range}": "현물가가 구간 {range} 안에 있음",
+  theta: "세타",
+  "theta {calls} / {puts} a day, total {net}": "세타 {calls} / {puts} 하루, 합계 {net}",
+  "this book's days are not kept, so its zones have no record":
+    "이 종목의 일별 데이터는 저장되지 않아 구간 기록이 없다",
+  vega: "베가",
+  "vega {calls} / {puts}, total {net}": "베가 {calls} / {puts}, 합계 {net}",
+  "zone above {range}, {sigmas} away": "위쪽 구간 {range}, {sigmas} 거리",
+  "zone below {range}, {sigmas} away": "아래쪽 구간 {range}, {sigmas} 거리",
+  "zones reached and held over {days} finished days; the IV walls alone: {wallHeld} / {wallReached}":
+    "끝난 {days}일 동안 닿고 버틴 구간; IV 월만: {wallHeld} / {wallReached}",
+  "zones reached and held over {days} finished weeks; the IV walls alone: {wallHeld} / {wallReached}":
+    "끝난 {days}주 동안 닿고 버틴 구간; IV 월만: {wallHeld} / {wallReached}",
 };

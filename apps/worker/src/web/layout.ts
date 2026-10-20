@@ -707,7 +707,7 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
    middle and puts below for open interest and for gamma, or the ATM IV term structure as a violet line
    with a dot per expiry. The view switch shows one reading; expiries outside the range are dimmed. */
 .gxx-chart .gxx-plot{height:240px}.cvd-chart.gxx-chart .fchart-plot{margin:6px 16px 0 64px}
-html:not([data-gxx=gamma]):not([data-gxx=iv]) .gxx-v:not(.gxx-v-oi),html[data-gxx=gamma] .gxx-v:not(.gxx-v-gamma),html[data-gxx=iv] .gxx-v:not(.gxx-v-iv){display:none}
+html:not([data-gxx=oi]):not([data-gxx=iv]) .gxx-v:not(.gxx-v-greek),html[data-gxx=oi] .gxx-v:not(.gxx-v-oi),html[data-gxx=iv] .gxx-v:not(.gxx-v-iv){display:none}
 .gxx-out{opacity:.35}
 .gxx-line{fill:none;stroke:var(--em);stroke-width:1.6;vector-effect:non-scaling-stroke}
 .gxx-dot{stroke:var(--em);stroke-width:7px;stroke-linecap:round;vector-effect:non-scaling-stroke}
@@ -723,8 +723,7 @@ html:not([data-gxx=gamma]):not([data-gxx=iv]) .gxx-v:not(.gxx-v-oi),html[data-gx
 .gk-chart .fchart-keys i.gx-key-spot{height:0;border-top:1px dashed var(--ink)}
 .gk-stack rect{stroke:var(--bg);stroke-width:1px;vector-effect:non-scaling-stroke}
 .gk-tiles .cvd-big span{white-space:nowrap}
-.gk-share{display:inline-block;width:44px;height:4px;margin-right:6px;vertical-align:middle;background:var(--rule)}.gk-share i{display:block;height:100%;background:var(--muted)}
-@media (max-width:640px){.gk-chart .gx-plot{height:280px}.cvd-chart.gk-chart .fchart-plot{margin:6px 8px 0 56px}.gk-share{display:none}}
+@media (max-width:640px){.gk-chart .gx-plot{height:280px}.cvd-chart.gk-chart .fchart-plot{margin:6px 8px 0 56px}}
 /* The view switch (gamma.ts): the page opens on calls/puts, and only ever hides what a view leaves out. */
 html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gxview=zones]) .gx-v-zone,html[data-gxview=net] .gx-v-split,html[data-gxview=zones] .gx-v-split{display:none}
 .gx-zone-short{fill:var(--short);opacity:.13}.gx-zone-long{fill:var(--long);opacity:.09}
@@ -850,6 +849,13 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .cz-list b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cz-list .cz-iv,.cz-list .cz-90{color:var(--em)}.cz-list .cz-gc{color:var(--long)}.cz-list .cz-gf{color:var(--short)}.cz-list .cz-be{color:#ff9f43}.cz-list .cz-flip{color:var(--warn)}
 .cz-odds{margin:10px 0 0}
+.cz-record{margin:6px 0 0;color:var(--ink)}
+.cz-fold{padding:0}.cz-fold>.cz-body{padding:0 12px 10px}.cz-fold>.cz-body>p.dim:first-child{margin:0;font-size:11px}
+.cz-sum{position:relative;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;padding:9px 34px 9px 12px;cursor:pointer;list-style:none;font-size:12px}
+.cz-sum::-webkit-details-marker{display:none}.cz-sum:hover .cz-open,.cz-sum:focus-visible .cz-open{color:var(--ink)}
+.cz-brief{flex:1 1 auto;min-width:0}.cz-hot-ink{color:var(--accent);font-weight:500}
+.cz-open{position:absolute;right:12px;top:9px;color:var(--muted);display:inline-flex}.cz-open svg{width:14px;height:14px;transition:transform .15s}
+.cz-fold[open] .cz-open svg{transform:rotate(180deg)}
 .lv-chart .fchart-keys i.lv-key-cz{width:10px;height:10px;background:rgba(200,245,168,.3);outline:1px solid var(--accent)}
 .lv-band-cz{background:rgba(200,245,168,.2);border-top:1px solid var(--accent);border-bottom:1px solid var(--accent);box-sizing:border-box;z-index:1}
 @media (max-width:640px){.cz-sides{grid-template-columns:1fr}.cz-list li{grid-template-columns:minmax(0,1fr) auto 56px 44px;gap:6px}}

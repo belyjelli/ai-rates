@@ -281,9 +281,6 @@ export const gamma: Catalog = {
   "Dealer ceiling / floor": "Дилерский потолок / пол",
   "where dealers who sold every option of that expiry break even; max pain {pain}":
     "где дилеры, продавшие все опционы этой экспирации, выходят в ноль; max pain {pain}",
-  "Lined up with an IV wall": "Совпадает с IV-стеной",
-  "within a quarter of the day's 1σ move ({band}) of an IV wall or a 90% wall":
-    "в пределах четверти дневного 1σ-движения ({band}) от IV-стены или 90%-стены",
   "max pain": "max pain",
   "{currency} · {source} options · ceiling and floor · expiring {expiry}":
     "{currency} · опционы {source} · потолок и пол · экспирация {expiry}",
@@ -315,8 +312,6 @@ export const gamma: Catalog = {
     "Переключатель «день / неделя» показывает те же уровни для ближайшей экспирации или для недельной: недельной Deribit в пятницу в 08:00 UTC или последней экспирации недели для книг США. Уровни недели фиксируются её первым чтением, её IV-стены охватывают время до этой экспирации, а 90%-стена измеряется на целых прошлых неделях там, где есть история.",
   "the strikes holding the most call gamma above the spot and put gamma below it, in everything expiring by {expiry}":
     "страйки с наибольшей колл-гаммой выше спота и пут-гаммой ниже среди всего, что истекает до {expiry}",
-  "within a quarter of the week's 1σ move ({band}) of an IV wall or a 90% wall":
-    "в пределах четверти недельного 1σ-движения ({band}) от IV-стены или 90%-стены",
   "The week so far": "Неделя на сейчас",
   "the spot now; this week's levels are fixed by its first read":
     "спот сейчас; уровни этой недели фиксируются её первым чтением",
@@ -465,4 +460,37 @@ export const gamma: Catalog = {
   "between the IV walls": "между IV-стенами",
   "between the 90% walls": "между 90%-стенами",
   "each line's mark is beside its name below": "вид каждой линии — рядом с её названием ниже",
+  "Each expiry's delta: calls above zero, puts below":
+    "Дельта по экспирациям: коллы выше нуля, путы ниже",
+  "Each expiry's theta a day, its calls and puts stacked down from the top":
+    "Тета по экспирациям в день, коллы и путы стопкой вниз от верха",
+  "Each expiry's vega, its calls and puts stacked": "Вега по экспирациям, коллы и путы стопкой",
+  "Its own zone record, {days} finished days since {since}: {zones} zones, price reached {reached} and closed back on the near side of {held}; its IV walls on those days were reached {wallReached} times and held {wallHeld}.":
+    "Собственная статистика зон, {days} завершённых дней с {since}: {zones} зон, цена дошла до {reached} и закрылась обратно с ближней стороны у {held}; IV-стены в те же дни были достигнуты {wallReached} раз и удержались {wallHeld}.",
+  "This book's zone record starts with today: each finished day adds whether price reached a zone and turned there.":
+    "Статистика зон этого инструмента начинается сегодня: каждый завершённый день добавляет, дошла ли цена до зоны и развернулась ли там.",
+  "Zone record": "Статистика зон",
+  "dealers long gamma": "дилеры в длинной гамме",
+  "dealers short gamma": "дилеры в короткой гамме",
+  delta: "дельта",
+  "delta {calls} / {puts}, net {net}": "дельта {calls} / {puts}, нетто {net}",
+  "each finished day adds whether price reached a zone and closed back on its near side":
+    "каждый завершённый день добавляет, дошла ли цена до зоны и закрылась ли обратно с её ближней стороны",
+  "no zone above": "зоны выше нет",
+  "no zone below": "зоны ниже нет",
+  "starts this week": "начинается на этой неделе",
+  "starts today": "начинается сегодня",
+  "the spot is in the zone {range}": "спот внутри зоны {range}",
+  theta: "тета",
+  "theta {calls} / {puts} a day, total {net}": "тета {calls} / {puts} в день, всего {net}",
+  "this book's days are not kept, so its zones have no record":
+    "дни этого инструмента не хранятся, поэтому у его зон нет статистики",
+  vega: "вега",
+  "vega {calls} / {puts}, total {net}": "вега {calls} / {puts}, всего {net}",
+  "zone above {range}, {sigmas} away": "зона выше {range}, до неё {sigmas}",
+  "zone below {range}, {sigmas} away": "зона ниже {range}, до неё {sigmas}",
+  "zones reached and held over {days} finished days; the IV walls alone: {wallHeld} / {wallReached}":
+    "зоны, достигнутые и удержанные за {days} завершённых дней; одни IV-стены: {wallHeld} / {wallReached}",
+  "zones reached and held over {days} finished weeks; the IV walls alone: {wallHeld} / {wallReached}":
+    "зоны, достигнутые и удержанные за {days} завершённых недель; одни IV-стены: {wallHeld} / {wallReached}",
 };

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { GammaExposure, GammaWallStats } from "../app/data";
-import { reactionStrip, reactionZones, zoneShades } from "./confluence";
-import type { Levels } from "./levels";
+import type { GammaExposure, GammaWallDay, GammaWallStats } from "../app/data";
+import { reactionStrip, reactionZones, zoneRecord, zoneShades } from "./confluence";
+import type { DayRecord, Levels } from "./levels";
 
 // BTC's day of 2026-10-20 as stored: IV walls ±1,092 around 81,470, the 90% wall at 1.97σ.
 const levels = (overrides: Partial<Levels> = {}): Levels => ({
@@ -136,6 +136,7 @@ describe("reaction strip", () => {
       spot: 82_646,
       regime: exposure({ net_gex_usd: -5e6 }),
       stats: null,
+      record: null,
       live: "x",
     });
     expect(short).toContain("Dealers short gamma");
@@ -144,8 +145,105 @@ describe("reaction strip", () => {
 
   test("draws nothing without a 1σ move to measure in", () => {
     expect(
-      reactionStrip({ l: levels({ move1: null }), spot: 1, regime: null, stats: null, live: "x" }),
+      reactionStrip({
+        l: levels({ move1: null }),
+        spot: 1,
+        regime: null,
+        stats: null,
+        record: null,
+        live: "x",
+      }),
     ).toBe("");
-    expect(reactionStrip({ l: null, spot: 1, regime: null, stats: null, live: "x" })).toBe("");
+    expect(
+      reactionStrip({ l: null, spot: 1, regime: null, stats: null, record: null, live: "x" }),
+    ).toBe("");
+  });
+});
+
+// A finished day: its walls (as levels.ts walls() gives them) and its candle.
+const finished = (day: string, high: number, low: number, close: number): DayRecord => ({
+  day,
+  row: {
+    day,
+    gamma_ceiling: 84_000,
+    gamma_floor: 81_500,
+    be_ceiling: 83_076,
+    be_floor: 80_901,
+    day_high: high,
+    day_low: low,
+    last_price: close,
+  } as GammaWallDay,
+  w: {
+    move1: 1_092,
+    upper1: 82_562,
+    lower1: 80_378,
+    move90: 1_796,
+    upper90: 83_266,
+    lower90: 79_674,
+  },
+});
+
+describe("zone record", () => {
+  test("counts each zone reached at its near edge and held when the day closed back below it", () => {
+    const r = zoneRecord(
+      [
+        // Up into the zone (83,076 – 83,266) and back: reached and held; the IV wall too.
+        finished("2026-10-23", 83_100, 81_900, 82_400),
+        // Through it and closed above: reached, broke; the IV wall broke as well.
+        finished("2026-10-22", 83_500, 82_000, 83_400),
+        // Never near it, nor either wall.
+        finished("2026-10-21", 82_000, 81_000, 81_500),
+      ],
+      "day",
+    );
+    expect(r).toEqual({
+      period: "day",
+      days: 3,
+      since: "2026-10-21",
+      zones: 3,
+      reached: 2,
+      held: 1,
+      wallReached: 2,
+      wallHeld: 1,
+    });
+  });
+
+  test("the strip says it in a sentence, or that it starts today", () => {
+    const strip = (record: ReturnType<typeof zoneRecord>) =>
+      reactionStrip({
+        l: levels(),
+        spot: 82_646,
+        regime: exposure(),
+        stats: null,
+        record,
+        live: "x",
+      });
+    expect(strip(zoneRecord([], "day"))).toContain("zone record starts with today");
+    expect(strip(zoneRecord([finished("2026-10-21", 83_100, 81_900, 82_400)], "day"))).toContain(
+      "1 finished days since Oct 21: 1 zones, price reached 1 and closed back on the near side of 1",
+    );
+  });
+});
+
+describe("folded strip", () => {
+  const html = reactionStrip({
+    l: levels(),
+    spot: 82_646,
+    regime: exposure(),
+    stats: STATS,
+    record: null,
+    live: "gamma-zones",
+    fold: true,
+  });
+
+  test("is one line that opens into the rest, the line and the body refreshed apart", () => {
+    expect(html.startsWith('<details class="cz cz-fold">')).toBe(true);
+    expect(html).toContain('<span class="cz-brief" data-live="gamma-zones-brief">');
+    expect(html).toContain("zone above 83,076 – 83,266, 0.39σ away");
+    expect(html).toContain("no zone below");
+    expect(html).toContain("dealers long gamma");
+    expect(html).toContain('<div class="cz-body" data-live="gamma-zones">');
+    // live.ts swaps [data-live] regions, never the <details> that holds them.
+    expect(html).not.toMatch(/<details[^>]*data-live/);
   });
 });

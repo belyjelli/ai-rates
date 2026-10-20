@@ -334,7 +334,14 @@ describe("the Ceiling & Floor tab", () => {
       '<span class="lq-ink-l">84,000</span> / <span class="lq-ink-s">81,500</span>',
     );
     expect(html).toContain("max pain 82,000");
-    expect(html).toContain('class="cvd-big lv-span lv-ink-on">dealer ceiling</p>');
+    // The zone the dealer ceiling makes with the IV wall, and the zones' record in place of a tile
+    // that named what lined up.
+    expect(html).toContain(
+      '<p class="cz-zone"><b>82,562 – 82,600</b> <span>IV wall + dealer break-even</span></p>',
+    );
+    expect(html).toContain(
+      '<p class="eyebrow">Zone record</p><p class="cvd-big dim">starts today</p>',
+    );
     expect(html).toContain("lv-be-t lv-on");
     expect(html).toContain("Dealer range by expiry");
     expect(html).toContain("$385k");

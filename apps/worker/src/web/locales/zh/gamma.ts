@@ -269,9 +269,6 @@ export const gamma: Catalog = {
   "Dealer ceiling / floor": "做市商天花板 / 地板",
   "where dealers who sold every option of that expiry break even; max pain {pain}":
     "卖出该到期日全部期权的做市商在此盈亏平衡；最大痛点 {pain}",
-  "Lined up with an IV wall": "与 IV 墙重合",
-  "within a quarter of the day's 1σ move ({band}) of an IV wall or a 90% wall":
-    "在 IV 墙或 90% 墙的当天 1σ 波动四分之一（{band}）以内",
   "max pain": "最大痛点",
   "{currency} · {source} options · ceiling and floor · expiring {expiry}":
     "{currency} · {source} 期权 · 天花板与地板 · {expiry} 到期",
@@ -303,8 +300,6 @@ export const gamma: Catalog = {
     "日与周切换会按最近到期日或本周到期日读取同样的水平：Deribit 的周五 08:00 UTC 周度期权，或美股期权簿本周最后一个到期日。一周的水平由本周首次读取固定，IV 墙覆盖到该到期日的时间，90% 墙在有历史的地方按过去的整周测得。",
   "the strikes holding the most call gamma above the spot and put gamma below it, in everything expiring by {expiry}":
     "在 {expiry} 前到期的全部期权中，现货价上方看涨 gamma 最多和下方看跌 gamma 最多的行权价",
-  "within a quarter of the week's 1σ move ({band}) of an IV wall or a 90% wall":
-    "在 IV 墙或 90% 墙的本周 1σ 波动四分之一（{band}）以内",
   "The week so far": "本周至今",
   "the spot now; this week's levels are fixed by its first read":
     "当前现货价；本周的水平由本周首次读取固定",
@@ -450,4 +445,37 @@ export const gamma: Catalog = {
   "between the IV walls": "IV 墙之间",
   "between the 90% walls": "90% 墙之间",
   "each line's mark is beside its name below": "每条线的样式标在下方名称旁",
+  "Each expiry's delta: calls above zero, puts below":
+    "各到期日的 delta：看涨在零轴上方，看跌在下方",
+  "Each expiry's theta a day, its calls and puts stacked down from the top":
+    "各到期日每天的 theta，看涨与看跌从顶部向下堆叠",
+  "Each expiry's vega, its calls and puts stacked": "各到期日的 vega，看涨与看跌堆叠",
+  "Its own zone record, {days} finished days since {since}: {zones} zones, price reached {reached} and closed back on the near side of {held}; its IV walls on those days were reached {wallReached} times and held {wallHeld}.":
+    "此标的自身的反应区记录，自 {since} 起 {days} 个已结束交易日：共 {zones} 个反应区，价格触及 {reached} 个，其中 {held} 个收回近侧；同期其 IV 墙被触及 {wallReached} 次，守住 {wallHeld} 次。",
+  "This book's zone record starts with today: each finished day adds whether price reached a zone and turned there.":
+    "此标的的反应区记录从今天开始：每个结束的交易日都会记下价格是否触及反应区并在那里回头。",
+  "Zone record": "反应区记录",
+  "dealers long gamma": "做市商为正 Gamma",
+  "dealers short gamma": "做市商为负 Gamma",
+  delta: "delta",
+  "delta {calls} / {puts}, net {net}": "delta {calls} / {puts}，净值 {net}",
+  "each finished day adds whether price reached a zone and closed back on its near side":
+    "每个结束的交易日都会记下价格是否触及反应区并收回其近侧",
+  "no zone above": "上方无反应区",
+  "no zone below": "下方无反应区",
+  "starts this week": "本周开始",
+  "starts today": "今天开始",
+  "the spot is in the zone {range}": "现货价在反应区 {range} 内",
+  theta: "theta",
+  "theta {calls} / {puts} a day, total {net}": "theta {calls} / {puts} 每天，合计 {net}",
+  "this book's days are not kept, so its zones have no record":
+    "此标的的交易日不做保存，因此其反应区没有记录",
+  vega: "vega",
+  "vega {calls} / {puts}, total {net}": "vega {calls} / {puts}，合计 {net}",
+  "zone above {range}, {sigmas} away": "上方反应区 {range}，距离 {sigmas}",
+  "zone below {range}, {sigmas} away": "下方反应区 {range}，距离 {sigmas}",
+  "zones reached and held over {days} finished days; the IV walls alone: {wallHeld} / {wallReached}":
+    "{days} 个已结束交易日中反应区被触及并守住；仅 IV 墙：{wallHeld} / {wallReached}",
+  "zones reached and held over {days} finished weeks; the IV walls alone: {wallHeld} / {wallReached}":
+    "{days} 个已结束的周中反应区被触及并守住；仅 IV 墙：{wallHeld} / {wallReached}",
 };

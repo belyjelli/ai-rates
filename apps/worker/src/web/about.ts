@@ -46,6 +46,9 @@ export const CHANGELOG: readonly Release[] = [
       "Gamma Exposure, Delta, Vega, Theta, IV Walls and Ceiling & Floor now open with the day's reaction zones: where an IV wall (1σ or the 90% wall) and a market maker's level (the gamma ceiling or floor, or the dealer break-even) fall within a quarter of the day's 1σ move of each other. The zones are shaded on each tab's chart and ladder.",
       "Above the chart, a rail lays every level around the spot on one price axis, and each side lists them nearest first with their distance in points and in the day's 1σ move, the options' own yardstick for every book. A line says the gamma regime: dealers long gamma sell rises and buy dips, which is what lets a wall hold; short gamma, their hedging chases price and walls give way more easily.",
       "A zone is a place to wait for a rejection, not a promise: the strip quotes the measured record (since 2021 a touch of BTC's 1σ wall closed back inside 53% of the time, of its 90% wall 61%) rather than nine in ten.",
+      "Each book now keeps a record of its own zones: on every finished day, whether price reached a zone and closed back on its near side, next to the same count for its plain IV walls, so the claim that a lined-up wall holds more often can be checked as the days add up. The Ceiling & Floor tab shows it as a tile in place of the one that named what lined up.",
+      "On Gamma Exposure, Delta, Vega and Theta the strip is now one line (the zone above, the zone below, the gamma regime) that opens into the full strip, so each tab's own chart comes first; IV Walls and Ceiling & Floor keep it in full.",
+      "Delta, Vega and Theta now have the By expiry chart Gamma Exposure has, opening on the tab's own Greek drawn as its strike chart draws it, with open interest and the ATM IV term structure a switch away; the expiry tables show each expiry's share as a plain percentage on all four tabs.",
     ],
   },
   {

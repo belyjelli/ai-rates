@@ -1,8 +1,9 @@
-import type { GammaData, GammaExposure, GammaWallStats } from "../app/data";
+import type { GammaData, GammaExposure, GammaWallStats, LevelsData } from "../app/data";
 import { esc, formatPrice } from "./format";
-import { level, signedPct, signedUsd, unitSymbol } from "./gamma";
+import { dayLabel, level, signedPct, signedUsd, unitSymbol } from "./gamma";
 import { tr } from "./i18n";
-import { type Levels, linedUp, todayLevels } from "./levels";
+import { icon } from "./icons";
+import { type DayRecord, finishedDays, type Levels, linedUp, outcome, todayLevels } from "./levels";
 
 /**
  * Reaction zones: where an IV wall and a market maker's level meet, shown above every option tab's
@@ -20,6 +21,14 @@ import { type Levels, linedUp, todayLevels } from "./levels";
  *
  * THE REGIME. Net gamma over every expiry: dealers long gamma sell rises and buy dips, which is what
  * makes a wall hold; short gamma, their hedging chases price and walls give way more easily.
+ *
+ * THE RECORD. The framework's real claim is that a lined-up wall holds more often than a wall alone, so
+ * the strip counts it on the book's own stored days (gamma_wall_days, from 2026-10-20): each finished
+ * day's zones, how often price reached one and closed back on its near side, against the same count for
+ * that day's plain IV walls. Thin for weeks; it is there so the claim can fail in plain sight.
+ *
+ * WHERE. In full on IV Walls and Ceiling & Floor, whose subject the levels are; folded to one line that
+ * opens into it on Gamma Exposure, Delta, Vega and Theta, whose charts come first.
  */
 
 export type ZoneKind = "iv" | "iv90" | "gamma" | "dealer";
@@ -37,8 +46,22 @@ export interface ReactionZone {
   marks: ZoneMark[];
 }
 
+/** What zones are read from: a day's (or week's) walls and market maker's levels. */
+export type ZoneLevels = Pick<
+  Levels,
+  | "move1"
+  | "upper1"
+  | "lower1"
+  | "upper90"
+  | "lower90"
+  | "gammaCeiling"
+  | "gammaFloor"
+  | "beCeiling"
+  | "beFloor"
+>;
+
 /** Every IV wall paired with every market maker's level on its side, those lined up merged into zones. */
-export function reactionZones(l: Levels): ReactionZone[] {
+export function reactionZones(l: ZoneLevels): ReactionZone[] {
   const out: ReactionZone[] = [];
   for (const side of [1, -1] as const) {
     const walls: ZoneMark[] = [];
@@ -77,18 +100,79 @@ export function reactionZones(l: Levels): ReactionZone[] {
   return out.sort((a, b) => b.to - a.to);
 }
 
+/** A book's gamma read as the levels tabs read a book: its stored days and its daily history. */
+const asLevelsData = (data: GammaData): LevelsData => ({
+  gamma: data,
+  days: data.wall?.days ?? [],
+  stats: data.wall?.stats ?? null,
+  weekStats: null,
+  weekStrikes: [],
+});
+
 /** The levels a book's gamma read gives for its day: the stored day's while it is current, else its own. */
 export function bookLevels(data: GammaData, now: number): Levels | null {
-  return todayLevels(
-    {
-      gamma: data,
-      days: data.wall?.day ? [data.wall.day] : [],
-      stats: data.wall?.stats ?? null,
-      weekStats: null,
-      weekStrikes: [],
-    },
-    now,
-  );
+  return todayLevels(asLevelsData(data), now);
+}
+
+/** The zones' record from a book's gamma read, or null for a book whose days are not kept. */
+export function bookRecord(data: GammaData, today: Levels | null): ZoneRecord | null {
+  if (today?.basis !== "day") return null;
+  return zoneRecord(finishedDays(asLevelsData(data), today), "day");
+}
+
+/** How the zones did on a book's finished days (or weeks), against its plain IV walls on the same ones. */
+export interface ZoneRecord {
+  period: "day" | "week";
+  /** Finished days (or weeks) counted, and the first of them. */
+  days: number;
+  since: string | null;
+  zones: number;
+  /** Zones price reached, and of those, how many it closed back on the near side of. */
+  reached: number;
+  held: number;
+  /** The same for the 1σ IV walls on those days, each side counted. */
+  wallReached: number;
+  wallHeld: number;
+}
+
+/** Tallies `records` (finishedDays or finishedWeeks, newest first): every zone each held, and its walls. */
+export function zoneRecord(records: readonly DayRecord[], period: "day" | "week"): ZoneRecord {
+  const out: ZoneRecord = {
+    period,
+    days: records.length,
+    since: records.at(-1)?.day ?? null,
+    zones: 0,
+    reached: 0,
+    held: 0,
+    wallReached: 0,
+    wallHeld: 0,
+  };
+  for (const d of records) {
+    const r = d.row;
+    const zones = reactionZones({
+      ...d.w,
+      gammaCeiling: r.gamma_ceiling,
+      gammaFloor: r.gamma_floor,
+      beCeiling: r.be_ceiling,
+      beFloor: r.be_floor,
+    });
+    for (const z of zones) {
+      out.zones++;
+      // Reached at its near edge; held when the day closed back on the near side of it.
+      const o = outcome(z.side, z.side === 1 ? z.from : z.to, r.day_high, r.day_low, r.last_price);
+      if (o === "held" || o === "broke") out.reached++;
+      if (o === "held") out.held++;
+    }
+    for (const [side, wall] of [
+      [1, d.w.upper1],
+      [-1, d.w.lower1],
+    ] as const) {
+      const o = outcome(side, wall, r.day_high, r.day_low, r.last_price);
+      if (o === "held" || o === "broke") out.wallReached++;
+      if (o === "held") out.wallHeld++;
+    }
+  }
+  return out;
 }
 
 /** The exposure the regime is read from: every expiry's, else the one shown. */
@@ -273,13 +357,34 @@ function regimeLine(e: GammaExposure, spot: number, move1: number): string {
   return `<p class="cz-regime ${e.net_gex_usd >= 0 ? "cz-long" : "cz-short"}">${words}${flip}</p>`;
 }
 
+/** The book's own zone record over its finished days in a sentence, or that it starts today. */
+function recordText(r: ZoneRecord): string {
+  if (r.days === 0 || r.since === null) {
+    return tr(
+      "This book's zone record starts with today: each finished day adds whether price reached a zone and turned there.",
+    );
+  }
+  return tr(
+    "Its own zone record, {days} finished days since {since}: {zones} zones, price reached {reached} and closed back on the near side of {held}; its IV walls on those days were reached {wallReached} times and held {wallHeld}.",
+    {
+      days: r.days,
+      since: dayLabel(new Date(`${r.since}T00:00:00Z`)),
+      zones: r.zones,
+      reached: r.reached,
+      held: r.held,
+      wallReached: r.wallReached,
+      wallHeld: r.wallHeld,
+    },
+  );
+}
+
 /** What the record says, in place of the framework's 90%. */
-function oddsLine(stats: GammaWallStats | null | undefined): string {
+function oddsLine(stats: GammaWallStats | null | undefined, record: ZoneRecord | null): string {
   const pct = (n: number | null, of: number | null) =>
     n !== null && of !== null && of > 0 ? `${Math.round((100 * n) / of)}%` : null;
   const rev1 = pct(stats?.rev1 ?? null, stats?.touch1 ?? null);
   const rev90 = pct(stats?.rev90 ?? null, stats?.touch90 ?? null);
-  const record =
+  const history =
     stats && rev1 && rev90
       ? `${tr(
           "Since {year}, a touch of this book's 1σ wall closed back inside {rev1} of {touch1} times, of its 90% wall {rev90} of {touch90}: better than a coin toss, not nine in ten.",
@@ -292,33 +397,75 @@ function oddsLine(stats: GammaWallStats | null | undefined): string {
           },
         )} `
       : "";
-  return `<p class="notes dim cz-odds">${record}${tr(
+  return `<p class="notes dim cz-odds">${history}${tr(
     "A zone is where an IV wall and a market maker's level fall within a quarter of the day's 1σ move of each other: a place to wait for a rejection, not a trade on its own, and least reliable when dealers are short gamma.",
-  )}</p>`;
+  )}</p>${record ? `<p class="notes cz-record" data-zone-record>${recordText(record)}</p>` : ""}`;
+}
+
+/** The folded strip's one line: the zone each side, or none, and the regime. */
+function brief(
+  zones: readonly ReactionZone[],
+  spot: number,
+  move1: number,
+  regime: GammaExposure | null,
+) {
+  const side = (s: 1 | -1) => {
+    const zone = zones
+      .filter((z) => z.side === s)
+      .sort((a, b) => Math.abs(a.from - spot) - Math.abs(b.from - spot))[0];
+    if (!zone)
+      return `<span class="dim">${s === 1 ? tr("no zone above") : tr("no zone below")}</span>`;
+    const range = `${price(zone.from)} – ${price(zone.to)}`;
+    if (spot >= zone.from && spot <= zone.to)
+      return `<b class="cz-hot-ink">${tr("the spot is in the zone {range}", { range })}</b>`;
+    const gap = (s === 1 ? zone.from : zone.to) - spot;
+    return `<b class="cz-hot-ink">${
+      s === 1
+        ? tr("zone above {range}, {sigmas} away", { range, sigmas: sigmas(gap, move1) })
+        : tr("zone below {range}, {sigmas} away", { range, sigmas: sigmas(gap, move1) })
+    }</b>`;
+  };
+  const mode = regime
+    ? `<span class="${regime.net_gex_usd >= 0 ? "lq-ink-l" : "lq-ink-s"}">${regime.net_gex_usd >= 0 ? tr("dealers long gamma") : tr("dealers short gamma")}</span>`
+    : "";
+  return [side(1), side(-1), mode].filter(Boolean).join(" · ");
 }
 
 /**
- * The strip: the regime, the rail and the two sides. `l` is the day's levels (or the week's), `spot`
- * the price now, `regime` the exposure the regime is read from.
+ * The strip: the regime, the rail, the two sides and the record. `l` is the day's levels (or the
+ * week's), `spot` the price now, `regime` the exposure the regime is read from, `record` the zones' own
+ * record (null where the book's days are not kept). `fold` draws it as one line that opens into the
+ * rest; live.ts refreshes the line and the body, never the <details>, so an open strip stays open.
  */
 export function reactionStrip(input: {
   l: Levels | null;
   spot: number;
   regime: GammaExposure | null;
   stats: GammaWallStats | null | undefined;
+  record: ZoneRecord | null;
   live: string;
+  fold?: boolean;
 }): string {
   const { l, spot, regime } = input;
   if (l === null || l.move1 === null || !(l.move1 > 0) || !(spot > 0)) return "";
   const zones = reactionZones(l);
   const list = rows(l, zones, regime?.flip_price ?? null);
   const unit = l.period === "week" ? tr("the week's 1σ move") : tr("the day's 1σ move");
-  return `<div class="cz" role="group" data-live="${esc(input.live)}" aria-label="${esc(tr("Reaction zones"))}">
-<div class="cz-head"><h3 class="cz-title">${tr("Reaction zones")}</h3><p class="dim">${tr("σ is {unit}, {move}", { unit, move: price(l.move1) })}</p></div>
-${regime ? regimeLine(regime, spot, l.move1) : ""}
+  const scale = `<p class="dim">${tr("σ is {unit}, {move}", { unit, move: price(l.move1) })}</p>`;
+  const body = `${regime ? regimeLine(regime, spot, l.move1) : ""}
 ${rail(l, spot, zones, list)}
 <div class="cz-sides">${sideCard({ side: 1, spot, move1: l.move1, zones, rows: list })}${sideCard({ side: -1, spot, move1: l.move1, zones, rows: list })}</div>
-${oddsLine(input.stats)}
+${oddsLine(input.stats, input.record)}`;
+  if (input.fold) {
+    return `<details class="cz cz-fold">
+<summary class="cz-sum"><span class="cz-title">${tr("Reaction zones")}</span><span class="cz-brief" data-live="${esc(input.live)}-brief">${brief(zones, spot, l.move1, regime)}</span><span class="cz-open">${icon("caret")}</span></summary>
+<div class="cz-body" data-live="${esc(input.live)}">${scale}
+${body}</div>
+</details>`;
+  }
+  return `<div class="cz" role="group" data-live="${esc(input.live)}" aria-label="${esc(tr("Reaction zones"))}">
+<div class="cz-head"><h3 class="cz-title">${tr("Reaction zones")}</h3>${scale}</div>
+${body}
 </div>`;
 }
 

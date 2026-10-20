@@ -18,6 +18,7 @@ import {
 import { CHART_SKELETON_JS, lazyPlaceholder } from "./chart-skeleton";
 import {
   bookLevels,
+  bookRecord,
   type ReactionZone,
   reactionStrip,
   reactionZones,
@@ -694,25 +695,49 @@ export function leftText(expiry: Date, now: number): string {
 }
 
 /**
- * The by-expiry chart's three readings, switched beside its title (GXX_SCRIPT): open interest, each
- * expiry's calls above zero and puts below at their value at the spot, the view it opens on; gamma
- * exposure the same way; and the ATM IV of each expiry as a line, the term structure. One axis at a
- * time, all three in the markup, CSS showing one, so a switch costs no request and survives a refresh.
+ * The by-expiry chart's three readings, switched beside its title (GXX_SCRIPT): the tab's own Greek,
+ * the view it opens on, drawn as the tab's strike chart draws it (gamma and delta with calls above zero
+ * and puts below, vega stacked up from the floor, theta down from the top); open interest, each
+ * expiry's calls above zero and puts below at their value at the spot; and the ATM IV of each expiry as
+ * a line, the term structure. One axis at a time, all three in the markup, CSS showing one, so a switch
+ * costs no request and survives a refresh. The choice is one for every option tab: "greek" is whichever
+ * Greek the tab is about, so the four tabs' charts read alike.
  */
-const EXPIRY_VIEWS = ["oi", "gamma", "iv"] as const;
+const EXPIRY_VIEWS = ["greek", "oi", "iv"] as const;
 
-function expiryViewSwitch(): string {
+/** What the chart's Greek view draws: a side's figure per expiry, its shape and its words. */
+export interface ExpiryMeasure {
+  call: (x: GammaExpiry) => number;
+  put: (x: GammaExpiry) => number;
+  /** "split": calls above zero, puts below; "up": stacked from the floor; "down": from the top. */
+  shape: "split" | "up" | "down";
+  /** The switch's button and its title. */
+  label: string;
+  title: string;
+  /** The readout's line for an expiry's figures ("gamma {calls} / {puts}, net {net}"), over the default. */
+  readout?: string;
+}
+
+const GAMMA_MEASURE = (): ExpiryMeasure => ({
+  call: (x) => x.call_gex_usd,
+  put: (x) => x.put_gex_usd,
+  shape: "split",
+  label: tr("gamma"),
+  title: tr("Each expiry's gamma exposure: calls above zero, puts below"),
+});
+
+function expiryViewSwitch(measure: ExpiryMeasure): string {
   const words: Record<(typeof EXPIRY_VIEWS)[number], [string, string]> = {
+    greek: [measure.label, measure.title],
     oi: [
       tr("open interest"),
       tr("Each expiry's calls above zero and its puts below, at their value at the spot"),
     ],
-    gamma: [tr("gamma"), tr("Each expiry's gamma exposure: calls above zero, puts below")],
     iv: [tr("ATM IV"), tr("Each expiry's at-the-money implied volatility: the term structure")],
   };
   const buttons = EXPIRY_VIEWS.map(
     (view) =>
-      `<button type="button" class="gxx-view" data-gxx-view="${view}" aria-pressed="${view === "oi"}" title="${esc(words[view][1])}">${words[view][0]}</button>`,
+      `<button type="button" class="gxx-view" data-gxx-view="${view}" aria-pressed="${view === "greek"}" title="${esc(words[view][1])}">${words[view][0]}</button>`,
   ).join("");
   return `<div class="slot-modes gxx-views" role="group" aria-label="${esc(tr("View"))}" hidden><span>${tr("show")}</span>${buttons}</div>`;
 }
@@ -743,17 +768,22 @@ export function expiryTicks(count: number): number[] {
 }
 
 /**
- * The By expiry chart, over the table: one bar per expiry in date order, so a daily expiry and a
- * yearly one each get a readable bar and the gaps are not to scale (the note says so). Expiries
- * outside the chosen range are dimmed, as in the table. Hover or tap reads an expiry in full.
+ * The By expiry chart, over each option tab's table: one bar per expiry in date order, so a daily
+ * expiry and a yearly one each get a readable bar and the gaps are not to scale (the note says so).
+ * Expiries outside the chosen range are dimmed, as in the table. Hover or tap reads an expiry in full.
+ * `measure` is the tab's Greek, gamma's by default; `live` names the figure for live.ts.
  */
-function expiryChart(data: {
-  currency: string;
-  exposure: GammaExposure;
-  expiries: readonly GammaExpiry[];
-  scope: GammaScope;
-  now: number;
-}): string {
+export function expiryChart(
+  data: {
+    currency: string;
+    exposure: GammaExposure;
+    expiries: readonly GammaExpiry[];
+    scope: GammaScope;
+    now: number;
+  },
+  measure: ExpiryMeasure = GAMMA_MEASURE(),
+  live = "gamma-expiry-chart",
+): string {
   const { currency, exposure, expiries, scope, now } = data;
   const n = expiries.length;
   if (n === 0) return "";
@@ -781,10 +811,23 @@ function expiryChart(data: {
     (x) => x.call_oi * spot,
     (x) => x.put_oi * spot,
   );
-  const gamma = split(
-    (x) => x.call_gex_usd,
-    (x) => x.put_gex_usd,
-  );
+  // Stacked bars for a Greek of one sign: calls nearest the baseline, puts on top of them.
+  const stack = (down: boolean) => {
+    const size = (x: GammaExpiry) => Math.abs(measure.call(x)) + Math.abs(measure.put(x));
+    const peak = Math.max(1, ...expiries.map(size));
+    const bars = expiries
+      .map((x, i) => {
+        const c = (Math.abs(measure.call(x)) / peak) * 1000;
+        const p = (Math.abs(measure.put(x)) / peak) * 1000;
+        const cy = down ? 0 : 1000 - c;
+        const py = down ? c : 1000 - c - p;
+        return `${c > 0 ? `<rect class="gx-call${dim(x)}" x="${left(i)}" y="${cy.toFixed(1)}" width="${width.toFixed(2)}" height="${c.toFixed(1)}"></rect>` : ""}${p > 0 ? `<rect class="gx-put${dim(x)}" x="${left(i)}" y="${py.toFixed(1)}" width="${width.toFixed(2)}" height="${p.toFixed(1)}"></rect>` : ""}`;
+      })
+      .join("");
+    return { peak, bars };
+  };
+  const greek =
+    measure.shape === "split" ? split(measure.call, measure.put) : stack(measure.shape === "down");
   // The term structure: a line through each expiry's ATM IV, broken where one has none, on a scale of
   // four round steps (ivScale) that holds them all.
   const ivs = expiries.map((x) => x.atm_iv);
@@ -820,9 +863,17 @@ function expiryChart(data: {
       )
       .join("");
   // Open interest has no sign: both halves read as amounts, calls above and puts below.
+  const greekLabel = (f: number) =>
+    measure.shape === "split"
+      ? f === 0.5
+        ? `${sym}0`
+        : signedUsd(greek.peak * (1 - 2 * f), sym)
+      : measure.shape === "up"
+        ? formatUsd(greek.peak * (1 - f), sym)
+        : signedUsd(-greek.peak * f, sym);
   const labels =
     yLabels("oi", (f) => (f === 0.5 ? `${sym}0` : formatUsd(oi.peak * Math.abs(1 - 2 * f), sym))) +
-    yLabels("gamma", (f) => (f === 0.5 ? `${sym}0` : signedUsd(gamma.peak * (1 - 2 * f), sym))) +
+    yLabels("greek", greekLabel) +
     (known.length
       ? yLabels("iv", (f) => `${((hi - f * 4 * quarter) * 100).toFixed(quarter < 0.01 ? 1 : 0)}%`)
       : "");
@@ -844,8 +895,8 @@ function expiryChart(data: {
       x.options,
       x.call_oi,
       x.put_oi,
-      Math.round(x.call_gex_usd),
-      Math.round(x.put_gex_usd),
+      Math.round(measure.call(x)),
+      Math.round(measure.put(x)),
       x.atm_iv,
       // Modeled prices to the precision they mean, as the tab writes them elsewhere.
       x.max_pain === null ? null : level(x.max_pain),
@@ -868,13 +919,13 @@ function expiryChart(data: {
     currency: esc(currency),
     source: esc(publisher(exposure.source).name),
   });
-  return `<figure class="fchart cvd-chart gxx-chart" data-live="gamma-expiry-chart">
-<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span class="gxx-v gxx-v-oi gxx-v-gamma"><i class="gx-key-call"></i>${tr("Calls")}</span><span class="gxx-v gxx-v-oi gxx-v-gamma"><i class="gx-key-put"></i>${tr("Puts")}</span><span class="gxx-v gxx-v-iv"><i class="gxx-key-iv"></i>${tr("ATM IV")}</span>${expiryViewSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle}</p></div>
+  return `<figure class="fchart cvd-chart gxx-chart" data-live="${esc(live)}">
+<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span class="gxx-v gxx-v-oi gxx-v-greek"><i class="gx-key-call"></i>${tr("Calls")}</span><span class="gxx-v gxx-v-oi gxx-v-greek"><i class="gx-key-put"></i>${tr("Puts")}</span><span class="gxx-v gxx-v-iv"><i class="gxx-key-iv"></i>${tr("ATM IV")}</span>${expiryViewSwitch(measure)}</div><p class="fchart-read slot-read" aria-live="polite">${idle}</p></div>
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{currency} expiries; arrow keys read one at a time", { currency: esc(currency) }))}">
-<div class="fchart-plot gxx-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(title)}">${grid}${SLOT_BAND}<line class="cvd-zero gxx-v gxx-v-oi gxx-v-gamma" x1="0" x2="1000" y1="500" y2="500"></line><g class="gxx-v gxx-v-oi">${oi.bars}</g><g class="gxx-v gxx-v-gamma">${gamma.bars}</g><g class="gxx-v gxx-v-iv">${line}${dots.join("")}</g>${SLOT_CURSOR}</svg>${labels}${xLabels}</div>
+<div class="fchart-plot gxx-plot"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(title)}">${grid}${SLOT_BAND}<line class="cvd-zero gxx-v gxx-v-oi${measure.shape === "split" ? " gxx-v-greek" : ""}" x1="0" x2="1000" y1="500" y2="500"></line><g class="gxx-v gxx-v-oi">${oi.bars}</g><g class="gxx-v gxx-v-greek">${greek.bars}</g><g class="gxx-v gxx-v-iv">${line}${dots.join("")}</g>${SLOT_CURSOR}</svg>${labels}${xLabels}</div>
 </div>
 <p class="fchart-note dim">${tr("One bar per expiry in date order, so the gaps between them are not to scale; expiries outside the chosen range are dimmed.")}</p>
-${slotData(payload)}
+${slotData(payload, measure.readout ? { xpGamma: measure.readout } : {})}
 </figure>`;
 }
 
@@ -1197,7 +1248,9 @@ ${helpPanel(
     spot: exposure.spot,
     regime: regimeExposure(data),
     stats: data.wall?.stats,
+    record: bookRecord(data, today),
     live: "gamma-zones",
+    fold: true,
   });
   const moves = expectedMoves({
     expiries: data.expiries,
@@ -1295,8 +1348,9 @@ export const GXX_VIEW_SCRIPT = `(() => {
   if (window.airratesExpiryView) return;
   window.airratesExpiryView = true;
   const views = ${JSON.stringify(EXPIRY_VIEWS)};
-  let view = "oi";
-  try { const kept = localStorage.getItem("gamma-expiry-view"); if (views.includes(kept)) view = kept; } catch (_) {}
+  // Each tab opens on its own Greek; "gamma", kept before the Greek tabs shared the chart, is that view.
+  let view = "greek";
+  try { let kept = localStorage.getItem("gamma-expiry-view"); if (kept === "gamma") kept = "greek"; if (views.includes(kept)) view = kept; } catch (_) {}
   const sync = () => {
     document.documentElement.dataset.gxx = view;
     for (const group of document.querySelectorAll(".gxx-views")) {

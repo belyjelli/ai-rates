@@ -13,7 +13,13 @@ import {
   type LevelBasis,
 } from "../app/params";
 import { lazyPlaceholder } from "./chart-skeleton";
-import { reactionStrip, reactionZones, regimeExposure } from "./confluence";
+import {
+  reactionStrip,
+  reactionZones,
+  regimeExposure,
+  type ZoneRecord,
+  zoneRecord,
+} from "./confluence";
 import { horizonIv, termStructure, YEAR_MS } from "./expected-move";
 import { esc, formatPrice, formatUsd } from "./format";
 import {
@@ -1017,7 +1023,7 @@ ${levelTable(
             .join("")}</tbody></table></div>`;
   return `${head}
 ${tiles}
-${reactionStrip({ l, spot: e.spot, regime: regimeExposure(data.gamma), stats: data.stats, live: "ivwalls-zones" })}
+${reactionStrip({ l, spot: e.spot, regime: regimeExposure(data.gamma), stats: data.stats, record: l.basis === "day" ? zoneRecord(finishedDays(data, l), "day") : null, live: "ivwalls-zones" })}
 ${figure}
 ${chart}
 <h2 class="cvd-h2 wm-h2">${tr("How price has behaved at the walls")}</h2>
@@ -1071,17 +1077,18 @@ export function levelsPanel(view: PanelView): string {
     beCeiling: linedUp(l.beCeiling, l.upper1, l.move1) || linedUp(l.beCeiling, l.upper90, l.move1),
     beFloor: linedUp(l.beFloor, l.lower1, l.move1) || linedUp(l.beFloor, l.lower90, l.move1),
   };
-  const alignedNames = [
-    align.gammaCeiling ? tr("gamma ceiling") : "",
-    align.beCeiling ? tr("dealer ceiling") : "",
-    align.gammaFloor ? tr("gamma floor") : "",
-    align.beFloor ? tr("dealer floor") : "",
-  ].filter(Boolean);
+  // The zones' own record, in place of the tile that named what lined up (the strip names the zones now).
+  const zoneTally: ZoneRecord | null =
+    data.days.length === 0
+      ? null
+      : week
+        ? zoneRecord(finishedWeeks(data, l), "week")
+        : zoneRecord(finishedDays(data, l), "day");
   const expiry = l.expiry ? `${dayLabel(l.expiry)} (${leftText(l.expiry, view.now)})` : "–";
   const tiles = `<div class="cvd-tiles" data-live="levels-tiles">
 <div class="cvd-tile"><p class="eyebrow">${tr("Gamma ceiling / floor")}</p><p class="cvd-big lv-span"><span class="lq-ink-l">${price(l.gammaCeiling)}</span> / <span class="lq-ink-s">${price(l.gammaFloor)}</span></p><p class="dim">${week ? tr("the strikes holding the most call gamma above the spot and put gamma below it, in everything expiring by {expiry}", { expiry }) : tr("the strikes holding the most call gamma above the spot and put gamma below it, expiring {expiry}", { expiry })}</p></div>
 <div class="cvd-tile"><p class="eyebrow">${tr("Dealer ceiling / floor")}</p><p class="cvd-big lv-span lv-ink-be">${price(l.beCeiling)} / ${price(l.beFloor)}</p><p class="dim">${tr("where dealers who sold every option of that expiry break even; max pain {pain}", { pain: price(l.maxPain) })}</p></div>
-<div class="cvd-tile"><p class="eyebrow">${tr("Lined up with an IV wall")}</p><p class="cvd-big lv-span${alignedNames.length ? " lv-ink-on" : " dim"}">${alignedNames.length ? alignedNames.join(", ") : tr("none")}</p><p class="dim">${week ? tr("within a quarter of the week's 1σ move ({band}) of an IV wall or a 90% wall", { band: price(l.move1 === null ? null : l.move1 * ALIGN_SHARE) }) : tr("within a quarter of the day's 1σ move ({band}) of an IV wall or a 90% wall", { band: price(l.move1 === null ? null : l.move1 * ALIGN_SHARE) })}</p></div>
+<div class="cvd-tile" data-zone-record><p class="eyebrow">${tr("Zone record")}</p>${recordTile(zoneTally)}</div>
 <div class="cvd-tile"><p class="eyebrow">${week ? tr("The week so far") : l.basis === "day" ? tr("The day so far") : tr("Reference")}</p><p class="cvd-big">${price(l.last ?? l.ref)}</p><p class="dim">${
     l.high !== null && l.low !== null
       ? tr("high {high} · low {low}", { high: price(l.high), low: price(l.low) })
@@ -1248,13 +1255,35 @@ ${levelTable(
           }</p>`;
   return `${head}
 ${tiles}
-${reactionStrip({ l, spot: e.spot, regime: regimeExposure(data.gamma), stats: week ? data.weekStats : data.stats, live: "levels-zones" })}
+${reactionStrip({ l, spot: e.spot, regime: regimeExposure(data.gamma), stats: week ? data.weekStats : data.stats, record: null, live: "levels-zones" })}
 ${figure}
 ${chart}
 ${table}
 <h2 class="cvd-h2 wm-h2">${tr("How price has behaved at these levels")}</h2>
 ${record}
 <p class="notes dim">${tr("Prices in {unit}. {source} options, read {ago}.", { unit: esc(e.unit), source: esc(publisher(e.source).name), ago: agoText(e.computed_at, view.now) })}</p>`;
+}
+
+/** The Ceiling & Floor tab's record tile: how often the zones held, against the IV walls alone. */
+function recordTile(r: ZoneRecord | null): string {
+  if (r === null) {
+    return `<p class="cvd-big dim">–</p><p class="dim">${tr("this book's days are not kept, so its zones have no record")}</p>`;
+  }
+  if (r.days === 0) {
+    return `<p class="cvd-big dim">${r.period === "week" ? tr("starts this week") : tr("starts today")}</p><p class="dim">${tr("each finished day adds whether price reached a zone and closed back on its near side")}</p>`;
+  }
+  const words = { days: r.days, wallHeld: r.wallHeld, wallReached: r.wallReached };
+  return `<p class="cvd-big lv-span"><span class="lv-ink-on">${r.held}</span> / ${r.reached}</p><p class="dim">${
+    r.period === "week"
+      ? tr(
+          "zones reached and held over {days} finished weeks; the IV walls alone: {wallHeld} / {wallReached}",
+          words,
+        )
+      : tr(
+          "zones reached and held over {days} finished days; the IV walls alone: {wallHeld} / {wallReached}",
+          words,
+        )
+  }</p>`;
 }
 
 /** The tab's own address and placeholder, as the Gamma Exposure tab's. */

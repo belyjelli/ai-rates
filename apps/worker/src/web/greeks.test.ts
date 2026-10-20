@@ -112,7 +112,8 @@ describe("greek tabs", () => {
 
   test("delta draws calls above the middle and puts below it, and reads its net", () => {
     const html = render("delta");
-    const drawn = bars(html);
+    // The strike chart's bars; the By expiry chart under it draws its own.
+    const drawn = bars(html.slice(0, html.indexOf('class="fchart cvd-chart gxx-chart"')));
     // The tallest side is the spot's calls: half of 4B against at most half of 1.5B.
     const calls = drawn.filter(([cls]) => cls === "gx-call");
     const puts = drawn.filter(([cls]) => cls === "gx-put");
@@ -183,5 +184,17 @@ describe("greek tabs", () => {
       greekFragment("delta", { data: data(), params: BTC_ALL, heatmap: HEATMAP, now: NOW }),
     );
     expect(html.startsWith(`<div class="lazy-body" data-rendered="${NOW}">`)).toBe(true);
+  });
+
+  test("each Greek tab has the shared By expiry chart, opening on its own Greek", () => {
+    for (const greek of ["delta", "vega", "theta"] as const) {
+      const html = render(greek);
+      expect(html).toContain(`data-live="${greek}-expiry-chart"`);
+      expect(html).toContain(`data-gxx-view="greek" aria-pressed="true"`);
+      expect(html).toContain(`>${greek}</button>`);
+      expect(html).not.toContain("gk-share");
+    }
+    // The readout names the tab's Greek in place of gamma.
+    expect(render("vega")).toContain('"xpGamma":"vega {calls} / {puts}, total {net}"');
   });
 });
