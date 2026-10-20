@@ -40,7 +40,7 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
-    date: "2026-10-21",
+    date: "2026-10-20",
     title: "Reaction zones on every option tab",
     changes: [
       "Gamma Exposure, Delta, Vega, Theta, IV Walls and Ceiling & Floor now open with the day's reaction zones: where an IV wall (1σ or the 90% wall) and a market maker's level (the gamma ceiling or floor, or the dealer break-even) fall within a quarter of the day's 1σ move of each other. The zones are shaded on each tab's chart and ladder.",
@@ -49,7 +49,7 @@ export const CHANGELOG: readonly Release[] = [
     ],
   },
   {
-    date: "2026-10-21",
+    date: "2026-10-20",
     title: "Delta, Vega and Theta tabs, and a By expiry chart on Gamma Exposure",
     changes: [
       "Three new Rates tabs after Gamma Exposure, for every option book the site reads: Delta, Vega and Theta, by strike and by expiry, with the same book picker and expiry ranges. They are Black-76 on each option's own open interest, implied volatility and forward, and reproduce Deribit's own greeks to within 0.03%.",
