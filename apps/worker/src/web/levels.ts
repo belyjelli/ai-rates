@@ -486,7 +486,7 @@ export function ivWallsPanel(view: PanelView): string {
           sigma: `${((l.sigma90 ?? 0) * 100).toFixed(1)}%`,
         });
   const tiles = `<div class="cvd-tiles" data-live="ivwalls-tiles">
-<div class="cvd-tile"><p class="eyebrow">${tr("IV wall, 1σ")}</p><p class="cvd-big lv-span lv-ink-iv">${price(l.lower1)} – ${price(l.upper1)}</p><p class="dim">${tr("±{move} (±{pct}) from IV {iv} a day ahead", { move: price(l.move1), pct: `${((l.move1 / l.ref) * 100).toFixed(2)}%`, iv: `${((l.iv ?? 0) * 100).toFixed(1)}%` })}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("IV wall")}</p><p class="cvd-big lv-span lv-ink-iv">${price(l.lower1)} – ${price(l.upper1)}</p><p class="dim">${tr("±{move} (±{pct}) from IV {iv} a day ahead", { move: price(l.move1), pct: `${((l.move1 / l.ref) * 100).toFixed(2)}%`, iv: `${((l.iv ?? 0) * 100).toFixed(1)}%` })}</p></div>
 <div class="cvd-tile"><p class="eyebrow">${tr("90% wall")}</p><p class="cvd-big lv-span lv-ink-90">${price(l.lower90)} – ${price(l.upper90)}</p><p class="dim">${ninety}</p></div>
 <div class="cvd-tile"><p class="eyebrow">${l.basis === "day" ? tr("The day so far") : tr("Reference")}</p><p class="cvd-big">${l.basis === "day" && l.last !== null ? price(l.last) : price(l.ref)}</p><p class="dim">${
     l.basis === "day"
