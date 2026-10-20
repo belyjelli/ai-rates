@@ -7,6 +7,14 @@ import {
   heatmapToQuery,
 } from "../app/params";
 import { lazyPlaceholder } from "./chart-skeleton";
+import {
+  bookLevels,
+  type ReactionZone,
+  reactionStrip,
+  reactionZones,
+  regimeExposure,
+  zoneShades,
+} from "./confluence";
 import { esc, formatPrice, formatUsd } from "./format";
 import {
   agoText,
@@ -125,6 +133,8 @@ function greekChart(
     exposure: GammaExposure;
     strikes: readonly GammaStrike[];
     scopeName: string;
+    /** The day's reaction zones (confluence.ts), shaded where they fall. */
+    zones: readonly ReactionZone[];
   },
 ): string {
   const { currency, exposure, strikes, scopeName } = data;
@@ -134,6 +144,7 @@ function greekChart(
   const b = bandStrikes(strikes, spot, sides(greek));
   const span = b.count * b.step;
   const x = (price: number) => ((price - b.low) / span) * 1000;
+  const hot = zoneShades(data.zones, x, b.low, b.low + span);
   const slot = 1000 / b.count;
   const width = slot * 0.78;
   const totals = b.calls.map((call, i) => call + (b.puts[i] ?? 0));
@@ -244,9 +255,9 @@ function greekChart(
   // A Greek with one sign reads its band's total where the Gamma chart reads a net.
   const words = greek === "delta" ? {} : { gexNet: tr("total {usd}") };
   return `<figure class="fchart cvd-chart gk-chart gk-${greek}" data-gx-chart data-live="greek-chart" data-cursors>
-<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="gx-key-call"></i>${tr("Calls")}</span><span><i class="gx-key-put"></i>${tr("Puts")}</span><span><i class="gx-key-spot"></i>${tr("Spot")}</span>${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idleText(greek, total, formatPrice(spot))}</p></div>
+<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="gx-key-call"></i>${tr("Calls")}</span><span><i class="gx-key-put"></i>${tr("Puts")}</span><span><i class="gx-key-spot"></i>${tr("Spot")}</span>${hot ? `<span><i class="gx-key-cz"></i>${tr("reaction zone, today")}</span>` : ""}${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idleText(greek, total, formatPrice(spot))}</p></div>
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{currency} strike bands; arrow keys read one at a time", { currency: esc(currency) }))}">
-<div class="fchart-plot gx-plot" data-axes="${axes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(title)}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><g class="gk-bars${shape === "split" ? "" : " gk-stack"}">${bars}</g>${spotLine}${SLOT_CURSOR}${SLOT_HAIR}</svg>${leftLabels}${xLabels}</div>
+<div class="fchart-plot gx-plot" data-axes="${axes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(title)}">${hot}${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><g class="gk-bars${shape === "split" ? "" : " gk-stack"}">${bars}</g>${spotLine}${SLOT_CURSOR}${SLOT_HAIR}</svg>${leftLabels}${xLabels}</div>
 </div>
 ${beyond}
 ${slotData(payload, words)}
@@ -499,10 +510,25 @@ ${helpPanel(`rates-${greek}`, help(greek))}`;
       : pub.cadence === "live"
         ? `<p class="notes gx-stale">${tr("Not updated since {ago}: the latest read of {source} failed, so these figures are that old.", { ago: agoText(exposure.computed_at, now), source: esc(pub.name) })}</p>`
         : `<p class="notes gx-stale">${tr("Not updated since {ago}: nothing newer has been read from {source}, a holiday or a failed read, so these figures are that old.", { ago: agoText(exposure.computed_at, now), source: esc(pub.name) })}</p>`;
+  // The day's reaction zones, as on the Gamma Exposure tab: the same levels whichever Greek is shown.
+  const today = bookLevels(data, now);
+  const strip = reactionStrip({
+    l: today,
+    spot: exposure.spot,
+    regime: regimeExposure(data),
+    stats: data.wall?.stats,
+    live: "greek-zones",
+  });
   const chart =
     data.strikes.length === 0
       ? `<p class="empty">${tr("No strike has open interest in this range.")}</p>`
-      : greekChart(greek, { currency: data.currency, exposure, strikes: data.strikes, scopeName });
+      : greekChart(greek, {
+          currency: data.currency,
+          exposure,
+          strikes: data.strikes,
+          scopeName,
+          zones: today ? reactionZones(today) : [],
+        });
   const asOf =
     pub.cadence === "live"
       ? tr("read {ago}", { ago: agoText(exposure.computed_at, now) })
@@ -511,6 +537,7 @@ ${helpPanel(`rates-${greek}`, help(greek))}`;
         : tr("from the end-of-day file for {date}", { date: dayLabel(exposure.computed_at) });
   return `${controls}
 ${stale}${tiles(greek, { currency: data.currency, exposure, expiries: data.expiries, now })}
+${strip}
 ${chart}
 <p class="notes">${notes(greek, { source: esc(pub.name), asof: `<span data-live="greek-asof">${asOf}</span>` })}</p>
 ${expiryTable(greek, { exposure, expiries: data.expiries, now })}`;

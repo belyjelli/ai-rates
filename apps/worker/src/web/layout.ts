@@ -735,7 +735,7 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .gx-em1{stroke:var(--em);stroke-width:1.2;vector-effect:non-scaling-stroke}
 .gx-em2{stroke:var(--em);stroke-width:1;stroke-dasharray:3 4;opacity:.7;vector-effect:non-scaling-stroke}
 .gx-chart .fchart-keys i.gx-key-em{height:0;border-top:1px solid var(--em)}
-.gx-cz{fill:var(--accent);opacity:.26}.gx-chart .fchart-keys i.gx-key-cz{background:var(--accent);opacity:.45}
+.gx-cz{fill:var(--accent);opacity:.26}.fchart-keys i.gx-key-cz{display:inline-block;width:10px;height:10px;background:var(--accent);opacity:.45}
 .em-map{display:flex;align-items:center;justify-content:center;margin:10px 0 6px;font-size:12px;line-height:1.35}
 .em-map ul{list-style:none;margin:0;padding:0}
 .em-root{order:2;flex:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 16px;border:1px solid var(--em);position:relative;margin:0 22px;text-align:center}
@@ -843,6 +843,7 @@ html:not([data-gxview=net]):not([data-gxview=zones]) .gx-v-net,html:not([data-gx
 .cz-list b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cz-list .cz-iv,.cz-list .cz-90{color:var(--em)}.cz-list .cz-gc{color:var(--long)}.cz-list .cz-gf{color:var(--short)}.cz-list .cz-be{color:#ff9f43}.cz-list .cz-flip{color:var(--warn)}
 .cz-odds{margin:10px 0 0}
+.lv-chart .fchart-keys i.lv-key-cz{width:10px;height:10px;background:rgba(200,245,168,.3);outline:1px solid var(--accent)}
 .lv-band-cz{background:rgba(200,245,168,.2);border-top:1px solid var(--accent);border-bottom:1px solid var(--accent);box-sizing:border-box;z-index:1}
 @media (max-width:640px){.cz-sides{grid-template-columns:1fr}.cz-list li{grid-template-columns:minmax(0,1fr) auto 56px 44px;gap:6px}}
 /* The day timeline under each ladder (levels.ts timeline): each level a step in its ladder colour over

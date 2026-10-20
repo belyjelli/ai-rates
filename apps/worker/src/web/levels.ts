@@ -448,6 +448,41 @@ interface Mark {
   aligned?: boolean;
 }
 
+/**
+ * The market maker's levels in the day's zones, for the IV Walls ladder, which draws no others: so a
+ * shaded zone shows what met the wall there.
+ */
+function zoneMakers(l: Levels): Mark[] {
+  return reactionZones(l).flatMap((z) =>
+    z.marks.flatMap((m): Mark[] => {
+      if (m.kind === "gamma") {
+        return [
+          z.side === 1
+            ? { price: m.price, name: tr("gamma ceiling"), cls: "lv-gc", aligned: true }
+            : { price: m.price, name: tr("gamma floor"), cls: "lv-gf", aligned: true },
+        ];
+      }
+      if (m.kind === "dealer") {
+        return [
+          {
+            price: m.price,
+            name: z.side === 1 ? tr("dealer ceiling") : tr("dealer floor"),
+            cls: "lv-be",
+            aligned: true,
+          },
+        ];
+      }
+      return [];
+    }),
+  );
+}
+
+/** The ladder's key for the zones, when there are any. */
+const zoneKey = (l: Levels) =>
+  reactionZones(l).length
+    ? `<span><i class="lv-key-cz"></i>${tr("reaction zone, today")}</span>`
+    : "";
+
 /** The day's reaction zones (confluence.ts) as ladder bands, a sliver at least so a zone of one price shows. */
 function zoneBands(l: Levels) {
   const least = (l.move1 ?? l.ref * 0.01) * 0.03;
@@ -887,7 +922,7 @@ export function ivWallsPanel(view: PanelView): string {
 <div class="cvd-tile"><p class="eyebrow">${tr("Reference close")}</p><p class="cvd-big">${price(l.ref)}</p><p class="dim">${dayName(l)}</p></div>
 </div>`;
   const figure = `<figure class="fchart lv-chart" data-gx-chart data-live="ivwalls-ladder">
-<div class="fchart-head"><p class="fchart-title">${tr("{currency} · {source} options · IV walls · {day}", { currency: book, source: esc(publisher(l.source).name), day: dayName(l) })}</p><div class="fchart-keys"><span><i class="lv-key-iv"></i>${tr("IV wall, 1σ")}</span><span><i class="lv-key-90"></i>${tr("90% wall")}</span><span><i class="lv-key-ref"></i>${tr("Reference close")}</span>${l.high !== null ? `<span><i class="lv-key-range"></i>${tr("The day's range")}</span>` : ""}</div></div>
+<div class="fchart-head"><p class="fchart-title">${tr("{currency} · {source} options · IV walls · {day}", { currency: book, source: esc(publisher(l.source).name), day: dayName(l) })}</p><div class="fchart-keys"><span><i class="lv-key-iv"></i>${tr("IV wall, 1σ")}</span><span><i class="lv-key-90"></i>${tr("90% wall")}</span><span><i class="lv-key-ref"></i>${tr("Reference close")}</span>${zoneKey(l)}${l.high !== null ? `<span><i class="lv-key-range"></i>${tr("The day's range")}</span>` : ""}</div></div>
 ${ladder({
   ref: l.ref,
   marks: [
@@ -895,6 +930,7 @@ ${ladder({
     { price: l.upper1 as number, name: tr("IV wall"), cls: "lv-iv" },
     { price: l.lower1 as number, name: tr("IV wall"), cls: "lv-iv" },
     { price: l.lower90 as number, name: tr("90% wall"), cls: "lv-90" },
+    ...zoneMakers(l),
   ],
   bands: [
     { from: l.lower90 as number, to: l.upper90 as number, cls: "lv-band-90" },
@@ -1068,7 +1104,7 @@ export function levelsPanel(view: PanelView): string {
   add(l.upper90, tr("90% wall"), "lv-90 lv-faint");
   add(l.lower90, tr("90% wall"), "lv-90 lv-faint");
   const figure = `<figure class="fchart lv-chart" data-gx-chart data-live="levels-ladder">
-<div class="fchart-head"><p class="fchart-title">${tr("{currency} · {source} options · ceiling and floor · expiring {expiry}", { currency: book, source: esc(publisher(l.source).name), expiry })}</p><div class="fchart-keys"><span><i class="lv-key-gc"></i>${tr("gamma ceiling")}</span><span><i class="lv-key-gf"></i>${tr("gamma floor")}</span><span><i class="lv-key-be"></i>${tr("dealer ceiling and floor")}</span><span><i class="lv-key-mp"></i>${tr("max pain")}</span><span><i class="lv-key-iv"></i>${tr("IV wall, 1σ")}</span><span><i class="lv-key-90"></i>${tr("90% wall")}</span><span><i class="lv-key-on"></i>${tr("lined up with a wall")}</span></div></div>
+<div class="fchart-head"><p class="fchart-title">${tr("{currency} · {source} options · ceiling and floor · expiring {expiry}", { currency: book, source: esc(publisher(l.source).name), expiry })}</p><div class="fchart-keys"><span><i class="lv-key-gc"></i>${tr("gamma ceiling")}</span><span><i class="lv-key-gf"></i>${tr("gamma floor")}</span><span><i class="lv-key-be"></i>${tr("dealer ceiling and floor")}</span><span><i class="lv-key-mp"></i>${tr("max pain")}</span><span><i class="lv-key-iv"></i>${tr("IV wall, 1σ")}</span><span><i class="lv-key-90"></i>${tr("90% wall")}</span><span><i class="lv-key-on"></i>${tr("lined up with a wall")}</span>${zoneKey(l)}</div></div>
 ${ladder({
   ref: l.ref,
   marks,
