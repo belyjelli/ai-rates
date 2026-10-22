@@ -1,8 +1,15 @@
 import postgres from "postgres";
 import { handleApp, unavailableResponse } from "./app/app";
 import { createDataSource } from "./app/data";
-import { EdgeCache } from "./app/edge-cache";
+import { EDGE_CACHE_DEFAULTS, EdgeCache } from "./app/edge-cache";
 import { geoCacheBucket, requestGeo } from "./app/geo";
+import {
+  databaseLookup,
+  isLiveRequest,
+  LIVE_MAX_AGE,
+  LIVE_PASS_HEADER,
+  livePassValid,
+} from "./app/live-pass";
 import { isSheddable, Pressure, SHED_REFUSAL } from "./app/load-shed";
 import { withSecurityHeaders } from "./app/security-headers";
 import { visitPoint } from "./app/visits";
@@ -20,6 +27,9 @@ export { ProbeDO, ReferralStoreDO };
 // Module scope, so the renders in flight and the cooldowns are shared by every request this isolate
 // serves. That sharing is the point: it is what stops N readers of one cold page becoming N renders.
 const edge = new EdgeCache();
+// The members' live refresh of the whale table (app/live-pass.ts): copies fresh for 5 s, and a copy
+// older than that is rendered again before it is served, so a member never waits a poll for the data.
+const liveEdge = new EdgeCache({ ...EDGE_CACHE_DEFAULTS, swrMs: LIVE_MAX_AGE * 1000 });
 // Whether this location's database path is too weak to spend on the API and on cloud networks
 // (app/load-shed.ts). Per isolate, and shared with the location's other isolates through its cache.
 const pressure = new Pressure();
@@ -75,11 +85,36 @@ async function handle(
   const cache = caches.default;
   const bucket = geoCacheBucket(requestGeo(request), Object.keys(referrals).length > 0);
   const locale = requestLocale(request);
+
+  // A member's live refresh: a pass that is not current is told so, never served the ordinary copy,
+  // so the page asks the member site for a new one. Kept in copies of its own (`__live`), never the
+  // ones every reader gets.
+  const live = isLiveRequest(request);
+  if (live) {
+    const valid = await livePassValid(
+      request.headers.get(LIVE_PASS_HEADER),
+      databaseLookup(env.HYPERDRIVE.connectionString, (promise) => ctx.waitUntil(promise)),
+    ).catch((error) => {
+      console.error(
+        `live pass not checked: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    });
+    if (valid !== true) {
+      // 401: ask for a new pass; 503: the check itself failed, keep the pass and the ordinary refresh.
+      return new Response(null, {
+        status: valid === false ? 401 : 503,
+        headers: { "cache-control": "no-store" },
+      });
+    }
+  }
+
   let cacheKey: Request = request;
-  if (bucket !== "any" || locale !== DEFAULT_LOCALE) {
+  if (bucket !== "any" || locale !== DEFAULT_LOCALE || live) {
     const keyed = new URL(request.url);
     if (bucket !== "any") keyed.searchParams.set("__cta", bucket);
     if (locale !== DEFAULT_LOCALE) keyed.searchParams.set("__lang", locale);
+    if (live) keyed.searchParams.set("__live", "1");
     cacheKey = new Request(keyed.toString(), request);
   }
   // What the page needs from the database is rendered at most once per URL at a time, served stale
@@ -140,7 +175,7 @@ async function handle(
     key: cacheKey,
     request,
     waitUntil: (promise: Promise<unknown>) => ctx.waitUntil(promise),
-    render: () => render(),
+    render: live ? () => render().then(liveCopy) : () => render(),
     unavailable: () => unavailableResponse(new URL(request.url).pathname, Date.now(), locale),
     log: console.error,
     observe: (outcome: { ms: number; ok: boolean }) => {
@@ -159,8 +194,16 @@ async function handle(
   const shed = isSheddable(request, request.cf?.asn) && (await pressure.underPressure(cache));
   const response = shed
     ? await edge.serveShed({ ...serving, render: () => render(true) })
-    : await edge.serve(serving);
+    : await (live ? liveEdge : edge).serve(serving);
   return varyByLanguage(await asMarkdown(request, response));
+}
+
+/** A member's live copy: fresh for LIVE_MAX_AGE rather than a page's 30 s (app/live-pass.ts). */
+function liveCopy(response: Response): Response {
+  if (response.status !== 200) return response;
+  const out = new Response(response.body, response);
+  out.headers.set("cache-control", `public, max-age=${LIVE_MAX_AGE}`);
+  return out;
 }
 
 /**

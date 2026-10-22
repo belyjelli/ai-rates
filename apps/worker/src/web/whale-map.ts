@@ -3,6 +3,7 @@ import { WHALE_FLOORS, type WhaleFloor, type WhaleZoom } from "../app/params";
 import { ageText, esc, formatPrice, formatUsd } from "./format";
 import { helpButton, helpPanel } from "./help";
 import { tr } from "./i18n";
+import { MEMBER_URL } from "./layout";
 import {
   SLOT_BAND,
   SLOT_CURSOR,
@@ -43,6 +44,19 @@ interface Placed {
   long: boolean;
   /** Liquidation price over the position's own mark, less one; null when either is missing. */
   distance: number | null;
+}
+
+/**
+ * How often the table refreshes, and the members' faster one. The page's script (live.ts) asks the
+ * member site for a live pass with what this names; for a signed-in member it shows the second line
+ * and refreshes the table every 10 s, and the collector re-reads the table's nearest accounts about
+ * every minute while the pass lasts (collector internal/livewatch). Everyone else keeps the first.
+ */
+function liveNote(asset: string, assetClass: string, floor: WhaleFloor): string {
+  const login = `<a href="${esc(`${MEMBER_URL}member/login`)}">${tr("Log in")}</a>`;
+  return `<p class="notes wm-live" data-member-live data-base="${esc(asset)}" data-class="${esc(assetClass)}" data-floor="${floor}">\
+<span data-live-off>${tr("Refreshes every 30 s. {login} to refresh every 10 s, with the nearest accounts re-read about every minute.", { login })}</span>\
+<span class="wm-live-on" data-live-on hidden>${tr("Live for members: refreshes every 10 s, and the nearest accounts are re-read about every minute.")}</span></p>`;
 }
 
 /** "$1M", "$100k": the floors as the switch and the sentences name them. */
@@ -400,6 +414,7 @@ ${helpPanel(
     ? `<p class="notes">* ${tr("dYdX publishes no liquidation price: computed from the account's balance and positions with dYdX's maintenance margins")}.</p>`
     : "";
   const table = `<h2 class="cvd-h2 wm-h2">${tr("Positions by distance to liquidation")}</h2>
+${liveNote(data.asset, shown[0]?.asset_class ?? "crypto", floor)}
 <div class="sheet-wrap"><table class="sheet wm-table">
 <thead><tr><th>${tr("Trader")}</th><th>${tr("Venue")}</th><th>${tr("Side")}</th><th class="num">${tr("Value")}</th><th class="num">${tr("Entry")}</th><th class="num">${tr("Liquidates at")}</th><th class="num" title="${esc(tr("From the market's mark to the liquidation price"))}">${tr("Distance")}</th><th class="num">${tr("Leverage")}</th><th class="num">${tr("Unrealized")}</th><th class="num" title="${esc(tr("The whole account's value on its venue"))}">${tr("Account")}</th><th class="num">${tr("Read")}</th></tr></thead>
 <tbody data-live="whale-rows">${rows}</tbody>

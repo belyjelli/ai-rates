@@ -299,4 +299,10 @@ export const liquidations: Catalog = {
   "The whole account's value on its venue": "해당 거래소에서 계정 전체의 가치",
   Account: "계정 가치",
   Read: "읽은 시각",
+  // Before a link to the member login, inside the sentence below.
+  "Log in": "로그인",
+  "Refreshes every 30 s. {login} to refresh every 10 s, with the nearest accounts re-read about every minute.":
+    "30초마다 새로 고칩니다. {login}하면 10초마다 새로 고치고, 청산에 가장 가까운 계정은 약 1분마다 다시 읽습니다.",
+  "Live for members: refreshes every 10 s, and the nearest accounts are re-read about every minute.":
+    "회원 실시간: 10초마다 새로 고치고, 청산에 가장 가까운 계정은 약 1분마다 다시 읽습니다.",
 };

@@ -1113,6 +1113,7 @@ describe("pages", () => {
       address: "0x7c4b00000000000000000000000000000000e00b",
       coin: "ETH",
       venue_id: "hyperliquid",
+      asset_class: "crypto",
       size: 500,
       entry_price: 4_000,
       position_usd: 2_000_000,
@@ -1196,6 +1197,17 @@ describe("pages", () => {
       );
       expect(html).toContain('href="/liquidations?wzoom=50#whales" data-lq-swap="whales">±50%<');
       expect(html).toContain('aria-current="page" data-lq-swap="whales">±25%<');
+      // What a member's live pass names (live.ts), and the line each reader sees until it has one.
+      expect(page).toContain(
+        'data-tab-panel="whales" aria-labelledby="tab-liq-whales" data-lazy="/liquidations?panel=whales" data-member-live-tab',
+      );
+      expect(html).toContain(
+        'data-member-live data-base="ETH" data-class="crypto" data-floor="1m"',
+      );
+      expect(html).toContain(
+        '<span data-live-off>Refreshes every 30 s. <a href="https://member.airrates.net/member/login">Log in</a> to refresh every 10 s',
+      );
+      expect(html).toContain("data-live-on hidden>Live for members");
     });
 
     test("the $100k switch shows the smaller positions, and its address opens on a drawn tab", async () => {

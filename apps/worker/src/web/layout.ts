@@ -687,6 +687,7 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
 .wm-chart .fchart-keys i.wm-key-cum{height:0;border-top:2px solid var(--muted)}
 .wm-x-mark{color:var(--ink)}
 .wm-h2{margin:18px 0 8px}
+.wm-live{margin:-4px 0 10px;font-size:12px}.wm-live-on::before{content:"";display:inline-block;width:6px;height:6px;margin:0 6px 1px 0;border-radius:50%;background:var(--accent)}
 .wm-venues{margin:-4px 0 12px;font-size:12px}.wm-venues b{color:var(--ink);font-weight:500}.wm-venues span{white-space:nowrap}
 /* The Gamma Exposure tab (gamma.ts): each strike band's calls above the zero line and puts below it,
    the net were the spot there as a line on its own right-hand scale, the spot dashed, the flip dashed

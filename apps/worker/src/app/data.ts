@@ -876,6 +876,8 @@ export interface WhalePosition {
   /** The venue's own name for the market ("BTC", "xyz:GOLD", "BTC-USD") and the venue that lists it. */
   coin: string;
   venue_id: string;
+  /** The asset's class as the read chose it: what a member's live pass names (web/whale-map.ts). */
+  asset_class: string;
   /** Signed: positive long, negative short. */
   size: number;
   /** Null until known (dYdX keeps none on chain; the collector asks its indexer). */
@@ -2602,7 +2604,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       // asset that serves the filter; BTC holds a few hundred rows over $100k.
       return sql<WhalePosition[]>`
         WITH chosen AS (${chosenClass(sql, base, assetClass)})
-        SELECT p.account AS address, p.coin, p.venue_id, p.size::float8 AS size,
+        SELECT p.account AS address, p.coin, p.venue_id, p.asset_class, p.size::float8 AS size,
                p.entry_price::float8 AS entry_price, p.position_usd::float8 AS position_usd,
                p.liquidation_price::float8 AS liquidation_price, p.liquidation_reported,
                p.leverage::float8 AS leverage, p.leverage_type,

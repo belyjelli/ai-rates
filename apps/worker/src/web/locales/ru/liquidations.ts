@@ -305,4 +305,10 @@ export const liquidations: Catalog = {
   "The whole account's value on its venue": "Стоимость всего аккаунта на его бирже",
   Account: "Аккаунт",
   Read: "Прочитано",
+  // Before a link to the member login, inside the sentence below.
+  "Log in": "Войдите",
+  "Refreshes every 30 s. {login} to refresh every 10 s, with the nearest accounts re-read about every minute.":
+    "Обновляется каждые 30 с. {login}, чтобы обновлять каждые 10 с, а ближайшие к ликвидации счета перечитывать примерно раз в минуту.",
+  "Live for members: refreshes every 10 s, and the nearest accounts are re-read about every minute.":
+    "Онлайн для участников: обновление каждые 10 с, ближайшие к ликвидации счета перечитываются примерно раз в минуту.",
 };

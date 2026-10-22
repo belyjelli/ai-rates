@@ -303,4 +303,10 @@ export const liquidations: Catalog = {
   "The whole account's value on its venue": "その取引所でのアカウント全体の評価額",
   Account: "口座",
   Read: "取得",
+  // Before a link to the member login, inside the sentence below.
+  "Log in": "ログイン",
+  "Refreshes every 30 s. {login} to refresh every 10 s, with the nearest accounts re-read about every minute.":
+    "30 秒ごとに更新。{login}すると 10 秒ごとに更新され、清算に最も近い口座は約 1 分ごとに再取得されます。",
+  "Live for members: refreshes every 10 s, and the nearest accounts are re-read about every minute.":
+    "会員ライブ：10 秒ごとに更新、清算に最も近い口座は約 1 分ごとに再取得されます。",
 };

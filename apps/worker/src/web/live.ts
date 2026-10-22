@@ -15,6 +15,14 @@
  *   td[data-c]           a column's identity where columns can move (the rates grid's venues)
  *   [data-u]             one figure flashed on its own: inside a row it is scoped to that row, and
  *                        its text is left out of the enclosing cell's or unit's comparison
+ *   [data-member-live]   a tab members refresh faster (web/whale-map.ts): see MEMBER LIVE below
+ *
+ * MEMBER LIVE. A tab holding [data-member-live] asks the member site for a live pass naming the asset
+ * and floor it shows (data-base, data-class, data-floor). A signed-in member gets one and the tab is
+ * then refreshed every 10 s with the pass in a header (app/live-pass.ts checks it), its
+ * [data-live-on] line shown in place of [data-live-off]; the pass is renewed every two minutes while
+ * the tab stays shown, and the collector re-reads the tab's nearest accounts while it lasts. Signed
+ * out, or with the member site not answering, the tab keeps the ordinary refresh.
  */
 
 export type Change = "up" | "down" | "text" | "new";
@@ -223,7 +231,7 @@ export const LIVE_SCRIPT = String.raw`(() => {
   const refreshPanels = async () => {
     if (engaged()) return;
     for (const panel of document.querySelectorAll("[data-lazy][data-lazy-state=loaded]")) {
-      if (panel.hidden) continue;
+      if (panel.hidden || panel.dataset.memberLive === "on") continue;
       const body = panel.querySelector(".lazy-body");
       if (!body) continue;
       try {
@@ -326,16 +334,110 @@ export const LIVE_SCRIPT = String.raw`(() => {
     schedule(next);
   };
 
+  // MEMBER LIVE (see the header). The pass is renewed two minutes after it was issued, a minute
+  // before it lapses: the member site's clock is not read, since its Date header is not one CORS shows.
+  const PASS_URL = "https://member.airrates.net/api/live-pass";
+  const RENEW = 120e3;
+  let pass = null, signedOut = false, fastTimer = 0;
+  const passKey = (m) => [m.dataset.base, m.dataset.class, m.dataset.floor].join("|");
+  const getPass = async (marker) => {
+    const key = passKey(marker);
+    if (pass && pass.key === key && Date.now() < pass.renewAt) return pass;
+    try {
+      const res = await fetch(PASS_URL, {
+        method: "POST",
+        credentials: "include",
+        cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base: marker.dataset.base, asset_class: marker.dataset.class, floor: marker.dataset.floor, replaces: pass ? pass.token : null }),
+      });
+      if (res.status === 401) {
+        signedOut = true;
+        return (pass = null);
+      }
+      // Anything else (the member site down, the table not there yet): keep a pass still in its time.
+      if (!res.ok) return pass && pass.key === key && Date.now() < pass.renewAt + 50e3 ? pass : null;
+      const body = await res.json();
+      pass = { token: body.pass, key, renewAt: Date.now() + RENEW, every: Math.max(5, Number(body.refresh_seconds) || 10) * 1e3 };
+      return pass;
+    } catch (_) {
+      return null;
+    }
+  };
+  const showLive = (panel, on) => {
+    panel.dataset.memberLive = on ? "on" : "";
+    for (const m of panel.querySelectorAll("[data-member-live]")) {
+      for (const el of m.querySelectorAll("[data-live-on]")) el.hidden = !on;
+      for (const el of m.querySelectorAll("[data-live-off]")) el.hidden = on;
+    }
+  };
+  // The tab's own address: where tabs.ts loaded it from, or for a tab the page arrived with, the page's
+  // address asking for that tab alone.
+  const panelAddress = (panel) => {
+    const lazy = panel.getAttribute("data-lazy");
+    if (lazy) return lazy;
+    const url = new URL(location.href);
+    url.hash = "";
+    url.searchParams.set("panel", panel.dataset.tabPanel);
+    return url.pathname + url.search;
+  };
+  const refreshLive = async (panel, held) => {
+    const body = panel.querySelector(".lazy-body") || panel;
+    const res = await fetch(panelAddress(panel), { cache: "no-store", credentials: "same-origin", headers: { "X-Live-Pass": held.token } });
+    // Lapsed or unknown: asked for again on the next tick.
+    if (res.status === 401) return void (pass = null);
+    if (!res.ok) return;
+    const html = await res.text();
+    const stamp = /data-rendered="(\d+)"/.exec(html);
+    if (!stamp || stamp[1] === body.dataset.rendered) return;
+    const fresh = new DOMParser().parseFromString(html, "text/html").querySelector(".lazy-body");
+    if (!fresh) return;
+    const here = [...body.querySelectorAll("[data-live]")];
+    const there = [...fresh.querySelectorAll("[data-live]")];
+    if (sameShape(here, there)) swapIn(here, there);
+    else body.innerHTML = fresh.innerHTML;
+    body.dataset.rendered = stamp[1];
+    panel.dataset.loadedAt = String(Date.now());
+  };
+  const fastTick = async () => {
+    clearTimeout(fastTimer);
+    if (document.hidden || signedOut) return;
+    let wait = 5e3; // no member tab shown yet: look again soon, since tabs load themselves
+    try {
+      const marker = document.querySelector("main [data-member-live]");
+      const panel = marker && marker.closest("[data-tab-panel]");
+      if (!marker || !panel || panel.hidden) return;
+      const held = await getPass(marker);
+      showLive(panel, held !== null);
+      if (!held) {
+        wait = 60e3;
+        return;
+      }
+      wait = held.every;
+      if (engaged() || document.querySelector("main [aria-busy=true]")) return;
+      await refreshLive(panel, held);
+      // A refresh that replaced the tab wholesale brought its lines back as the server wrote them.
+      showLive(panel, pass !== null);
+    } catch (_) {
+    } finally {
+      if (!document.hidden && !signedOut) fastTimer = setTimeout(fastTick, wait);
+    }
+  };
+  const memberTabs = document.querySelector("main [data-member-live], main [data-member-live-tab]") !== null;
+
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       clearTimeout(timer);
+      clearTimeout(fastTimer);
       controller?.abort();
       return;
     }
     const elapsed = Date.now() - lastPoll;
     schedule(elapsed >= PERIOD ? 0 : PERIOD - elapsed);
+    if (memberTabs) fastTick();
   });
   addEventListener("pageshow", (event) => event.persisted && schedule(0));
+  if (memberTabs) fastTimer = setTimeout(fastTick, 1e3);
 
   lastPoll = Date.now();
   const loaded = Number(rendered) || Date.now();

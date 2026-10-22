@@ -1534,7 +1534,9 @@ export function liquidations(
   const panels = LIQUIDATION_TABS.map((id) => {
     const body = tabBody(data, id);
     const lazy = body === null ? ` data-lazy="${esc(panelHref(data, id))}"` : "";
-    return `<div class="tabpanel" role="tabpanel" id="panel-liq-${id}" data-tab-panel="${id}" aria-labelledby="tab-liq-${id}"${lazy}>
+    // The whale table refreshes faster for members once the tab is open (live.ts, MEMBER LIVE).
+    const member = id === "whales" ? " data-member-live-tab" : "";
+    return `<div class="tabpanel" role="tabpanel" id="panel-liq-${id}" data-tab-panel="${id}" aria-labelledby="tab-liq-${id}"${lazy}${member}>
 ${body ?? lazyPanel(data, id)}
 </div>`;
   }).join("\n");
