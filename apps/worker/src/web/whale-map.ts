@@ -13,7 +13,7 @@ import {
   type WhaleSlots,
 } from "./slot-chart";
 import { venueName } from "./venues";
-import { shortAddress } from "./whales";
+import { explorerAddress, shortAddress } from "./whales";
 
 /**
  * The /liquidations whale map: the large positions in one asset on the exchanges that publish every
@@ -105,12 +105,7 @@ function trader(p: WhalePosition): { href: string; text: string } {
       text: `${shortAddress(owner)}${subaccount ? `/${subaccount}` : ""}`,
     };
   }
-  // Hyperliquid accounts open on hl.eco, the owner's choice of explorer (2026-10-23); the /whales
-  // takers keep Hyperliquid's own (whales.ts explorerAddress).
-  return {
-    href: `https://hl.eco/${encodeURIComponent(p.address)}`,
-    text: shortAddress(p.address),
-  };
+  return { href: explorerAddress(p.address), text: shortAddress(p.address) };
 }
 
 /** "Hyperliquid, Lighter, dYdX": the venues among the positions, the largest first. */

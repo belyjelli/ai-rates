@@ -5296,9 +5296,9 @@ describe("whales", () => {
     expect(html).toContain("$100 wide");
     // Drawn and labelled at the bucket's middle.
     expect(html).toContain("$2.6M ~82,950");
-    // The taker, linked to Hyperliquid's explorer.
+    // The taker, linked to hl.eco.
     expect(html).toContain(
-      `<a class="wh-addr" href="https://app.hyperliquid.xyz/explorer/address/${taker}" target="_blank" rel="noopener" title="${taker}">0x2025…840e</a>`,
+      `<a class="wh-addr" href="https://hl.eco/${taker}" target="_blank" rel="noopener" title="${taker}">0x2025…840e</a>`,
     );
     expect(html).toContain("taker 0x2025…840e");
     // A HIP-3 market shows its own name in the picker.

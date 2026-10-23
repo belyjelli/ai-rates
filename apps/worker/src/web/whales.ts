@@ -70,9 +70,8 @@ export function whaleVenueName(venue: WhaleVenue): string {
   return VENUE_NAMES[venue];
 }
 
-/** Hyperliquid's own explorer, for a taker's address. */
-export const explorerAddress = (address: string) =>
-  `https://app.hyperliquid.xyz/explorer/address/${encodeURIComponent(address)}`;
+/** Where a Hyperliquid address opens: hl.eco, the owner's choice of explorer (2026-10-23). */
+export const explorerAddress = (address: string) => `https://hl.eco/${encodeURIComponent(address)}`;
 
 /** "0x2025…840e". */
 export const shortAddress = (address: string) =>
@@ -885,7 +884,7 @@ ${orderCells(w)}
 </table></div>`
     : `<p class="empty">${tr("No wall ended in the last {window}.", { window })}</p>`;
 
-  // A venue that names its takers (Hyperliquid) gets their address, linked to its explorer.
+  // A venue that names its takers (Hyperliquid) gets their address, linked to an explorer (hl.eco).
   const named = book.trades.some((t) => t.taker);
   const takerCell = (t: WhaleTrade) =>
     !named
