@@ -1176,9 +1176,7 @@ describe("pages", () => {
         "0x5b5d00000000000000000000000000000000c060",
         "0x0000000000000000000000000000000000000002",
       ]);
-      expect(html).toContain(
-        'href="https://app.hyperliquid.xyz/explorer/address/0x7c4b00000000000000000000000000000000e00b"',
-      );
+      expect(html).toContain('href="https://hl.eco/0x7c4b00000000000000000000000000000000e00b"');
       expect(html).toContain(">0x7c4b…e00b<");
       expect(html).toContain("−5.0%");
       expect(html).toContain("+10.0%");
