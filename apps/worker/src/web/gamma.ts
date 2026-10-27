@@ -95,7 +95,7 @@ export const signedUsd = (usd: number, symbol = "$") =>
  * this does not know is taken as daily under its own name, the gentlest reading of its age.
  */
 type Cadence = "live" | "session" | "daily";
-type Region = "crypto" | "us" | "asia" | "europe" | "other";
+type Region = "crypto" | "us" | "chips" | "asia" | "europe" | "other";
 interface Publisher {
   name: string;
   region: Region;
@@ -119,10 +119,25 @@ export const publisher = (source: string): Publisher =>
 const REGIONS: readonly [Region, string][] = [
   ["crypto", msg("Crypto")],
   ["us", msg("United States")],
+  ["chips", msg("Chips and memory")],
   ["asia", msg("Asia-Pacific")],
   ["europe", msg("Europe")],
   ["other", msg("Other")],
 ];
+
+/**
+ * The chip, memory and hardware books, picked out of the US ones into a group of their own: the
+ * stocks the perps trade most after the indexes, which a reader looks for together.
+ */
+const CHIP_BOOKS: ReadonlySet<string> = new Set(
+  (
+    "NVDA MU SKHY SNDK WDC STX DRAM AMD AVGO TSM INTC MRVL ARM QCOM ASML AMAT LRCX KLAC DELL " +
+    "SMCI LITE COHR AAOI GLW SMH SOXX SOXL EWY"
+  ).split(" "),
+);
+/** The picker group a book goes under: its publisher's region, or Chips and memory. */
+const bookRegion = (b: { currency: string; source: string }): Region =>
+  CHIP_BOOKS.has(b.currency) ? "chips" : publisher(b.source).region;
 
 /**
  * A reader's name for each book, in the picker's order within its region: the collector's own lists
@@ -148,6 +163,32 @@ const BOOK_NAMES: Readonly<Record<string, string>> = {
   NVDA: msg("NVIDIA"),
   TSLA: msg("Tesla"),
   MU: msg("Micron"),
+  SKHY: msg("SK hynix (ADR)"),
+  SNDK: msg("Sandisk"),
+  WDC: msg("Western Digital"),
+  STX: msg("Seagate"),
+  DRAM: msg("Roundhill Memory ETF"),
+  AMD: msg("AMD"),
+  AVGO: msg("Broadcom"),
+  TSM: msg("TSMC (ADR)"),
+  INTC: msg("Intel"),
+  MRVL: msg("Marvell"),
+  ARM: msg("Arm"),
+  QCOM: msg("Qualcomm"),
+  ASML: msg("ASML"),
+  AMAT: msg("Applied Materials"),
+  LRCX: msg("Lam Research"),
+  KLAC: msg("KLA"),
+  DELL: msg("Dell"),
+  SMCI: msg("Supermicro"),
+  LITE: msg("Lumentum"),
+  COHR: msg("Coherent"),
+  AAOI: msg("Applied Optoelectronics"),
+  GLW: msg("Corning"),
+  SMH: msg("VanEck Semiconductor ETF"),
+  SOXX: msg("iShares Semiconductor ETF"),
+  SOXL: msg("Direxion Semiconductor Bull 3X"),
+  EWY: msg("iShares MSCI South Korea ETF"),
   HSI: msg("Hang Seng"),
   HSCEI: msg("Hang Seng China Enterprises"),
   HSTECH: msg("Hang Seng TECH"),
@@ -1085,9 +1126,12 @@ function choice(
   return `<a href="${esc(choiceHref(heatmap, next))}"${none} data-gx-swap${on ? ' aria-current="true"' : ""}>${label}</a>`;
 }
 
-/** The books in the picker's order: by region, each region's in BOOK_NAMES order, then by ticker. */
+/**
+ * The books in the picker's order: by region (bookRegion, so Chips and memory has its own), each
+ * region's in BOOK_NAMES order, then by ticker.
+ */
 export function sortBooks(books: readonly GammaBook[]): GammaBook[] {
-  const region = (b: GammaBook) => REGIONS.findIndex(([r]) => r === publisher(b.source).region);
+  const region = (b: GammaBook) => REGIONS.findIndex(([r]) => r === bookRegion(b));
   const rank = (b: GammaBook) => {
     const at = BOOK_ORDER.indexOf(b.currency);
     return at < 0 ? BOOK_ORDER.length : at;
@@ -1143,7 +1187,7 @@ ${flip}
 </a>`;
   };
   const groups = REGIONS.map(([region, label]) => {
-    const list = books.filter((b) => publisher(b.source).region === region);
+    const list = books.filter((b) => bookRegion(b) === region);
     if (list.length === 0) return "";
     return `<p class="wh-pick-group">${trMsg(label)} <span class="dim">${list.length}</span></p>${list.map(row).join("")}`;
   }).join("");
@@ -1204,6 +1248,8 @@ ${helpPanel(
     "Crypto: Deribit's BTC and ETH books, which hold most listed crypto options; Bybit, OKX and Binance list far fewer and are not included. Open interest, mark volatility and each expiry's forward are Deribit's own; gamma is computed from them with Black-76, which reproduces Deribit's own delta and vega. Read every five minutes.",
   )}</p><p>${tr(
     "United States: Cboe's 15-minute delayed chains for the S&amp;P 500, Nasdaq-100 and Russell 2000 indexes and the most traded ETFs and stocks, with Cboe's own volatility and open interest, the spot taken as the forward. Read every 15 minutes through the US session; outside it the figures are the last session's.",
+  )}</p><p>${tr(
+    "Chips and memory: the same Cboe chains for the chip, memory and hardware stocks and ETFs the perps trade most. SK hynix is its Nasdaq ADR (SKHY), the price the SKHY perps follow; the SKHYNIX perps quote one Seoul share instead. Samsung's options trade only on the Korea Exchange and are not read yet, and neither Deribit nor Binance lists options on stocks.",
   )}</p><p>${tr(
     "Asia-Pacific and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, its three nearest months), ASX (S&amp;P/ASX 200), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement (for ASX, its closing theoretical price) with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.",
   )}</p>`,

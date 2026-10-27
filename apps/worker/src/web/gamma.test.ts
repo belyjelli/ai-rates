@@ -489,6 +489,30 @@ describe("book picker", () => {
     expect(html).toContain('<p class="wh-pick-group">亚太 <span class="dim">1</span></p>');
   });
 
+  test("chip and memory books get a group of their own after the United States", () => {
+    const books = [
+      book("HSI", "hkex", "HKD"),
+      book("SKHY", "cboe", "USD"),
+      book("TSLA", "cboe", "USD"),
+      book("NVDA", "cboe", "USD"),
+      book("SPX", "cboe", "USD"),
+    ];
+    expect(sortBooks(books).map((b) => b.currency)).toEqual(["SPX", "TSLA", "NVDA", "SKHY", "HSI"]);
+    const html = panel(gammaData({ books }));
+    const at = (text: string) => html.indexOf(text);
+    expect(html).toContain('<p class="wh-pick-group">United States <span class="dim">2</span></p>');
+    expect(html).toContain(
+      '<p class="wh-pick-group">Chips and memory <span class="dim">2</span></p>',
+    );
+    expect(at(">United States <")).toBeLessThan(at(">Chips and memory <"));
+    expect(at(">Chips and memory <")).toBeLessThan(at("gex=SKHY#gamma"));
+    expect(at("gex=SKHY#gamma")).toBeLessThan(at(">Asia-Pacific <"));
+    expect(html).toContain("<b>SKHY</b><small>SK hynix (ADR)</small>");
+    const ko = withLocale("ko", () => panel(gammaData({ books })));
+    expect(ko).toContain('<p class="wh-pick-group">반도체·메모리 <span class="dim">2</span></p>');
+    expect(ko).toContain("<b>SKHY</b><small>SK하이닉스(ADR)</small>");
+  });
+
   test("an unknown publisher's book goes under Other, and an order holds without a name", () => {
     const sorted = sortBooks([
       book("NEW", "sgx", "SGD"),
