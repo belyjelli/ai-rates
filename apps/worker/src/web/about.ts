@@ -41,6 +41,16 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-28",
+    title: "CVD is now Chart, with spot and futures apart",
+    changes: [
+      "The CVD page is now Chart, at /chart. Old /cvd links, with an asset or settings in them, still land on the same chart.",
+      "Under the price candles, CVD is split in two: futures (the perpetuals on Binance, OKX, Gate and Bitget, summed) and spot (Binance's USDT book), each in its own pane, since spot is often a tenth the size. Below them, a histogram of the delta: each bar's spot and futures net added together. Stocks, commodities and indices have no spot book on a crypto exchange and show futures only.",
+      "Hovering a candle now opens a box beside the cursor with its open, high, low and close, the taker buys, sells and net for futures and spot, the delta and both CVD lines, instead of rewriting the line above the chart.",
+      "The asset picker reaches about 500 assets, up from 100, plus every commodity, index and currency pair those exchanges list. Newly added assets start with about a week of history.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     title: "Trading costs for 24 more exchanges",
     changes: [
       "The Exchanges page now grades 45 exchanges on what trading there costs, up from 21: spread, slippage at $10k and $100k, and depth, read from each exchange's public order book every ten minutes. New: Coinbase, BloFin, Nado, SoDEX, edgeX V2, Arcus, RiseX, TxFlow, Polymarket, ApeX, Ondo, Bullet, WOOFi Pro, Paradex, Phoenix, N1, Hibachi, Reya, Bluefin, Velocity, Perpl, Aevo, StandX and Lighter's Robinhood deployment. Their figures are medians of a few hours of books so far and settle over the week.",
