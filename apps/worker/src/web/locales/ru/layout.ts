@@ -28,7 +28,6 @@ export const layout: Catalog = {
   rates: "ставки",
   arbitrage: "арбитраж",
   liquidations: "ликвидации",
-  cvd: "CVD",
   exchanges: "биржи",
   "{markets} markets · {venues} venues · updated {ago}":
     "рынков: {markets} · бирж: {venues} · обновлено {ago}",
@@ -84,7 +83,6 @@ export const layout: Catalog = {
   "its spreads, ranked": "его спреды по рейтингу",
   Arbitrage: "Арбитраж",
   "price gaps between exchanges": "ценовые разрывы между биржами",
-  "taker buying against selling": "покупки тейкеров против продаж",
   "large resting orders and trades": "крупные заявки и сделки",
   Liquidations: "Ликвидации",
   "where positions are liquidated": "где ликвидируются позиции",
@@ -103,4 +101,5 @@ export const layout: Catalog = {
   "The ticker list did not load. Exchanges and pages still match.":
     "Список тикеров не загрузился. Биржи и страницы по-прежнему ищутся.",
   "Nothing matches {q}.": "Ничего не найдено по запросу {q}.",
+  "price, spot and futures CVD": "цена, CVD спота и фьючерсов",
 };

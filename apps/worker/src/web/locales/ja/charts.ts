@@ -88,8 +88,6 @@ export const charts: Catalog = {
   "{asset} price and cumulative volume delta over the last {window}":
     "直近 {window} の {asset} の価格と累積出来高デルタ",
   "{asset} net taker flow per bar": "{asset} のバーごとのテイカーネットフロー",
-  "Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover either panel to read one bar beside the cursor; on a phone, tap and it reads in the line above the chart.":
-    "価格は取得対象で最も出来高の多い市場自身の終値で、左軸です。CVD は期間の開始からのテイカー買いからテイカー売りを引いた値で、右軸です。両者は別々にスケーリングしているため、線が交差する位置に意味はありません。どちらかのパネルにカーソルを合わせると、カーソルの横に1本分の値が表示されます。スマートフォンではタップすると、チャートの上の行に表示されます。",
 
   // web/cvd.ts: tiles, controls and the screener table.
   Volume: "出来高",
@@ -130,17 +128,11 @@ export const charts: Catalog = {
   Signal: "シグナル",
   "No live market lists {asset}, so there is no flow to chart.":
     "{asset} を扱う稼働中の市場がないため、表示するフローはありません。",
-  "No taker flow for {asset} in the last {window}. Only the ~100 assets deepest on {venues} are polled; pick one from the asset list above.":
-    "直近 {window} に {asset} のテイカーフローはありません。{venues} で建玉の大きい約100銘柄のみを取得しています。上の銘柄リストから選んでください。",
   "Newest bucket {age}.": "最新の区間：{age}。",
   "Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.":
     "取引所は5分ごとの区間を締めてから公開するため、右端は数分遅れます。",
 
   // web/cvd.ts: the page.
-  "Cumulative volume delta: taker buying against taker selling across exchanges, and where price and order flow disagree.":
-    "累積出来高デルタ：取引所をまたいだテイカー買いとテイカー売りの比較と、価格とオーダーフローが食い違う箇所。",
-  "Cumulative volume delta: {buys} less {sells}, in dollars. These are the exchanges' own 5-minute taker statistics from <b>{venues}</b>, summed, for the ~100 assets deepest on them — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.":
-    "累積出来高デルタ：{buys} から {sells} を引いた額（ドル）。<b>{venues}</b> が公開する5分ごとのテイカー統計を合計したもので、これらの取引所で建玉の大きい約100銘柄が対象です — すべての取引所ではなく、5分より細かい粒度もありません。ダイバージェンスは価格とフローが逆を向いた期間を示します。起きたことを表すもので、この先を予測するものではありません。",
   "taker buys": "テイカー買い",
   "taker sells": "テイカー売り",
   "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.":
@@ -200,4 +192,25 @@ export const charts: Catalog = {
     "過去の足を読み込めませんでした。もう一度ドラッグすると再試行します。",
   "drag to look back · wheel or pinch to zoom · hover a candle to read it":
     "ドラッグで過去へ · ホイールまたはピンチでズーム · ローソク足にカーソルを合わせて値を表示",
+  "Futures CVD": "先物 CVD",
+  "Spot CVD": "現物 CVD",
+  "Delta buy": "デルタ買い越し",
+  "Delta sell": "デルタ売り越し",
+  "{asset} delta per bar, spot and futures net taker flow summed":
+    "{asset} のバーごとのデルタ（現物と先物のテイカーネットフローの合計）",
+  "No taker flow for {asset} in the last {window}. Only the ~500 assets deepest on {venues} are polled; pick one from the asset list above.":
+    "直近 {window} に {asset} のテイカーフローはありません。{venues} で建玉の大きい約500銘柄のみを取得しています。上の銘柄リストから選んでください。",
+  "Price with cumulative volume delta under it: spot and futures taker buying against taker selling, their combined delta per bar, and where price and order flow disagree.":
+    "価格とその下の累積出来高デルタ：現物と先物のテイカー買いとテイカー売りの比較、バーごとの合計デルタ、そして価格とオーダーフローが食い違う箇所。",
+  "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars. Futures CVD is the exchanges' own 5-minute taker statistics for their perpetuals from <b>{venues}</b>, summed, for the ~500 assets deepest on them and every commodity, index and currency pair they list — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.":
+    "価格と、その下の累積出来高デルタ（CVD）：{buys} から {sells} を引いた額（ドル）。先物 CVD は <b>{venues}</b> が公開する無期限先物の5分ごとのテイカー統計を合計したもので、これらの取引所で建玉の大きい約500銘柄と、上場しているすべてのコモディティ・指数・通貨ペアが対象です — すべての取引所ではなく、5分より細かい粒度もありません。ダイバージェンスは価格とフローが逆を向いた期間を示します。起きたことを表すもので、この先を予測するものではありません。",
+  "Spot CVD is Binance's USDT spot book alone, for the crypto assets it lists; stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.":
+    "現物 CVD は Binance の USDT 現物板のみで、同取引所に上場している暗号資産が対象です。株式・コモディティ・指数は暗号資産取引所に現物板がないため、先物のみを表示します。多くの銘柄で規模が一桁違うため、現物と先物はそれぞれ別のパネルです。その下のヒストグラムはデルタで、バーごとの現物と先物のネットの合計です。",
+  "Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the line above the chart; on a phone, tap.":
+    "価格は取得対象で最も出来高の多い市場自身のローソク足です。パネルごとに目盛りが異なるため、線が交差する位置に意味はありません。ドラッグで過去をさかのぼり、ホイールまたはピンチで拡大縮小し、ローソク足にカーソルを合わせるとチャートの上の行に値が表示されます。スマートフォンではタップしてください。",
+  "futures net {net}": "先物ネット {net}",
+  "spot net {net}": "現物ネット {net}",
+  "delta {net}": "デルタ {net}",
+  "delta {net} ({pct} of volume)": "デルタ {net}（出来高の {pct}）",
+  "CVD futures {futures}, spot {spot}": "CVD 先物 {futures}、現物 {spot}",
 };

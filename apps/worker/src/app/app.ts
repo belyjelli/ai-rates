@@ -197,7 +197,8 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     // One page of an asset's CVD bars, for the trading chart dragged back past what the page shipped.
     // A page that ended a quarter of an hour ago is final -- OKX's last revision lands ~7.5 minutes
     // after its bucket -- so it is kept an hour; the newest page, a minute, like the page itself.
-    if (path === "/data/cvd") {
+    // /data/cvd is its address from before the page was renamed, for a tab still open on the old page.
+    if (path === "/data/chart" || path === "/data/cvd") {
       const asked = parseCvdHistoryParams(url.searchParams, now);
       if (!asked) return json({ error: "bad_request" }, 400, 0);
       const bars = await deps.data.cvdHistory({
@@ -207,6 +208,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         fromMs: asked.fromMs,
         toMs: asked.toMs,
         ref: asked.ref,
+        spot: asked.spot,
       });
       return Response.json(
         { from: asked.fromMs, to: asked.toMs, ref: kRef(bars), bars: kBars(bars) },
@@ -362,11 +364,24 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(() => pages.arbitrage({ overview, rows, params, now }));
     }
 
+    // The page was /cvd until 2026-10-28, when it became Chart (price, spot and futures CVD, and
+    // their delta). Every old address, asset and query included, moves for good to the same place.
+    if (path === "/cvd" || segments[0] === "cvd") {
+      return new Response(null, {
+        status: 301,
+        headers: {
+          location: `/chart${path.slice("/cvd".length)}${url.search}`,
+          "cache-control": "public, max-age=86400",
+        },
+      });
+    }
+
     // Every polled asset's taker flow in the table, and one asset charted above it -- BTC unless the
-    // address names another, so /cvd opens on the market's reference asset rather than an empty chart.
+    // address names another, so /chart opens on the market's reference asset rather than an empty
+    // chart.
     if (
-      path === "/cvd" ||
-      (segments[0] === "cvd" && (segments.length === 2 || segments.length === 3))
+      path === "/chart" ||
+      (segments[0] === "chart" && (segments.length === 2 || segments.length === 3))
     ) {
       const address = segments.length > 1 ? assetAddress(segments.slice(1)) : null;
       if (segments.length > 1 && !address) {
@@ -1149,7 +1164,7 @@ const SITEMAP_PATHS = [
   "/screener",
   "/rates",
   "/arbitrage",
-  "/cvd",
+  "/chart",
   "/whales",
   "/liquidations",
   "/sentiment",

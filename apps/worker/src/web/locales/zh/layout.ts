@@ -26,7 +26,6 @@ export const layout: Catalog = {
   rates: "费率",
   arbitrage: "套利",
   liquidations: "爆仓",
-  cvd: "CVD",
   exchanges: "交易所",
   "{markets} markets · {venues} venues · updated {ago}":
     "{markets} 个市场 · {venues} 家交易所 · {ago}更新",
@@ -79,7 +78,6 @@ export const layout: Catalog = {
   "its spreads, ranked": "它的价差排名",
   Arbitrage: "套利",
   "price gaps between exchanges": "交易所之间的价格差",
-  "taker buying against selling": "吃单买入与卖出对比",
   "large resting orders and trades": "大额挂单和成交",
   Liquidations: "爆仓",
   "where positions are liquidated": "仓位在哪些价位爆仓",
@@ -98,4 +96,5 @@ export const layout: Catalog = {
   "The ticker list did not load. Exchanges and pages still match.":
     "代码列表未能加载。交易所和页面仍可搜索。",
   "Nothing matches {q}.": "没有与 {q} 匹配的结果。",
+  "price, spot and futures CVD": "价格、现货与合约 CVD",
 };

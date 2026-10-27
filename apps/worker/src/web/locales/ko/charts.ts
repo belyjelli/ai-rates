@@ -87,8 +87,6 @@ export const charts: Catalog = {
   "{asset} price and cumulative volume delta over the last {window}":
     "최근 {window} {asset} 가격과 누적 거래량 델타",
   "{asset} net taker flow per bar": "{asset} 봉별 테이커 순흐름",
-  "Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover either panel to read one bar beside the cursor; on a phone, tap and it reads in the line above the chart.":
-    "가격은 수집 대상 중 거래가 가장 활발한 종목의 자체 종가로, 왼쪽 축입니다. CVD는 기간 시작부터의 테이커 매수에서 테이커 매도를 뺀 값으로, 오른쪽 축입니다. 두 값은 따로 스케일되므로 두 선이 교차하는 지점에는 아무 의미가 없습니다. 어느 패널이든 마우스를 올리면 커서 옆에서 봉 하나의 값을 볼 수 있고, 휴대폰에서는 탭하면 차트 위 줄에 표시됩니다.",
 
   // web/cvd.ts: tiles, controls and the screener table.
   Volume: "거래량",
@@ -129,17 +127,11 @@ export const charts: Catalog = {
   Signal: "신호",
   "No live market lists {asset}, so there is no flow to chart.":
     "{asset}의 운영 중인 종목이 없어 차트로 그릴 흐름이 없습니다.",
-  "No taker flow for {asset} in the last {window}. Only the ~100 assets deepest on {venues} are polled; pick one from the asset list above.":
-    "최근 {window} 동안 {asset}의 테이커 흐름이 없습니다. {venues}에서 미결제약정이 가장 큰 약 100개 자산만 수집합니다. 위의 자산 목록에서 하나를 선택하세요.",
   "Newest bucket {age}.": "최신 구간: {age}.",
   "Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.":
     "거래소는 5분 구간이 끝난 뒤에 그 구간을 발표하므로 차트 오른쪽 끝은 몇 분 늦습니다.",
 
   // web/cvd.ts: the page.
-  "Cumulative volume delta: taker buying against taker selling across exchanges, and where price and order flow disagree.":
-    "누적 거래량 델타: 거래소 전반의 테이커 매수와 테이커 매도 비교, 그리고 가격과 주문 흐름이 엇갈리는 지점.",
-  "Cumulative volume delta: {buys} less {sells}, in dollars. These are the exchanges' own 5-minute taker statistics from <b>{venues}</b>, summed, for the ~100 assets deepest on them — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.":
-    "누적 거래량 델타: {buys}에서 {sells}을(를) 뺀 값으로, 달러 기준입니다. <b>{venues}</b>의 거래소 자체 5분 테이커 통계를 합산한 것이며, 이들 거래소에서 미결제약정이 가장 큰 약 100개 자산이 대상입니다 — 모든 거래소가 아니며, 5분보다 세밀한 단위도 없습니다. 다이버전스는 가격과 흐름이 반대 방향을 가리킨 기간을 표시합니다. 이는 일어난 일을 설명할 뿐, 앞으로 일어날 일을 말하지 않습니다.",
   "taker buys": "테이커 매수",
   "taker sells": "테이커 매도",
   "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.":
@@ -199,4 +191,25 @@ export const charts: Catalog = {
     "이전 봉을 불러오지 못했습니다. 다시 드래그하면 재시도합니다.",
   "drag to look back · wheel or pinch to zoom · hover a candle to read it":
     "드래그해서 과거 보기 · 휠 또는 핀치로 확대 · 캔들에 마우스를 올려 값 확인",
+  "Futures CVD": "선물 CVD",
+  "Spot CVD": "현물 CVD",
+  "Delta buy": "델타 순매수",
+  "Delta sell": "델타 순매도",
+  "{asset} delta per bar, spot and futures net taker flow summed":
+    "{asset} 봉별 델타(현물과 선물 테이커 순흐름의 합)",
+  "No taker flow for {asset} in the last {window}. Only the ~500 assets deepest on {venues} are polled; pick one from the asset list above.":
+    "최근 {window} 동안 {asset}의 테이커 흐름이 없습니다. {venues}에서 미결제약정이 가장 큰 약 500개 자산만 수집합니다. 위의 자산 목록에서 하나를 선택하세요.",
+  "Price with cumulative volume delta under it: spot and futures taker buying against taker selling, their combined delta per bar, and where price and order flow disagree.":
+    "가격과 그 아래의 누적 거래량 델타: 현물과 선물의 테이커 매수와 테이커 매도 비교, 봉별 합산 델타, 그리고 가격과 주문 흐름이 엇갈리는 지점.",
+  "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars. Futures CVD is the exchanges' own 5-minute taker statistics for their perpetuals from <b>{venues}</b>, summed, for the ~500 assets deepest on them and every commodity, index and currency pair they list — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.":
+    "가격, 그리고 그 아래의 누적 거래량 델타(CVD): {buys}에서 {sells}을(를) 뺀 값으로, 달러 기준입니다. 선물 CVD는 <b>{venues}</b>의 무기한 선물에 대한 거래소 자체 5분 테이커 통계를 합산한 것이며, 이들 거래소에서 미결제약정이 가장 큰 약 500개 자산과 상장된 모든 원자재·지수·통화쌍이 대상입니다 — 모든 거래소가 아니며, 5분보다 세밀한 단위도 없습니다. 다이버전스는 가격과 흐름이 반대 방향을 가리킨 기간을 표시합니다. 이는 일어난 일을 설명할 뿐, 앞으로 일어날 일을 말하지 않습니다.",
+  "Spot CVD is Binance's USDT spot book alone, for the crypto assets it lists; stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.":
+    "현물 CVD는 Binance의 USDT 현물 호가창만 사용하며, Binance에 상장된 암호화폐가 대상입니다. 주식·원자재·지수는 암호화폐 거래소에 현물 호가창이 없어 선물만 표시합니다. 대부분의 자산에서 규모가 한 자릿수 이상 차이 나므로 현물과 선물은 각각 별도의 패널을 씁니다. 그 아래 히스토그램은 델타로, 봉마다 현물 순액과 선물 순액을 합한 값입니다.",
+  "Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the line above the chart; on a phone, tap.":
+    "가격은 수집 대상 중 거래가 가장 활발한 종목의 자체 캔들입니다. 패널마다 축이 따로 있으므로 선이 교차하는 지점에는 아무 의미가 없습니다. 드래그하면 과거를 볼 수 있고, 휠이나 핀치로 확대·축소하며, 캔들에 마우스를 올리면 차트 위 줄에 값이 표시됩니다. 휴대폰에서는 탭하세요.",
+  "futures net {net}": "선물 순액 {net}",
+  "spot net {net}": "현물 순액 {net}",
+  "delta {net}": "델타 {net}",
+  "delta {net} ({pct} of volume)": "델타 {net} (거래량의 {pct})",
+  "CVD futures {futures}, spot {spot}": "CVD 선물 {futures}, 현물 {spot}",
 };

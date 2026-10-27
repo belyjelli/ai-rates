@@ -68,7 +68,8 @@ export const ACTIONS: readonly HotkeyAction[] = [
     key: "l",
     legend: true,
   },
-  { id: "cvd", label: msg("cvd"), group: "go", href: "/cvd", key: "c", legend: true },
+  // The id stays "cvd" from before the page was renamed: saved key profiles name the binding by it.
+  { id: "cvd", label: msg("chart"), group: "go", href: "/chart", key: "c", legend: true },
   { id: "whales", label: msg("whales"), group: "go", href: "/whales", key: "w", legend: true },
   {
     id: "exchanges",

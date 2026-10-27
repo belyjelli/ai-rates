@@ -115,8 +115,8 @@ const searchStrings = () => ({
   screenerNote: tr("its spreads, ranked"),
   arbitrage: tr("Arbitrage"),
   arbitrageNote: tr("price gaps between exchanges"),
-  cvd: tr("CVD"),
-  cvdNote: tr("taker buying against selling"),
+  cvd: tr("Chart"),
+  cvdNote: tr("price, spot and futures CVD"),
   whales: tr("Whale orders"),
   whalesNote: tr("large resting orders and trades"),
   liquidations: tr("Liquidations"),
@@ -197,7 +197,7 @@ export function searchScript(): string {
       [S.screener, S.screenerNote, "/screener?q=" + encodeURIComponent(a[0])],
     ];
     if (a[4]) out.push([S.arbitrage, S.arbitrageNote, "/price-pair/" + w]);
-    out.push([S.cvd, S.cvdNote, "/cvd/" + w]);
+    out.push([S.cvd, S.cvdNote, "/chart/" + w]);
     if (a[5]) out.push([S.whales, S.whalesNote, "/whales/" + w + (a[5] === "binance" ? "" : "?venue=" + encodeURIComponent(a[5]))]);
     out.push([S.liquidations, S.liquidationsNote, "/liquidations/" + w]);
     if (bookFor(a)) out.push([S.gamma, S.gammaNote, "/rates?gex=" + encodeURIComponent(a[0])]);

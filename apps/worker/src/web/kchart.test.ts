@@ -47,13 +47,13 @@ describe("the bars", () => {
   test("ship as candles, a close standing in where the rest was never stored", () => {
     const at = Date.parse("2026-10-12T15:00:00Z");
     expect(kBars([bar({ open: 82_542, high: 82_770.9, low: 82_539.3 })])).toEqual([
-      [at, 82_542, 82_770.9, 82_539.3, 82_680.3, 1_000_000, 2_000_001],
+      [at, 82_542, 82_770.9, 82_539.3, 82_680.3, 1_000_000, 2_000_001, null, null],
     ]);
     expect(kBars([bar({})])).toEqual([
-      [at, 82_680.3, 82_680.3, 82_680.3, 82_680.3, 1_000_000, 2_000_001],
+      [at, 82_680.3, 82_680.3, 82_680.3, 82_680.3, 1_000_000, 2_000_001, null, null],
     ]);
     expect(kBars([bar({ price: null, open: 1, high: 1, low: 1 })])).toEqual([
-      [at, null, null, null, null, 1_000_000, 2_000_001],
+      [at, null, null, null, null, 1_000_000, 2_000_001, null, null],
     ]);
   });
 
@@ -68,8 +68,9 @@ describe("the bars", () => {
       count: 96,
       page: 450_000_000,
       floor: 0,
-      src: "/data/cvd?asset=BTC&class=crypto&bar=15",
+      src: "/data/chart?asset=BTC&class=crypto&bar=15",
       ref: "x:</script>",
+      spot: false,
       bars: [],
     };
     const tag = withLocale("zh", () => kchartData(payload));

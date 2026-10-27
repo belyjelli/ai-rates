@@ -5,8 +5,13 @@ import { LWC_SOURCE, LWC_VERSION } from "./lwc.generated";
 import { cvdText, slotPct, slotPrice, slotUsd, slotWhen, slotWords } from "./slot-chart";
 
 /**
- * The CVD chart as a trading chart: candles you drag back through history and zoom, drawn by
- * TradingView's Lightweight Charts.
+ * The Chart page's trading chart: candles you drag back through history and zoom, drawn by
+ * TradingView's Lightweight Charts, with the CVD in panes below them.
+ *
+ * THE PANES (owner, 2026-10-28): price candles; the perpetuals' CVD; the spot book's CVD, for an
+ * asset with one; and the delta, the two nets summed per bar, as a histogram. Spot and futures get a
+ * pane each rather than sharing one because their sizes differ by an order of magnitude on most
+ * assets, and on one axis the smaller would read as a flat line.
  *
  * WHY. A tester (2026-10-16) wanted what an exchange app gives: candles rather than a line of
  * closes, and every interval scrollable to the left to look back. The SVG chart (cvd.ts) is one
@@ -24,7 +29,7 @@ import { cvdText, slotPct, slotPrice, slotUsd, slotWhen, slotWords } from "./slo
  * merged into the chart where it stands. The readout line stays in the figure and is written to
  * wherever it currently is.
  *
- * HISTORY comes from `/data/cvd` in pages of KC_PAGE_BARS bars, on a grid of whole pages so every
+ * HISTORY comes from `/data/chart` in pages of KC_PAGE_BARS bars, on a grid of whole pages so every
  * reader asks for the same addresses and the edge cache answers most of them. A page names the
  * reference market the chart already draws, so the price does not jump to another venue's quotes
  * part way back. It stops at taker_flow's retention.
@@ -49,7 +54,10 @@ export function lwcAsset(path: string): Response | null {
 
 export { KC_PAGE_BARS, TAKER_FLOW_DAYS };
 
-/** One bar as the chart ships it: start (epoch ms), open, high, low, close, taker buys, taker sells. */
+/**
+ * One bar as the chart ships it: start (epoch ms), open, high, low, close, the perpetuals' taker buys
+ * and taker sells, and the spot book's (null for a bar without spot flow).
+ */
 export type KBar = [
   number,
   number | null,
@@ -58,6 +66,8 @@ export type KBar = [
   number | null,
   number,
   number,
+  number | null,
+  number | null,
 ];
 
 /**
@@ -75,6 +85,8 @@ export function kBars(bars: readonly CvdBar[]): KBar[] {
       close,
       Math.round(bar.buy_usd),
       Math.round(bar.sell_usd),
+      bar.spot_buy_usd == null ? null : Math.round(bar.spot_buy_usd),
+      bar.spot_sell_usd == null ? null : Math.round(bar.spot_sell_usd),
     ];
   });
 }
@@ -85,9 +97,12 @@ export function kRef(bars: readonly CvdBar[]): string | null {
   return bar ? `${bar.price_venue}:${bar.price_symbol}` : null;
 }
 
-/** The history address for one asset and bar length, without `before`, which the browser adds. */
-export const kSource = (asset: string, assetClass: string, barMinutes: number) =>
-  `/data/cvd?asset=${encodeURIComponent(asset)}&class=${encodeURIComponent(assetClass)}&bar=${barMinutes}`;
+/**
+ * The history address for one asset and bar length, without `before`, which the browser adds; with
+ * `spot`, the pages carry the spot book's flow too.
+ */
+export const kSource = (asset: string, assetClass: string, barMinutes: number, spot = false) =>
+  `/data/chart?asset=${encodeURIComponent(asset)}&class=${encodeURIComponent(assetClass)}&bar=${barMinutes}${spot ? "&spot=1" : ""}`;
 
 /** What a figure ships for the trading chart. */
 export interface KChartPayload {
@@ -101,6 +116,8 @@ export interface KChartPayload {
   /** The history address (kSource) and the reference market to keep. */
   src: string;
   ref: string | null;
+  /** Whether the asset has a spot book, and so a spot CVD pane. */
+  spot: boolean;
   bars: KBar[];
 }
 
@@ -112,6 +129,9 @@ export function kchartData(payload: KChartPayload): string {
     oldest: tr("Nothing older: taker flow is kept for {days} days.", { days: TAKER_FLOW_DAYS }),
     failed: tr("Older bars did not load. Drag again to retry."),
     hint: tr("drag to look back · wheel or pinch to zoom · hover a candle to read it"),
+    paneFutures: tr("Futures CVD"),
+    paneSpot: tr("Spot CVD"),
+    paneDelta: tr("Delta"),
   };
   return `<script type="application/json" class="kc-data">${JSON.stringify({ ...payload, words }).replace(/</g, "\\u003c")}</script>`;
 }
@@ -163,11 +183,16 @@ export const KCHART_SCRIPT = `(() => {
     return out;
   };
 
+  // A bar from before the spot book was collected has no spot flow: it adds nothing to the spot
+  // line, and the delta is the perpetuals' alone.
+  const spotNet = (b) => (b[7] == null || b[8] == null ? 0 : b[7] - b[8]);
+
   const draw = (st) => {
     const bars = st.bars, at = times(bars);
-    const candles = [], line = [], net = [];
-    let run = 0;
+    const candles = [], line = [], spot = [], net = [];
+    let run = 0, spotRun = 0;
     st.cvd = [];
+    st.spotCvd = [];
     bars.forEach((b, i) => {
       const time = at[i];
       const c = b[4];
@@ -177,12 +202,17 @@ export const KCHART_SCRIPT = `(() => {
         candles.push({ time, open: o, high: Math.max(b[2] === null ? c : b[2], o, c), low: Math.min(b[3] === null ? c : b[3], o, c), close: c });
       }
       run += b[5] - b[6];
+      spotRun += spotNet(b);
       st.cvd.push(run);
+      st.spotCvd.push(spotRun);
       line.push({ time, value: run });
-      net.push({ time, value: b[5] - b[6], color: b[5] >= b[6] ? st.colors.long : st.colors.short });
+      spot.push({ time, value: spotRun });
+      const delta = b[5] - b[6] + (st.spot ? spotNet(b) : 0);
+      net.push({ time, value: delta, color: delta >= 0 ? st.colors.long : st.colors.short });
     });
     st.candles.setData(candles);
     st.line.setData(line);
+    if (st.spot) st.spot.setData(spot);
     st.net.setData(net);
     const last = bars.length ? bars[bars.length - 1][4] : null;
     if (last) {
@@ -221,7 +251,7 @@ export const KCHART_SCRIPT = `(() => {
         .replace("{low}", () => price(b[3] === null ? c : b[3]))
         .replace("{close}", () => '<b class="' + tone + '">' + price(c) + "</b> (" + pct((c / o - 1) * 100, 2) + ")");
     }
-    return cvdText(ohlc ? head + " · " + ohlc : head, [b[5], b[6], null], st.cvd[i], null, { usd, price, pct, words: w });
+    return cvdText(ohlc ? head + " · " + ohlc : head, [b[5], b[6], null], st.cvd[i], null, { usd, price, pct, words: w }, st.spot ? [b[7], b[8], st.spotCvd[i]] : undefined);
   };
 
   // Older bars, a page at a time, on the page grid. An empty page that is still inside the
@@ -291,7 +321,7 @@ export const KCHART_SCRIPT = `(() => {
     let LC;
     try { LC = await load(); } catch (_) { return; }
     if (!host.isConnected) return;
-    const colors = { ink: css("--ink", "#d8d8d8"), muted: css("--muted", "#7a7a7a"), rule: css("--rule", "#242424"), band: css("--band", "#0e0e0e"), bg: css("--bg", "#000"), long: css("--long", "#5f87ff"), short: css("--short", "#ff5f5f"), accent: css("--accent", "#c8f5a8") };
+    const colors = { ink: css("--ink", "#d8d8d8"), muted: css("--muted", "#7a7a7a"), rule: css("--rule", "#242424"), band: css("--band", "#0e0e0e"), bg: css("--bg", "#000"), long: css("--long", "#5f87ff"), short: css("--short", "#ff5f5f"), accent: css("--accent", "#c8f5a8"), em: css("--em", "#b69cff") };
     host.hidden = false;
     anchor.classList.add("kc-on");
     // Looked up per label: the library can arrive before localtime.ts's script has run.
@@ -310,9 +340,7 @@ export const KCHART_SCRIPT = `(() => {
       autoSize: true,
       layout: { background: { type: "solid", color: colors.bg }, textColor: colors.muted, fontSize: 11, fontFamily: css("--mono", "monospace"), panes: { separatorColor: colors.rule, enableResize: false } },
       grid: { vertLines: { color: colors.band }, horzLines: { color: colors.band } },
-      // A phone keeps its width for the candles: the CVD line stays, its axis goes (the readout and
-      // the line's own label still give its value).
-      leftPriceScale: { visible: canvas.clientWidth >= 520, borderColor: colors.rule },
+      leftPriceScale: { visible: false },
       rightPriceScale: { borderColor: colors.rule },
       timeScale: { borderColor: colors.rule, timeVisible: true, secondsVisible: false, rightOffset: 2, fixLeftEdge: true, tickMarkFormatter: (t, type) => (type <= 2 ? (type === 0 ? String(new Date(t * 1000).getUTCFullYear()) : words(t * 1000)) : hm(t * 1000)) },
       crosshair: { mode: LC.CrosshairMode.Normal, vertLine: { color: colors.muted, labelBackgroundColor: colors.rule }, horzLine: { color: colors.muted, labelBackgroundColor: colors.rule } },
@@ -325,14 +353,17 @@ export const KCHART_SCRIPT = `(() => {
       bars: d.bars.slice(),
       partial: d.bars.length ? d.bars[0][0] : null,
       cursor: d.bars.length ? d.bars[0][0] : Date.now(),
-      ref: d.ref, loading: false, done: false, cvd: [],
+      ref: d.ref, loading: false, done: false, cvd: [], spotCvd: [], spot: null,
     };
+    // Price, then one pane per CVD, then the delta. Each pane's series names itself on its axis
+    // label, which is what tells the panes apart.
+    const dollars = { type: "custom", formatter: signed, minMove: 1 };
     st.candles = chart.addSeries(LC.CandlestickSeries, { upColor: "rgba(0,0,0,0)", downColor: colors.ink, borderUpColor: colors.ink, borderDownColor: colors.ink, wickUpColor: colors.ink, wickDownColor: colors.ink, priceLineColor: colors.muted });
-    st.line = chart.addSeries(LC.LineSeries, { color: colors.accent, lineWidth: 2, priceScaleId: "left", priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: { type: "custom", formatter: signed, minMove: 1 } });
-    st.net = chart.addSeries(LC.HistogramSeries, { priceLineVisible: false, lastValueVisible: false, priceFormat: { type: "custom", formatter: signed, minMove: 1 } }, 1);
+    st.line = chart.addSeries(LC.LineSeries, { color: colors.accent, lineWidth: 2, title: d.words.paneFutures, priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: dollars }, 1);
+    if (d.spot) st.spot = chart.addSeries(LC.LineSeries, { color: colors.em, lineWidth: 2, title: d.words.paneSpot, priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: dollars }, 2);
+    st.net = chart.addSeries(LC.HistogramSeries, { title: d.words.paneDelta, priceLineVisible: false, priceFormat: dollars }, d.spot ? 3 : 2);
     const panes = chart.panes();
-    if (panes[0]) panes[0].setStretchFactor(3);
-    if (panes[1]) panes[1].setStretchFactor(1);
+    panes.forEach((pane, i) => pane.setStretchFactor(i === 0 ? 3 : 1));
     st.note = document.createElement("span");
     st.note.className = "kc-note";
     st.note.hidden = true;

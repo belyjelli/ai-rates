@@ -80,8 +80,6 @@ export const charts: Catalog = {
   "{asset} price and cumulative volume delta over the last {window}":
     "{asset} 最近 {window} 的价格与累计成交量差",
   "{asset} net taker flow per bar": "{asset} 每根柱的主动成交净额",
-  "Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover either panel to read one bar beside the cursor; on a phone, tap and it reads in the line above the chart.":
-    "价格为成交最活跃的被采集市场自身的收盘价，对应左轴；CVD 为自窗口起点起主动买入减去主动卖出的累计值，对应右轴。两者分别缩放，因此两条线在哪里交叉没有任何含义。将鼠标悬停在任一面板上，即可在光标旁查看单根柱的数值；在手机上点击柱形，数值会显示在图表上方的那一行中。",
 
   // web/cvd.ts: tiles, controls and the screener table.
   Volume: "成交量",
@@ -122,17 +120,11 @@ export const charts: Catalog = {
   Signal: "信号",
   "No live market lists {asset}, so there is no flow to chart.":
     "没有在线市场上架 {asset}，因此没有可绘制的成交流。",
-  "No taker flow for {asset} in the last {window}. Only the ~100 assets deepest on {venues} are polled; pick one from the asset list above.":
-    "最近 {window} 内没有 {asset} 的主动成交数据。只采集在 {venues} 上持仓量最大的约 100 个资产；请从上方的资产列表中选择一个。",
   "Newest bucket {age}.": "最新时段：{age}。",
   "Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.":
     "交易所在每个 5 分钟时段结束后才发布该时段数据，因此图表最右侧会落后几分钟。",
 
   // web/cvd.ts: the page.
-  "Cumulative volume delta: taker buying against taker selling across exchanges, and where price and order flow disagree.":
-    "累计成交量差：各交易所主动买入与主动卖出的对比，以及价格与订单流方向相反之处。",
-  "Cumulative volume delta: {buys} less {sells}, in dollars. These are the exchanges' own 5-minute taker statistics from <b>{venues}</b>, summed, for the ~100 assets deepest on them — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.":
-    "累计成交量差：{buys}减去{sells}，单位为美元。数据来自交易所自身发布的 5 分钟主动成交统计（<b>{venues}</b>），加总后覆盖在这些交易所上持仓量最大的约 100 个资产 — 并非所有交易所，也没有比五分钟更细的粒度。背离表示该时间窗口内价格与成交流方向相反；它描述的是已经发生的情况，而不是对后市的预测。",
   "taker buys": "主动买入",
   "taker sells": "主动卖出",
   "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.":
@@ -191,4 +183,25 @@ export const charts: Catalog = {
   "Older bars did not load. Drag again to retry.": "更早的 K 线未能加载，再拖动一次可重试。",
   "drag to look back · wheel or pinch to zoom · hover a candle to read it":
     "拖动查看历史 · 滚轮或双指缩放 · 悬停 K 线查看数值",
+  "Futures CVD": "合约 CVD",
+  "Spot CVD": "现货 CVD",
+  "Delta buy": "Delta 净买入",
+  "Delta sell": "Delta 净卖出",
+  "{asset} delta per bar, spot and futures net taker flow summed":
+    "{asset} 每根柱的 Delta，即现货与合约主动成交净额之和",
+  "No taker flow for {asset} in the last {window}. Only the ~500 assets deepest on {venues} are polled; pick one from the asset list above.":
+    "最近 {window} 内没有 {asset} 的主动成交数据。只采集在 {venues} 上持仓量最大的约 500 个资产；请从上方的资产列表中选择一个。",
+  "Price with cumulative volume delta under it: spot and futures taker buying against taker selling, their combined delta per bar, and where price and order flow disagree.":
+    "价格及其下方的累计成交量差：现货与合约的主动买入与主动卖出对比、每根柱的合并 Delta，以及价格与订单流方向相反之处。",
+  "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars. Futures CVD is the exchanges' own 5-minute taker statistics for their perpetuals from <b>{venues}</b>, summed, for the ~500 assets deepest on them and every commodity, index and currency pair they list — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.":
+    "价格，下方为累计成交量差（CVD）：{buys}减去{sells}，单位为美元。合约 CVD 来自交易所自身发布的永续合约 5 分钟主动成交统计（<b>{venues}</b>），加总后覆盖在这些交易所上持仓量最大的约 500 个资产，以及它们上市的所有商品、指数和货币对 — 并非所有交易所，也没有比五分钟更细的粒度。背离表示该时间窗口内价格与成交流方向相反；它描述的是已经发生的情况，而不是对后市的预测。",
+  "Spot CVD is Binance's USDT spot book alone, for the crypto assets it lists; stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.":
+    "现货 CVD 仅来自 Binance 的 USDT 现货订单簿，覆盖其上市的加密资产；股票、商品和指数在加密交易所没有现货订单簿，只显示合约。现货与合约各占一个面板，因为在大多数资产上两者的规模相差一个数量级。下方的柱状图为 Delta：每根柱的现货净额与合约净额之和。",
+  "Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the line above the chart; on a phone, tap.":
+    "价格为成交最活跃的被采集市场自身的 K 线。每个面板有各自的刻度，因此线条在哪里交叉没有任何含义。拖动可回看历史，滚轮或双指缩放，将鼠标悬停在 K 线上即可在图表上方的那一行读取数值；在手机上请点击。",
+  "futures net {net}": "合约净额 {net}",
+  "spot net {net}": "现货净额 {net}",
+  "delta {net}": "Delta {net}",
+  "delta {net} ({pct} of volume)": "Delta {net}（占成交量 {pct}）",
+  "CVD futures {futures}, spot {spot}": "CVD 合约 {futures}，现货 {spot}",
 };

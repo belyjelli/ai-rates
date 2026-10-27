@@ -28,7 +28,6 @@ export const layout: Catalog = {
   rates: "レート",
   arbitrage: "アービトラージ",
   liquidations: "清算",
-  cvd: "CVD",
   exchanges: "取引所",
   "{markets} markets · {venues} venues · updated {ago}":
     "{markets}銘柄 · {venues}取引所 · {ago}に更新",
@@ -84,7 +83,6 @@ export const layout: Catalog = {
   "its spreads, ranked": "スプレッドのランキング",
   Arbitrage: "アービトラージ",
   "price gaps between exchanges": "取引所間の価格差",
-  "taker buying against selling": "テイカーの買いと売り",
   "large resting orders and trades": "大口の板注文と約定",
   Liquidations: "清算",
   "where positions are liquidated": "ポジションが清算される価格",
@@ -103,4 +101,5 @@ export const layout: Catalog = {
   "The ticker list did not load. Exchanges and pages still match.":
     "ティッカー一覧を読み込めませんでした。取引所とページは検索できます。",
   "Nothing matches {q}.": "{q} に一致するものはありません。",
+  "price, spot and futures CVD": "価格、現物と先物の CVD",
 };

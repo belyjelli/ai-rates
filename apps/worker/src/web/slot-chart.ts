@@ -61,6 +61,12 @@ export interface SlotWords {
   sold: string;
   net: string;
   netShare: string;
+  /** The Chart page's split: the perpetuals' net, the spot book's, their sum, and both CVD lines. */
+  futuresNet: string;
+  spotNet: string;
+  delta: string;
+  deltaShare: string;
+  cvdSplit: string;
   nothing: string;
   longsClosed: string;
   shortsClosed: string;
@@ -124,6 +130,11 @@ export const slotWords = (): SlotWords => ({
   sold: tr("sold {usd}"),
   net: tr("net {net}"),
   netShare: tr("net {net} ({pct} of volume)"),
+  futuresNet: tr("futures net {net}"),
+  spotNet: tr("spot net {net}"),
+  delta: tr("delta {net}"),
+  deltaShare: tr("delta {net} ({pct} of volume)"),
+  cvdSplit: tr("CVD futures {futures}, spot {spot}"),
   nothing: tr("nothing force-closed"),
   longsClosed: tr("longs closed {usd}"),
   shortsClosed: tr("shorts closed {usd}"),
@@ -257,6 +268,11 @@ export const SLOT_FORMAT: SlotFormat = {
  * or null for a slot with no recorded flow. `cvd` is the running total at that point, or null to
  * leave it out -- over the whole window it would only repeat the net. `open` is the window's first
  * price, the base for the change.
+ *
+ * `spot`, for an asset with a spot book, is that book's [bought, sold, CVD so far], beside the
+ * perpetuals' `bar`; bought and sold are null for a slot with no spot flow, the CVD null to leave it
+ * out. With it the reading names the two nets and their sum, the delta, instead of the perpetuals'
+ * buys and sells, and the CVD as both lines.
  */
 export function cvdText(
   head: string,
@@ -264,13 +280,45 @@ export function cvdText(
   cvd: number | null,
   open: number | null,
   f: SlotFormat,
+  spot?: readonly [number | null, number | null, number | null],
 ): string {
   const w = f.words;
   // Values go in through a function, so a "$" in a dollar figure is never read as a replace pattern.
-  const tail =
-    cvd === null
-      ? ""
-      : ` · CVD <b class="${cvd > 0 ? "cvd-up" : cvd < 0 ? "cvd-down" : ""}">${cvd > 0 ? "+" : ""}${f.usd(cvd)}</b>`;
+  const signed = (v: number) =>
+    `<b class="${v > 0 ? "cvd-up" : v < 0 ? "cvd-down" : ""}">${v > 0 ? "+" : ""}${f.usd(v)}</b>`;
+  if (spot !== undefined) {
+    const [spotBought, spotSold, spotCvd] = spot;
+    const both =
+      cvd === null && spotCvd === null
+        ? ""
+        : ` · ${w.cvdSplit
+            .replace("{futures}", () => (cvd === null ? "–" : signed(cvd)))
+            .replace("{spot}", () => (spotCvd === null ? "–" : signed(spotCvd)))}`;
+    const hasSpot = spotBought !== null && spotSold !== null;
+    if (bar === null && !hasSpot) return `${head} · ${w.noFlow}${both}`;
+    const parts = [head];
+    const price = bar ? bar[2] : null;
+    if (price !== null) {
+      parts.push(
+        (open ? w.priceSince : w.price)
+          .replace("{price}", () => f.price(price))
+          .replace("{pct}", () => (open ? f.pct((price / open - 1) * 100, 2) : "")),
+      );
+    }
+    const futuresNet = bar ? bar[0] - bar[1] : 0;
+    const spotNet = hasSpot ? spotBought - spotSold : 0;
+    const delta = futuresNet + spotNet;
+    const volume = (bar ? bar[0] + bar[1] : 0) + (hasSpot ? spotBought + spotSold : 0);
+    parts.push(
+      w.futuresNet.replace("{net}", () => (bar ? signed(futuresNet) : "–")),
+      w.spotNet.replace("{net}", () => (hasSpot ? signed(spotNet) : "–")),
+      (volume > 0 ? w.deltaShare : w.delta)
+        .replace("{net}", () => signed(delta))
+        .replace("{pct}", () => (volume > 0 ? f.pct((delta / volume) * 100, 1) : "")),
+    );
+    return parts.join(" · ") + both;
+  }
+  const tail = cvd === null ? "" : ` · CVD ${signed(cvd)}`;
   if (bar === null) return `${head} · ${w.noFlow}${tail}`;
   const [bought, sold, price] = bar;
   const net = bought - sold;
@@ -639,7 +687,11 @@ export interface WhaleSlots {
   cumulative: number[];
 }
 
-/** What a CVD figure ships: one entry per slot, oldest first, [bought, sold, CVD so far, price]. */
+/**
+ * What a CVD figure ships: one entry per slot, oldest first, [bought, sold, CVD so far, price], and
+ * for an asset with a spot book three more, [spot bought, spot sold, spot CVD so far], the first two
+ * null for a slot with no spot flow. An entry is null for a slot with no flow of either kind.
+ */
 export interface CvdSlots {
   kind: "cvd";
   /** First slot's start, epoch ms, and the slot length. */
@@ -647,7 +699,13 @@ export interface CvdSlots {
   unit: number;
   /** The window's first price, or null when no slot has one. */
   open: number | null;
-  slots: ([number, number, number, number | null] | null)[];
+  /** Whether the entries carry the spot book's three. */
+  spot?: boolean;
+  slots: (
+    | [number, number, number, number | null]
+    | [number, number, number, number | null, number | null, number | null, number]
+    | null
+  )[];
 }
 
 /** What a longs-vs-shorts figure ships: one entry per slot, [longs closed, shorts closed, events]. */
@@ -758,9 +816,9 @@ export const SLOT_SCRIPT = `(() => {
     const head = i === d.slots.length - 1 ? d.words.filling.replace("{when}", () => when) : when;
     const slot = d.slots[i];
     if (d.kind === "lqc") return sidesText(head, slot, fw);
-    let cvd = 0;
-    for (let j = i; j >= 0; j--) if (d.slots[j]) { cvd = d.slots[j][2]; break; }
-    return cvdText(head, slot && [slot[0], slot[1], slot[3]], cvd, d.open, fw);
+    let cvd = 0, spotCvd = 0;
+    for (let j = i; j >= 0; j--) if (d.slots[j]) { cvd = d.slots[j][2]; spotCvd = d.slots[j][6] || 0; break; }
+    return cvdText(head, slot && [slot[0], slot[1], slot[3]], cvd, d.open, fw, d.spot ? [slot ? slot[4] : null, slot ? slot[5] : null, spotCvd] : undefined);
   };
   const clear = () => {
     if (!held) return;

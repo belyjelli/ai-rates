@@ -839,7 +839,7 @@ export const KC_PAGE_BARS = 500;
 /** How long taker_flow keeps a bucket (collector migration 023): nothing older can be asked for. */
 export const TAKER_FLOW_DAYS = 35;
 
-/** One page of the CVD chart's history, as `/data/cvd` is asked for it (web/kchart.ts). */
+/** One page of the Chart page's history, as `/data/chart` is asked for it (web/kchart.ts). */
 export interface CvdHistoryParams {
   asset: string;
   assetClass: AssetClass;
@@ -848,13 +848,15 @@ export interface CvdHistoryParams {
   fromMs: number;
   toMs: number;
   ref: { venue: string; symbol: string } | null;
+  /** `spot=1`: the chart draws a spot line, so the page carries the spot book's flow too. */
+  spot: boolean;
 }
 
 const HISTORY_ASSET = /^[\p{L}\p{N}._-]{1,40}$/u;
 const HISTORY_REF = /^([a-z0-9-]{1,32}):([\p{L}\p{N}._-]{1,48})$/u;
 
 /**
- * `/data/cvd`'s query, or null when any part is not one the chart would send. Strict on purpose:
+ * `/data/chart`'s query, or null when any part is not one the chart would send. Strict on purpose:
  * every page is cached by its address, so `before` must sit on the page grid (a multiple of
  * KC_PAGE_BARS bars) and inside the retention, and the bar must be one of the intervals' -- an
  * address the chart never makes would only ever be a cache miss sent to the database.
@@ -877,6 +879,7 @@ export function parseCvdHistoryParams(
   // From the page holding the oldest kept bucket to the page holding now.
   if (before <= now - TAKER_FLOW_DAYS * 86_400_000 || before > now + page) return null;
   if (params.has("ref") && !ref) return null;
+  if (params.has("spot") && params.get("spot") !== "1") return null;
   return {
     asset: asset.toUpperCase(),
     assetClass,
@@ -884,6 +887,7 @@ export function parseCvdHistoryParams(
     fromMs: before - page,
     toMs: before,
     ref: ref?.[1] && ref[2] ? { venue: ref[1], symbol: ref[2] } : null,
+    spot: params.get("spot") === "1",
   };
 }
 

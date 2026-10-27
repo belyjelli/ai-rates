@@ -38,11 +38,11 @@ export const WEBMCP_SCRIPT = `(() => {
       description: "Open one of the site's pages in this tab.",
       inputSchema: {
         type: "object",
-        properties: { page: { type: "string", enum: ["screener", "rates", "arbitrage", "liquidations", "cvd", "sentiment", "markets", "status", "docs"] } },
+        properties: { page: { type: "string", enum: ["screener", "rates", "arbitrage", "liquidations", "chart", "sentiment", "markets", "status", "docs"] } },
         required: ["page"],
       },
       execute: async ({ page }) => {
-        const pages = ["screener", "rates", "arbitrage", "liquidations", "cvd", "sentiment", "markets", "status", "docs"];
+        const pages = ["screener", "rates", "arbitrage", "liquidations", "chart", "sentiment", "markets", "status", "docs"];
         if (!pages.includes(page)) return out("Unknown page: " + page);
         location.assign("/" + page);
         return out("Opening /" + page);

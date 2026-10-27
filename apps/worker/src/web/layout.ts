@@ -39,7 +39,7 @@ const NAV = [
     label: msg("liquidations"),
     match: (p: string) => p.startsWith("/liquidations"),
   },
-  { href: "/cvd", label: msg("cvd"), match: (p: string) => p.startsWith("/cvd") },
+  { href: "/chart", label: msg("chart"), match: (p: string) => p.startsWith("/chart") },
   { href: "/whales", label: msg("whales"), match: (p: string) => p.startsWith("/whales") },
   { href: "/markets", label: msg("exchanges"), match: (p: string) => p.startsWith("/markets") },
 ];
@@ -89,7 +89,7 @@ const OG_LOCALE: Readonly<Record<Locale, string>> = {
 const DATASET_PATHS = [
   "/rates",
   "/arbitrage",
-  "/cvd",
+  "/chart",
   "/liquidations",
   "/sentiment",
   "/markets",
@@ -624,12 +624,12 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
    keeps the sticky masthead from covering the chart's title when the page jumps there. */
 .cvd-anchor{scroll-margin-top:calc(var(--mast) + 8px)}
 .kc-host{margin:2px 0 22px}
-.kc-canvas{position:relative;height:460px}
+.kc-canvas{position:relative;height:620px}
 .kc-on .slot-area,.kc-on .slot-modes{display:none!important}
 .kc-bar{margin:0 0 4px;min-height:16px;font-size:11px;line-height:16px}
 .kc-note{color:var(--ink)}
 .kc-note:not([hidden])+.kc-hint{display:none}
-@media (max-width:640px){.kc-canvas{height:380px}.kc-hint{display:none}}
+@media (max-width:640px){.kc-canvas{height:520px}.kc-hint{display:none}}
 .cvd-chart .fchart-plot{margin:6px 64px 0 64px}
 .cvd-chart .fchart-note{margin-top:22px}
 .cvd-chart .cvd-plot{height:260px}
@@ -657,6 +657,7 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
 .cvd-zero{stroke:var(--dim);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
 .cvd-area{fill:rgba(200,245,168,.07)}
 .cvd-line{fill:none;stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke}
+.cvd-spot{fill:none;stroke:var(--em);stroke-width:1.6;vector-effect:non-scaling-stroke}
 .cvd-price{fill:none;stroke:var(--ink);stroke-width:1.4;vector-effect:non-scaling-stroke}
 .cvd-buy{fill:var(--long)}.cvd-sell{fill:var(--short)}
 .cvd-buy.cvd-now,.cvd-sell.cvd-now{opacity:.5}
@@ -669,7 +670,7 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
 .cvd-chart .fchart-keys span{display:flex;align-items:center;gap:5px;color:var(--muted)}
 .cvd-chart .fchart-keys b{font-weight:600}
 .cvd-chart .fchart-keys i{display:inline-block;width:12px;height:3px}
-.cvd-key-price{background:var(--ink)}.cvd-key-cvd{background:var(--accent)}
+.cvd-key-price{background:var(--ink)}.cvd-key-cvd{background:var(--accent)}.cvd-key-spot{background:var(--em)}
 .cvd-key-buy{background:var(--long);height:10px!important;width:10px!important}
 .cvd-key-sell{background:var(--short);height:10px!important;width:10px!important}
 .cvd-h2{font-size:13px;margin:0;text-transform:uppercase;letter-spacing:.04em}

@@ -28,7 +28,6 @@ export const layout: Catalog = {
   rates: "요율",
   arbitrage: "차익거래",
   liquidations: "청산",
-  cvd: "CVD",
   exchanges: "거래소",
   "{markets} markets · {venues} venues · updated {ago}":
     "종목 {markets}개 · 거래소 {venues}곳 · {ago} 업데이트",
@@ -84,7 +83,6 @@ export const layout: Catalog = {
   "its spreads, ranked": "스프레드 순위",
   Arbitrage: "차익거래",
   "price gaps between exchanges": "거래소 간 가격 차이",
-  "taker buying against selling": "테이커 매수 대 매도",
   "large resting orders and trades": "대형 대기 주문과 체결",
   Liquidations: "청산",
   "where positions are liquidated": "포지션이 청산되는 가격",
@@ -103,4 +101,5 @@ export const layout: Catalog = {
   "The ticker list did not load. Exchanges and pages still match.":
     "티커 목록을 불러오지 못했습니다. 거래소와 페이지는 계속 검색됩니다.",
   "Nothing matches {q}.": "{q}와(과) 일치하는 결과가 없습니다.",
+  "price, spot and futures CVD": "가격, 현물 및 선물 CVD",
 };

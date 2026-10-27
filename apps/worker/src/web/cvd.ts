@@ -42,11 +42,17 @@ import {
 import { venueName } from "./venues";
 
 /**
- * /cvd: cumulative volume delta -- who initiated the volume, taker buys against taker sells.
+ * /chart (until 2026-10-28 /cvd): price, and cumulative volume delta under it -- who initiated the
+ * volume, taker buys against taker sells -- split into the perpetuals' and the spot book's, with
+ * their sum per bar, the delta, as a histogram.
+ *
+ * SPOT is Binance spot's USDT book alone (collector migration 051), for crypto assets that have one;
+ * stocks, commodities and indices have no spot book on a crypto exchange and chart perpetuals only.
  *
  * WHAT THE NUMBER IS, and it is narrower than the name suggests. Every figure is the venues' OWN
- * 5-minute taker statistics (migration 023), summed across the venues polled: binance, okx and gate
- * (bitget too, until its retirement on 2026-09-27), for the ~100 assets deepest by open interest on them. It is not every exchange, it is not
+ * 5-minute taker statistics (migration 023), summed across the venues polled: binance, okx, gate
+ * and bitget (out between 2026-09-27 and its reinstatement on 2026-10-18), for the ~500 assets deepest
+ * by open interest on them. It is not every exchange, it is not
  * finer than five minutes, and it is not our count of trades. The lede says all three.
  *
  * A DIVERGENCE IS A FLAG, NOT A CALL. "Price up while takers sold" is a description of the window,
@@ -55,7 +61,7 @@ import { venueName } from "./venues";
  */
 
 /** The venues whose taker statistics are collected. Listed in the lede, so it cannot drift. */
-export const CVD_VENUES = ["binance", "okx", "gate"] as const;
+export const CVD_VENUES = ["binance", "okx", "gate", "bitget"] as const;
 
 /**
  * A divergence needs both a real price move and a real flow imbalance. Below these, "price up 0.02%
@@ -71,6 +77,8 @@ export type Divergence = "bullish" | "bearish" | null;
 
 const net = (row: { buy_usd: number; sell_usd: number }) => row.buy_usd - row.sell_usd;
 const volume = (row: { buy_usd: number; sell_usd: number }) => row.buy_usd + row.sell_usd;
+/** The spot book's net over a bar, zero for a bar without spot flow. */
+const spotNet = (bar: CvdBar) => (bar.spot_buy_usd ?? 0) - (bar.spot_sell_usd ?? 0);
 
 /** CVD as a share of the window's volume, in percent. Null on no volume. */
 export function flowRatio(row: { buy_usd: number; sell_usd: number }): number | null {
@@ -106,11 +114,14 @@ function signedPct(pct: number | null, digits = 2): string {
 const tone = (value: number | null) =>
   value === null || value === 0 ? "" : value > 0 ? " cvd-up" : " cvd-down";
 
+/** The page's own address, before an asset is named. */
+export const CHART_PATH = "/chart";
+
 /** The address form every asset page uses: crypto unmarked, every other class in the path. */
 const cvdPath = (asset: string, assetClass: AssetClass) =>
   assetClass === "crypto"
-    ? `/cvd/${encodeURIComponent(asset)}`
-    : `/cvd/${assetClass}/${encodeURIComponent(asset)}`;
+    ? `${CHART_PATH}/${encodeURIComponent(asset)}`
+    : `${CHART_PATH}/${assetClass}/${encodeURIComponent(asset)}`;
 
 /** The smallest 1-2-2.5-5 step at or above `value`, so an axis reads $300M rather than $283M. */
 function niceCeil(value: number): number {
@@ -123,7 +134,12 @@ function niceCeil(value: number): number {
 }
 
 /**
- * The chart: price and CVD on one time axis above, the net flow per bar below.
+ * The chart: price and CVD on one time axis above, the net flow per bar below. This is the version
+ * drawn on the server, for a reader without JavaScript and the moment before the trading chart
+ * (kchart.ts) loads; that one gives spot and futures a pane each.
+ *
+ * WITH A SPOT BOOK the top panel draws two CVD lines, the perpetuals' and the spot book's, on the one
+ * dollar axis, and the strip is the delta: both nets summed per bar.
  *
  * TWO PANELS, NOT ONE, which is where this departs from the usual CVD chart. There the per-bar net
  * flow is drawn on the CVD's own axis, where a window's cumulative total dwarfs any single bar and
@@ -141,10 +157,12 @@ function cvdChart(data: {
   asset: string;
   assetClass: AssetClass;
   bars: readonly CvdBar[];
+  /** Whether the bars carry a spot book's flow. */
+  spot: boolean;
   params: CvdParams;
   now: number;
 }): string {
-  const { label, asset, assetClass, bars, params, now } = data;
+  const { label, asset, assetClass, bars, spot, params, now } = data;
   const { hours, barMinutes, span: window } = CVD_INTERVALS[params.interval];
   const bucketMs = barMinutes * 60_000;
   const current = Math.floor(now / bucketMs) * bucketMs;
@@ -155,20 +173,30 @@ function cvdChart(data: {
   const slot = 1000 / count;
 
   const byBucket = new Map(bars.map((bar) => [bar.bucket_start.getTime(), bar]));
-  type Slot = { start: number; bar: CvdBar | undefined; cvd: number; price: number | null };
+  type Slot = {
+    start: number;
+    bar: CvdBar | undefined;
+    cvd: number;
+    spotCvd: number;
+    price: number | null;
+  };
   const slots: Slot[] = [];
   let running = 0;
+  let spotRunning = 0;
   for (let i = 0; i < count; i++) {
     const start = fromMs + i * bucketMs;
     const bar = byBucket.get(start);
-    if (bar) running += net(bar);
-    slots.push({ start, bar, cvd: running, price: bar?.price ?? null });
+    if (bar) {
+      running += net(bar);
+      spotRunning += spotNet(bar);
+    }
+    slots.push({ start, bar, cvd: running, spotCvd: spotRunning, price: bar?.price ?? null });
   }
   // The price line joins only the bars that have a close: a slot with none is skipped rather than
   // drawn at zero, and nothing is held backwards to fill the start.
 
   const prices = slots.flatMap((s) => (s.price === null ? [] : [s.price]));
-  const cvds = slots.map((s) => s.cvd);
+  const cvds = slots.flatMap((s) => (spot ? [s.cvd, s.spotCvd] : [s.cvd]));
   const pLo = prices.length ? Math.min(...prices) : 0;
   const pHi = prices.length ? Math.max(...prices) : 1;
   const pPad = (pHi - pLo || pHi * 0.01 || 1) * 0.08;
@@ -187,6 +215,9 @@ function cvdChart(data: {
     )
     .filter((p): p is string => p !== null);
   const cvdPoints = slots.map((s, i) => `${xMid(i).toFixed(1)},${cvdY(s.cvd).toFixed(1)}`);
+  const spotPoints = spot
+    ? slots.map((s, i) => `${xMid(i).toFixed(1)},${cvdY(s.spotCvd).toFixed(1)}`)
+    : [];
   const zeroY = cvdY(0).toFixed(1);
   const cvdArea = `M${xMid(0).toFixed(1)},${zeroY} L${cvdPoints.join(" L")} L${xMid(count - 1).toFixed(1)},${zeroY} Z`;
 
@@ -217,13 +248,15 @@ function cvdChart(data: {
     }),
   );
 
-  // The net strip: one bar per slot around its own zero, on its own symmetric scale.
-  const peak = niceCeil(Math.max(0, ...slots.map((s) => (s.bar ? Math.abs(net(s.bar)) : 0))));
+  // The net strip: one bar per slot around its own zero, on its own symmetric scale. With a spot
+  // book it is the delta, both nets summed.
+  const delta = (bar: CvdBar) => net(bar) + (spot ? spotNet(bar) : 0);
+  const peak = niceCeil(Math.max(0, ...slots.map((s) => (s.bar ? Math.abs(delta(s.bar)) : 0))));
   const barWidth = Math.max(slot * 0.72, 1);
   const netBars = slots
     .map((s, i) => {
       if (!s.bar) return "";
-      const flow = net(s.bar);
+      const flow = delta(s.bar);
       if (flow === 0) return "";
       const h = (Math.abs(flow) / peak) * 500;
       const x = (i * slot + (slot - barWidth) / 2).toFixed(2);
@@ -259,6 +292,7 @@ function cvdChart(data: {
   }
 
   const total = running;
+  const spotTotal = spotRunning;
   // Where the price line comes from: one market, the busiest that publishes a price in the window.
   // Named, so a reader checking it against an exchange app checks it against the same market.
   const reference = bars.find((bar) => bar.price_venue !== null);
@@ -283,6 +317,8 @@ function cvdChart(data: {
   const open = prices[0] ?? null;
   const bought = slots.reduce((sum, s) => sum + (s.bar?.buy_usd ?? 0), 0);
   const sold = slots.reduce((sum, s) => sum + (s.bar?.sell_usd ?? 0), 0);
+  const spotBought = slots.reduce((sum, s) => sum + (s.bar?.spot_buy_usd ?? 0), 0);
+  const spotSold = slots.reduce((sum, s) => sum + (s.bar?.spot_sell_usd ?? 0), 0);
   const cite = citeMark(
     tr("{asset} taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.", {
       asset: plainLabel(label),
@@ -298,6 +334,7 @@ function cvdChart(data: {
     null,
     open,
     SLOT_FORMAT,
+    spot ? [spotBought, spotSold, null] : undefined,
   );
   // Whole dollars are finer than any readout shows; the price keeps its own precision.
   const payload = slotData({
@@ -305,11 +342,19 @@ function cvdChart(data: {
     from: fromMs,
     unit: bucketMs,
     open,
-    slots: slots.map((s) =>
-      s.bar
-        ? [Math.round(s.bar.buy_usd), Math.round(s.bar.sell_usd), Math.round(s.cvd), s.price]
-        : null,
-    ),
+    ...(spot ? { spot: true } : {}),
+    slots: slots.map((s) => {
+      if (!s.bar) return null;
+      const perps = [
+        Math.round(s.bar.buy_usd),
+        Math.round(s.bar.sell_usd),
+        Math.round(s.cvd),
+        s.price,
+      ] as const;
+      if (!spot) return [...perps];
+      const own = (usd: number | null | undefined) => (usd == null ? null : Math.round(usd));
+      return [...perps, own(s.bar.spot_buy_usd), own(s.bar.spot_sell_usd), Math.round(s.spotCvd)];
+    }),
   });
 
   // The same bars for the trading chart that replaces the panels below once its library loads
@@ -319,20 +364,21 @@ function cvdChart(data: {
     count,
     page: KC_PAGE_BARS * bucketMs,
     floor: now - TAKER_FLOW_DAYS * 86_400_000,
-    src: kSource(asset, assetClass, barMinutes),
+    src: kSource(asset, assetClass, barMinutes, spot),
     ref: kRef(bars),
+    spot,
     bars: kBars(bars),
   });
 
   return `<figure class="fchart cvd-chart" data-live="cvd-chart" data-cursors>${cite}
-<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>${tr("Price")}${market ? ` <span class="dim">${tr("close, {market}", { market: esc(market) })}</span>` : ""}</span><span><i class="cvd-key-cvd"></i>CVD <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span><span><i class="cvd-key-buy"></i>${tr("Net buy")}</span><span><i class="cvd-key-sell"></i>${tr("Net sell")}</span>${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
+<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>${tr("Price")}${market ? ` <span class="dim">${tr("close, {market}", { market: esc(market) })}</span>` : ""}</span><span><i class="cvd-key-cvd"></i>${spot ? tr("Futures CVD") : "CVD"} <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span>${spot ? `<span><i class="cvd-key-spot"></i>${tr("Spot CVD")} <b data-u="spot-total" class="${tone(spotTotal).trim()}">${signedUsd(spotTotal)}</b> <span class="dim">Binance</span></span>` : ""}<span><i class="cvd-key-buy"></i>${spot ? tr("Delta buy") : tr("Net buy")}</span><span><i class="cvd-key-sell"></i>${spot ? tr("Delta sell") : tr("Net sell")}</span>${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}">
-<div class="fchart-plot cvd-plot" data-axes="${priceAxes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} price and cumulative volume delta over the last {window}", { asset: label, window }))}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${
+<div class="fchart-plot cvd-plot" data-axes="${priceAxes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} price and cumulative volume delta over the last {window}", { asset: label, window }))}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${spot ? `<polyline class="cvd-spot" points="${spotPoints.join(" ")}"></polyline>` : ""}${
     pricePath.length > 1
       ? `<polyline class="cvd-price" points="${pricePath.join(" ")}"></polyline>`
       : ""
   }${SLOT_CURSOR}${SLOT_HAIR}</svg>${leftLabels}${rightLabels}</div>
-<div class="fchart-plot cvd-strip" data-axes="${esc(JSON.stringify({ r: ["usd", -peak, peak] }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} net taker flow per bar", { asset: label }))}">${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line>${netBars}${SLOT_CURSOR}${SLOT_HAIR}</svg><span class="cvd-yr" style="top:0%">${signedUsd(peak)}</span><span class="cvd-yr" style="top:100%">${signedUsd(-peak)}</span>${xLabels.join("")}</div>
+<div class="fchart-plot cvd-strip" data-axes="${esc(JSON.stringify({ r: ["usd", -peak, peak] }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(spot ? tr("{asset} delta per bar, spot and futures net taker flow summed", { asset: label }) : tr("{asset} net taker flow per bar", { asset: label }))}">${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="500" y2="500"></line>${netBars}${SLOT_CURSOR}${SLOT_HAIR}</svg><span class="cvd-yr" style="top:0%">${signedUsd(peak)}</span><span class="cvd-yr" style="top:100%">${signedUsd(-peak)}</span>${xLabels.join("")}</div>
 </div>
 ${payload}${trading}
 </figure>`;
@@ -470,7 +516,7 @@ export const CVD_SWITCH_SCRIPT = `(() => {
       a.setAttribute("href", withSort(a.getAttribute("href"), a.dataset.cvdSort, on && !asc));
     }
     history.replaceState(null, "", withSort(location.href, sort, asc));
-    for (const a of document.querySelectorAll('main a[href^="/cvd"]:not([data-cvd-sort])')) a.setAttribute("href", withSort(a.getAttribute("href"), sort, asc));
+    for (const a of document.querySelectorAll('main a[href^="/chart"]:not([data-cvd-sort])')) a.setAttribute("href", withSort(a.getAttribute("href"), sort, asc));
   };
 
   const modified = (event) => event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
@@ -645,7 +691,7 @@ export function cvd(data: {
         return `<span class="tf-locked" aria-disabled="true" title="${esc(why)}">${key}${LOCK_ICON}</span>`;
       }
       const href = esc(
-        (assetInAddress ? selfPath : "/cvd") + cvdToQuery({ ...params, interval: key }),
+        (assetInAddress ? selfPath : CHART_PATH) + cvdToQuery({ ...params, interval: key }),
       );
       return key === params.interval
         ? `<a class="on" href="${href}" aria-current="page" data-cvd-switch="${key}">${key}</a>`
@@ -663,7 +709,7 @@ export function cvd(data: {
           assetClass: chartClass,
           label,
           params,
-          base: assetInAddress ? selfPath : "/cvd",
+          base: assetInAddress ? selfPath : CHART_PATH,
         });
   const empty =
     rows.length === 0
@@ -674,33 +720,41 @@ export function cvd(data: {
     flow.asset_class === null
       ? `<p class="empty">${tr("No live market lists {asset}, so there is no flow to chart.", { asset: esc(asset) })}</p>`
       : flow.bars.length === 0
-        ? `<p class="empty">${tr("No taker flow for {asset} in the last {window}. Only the ~100 assets deepest on {venues} are polled; pick one from the asset list above.", { asset: label, window: esc(CVD_INTERVALS[params.interval].span), venues: CVD_VENUES.map(venueName).join(", ") })}</p>`
-        : cvdChart({ label, asset, assetClass: chartClass, bars: flow.bars, params, now });
+        ? `<p class="empty">${tr("No taker flow for {asset} in the last {window}. Only the ~500 assets deepest on {venues} are polled; pick one from the asset list above.", { asset: label, window: esc(CVD_INTERVALS[params.interval].span), venues: CVD_VENUES.map(venueName).join(", ") })}</p>`
+        : cvdChart({
+            label,
+            asset,
+            assetClass: chartClass,
+            bars: flow.bars,
+            spot: flow.spot,
+            params,
+            now,
+          });
 
   const lag = flow.newest
     ? tr("Newest bucket {age}.", { age: esc(ageText(flow.newest, now)) })
     : "";
 
   return layout({
-    title: assetInAddress ? `${label.replace(/<[^>]+>/g, "")} CVD` : "CVD",
+    title: assetInAddress ? `${label.replace(/<[^>]+>/g, "")} ${tr("Chart")}` : tr("Chart"),
     description: tr(
-      "Cumulative volume delta: taker buying against taker selling across exchanges, and where price and order flow disagree.",
+      "Price with cumulative volume delta under it: spot and futures taker buying against taker selling, their combined delta per bar, and where price and order flow disagree.",
     ),
-    path: "/cvd",
+    path: CHART_PATH,
     overview,
     now,
     body: `${helpHeading(
       "h1",
-      "CVD",
+      tr("Chart"),
       "cvd",
       `<p>${tr(
-        "Cumulative volume delta: {buys} less {sells}, in dollars. These are the exchanges' own 5-minute taker statistics from <b>{venues}</b>, summed, for the ~100 assets deepest on them — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.",
+        "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars. Futures CVD is the exchanges' own 5-minute taker statistics for their perpetuals from <b>{venues}</b>, summed, for the ~500 assets deepest on them and every commodity, index and currency pair they list — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.",
         {
           buys: `<span class="cvd-up">${tr("taker buys")}</span>`,
           sells: `<span class="cvd-down">${tr("taker sells")}</span>`,
           venues: CVD_VENUES.map(venueName).join(", "),
         },
-      )}</p><p>${tr("Price is the busiest polled market's own close, left axis; CVD is taker buys less taker sells from the start of the window, right axis. The two are scaled separately, so where the lines cross means nothing. Hover either panel to read one bar beside the cursor; on a phone, tap and it reads in the line above the chart.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.")}</p><p>${tr("Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.")}</p>`,
+      )}</p><p>${tr("Spot CVD is Binance's USDT spot book alone, for the crypto assets it lists; stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.")}</p><p>${tr("Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the line above the chart; on a phone, tap.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.")}</p><p>${tr("Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.")}</p>`,
     )}
 <div class="lq-controls wh-controls">${picker}${intervalStrip}</div>
 ${tiles}

@@ -751,6 +751,12 @@ export interface CvdBar {
   /** The reference market the price is read from, the same on every bar; null when none has one. */
   price_venue: string | null;
   price_symbol: string | null;
+  /**
+   * Binance spot's taker flow over the bar (collector migration 051), for a crypto asset with a USDT
+   * spot book; null for a bar with none, absent from readers that never asked for it.
+   */
+  spot_buy_usd?: number | null;
+  spot_sell_usd?: number | null;
 }
 
 export interface CvdOptions {
@@ -773,6 +779,8 @@ export interface CvdHistoryOptions {
   fromMs: number;
   toMs: number;
   ref: { venue: string; symbol: string } | null;
+  /** Read the spot book beside the perpetuals: the chart asks when it draws a spot line. */
+  spot?: boolean;
 }
 
 export interface CvdData {
@@ -780,6 +788,8 @@ export interface CvdData {
   /** The charted asset's class, resolved as every asset page resolves it; null when nothing lists it. */
   asset_class: AssetClass | null;
   bars: CvdBar[];
+  /** Whether the bars carry a spot book's flow: a crypto asset with a Binance USDT spot book. */
+  spot: boolean;
   /** The newest bucket stored for any asset: how far behind the venues' own statistics run. */
   newest: Date | null;
 }
@@ -1499,6 +1509,74 @@ function assetBarsQuery(
     FROM flow f
     LEFT JOIN reference r ON true
     GROUP BY 1 ORDER BY 1`;
+}
+
+/**
+ * One asset's Binance spot taker flow in bars (collector migration 051): the other half of the Chart
+ * page's CVD. Crypto only -- a stock or commodity perpetual has no spot book on a crypto exchange --
+ * so any other class asks nothing.
+ *
+ * TOLERANT OF A DATABASE WITHOUT IT. Until the collector's migration 051 is applied the table does
+ * not exist (42P01), and until the site's role is granted it the read is refused (42501); either way
+ * the chart is drawn as before, perpetuals only, rather than the page failing. The site and the
+ * collector can ship in either order.
+ */
+async function spotBars(
+  sql: postgres.Sql,
+  { base, assetClass, windowHours, barMinutes }: CvdOptions,
+  range: Pick<CvdHistoryOptions, "fromMs" | "toMs"> | null = null,
+): Promise<{ bucket_start: Date; buy_usd: number; sell_usd: number }[]> {
+  if (assetClass !== null && assetClass !== "crypto") return [];
+  const barSeconds = barMinutes * 60;
+  const within = range
+    ? sql`bucket_start >= to_timestamp(${range.fromMs / 1000}) AND bucket_start < to_timestamp(${range.toMs / 1000})`
+    : sql`bucket_start > now() - ${`${windowHours} hours`}::interval`;
+  try {
+    const rows = await sql<{ bucket_start: Date; buy_usd: number; sell_usd: number }[]>`
+      SELECT to_timestamp(floor(extract(epoch FROM bucket_start) / ${barSeconds}) * ${barSeconds})
+               AS bucket_start,
+             sum(buy_usd)::float8 AS buy_usd,
+             sum(sell_usd)::float8 AS sell_usd
+      FROM spot_taker_flow
+      WHERE base = ${base} AND ${within}
+      GROUP BY 1 ORDER BY 1`;
+    return [...rows];
+  } catch (error) {
+    const code = (error as { code?: unknown } | null)?.code;
+    if (code === "42P01" || code === "42501") return [];
+    throw error;
+  }
+}
+
+/**
+ * The perpetuals' bars with the spot book's beside them. A bar only the spot book has is added with
+ * no perpetual flow and no price, so the spot line does not skip it.
+ */
+export function withSpot(
+  bars: readonly CvdBar[],
+  spot: readonly { bucket_start: Date; buy_usd: number; sell_usd: number }[],
+): CvdBar[] {
+  if (spot.length === 0) return [...bars];
+  const byStart = new Map(spot.map((row) => [row.bucket_start.getTime(), row]));
+  const out: CvdBar[] = bars.map((bar) => {
+    const row = byStart.get(bar.bucket_start.getTime());
+    byStart.delete(bar.bucket_start.getTime());
+    return { ...bar, spot_buy_usd: row?.buy_usd ?? null, spot_sell_usd: row?.sell_usd ?? null };
+  });
+  const reference = bars[0];
+  for (const row of byStart.values()) {
+    out.push({
+      bucket_start: row.bucket_start,
+      buy_usd: 0,
+      sell_usd: 0,
+      price: null,
+      price_venue: reference?.price_venue ?? null,
+      price_symbol: reference?.price_symbol ?? null,
+      spot_buy_usd: row.buy_usd,
+      spot_sell_usd: row.sell_usd,
+    });
+  }
+  return out.sort((a, b) => a.bucket_start.getTime() - b.bucket_start.getTime());
 }
 
 /**
@@ -2443,21 +2521,26 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
       const barsQuery = assetBarsQuery(sql, { windowHours, barMinutes, base, assetClass });
 
-      // Four independent reads at once: the chart no longer waits on the class lookup, which it only
+      // Five independent reads at once: the chart no longer waits on the class lookup, which it only
       // used to learn whether to run. With no live market the class is null, the chart's market list
-      // is empty, and it comes back with no bars -- the same answer the early return gave.
-      const [rows, [resolved], newest, bars] = await Promise.all([
+      // is empty, and it comes back with no bars -- the same answer the early return gave. The spot
+      // book is read for an address that names no class too, and dropped below unless the asset
+      // resolves to crypto.
+      const [rows, [resolved], newest, bars, spot] = await Promise.all([
         rowsQuery,
         sql<{ asset_class: AssetClass }[]>`${chosenClass(sql, base, assetClass)}`,
         sql<{ newest: Date | null }[]>`SELECT max(bucket_start) AS newest FROM taker_flow
           WHERE bucket_start > now() - interval '1 day'`,
         barsQuery,
+        spotBars(sql, { windowHours, barMinutes, base, assetClass }),
       ]);
+      const crypto = resolved?.asset_class === "crypto";
 
       return {
         rows: [...rows],
         asset_class: resolved?.asset_class ?? null,
-        bars: [...bars],
+        bars: bars.length && crypto ? withSpot(bars, spot) : [...bars],
+        spot: bars.length > 0 && crypto && spot.length > 0,
         newest: newest[0]?.newest ?? null,
       };
     },
@@ -2467,13 +2550,14 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       return [...bars];
     },
 
-    async cvdHistory({ base, assetClass, barMinutes, fromMs, toMs, ref }) {
-      const bars = await assetBarsQuery(
-        connect(),
-        { base, assetClass, barMinutes, windowHours: 0 },
-        { fromMs, toMs, ref },
-      );
-      return [...bars];
+    async cvdHistory({ base, assetClass, barMinutes, fromMs, toMs, ref, spot }) {
+      const sql = connect();
+      const options = { base, assetClass, barMinutes, windowHours: 0 };
+      const [bars, spotRows] = await Promise.all([
+        assetBarsQuery(sql, options, { fromMs, toMs, ref }),
+        spot ? spotBars(sql, options, { fromMs, toMs }) : [],
+      ]);
+      return spot ? withSpot(bars, spotRows) : [...bars];
     },
 
     async liquidationFeeds() {

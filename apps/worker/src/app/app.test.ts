@@ -153,7 +153,13 @@ function fakeData(overrides: Partial<DataSource> = {}) {
       assets: [],
       every: [],
     }),
-    cvd: async () => ({ rows: [], asset_class: "crypto" as const, bars: [], newest: null }),
+    cvd: async () => ({
+      rows: [],
+      asset_class: "crypto" as const,
+      bars: [],
+      spot: false,
+      newest: null,
+    }),
     assetBars: async () => [],
     cvdHistory: async () => [],
     liquidationFeeds: async () => [],
@@ -4030,7 +4036,7 @@ describe("pages", () => {
   });
 
   test("the answer for a reader whose render timed out is the same busy page, by path", async () => {
-    const page = unavailableResponse("/cvd", NOW);
+    const page = unavailableResponse("/chart", NOW);
     expect(page.status).toBe(503);
     expect(page.headers.get("retry-after")).toBe("10");
     // Temporary, so never "noindex": Googlebot read that as "drop this page" through the outage.
@@ -4111,6 +4117,7 @@ describe("cvd", () => {
       },
     ],
     newest: bucket(1),
+    spot: false,
     ...overrides,
   });
 
@@ -4123,7 +4130,7 @@ describe("cvd", () => {
     expect(flowRatio({ buy_usd: 0, sell_usd: 0 })).toBeNull();
   });
 
-  test("/cvd charts BTC by default and counts breadth and divergences over every row", async () => {
+  test("/chart charts BTC by default and counts breadth and divergences over every row", async () => {
     const seen: CvdOptions[] = [];
     const { data } = fakeData({
       cvd: async (options) => {
@@ -4131,7 +4138,7 @@ describe("cvd", () => {
         return flow();
       },
     });
-    const response = await get("/cvd", data);
+    const response = await get("/chart", data);
     expect(response.status).toBe(200);
     const html = await response.text();
 
@@ -4152,7 +4159,7 @@ describe("cvd", () => {
 
   test("the chart ships every slot's figures for the hover readout, with a cursor on both panels", async () => {
     const { data } = fakeData({ cvd: async () => flow() });
-    const html = await (await get("/cvd", data)).text();
+    const html = await (await get("/chart", data)).text();
     const figure = html.slice(
       html.indexOf('<figure class="fchart cvd-chart"'),
       html.indexOf("</figure>"),
@@ -4196,7 +4203,7 @@ describe("cvd", () => {
         return { ...base, bars: [{ ...first, open: 76_000, high: 76_300, low: 75_950 }, second] };
       },
     });
-    const html = await (await get("/cvd", data)).text();
+    const html = await (await get("/chart", data)).text();
     const figure = html.slice(
       html.indexOf('<figure class="fchart cvd-chart"'),
       html.indexOf("</figure>"),
@@ -4209,12 +4216,14 @@ describe("cvd", () => {
     expect(payload.count).toBe(96);
     expect(payload.page).toBe(500 * 900_000);
     expect(payload.floor).toBe(NOW - 35 * 86_400_000);
-    expect(payload.src).toBe("/data/cvd?asset=BTC&class=crypto&bar=15");
+    expect(payload.src).toBe("/data/chart?asset=BTC&class=crypto&bar=15");
     expect(payload.ref).toBe("binance:BTCUSDT");
-    // [start, open, high, low, close, bought, sold]; a bar with only a close stands in for all four.
+    // [start, open, high, low, close, bought, sold, spot bought, spot sold]; a bar with only a close
+    // stands in for all four, and one without a spot book has no spot flow.
+    expect(payload.spot).toBe(false);
     expect(payload.bars).toEqual([
-      [Date.parse("2026-09-12T11:15:00Z"), 76_000, 76_300, 75_950, 76_100, 5e6, 2e6],
-      [Date.parse("2026-09-12T11:45:00Z"), 75_900, 75_900, 75_900, 75_900, 1e6, 4e6],
+      [Date.parse("2026-09-12T11:15:00Z"), 76_000, 76_300, 75_950, 76_100, 5e6, 2e6, null, null],
+      [Date.parse("2026-09-12T11:45:00Z"), 75_900, 75_900, 75_900, 75_900, 1e6, 4e6, null, null],
     ]);
     expect(payload.words.older).toBe("Loading older bars…");
     // The host follows the figure inside the anchor: live.ts replaces the figure, never the host.
@@ -4222,7 +4231,7 @@ describe("cvd", () => {
     expect(html.match(/window\.airratesKChart = true/g)).toHaveLength(1);
   });
 
-  test("/data/cvd answers one page of history on the page grid, and nothing else", async () => {
+  test("/data/chart answers one page of history on the page grid, and nothing else", async () => {
     const asked: unknown[] = [];
     const { data } = fakeData({
       cvdHistory: async (options) => {
@@ -4245,7 +4254,7 @@ describe("cvd", () => {
     const page = 500 * 3_600_000;
     const before = Math.ceil((NOW - 10 * 86_400_000) / page) * page;
     const response = await get(
-      `/data/cvd?asset=BTC&class=crypto&bar=60&before=${before}&ref=binance:BTCUSDT`,
+      `/data/chart?asset=BTC&class=crypto&bar=60&before=${before}&ref=binance:BTCUSDT`,
       data,
     );
     expect(response.status).toBe(200);
@@ -4259,6 +4268,7 @@ describe("cvd", () => {
         fromMs: before - page,
         toMs: before,
         ref: { venue: "binance", symbol: "BTCUSDT" },
+        spot: false,
       },
     ]);
     expect(await response.json()).toEqual({
@@ -4266,13 +4276,23 @@ describe("cvd", () => {
       to: before,
       ref: "binance:BTCUSDT",
       bars: [
-        [Date.parse("2026-09-01T00:00:00Z"), 69_000, 70_500, 68_800, 70_000, 1_400_000, 2_600_000],
+        [
+          Date.parse("2026-09-01T00:00:00Z"),
+          69_000,
+          70_500,
+          68_800,
+          70_000,
+          1_400_000,
+          2_600_000,
+          null,
+          null,
+        ],
       ],
     });
 
     // The page holding now is still filling: a minute.
     const newest = Math.ceil(NOW / page) * page;
-    const fresh = await get(`/data/cvd?asset=BTC&class=crypto&bar=60&before=${newest}`, data);
+    const fresh = await get(`/data/chart?asset=BTC&class=crypto&bar=60&before=${newest}`, data);
     expect(fresh.headers.get("cache-control")).toBe("public, max-age=60");
 
     for (const bad of [
@@ -4283,15 +4303,70 @@ describe("cvd", () => {
       `asset=BTC&class=crypto&bar=60&before=${newest + page}`, // the future
       `asset=BTC&class=crypto&bar=60&before=${before}&ref=binance`, // a ref without a symbol
       `asset=B%20TC&class=crypto&bar=60&before=${before}`,
+      `asset=BTC&class=crypto&bar=60&before=${before}&spot=yes`, // spot is 1 or absent
     ]) {
-      expect((await get(`/data/cvd?${bad}`, data)).status).toBe(400);
+      expect((await get(`/data/chart?${bad}`, data)).status).toBe(400);
     }
     expect(asked).toHaveLength(2);
+
+    // A chart with a spot pane asks for the spot book too; the address from before the rename works.
+    const old = await get(`/data/cvd?asset=BTC&class=crypto&bar=60&before=${before}&spot=1`, data);
+    expect(old.status).toBe(200);
+    expect(asked.at(-1)).toMatchObject({ base: "BTC", spot: true });
+  });
+
+  test("every /cvd address moves for good to the same place under /chart", async () => {
+    const { data } = fakeData({ cvd: async () => flow() });
+    for (const [from, to] of [
+      ["/cvd", "/chart"],
+      ["/cvd?interval=1h", "/chart?interval=1h"],
+      ["/cvd/ZEC?interval=4h&sort=cvd", "/chart/ZEC?interval=4h&sort=cvd"],
+      ["/cvd/equity/SNDK", "/chart/equity/SNDK"],
+    ]) {
+      const response = await get(from, data);
+      expect(response.status).toBe(301);
+      expect(response.headers.get("location")).toBe(to);
+    }
+  });
+
+  test("a crypto asset with a spot book charts spot CVD beside futures, and the strip is the delta", async () => {
+    const spotFlow = flow();
+    spotFlow.spot = true;
+    spotFlow.bars = spotFlow.bars.map((bar, i) => ({
+      ...bar,
+      spot_buy_usd: i === 0 ? 3e6 : null,
+      spot_sell_usd: i === 0 ? 1e6 : null,
+    }));
+    const { data } = fakeData({ cvd: async () => spotFlow });
+    const html = await (await get("/chart", data)).text();
+    const figure = html.slice(html.indexOf('<figure class="fchart cvd-chart"'));
+    expect(figure).toContain('<polyline class="cvd-spot"');
+    expect(figure).toContain("Futures CVD");
+    expect(figure).toContain("Spot CVD");
+    const kc = JSON.parse(
+      figure.match(/<script type="application\/json" class="kc-data">([\s\S]*?)<\/script>/)?.[1] ??
+        "{}",
+    );
+    expect(kc.spot).toBe(true);
+    expect(kc.src).toBe("/data/chart?asset=BTC&class=crypto&bar=15&spot=1");
+    expect(kc.bars[0].slice(7)).toEqual([3e6, 1e6]);
+    expect(kc.bars[1].slice(7)).toEqual([null, null]);
+    const slots = JSON.parse(
+      figure.match(
+        /<script type="application\/json" class="slot-data">([\s\S]*?)<\/script>/,
+      )?.[1] ?? "{}",
+    );
+    expect(slots.spot).toBe(true);
+    const filled = slots.slots.filter(Boolean);
+    // [bought, sold, CVD, price, spot bought, spot sold, spot CVD]: the spot CVD runs on through a
+    // bar without spot flow.
+    expect(filled[0].slice(4)).toEqual([3e6, 1e6, 2e6]);
+    expect(filled[1].slice(4)).toEqual([null, null, 2e6]);
   });
 
   test("the chart offers a crosshair: a level line per panel, each panel's axes, and a switch", async () => {
     const { data } = fakeData({ cvd: async () => flow() });
-    const html = await (await get("/cvd", data)).text();
+    const html = await (await get("/chart", data)).text();
     const figure = html.slice(
       html.indexOf('<figure class="fchart cvd-chart"'),
       html.indexOf("</figure>"),
@@ -4329,13 +4404,13 @@ describe("cvd", () => {
         return flow({ asset_class: "equity", bars: [] });
       },
     });
-    const html = await (await get("/cvd/equity/SNDK?interval=4h&sort=cvd&dir=asc", data)).text();
+    const html = await (await get("/chart/equity/SNDK?interval=4h&sort=cvd&dir=asc", data)).text();
     // 4-hour bars over 16 days: about 96 of them.
     expect(seen).toEqual([
       { windowHours: 384, barMinutes: 240, base: "SNDK", assetClass: "equity" },
     ]);
     // Links keep the interval and the sort, and land on the chart, not the top of the page.
-    expect(html).toContain('href="/cvd/ZEC?interval=4h&amp;sort=cvd&amp;dir=asc#cvd-chart"');
+    expect(html).toContain('href="/chart/ZEC?interval=4h&amp;sort=cvd&amp;dir=asc#cvd-chart"');
     expect(html).toContain('id="cvd-chart"');
     expect(html).toContain('aria-current="true"');
     // Sorted ascending by CVD, the heaviest net selling comes first.
@@ -4350,7 +4425,7 @@ describe("cvd", () => {
         return flow();
       },
     });
-    const html = await (await get("/cvd", data)).text();
+    const html = await (await get("/chart", data)).text();
     const strip = html.split('class="tf cvd-intervals"')[1]?.split("</nav>")[0] ?? "";
     for (const key of ["5m", "15m", "1h", "4h", "24h"]) {
       expect(strip).toContain(`data-cvd-switch="${key}">${key}<`);
@@ -4361,8 +4436,8 @@ describe("cvd", () => {
     ].map((m) => (m[1] ? m[1] : `${m[2]} locked`));
     expect(entries).toEqual(["5m", "15m", "1h", "2h locked", "4h", "24h", "7d locked"]);
     // 15m is the default: the bare address, marked current, and it reads a day of 15-minute bars.
-    expect(strip).toContain('href="/cvd" aria-current="page" data-cvd-switch="15m"');
-    expect(strip).toContain('href="/cvd?interval=24h" data-cvd-switch="24h"');
+    expect(strip).toContain('href="/chart" aria-current="page" data-cvd-switch="15m"');
+    expect(strip).toContain('href="/chart?interval=24h" data-cvd-switch="24h"');
     expect(seen[0]).toMatchObject({ windowHours: 24, barMinutes: 15 });
     // 2h and 7d are shown with a lock and are not links anywhere.
     expect(strip.match(/<span class="tf-locked" aria-disabled="true"/g)).toHaveLength(2);
@@ -4380,7 +4455,7 @@ describe("cvd", () => {
 
     // Every interval reads the span it charts.
     seen.length = 0;
-    for (const key of ["5m", "1h", "24h"]) await get(`/cvd?interval=${key}`, data);
+    for (const key of ["5m", "1h", "24h"]) await get(`/chart?interval=${key}`, data);
     expect(seen.map((o) => [o.barMinutes, o.windowHours])).toEqual([
       [5, 8],
       [60, 96],
@@ -4388,7 +4463,7 @@ describe("cvd", () => {
     ]);
     // A locked or unknown interval is the default, not an error.
     seen.length = 0;
-    for (const key of ["2h", "7d", "3m"]) await get(`/cvd?interval=${key}`, data);
+    for (const key of ["2h", "7d", "3m"]) await get(`/chart?interval=${key}`, data);
     expect(seen.map((o) => [o.barMinutes, o.windowHours])).toEqual([
       [15, 24],
       [15, 24],
@@ -4398,7 +4473,7 @@ describe("cvd", () => {
 
   test("the screener is a picker beside the intervals: a row charts its asset, the box finds a ticker", async () => {
     const { data } = fakeData({ cvd: async () => flow() });
-    const html = await (await get("/cvd?interval=1h", data)).text();
+    const html = await (await get("/chart?interval=1h", data)).text();
     const controls =
       html.split('<div class="lq-controls wh-controls">')[1]?.split('<div class="cvd-tiles"')[0] ??
       "";
@@ -4407,14 +4482,14 @@ describe("cvd", () => {
     expect(controls).toContain('<details class="wh-pick cvd-pick">');
     expect(controls).toContain("4 assets");
     expect(controls).toContain(
-      '<a class="wh-pick-row on" href="/cvd/BTC?interval=1h#cvd-chart" data-cvd-select="BTC"',
+      '<a class="wh-pick-row on" href="/chart/BTC?interval=1h#cvd-chart" data-cvd-select="BTC"',
     );
-    expect(controls).toContain('href="/cvd/ZEC?interval=1h#cvd-chart" data-cvd-select="ZEC"');
+    expect(controls).toContain('href="/chart/ZEC?interval=1h#cvd-chart" data-cvd-select="ZEC"');
     expect(controls).toContain('data-live="cvd-rows"');
     expect(controls).toContain('class="tf cvd-intervals"');
     // The ticker search is in the panel: a form, so it still works without the script.
     expect(controls).toContain(
-      '<div class="wh-pick-panel">\n<form class="wh-pick-find" method="get" action="/cvd"><input type="hidden" name="interval" value="1h"><input class="wh-pick-q" type="search" name="q" value=""',
+      '<div class="wh-pick-panel">\n<form class="wh-pick-find" method="get" action="/chart"><input type="hidden" name="interval" value="1h"><input class="wh-pick-q" type="search" name="q" value=""',
     );
     expect(html).toContain('data-loading-asset="Loading {asset}…"');
     expect(html).not.toContain("cvd-table");
@@ -4423,7 +4498,7 @@ describe("cvd", () => {
 
   test("a heading sorts the picker's rows in place, by the keys the server sorted with", async () => {
     const { data } = fakeData({ cvd: async () => flow() });
-    const html = await (await get("/cvd?sort=cvd", data)).text();
+    const html = await (await get("/chart?sort=cvd", data)).text();
     // By CVD, heaviest net buying first: BTC +$30M, SNDK +$0.5M, SOL −$4M, ZEC −$20M.
     const order = [
       ...html.matchAll(/class="wh-pick-row[^"]*" href="[^"]*" data-cvd-select="([^"]+)"/g),
@@ -4435,10 +4510,10 @@ describe("cvd", () => {
     );
     // The active heading says which way, and its link flips it; any other starts descending.
     expect(html).toContain('<div class="wh-pick-head" data-sort="cvd" data-dir="desc">');
-    expect(html).toContain('href="/cvd?sort=cvd&amp;dir=asc" data-cvd-sort="cvd"');
+    expect(html).toContain('href="/chart?sort=cvd&amp;dir=asc" data-cvd-sort="cvd"');
     expect(html).toContain('data-cvd-sort="cvd" title="');
-    expect(html).toContain('href="/cvd?sort=ratio" data-cvd-sort="ratio"');
-    expect(html).toContain('href="/cvd" data-cvd-sort="volume"');
+    expect(html).toContain('href="/chart?sort=ratio" data-cvd-sort="ratio"');
+    expect(html).toContain('href="/chart" data-cvd-sort="volume"');
     // The script sorts by the same keys and moves the address with it.
     expect(html).toContain('const SORTS = ["volume","cvd","ratio","change"];');
     expect(html).toContain("history.replaceState(null");
@@ -4452,7 +4527,7 @@ describe("cvd", () => {
         return flow();
       },
     });
-    for (const window of ["1h", "4h", "24h", "7d"]) await get(`/cvd?window=${window}`, data);
+    for (const window of ["1h", "4h", "24h", "7d"]) await get(`/chart?window=${window}`, data);
     expect(seen.map((o) => o.barMinutes)).toEqual([5, 5, 15, 60]);
   });
 
@@ -4465,24 +4540,24 @@ describe("cvd", () => {
       },
     });
     // 龙虾 is listed by hotcoin and aster; the ASCII-only address pattern answered it with a 404.
-    const response = await get(`/cvd/${encodeURIComponent("龙虾")}`, data);
+    const response = await get(`/chart/${encodeURIComponent("龙虾")}`, data);
     expect(response.status).toBe(200);
     expect(seen[0]?.base).toBe("龙虾");
     // Still one segment of letters and digits: a slash or a space is not an asset.
-    expect((await get(`/cvd/${encodeURIComponent("a b")}`, data)).status).toBe(404);
+    expect((await get(`/chart/${encodeURIComponent("a b")}`, data)).status).toBe(404);
   });
 
   test("the top-flow links drop the search, as the rows do", async () => {
     const { data } = fakeData({ cvd: async () => flow() });
-    const html = await (await get("/cvd?q=ze", data)).text();
+    const html = await (await get("/chart?q=ze", data)).text();
     const tiles = html.split('data-live="cvd-tiles"')[1]?.split("</div>\n</div>")[0] ?? "";
-    expect(tiles).toContain('href="/cvd/BTC#cvd-chart"');
+    expect(tiles).toContain('href="/chart/BTC#cvd-chart"');
     expect(tiles).not.toContain("q=");
   });
 
   test("?q= opens the picker on its search, hiding the other rows without changing the tiles", async () => {
     const { data } = fakeData({ cvd: async () => flow() });
-    const html = await (await get("/cvd?q=ze", data)).text();
+    const html = await (await get("/chart?q=ze", data)).text();
     expect(html).toContain('<details class="wh-pick cvd-pick" open data-searched>');
     expect(html).toContain('name="q" value="ZE"');
     // Hidden, not dropped: emptying the box in the browser brings BTC back.
@@ -4494,9 +4569,9 @@ describe("cvd", () => {
 
   test("an asset nothing lists is a 404, and an empty window says why", async () => {
     const { data } = fakeData({ cvd: async () => flow({ asset_class: null, rows: [], bars: [] }) });
-    expect((await get("/cvd/NOSUCH", data)).status).toBe(404);
+    expect((await get("/chart/NOSUCH", data)).status).toBe(404);
     const html = await (
-      await get("/cvd", fakeData({ cvd: async () => flow({ rows: [], bars: [] }) }).data)
+      await get("/chart", fakeData({ cvd: async () => flow({ rows: [], bars: [] }) }).data)
     ).text();
     expect(html).toContain("No taker flow has been collected");
   });
