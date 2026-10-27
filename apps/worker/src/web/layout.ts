@@ -32,7 +32,7 @@ const NAV = [
   { href: "/screener", label: msg("screener"), match: (p: string) => p === "/screener" },
   { href: "/rates", label: msg("rates"), match: (p: string) => p === "/rates" },
   { href: "/arbitrage", label: msg("arbitrage"), match: (p: string) => p === "/arbitrage" },
-  // startsWith, like /markets: an asset's priced grid lives under the same address and must keep
+  // startsWith: an asset's priced grid lives under the same address and must keep
   // the nav item lit rather than reading as a page outside the site.
   {
     href: "/liquidations",
@@ -41,7 +41,6 @@ const NAV = [
   },
   { href: "/chart", label: msg("chart"), match: (p: string) => p.startsWith("/chart") },
   { href: "/whales", label: msg("whales"), match: (p: string) => p.startsWith("/whales") },
-  { href: "/markets", label: msg("exchanges"), match: (p: string) => p.startsWith("/markets") },
 ];
 
 /**
@@ -1503,7 +1502,7 @@ ${INSTALL_HEAD}
 <a class="dock-item" href="${TELEGRAM_URL}" target="_blank" rel="noopener" title="${tr("Join the airrates group on Telegram: @airratesnet")}">${icon("send")}<span>${tr("telegram")}</span></a>
 <p class="dock-note">${disclaimer}</p>
 <div class="dock-pop"><button type="button" class="dock-item" aria-haspopup="true" aria-expanded="false" aria-label="${tr("Language")}" title="${esc(LOCALE_INFO[currentLocale()].name)}">${icon("globe")}</button><nav class="dock-menu" aria-label="${tr("Language")}">${languages}</nav></div>
-<div class="dock-pop"><button type="button" class="dock-item" aria-haspopup="true" aria-expanded="false">${icon("menu")}<span>${tr("menu")}</span></button><nav class="dock-menu" aria-label="${tr("menu")}"><a href="/status">${tr("status")}</a><a href="/about">${tr("about")}</a><a href="/probe">${tr("geo-probe")}</a><a class="kb-link" href="/keys">${keyboardIcon()}${tr("keyboard")}</a><a href="/referrals">${tr("referral links")}</a><a href="/legal">${tr("legal &amp; privacy")}</a><a href="/tos">${tr("terms")}</a><p class="dock-menu-note">${disclaimer}</p></nav></div>
+<div class="dock-pop"><button type="button" class="dock-item" aria-haspopup="true" aria-expanded="false">${icon("menu")}<span>${tr("menu")}</span></button><nav class="dock-menu" aria-label="${tr("menu")}"><a href="/markets"${path.startsWith("/markets") ? ' aria-current="page"' : ""}>${tr("exchanges")}</a><a href="/status">${tr("status")}</a><a href="/about">${tr("about")}</a><a href="/probe">${tr("geo-probe")}</a><a class="kb-link" href="/keys">${keyboardIcon()}${tr("keyboard")}</a><a href="/referrals">${tr("referral links")}</a><a href="/legal">${tr("legal &amp; privacy")}</a><a href="/tos">${tr("terms")}</a><p class="dock-menu-note">${disclaimer}</p></nav></div>
 </div></footer>
 ${searchDialog()}
 <script>${pageScript()}</script>
