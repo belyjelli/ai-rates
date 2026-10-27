@@ -38,6 +38,12 @@ const PATHS = {
   /** An explanation: an i in a circle. */
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  /** The footer dock: the member area, the Telegram group, the language and the menu. */
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
+  send: '<path d="M21 3L3 10.5l7 3 3 7.5z"/><path d="M10 13.5L21 3"/>',
+  globe:
+    '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;

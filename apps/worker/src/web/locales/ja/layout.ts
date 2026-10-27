@@ -49,7 +49,7 @@ export const layout: Catalog = {
   "legal &amp; privacy": "法的事項とプライバシー",
   terms: "利用規約",
   Language: "言語",
-  "language:": "言語：",
+  menu: "メニュー",
   "Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.":
     "投資助言ではありません。データは遅延または不正確な場合があります。いかなる取引所とも提携しておらず、承認も受けていません。",
 

@@ -49,7 +49,7 @@ export const layout: Catalog = {
   "legal &amp; privacy": "법적 고지 및 개인정보",
   terms: "이용약관",
   Language: "언어",
-  "language:": "언어:",
+  menu: "메뉴",
   "Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.":
     "투자 조언이 아닙니다. 데이터는 지연되거나 부정확할 수 있습니다. 어떤 거래소와도 제휴하거나 보증받지 않았습니다.",
 

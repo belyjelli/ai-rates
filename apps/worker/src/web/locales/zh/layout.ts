@@ -46,7 +46,7 @@ export const layout: Catalog = {
   "legal &amp; privacy": "法律与隐私",
   terms: "服务条款",
   Language: "语言",
-  "language:": "语言：",
+  menu: "菜单",
   "Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.":
     "不构成投资建议。数据可能延迟或不准确。本站与任何交易所均无关联，也未获任何交易所认可。",
 

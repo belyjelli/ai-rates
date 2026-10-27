@@ -17,7 +17,7 @@ import {
   tr,
   trMsg,
 } from "./i18n";
-import { ICON_CSS, iconMask } from "./icons";
+import { ICON_CSS, icon, iconMask } from "./icons";
 import { INSTALL_CSS, INSTALL_HEAD } from "./install";
 import { LIVE_SCRIPT } from "./live";
 import { localTimeScript } from "./localtime";
@@ -166,7 +166,7 @@ const SORT_UP = iconMask("up");
 const SORT_DOWN = iconMask("down");
 
 const CSS = `
-:root{--mast:45px;--bg:#000;--band:#0e0e0e;--panel:#0a0a0a;--ink:#d8d8d8;--muted:#7a7a7a;--dim:#494949;--rule:#242424;
+:root{--mast:45px;--dock:40px;--bg:#000;--band:#0e0e0e;--panel:#0a0a0a;--ink:#d8d8d8;--muted:#7a7a7a;--dim:#494949;--rule:#242424;
 --long:#5f87ff;--short:#ff5f5f;--zero:#494949;--accent:#c8f5a8;--warn:#e5e500;--em:#b69cff;
 --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
 --display:var(--mono);--body:var(--mono);--data:var(--mono)}
@@ -284,13 +284,13 @@ table.sheet{border-collapse:collapse;width:100%}
    own instead, both ways, with the header row and the asset column stuck inside the box. */
 @media (min-width:861px){
 body:has(.heat-wrap,.sheet-wrap.stick){width:max-content;min-width:100%}
-body:has(.heat-wrap,.sheet-wrap.stick) .mast,body:has(.heat-wrap,.sheet-wrap.stick) footer{position:sticky;left:0;width:var(--vw,100vw);box-sizing:border-box}
+body:has(.heat-wrap,.sheet-wrap.stick) .mast{position:sticky;left:0;width:var(--vw,100vw);box-sizing:border-box}
 body:has(.heat-wrap,.sheet-wrap.stick) .mast{top:0}
 body:has(.heat-wrap,.sheet-wrap.stick) main.wrap{max-width:none;margin:0;width:max-content;min-width:100%;box-sizing:border-box}
 body:has(.heat-wrap,.sheet-wrap.stick) main.wrap>:not(.heat-wrap):not(.sheet-wrap){position:sticky;left:10px;max-width:calc(var(--vw,100vw) - 20px);box-sizing:border-box}
 }
 @media (max-width:860px){
-.heat-wrap,.sheet-wrap.stick{overflow:auto;width:auto;min-width:0;max-height:calc(100vh - var(--mast) - 8px);max-height:calc(100dvh - var(--mast) - 8px);-webkit-overflow-scrolling:touch}
+.heat-wrap,.sheet-wrap.stick{overflow:auto;width:auto;min-width:0;max-height:calc(100vh - var(--mast) - var(--dock) - 8px);max-height:calc(100dvh - var(--mast) - var(--dock) - 8px);-webkit-overflow-scrolling:touch}
 /* The heatmap's asset column is stuck at every width (.heat td.asset below); only its header moves to the
    box's top. The extra class outranks .heat th, which comes later. */
 .heat-wrap .heat th,.sheet-wrap.stick th{top:0}
@@ -1234,7 +1234,7 @@ a.pc-trade.pc-long:hover{background:var(--long)}a.pc-trade.pc-short:hover{backgr
 /* On a phone a panel may open from a button at the right edge: it spans the screen instead. */
 @media (max-width:640px){
 .sx-search{flex-basis:100%}
-.sx-panel,.sx-wide{position:fixed;top:calc(var(--mast) + 8px);left:10px;right:10px;width:auto;max-height:calc(100vh - var(--mast) - 20px);max-height:calc(100dvh - var(--mast) - 20px)}
+.sx-panel,.sx-wide{position:fixed;top:calc(var(--mast) + 8px);left:10px;right:10px;width:auto;max-height:calc(100vh - var(--mast) - var(--dock) - 20px);max-height:calc(100dvh - var(--mast) - var(--dock) - 20px)}
 .sx-dots{display:none}
 }
 /* A leg quoted the other way round (pages.ts invertedMark): the side to take on its own contract. */
@@ -1386,13 +1386,32 @@ input[type=checkbox]{accent-color:var(--accent)}
 .lazy-failed .lazy-msg{color:var(--warn)}
 .lazy-retry{font:700 12px var(--mono);text-transform:uppercase;letter-spacing:.04em;color:var(--ink);background:transparent;border:1px solid var(--rule);padding:3px 10px;cursor:pointer}
 .lazy-retry:hover{border-color:var(--accent);color:var(--accent)}
-footer{border-top:1px solid var(--rule);margin-top:24px;padding:8px 0 24px;color:var(--dim);line-height:1.6}
-footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
-/* The language switch: each language in its own script, the one in use lit as the nav's current page is. */
-.langs{display:flex;flex-wrap:wrap;gap:2px 4px;align-items:baseline;margin-bottom:6px;color:var(--dim)}
-.langs a{border:0;color:var(--muted);padding:0 6px}
-.langs a[aria-current]{background:var(--ink);color:var(--bg)}
-.langs a:hover{color:var(--accent)}
+/* The footer is a dock fixed to the bottom of the screen, as an app's tab bar is: login and the Telegram
+   group each their own item, then the language (an icon) and one menu holding every standing page. Each
+   of those two opens upward on hover where there is hover, and on a tap or keyboard focus everywhere (the
+   page script toggles .open; focus-within keeps a menu up while its links are tabbed through). The body
+   keeps the dock's height free at its foot, and the iPhone's home bar below that. */
+body{padding-bottom:calc(var(--dock) + env(safe-area-inset-bottom,0px))}
+footer.dock{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--bg);border-top:1px solid var(--rule);padding-bottom:env(safe-area-inset-bottom,0px);color:var(--dim)}
+.dock-bar{display:flex;align-items:stretch;gap:2px;height:var(--dock)}
+.dock-item{display:flex;align-items:center;gap:6px;padding:0 10px;border:0;background:transparent;color:var(--muted);font:inherit;text-transform:lowercase;cursor:pointer;white-space:nowrap}
+.dock-item svg.ico{font-size:15px}
+.dock-item:hover,.dock-pop.open>.dock-item,.dock-pop:focus-within>.dock-item{color:var(--accent)}
+.dock-note{flex:1;min-width:0;align-self:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;padding:0 10px;text-align:right}
+.dock-pop{position:relative;display:flex}
+.dock-menu{display:none;position:absolute;right:0;bottom:100%;min-width:190px;max-height:calc(100vh - var(--dock) - 24px);max-height:calc(100dvh - var(--dock) - 24px);overflow:auto;background:var(--bg);border:1px solid var(--rule);border-bottom:0;padding:4px 0}
+.dock-pop.open>.dock-menu,.dock-pop:focus-within>.dock-menu{display:block}
+@media (hover:hover){.dock-pop:hover>.dock-menu{display:block}}
+.dock-menu a{display:flex;align-items:center;gap:8px;border:0;color:var(--muted);padding:7px 14px;text-transform:lowercase;white-space:nowrap}
+.dock-menu a:hover,.dock-menu a:focus-visible{color:var(--accent);background:var(--rule)}
+.dock-menu a[aria-current]{color:var(--bg);background:var(--ink)}
+/* Each language by its own name, as it writes it: English, Русский. */
+.dock-menu a[data-lang]{text-transform:none}
+.dock-menu .kb-icon{margin:0}
+.dock-menu p{margin:4px 0 0;padding:8px 14px 6px;border-top:1px solid var(--rule);font-size:11px;line-height:1.5;white-space:normal;max-width:280px}
+/* On a phone the dock keeps its icons and drops the words, and the disclaimer moves into the menu. */
+@media (max-width:560px){.dock-item span{display:none}.dock-note{visibility:hidden}.dock-item{padding:0 14px}}
+@media (min-width:561px){.dock-menu p.dock-menu-note{display:none}}
 /* About page: the changelog reads as prose, so it gets a measure and some line height. */
 .about-log{display:grid;gap:16px;max-width:96ch;margin-top:6px}
 .about-log h2{margin:0 0 6px}
@@ -1409,11 +1428,12 @@ footer .sig{display:flex;justify-content:space-between;gap:16px;color:var(--dim)
 // Live "… ago" and countdowns and the clock; the hotkeys are hotkeys.ts's own script. The
 // duration words come from format.ts in the page's language, so a ticking age reads as the server
 // wrote it. The language links get the page's query string, so switching keeps a screener's filters.
+// The footer dock's two menus open on a tap as well as on hover, and close on a tap elsewhere or Escape.
 // The clock reads the visitor's own time zone, which only the browser knows (the page is cached for
 // everyone); a click flips it to UTC, the clock funding settles by, and the choice is remembered.
 // The click also tells localtime.ts, whose script redraws every chart time in the same zone.
 const pageScript = () =>
-  `(()=>{const L=${scriptStrings({ ...durationStrings(), ...clockStrings() })};for(const a of document.querySelectorAll("a[data-lang]"))a.href=a.pathname+"?back="+encodeURIComponent(location.pathname+location.search);const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?L.s.replace("{s}",s):s<3600?L.m.replace("{m}",Math.floor(s/60)):L.hm.replace("{h}",Math.floor(s/3600)).replace("{m}",p(Math.floor(s%3600/60)))};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=L.ago.replace("{time}",f((n-e.dataset.since)/1e3));for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):L.settling}if(c){const d=new Date(),o=u?0:-d.getTimezoneOffset(),a=Math.abs(o);c.textContent=(u?[d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()]:[d.getHours(),d.getMinutes(),d.getSeconds()]).map(p).join(":")+" UTC"+(o?(o>0?"+":"-")+Math.floor(a/60)+(a%60?":"+p(a%60):""):"");c.title=u?L.utc:L.local.replace("{zone}",z)}};const c=document.getElementById("clock");let u=false,z="";try{u=localStorage.getItem("clock")==="utc"}catch{}try{z=Intl.DateTimeFormat().resolvedOptions().timeZone||""}catch{}c&&c.addEventListener("click",()=>{u=!u;try{localStorage.setItem("clock",u?"utc":"local")}catch{}t();dispatchEvent(new Event("airrates:clock"))});t();setInterval(t,1e3);})();`;
+  `(()=>{const L=${scriptStrings({ ...durationStrings(), ...clockStrings() })};for(const a of document.querySelectorAll("a[data-lang]"))a.href=a.pathname+"?back="+encodeURIComponent(location.pathname+location.search);const dk=k=>{for(const q of document.querySelectorAll(".dock-pop.open"))if(q!==k){q.classList.remove("open");q.firstElementChild.setAttribute("aria-expanded","false")}};for(const b of document.querySelectorAll(".dock-pop>button"))b.addEventListener("click",e=>{const q=b.parentElement,o=!q.classList.contains("open");dk(q);q.classList.toggle("open",o);b.setAttribute("aria-expanded",String(o));if(!o)b.blur();e.stopPropagation()});document.addEventListener("click",e=>{if(!e.target.closest(".dock-pop"))dk(null)});document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.querySelector(".dock-pop.open,.dock-pop:focus-within")){dk(null);document.activeElement&&document.activeElement.closest(".dock-pop")&&document.activeElement.blur()}});const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?L.s.replace("{s}",s):s<3600?L.m.replace("{m}",Math.floor(s/60)):L.hm.replace("{h}",Math.floor(s/3600)).replace("{m}",p(Math.floor(s%3600/60)))};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=L.ago.replace("{time}",f((n-e.dataset.since)/1e3));for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):L.settling}if(c){const d=new Date(),o=u?0:-d.getTimezoneOffset(),a=Math.abs(o);c.textContent=(u?[d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()]:[d.getHours(),d.getMinutes(),d.getSeconds()]).map(p).join(":")+" UTC"+(o?(o>0?"+":"-")+Math.floor(a/60)+(a%60?":"+p(a%60):""):"");c.title=u?L.utc:L.local.replace("{zone}",z)}};const c=document.getElementById("clock");let u=false,z="";try{u=localStorage.getItem("clock")==="utc"}catch{}try{z=Intl.DateTimeFormat().resolvedOptions().timeZone||""}catch{}c&&c.addEventListener("click",()=>{u=!u;try{localStorage.setItem("clock",u?"utc":"local")}catch{}t();dispatchEvent(new Event("airrates:clock"))});t();setInterval(t,1e3);})();`;
 
 /** The clock's tooltips, for the page script: the zone is the browser's, filled in there. */
 const clockStrings = () => ({
@@ -1455,6 +1475,9 @@ export function layout(options: {
     (locale) =>
       `<a href="${switchHref(locale, path)}" data-lang hreflang="${LOCALE_INFO[locale].htmlLang}" lang="${LOCALE_INFO[locale].htmlLang}"${locale === currentLocale() ? ' aria-current="true"' : ""}>${LOCALE_INFO[locale].name}</a>`,
   ).join("");
+  const disclaimer = tr(
+    "Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.",
+  );
 
   return `<!doctype html>
 <html lang="${htmlLang()}">
@@ -1475,10 +1498,12 @@ ${INSTALL_HEAD}
 <div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><a class="keys" href="/keys" title="${tr("Keyboard shortcuts: change them on the keyboard page")}">${hotkeyLegend()}</a></div>
 </header>
 <main class="wrap" data-loading="${esc(tr("Loading…"))}">${body}</main>
-<footer><div class="wrap">
-<p class="sig"><span><a href="${MEMBER_URL}" target="_blank" rel="noopener">${tr("login")}</a> · <a href="${TELEGRAM_URL}" target="_blank" rel="noopener" title="${tr("Join the airrates group on Telegram: @airratesnet")}">${tr("telegram")}</a> · <a href="/status">${tr("status")}</a> · <a href="/probe">${tr("geo-probe")}</a> · <a href="/about">${tr("about")}</a> · <a class="kb-link" href="/keys">${keyboardIcon()}${tr("keyboard")}</a> · <a href="/referrals">${tr("referral links")}</a> · <a href="/legal">${tr("legal &amp; privacy")}</a> · <a href="/tos">${tr("terms")}</a></span><span>airrates</span></p>
-<nav class="langs" aria-label="${tr("Language")}"><span>${tr("language:")}</span>${languages}</nav>
-<p>${tr("Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.")}</p>
+<footer class="dock"><div class="wrap dock-bar">
+<a class="dock-item" href="${MEMBER_URL}" target="_blank" rel="noopener">${icon("user")}<span>${tr("login")}</span></a>
+<a class="dock-item" href="${TELEGRAM_URL}" target="_blank" rel="noopener" title="${tr("Join the airrates group on Telegram: @airratesnet")}">${icon("send")}<span>${tr("telegram")}</span></a>
+<p class="dock-note">${disclaimer}</p>
+<div class="dock-pop"><button type="button" class="dock-item" aria-haspopup="true" aria-expanded="false" aria-label="${tr("Language")}" title="${esc(LOCALE_INFO[currentLocale()].name)}">${icon("globe")}</button><nav class="dock-menu" aria-label="${tr("Language")}">${languages}</nav></div>
+<div class="dock-pop"><button type="button" class="dock-item" aria-haspopup="true" aria-expanded="false">${icon("menu")}<span>${tr("menu")}</span></button><nav class="dock-menu" aria-label="${tr("menu")}"><a href="/status">${tr("status")}</a><a href="/about">${tr("about")}</a><a href="/probe">${tr("geo-probe")}</a><a class="kb-link" href="/keys">${keyboardIcon()}${tr("keyboard")}</a><a href="/referrals">${tr("referral links")}</a><a href="/legal">${tr("legal &amp; privacy")}</a><a href="/tos">${tr("terms")}</a><p class="dock-menu-note">${disclaimer}</p></nav></div>
 </div></footer>
 ${searchDialog()}
 <script>${pageScript()}</script>

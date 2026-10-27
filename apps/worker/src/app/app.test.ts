@@ -2239,18 +2239,18 @@ describe("pages", () => {
     // The member area is a different subdomain this Worker does not serve, so the href is absolute
     // and carries target/rel. Pinned whole: dropping rel="noopener" on a target="_blank" link hands
     // the opened page a window.opener handle back to ours.
-    expect(html).toContain(
-      '<a href="https://member.airrates.net/" target="_blank" rel="noopener">login</a>',
+    expect(html).toMatch(
+      /<a class="dock-item" href="https:\/\/member\.airrates\.net\/" target="_blank" rel="noopener"><svg[^>]*>.*?<\/svg><span>login<\/span><\/a>/,
     );
     // Reachable from anywhere, as the other footer links are.
-    expect(await (await get("/screener", data)).text()).toContain(">login</a>");
+    expect(await (await get("/screener", data)).text()).toContain("<span>login</span></a>");
   });
 
   test("every page footer links to the Telegram group, off-origin and in a new tab", async () => {
     const { data } = fakeData();
     for (const path of ["/", "/whales"]) {
-      expect(await (await get(path, data)).text()).toContain(
-        '<a href="https://t.me/airratesnet" target="_blank" rel="noopener" title="Join the airrates group on Telegram: @airratesnet">telegram</a>',
+      expect(await (await get(path, data)).text()).toMatch(
+        /<a class="dock-item" href="https:\/\/t\.me\/airratesnet" target="_blank" rel="noopener" title="Join the airrates group on Telegram: @airratesnet"><svg[^>]*>.*?<\/svg><span>telegram<\/span><\/a>/,
       );
     }
   });
