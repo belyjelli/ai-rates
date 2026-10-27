@@ -64,8 +64,10 @@ export const charts: Catalog = {
     "{asset} · 累计成交量差 · 每根柱 {n} 小时，{zone}",
   "{asset} · cumulative volume delta · {n}-minute bars, {zone}":
     "{asset} · 累计成交量差 · 每根柱 {n} 分钟，{zone}",
-  "{asset} taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.":
-    "{asset} 最近 {window} 的主动成交 CVD：{cvd}。市价买方 {bought}，市价卖方 {sold}。",
+  "{asset} futures taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.":
+    "{asset} 最近 {window} 的合约主动成交 CVD：{cvd}。市价买方 {bought}，市价卖方 {sold}。",
+  "{asset}, last {window}: futures CVD {futures}, Binance spot CVD {spot}, delta {delta}.":
+    "{asset} 最近 {window}：合约 CVD {futures}，Binance 现货 CVD {spot}，Delta {delta}。",
   "Last {window}": "最近 {window}",
   "Loading {interval} bars…": "正在加载 {interval} 柱…",
   "Loading {asset}…": "正在加载 {asset}…",

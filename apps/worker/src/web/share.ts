@@ -23,6 +23,11 @@
  * instead: each one's background as a fill and its borders and outline as rules, in stacking order,
  * and its labels written over them as on any plot. Without the mark it would not count as a chart.
  *
+ * A TRADING CHART (kchart.ts, the Chart page) is a canvas drawn by Lightweight Charts beside its
+ * figure, which then hides its own SVG panels. Its host hands over a picture of itself (`kcShot`),
+ * re-rendered at the card's shape, and that is drawn in the plot area with the figure's title and
+ * legend above it. Without this the card came out with a title, a legend and nothing under them.
+ *
  * With no chart in view -- a table page, or a tab whose panel is hidden -- the chart button is
  * disabled rather than removed, so the masthead does not shift as the reader moves between tabs.
  */
@@ -155,14 +160,20 @@ export const shareScript = (): string => String.raw`(() => {
   const labelsOf = (p) => $$(":scope > :not(svg)", p).filter((l) => l instanceof HTMLElement);
   const css = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
+  // A figure's trading chart, when one has replaced its SVG panels (kchart.ts): the host beside it.
+  const tradingChart = (f) => {
+    const anchor = f.parentElement;
+    const host = anchor && anchor.classList.contains("kc-on") ? $(".kc-host", anchor) : null;
+    return host && typeof host.kcShot === "function" && shown(host) ? host : null;
+  };
   // Every figure in main drawing an SVG or an HTML plot and visible now; the one nearest the middle
-  // of the viewport is the one the reader is looking at.
+  // of the viewport is the one the reader is looking at, measured with its trading chart if it has one.
   const charts = () => $$("main figure").filter((f) => ($("svg", f) || $("[data-share-plot]", f)) && shown(f));
   const pickChart = () => {
     const mid = innerHeight / 2;
     let best = null, gap = Infinity;
     for (const f of charts()) {
-      const r = f.getBoundingClientRect();
+      const r = (tradingChart(f) ? f.parentElement : f).getBoundingClientRect();
       const d = r.top <= mid && r.bottom >= mid ? 0 : Math.min(Math.abs(r.top - mid), Math.abs(r.bottom - mid));
       if (d < gap) { gap = d; best = f; }
     }
@@ -391,7 +402,8 @@ export const shareScript = (): string => String.raw`(() => {
     // Legend: every key still switched on, with its swatch.
     let lx = PAD, ly = 160;
     g.font = "400 18px " + MONO;
-    const keys = $$(".fchart-keys > *", fig).filter((k) => { const box = $("input[type=checkbox]", k); return !(box && !box.checked) && text(k); });
+    // The cursor switch sits in the keys row but is a control, not a key; a hidden key is not on the chart.
+    const keys = $$(".fchart-keys > *", fig).filter((k) => { const box = $("input[type=checkbox]", k); return !(box && !box.checked) && !k.classList.contains("slot-modes") && shown(k) && text(k); });
     if (fig.dataset.shareTitle && keys.length === 0) {
       const sub = text($("figcaption", fig));
       if (sub) { g.fillStyle = C.mut; g.fillText(fit(g, sub, W - 2 * PAD), PAD, ly); }
@@ -418,10 +430,21 @@ export const shareScript = (): string => String.raw`(() => {
       lx += g.measureText(label).width + 28;
     }
 
-    // Plots: each stretched SVG and the labels laid over it, stacked by their on-screen heights.
-    const plots = $$(".fchart-plot, [data-share-plot]", fig).filter(shown);
-    const parts = plots.length ? plots : $$("svg", fig).filter(shown);
     const top = ly + 34, bottom = H - 96;
+
+    // A trading chart draws its own axes and labels, so its picture takes the whole plot area. It is
+    // rendered at two thirds of the card's pixels and scaled up, so its 11px labels read as ~16px.
+    const trading = tradingChart(fig);
+    if (trading) {
+      const w = W - 2 * PAD, h = bottom - top + 40;
+      let shot = null;
+      try { shot = trading.kcShot((w * 2) / 3, (h * 2) / 3); } catch (e) {}
+      if (shot) g.drawImage(shot, PAD, top, w, h);
+    }
+
+    // Plots: each stretched SVG and the labels laid over it, stacked by their on-screen heights.
+    const plots = trading ? [] : $$(".fchart-plot, [data-share-plot]", fig).filter(shown);
+    const parts = trading || plots.length ? plots : $$("svg", fig).filter(shown);
     const hasLeft = parts.some((p) => labelsOf(p).some((l) => { const r = l.getBoundingClientRect(), R = p.getBoundingClientRect(); return shown(l) && r.right <= R.left + 2; }));
     const hasRight = parts.some((p) => labelsOf(p).some((l) => { const r = l.getBoundingClientRect(), R = p.getBoundingClientRect(); return shown(l) && r.left >= R.right - 2; }));
     // A chart with no HTML labels of its own can hand over its y-axis: "fraction of its height:label", pipe-separated.

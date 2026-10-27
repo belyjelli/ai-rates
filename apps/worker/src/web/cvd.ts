@@ -319,15 +319,35 @@ function cvdChart(data: {
   const sold = slots.reduce((sum, s) => sum + (s.bar?.sell_usd ?? 0), 0);
   const spotBought = slots.reduce((sum, s) => sum + (s.bar?.spot_buy_usd ?? 0), 0);
   const spotSold = slots.reduce((sum, s) => sum + (s.bar?.spot_sell_usd ?? 0), 0);
-  const cite = citeMark(
-    tr("{asset} taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.", {
-      asset: plainLabel(label),
-      window,
-      cvd: signedUsd(total),
-      bought: formatUsd(bought),
-      sold: formatUsd(sold),
-    }),
-  );
+  // What the cite button offers: with a spot book, the three lines in one sentence first; then the
+  // perpetuals' flow on its own, named as futures so it is not read as the whole of it.
+  const cite = `${
+    spot
+      ? citeMark(
+          tr(
+            "{asset}, last {window}: futures CVD {futures}, Binance spot CVD {spot}, delta {delta}.",
+            {
+              asset: plainLabel(label),
+              window,
+              futures: signedUsd(total),
+              spot: signedUsd(spotTotal),
+              delta: signedUsd(total + spotTotal),
+            },
+          ),
+        )
+      : ""
+  }${citeMark(
+    tr(
+      "{asset} futures taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.",
+      {
+        asset: plainLabel(label),
+        window,
+        cvd: signedUsd(total),
+        bought: formatUsd(bought),
+        sold: formatUsd(sold),
+      },
+    ),
+  )}`;
   const idle = cvdText(
     tr("Last {window}", { window: esc(window) }),
     [bought, sold, prices.at(-1) ?? null],

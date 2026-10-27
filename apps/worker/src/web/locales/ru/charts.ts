@@ -70,8 +70,10 @@ export const charts: Catalog = {
     "{asset} · кумулятивная дельта объёма · бары по {n} ч, {zone}",
   "{asset} · cumulative volume delta · {n}-minute bars, {zone}":
     "{asset} · кумулятивная дельта объёма · бары по {n} мин, {zone}",
-  "{asset} taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.":
-    "CVD тейкеров по {asset} за {window}: {cvd}. Рыночные покупатели {bought}, продавцы {sold}.",
+  "{asset} futures taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.":
+    "CVD тейкеров фьючерсов по {asset} за {window}: {cvd}. Рыночные покупатели {bought}, продавцы {sold}.",
+  "{asset}, last {window}: futures CVD {futures}, Binance spot CVD {spot}, delta {delta}.":
+    "{asset} за {window}: CVD фьючерсов {futures}, CVD спота Binance {spot}, дельта {delta}.",
   "Last {window}": "За {window}",
   "Loading {interval} bars…": "Загрузка баров {interval}…",
   "Loading {asset}…": "Загрузка {asset}…",

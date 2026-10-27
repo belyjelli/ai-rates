@@ -624,7 +624,7 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
    keeps the sticky masthead from covering the chart's title when the page jumps there. */
 .cvd-anchor{scroll-margin-top:calc(var(--mast) + 8px)}
 .kc-host{margin:2px 0 22px}
-.kc-canvas{position:relative;height:620px}
+.kc-canvas{position:relative;height:620px;overflow:hidden}
 .kc-on .slot-area,.kc-on .slot-modes{display:none!important}
 .kc-bar{margin:0 0 4px;min-height:16px;font-size:11px;line-height:16px}
 .kc-note{color:var(--ink)}

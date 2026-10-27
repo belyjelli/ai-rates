@@ -71,8 +71,10 @@ export const charts: Catalog = {
     "{asset} · 누적 거래량 델타 · {n}시간 봉, {zone}",
   "{asset} · cumulative volume delta · {n}-minute bars, {zone}":
     "{asset} · 누적 거래량 델타 · {n}분 봉, {zone}",
-  "{asset} taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.":
-    "최근 {window} {asset} 테이커 CVD: {cvd}. 시장가 매수 {bought}, 시장가 매도 {sold}.",
+  "{asset} futures taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.":
+    "최근 {window} {asset} 선물 테이커 CVD: {cvd}. 시장가 매수 {bought}, 시장가 매도 {sold}.",
+  "{asset}, last {window}: futures CVD {futures}, Binance spot CVD {spot}, delta {delta}.":
+    "최근 {window} {asset}: 선물 CVD {futures}, Binance 현물 CVD {spot}, 델타 {delta}.",
   "Last {window}": "최근 {window}",
   "Loading {interval} bars…": "{interval} 봉 불러오는 중…",
   "Loading {asset}…": "{asset} 불러오는 중…",

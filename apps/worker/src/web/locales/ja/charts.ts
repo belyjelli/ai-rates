@@ -72,8 +72,10 @@ export const charts: Catalog = {
     "{asset} · 累積出来高デルタ · {n}時間足、{zone}",
   "{asset} · cumulative volume delta · {n}-minute bars, {zone}":
     "{asset} · 累積出来高デルタ · {n}分足、{zone}",
-  "{asset} taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.":
-    "{asset} の直近 {window} のテイカー CVD：{cvd}。成行の買い手 {bought}、売り手 {sold}。",
+  "{asset} futures taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.":
+    "{asset} の直近 {window} の先物テイカー CVD：{cvd}。成行の買い手 {bought}、売り手 {sold}。",
+  "{asset}, last {window}: futures CVD {futures}, Binance spot CVD {spot}, delta {delta}.":
+    "{asset} の直近 {window}：先物 CVD {futures}、Binance 現物 CVD {spot}、デルタ {delta}。",
   "Last {window}": "直近 {window}",
   "Loading {interval} bars…": "{interval} 足を読み込み中…",
   "Loading {asset}…": "{asset} を読み込み中…",

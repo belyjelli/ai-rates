@@ -4349,6 +4349,10 @@ describe("cvd", () => {
     );
     expect(kc.spot).toBe(true);
     expect(kc.src).toBe("/data/chart?asset=BTC&class=crypto&bar=15&spot=1");
+    // The cite button's lines: all three in one sentence first, then the perpetuals' flow, named.
+    const cites = [...figure.matchAll(/data-cite="([^"]*)"/g)].map((m) => m[1]);
+    expect(cites[0]).toMatch(/^BTC, last 24h: futures CVD .+, Binance spot CVD \+\$2\.0M, delta .+\.$/);
+    expect(cites[1]).toMatch(/^BTC futures taker CVD, last 24h: /);
     expect(kc.bars[0].slice(7)).toEqual([3e6, 1e6]);
     expect(kc.bars[1].slice(7)).toEqual([null, null]);
     const slots = JSON.parse(

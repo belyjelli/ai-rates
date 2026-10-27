@@ -434,6 +434,23 @@ export const KCHART_SCRIPT = `(() => {
       place(st);
     });
     canvas.addEventListener("pointerleave", () => { st.tip.hidden = true; });
+    // The share card's picture of this chart (share.ts): the same bars, panes and scales, drawn at the
+    // card's shape (w × h CSS pixels) rather than the screen's, which on a phone is taller than wide.
+    // The chart is resized for the one synchronous repaint and handed back to its box straight after,
+    // under the share dialog's backdrop; the bars in view are kept across both. Its box clips it
+    // (.kc-canvas, overflow:hidden): a phone browser that saw the page grow 980px wide for that moment
+    // kept the wider layout, and the share dialog opened half off the screen.
+    host.kcShot = (w, h) => {
+      const ts = chart.timeScale(), r = ts.getVisibleLogicalRange();
+      chart.applyOptions({ autoSize: false });
+      chart.resize(Math.round(w), Math.round(h), true);
+      if (r) ts.setVisibleLogicalRange(r);
+      chart.resize(Math.round(w), Math.round(h), true);
+      const shot = chart.takeScreenshot();
+      chart.applyOptions({ autoSize: true });
+      if (r) ts.setVisibleLogicalRange(r);
+      return shot;
+    };
     charts.add(st);
   };
 
