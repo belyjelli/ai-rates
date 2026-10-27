@@ -629,6 +629,20 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
 .kc-bar{margin:0 0 4px;min-height:16px;font-size:11px;line-height:16px}
 .kc-note{color:var(--ink)}
 .kc-note:not([hidden])+.kc-hint{display:none}
+/* The hover box over the trading chart (kchart.ts): placed by transform from the canvas's corner. */
+.kc-tip{position:absolute;top:0;left:0;z-index:4;pointer-events:none;padding:6px 9px;background:var(--bg);border:1px solid var(--muted);color:var(--muted);font-size:11px;line-height:1.55;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.6)}
+.kc-tip[hidden]{display:none}
+.kc-tip-when{color:var(--ink);margin-bottom:3px}
+.kc-tip dl{display:grid;grid-template-columns:auto auto auto auto;gap:0 8px;margin:0}
+.kc-tip dd{margin:0;color:var(--ink);text-align:right}
+.kc-tip-cvd{grid-template-columns:auto auto!important;margin-top:4px!important;padding-top:3px;border-top:1px solid var(--rule)}
+.kc-tip table{border-collapse:collapse;margin-top:4px;padding-top:3px;border-top:1px solid var(--rule)}
+.kc-tip th,.kc-tip td{padding:0 0 0 12px;text-align:right;font-weight:400}
+.kc-tip th:first-child{padding-left:0;text-align:left}
+.kc-tip thead th{color:var(--dim)}
+.kc-tip td{color:var(--ink)}
+.kc-tip b{font-weight:600}
+.kc-tip-sum>*{border-top:1px solid var(--rule)}
 @media (max-width:640px){.kc-canvas{height:520px}.kc-hint{display:none}}
 .cvd-chart .fchart-plot{margin:6px 64px 0 64px}
 .cvd-chart .fchart-note{margin-top:22px}

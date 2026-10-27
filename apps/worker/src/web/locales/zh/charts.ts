@@ -204,4 +204,9 @@ export const charts: Catalog = {
   "delta {net}": "Delta {net}",
   "delta {net} ({pct} of volume)": "Delta {net}（占成交量 {pct}）",
   "CVD futures {futures}, spot {spot}": "CVD 合约 {futures}，现货 {spot}",
+  Open: "开盘",
+  High: "最高",
+  Low: "最低",
+  Futures: "合约",
+  "Spot (Binance)": "现货（Binance）",
 };

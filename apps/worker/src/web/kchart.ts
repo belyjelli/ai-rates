@@ -2,7 +2,7 @@ import type { CvdBar } from "../app/data";
 import { KC_PAGE_BARS, TAKER_FLOW_DAYS } from "../app/params";
 import { tr } from "./i18n";
 import { LWC_SOURCE, LWC_VERSION } from "./lwc.generated";
-import { cvdText, slotPct, slotPrice, slotUsd, slotWhen, slotWords } from "./slot-chart";
+import { slotPct, slotPrice, slotUsd, slotWhen, slotWords } from "./slot-chart";
 
 /**
  * The Chart page's trading chart: candles you drag back through history and zoom, drawn by
@@ -26,8 +26,12 @@ import { cvdText, slotPct, slotPrice, slotUsd, slotWhen, slotWords } from "./slo
  * OUTSIDE THE LIVE REGION. live.ts replaces the figure's HTML every 30 seconds, which would destroy
  * a chart built inside it, and the reader's place in it. So the host sits beside the figure, and the
  * figure carries only the data (`.kc-data`): when a refresh swaps in a new copy, the bars in it are
- * merged into the chart where it stands. The readout line stays in the figure and is written to
- * wherever it currently is.
+ * merged into the chart where it stands.
+ *
+ * HOVER READS IN A BOX OVER THE CANVAS, beside the cursor (owner, 2026-10-28): the bar's time, its
+ * candle, a small table of the taker flow behind it, and the CVD lines where it stands. It used to be
+ * written into the readout line above the chart, which grew and wrapped under the pointer and pushed
+ * the chart down. That line now keeps the window's summary and never changes on hover.
  *
  * HISTORY comes from `/data/chart` in pages of KC_PAGE_BARS bars, on a grid of whole pages so every
  * reader asks for the same addresses and the edge cache answers most of them. A page names the
@@ -132,6 +136,15 @@ export function kchartData(payload: KChartPayload): string {
     paneFutures: tr("Futures CVD"),
     paneSpot: tr("Spot CVD"),
     paneDelta: tr("Delta"),
+    tipOpen: tr("Open"),
+    tipHigh: tr("High"),
+    tipLow: tr("Low"),
+    tipClose: tr("Close"),
+    tipBuys: tr("taker buys"),
+    tipSells: tr("taker sells"),
+    tipNet: tr("Net"),
+    tipFutures: tr("Futures"),
+    tipSpot: tr("Spot (Binance)"),
   };
   return `<script type="application/json" class="kc-data">${JSON.stringify({ ...payload, words }).replace(/</g, "\\u003c")}</script>`;
 }
@@ -152,7 +165,6 @@ export const KCHART_SCRIPT = `(() => {
   const usd = ${slotUsd};
   const price = ${slotPrice};
   const pct = ${slotPct};
-  const cvdText = ${cvdText};
   const signed = (v) => (v > 0 ? "+" : "") + usd(v);
   const zone = (ms) => (window.airratesZone ? window.airratesZone(ms) : 0);
   let lib = null;
@@ -166,7 +178,6 @@ export const KCHART_SCRIPT = `(() => {
     document.head.appendChild(s);
   }));
   const charts = new Set();
-  const idle = new WeakMap();
   const css = (name, fallback) => getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
   // The library draws UTC; a bar is handed to it at its start in the reader's zone. Strictly
@@ -236,22 +247,51 @@ export const KCHART_SCRIPT = `(() => {
     st.note.hidden = !text;
   };
 
-  const reading = (st, i) => {
+  // One bar, as the hover box shows it. Every word comes from the page's own catalogue and every
+  // figure through a formatter, so nothing here is reader-supplied text.
+  const tone = (v) => (v > 0 ? "cvd-up" : v < 0 ? "cvd-down" : "");
+  const money = (v) => '<b class="' + tone(v) + '">' + signed(v) + "</b>";
+  const tipHtml = (st, i) => {
     const d = st.d, w = d.words, b = st.bars[i];
     const when = slotWhen(b[0], w, zone(b[0]), d.bar);
-    const head = b[0] + d.bar > Date.now() ? w.filling.replace("{when}", () => when) : when;
+    let html = '<div class="kc-tip-when">' + (b[0] + d.bar > Date.now() ? w.filling.replace("{when}", () => when) : when) + "</div>";
     const c = b[4];
-    let ohlc = "";
     if (c !== null) {
       const o = b[1] === null ? c : b[1];
-      const tone = c > o ? "cvd-up" : c < o ? "cvd-down" : "";
-      ohlc = w.ohlc
-        .replace("{open}", () => price(o))
-        .replace("{high}", () => price(b[2] === null ? c : b[2]))
-        .replace("{low}", () => price(b[3] === null ? c : b[3]))
-        .replace("{close}", () => '<b class="' + tone + '">' + price(c) + "</b> (" + pct((c / o - 1) * 100, 2) + ")");
+      const cell = (label, value) => "<dt>" + label + "</dt><dd>" + value + "</dd>";
+      html += '<dl class="kc-tip-ohlc">' + cell(w.tipOpen, price(o)) + cell(w.tipHigh, price(b[2] === null ? c : b[2])) +
+        cell(w.tipLow, price(b[3] === null ? c : b[3])) +
+        cell(w.tipClose, '<b class="' + tone(c - o) + '">' + price(c) + "</b> " + pct((c / o - 1) * 100, 2)) + "</dl>";
     }
-    return cvdText(ohlc ? head + " · " + ohlc : head, [b[5], b[6], null], st.cvd[i], null, { usd, price, pct, words: w }, st.spot ? [b[7], b[8], st.spotCvd[i]] : undefined);
+    const row = (label, buy, sell) => "<tr><th>" + label + "</th>" + (buy === null || sell === null
+      ? '<td>–</td><td>–</td><td>–</td>'
+      : "<td>" + usd(buy) + "</td><td>" + usd(sell) + "</td><td>" + money(buy - sell) + "</td>") + "</tr>";
+    html += "<table><thead><tr><th></th><th>" + w.tipBuys + "</th><th>" + w.tipSells + "</th><th>" + w.tipNet + "</th></tr></thead><tbody>" +
+      row(w.tipFutures, b[5], b[6]);
+    if (st.spot) {
+      html += row(w.tipSpot, b[7], b[8]) +
+        '<tr class="kc-tip-sum"><th>' + w.paneDelta + "</th><td></td><td></td><td>" + money(b[5] - b[6] + spotNet(b)) + "</td></tr>";
+    }
+    html += '</tbody></table><dl class="kc-tip-cvd"><dt>' + w.paneFutures + "</dt><dd>" + money(st.cvd[i]) + "</dd>" +
+      (st.spot ? "<dt>" + w.paneSpot + "</dt><dd>" + money(st.spotCvd[i]) + "</dd>" : "") + "</dl>";
+    return html;
+  };
+
+  // Beside the cursor, flipped to its left near the price axis and lifted near the time axis. On a
+  // narrow chart a box beside the finger would cover what it is reading, so it sits in the top
+  // corner away from it.
+  const place = (st) => {
+    const tip = st.tip, W = st.canvas.clientWidth, H = st.canvas.clientHeight;
+    const tw = tip.offsetWidth, th = tip.offsetHeight, axis = 80, gap = 16;
+    let x, y;
+    if (W < 560) {
+      x = st.at.x < W / 2 ? W - axis - tw : 6;
+      y = 6;
+    } else {
+      x = st.at.x + gap + tw > W - axis ? st.at.x - gap - tw : st.at.x + gap;
+      y = Math.min(st.at.y + gap, H - 30 - th);
+    }
+    tip.style.transform = "translate(" + Math.max(4, Math.round(x)) + "px," + Math.max(4, Math.round(y)) + "px)";
   };
 
   // Older bars, a page at a time, on the page grid. An empty page that is still inside the
@@ -375,13 +415,25 @@ export const KCHART_SCRIPT = `(() => {
     const n = st.bars.length;
     chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - d.count) - 0.5, to: n - 1 + 2 });
     chart.timeScale().subscribeVisibleLogicalRangeChange((r) => { if (r && r.from < 30) older(st); });
+    st.canvas = canvas;
+    st.at = { x: 0, y: 0 };
+    st.tip = document.createElement("div");
+    st.tip.className = "kc-tip";
+    st.tip.hidden = true;
+    canvas.append(st.tip);
+    // The pointer's place on the canvas, across every pane: the library's own point is per pane.
+    canvas.addEventListener("pointermove", (e) => {
+      const r = canvas.getBoundingClientRect();
+      st.at = { x: e.clientX - r.left, y: e.clientY - r.top };
+    }, { passive: true });
     chart.subscribeCrosshairMove((p) => {
-      const read = st.anchor.querySelector(".slot-read");
-      if (!read) return;
-      if (!idle.has(read)) idle.set(read, read.innerHTML);
       const i = p && p.point && p.logical !== undefined ? Math.round(p.logical) : -1;
-      read.innerHTML = i >= 0 && i < st.bars.length ? reading(st, i) : idle.get(read);
+      if (i < 0 || i >= st.bars.length) { st.tip.hidden = true; return; }
+      st.tip.innerHTML = tipHtml(st, i);
+      st.tip.hidden = false;
+      place(st);
     });
+    canvas.addEventListener("pointerleave", () => { st.tip.hidden = true; });
     charts.add(st);
   };
 

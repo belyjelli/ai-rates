@@ -213,4 +213,9 @@ export const charts: Catalog = {
   "delta {net}": "デルタ {net}",
   "delta {net} ({pct} of volume)": "デルタ {net}（出来高の {pct}）",
   "CVD futures {futures}, spot {spot}": "CVD 先物 {futures}、現物 {spot}",
+  Open: "始値",
+  High: "高値",
+  Low: "安値",
+  Futures: "先物",
+  "Spot (Binance)": "現物（Binance）",
 };

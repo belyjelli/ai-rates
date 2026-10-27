@@ -213,4 +213,9 @@ export const charts: Catalog = {
   "delta {net}": "дельта {net}",
   "delta {net} ({pct} of volume)": "дельта {net} ({pct} объёма)",
   "CVD futures {futures}, spot {spot}": "CVD: фьючерсы {futures}, спот {spot}",
+  Open: "Открытие",
+  High: "Максимум",
+  Low: "Минимум",
+  Futures: "Фьючерсы",
+  "Spot (Binance)": "Спот (Binance)",
 };

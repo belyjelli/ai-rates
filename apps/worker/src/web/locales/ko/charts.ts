@@ -212,4 +212,9 @@ export const charts: Catalog = {
   "delta {net}": "델타 {net}",
   "delta {net} ({pct} of volume)": "델타 {net} (거래량의 {pct})",
   "CVD futures {futures}, spot {spot}": "CVD 선물 {futures}, 현물 {spot}",
+  Open: "시가",
+  High: "고가",
+  Low: "저가",
+  Futures: "선물",
+  "Spot (Binance)": "현물(Binance)",
 };
