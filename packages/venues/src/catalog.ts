@@ -421,6 +421,8 @@ const dex: Venue[] = [
     id: "edgex-v2",
     name: "edgeX V2",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: its own meta/getMetaData defaultTakerFeeRate 0.00045; the fee page shows no numbers.
+    takerBps: 4.5,
     verified: true,
     probes: [
       get("getMetaData", "https://edgex-prod-v2.edgex.exchange/api/v2/public/meta/getMetaData"),
@@ -507,6 +509,8 @@ const dex: Venue[] = [
     id: "standx",
     name: "StandX",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: its own query_symbol_info taker_fee 0.0004 on every market; no fee page found.
+    takerBps: 4,
     verified: true,
     probes: [get("query_market_overview", "https://perps.standx.com/api/query_market_overview")],
     notes:
@@ -516,6 +520,8 @@ const dex: Venue[] = [
     id: "lighter-rh",
     name: "Lighter Robinhood",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs Robinhood Chain overview: Standard accounts 0 (Plus 0.015%, Premium 0.035%).
+    takerBps: 0,
     verified: true,
     probes: [
       get("funding-rates", "https://api.rh.lighter.xyz/api/v1/funding-rates"),
@@ -528,6 +534,8 @@ const dex: Venue[] = [
     id: "sodex",
     name: "SoDEX",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs trading-fees, 0.04% taker.
+    takerBps: 4,
     verified: true,
     probes: [
       get("perps/markets/tickers", "https://mainnet-gw.sodex.dev/api/v1/perps/markets/tickers"),
@@ -538,6 +546,8 @@ const dex: Venue[] = [
     id: "nado",
     name: "Nado",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs fees-and-rebates, entry tier 0.035% taker.
+    takerBps: 3.5,
     verified: true,
     probes: [get("archive/v2/contracts", "https://archive.prod.nado.xyz/v2/contracts")],
     notes:
@@ -547,6 +557,8 @@ const dex: Venue[] = [
     id: "ondo",
     name: "Ondo",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs fees, 0.05% base; a 0.025% promotion runs, not counted.
+    takerBps: 5,
     verified: true,
     probes: [get("perps/contracts", "https://api.ondoperps.xyz/v1/perps/contracts")],
     notes:
@@ -565,6 +577,8 @@ const dex: Venue[] = [
     id: "reya",
     name: "Reya",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs fees, tier 0 0.03% taker; /v2/feeTiers agrees.
+    takerBps: 3,
     verified: true,
     probes: [get("perpMarkets/summary", "https://api.reya.xyz/v2/perpMarkets/summary")],
     notes: "Hourly rate; separate long/short funding values; no history API.",
@@ -573,6 +587,8 @@ const dex: Venue[] = [
     id: "arcus",
     name: "Arcus",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: markets API effectiveTakerFeePpm 450, which its fees doc says to read.
+    takerBps: 4.5,
     verified: true,
     probes: [get("markets", "https://api.arcus.xyz/v1/markets")],
     notes: "Hourly: fundingRate, nextFundingRate, markPrice, openInterest, volume24hNotional.",
@@ -597,6 +613,8 @@ const dex: Venue[] = [
     id: "orderly",
     name: "WOOFi Pro",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: WOOFi Pro fee table, tier 1 0.06% taker (maker 0.03%).
+    takerBps: 6,
     ccxt: "woofipro",
     verified: true,
     probes: [get("funding_rates", "https://api.orderly.org/v1/public/funding_rates")],
@@ -608,6 +626,8 @@ const dex: Venue[] = [
     id: "perpl",
     name: "Perpl",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs fees, tier 1 0.0345% taker; the context API agrees.
+    takerBps: 3.45,
     verified: true,
     probes: [get("pub/context", "https://app.perpl.xyz/api/v1/pub/context")],
     notes:
@@ -629,6 +649,8 @@ const dex: Venue[] = [
     id: "hibachi",
     name: "Hibachi",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs fees, tier 1 0.045% taker; exchange-info agrees.
+    takerBps: 4.5,
     verified: true,
     probes: [get("prices", "https://data-api.hibachi.xyz/market/data/prices?symbol=BTC/USDT-P")],
     notes:
@@ -638,6 +660,8 @@ const dex: Venue[] = [
     id: "paradex",
     name: "Paradex",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs trading fees: 0 for retail (app) takers, 0.045% for API takers; the Exchanges page reads its retail (interactive) book, so the retail fee.
+    takerBps: 0,
     ccxt: "paradex",
     verified: true,
     maxLeverage: 10,
@@ -651,6 +675,8 @@ const dex: Venue[] = [
     id: "zero1",
     name: "N1 (01)",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs fees, tier 1 CLOB 0.035% taker.
+    takerBps: 3.5,
     verified: true,
     probes: [
       get("info", "https://zo-mainnet.n1.xyz/info"),
@@ -662,6 +688,8 @@ const dex: Venue[] = [
     id: "bullet",
     name: "Bullet",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs fees: no trading fee; Bullet takes 5% of funding instead.
+    takerBps: 0,
     verified: true,
     probes: [get("premiumIndex", "https://tradingapi.bullet.xyz/fapi/v1/premiumIndex")],
     notes: "Binance FAPI-compatible bulk premiumIndex.",
@@ -670,6 +698,8 @@ const dex: Venue[] = [
     id: "polymarket",
     name: "Polymarket",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs perps fees, 0.04% taker.
+    takerBps: 4,
     verified: true,
     probes: [
       get("info/tickers", "https://api.perpetuals.polymarket.com/v1/info/tickers"),
@@ -682,6 +712,8 @@ const dex: Venue[] = [
     id: "phoenix",
     name: "Phoenix",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs matching-engine fees, 0.035% taker; the markets API agrees.
+    takerBps: 3.5,
     verified: true,
     probes: [get("exchange/markets", "https://perp-api.phoenix.trade/v1/view/exchange/markets")],
     notes:
@@ -732,6 +764,8 @@ const dex: Venue[] = [
     id: "aevo",
     name: "Aevo",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs perpetuals fees, 0.08% taker (maker 0.05%).
+    takerBps: 8,
     verified: true,
     probes: [get("funding", "https://api.aevo.xyz/funding?instrument_name=BTC-PERP")],
     notes: "Nanosecond timestamps; history limit 50 per page.",
@@ -748,6 +782,8 @@ const dex: Venue[] = [
     id: "bluefin",
     name: "Bluefin",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs trading fees, 0.035% taker (the API charges 0.1% on HYPE and SUI).
+    takerBps: 3.5,
     verified: true,
     probes: [get("exchange/info", "https://api.sui-prod.bluefin.io/v1/exchange/info")],
     notes: "e9 fixed-point values.",
@@ -756,6 +792,8 @@ const dex: Venue[] = [
     id: "velocity",
     name: "Velocity (ex-Drift)",
     type: "dex",
+    // Published standard taker fee, checked 2026-10-28: docs trading fees, Regular tier 0.06% taker.
+    takerBps: 6,
     verified: true,
     probes: [get("stats/markets", "https://data.velocity.exchange/stats/markets")],
     notes: "Drift rebranded 2026-07-01; relaunch in progress; 30-day funding history.",

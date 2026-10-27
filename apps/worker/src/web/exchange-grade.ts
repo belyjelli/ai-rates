@@ -277,14 +277,20 @@ const isCex = (type: VenueType) => type === "cex";
  * interest and volume; a venue with book rows but no summary (not reporting right now) is left out.
  * `reserves` is every venue's from the collector, or null when that read failed -- then the Reserves
  * pillar is not measured for anyone, rather than zero for everyone.
+ *
+ * A quarantined venue is not graded: its book is read, as evidence for the venue review, but books
+ * like WEEX's (a $230M single SOL bid, walls mirrored across the spread) would score as the cheapest
+ * anywhere and, as the best, mark every honest venue down.
  */
 export function venueQualities(
   data: BookQualityData,
   summaries: readonly ExchangeSummary[],
   reserves: readonly ExchangeReserveRow[] | null = null,
 ): VenueQuality[] {
+  const quarantined = new Set(VENUES.filter((v) => v.quarantined).map((v) => v.id));
   const byVenue = new Map<string, BookQualityRow[]>();
   for (const r of data.rows) {
+    if (quarantined.has(r.venue_id)) continue;
     const list = byVenue.get(r.venue_id) ?? [];
     list.push(r);
     byVenue.set(r.venue_id, list);

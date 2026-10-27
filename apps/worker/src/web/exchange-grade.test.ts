@@ -134,4 +134,18 @@ describe("the grade", () => {
     // Open interest credited up to three times clean reserves.
     expect(okx?.oiCreditedUsd).toBeCloseTo(0.15e9);
   });
+
+  test("a quarantined venue's book is not graded, and does not become the best to mark others against", () => {
+    // WEEX (quarantined in the catalog) with a book far cheaper and deeper than anyone's.
+    const weex = BOOK_BASKET.map((b) => book("weex", b, 0.01, 0.01, 2e9));
+    const q = venueQualities(
+      { ...data, rows: [...data.rows, ...weex] },
+      [...summaries, summary("weex", "cex", 5e9, 10e9)],
+      null,
+    );
+    expect(q.find((v) => v.id === "weex")).toBeUndefined();
+    expect(q.map((v) => v.score)).toEqual(
+      venueQualities(data, summaries, null).map((v) => v.score),
+    );
+  });
 });
