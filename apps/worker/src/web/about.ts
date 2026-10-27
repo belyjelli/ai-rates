@@ -40,6 +40,16 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-10-28",
+    title: "Trading costs for 24 more exchanges",
+    changes: [
+      "The Exchanges page now grades 45 exchanges on what trading there costs, up from 21: spread, slippage at $10k and $100k, and depth, read from each exchange's public order book every ten minutes. New: Coinbase, BloFin, Nado, SoDEX, edgeX V2, Arcus, RiseX, TxFlow, Polymarket, ApeX, Ondo, Bullet, WOOFi Pro, Paradex, Phoenix, N1, Hibachi, Reya, Bluefin, Velocity, Perpl, Aevo, StandX and Lighter's Robinhood deployment. Their figures are medians of a few hours of books so far and settle over the week.",
+      "Most of them now carry their published taker fee rather than the 5 bp assumption. Paradex is priced as its app users trade: its retail book, which includes orders only app takers can fill, and its 0 fee for them.",
+      "TxFlow's public book shows 20 price levels a side, so its depth is what those levels hold. Exchanges that list none of the twelve majors measured (QFEX and the stock and commodity exchanges on Hyperliquid) and Variational, where one market maker quotes each trade and nothing rests, still have no figures.",
+      "Quarantined exchanges stay ungraded: their books show walls no taker would meet, which would have made them look the cheapest anywhere.",
+    ],
+  },
+  {
     date: "2026-10-27",
     title: "Option books for chip and memory stocks",
     changes: [
