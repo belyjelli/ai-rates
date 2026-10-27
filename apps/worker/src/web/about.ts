@@ -43,7 +43,7 @@ export const CHANGELOG: readonly Release[] = [
     date: "2026-10-27",
     title: "Option books for chip and memory stocks",
     changes: [
-      "26 more option books from Cboe for the chip, memory and hardware names the perps trade most: SK hynix (its Nasdaq ADR, SKHY), Sandisk, Western Digital, Seagate, the Roundhill Memory ETF, AMD, Broadcom, TSMC, Intel, Marvell, Arm, Qualcomm, ASML, Applied Materials, Lam Research, KLA, Dell, Supermicro, Lumentum, Coherent, Applied Optoelectronics, Corning, and the SMH, SOXX, SOXL and EWY funds. They show on Gamma Exposure, Delta, Vega, Theta, IV Walls and Ceiling & Floor, and in the GEX switch on the whales page.",
+      "29 more option books from Cboe for the chip, memory and hardware names the perps trade most: SK hynix (its Nasdaq ADR, SKHY), Sandisk, Western Digital, Seagate, the Roundhill Memory ETF, AMD, Broadcom, TSMC, Intel, Marvell, Arm, Qualcomm, ASML, Applied Materials, Lam Research, KLA, Dell, Supermicro, Lumentum, Coherent, Applied Optoelectronics, Corning, and the SMH, SOXX, SOXL, SOXS, MUU, EWY and KORU funds. They show on Gamma Exposure, Delta, Vega, Theta, IV Walls and Ceiling & Floor, and in the GEX switch on the whales page.",
       "The book picker groups them, with NVIDIA and Micron, under Chips and memory. The SKHYNIX perps quote one Seoul share rather than the ADR, so they have no book; Samsung's options trade only on the Korea Exchange and are not read yet.",
     ],
   },

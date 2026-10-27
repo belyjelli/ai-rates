@@ -132,7 +132,7 @@ const REGIONS: readonly [Region, string][] = [
 const CHIP_BOOKS: ReadonlySet<string> = new Set(
   (
     "NVDA MU SKHY SNDK WDC STX DRAM AMD AVGO TSM INTC MRVL ARM QCOM ASML AMAT LRCX KLAC DELL " +
-    "SMCI LITE COHR AAOI GLW SMH SOXX SOXL EWY"
+    "SMCI LITE COHR AAOI GLW SMH SOXX SOXL EWY SOXS MUU KORU"
   ).split(" "),
 );
 /** The picker group a book goes under: its publisher's region, or Chips and memory. */
@@ -189,6 +189,9 @@ const BOOK_NAMES: Readonly<Record<string, string>> = {
   SOXX: msg("iShares Semiconductor ETF"),
   SOXL: msg("Direxion Semiconductor Bull 3X"),
   EWY: msg("iShares MSCI South Korea ETF"),
+  SOXS: msg("Direxion Semiconductor Bear 3X"),
+  MUU: msg("Direxion Micron Bull 2X"),
+  KORU: msg("Direxion South Korea Bull 3X"),
   HSI: msg("Hang Seng"),
   HSCEI: msg("Hang Seng China Enterprises"),
   HSTECH: msg("Hang Seng TECH"),
