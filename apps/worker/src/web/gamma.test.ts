@@ -513,6 +513,28 @@ describe("book picker", () => {
     expect(ko).toContain("<b>SKHY</b><small>SK하이닉스(ADR)</small>");
   });
 
+  test("biotech and metals books get groups of their own, gold and silver with the miners", () => {
+    const books = [
+      book("GLD", "cboe", "USD"),
+      book("LLY", "cboe", "USD"),
+      book("FCX", "cboe", "USD"),
+      book("NVDA", "cboe", "USD"),
+      book("SPX", "cboe", "USD"),
+    ];
+    expect(sortBooks(books).map((b) => b.currency)).toEqual(["SPX", "NVDA", "LLY", "GLD", "FCX"]);
+    const html = panel(gammaData({ books }));
+    const at = (text: string) => html.indexOf(text);
+    expect(at(">Chips and memory <")).toBeLessThan(at(">Biotech and health <"));
+    expect(at(">Biotech and health <")).toBeLessThan(at(">Metals and mining <"));
+    expect(html).toContain(
+      '<p class="wh-pick-group">Metals and mining <span class="dim">2</span></p>',
+    );
+    expect(html).toContain("<b>LLY</b><small>Eli Lilly</small>");
+    const zh = withLocale("zh", () => panel(gammaData({ books })));
+    expect(zh).toContain('<p class="wh-pick-group">金属与矿业 <span class="dim">2</span></p>');
+    expect(zh).toContain("<b>FCX</b><small>自由港麦克莫兰</small>");
+  });
+
   test("an unknown publisher's book goes under Other, and an order holds without a name", () => {
     const sorted = sortBooks([
       book("NEW", "sgx", "SGD"),

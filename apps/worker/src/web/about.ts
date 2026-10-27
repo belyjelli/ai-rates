@@ -45,6 +45,7 @@ export const CHANGELOG: readonly Release[] = [
     changes: [
       "29 more option books from Cboe for the chip, memory and hardware names the perps trade most: SK hynix (its Nasdaq ADR, SKHY), Sandisk, Western Digital, Seagate, the Roundhill Memory ETF, AMD, Broadcom, TSMC, Intel, Marvell, Arm, Qualcomm, ASML, Applied Materials, Lam Research, KLA, Dell, Supermicro, Lumentum, Coherent, Applied Optoelectronics, Corning, and the SMH, SOXX, SOXL, SOXS, MUU, EWY and KORU funds. They show on Gamma Exposure, Delta, Vega, Theta, IV Walls and Ceiling & Floor, and in the GEX switch on the whales page.",
       "The book picker groups them, with NVIDIA and Micron, under Chips and memory. The SKHYNIX perps quote one Seoul share rather than the ADR, so they have no book; Samsung's options trade only on the Korea Exchange and are not read yet.",
+      "Two more groups: Biotech and health (Eli Lilly, UnitedHealth, Moderna, Johnson & Johnson, AbbVie, Merck, Pfizer, Novo Nordisk, Intuitive Surgical, Amgen, Thermo Fisher, Regeneron, Gilead, Tempus AI, Vertex, AstraZeneca, Hims & Hers, Biogen, Viking, and the XLV, XBI and IBB funds), and Metals and mining (gold and silver themselves, Newmont, Barrick, Agnico Eagle, Wheaton, Kinross, First Majestic, Hecla, Pan American, Coeur, Freeport-McMoRan, BHP, Rio Tinto, Southern Copper, and for batteries Vale, Albemarle, MP Materials and USA Rare Earth, with the GDX, GDXJ, SIL, SILJ and COPX funds). Books with less than about $0.5B of open interest, the small lithium names among them, are left out.",
     ],
   },
   {

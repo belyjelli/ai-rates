@@ -95,7 +95,7 @@ export const signedUsd = (usd: number, symbol = "$") =>
  * this does not know is taken as daily under its own name, the gentlest reading of its age.
  */
 type Cadence = "live" | "session" | "daily";
-type Region = "crypto" | "us" | "chips" | "asia" | "europe" | "other";
+type Region = "crypto" | "us" | "chips" | "bio" | "metals" | "asia" | "europe" | "other";
 interface Publisher {
   name: string;
   region: Region;
@@ -120,24 +120,42 @@ const REGIONS: readonly [Region, string][] = [
   ["crypto", msg("Crypto")],
   ["us", msg("United States")],
   ["chips", msg("Chips and memory")],
+  ["bio", msg("Biotech and health")],
+  ["metals", msg("Metals and mining")],
   ["asia", msg("Asia-Pacific")],
   ["europe", msg("Europe")],
   ["other", msg("Other")],
 ];
 
 /**
- * The chip, memory and hardware books, picked out of the US ones into a group of their own: the
- * stocks the perps trade most after the indexes, which a reader looks for together.
+ * The sector books, picked out of the US ones into groups of their own, which a reader looks for
+ * together: chip, memory and hardware names (the stocks the perps trade most after the indexes);
+ * drug makers, health care and biotech funds; and gold, silver and copper miners, their funds, gold
+ * and silver themselves, and the lithium, nickel and rare-earth producers batteries need.
  */
-const CHIP_BOOKS: ReadonlySet<string> = new Set(
-  (
+const SECTORS: readonly [Region, string][] = [
+  [
+    "chips",
     "NVDA MU SKHY SNDK WDC STX DRAM AMD AVGO TSM INTC MRVL ARM QCOM ASML AMAT LRCX KLAC DELL " +
-    "SMCI LITE COHR AAOI GLW SMH SOXX SOXL EWY SOXS MUU KORU"
-  ).split(" "),
+      "SMCI LITE COHR AAOI GLW SMH SOXX SOXL EWY SOXS MUU KORU",
+  ],
+  [
+    "bio",
+    "LLY UNH MRNA XLV JNJ XBI ABBV MRK PFE NVO ISRG AMGN TMO REGN GILD TEM VRTX AZN HIMS BIIB " +
+      "IBB VKTX",
+  ],
+  [
+    "metals",
+    "GLD SLV GDX NEM B AEM GDXJ WPM KGC AG SILJ HL PAAS SIL CDE FCX COPX BHP RIO SCCO VALE ALB " +
+      "MP USAR",
+  ],
+];
+const SECTOR_OF: ReadonlyMap<string, Region> = new Map(
+  SECTORS.flatMap(([region, tickers]) => tickers.split(" ").map((t) => [t, region] as const)),
 );
-/** The picker group a book goes under: its publisher's region, or Chips and memory. */
+/** The picker group a book goes under: its sector, else its publisher's region. */
 const bookRegion = (b: { currency: string; source: string }): Region =>
-  CHIP_BOOKS.has(b.currency) ? "chips" : publisher(b.source).region;
+  SECTOR_OF.get(b.currency) ?? publisher(b.source).region;
 
 /**
  * A reader's name for each book, in the picker's order within its region: the collector's own lists
@@ -192,6 +210,50 @@ const BOOK_NAMES: Readonly<Record<string, string>> = {
   SOXS: msg("Direxion Semiconductor Bear 3X"),
   MUU: msg("Direxion Micron Bull 2X"),
   KORU: msg("Direxion South Korea Bull 3X"),
+  LLY: msg("Eli Lilly"),
+  UNH: msg("UnitedHealth"),
+  MRNA: msg("Moderna"),
+  XLV: msg("Health Care Select Sector SPDR"),
+  JNJ: msg("Johnson & Johnson"),
+  XBI: msg("SPDR S&P Biotech ETF"),
+  ABBV: msg("AbbVie"),
+  MRK: msg("Merck"),
+  PFE: msg("Pfizer"),
+  NVO: msg("Novo Nordisk (ADR)"),
+  ISRG: msg("Intuitive Surgical"),
+  AMGN: msg("Amgen"),
+  TMO: msg("Thermo Fisher"),
+  REGN: msg("Regeneron"),
+  GILD: msg("Gilead"),
+  TEM: msg("Tempus AI"),
+  VRTX: msg("Vertex"),
+  AZN: msg("AstraZeneca (ADR)"),
+  HIMS: msg("Hims & Hers"),
+  BIIB: msg("Biogen"),
+  IBB: msg("iShares Biotechnology ETF"),
+  VKTX: msg("Viking Therapeutics"),
+  GDX: msg("VanEck Gold Miners ETF"),
+  NEM: msg("Newmont"),
+  B: msg("Barrick"),
+  AEM: msg("Agnico Eagle"),
+  GDXJ: msg("VanEck Junior Gold Miners ETF"),
+  WPM: msg("Wheaton Precious Metals"),
+  KGC: msg("Kinross Gold"),
+  AG: msg("First Majestic Silver"),
+  SILJ: msg("Amplify Junior Silver Miners ETF"),
+  HL: msg("Hecla Mining"),
+  PAAS: msg("Pan American Silver"),
+  SIL: msg("Global X Silver Miners ETF"),
+  CDE: msg("Coeur Mining"),
+  FCX: msg("Freeport-McMoRan"),
+  COPX: msg("Global X Copper Miners ETF"),
+  BHP: msg("BHP (ADR)"),
+  RIO: msg("Rio Tinto (ADR)"),
+  SCCO: msg("Southern Copper"),
+  VALE: msg("Vale (ADR)"),
+  ALB: msg("Albemarle"),
+  MP: msg("MP Materials"),
+  USAR: msg("USA Rare Earth"),
   HSI: msg("Hang Seng"),
   HSCEI: msg("Hang Seng China Enterprises"),
   HSTECH: msg("Hang Seng TECH"),
@@ -1130,7 +1192,7 @@ function choice(
 }
 
 /**
- * The books in the picker's order: by region (bookRegion, so Chips and memory has its own), each
+ * The books in the picker's order: by region (bookRegion, so each sector has its own), each
  * region's in BOOK_NAMES order, then by ticker.
  */
 export function sortBooks(books: readonly GammaBook[]): GammaBook[] {
@@ -1253,6 +1315,8 @@ ${helpPanel(
     "United States: Cboe's 15-minute delayed chains for the S&amp;P 500, Nasdaq-100 and Russell 2000 indexes and the most traded ETFs and stocks, with Cboe's own volatility and open interest, the spot taken as the forward. Read every 15 minutes through the US session; outside it the figures are the last session's.",
   )}</p><p>${tr(
     "Chips and memory: the same Cboe chains for the chip, memory and hardware stocks and ETFs the perps trade most. SK hynix is its Nasdaq ADR (SKHY), the price the SKHY perps follow; the SKHYNIX perps quote one Seoul share instead. Samsung's options trade only on the Korea Exchange and are not read yet, and neither Deribit nor Binance lists options on stocks.",
+  )}</p><p>${tr(
+    "Biotech and health, and Metals and mining: the same Cboe chains for the drug makers, health care and biotech funds, and for the gold, silver and copper miners, their funds, gold and silver themselves (GLD, SLV), and the lithium, nickel and rare-earth producers batteries need. The perps trade few of them; a book is kept when its open interest is about $0.5B or more, which leaves out the small lithium names.",
   )}</p><p>${tr(
     "Asia-Pacific and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, its three nearest months), ASX (S&amp;P/ASX 200), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement (for ASX, its closing theoretical price) with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.",
   )}</p>`,
