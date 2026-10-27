@@ -591,6 +591,23 @@ export interface LiquidationMap {
   totals: LiquidationTotals[];
   /** The assets that got a row, busiest first. The page renders them in this order. */
   assets: { asset: string; asset_class: AssetClass; notional_usd: number }[];
+  /**
+   * Every asset force-closed in the window, busiest first, with its sides, its event count and how
+   * many venues it was closed on: what the per-asset tabs' picker lists, grouped by sector. Cut from
+   * the same scan as the rest, so it costs one more grouping of a few thousand rows.
+   */
+  every: LiquidationAssetSummary[];
+}
+
+/** One asset's liquidations over the whole window, across every venue. */
+export interface LiquidationAssetSummary {
+  asset: string;
+  asset_class: AssetClass;
+  notional_usd: number;
+  events: number;
+  long_usd: number;
+  short_usd: number;
+  venues: number;
 }
 
 /**
@@ -598,7 +615,7 @@ export interface LiquidationMap {
  * the columns a kind does not carry are null: a cell has no `markets`, a venue total has no bucket.
  */
 interface LiquidationMapRow {
-  kind: "cell" | "asset" | "venue" | "column";
+  kind: "cell" | "asset" | "venue" | "column" | "every";
   venue_id: string | null;
   asset: string | null;
   asset_class: string | null;
@@ -2037,6 +2054,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       // (a few thousand rows to name, not half a million), and the four answers are cut from that.
       // They come back in one result tagged by `kind` and are split below, so a total is still a sum
       // of the very rows shown above it, now by construction rather than by two queries agreeing.
+      // A fifth, `every` (2026-10-27), is every asset in the window for the per-asset tabs' picker.
       //
       // The asset a liquidation belongs to comes from market_latest, not from the venue symbol:
       // ETH_USDT on gate and ETH-USDT-SWAP on okx are one asset and must share a row, which is the
@@ -2115,12 +2133,23 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                  sum(events)::int, coalesce(sum(long_usd), 0)::float8,
                  coalesce(sum(short_usd), 0)::float8, NULL, NULL
           FROM cell GROUP BY venue_id, bucket_start
+          UNION ALL
+          SELECT 'every', NULL, asset, asset_class, NULL, sum(notional_usd)::float8,
+                 sum(events)::int, coalesce(sum(long_usd), 0)::float8,
+                 coalesce(sum(short_usd), 0)::float8, count(DISTINCT venue_id)::int, NULL
+          FROM cell GROUP BY asset, asset_class
         ) u
         ORDER BY kind,
-                 CASE WHEN kind IN ('asset', 'venue') THEN notional_usd END DESC NULLS LAST,
+                 CASE WHEN kind IN ('asset', 'venue', 'every') THEN notional_usd END DESC NULLS LAST,
                  venue_id, asset, asset_class, bucket_start`;
 
-      const map: LiquidationMap = { cells: [], columnTotals: [], totals: [], assets: [] };
+      const map: LiquidationMap = {
+        cells: [],
+        columnTotals: [],
+        totals: [],
+        assets: [],
+        every: [],
+      };
       for (const row of rows) {
         // venue_id and bucket_start are null only on the kinds that do not carry them.
         if (row.kind === "cell") {
@@ -2152,6 +2181,16 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
             short_usd: row.short_usd as number,
             markets: row.markets as number,
             last_at: row.last_at,
+          });
+        } else if (row.kind === "every") {
+          map.every.push({
+            asset: row.asset as string,
+            asset_class: row.asset_class as AssetClass,
+            notional_usd: row.notional_usd,
+            events: row.events as number,
+            long_usd: row.long_usd as number,
+            short_usd: row.short_usd as number,
+            venues: row.markets as number,
           });
         } else {
           map.assets.push({

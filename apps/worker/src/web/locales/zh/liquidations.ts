@@ -298,4 +298,14 @@ export const liquidations: Catalog = {
     "每 30 秒刷新一次。{login}后每 10 秒刷新，最接近强平的账户约每分钟重新读取一次。",
   "Live for members: refreshes every 10 s, and the nearest accounts are re-read about every minute.":
     "会员实时：每 10 秒刷新，最接近强平的账户约每分钟重新读取一次。",
+  Indexes: "指数",
+  "Other stocks": "其他股票",
+  "Energy and other commodities": "能源及其他商品",
+  FX: "外汇",
+  "{long} long · {short} short": "多头 {long} · 空头 {short}",
+  "Pick an asset": "选择资产",
+  "Filter assets": "筛选资产",
+  Liquidated: "爆仓额",
+  "Longs / shorts": "多头 / 空头",
+  Events: "笔数",
 };

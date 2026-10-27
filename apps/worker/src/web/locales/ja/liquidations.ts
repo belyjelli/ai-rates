@@ -309,4 +309,14 @@ export const liquidations: Catalog = {
     "30 秒ごとに更新。{login}すると 10 秒ごとに更新され、清算に最も近い口座は約 1 分ごとに再取得されます。",
   "Live for members: refreshes every 10 s, and the nearest accounts are re-read about every minute.":
     "会員ライブ：10 秒ごとに更新、清算に最も近い口座は約 1 分ごとに再取得されます。",
+  Indexes: "指数",
+  "Other stocks": "その他の株式",
+  "Energy and other commodities": "エネルギー・その他商品",
+  FX: "為替",
+  "{long} long · {short} short": "ロング {long} · ショート {short}",
+  "Pick an asset": "資産を選択",
+  "Filter assets": "資産を絞り込む",
+  Liquidated: "清算額",
+  "Longs / shorts": "ロング / ショート",
+  Events: "件数",
 };

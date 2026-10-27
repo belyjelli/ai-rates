@@ -1,5 +1,11 @@
 import type { AssetClass } from "@ai-rates/core";
-import type { LiquidationAssetMap, LiquidationMap, Overview, WhalePosition } from "../app/data";
+import type {
+  LiquidationAssetMap,
+  LiquidationAssetSummary,
+  LiquidationMap,
+  Overview,
+  WhalePosition,
+} from "../app/data";
 import type { Outlook } from "../app/outlook";
 import {
   DEFAULT_LIQUIDATION_ASSETS,
@@ -26,11 +32,13 @@ import { PENDING_ROWS, PENDING_ZOOMS, type PendingZoom } from "../app/pending";
 import { CHART_SKELETON_JS, lazyPlaceholder } from "./chart-skeleton";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
-import { tr } from "./i18n";
+import { tr, trMsg } from "./i18n";
 import { layout } from "./layout";
 import { timeTag, timeTitle, zoneTag } from "./localtime";
 import { outlookPanel } from "./outlook";
 import { assetKey, assetName } from "./pages";
+import { PICK_SCRIPT } from "./picker";
+import { ASSET_GROUPS, assetGroup } from "./sectors";
 import { citeMark, plainLabel } from "./share";
 import {
   type SidesSlots,
@@ -797,43 +805,71 @@ ${body}`;
 }
 
 /**
- * The asset picker the two per-asset tabs carry.
+ * The asset picker the per-asset tabs carry: picker.ts's dropdown (as on the whales, CVD and option
+ * tabs), listing EVERY asset force-closed in the window, grouped by sector (sectors.ts: crypto,
+ * indexes, chips and memory, biotech and health, metals and mining, other stocks, energy and other
+ * commodities, FX) and busiest first within each. The owner asked for it on 2026-10-27 in place of a
+ * strip of the dozen busiest, which hid every smaller market behind the map tab.
  *
- * Plain links, not a select: it needs no JavaScript, it is the same `.tf` strip the window and band
- * controls already use, and every entry is a real address a reader can copy or open in a new tab.
- * The cost is that it offers the busiest assets rather than all of them -- 724 markets liquidated in
- * the last day, measured, and a picker holding all of them would be a scrollbar, not a control. The
- * map tab is the way to any asset outside this list, and the note beside the strip says so.
- *
- * The fragment keeps the reader on the tab they are reading: without it, following a link from the
- * sides tab would land on the priced one, because the server picks the tab from the address.
+ * Each row is a plain link, so it works without a script, and carries data-lq-swap, so LQ_SWAP_SCRIPT
+ * reloads the tab in place. The fragment keeps the reader on the tab they are reading: without it,
+ * following a link from the sides tab would land on the priced one, because the server picks the tab
+ * from the address. Filtering, arrow keys and Escape are PICK_SCRIPT's.
  */
-function assetStrip(
+function assetPicker(
   state: {
     addressed: string | null;
     assetClass: AssetClass | null;
     params: LiquidationParams;
     assetParams: LiquidationAssetParams;
   },
-  assets: readonly { asset: string; asset_class: AssetClass }[],
+  every: readonly LiquidationAssetSummary[],
   current: string | null,
   hash: string,
 ): string {
-  if (assets.length === 0) return "";
-  const links = assets
-    .map((entry) => {
-      const href = esc(
-        controlHref(state, { asset: { name: entry.asset, assetClass: entry.asset_class } }, hash),
-      );
-      const label = assetName(entry.asset, entry.asset_class);
-      // The tab it lives in reloads in place (LQ_SWAP_SCRIPT); the hash names that tab.
-      const swap = esc(hash.slice(1));
-      return entry.asset === current
-        ? `<a class="on" href="${href}" aria-current="page" data-lq-swap="${swap}">${label}</a>`
-        : `<a href="${href}" data-lq-swap="${swap}">${label}</a>`;
-    })
-    .join("");
-  return `<nav class="tf lq-assets" aria-label="${tr("Asset")}">${links}</nav>`;
+  if (every.length === 0) return "";
+  const swap = esc(hash.slice(1));
+  const row = (entry: LiquidationAssetSummary, group: string) => {
+    const href = esc(
+      controlHref(state, { asset: { name: entry.asset, assetClass: entry.asset_class } }, hash),
+    );
+    const on =
+      entry.asset === current &&
+      (state.assetClass === null || state.assetClass === entry.asset_class);
+    const sides = entry.long_usd + entry.short_usd;
+    const longShare = sides > 0 ? (entry.long_usd / sides) * 100 : 50;
+    // Found by its ticker, its class and its group in English and in the page's language, each once.
+    const words = [
+      ...new Set([entry.asset, entry.asset_class, group, trMsg(group)].map((w) => w.toLowerCase())),
+    ].join(" ");
+    return `<a class="wh-pick-row${on ? " on" : ""}" href="${href}" data-lq-swap="${swap}" data-q="${esc(words)}"${on ? ' aria-current="page"' : ""}>
+<span class="wh-pick-sym"><b>${assetName(entry.asset, entry.asset_class)}</b></span>
+<span class="num" data-u="usd">${money(entry.notional_usd)}</span>
+<span class="wh-pick-book"><span class="wh-pick-bar" title="${esc(tr("{long} long · {short} short", { long: money(entry.long_usd), short: money(entry.short_usd) }))}"><i class="wh-pick-bid" style="width:${longShare.toFixed(1)}%"></i><i class="wh-pick-ask" style="width:${(100 - longShare).toFixed(1)}%"></i></span></span>
+<span class="num">${entry.events.toLocaleString("en-US")}</span>
+<span class="num dim">${entry.venues}</span>
+</a>`;
+  };
+  const groups = ASSET_GROUPS.map(([group, label]) => {
+    const list = every.filter((entry) => assetGroup(entry.asset, entry.asset_class) === group);
+    if (list.length === 0) return "";
+    return `<p class="wh-pick-group">${trMsg(label)} <span class="dim">${list.length}</span></p>${list
+      .map((entry) => row(entry, label))
+      .join("")}`;
+  }).join("");
+  const shown = every.find((entry) => entry.asset === current);
+  const summary = shown
+    ? `<b>${assetName(shown.asset, shown.asset_class)}</b><span class="num" data-u="usd">${money(shown.notional_usd)}</span>`
+    : `<b>${esc(current ?? "")}</b>`;
+  return `<details class="wh-pick lq-pick">
+<summary class="wh-pick-btn" aria-label="${esc(tr("Pick an asset"))}">${summary}<span class="wh-pick-more dim">${tr("{n} assets", { n: every.length })}</span></summary>
+<div class="wh-pick-panel">
+<input class="wh-pick-q" type="search" placeholder="${esc(tr("Filter assets"))}" aria-label="${esc(tr("Filter assets"))}" autocomplete="off" hidden>
+<div class="wh-pick-head" aria-hidden="true"><span>${tr("Asset")}</span><span class="num">${tr("Liquidated")}</span><span>${tr("Longs / shorts")}</span><span class="num">${tr("Events")}</span><span class="num">${tr("Venues")}</span></div>
+<nav class="wh-pick-list" aria-label="${esc(tr("Asset"))}">${groups}</nav>
+<p class="wh-pick-none dim" hidden>${tr("No asset matches.")}</p>
+</div>
+</details>`;
 }
 
 /**
@@ -1355,7 +1391,7 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
       positions: view.whales,
       floor: assetParams.whale,
       zoom: assetParams.wzoom,
-      picker: assetStrip(state, map.assets, asset, "#whales"),
+      picker: assetPicker(state, map.every, asset, "#whales"),
       floorStrip: `<nav class="tf" aria-label="${tr("Position size")}">${(
         Object.keys(WHALE_FLOORS) as WhaleFloor[]
       )
@@ -1391,7 +1427,7 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
       label: assetName(asset, view.assetMap.asset_class ?? "crypto"),
       outlook: view.outlook,
       window: params.window,
-      picker: assetStrip(state, map.assets, asset, "#odds"),
+      picker: assetPicker(state, map.every, asset, "#odds"),
     });
   }
 
@@ -1419,7 +1455,7 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
       map: view.assetMap,
       params: { ...assetParams, venue: params.venue },
       bandStrip,
-      picker: assetStrip(state, map.assets, asset, "#price"),
+      picker: assetPicker(state, map.every, asset, "#price"),
       now,
     });
   }
@@ -1433,7 +1469,7 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
     asset,
     map: view.assetMap,
     params,
-    picker: assetStrip(state, map.assets, asset, "#sides"),
+    picker: assetPicker(state, map.every, asset, "#sides"),
     pendingStrip: `<nav class="tf" aria-label="${tr("Pending")}">${[true, false]
       .map((on) => {
         const href = esc(controlHref(state, { pending: on }, "#sides"));
@@ -1609,6 +1645,7 @@ ${panels}
 ${mapFootnote({ map, params, now })}
 <p class="notes">${tr("Updated {ago}.", { ago: since(overview.updated_at, now) })}</p>
 <script>${SLOT_SCRIPT}</script>
-<script>${LQ_SWAP_SCRIPT}</script>`,
+<script>${LQ_SWAP_SCRIPT}</script>
+<script>${PICK_SCRIPT}</script>`,
   });
 }

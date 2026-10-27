@@ -146,7 +146,13 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     hourlyFunding: async () => [],
     verifiedPairs: async () => [],
     bestVerifiedPair: async () => null,
-    liquidationMap: async () => ({ cells: [], columnTotals: [], totals: [], assets: [] }),
+    liquidationMap: async () => ({
+      cells: [],
+      columnTotals: [],
+      totals: [],
+      assets: [],
+      every: [],
+    }),
     cvd: async () => ({ rows: [], asset_class: "crypto" as const, bars: [], newest: null }),
     assetBars: async () => [],
     cvdHistory: async () => [],
@@ -722,6 +728,44 @@ describe("pages", () => {
           last_at: new Date(NOW - 16_000),
         },
       ],
+      every: [
+        {
+          asset: "ETH",
+          asset_class: "crypto",
+          notional_usd: 34_780_000,
+          events: 9_000,
+          long_usd: 20_000_000,
+          short_usd: 14_780_000,
+          venues: 2,
+        },
+        {
+          asset: "SNDK",
+          asset_class: "equity",
+          notional_usd: 2_740_000,
+          events: 600,
+          long_usd: 640_000,
+          short_usd: 2_100_000,
+          venues: 2,
+        },
+        {
+          asset: "XAU",
+          asset_class: "commodity",
+          notional_usd: 900_000,
+          events: 120,
+          long_usd: 500_000,
+          short_usd: 400_000,
+          venues: 1,
+        },
+        {
+          asset: "LLY",
+          asset_class: "equity",
+          notional_usd: 12_000,
+          events: 3,
+          long_usd: 12_000,
+          short_usd: 0,
+          venues: 1,
+        },
+      ],
       ...overrides,
     };
   };
@@ -915,7 +959,8 @@ describe("pages", () => {
 
   test("a window with no liquidations says which venues even report them", async () => {
     const { data } = fakeData({
-      liquidationMap: async () => liqMap({ totals: [], cells: [], columnTotals: [], assets: [] }),
+      liquidationMap: async () =>
+        liqMap({ totals: [], cells: [], columnTotals: [], assets: [], every: [] }),
     });
     const html = await (await get("/liquidations", data)).text();
 
@@ -1540,9 +1585,26 @@ describe("pages", () => {
     expect(sides).toContain('href="/liquidations?zoom=out#sides" data-lq-swap="sides">Zoom out<');
     // The asset picker, on each tab it sits in, reloading that tab.
     expect(sides).toMatch(
-      /<a class="on" href="\/liquidations\/ETH#sides" aria-current="page" data-lq-swap="sides">/,
+      /<a class="wh-pick-row on" href="\/liquidations\/ETH#sides" data-lq-swap="sides" data-q="[^"]*" aria-current="page">/,
     );
-    expect(price).toMatch(/href="\/liquidations\/[^"]+#price"[^>]* data-lq-swap="price">/);
+    expect(price).toMatch(/href="\/liquidations\/[^"]+#price" data-lq-swap="price"/);
+    // Every liquidated asset, under its sector, busiest first within each: gold with the metals, LLY
+    // with biotech, SNDK with the chips.
+    const at = (text: string) => sides.indexOf(text);
+    expect(sides).toContain(
+      '<p class="wh-pick-group">Chips and memory <span class="dim">1</span></p>',
+    );
+    expect(sides).toContain(
+      '<p class="wh-pick-group">Biotech and health <span class="dim">1</span></p>',
+    );
+    expect(sides).toContain(
+      '<p class="wh-pick-group">Metals and mining <span class="dim">1</span></p>',
+    );
+    expect(at(">Crypto <")).toBeLessThan(at(">Chips and memory <"));
+    expect(at(">Chips and memory <")).toBeLessThan(at('href="/liquidations/equity/SNDK#sides"'));
+    expect(at(">Biotech and health <")).toBeLessThan(at('href="/liquidations/equity/LLY#sides"'));
+    expect(at(">Metals and mining <")).toBeLessThan(at('href="/liquidations/commodity/XAU#sides"'));
+    expect(sides).toContain(">4 assets<");
     // The band widths, on Prices.
     expect(price).toMatch(/href="[^"]*band=[^"]*#price" data-lq-swap="price">/);
     // A fragment carries the tab labels, so the bar can be relabelled when the asset changes.

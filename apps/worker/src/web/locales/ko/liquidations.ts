@@ -305,4 +305,14 @@ export const liquidations: Catalog = {
     "30초마다 새로 고칩니다. {login}하면 10초마다 새로 고치고, 청산에 가장 가까운 계정은 약 1분마다 다시 읽습니다.",
   "Live for members: refreshes every 10 s, and the nearest accounts are re-read about every minute.":
     "회원 실시간: 10초마다 새로 고치고, 청산에 가장 가까운 계정은 약 1분마다 다시 읽습니다.",
+  Indexes: "지수",
+  "Other stocks": "기타 주식",
+  "Energy and other commodities": "에너지·기타 원자재",
+  FX: "외환",
+  "{long} long · {short} short": "롱 {long} · 숏 {short}",
+  "Pick an asset": "자산 선택",
+  "Filter assets": "자산 필터",
+  Liquidated: "청산 금액",
+  "Longs / shorts": "롱 / 숏",
+  Events: "건수",
 };

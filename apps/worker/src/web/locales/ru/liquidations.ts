@@ -311,4 +311,14 @@ export const liquidations: Catalog = {
     "Обновляется каждые 30 с. {login}, чтобы обновлять каждые 10 с, а ближайшие к ликвидации счета перечитывать примерно раз в минуту.",
   "Live for members: refreshes every 10 s, and the nearest accounts are re-read about every minute.":
     "Онлайн для участников: обновление каждые 10 с, ближайшие к ликвидации счета перечитываются примерно раз в минуту.",
+  Indexes: "Индексы",
+  "Other stocks": "Другие акции",
+  "Energy and other commodities": "Энергоносители и другие товары",
+  FX: "Валюты",
+  "{long} long · {short} short": "лонги {long} · шорты {short}",
+  "Pick an asset": "Выбрать актив",
+  "Filter assets": "Фильтр активов",
+  Liquidated: "Ликвидировано",
+  "Longs / shorts": "Лонги / шорты",
+  Events: "Событий",
 };

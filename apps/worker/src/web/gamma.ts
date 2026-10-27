@@ -29,6 +29,7 @@ import { type ExpectedMove, expectedMoves, type MoveHorizon } from "./expected-m
 import { ageText, esc, formatDuration, formatPrice, formatUsd } from "./format";
 import { helpButton, helpPanel } from "./help";
 import { msg, tr, trMsg } from "./i18n";
+import { SECTOR_LABELS, sectorOf } from "./sectors";
 import {
   type ExpirySlots,
   type GammaSlots,
@@ -119,43 +120,18 @@ export const publisher = (source: string): Publisher =>
 const REGIONS: readonly [Region, string][] = [
   ["crypto", msg("Crypto")],
   ["us", msg("United States")],
-  ["chips", msg("Chips and memory")],
-  ["bio", msg("Biotech and health")],
-  ["metals", msg("Metals and mining")],
+  ...SECTOR_LABELS,
   ["asia", msg("Asia-Pacific")],
   ["europe", msg("Europe")],
   ["other", msg("Other")],
 ];
 
 /**
- * The sector books, picked out of the US ones into groups of their own, which a reader looks for
- * together: chip, memory and hardware names (the stocks the perps trade most after the indexes);
- * drug makers, health care and biotech funds; and gold, silver and copper miners, their funds, gold
- * and silver themselves, and the lithium, nickel and rare-earth producers batteries need.
+ * The picker group a book goes under: a US book in one of the sectors (sectors.ts, shared with the
+ * liquidations picker) under that sector, every other book under its publisher's region.
  */
-const SECTORS: readonly [Region, string][] = [
-  [
-    "chips",
-    "NVDA MU SKHY SNDK WDC STX DRAM AMD AVGO TSM INTC MRVL ARM QCOM ASML AMAT LRCX KLAC DELL " +
-      "SMCI LITE COHR AAOI GLW SMH SOXX SOXL EWY SOXS MUU KORU",
-  ],
-  [
-    "bio",
-    "LLY UNH MRNA XLV JNJ XBI ABBV MRK PFE NVO ISRG AMGN TMO REGN GILD TEM VRTX AZN HIMS BIIB " +
-      "IBB VKTX",
-  ],
-  [
-    "metals",
-    "GLD SLV GDX NEM B AEM GDXJ WPM KGC AG SILJ HL PAAS SIL CDE FCX COPX BHP RIO SCCO VALE ALB " +
-      "MP USAR",
-  ],
-];
-const SECTOR_OF: ReadonlyMap<string, Region> = new Map(
-  SECTORS.flatMap(([region, tickers]) => tickers.split(" ").map((t) => [t, region] as const)),
-);
-/** The picker group a book goes under: its sector, else its publisher's region. */
 const bookRegion = (b: { currency: string; source: string }): Region =>
-  SECTOR_OF.get(b.currency) ?? publisher(b.source).region;
+  (b.source === "cboe" ? sectorOf(b.currency) : null) ?? publisher(b.source).region;
 
 /**
  * A reader's name for each book, in the picker's order within its region: the collector's own lists

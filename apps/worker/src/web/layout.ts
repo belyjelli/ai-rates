@@ -514,7 +514,7 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .wh-pick-bid{background:var(--long)}.wh-pick-ask{background:var(--short)}
 .wh-pick-sum{white-space:nowrap}
 .wh-pick-none{padding:8px 10px}
-@media (max-width:640px){.wh-pick-stack{flex:1 1 100%;align-items:stretch}.wh-pick-stack .whx-modes{flex-wrap:wrap}.wh-pick{flex:1 1 100%}.wh-pick-btn{min-width:0}.wh-pick-panel{width:calc(100vw - 20px)}.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-head,.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-row{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr);gap:8px}.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-head span:nth-child(3),.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-row>span:nth-child(3),.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-head span:nth-child(5),.wh-pick:not(.cvd-pick):not(.gx-pick) .wh-pick-row>span:nth-child(5){display:none}}
+@media (max-width:640px){.wh-pick-stack{flex:1 1 100%;align-items:stretch}.wh-pick-stack .whx-modes{flex-wrap:wrap}.wh-pick{flex:1 1 100%}.wh-pick-btn{min-width:0}.wh-pick-panel{width:calc(100vw - 20px)}.wh-pick:not(.cvd-pick):not(.gx-pick):not(.lq-pick) .wh-pick-head,.wh-pick:not(.cvd-pick):not(.gx-pick):not(.lq-pick) .wh-pick-row{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.4fr);gap:8px}.wh-pick:not(.cvd-pick):not(.gx-pick):not(.lq-pick) .wh-pick-head span:nth-child(3),.wh-pick:not(.cvd-pick):not(.gx-pick):not(.lq-pick) .wh-pick-row>span:nth-child(3),.wh-pick:not(.cvd-pick):not(.gx-pick):not(.lq-pick) .wh-pick-head span:nth-child(5),.wh-pick:not(.cvd-pick):not(.gx-pick):not(.lq-pick) .wh-pick-row>span:nth-child(5){display:none}}
 /* The CVD screener as a picker (cvd.ts assetPicker): the whales picker with the screener's eight
    columns, a search form for a box, and headings that sort. A phone keeps the asset, the change, the
    CVD and the signal. */
@@ -968,6 +968,10 @@ button.xg:hover,button.xg:focus-visible,button.xg[aria-expanded=true]{outline:1p
 .gx-pick .wh-pick-panel{width:min(860px,calc(100vw - 20px))}
 .gx-pick .wh-pick-head,.gx-pick .wh-pick-row{grid-template-columns:minmax(0,2fr) minmax(0,.9fr) minmax(0,1fr) minmax(0,1fr) 64px minmax(0,1.4fr)}
 .gx-pick .wh-pick-bar{height:6px}
+.lq-pick .wh-pick-btn{min-width:200px}
+.lq-pick .wh-pick-panel{width:min(640px,calc(100vw - 20px))}
+.lq-pick .wh-pick-head,.lq-pick .wh-pick-row{grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1.3fr) 64px 48px}
+.lq-pick .wh-pick-bar{height:6px}
 .gx-pick .wh-pick-sym small{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .wh-pick-group{margin:0;padding:9px 10px 3px;font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border-top:1px solid var(--rule)}
 .wh-pick-group:first-child{border-top:0}
@@ -975,6 +979,7 @@ button.xg:hover,button.xg:focus-visible,button.xg[aria-expanded=true]{outline:1p
 .gx-pick-when{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
 .gx-late{color:var(--warn)}
 .gx-controls .tf a.gx-none{opacity:.45}
+@media (max-width:640px){.lq-pick .wh-pick-btn{min-width:0}.lq-pick .wh-pick-head,.lq-pick .wh-pick-row{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:8px}.lq-pick .wh-pick-head>:is(:nth-child(4),:nth-child(5)),.lq-pick .wh-pick-row>:is(:nth-child(4),:nth-child(5)){display:none}}
 @media (max-width:640px){.gx-pick .wh-pick-btn{min-width:0}.gx-pick .wh-pick-head,.gx-pick .wh-pick-row{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) minmax(0,.8fr);gap:8px}.gx-pick .wh-pick-head>:is(:nth-child(2),:nth-child(5),:nth-child(6)),.gx-pick .wh-pick-row>:is(:nth-child(2),:nth-child(5),:nth-child(6)){display:none}}
 @media (max-width:640px){.gx-chart .gx-plot{height:280px}.cvd-chart.gx-chart .fchart-plot{margin:6px 8px 0 56px}.gx-yr{display:none}}
 /* Slot readout (slot-chart.ts), shared by the CVD and longs-vs-shorts charts. The readout sits in the
