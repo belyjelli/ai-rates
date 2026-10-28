@@ -86,7 +86,7 @@ export const INSTALL_CSS = `
 .install-btn:hover{filter:brightness(1.1)}
 @media (max-width:640px){
 .install{margin:-12px -10px 12px}
-.install-nag{padding:10px;background:#0b1208;border-bottom:1px solid var(--accent)}
+.install-nag{padding:10px;background:var(--tint-ok);border-bottom:1px solid var(--accent)}
 .install-text{display:block;flex:1;min-width:0;color:var(--ink);line-height:1.4}
 .install-text small{display:block;color:var(--muted);font-size:11px}
 .install-btn{padding:8px 12px;min-height:36px}

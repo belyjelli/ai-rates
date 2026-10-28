@@ -93,8 +93,10 @@ export const LIVE_SCRIPT = String.raw`(() => {
   if (!document.querySelector("main [data-live]") || !window.DOMParser) return;
 
   const PERIOD = 30e3; // the pages' edge max-age
-  const TINT = { up: "#00ff8893", down: "#ff475793", text: "rgba(216,216,216,.16)", new: "rgba(216,216,216,.1)" };
-  const EDGE = { up: "#00ff88", down: "#ff4757", text: "rgba(216,216,216,.6)", new: "rgba(216,216,216,.4)" };
+  // The page's ink at an alpha, so a flash shows on a light theme as on Night.
+  const ink = getComputedStyle(document.documentElement).getPropertyValue("--ink-rgb").trim() || "216,216,216";
+  const TINT = { up: "#00ff8893", down: "#ff475793", text: "rgba(" + ink + ",.16)", new: "rgba(" + ink + ",.1)" };
+  const EDGE = { up: "#00ff88", down: "#ff4757", text: "rgba(" + ink + ",.6)", new: "rgba(" + ink + ",.4)" };
   const still = matchMedia("(prefers-reduced-motion: reduce)");
   let rendered = document.body.dataset.rendered;
   // The deployed commit this page was built from. Refreshes only swap regions, never the page's CSS or

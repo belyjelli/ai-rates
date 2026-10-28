@@ -14,11 +14,11 @@ const HOURS_PER_YEAR = 8_760;
  * nothing here is either, so an exchange shown beside them can never be read as a leg.
  */
 const PALETTE = [
-  "#c8f5a8",
-  "#e5e500",
-  "#b69cff",
-  "#5fd7ff",
-  "#ff9f43",
+  "var(--accent)",
+  "var(--warn)",
+  "var(--em)",
+  "var(--cyan)",
+  "var(--orange)",
   "#4cc38a",
   "#ff79c6",
   "#a8b3bf",

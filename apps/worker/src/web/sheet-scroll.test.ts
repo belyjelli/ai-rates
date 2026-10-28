@@ -26,7 +26,7 @@ describe("the screener's sheet scrolls to suit the screen", () => {
     expect(phone).toContain("td:first-child{position:sticky;left:0;");
     // The stuck column keeps the row's own stripe and hover, or the stripes tear as it scrolls.
     expect(phone).toContain("td:first-child{background:var(--band)}");
-    expect(phone).toContain("td:first-child{background:#161616}");
+    expect(phone).toContain("td:first-child{background:var(--hover)}");
   });
 
   test("with room for it, the page scrolls sideways as before; on a phone the page never widens", () => {

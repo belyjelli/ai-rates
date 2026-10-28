@@ -28,6 +28,7 @@ import { assetHref } from "../web/pages";
 import { referralCta } from "../web/referral";
 import { referralLinks } from "../web/referral-links";
 import { sentiment } from "../web/sentiment";
+import { settings } from "../web/settings";
 import { tos } from "../web/tos";
 import { VENUE_BY_ID } from "../web/venues";
 import { whales, whaleVenueName } from "../web/whales";
@@ -736,6 +737,11 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     if (path === "/keys") {
       const overview = await deps.data.overview();
       return page(() => keyboard({ overview, now }));
+    }
+
+    if (path === "/settings") {
+      const overview = await deps.data.overview();
+      return page(() => settings({ overview, now }));
     }
 
     if (path === "/tos") {

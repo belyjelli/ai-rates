@@ -103,4 +103,47 @@ export const layout: Catalog = {
     "Список тикеров не загрузился. Биржи и страницы по-прежнему ищутся.",
   "Nothing matches {q}.": "Ничего не найдено по запросу {q}.",
   "price, spot and futures CVD": "цена, CVD спота и фьючерсов",
+  System: "Как в системе",
+  "Day or Night, as your device is set": "День или ночь, как настроено устройство",
+  Settings: "Настройки",
+  "Your settings on airrates: theme, clock, chart cursor, language and keyboard.":
+    "Ваши настройки airrates: тема, часы, курсор графика, язык и клавиатура.",
+  "Each choice is kept in this browser, not on an account: it needs no login, and another browser or device starts from the defaults. Clearing the site's data resets them.":
+    "Каждый выбор хранится в этом браузере, а не в аккаунте: вход не нужен, а другой браузер или устройство начинает с настроек по умолчанию. Очистка данных сайта их сбрасывает.",
+  Theme: "Тема",
+  "The colours of every page. Charts take the new colours from the next page you open.":
+    "Цвета всех страниц. Графики примут новые цвета на следующей открытой странице.",
+  Clock: "Часы",
+  "The clock in the header, and the times on charts and tables.":
+    "Часы в шапке и время на графиках и в таблицах.",
+  "Local time": "Местное время",
+  "Chart cursor": "Курсор графика",
+  "What follows the pointer on a chart: a crosshair with the value on each axis, or the whole bar lit.":
+    "Что следует за указателем на графике: перекрестие со значением на каждой оси или подсветка всего бара.",
+  "The site's language, kept for this browser.": "Язык сайта, сохраняется для этого браузера.",
+  "Every shortcut on the site. Members remap them into profiles kept on their account.":
+    "Все горячие клавиши сайта. Участники переназначают их и хранят профили в своём аккаунте.",
+  "keyboard shortcuts": "горячие клавиши",
+  Reset: "Сброс",
+  "Back to the defaults: Night, local time, the crosshair, and every chart's own view.":
+    "Вернуть настройки по умолчанию: ночь, местное время, перекрестие и вид каждого графика.",
+  "reset settings": "сбросить настройки",
+  "Saved in this browser.": "Сохранено в этом браузере.",
+  "Back to the defaults.": "Настройки по умолчанию восстановлены.",
+  settings: "настройки",
+  Night: "Ночь",
+  "Black terminal, the default": "Чёрный терминал, по умолчанию",
+  "Ink on white, for daylight": "Тёмный текст на белом, для дня",
+  Solar: "Солар",
+  "Solarized light: warm paper, soft contrast": "Solarized светлая: тёплая бумага, мягкий контраст",
+  "Solar dark": "Солар тёмная",
+  "Solarized dark: deep teal": "Solarized тёмная: глубокий бирюзовый",
+  Dusk: "Сумерки",
+  "Slate blue, easy on the eyes at night": "Сланцево-синяя, бережёт глаза ночью",
+  Sepia: "Сепия",
+  "Old paper and brown ink": "Старая бумага и коричневые чернила",
+  Phosphor: "Фосфор",
+  "Green screen, an old terminal": "Зелёный экран, старый терминал",
+  "High contrast": "Высокий контраст",
+  "White on black, brightest lines": "Белое на чёрном, самые яркие линии",
 };

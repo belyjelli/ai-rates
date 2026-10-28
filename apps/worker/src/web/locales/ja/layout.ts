@@ -103,4 +103,48 @@ export const layout: Catalog = {
     "ティッカー一覧を読み込めませんでした。取引所とページは検索できます。",
   "Nothing matches {q}.": "{q} に一致するものはありません。",
   "price, spot and futures CVD": "価格、現物と先物の CVD",
+  System: "システム",
+  "Day or Night, as your device is set": "デバイスの設定に合わせてデイかナイト",
+  Settings: "設定",
+  "Your settings on airrates: theme, clock, chart cursor, language and keyboard.":
+    "airrates での設定：テーマ、時計、チャートのカーソル、言語、キーボード。",
+  "Each choice is kept in this browser, not on an account: it needs no login, and another browser or device starts from the defaults. Clearing the site's data resets them.":
+    "選択はアカウントではなくこのブラウザに保存されます。ログインは不要で、別のブラウザや端末では初期設定から始まります。サイトのデータを消去するとリセットされます。",
+  Theme: "テーマ",
+  "The colours of every page. Charts take the new colours from the next page you open.":
+    "すべてのページの配色。チャートは次に開くページから新しい配色になります。",
+  Clock: "時計",
+  "The clock in the header, and the times on charts and tables.":
+    "ヘッダーの時計と、チャートや表の時刻。",
+  "Local time": "現地時間",
+  "Chart cursor": "チャートのカーソル",
+  "What follows the pointer on a chart: a crosshair with the value on each axis, or the whole bar lit.":
+    "チャート上でポインタに付いてくるもの：各軸に値を示す十字線か、バー全体のハイライト。",
+  "The site's language, kept for this browser.": "サイトの言語。このブラウザに保存されます。",
+  "Every shortcut on the site. Members remap them into profiles kept on their account.":
+    "サイトのすべてのショートカット。会員は割り当てを変え、プロファイルをアカウントに保存できます。",
+  "keyboard shortcuts": "キーボードショートカット",
+  Reset: "リセット",
+  "Back to the defaults: Night, local time, the crosshair, and every chart's own view.":
+    "初期設定に戻します：ナイト、現地時間、十字線、各チャートの表示。",
+  "reset settings": "設定をリセット",
+  "Saved in this browser.": "このブラウザに保存しました。",
+  "Back to the defaults.": "初期設定に戻しました。",
+  settings: "設定",
+  Night: "ナイト",
+  "Black terminal, the default": "黒いターミナル、初期設定",
+  "Ink on white, for daylight": "白地に墨、昼間向け",
+  Solar: "ソーラー",
+  "Solarized light: warm paper, soft contrast":
+    "Solarized ライト：温かみのある紙、柔らかなコントラスト",
+  "Solar dark": "ソーラー ダーク",
+  "Solarized dark: deep teal": "Solarized ダーク：深いティール",
+  Dusk: "ダスク",
+  "Slate blue, easy on the eyes at night": "スレートブルー、夜に目に優しい",
+  Sepia: "セピア",
+  "Old paper and brown ink": "古い紙と茶色のインク",
+  Phosphor: "フォスファー",
+  "Green screen, an old terminal": "緑の画面、昔の端末",
+  "High contrast": "ハイコントラスト",
+  "White on black, brightest lines": "黒地に白、最も明るい線",
 };

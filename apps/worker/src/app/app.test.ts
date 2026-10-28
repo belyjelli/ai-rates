@@ -3856,6 +3856,47 @@ describe("pages", () => {
     expect(await (await get("/", data)).text()).toContain('href="/keys"');
   });
 
+  test("settings lists every theme and the reader's other choices, and is linked from every footer", async () => {
+    const { data } = fakeData();
+    const res = await get("/settings", data);
+    const html = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(html).toContain('<h1 class="has-help">Settings<');
+    for (const theme of [
+      "night",
+      "day",
+      "solar",
+      "solar-dark",
+      "dusk",
+      "sepia",
+      "phosphor",
+      "contrast",
+      "system",
+    ]) {
+      expect(html).toContain(`data-theme="${theme}"`);
+    }
+    expect(html).toContain('data-clock="utc"');
+    expect(html).toContain('data-cursor-mode="bar"');
+    expect(html).toContain('id="set-reset"');
+    const home = await (await get("/", data)).text();
+    expect(home).toContain('href="/settings"');
+    // The stored theme is applied in the head, before the stylesheet and the body paint, and every
+    // theme but Night (the stylesheet's own :root) has its block.
+    const head = home.slice(0, home.indexOf("</head>"));
+    expect(head.indexOf('localStorage.getItem("theme")')).toBeGreaterThan(-1);
+    expect(head.indexOf('localStorage.getItem("theme")')).toBeLessThan(head.indexOf("<style>"));
+    expect(head).toContain(':root[data-theme="day"]{--bg:#fbfbf8');
+    expect(head).not.toContain(':root[data-theme="night"]');
+    // A row's hover and the tints laid over the page follow the theme: Night's as they were, a light
+    // theme's mixed from its own ink and ground rather than Night's near-black.
+    expect(head).toContain("--hover:#161616;");
+    expect(head).toContain("--ink-rgb:216,216,216;");
+    const day = head.slice(head.indexOf(':root[data-theme="day"]'));
+    expect(day.slice(0, day.indexOf("}"))).toContain("--ink-rgb:28,28,30");
+    expect(day.slice(0, day.indexOf("}"))).toContain("--hover:#e5e5e2");
+  });
+
   test("terms of service is reachable from the legal page and scopes itself to this site", async () => {
     const { data } = fakeData();
     const res = await get("/tos", data);

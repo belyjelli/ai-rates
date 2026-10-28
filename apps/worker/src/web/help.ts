@@ -57,7 +57,7 @@ export const HELP_CSS = `
 .help{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:16px;height:16px;padding:0;font:700 11px/1 var(--mono);letter-spacing:0;text-transform:none;color:var(--muted);background:transparent;border:1px solid var(--dim);cursor:help;vertical-align:middle}
 .help:hover,.help:focus-visible{color:var(--accent);border-color:var(--accent);background:transparent}
 .help[aria-expanded=true]{color:var(--bg);background:var(--accent);border-color:var(--accent)}
-.help-pop{width:min(46ch,calc(100vw - 24px));max-height:min(70vh,520px);overflow:auto;margin:auto;padding:10px 14px 12px;color:var(--ink);background:linear-gradient(180deg,#121212,#0a0a0a);border:1px solid var(--rule);border-top:2px solid var(--accent);box-shadow:0 14px 44px rgba(0,0,0,.75),0 0 0 1px rgba(200,245,168,.06);font:12px/1.55 var(--mono);text-transform:none;letter-spacing:0;text-align:left;
+.help-pop{width:min(46ch,calc(100vw - 24px));max-height:min(70vh,520px);overflow:auto;margin:auto;padding:10px 14px 12px;color:var(--ink);background:linear-gradient(180deg,var(--raise),var(--panel));border:1px solid var(--rule);border-top:2px solid var(--accent);box-shadow:0 14px 44px rgba(0,0,0,.75),0 0 0 1px rgba(var(--accent-rgb),.06);font:12px/1.55 var(--mono);text-transform:none;letter-spacing:0;text-align:left;
 opacity:0;transform:translateY(-4px);transition:opacity .14s ease-out,transform .14s ease-out,overlay .14s allow-discrete,display .14s allow-discrete}
 .help-pop:popover-open{opacity:1;transform:none}
 @starting-style{.help-pop:popover-open{opacity:0;transform:translateY(-4px)}}

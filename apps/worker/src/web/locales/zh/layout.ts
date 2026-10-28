@@ -98,4 +98,47 @@ export const layout: Catalog = {
     "代码列表未能加载。交易所和页面仍可搜索。",
   "Nothing matches {q}.": "没有与 {q} 匹配的结果。",
   "price, spot and futures CVD": "价格、现货与合约 CVD",
+  System: "跟随系统",
+  "Day or Night, as your device is set": "按设备设置使用日间或夜间",
+  Settings: "设置",
+  "Your settings on airrates: theme, clock, chart cursor, language and keyboard.":
+    "你在 airrates 上的设置：主题、时钟、图表光标、语言和键盘。",
+  "Each choice is kept in this browser, not on an account: it needs no login, and another browser or device starts from the defaults. Clearing the site's data resets them.":
+    "每项选择都保存在此浏览器中，而不是账户里：无需登录，换一个浏览器或设备则从默认值开始。清除本站数据会将其重置。",
+  Theme: "主题",
+  "The colours of every page. Charts take the new colours from the next page you open.":
+    "所有页面的配色。图表会在你打开下一个页面时采用新配色。",
+  Clock: "时钟",
+  "The clock in the header, and the times on charts and tables.":
+    "页眉中的时钟，以及图表和表格中的时间。",
+  "Local time": "本地时间",
+  "Chart cursor": "图表光标",
+  "What follows the pointer on a chart: a crosshair with the value on each axis, or the whole bar lit.":
+    "鼠标在图表上时跟随的内容：在每条坐标轴上标出数值的十字线，或点亮整根柱子。",
+  "The site's language, kept for this browser.": "网站语言，为此浏览器保存。",
+  "Every shortcut on the site. Members remap them into profiles kept on their account.":
+    "网站上的所有快捷键。会员可以重新映射，并把方案保存在自己的账户中。",
+  "keyboard shortcuts": "键盘快捷键",
+  Reset: "重置",
+  "Back to the defaults: Night, local time, the crosshair, and every chart's own view.":
+    "恢复默认：夜间、本地时间、十字线，以及每个图表自己的视图。",
+  "reset settings": "重置设置",
+  "Saved in this browser.": "已保存在此浏览器中。",
+  "Back to the defaults.": "已恢复默认。",
+  settings: "设置",
+  Night: "夜间",
+  "Black terminal, the default": "黑色终端，默认",
+  "Ink on white, for daylight": "白底黑字，适合白天",
+  Solar: "太阳",
+  "Solarized light: warm paper, soft contrast": "Solarized 浅色：暖色纸张，柔和对比",
+  "Solar dark": "太阳深色",
+  "Solarized dark: deep teal": "Solarized 深色：深青色",
+  Dusk: "黄昏",
+  "Slate blue, easy on the eyes at night": "石板蓝，夜间更护眼",
+  Sepia: "复古",
+  "Old paper and brown ink": "旧纸与棕色墨水",
+  Phosphor: "荧光",
+  "Green screen, an old terminal": "绿色屏幕，老式终端",
+  "High contrast": "高对比度",
+  "White on black, brightest lines": "黑底白字，线条最亮",
 };

@@ -101,8 +101,8 @@ const PROBE_CSS = `
 .probe th{position:sticky;top:0;z-index:2;background:var(--bg);font-weight:400;text-transform:lowercase;color:var(--muted);border-bottom:1px solid var(--rule);vertical-align:bottom}
 .probe td.venue,.probe th:first-child{position:sticky;left:0;z-index:3;background:var(--bg)}
 .probe thead th:first-child{z-index:4}
-.probe tbody tr:nth-child(4n+3),.probe tbody tr:nth-child(4n+4),.probe tbody tr:nth-child(4n+3) td.venue,.probe tbody tr:nth-child(4n+4) td.venue{background:#0e0e0e}
-.probe tbody tr:hover td{background:#161616}
+.probe tbody tr:nth-child(4n+3),.probe tbody tr:nth-child(4n+4),.probe tbody tr:nth-child(4n+3) td.venue,.probe tbody tr:nth-child(4n+4) td.venue{background:var(--band)}
+.probe tbody tr:hover td{background:var(--hover)}
 .probe th>div:first-child{color:var(--ink)}
 .probe .sub{color:var(--dim)}
 .probe .type{display:inline-block;width:38px;color:var(--dim);text-transform:uppercase}
