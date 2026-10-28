@@ -41,6 +41,15 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-28",
+    title: "Spot bitcoin ETF flows pinned on the chart",
+    changes: [
+      "The Chart page now pins each trading day's net flow into the US spot bitcoin ETFs on BTC's candles, at 4 pm New York, when the funds strike the NAV their creations and redemptions are priced at. An inflow sits under its candle pointing up, an outflow above pointing down, and a larger flow draws a larger pin. Hover or tap one for each fund's share.",
+      "The figures come from each issuer's own daily files, read every hour and kept for good: IBIT, ARKB and EZBC back to their launch in January 2024; BITB, HODL and OBTC from today. A day's flow is the change in a fund's shares outstanding at that day's NAV. IBIT reports a day late, so its newest day fills in the next morning.",
+      "Fidelity's FBTC, Grayscale's GBTC and its mini trust, and the Invesco, WisdomTree, Morgan Stanley and CoinShares funds are not counted yet: their issuers block automated reads. Each pin lists what it leaves out.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     title: "Fund flow beside the chart's asset picker",
     changes: [
       "A Fund flow button beside the Chart page's asset picker opens two tables: spot fund (Binance's USDT spot book) and futures fund (the perpetuals on Binance, OKX, Gate and Bitget). Each has a row per window from 5 minutes to 30 days.",

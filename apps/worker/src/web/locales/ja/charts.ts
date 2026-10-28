@@ -253,4 +253,5 @@ export const charts: Catalog = {
   "pins: spot ETF net flow per trade day, at the 4 pm New York NAV":
     "ピン：取引日ごとの現物 ETF 純フロー（ニューヨーク午後4時の NAV）",
   "{date}, 4 pm New York close": "{date}、ニューヨーク午後4時の終値",
+  "Not reported yet: {funds}": "未公表：{funds}",
 };

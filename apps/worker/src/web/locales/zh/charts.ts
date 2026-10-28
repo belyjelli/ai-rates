@@ -243,4 +243,5 @@ export const charts: Catalog = {
   "pins: spot ETF net flow per trade day, at the 4 pm New York NAV":
     "图钉：每个交易日的现货 ETF 净流量，按纽约下午 4 点的净值计",
   "{date}, 4 pm New York close": "{date}，纽约下午 4 点收盘",
+  "Not reported yet: {funds}": "尚未公布：{funds}",
 };

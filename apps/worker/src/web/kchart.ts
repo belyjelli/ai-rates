@@ -130,11 +130,12 @@ export interface KChartPayload {
 
 /**
  * Spot ETF flows as the chart ships them: each trade date as [4 pm New York in epoch ms, the day's
- * net flow, [fund, flow] largest first, the trade date as YYYY-MM-DD], and the funds counted.
+ * net flow, [fund, flow] largest first, the trade date as YYYY-MM-DD, funds not reported yet], and the
+ * funds counted.
  */
 export interface KEtf {
   funds: string[];
-  days: [number, number, [string, number][], string][];
+  days: [number, number, [string, number][], string, string[]][];
 }
 
 /**
@@ -150,6 +151,7 @@ export function kEtf(flows: {
     at: number;
     total_usd: number;
     funds: readonly { fund: string; usd: number }[];
+    pending: readonly string[];
   }[];
   funds: readonly string[];
 }): KEtf | undefined {
@@ -161,6 +163,7 @@ export function kEtf(flows: {
       Math.round(d.total_usd),
       d.funds.map((f) => [f.fund, Math.round(f.usd)] as [string, number]),
       d.trade_date,
+      [...d.pending],
     ]),
   };
 }
@@ -193,6 +196,7 @@ export function kchartData(payload: KChartPayload): string {
     }),
     etfKey: tr("pins: spot ETF net flow per trade day, at the 4 pm New York NAV"),
     etfDay: tr("{date}, 4 pm New York close"),
+    etfPending: tr("Not reported yet: {funds}"),
     etfPin: icon("pin"),
   };
   return `<script type="application/json" class="kc-data">${JSON.stringify({ ...payload, words }).replace(/</g, "\\u003c")}</script>`;
@@ -321,14 +325,14 @@ export const KCHART_SCRIPT = `(() => {
     // The trade date as New York has it, not the reader's: 4 pm there is the next morning in Asia.
     const months = w.months.split("|");
     const dayName = (date) => w.etfDay.replace("{date}", () => months[Number(date.slice(5, 7)) - 1] + " " + Number(date.slice(8, 10)));
-    st.pinList = etf.days.map(([at, total, funds, date]) => {
+    st.pinList = etf.days.map(([at, total, funds, date, pending]) => {
       const el = document.createElement("button");
       el.type = "button";
       el.className = "kc-pin " + (total >= 0 ? "kc-pin-in" : "kc-pin-out");
       el.style.fontSize = pinSize(total) + "px";
       const when = dayName(date);
       const rows = funds.map(([f, v]) => '<tr><th>' + f + '</th><td class="' + (v >= 0 ? "kc-up" : "kc-down") + '">' + signed(v) + "</td></tr>").join("");
-      el.innerHTML = w.etfPin + '<span class="kc-pin-tip" role="tooltip"><b>' + (total >= 0 ? w.etfIn : w.etfOut) + ' <span class="' + (total >= 0 ? "kc-up" : "kc-down") + '">' + signed(total) + "</span></b><span class='kc-pin-when'>" + when + "</span><table>" + rows + '</table><span class="kc-pin-note">' + w.etfCounted + "</span></span>";
+      el.innerHTML = w.etfPin + '<span class="kc-pin-tip" role="tooltip"><b>' + (total >= 0 ? w.etfIn : w.etfOut) + ' <span class="' + (total >= 0 ? "kc-up" : "kc-down") + '">' + signed(total) + "</span></b><span class='kc-pin-when'>" + when + "</span><table>" + rows + "</table>" + (pending && pending.length ? '<span class="kc-pin-note">' + w.etfPending.replace("{funds}", () => pending.join(", ")) + "</span>" : "") + '<span class="kc-pin-note">' + w.etfCounted + "</span></span>";
       el.setAttribute("aria-label", (total >= 0 ? w.etfIn : w.etfOut) + " " + signed(total) + ", " + when);
       el.hidden = true;
       st.pins.append(el);

@@ -1655,6 +1655,11 @@ export interface EtfFlowDay {
   total_usd: number;
   /** Each fund's flow, largest first by size. */
   funds: { fund: string; usd: number }[];
+  /**
+   * Funds that have reported flows before but not yet for this date: IBIT's shares trail a day, so
+   * its flow for the newest date lands with the next morning's report.
+   */
+  pending: string[];
 }
 
 export interface EtfFlows {
@@ -1687,14 +1692,33 @@ async function etfFlowsQuery(sql: postgres.Sql, asset: string): Promise<EtfFlows
     for (const row of rows) {
       let day = byDate.get(row.trade_date);
       if (!day) {
-        day = { trade_date: row.trade_date, at: Number(row.at), total_usd: 0, funds: [] };
+        day = {
+          trade_date: row.trade_date,
+          at: Number(row.at),
+          total_usd: 0,
+          funds: [],
+          pending: [],
+        };
         byDate.set(row.trade_date, day);
       }
       day.total_usd += row.flow_usd;
       day.funds.push({ fund: row.fund, usd: row.flow_usd });
     }
-    const days = [...byDate.values()];
-    for (const day of days) day.funds.sort((a, b) => Math.abs(b.usd) - Math.abs(a.usd));
+    // Each fund's newest trade date with a flow, for the dates after it that it has yet to report.
+    const last = new Map<string, string>();
+    for (const row of rows)
+      if ((last.get(row.fund) ?? "") < row.trade_date) last.set(row.fund, row.trade_date);
+    // A date on which every fund read shows no change has nothing to pin: a market holiday some
+    // issuer still published a row for, or a date only the funds without creations have reported.
+    const days = [...byDate.values()].filter((day) => day.funds.some((f) => f.usd !== 0));
+    for (const day of days) {
+      day.funds.sort((a, b) => Math.abs(b.usd) - Math.abs(a.usd));
+      const reported = new Set(day.funds.map((f) => f.fund));
+      day.pending = [...last]
+        .filter(([fund, date]) => !reported.has(fund) && date < day.trade_date)
+        .map(([fund]) => fund)
+        .sort();
+    }
     return { days, funds: funds.map((f) => f.fund) };
   } catch (error) {
     const code = (error as { code?: unknown } | null)?.code;

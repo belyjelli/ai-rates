@@ -252,4 +252,5 @@ export const charts: Catalog = {
   "pins: spot ETF net flow per trade day, at the 4 pm New York NAV":
     "핀: 거래일별 현물 ETF 순흐름, 뉴욕 오후 4시 NAV 기준",
   "{date}, 4 pm New York close": "{date}, 뉴욕 오후 4시 마감",
+  "Not reported yet: {funds}": "아직 미발표: {funds}",
 };
