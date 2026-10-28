@@ -244,4 +244,12 @@ export const charts: Catalog = {
   "Inflow is taker buying and outflow taker selling, summed over each window back from the newest bucket every venue has published. Net inflow change compares the net with the window of the same length before it. F/M cap ratio is the net as a share of the asset's market cap (CoinGecko). A dash means the history does not reach back that far yet.":
     "유입은 테이커 매수, 유출은 테이커 매도이며, 모든 거래소가 발표한 가장 최근 구간부터 각 기간을 거슬러 합산합니다. 순유입 변화는 직전 같은 길이 구간의 순유입과 비교한 값입니다. 자금/시총 비율은 순유입이 자산 시가총액(CoinGecko)에서 차지하는 비율입니다. 대시는 아직 그 기간만큼의 기록이 없다는 뜻입니다.",
   "Up to": "기준",
+  // The Chart page's spot ETF flow pins (web/kchart.ts).
+  "Spot ETF net inflow": "현물 ETF 순유입",
+  "Spot ETF net outflow": "현물 ETF 순유출",
+  "Counted: {funds}. Not read: {missing}, whose issuers block automated reads.":
+    "집계: {funds}. 미수집: {missing} (발행사가 자동 수집을 차단).",
+  "pins: spot ETF net flow per trade day, at the 4 pm New York NAV":
+    "핀: 거래일별 현물 ETF 순흐름, 뉴욕 오후 4시 NAV 기준",
+  "{date}, 4 pm New York close": "{date}, 뉴욕 오후 4시 마감",
 };

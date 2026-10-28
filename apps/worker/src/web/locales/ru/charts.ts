@@ -246,4 +246,12 @@ export const charts: Catalog = {
   "Inflow is taker buying and outflow taker selling, summed over each window back from the newest bucket every venue has published. Net inflow change compares the net with the window of the same length before it. F/M cap ratio is the net as a share of the asset's market cap (CoinGecko). A dash means the history does not reach back that far yet.":
     "Приток — покупки тейкеров, отток — продажи тейкеров, суммированные за каждое окно назад от последнего интервала, опубликованного всеми биржами. Изменение чистого притока сравнивает его с предыдущим окном той же длины. Поток/капитализация — чистый приток как доля рыночной капитализации актива (CoinGecko). Прочерк значит, что история ещё не дотягивается до этого окна.",
   "Up to": "По состоянию на",
+  // The Chart page's spot ETF flow pins (web/kchart.ts).
+  "Spot ETF net inflow": "Чистый приток в спотовые ETF",
+  "Spot ETF net outflow": "Чистый отток из спотовых ETF",
+  "Counted: {funds}. Not read: {missing}, whose issuers block automated reads.":
+    "Учтены: {funds}. Не читаются: {missing} — их эмитенты блокируют автоматическое чтение.",
+  "pins: spot ETF net flow per trade day, at the 4 pm New York NAV":
+    "метки: чистый поток спотовых ETF за торговый день, по NAV на 16:00 Нью-Йорка",
+  "{date}, 4 pm New York close": "{date}, закрытие в 16:00 по Нью-Йорку",
 };

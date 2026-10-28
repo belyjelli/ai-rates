@@ -642,6 +642,28 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
 .kc-tip td{color:var(--ink)}
 .kc-tip b{font-weight:600}
 .kc-tip-sum>*{border-top:1px solid var(--rule)}
+/* Spot ETF flow pins over the price (kchart.ts): placed by transform from the canvas's corner; an
+   inflow's pin is turned to point up at the candle under it. The day's funds open on hover or tap. */
+.kc-pins{position:absolute;inset:0;z-index:3;pointer-events:none}
+.kc-pin{position:absolute;top:0;left:0;width:1em;height:1em;padding:0;border:0;background:none;cursor:pointer;pointer-events:auto;line-height:0}
+.kc-pin[hidden]{display:none}
+.kc-pin>svg.ico{width:1em;height:1em;vertical-align:top;filter:drop-shadow(0 0 1px var(--bg))}
+.kc-pin-in{color:var(--long)}.kc-pin-in>svg.ico{transform:rotate(180deg)}
+.kc-pin-out{color:var(--short)}
+.kc-pin:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
+.kc-pin-tip{display:none;text-transform:none;letter-spacing:normal;font-family:var(--mono);position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);z-index:5;padding:6px 9px;background:var(--bg);border:1px solid var(--muted);color:var(--muted);font-size:11px;line-height:1.55;white-space:nowrap;text-align:left;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+.kc-pin-out .kc-pin-tip{top:auto;bottom:calc(100% + 4px)}
+.kc-pin-right .kc-pin-tip{left:auto;right:0;transform:none}
+.kc-pin:hover .kc-pin-tip,.kc-pin:focus .kc-pin-tip{display:block}
+.kc-pin-tip b{display:block;color:var(--ink);font-weight:600}
+.kc-pin-when{display:block;margin-bottom:3px}
+.kc-pin-tip table{border-collapse:collapse;border-top:1px solid var(--rule)}
+.kc-pin-tip th,.kc-pin-tip td{padding:0 0 0 12px;text-align:right;font-weight:400}
+.kc-pin-tip th{padding-left:0;text-align:left;color:var(--muted)}
+.kc-pin-note{display:block;max-width:260px;white-space:normal;margin-top:4px;padding-top:3px;border-top:1px solid var(--rule);color:var(--dim)}
+.kc-up{color:var(--long)}.kc-down{color:var(--short)}
+.kc-etf-key{margin-right:12px;color:var(--muted)}
+.kc-etf-key .ico{color:var(--long)}
 @media (max-width:640px){.kc-canvas{height:520px}.kc-hint{display:none}}
 .cvd-chart .fchart-plot{margin:6px 64px 0 64px}
 .cvd-chart .fchart-note{margin-top:22px}

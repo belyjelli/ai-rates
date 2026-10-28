@@ -165,6 +165,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     assetBars: async () => [],
     cvdHistory: async () => [],
     fundFlow: async () => ({ end: null, futures: [], spot: null, market_cap_usd: null }),
+    etfFlows: async () => ({ days: [], funds: [] }),
     liquidationFeeds: async () => [],
     whalePositions: async () => [],
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
@@ -4160,6 +4161,57 @@ describe("cvd", () => {
     expect(html).toContain('data-u="cvd-total" class="">$0<');
     // An asset with no price shows a dash, not a zero change.
     expect(html).toContain('<span data-u="change">–</span>');
+  });
+
+  test("the trading chart ships the spot ETF flows its pins are drawn from, for crypto only", async () => {
+    const asked: string[] = [];
+    const { data } = fakeData({
+      cvd: async () => flow(),
+      etfFlows: async (asset) => {
+        asked.push(asset);
+        return {
+          funds: ["ARKB", "IBIT"],
+          days: [
+            {
+              trade_date: "2026-10-27",
+              at: Date.UTC(2026, 9, 27, 20),
+              total_usd: 123_456_789.4,
+              funds: [
+                { fund: "IBIT", usd: 130_000_000.2 },
+                { fund: "ARKB", usd: -6_543_210.8 },
+              ],
+            },
+          ],
+        };
+      },
+    });
+    const html = await (await get("/chart", data)).text();
+    const payload = JSON.parse(
+      html.match(/<script type="application\/json" class="kc-data">([\s\S]*?)<\/script>/)?.[1] ??
+        "{}",
+    );
+    expect(payload.etf).toEqual({
+      funds: ["ARKB", "IBIT"],
+      days: [
+        [
+          Date.UTC(2026, 9, 27, 20),
+          123_456_789,
+          [
+            ["IBIT", 130_000_000],
+            ["ARKB", -6_543_211],
+          ],
+          "2026-10-27",
+        ],
+      ],
+    });
+    // The note names what the total leaves out.
+    expect(payload.words.etfCounted).toContain("FBTC");
+    expect(payload.words.etfPin).toContain("<svg");
+    expect(asked).toEqual(["BTC"]);
+
+    // A stock's chart asks for none.
+    await get("/chart/equity/NVDA", data);
+    expect(asked).toEqual(["BTC"]);
   });
 
   test("the fund-flow dropdown sits beside the picker and reads one asset's windows", async () => {

@@ -3,6 +3,7 @@ import {
   type CvdAssetRow,
   type CvdBar,
   type CvdData,
+  type EtfFlows,
   FUTURES_TAKER_VENUES,
   type Overview,
   SPOT_TAKER_VENUES,
@@ -28,6 +29,7 @@ import {
   KCHART_SCRIPT,
   kBars,
   kchartData,
+  kEtf,
   kRef,
   kSource,
   TAKER_FLOW_DAYS,
@@ -188,6 +190,8 @@ function cvdChart(data: {
   spotVenues: readonly string[];
   params: CvdParams;
   now: number;
+  /** The asset's spot ETF flows, for the trading chart's pins. */
+  etf?: EtfFlows | null;
 }): string {
   const { label, asset, assetClass, bars, spot, futuresVenues, spotVenues, params, now } = data;
   const { hours, barMinutes, span: window } = CVD_INTERVALS[params.interval];
@@ -412,6 +416,7 @@ function cvdChart(data: {
     ref: kRef(bars),
     spot,
     bars: kBars(bars),
+    ...(data.etf ? { etf: kEtf(data.etf) } : {}),
   });
 
   return `<figure class="fchart cvd-chart" data-live="cvd-chart" data-cursors>${cite}
@@ -687,6 +692,8 @@ export function cvd(data: {
   asset: string;
   params: CvdParams;
   now: number;
+  /** Spot ETF flows for the charted asset, pinned on its price; null when none are read. */
+  etf?: EtfFlows | null;
 }): string {
   const { overview, cvd: flow, asset, params, now } = data;
   const rows = flow.rows;
@@ -775,6 +782,7 @@ export function cvd(data: {
             spotVenues: flow.spot_venues,
             params,
             now,
+            etf: data.etf,
           });
 
   const lag = flow.newest

@@ -1363,6 +1363,8 @@ export interface DataSource {
   assetBars(options: CvdOptions): Promise<CvdBar[]>;
   /** An older page of one asset's CVD bars, for a chart dragged back past what the page shipped. */
   cvdHistory(options: CvdHistoryOptions): Promise<CvdBar[]>;
+  /** US spot ETF flows for one asset by trade date, for the Chart page's pins (collector migration 053). */
+  etfFlows(asset: string): Promise<EtfFlows>;
   /** One asset's spot and futures fund flow over each window of FUND_WINDOWS, for the Chart page. */
   fundFlow(options: { base: string; assetClass: AssetClass }): Promise<FundFlow>;
   /** What each liquidation feed actually stored in the last day. */
@@ -1610,6 +1612,63 @@ export const FUTURES_TAKER_VENUES = [
   "hyperliquid",
 ] as const;
 export const SPOT_TAKER_VENUES = ["binance", "coinbase", "okx", "bybit", "bitget", "gate"] as const;
+
+/** One trade date's spot ETF flow for an asset, every fund the collector reads summed. */
+export interface EtfFlowDay {
+  /** The trade date, YYYY-MM-DD, New York. */
+  trade_date: string;
+  /** 4 pm New York on the trade date, epoch ms: when the funds strike the NAV their flows are priced at. */
+  at: number;
+  total_usd: number;
+  /** Each fund's flow, largest first by size. */
+  funds: { fund: string; usd: number }[];
+}
+
+export interface EtfFlows {
+  days: EtfFlowDay[];
+  /** The funds the collector reads for the asset, whose flows the days sum. */
+  funds: string[];
+}
+
+/** How far back the Chart page's ETF pins reach: beyond the oldest bars the page can load. */
+const ETF_FLOW_DAYS = 400;
+
+/**
+ * The asset's ETF flows by trade date (etf_flows, collector migration 053), with the funds counted.
+ * Tolerant of a database without the migration or the grant, as spotBars is: no pins, no failure.
+ */
+async function etfFlowsQuery(sql: postgres.Sql, asset: string): Promise<EtfFlows> {
+  try {
+    const [rows, funds] = await Promise.all([
+      sql<{ trade_date: string; at: number; fund: string; flow_usd: number }[]>`
+        SELECT trade_date::text AS trade_date,
+               (extract(epoch FROM ((trade_date + time '16:00') AT TIME ZONE 'America/New_York'))
+                 * 1000)::float8 AS at,
+               fund, flow_usd::float8 AS flow_usd
+        FROM etf_flows
+        WHERE asset = ${asset} AND trade_date > current_date - ${ETF_FLOW_DAYS}::int
+        ORDER BY trade_date, fund`,
+      sql<{ fund: string }[]>`SELECT fund FROM etf_funds WHERE asset = ${asset} ORDER BY fund`,
+    ]);
+    const byDate = new Map<string, EtfFlowDay>();
+    for (const row of rows) {
+      let day = byDate.get(row.trade_date);
+      if (!day) {
+        day = { trade_date: row.trade_date, at: Number(row.at), total_usd: 0, funds: [] };
+        byDate.set(row.trade_date, day);
+      }
+      day.total_usd += row.flow_usd;
+      day.funds.push({ fund: row.fund, usd: row.flow_usd });
+    }
+    const days = [...byDate.values()];
+    for (const day of days) day.funds.sort((a, b) => Math.abs(b.usd) - Math.abs(a.usd));
+    return { days, funds: funds.map((f) => f.fund) };
+  } catch (error) {
+    const code = (error as { code?: unknown } | null)?.code;
+    if (code === "42P01" || code === "42501") return { days: [], funds: [] };
+    throw error;
+  }
+}
 
 /**
  * The Chart page's fund-flow windows, in minutes: 5m to 30 days, as valuescan's spot and futures fund
@@ -2792,6 +2851,10 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         spot ? spotBars(sql, options, { fromMs, toMs }) : null,
       ]);
       return spotBook ? withSpot(bars, spotBook.rows) : [...bars];
+    },
+
+    async etfFlows(asset) {
+      return etfFlowsQuery(connect(), asset);
     },
 
     async fundFlow(options) {

@@ -235,4 +235,12 @@ export const charts: Catalog = {
   "Inflow is taker buying and outflow taker selling, summed over each window back from the newest bucket every venue has published. Net inflow change compares the net with the window of the same length before it. F/M cap ratio is the net as a share of the asset's market cap (CoinGecko). A dash means the history does not reach back that far yet.":
     "流入为主动买入，流出为主动卖出，从所有交易所都已发布的最新时段往回累计每个窗口。净流入变化是与前一个同长度窗口的净流入相比。资金/市值比是净流入占该资产市值（CoinGecko）的比例。短横线表示历史数据尚不够长。",
   "Up to": "截至",
+  // The Chart page's spot ETF flow pins (web/kchart.ts).
+  "Spot ETF net inflow": "现货 ETF 净流入",
+  "Spot ETF net outflow": "现货 ETF 净流出",
+  "Counted: {funds}. Not read: {missing}, whose issuers block automated reads.":
+    "已计入：{funds}。未读取：{missing}，其发行商阻止自动读取。",
+  "pins: spot ETF net flow per trade day, at the 4 pm New York NAV":
+    "图钉：每个交易日的现货 ETF 净流量，按纽约下午 4 点的净值计",
+  "{date}, 4 pm New York close": "{date}，纽约下午 4 点收盘",
 };

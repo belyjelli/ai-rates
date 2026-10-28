@@ -44,6 +44,8 @@ const PATHS = {
   globe:
     '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  /** The Chart page's spot ETF flow pins: a map pin, its point at the bottom. */
+  pin: '<path fill="currentColor" d="M12 22s-6.5-6-6.5-12a6.5 6.5 0 0 1 13 0c0 6-6.5 12-6.5 12z"/><circle cx="12" cy="10" r="2.4" stroke="none" style="fill:var(--bg)"/>',
 } as const;
 
 export type IconName = keyof typeof PATHS;

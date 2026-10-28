@@ -1,6 +1,7 @@
 import type { CvdBar } from "../app/data";
 import { KC_PAGE_BARS, TAKER_FLOW_DAYS } from "../app/params";
 import { tr } from "./i18n";
+import { icon } from "./icons";
 import { LWC_SOURCE, LWC_VERSION } from "./lwc.generated";
 import { slotPct, slotPrice, slotUsd, slotWhen, slotWords } from "./slot-chart";
 
@@ -123,6 +124,45 @@ export interface KChartPayload {
   /** Whether the asset has a spot book, and so a spot CVD pane. */
   spot: boolean;
   bars: KBar[];
+  /** The asset's spot ETF flows, pinned on the price; absent for an asset with none read. */
+  etf?: KEtf;
+}
+
+/**
+ * Spot ETF flows as the chart ships them: each trade date as [4 pm New York in epoch ms, the day's
+ * net flow, [fund, flow] largest first, the trade date as YYYY-MM-DD], and the funds counted.
+ */
+export interface KEtf {
+  funds: string[];
+  days: [number, number, [string, number][], string][];
+}
+
+/**
+ * The US spot Bitcoin ETFs the collector cannot read, which the pins' total leaves out: their issuers
+ * refuse automated reads from the collector's host (profitlock-worker collector/internal/etf).
+ */
+export const ETF_NOT_READ = ["FBTC", "GBTC", "BTC", "BTCO", "BTCW", "MSBT", "BRRR"];
+
+/** The flows in the shipped form: whole dollars. */
+export function kEtf(flows: {
+  days: readonly {
+    trade_date: string;
+    at: number;
+    total_usd: number;
+    funds: readonly { fund: string; usd: number }[];
+  }[];
+  funds: readonly string[];
+}): KEtf | undefined {
+  if (flows.days.length === 0) return undefined;
+  return {
+    funds: [...flows.funds],
+    days: flows.days.map((d) => [
+      d.at,
+      Math.round(d.total_usd),
+      d.funds.map((f) => [f.fund, Math.round(f.usd)] as [string, number]),
+      d.trade_date,
+    ]),
+  };
 }
 
 /** The payload as a JSON script tag, `<` escaped, with the readout's words in the render's language. */
@@ -145,6 +185,15 @@ export function kchartData(payload: KChartPayload): string {
     tipNet: tr("Net"),
     tipFutures: tr("Futures"),
     tipSpot: tr("Spot (Binance)"),
+    etfIn: tr("Spot ETF net inflow"),
+    etfOut: tr("Spot ETF net outflow"),
+    etfCounted: tr("Counted: {funds}. Not read: {missing}, whose issuers block automated reads.", {
+      funds: (payload.etf?.funds ?? []).join(", "),
+      missing: ETF_NOT_READ.join(", "),
+    }),
+    etfKey: tr("pins: spot ETF net flow per trade day, at the 4 pm New York NAV"),
+    etfDay: tr("{date}, 4 pm New York close"),
+    etfPin: icon("pin"),
   };
   return `<script type="application/json" class="kc-data">${JSON.stringify({ ...payload, words }).replace(/</g, "\\u003c")}</script>`;
 }
@@ -200,6 +249,7 @@ export const KCHART_SCRIPT = `(() => {
 
   const draw = (st) => {
     const bars = st.bars, at = times(bars);
+    st.times = at;
     const candles = [], line = [], spot = [], net = [];
     let run = 0, spotRun = 0;
     st.cvd = [];
@@ -240,6 +290,85 @@ export const KCHART_SCRIPT = `(() => {
     const atEdge = r && r.to >= st.bars.length - appended - 1.5;
     draw(st);
     if (r) ts.setVisibleLogicalRange({ from: r.from + added + (atEdge ? appended : 0), to: r.to + added + (atEdge ? appended : 0) });
+    schedulePins(st);
+  };
+
+  // The spot ETFs' daily flows (cvd.ts, collector etf_flows): a pin on the candle holding 4 pm New
+  // York of each trade date, when the funds strike the NAV their creations and redemptions are priced
+  // at. An inflow hangs under the candle's low pointing up at it, an outflow over its high pointing
+  // down; the size grows with the flow. Hover or tap one for the day's funds. Placed over the canvas
+  // from the library's own coordinates, and placed again whenever the view can have moved.
+  const PIN_GAP = 3;
+  const pinSize = (usd) => (Math.abs(usd) >= 5e8 ? 22 : Math.abs(usd) >= 1e8 ? 18 : 14);
+  const barAt = (st, ms) => {
+    const bars = st.bars, len = st.d.bar;
+    let lo = 0, hi = bars.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (bars[mid][0] + len <= ms) lo = mid + 1;
+      else if (bars[mid][0] > ms) hi = mid - 1;
+      else return mid;
+    }
+    return -1;
+  };
+  const pinsInit = (st) => {
+    const etf = st.d.etf;
+    if (!etf || !etf.days.length) return;
+    const w = st.d.words;
+    st.pins = document.createElement("div");
+    st.pins.className = "kc-pins";
+    st.canvas.append(st.pins);
+    // The trade date as New York has it, not the reader's: 4 pm there is the next morning in Asia.
+    const months = w.months.split("|");
+    const dayName = (date) => w.etfDay.replace("{date}", () => months[Number(date.slice(5, 7)) - 1] + " " + Number(date.slice(8, 10)));
+    st.pinList = etf.days.map(([at, total, funds, date]) => {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = "kc-pin " + (total >= 0 ? "kc-pin-in" : "kc-pin-out");
+      el.style.fontSize = pinSize(total) + "px";
+      const when = dayName(date);
+      const rows = funds.map(([f, v]) => '<tr><th>' + f + '</th><td class="' + (v >= 0 ? "kc-up" : "kc-down") + '">' + signed(v) + "</td></tr>").join("");
+      el.innerHTML = w.etfPin + '<span class="kc-pin-tip" role="tooltip"><b>' + (total >= 0 ? w.etfIn : w.etfOut) + ' <span class="' + (total >= 0 ? "kc-up" : "kc-down") + '">' + signed(total) + "</span></b><span class='kc-pin-when'>" + when + "</span><table>" + rows + '</table><span class="kc-pin-note">' + w.etfCounted + "</span></span>";
+      el.setAttribute("aria-label", (total >= 0 ? w.etfIn : w.etfOut) + " " + signed(total) + ", " + when);
+      el.hidden = true;
+      st.pins.append(el);
+      return { el, at, total, size: pinSize(total) };
+    });
+    const key = document.createElement("span");
+    key.className = "kc-etf-key";
+    key.innerHTML = w.etfPin + " " + w.etfKey;
+    st.note.before(key);
+    const again = () => schedulePins(st);
+    st.chart.timeScale().subscribeVisibleLogicalRangeChange(again);
+    st.chart.subscribeCrosshairMove(again);
+    if (window.ResizeObserver) new ResizeObserver(again).observe(st.canvas);
+    schedulePins(st);
+  };
+  const schedulePins = (st) => {
+    if (!st.pins || st.pinFrame) return;
+    st.pinFrame = requestAnimationFrame(() => { st.pinFrame = 0; placePins(st); });
+  };
+  const placePins = (st) => {
+    const ts = st.chart.timeScale();
+    const pane = st.chart.panes()[0];
+    const height = pane ? pane.getHeight() : 0;
+    const width = ts.width();
+    for (const p of st.pinList) {
+      const i = barAt(st, p.at);
+      const b = i < 0 ? null : st.bars[i];
+      const c = b ? b[4] : null;
+      const x = c === null ? null : ts.timeToCoordinate(st.times[i]);
+      if (x === null || x < 0 || x > width) { p.el.hidden = true; continue; }
+      const o = b[1] === null ? c : b[1];
+      const high = Math.max(b[2] === null ? c : b[2], o, c), low = Math.min(b[3] === null ? c : b[3], o, c);
+      const yEdge = st.candles.priceToCoordinate(p.total >= 0 ? low : high);
+      if (yEdge === null) { p.el.hidden = true; continue; }
+      const y = p.total >= 0 ? yEdge + PIN_GAP : yEdge - PIN_GAP - p.size;
+      if (y < 0 || y + p.size > height) { p.el.hidden = true; continue; }
+      p.el.hidden = false;
+      p.el.style.transform = "translate(" + Math.round(x - p.size / 2) + "px," + Math.round(y) + "px)";
+      p.el.classList.toggle("kc-pin-right", x > width * 0.6);
+    }
   };
 
   const note = (st, text) => {
@@ -421,6 +550,7 @@ export const KCHART_SCRIPT = `(() => {
     st.tip.className = "kc-tip";
     st.tip.hidden = true;
     canvas.append(st.tip);
+    pinsInit(st);
     // The pointer's place on the canvas, across every pane: the library's own point is per pane.
     canvas.addEventListener("pointermove", (e) => {
       const r = canvas.getBoundingClientRect();

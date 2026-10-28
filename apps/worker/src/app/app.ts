@@ -424,7 +424,10 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const params = parseCvdParams(url.searchParams);
       const { hours, barMinutes } = CVD_INTERVALS[params.interval];
       const asset = address?.asset ?? "BTC";
-      const [overview, flow] = await Promise.all([
+      // The spot ETFs' daily flows, pinned on the price (crypto only: a stock's ETFs are not read).
+      // Fail-soft: the chart is the page, the pins an extra.
+      const etfAsset = (address?.assetClass ?? "crypto") === "crypto";
+      const [overview, flow, etf] = await Promise.all([
         deps.data.overview(),
         deps.data.cvd({
           windowHours: hours,
@@ -432,6 +435,12 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           base: asset,
           assetClass: address?.assetClass ?? null,
         }),
+        etfAsset
+          ? deps.data.etfFlows(asset).catch((error) => {
+              deps.log?.(`etf flows: ${error instanceof Error ? error.message : String(error)}`);
+              return null;
+            })
+          : null,
       ]);
       if (address && flow.asset_class === null) {
         return page(
@@ -439,7 +448,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           404,
         );
       }
-      return page(() => cvd({ overview, cvd: flow, asset, params, now }));
+      return page(() => cvd({ overview, cvd: flow, asset, params, now, etf }));
     }
 
     // Whale orders: /whales is BTC, /whales/<asset> (or /whales/<class>/<asset>) one of the forty
