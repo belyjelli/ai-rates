@@ -5,10 +5,10 @@ import { DEFAULT_FILTERS } from "./params";
 /** Where MCP requests are posted (Streamable HTTP, JSON responses only, no sessions). */
 export const MCP_PATH = "/mcp";
 const SERVER = { name: "airrates", title: "airrates", version: "1.0.0" };
-const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
+export const PROTOCOLS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 const ATTRIBUTION = `Data from airrates.net. Please credit and link ${SITE_ORIGIN}.`;
 
-const TOOLS = [
+export const TOOLS = [
   {
     name: "get_top_spreads",
     description:
@@ -50,7 +50,7 @@ export function mcpServerCard(): Record<string, unknown> {
     serverInfo: SERVER,
     description:
       "Read-only perpetual-futures funding rates and cross-exchange spreads from airrates.net.",
-    documentationUrl: `${SITE_ORIGIN}/docs`,
+    documentationUrl: `${SITE_ORIGIN}/agents`,
     protocolVersion: PROTOCOLS[0],
     transport: { type: "streamable-http", endpoint: `${SITE_ORIGIN}${MCP_PATH}` },
     endpoint: `${SITE_ORIGIN}${MCP_PATH}`,

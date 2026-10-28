@@ -43,6 +43,7 @@ export const layout: Catalog = {
   "geo-probe": "地域探测",
   about: "关于",
   "referral links": "邀请链接",
+  "MCP &amp; agents": "MCP 与智能体",
   "legal &amp; privacy": "法律与隐私",
   terms: "服务条款",
   Language: "语言",

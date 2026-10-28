@@ -41,6 +41,15 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-28",
+    title: "A setup guide for MCP and AI agents",
+    changes: [
+      "New page, MCP and agents, in the footer menu: how to add airrates to Claude, Claude Code, Cursor, VS Code, Windsurf, Gemini CLI, Codex or any MCP client, with the config to copy for each. No key or sign-in is needed.",
+      "It lists the server's tools, shows each request and answer with curl, and explains the A2A agent card and the agent index (/.well-known/ai-catalog.json and the files it points to) for agents that find the site by its domain.",
+      "A GET on the MCP and A2A endpoints now answers 405, as the MCP spec asks, rather than a not-found page that some clients read as a broken server.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     title: "CVD is now Chart, with spot and futures apart",
     changes: [
       "The CVD page is now Chart, at /chart. Old /cvd links, with an asset or settings in them, still land on the same chart.",

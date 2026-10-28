@@ -46,6 +46,7 @@ export const layout: Catalog = {
   "geo-probe": "гео-проверка",
   about: "о сайте",
   "referral links": "реферальные ссылки",
+  "MCP &amp; agents": "MCP и агенты",
   "legal &amp; privacy": "право и приватность",
   terms: "условия",
   Language: "Язык",

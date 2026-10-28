@@ -2,6 +2,7 @@ import { ASSET_CLASSES, type AssetClass, backtestDaily, dailyWindowStart } from 
 import { VENUES } from "@ai-rates/venues";
 import { referralsFor } from "../referrals/policy";
 import { about } from "../web/about";
+import { AGENTS_PATH, agents } from "../web/agents";
 import { SEARCH_PATH, searchJson } from "../web/command";
 import { convergencePage } from "../web/convergence-page";
 import { cvd } from "../web/cvd";
@@ -179,6 +180,16 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       deps.log?.(`${path}: ${error instanceof Error ? error.message : String(error)}`);
       return json({ error: "data_unavailable" }, 503, 0);
     }
+  }
+
+  // Neither endpoint has anything for a GET: MCP opens no server-to-client stream here, and the spec
+  // asks for a 405 in that case, which a client takes as "carry on with POSTs". A 404 page made some
+  // clients report the server as broken.
+  if (path === MCP_PATH || path === A2A_PATH) {
+    return new Response(null, {
+      status: 405,
+      headers: { allow: "POST", "cache-control": "no-store" },
+    });
   }
 
   // Read-only: nothing else on the site or the API accepts a write.
@@ -834,6 +845,11 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(() => docs({ overview, now }));
     }
 
+    if (path === AGENTS_PATH) {
+      const overview = await deps.data.overview();
+      return page(() => agents({ overview, now }));
+    }
+
     // Plain bodies, not json(): the attribution field it adds is not part of either document.
     if (path === "/.well-known/api-catalog") {
       return new Response(JSON.stringify(apiCatalog()), {
@@ -1174,6 +1190,7 @@ const SITEMAP_PATHS = [
   "/legal",
   "/tos",
   "/docs",
+  AGENTS_PATH,
   "/keys",
 ];
 

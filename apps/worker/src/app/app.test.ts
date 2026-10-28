@@ -4351,7 +4351,9 @@ describe("cvd", () => {
     expect(kc.src).toBe("/data/chart?asset=BTC&class=crypto&bar=15&spot=1");
     // The cite button's lines: all three in one sentence first, then the perpetuals' flow, named.
     const cites = [...figure.matchAll(/data-cite="([^"]*)"/g)].map((m) => m[1]);
-    expect(cites[0]).toMatch(/^BTC, last 24h: futures CVD .+, Binance spot CVD \+\$2\.0M, delta .+\.$/);
+    expect(cites[0]).toMatch(
+      /^BTC, last 24h: futures CVD .+, Binance spot CVD \+\$2\.0M, delta .+\.$/,
+    );
     expect(cites[1]).toMatch(/^BTC futures taker CVD, last 24h: /);
     expect(kc.bars[0].slice(7)).toEqual([3e6, 1e6]);
     expect(kc.bars[1].slice(7)).toEqual([null, null]);
@@ -4859,6 +4861,27 @@ describe("api", () => {
     expect(await (await get("/auth.md", data)).text()).toContain("member.airrates.net/auth.md");
     const page = await (await get("/docs", data)).text();
     expect(page).toContain("GET /v1/rates");
+  });
+
+  test("the MCP and agents page explains setup, and the endpoints answer a GET with 405", async () => {
+    const { data } = fakeData();
+    const res = await get("/agents", data);
+    expect(res.status).toBe(200);
+    const page = await res.text();
+    expect(page).toContain("https://airrates.net/mcp");
+    expect(page).toContain("claude mcp add --transport http");
+    for (const tool of ["get_top_spreads", "get_asset_funding", "get_data_status"]) {
+      expect(page).toContain(tool);
+    }
+    expect(page).toContain("/.well-known/agent-card.json");
+    expect(page).toContain("/.well-known/ai-catalog.json");
+    // Every page's footer menu links it.
+    expect(await (await get("/docs", data)).text()).toContain('href="/agents"');
+    for (const path of ["/mcp", "/a2a"]) {
+      const answer = await get(path, data);
+      expect(answer.status).toBe(405);
+      expect(answer.headers.get("allow")).toBe("POST");
+    }
   });
 
   test("the A2A card is served and the endpoint answers SendMessage and message/send", async () => {

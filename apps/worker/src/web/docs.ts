@@ -25,7 +25,7 @@ export function docs(data: { overview: Overview; now: number }): string {
     overview: data.overview,
     now: data.now,
     body: englishOnly(`<h1>API</h1>
-<p class="lede">Read-only JSON over HTTPS, no key needed. The machine-readable description is <a href="/v1/openapi.json">OpenAPI</a>; the discovery file is <a href="/.well-known/api-catalog">/.well-known/api-catalog</a>; health is <a href="/v1/health">/v1/health</a>. Base URL: <code>${SITE_ORIGIN}</code>. Please credit and link airrates.net when you reuse the data, and see the <a href="/tos">terms</a>.</p>
+<p class="lede">Read-only JSON over HTTPS, no key needed. The machine-readable description is <a href="/v1/openapi.json">OpenAPI</a>; the discovery file is <a href="/.well-known/api-catalog">/.well-known/api-catalog</a>; health is <a href="/v1/health">/v1/health</a>. To connect an AI assistant over MCP or A2A, see <a href="/agents">MCP and agents</a>. Base URL: <code>${SITE_ORIGIN}</code>. Please credit and link airrates.net when you reuse the data, and see the <a href="/tos">terms</a>.</p>
 <div class="about-log">${endpoints}</div>`),
   });
 }

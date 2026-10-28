@@ -1405,7 +1405,7 @@ footer.dock{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--b
 .dock-menu a:hover,.dock-menu a:focus-visible{color:var(--accent);background:var(--rule)}
 .dock-menu a[aria-current]{color:var(--bg);background:var(--ink)}
 /* Each language by its own name, as it writes it: English, Русский. */
-.dock-menu a[data-lang]{text-transform:none}
+.dock-menu a:is([data-lang],.keep-case){text-transform:none}
 .dock-menu .kb-icon{margin:0}
 .dock-menu p{margin:4px 0 0;padding:8px 14px 6px;border-top:1px solid var(--rule);font-size:11px;line-height:1.5;white-space:normal;max-width:280px}
 /* On a phone the dock keeps its icons and drops the words, and the disclaimer moves into the menu. */
@@ -1502,7 +1502,7 @@ ${INSTALL_HEAD}
 <a class="dock-item" href="${TELEGRAM_URL}" target="_blank" rel="noopener" title="${tr("Join the airrates group on Telegram: @airratesnet")}">${icon("send")}<span>${tr("telegram")}</span></a>
 <p class="dock-note">${disclaimer}</p>
 <div class="dock-pop"><button type="button" class="dock-item" aria-haspopup="true" aria-expanded="false" aria-label="${tr("Language")}" title="${esc(LOCALE_INFO[currentLocale()].name)}">${icon("globe")}</button><nav class="dock-menu" aria-label="${tr("Language")}">${languages}</nav></div>
-<div class="dock-pop"><button type="button" class="dock-item" aria-haspopup="true" aria-expanded="false">${icon("menu")}<span>${tr("menu")}</span></button><nav class="dock-menu" aria-label="${tr("menu")}"><a href="/markets"${path.startsWith("/markets") ? ' aria-current="page"' : ""}>${tr("exchanges")}</a><a href="/status">${tr("status")}</a><a href="/about">${tr("about")}</a><a href="/probe">${tr("geo-probe")}</a><a class="kb-link" href="/keys">${keyboardIcon()}${tr("keyboard")}</a><a href="/referrals">${tr("referral links")}</a><a href="/legal">${tr("legal &amp; privacy")}</a><a href="/tos">${tr("terms")}</a><p class="dock-menu-note">${disclaimer}</p></nav></div>
+<div class="dock-pop"><button type="button" class="dock-item" aria-haspopup="true" aria-expanded="false">${icon("menu")}<span>${tr("menu")}</span></button><nav class="dock-menu" aria-label="${tr("menu")}"><a href="/markets"${path.startsWith("/markets") ? ' aria-current="page"' : ""}>${tr("exchanges")}</a><a href="/status">${tr("status")}</a><a class="keep-case" href="/agents"${path === "/agents" ? ' aria-current="page"' : ""}>${tr("MCP &amp; agents")}</a><a href="/about">${tr("about")}</a><a href="/probe">${tr("geo-probe")}</a><a class="kb-link" href="/keys">${keyboardIcon()}${tr("keyboard")}</a><a href="/referrals">${tr("referral links")}</a><a href="/legal">${tr("legal &amp; privacy")}</a><a href="/tos">${tr("terms")}</a><p class="dock-menu-note">${disclaimer}</p></nav></div>
 </div></footer>
 ${searchDialog()}
 <script>${pageScript()}</script>

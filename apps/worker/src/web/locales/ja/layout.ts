@@ -46,6 +46,7 @@ export const layout: Catalog = {
   "geo-probe": "地域チェック",
   about: "概要",
   "referral links": "紹介リンク",
+  "MCP &amp; agents": "MCP とエージェント",
   "legal &amp; privacy": "法的事項とプライバシー",
   terms: "利用規約",
   Language: "言語",

@@ -7,7 +7,7 @@ import { DEFAULT_FILTERS } from "./params";
 export const A2A_PATH = "/a2a";
 
 /** What the agent can do, as skills on the card. Each is answered by `reply` below. */
-const SKILLS = [
+export const SKILLS = [
   {
     id: "top-spreads",
     name: "Widest funding spreads",
@@ -41,7 +41,7 @@ export function agentCard(): Record<string, unknown> {
       "Answers questions about perpetual-futures funding rates and cross-exchange spreads from airrates.net data. Read-only; not financial advice.",
     version: "1.0.0",
     provider: { organization: "airrates", url: SITE_ORIGIN },
-    documentationUrl: `${SITE_ORIGIN}/docs`,
+    documentationUrl: `${SITE_ORIGIN}/agents`,
     // v1.0 shape; the v0.3 fields below it let an older client find the same endpoint.
     supportedInterfaces: [
       { url: `${SITE_ORIGIN}${A2A_PATH}`, protocolBinding: "JSONRPC", protocolVersion: "1.0" },
