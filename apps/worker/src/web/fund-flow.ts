@@ -3,7 +3,7 @@ import { FUND_WINDOWS, FUTURES_TAKER_VENUES, SPOT_TAKER_VENUES } from "../app/da
 import { esc } from "./format";
 import { tr } from "./i18n";
 import { icon } from "./icons";
-import { venueName } from "./venues";
+import { HIP3_VENUE_IDS, venueCountTag } from "./venues";
 
 /** Where the panel reads its figures: one asset's windows as JSON, kept a minute at the edge. */
 export const FUND_FLOW_PATH = "/data/fund-flow";
@@ -43,13 +43,15 @@ export function fundPanel(asset: string, assetClass: AssetClass): string {
       ? table(
           "spot",
           tr("Spot fund"),
-          tr("Spot books on {venues}", { venues: SPOT_TAKER_VENUES.map(venueName).join(", ") }),
+          tr("Spot books on {venues}", { venues: venueCountTag(SPOT_TAKER_VENUES, "") }),
         )
       : "";
   const futures = table(
     "futures",
     tr("Futures fund"),
-    tr("Perpetuals on {venues}", { venues: FUTURES_TAKER_VENUES.map(venueName).join(", ") }),
+    tr("Perpetuals on {venues}", {
+      venues: venueCountTag([...FUTURES_TAKER_VENUES, ...HIP3_VENUE_IDS], ""),
+    }),
   );
   return `<details class="cvd-fund" data-fund="${esc(src)}">
 <summary class="wh-pick-btn cvd-fund-btn">${icon("swap")}<b>${tr("Fund flow")}</b></summary>

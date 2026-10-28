@@ -129,8 +129,8 @@ export const charts: Catalog = {
   // web/cvd.ts: the page.
   "taker buys": "主动买入",
   "taker sells": "主动卖出",
-  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Gate and Bitget publish weeks of it and OKX five days, while Bybit, Hyperliquid and the spot books other than Binance's are counted from their live trades since 28 October 2026, so older bars sum fewer venues.":
-    "时间间隔旁的资产按钮会打开筛选器：每个被采集资产在窗口内的主动成交流。选择一个即可绘制其图表，也可以在搜索框中查找代码，或点击列标题排序。涨跌幅为成交最活跃的被采集市场在窗口内从首个收盘价到最后一个收盘价的变化。各交易所的历史数据长短不一：Binance、Gate 和 Bitget 提供数周，OKX 提供五天；Bybit、Hyperliquid 以及 Binance 以外的现货订单簿自 2026 年 10 月 28 日起根据实时成交统计，因此较早的柱加总的交易所较少。",
+  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Aster, Gate and Bitget publish weeks of it and OKX five days, while every other venue, spot books other than Binance's included, is counted from its live trades since 28 October 2026, so older bars sum fewer venues.":
+    "时间间隔旁的资产按钮会打开筛选器：每个被采集资产在窗口内的主动成交流。选择一个即可绘制其图表，也可以在搜索框中查找代码，或点击列标题排序。涨跌幅为成交最活跃的被采集市场在窗口内从首个收盘价到最后一个收盘价的变化。各交易所的历史数据长短不一：Binance、Aster、Gate 和 Bitget 提供数周，OKX 提供五天；其他所有交易所（包括 Binance 以外的现货订单簿）自 2026 年 10 月 28 日起根据实时成交统计，因此较早的柱加总的交易所较少。",
 
   // web/funding-chart.ts
   "The funding chart is unavailable right now. The backtest below is unaffected.":

@@ -4440,11 +4440,14 @@ describe("cvd", () => {
     expect(figure).toContain('<polyline class="cvd-spot"');
     expect(figure).toContain("Futures CVD");
     expect(figure).toContain("Spot CVD");
-    // Each key says how many venues its line sums, busiest first on hover; a HIP-3 dex is Hyperliquid.
+    // Each key says how many venues its line sums, their names on hover grouped by kind, busiest
+    // first; a HIP-3 dex is a venue of its own.
     expect(figure).toContain(
-      '<span class="dim" title="Binance, Bybit, Hyperliquid">3 venues</span>',
+      '<span class="dim" title="CEX: Binance, Bybit · DEX: Hyperliquid · HIP-3: trade[XYZ]">4 venues</span>',
     );
-    expect(figure).toContain('<span class="dim" title="Binance, Coinbase, OKX">3 venues</span>');
+    expect(figure).toContain(
+      '<span class="dim" title="CEX: Binance, Coinbase, OKX">3 venues</span>',
+    );
     const kc = JSON.parse(
       figure.match(/<script type="application\/json" class="kc-data">([\s\S]*?)<\/script>/)?.[1] ??
         "{}",

@@ -49,15 +49,16 @@ import {
   slotCursorSwitch,
   slotData,
 } from "./slot-chart";
-import { venueName } from "./venues";
+import { HIP3_VENUE_IDS, venueCountTag, venueName, venuesByKind } from "./venues";
 
 /**
  * /chart (until 2026-10-28 /cvd): price, and cumulative volume delta under it -- who initiated the
  * volume, taker buys against taker sells -- split into the perpetuals' and the spot book's, with
  * their sum per bar, the delta, as a histogram.
  *
- * EVERY COLLECTED EXCHANGE THAT LISTS THE ASSET, SUMMED (owner, 2026-10-28), for spot and futures
- * alike: FUTURES_TAKER_VENUES and SPOT_TAKER_VENUES. Binance, OKX, Gate and Bitget publish their
+ * EVERY COLLECTED EXCHANGE THAT LISTS THE ASSET, SUMMED (owner, 2026-10-28), centralized, onchain and
+ * HIP-3, spot and futures alike: FUTURES_TAKER_VENUES with every HIP-3 dex, and SPOT_TAKER_VENUES,
+ * Hyperliquid's onchain spot books among them. Binance, OKX, Gate, Bitget and Aster publish their
  * perpetuals' taker split as 5-minute statistics (migration 023), and Binance its spot books' in its
  * klines (051); the rest publish none, so the collector counts their flow trade by trade from the live
  * tape (its stream.TapeFeed), from 2026-10-28 on. An asset's USDT, USDC and USD markets count as one,
@@ -75,18 +76,14 @@ import { venueName } from "./venues";
 /** The venues whose open interest picks the ~500 assets polled: the four REST venues. */
 export const CVD_VENUES = ["binance", "okx", "gate", "bitget"] as const;
 
-/** Venue ids as the page names them, each once: a HIP-3 dex ("hl-xyz") is Hyperliquid. */
-export function venueNames(ids: readonly string[]): string[] {
-  return [...new Set(ids.map((id) => (id.startsWith("hl-") ? "hyperliquid" : id)))].map(venueName);
-}
-
-/** A key's venue tag: the one venue's name, or how many with their names on hover. */
+/**
+ * A key's venue tag: the one venue's name, or how many, with their names on hover grouped as
+ * centralized, onchain and HIP-3 venues. Each HIP-3 dex counts as a venue of its own, as the catalog
+ * lists it.
+ */
 function venueTag(ids: readonly string[]): string {
-  const names = venueNames(ids);
-  if (names.length === 0) return "";
-  const text =
-    names.length === 1 ? esc(names[0] ?? "") : tr("{count} venues", { count: names.length });
-  return ` <span class="dim" title="${esc(names.join(", "))}">${text}</span>`;
+  const tag = venueCountTag(ids);
+  return tag ? ` ${tag}` : "";
 }
 
 /**
@@ -806,10 +803,10 @@ export function cvd(data: {
         {
           buys: `<span class="cvd-up">${tr("taker buys")}</span>`,
           sells: `<span class="cvd-down">${tr("taker sells")}</span>`,
-          futures: FUTURES_TAKER_VENUES.map(venueName).join(", "),
-          spot: SPOT_TAKER_VENUES.map(venueName).join(", "),
+          futures: esc(venuesByKind([...FUTURES_TAKER_VENUES, ...HIP3_VENUE_IDS])),
+          spot: esc(venuesByKind(SPOT_TAKER_VENUES)),
         },
-      )}</p><p>${tr("Each key above the chart says how many venues its line sums for this asset; hover it for their names. Spot is crypto only: stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.")}</p><p>${tr("Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the box beside it; on a phone, tap.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Gate and Bitget publish weeks of it and OKX five days, while Bybit, Hyperliquid and the spot books other than Binance's are counted from their live trades since 28 October 2026, so older bars sum fewer venues.")}</p><p>${tr("The venues that publish statistics release each 5-minute bucket after it closes, so the newest bar holds only the live tapes for a few minutes.")}</p>`,
+      )}</p><p>${tr("Each key above the chart says how many venues its line sums for this asset; hover it for their names. Spot is crypto only: stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.")}</p><p>${tr("Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the box beside it; on a phone, tap.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Aster, Gate and Bitget publish weeks of it and OKX five days, while every other venue, spot books other than Binance's included, is counted from its live trades since 28 October 2026, so older bars sum fewer venues.")}</p><p>${tr("The venues that publish statistics release each 5-minute bucket after it closes, so the newest bar holds only the live tapes for a few minutes.")}</p>`,
     )}
 <style>${FUND_CSS}</style>
 <div class="lq-controls wh-controls">${picker}${flow.asset_class === null ? "" : fundPanel(asset, chartClass)}${intervalStrip}</div>

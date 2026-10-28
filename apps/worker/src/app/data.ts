@@ -1598,20 +1598,53 @@ async function spotBars(
 }
 
 /**
- * The exchanges whose taker flow the Chart page sums, as the collector gathers it: the perpetuals'
- * from the four that publish it by REST and the tapes it counts from Bybit and Hyperliquid (core and
- * HIP-3), and the spot books' from Binance's klines and the tapes of the other five. Biggest first, for
- * the lede; what a given asset's bars hold is CvdData's venue lists.
+ * The exchanges whose taker flow the Chart page sums, as the collector gathers it: Binance, OKX, Gate,
+ * Bitget and Aster publish their perpetuals' taker split by REST; every other venue here is counted
+ * trade by trade from its live tape (since 2026-10-28), centralized and onchain alike, with every
+ * HIP-3 dex beside Hyperliquid's core (the page adds those from the catalog). Spot is Binance's
+ * klines and the tapes of the rest, Hyperliquid's onchain books included. Biggest first within a
+ * kind, for the lede; what a given asset's bars hold is CvdData's venue lists.
  */
 export const FUTURES_TAKER_VENUES = [
   "binance",
-  "bybit",
   "okx",
+  "gate",
+  "mexc",
+  "bybit",
+  "deribit",
+  "bitget",
+  "bingx",
+  "bitunix",
+  "kucoin",
+  "htx",
+  "kraken",
+  "coinbase",
+  "qfex",
+  "hyperliquid",
+  "lighter",
+  "aster",
+  "pacifica",
+  "lighter-rh",
+  "extended",
+  "grvt",
+  "edgex-v2",
+  "apex",
+  "arcus",
+  "ondo",
+  "nado",
+  "sodex",
+  "backpack",
+  "risex",
+] as const;
+export const SPOT_TAKER_VENUES = [
+  "binance",
+  "coinbase",
+  "okx",
+  "bybit",
   "bitget",
   "gate",
   "hyperliquid",
 ] as const;
-export const SPOT_TAKER_VENUES = ["binance", "coinbase", "okx", "bybit", "bitget", "gate"] as const;
 
 /** One trade date's spot ETF flow for an asset, every fund the collector reads summed. */
 export interface EtfFlowDay {

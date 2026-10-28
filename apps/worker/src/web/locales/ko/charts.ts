@@ -136,8 +136,8 @@ export const charts: Catalog = {
   // web/cvd.ts: the page.
   "taker buys": "테이커 매수",
   "taker sells": "테이커 매도",
-  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Gate and Bitget publish weeks of it and OKX five days, while Bybit, Hyperliquid and the spot books other than Binance's are counted from their live trades since 28 October 2026, so older bars sum fewer venues.":
-    "봉 간격 옆의 자산 버튼을 누르면 스크리너가 열립니다: 수집 대상인 모든 자산의 기간 내 테이커 흐름입니다. 하나를 골라 차트로 보거나, 검색창에서 티커를 찾거나, 열 제목으로 정렬할 수 있습니다. 변동률은 수집 대상 중 거래가 가장 활발한 종목의 기간 내 첫 종가 대비 마지막 종가입니다. 거래소마다 기록 길이가 다릅니다: Binance, Gate, Bitget은 몇 주치, OKX는 5일치를 제공하며, Bybit, Hyperliquid와 Binance 외의 현물 호가창은 2026년 10월 28일부터 실시간 체결로 집계하므로 오래된 봉일수록 더 적은 거래소의 합계입니다.",
+  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Aster, Gate and Bitget publish weeks of it and OKX five days, while every other venue, spot books other than Binance's included, is counted from its live trades since 28 October 2026, so older bars sum fewer venues.":
+    "봉 간격 옆의 자산 버튼을 누르면 스크리너가 열립니다: 수집 대상인 모든 자산의 기간 내 테이커 흐름입니다. 하나를 골라 차트로 보거나, 검색창에서 티커를 찾거나, 열 제목으로 정렬할 수 있습니다. 변동률은 수집 대상 중 거래가 가장 활발한 종목의 기간 내 첫 종가 대비 마지막 종가입니다. 거래소마다 기록 길이가 다릅니다: Binance, Aster, Gate, Bitget은 몇 주치, OKX는 5일치를 제공하며, 그 밖의 모든 거래소(Binance 외의 현물 호가창 포함)는 2026년 10월 28일부터 실시간 체결로 집계하므로 오래된 봉일수록 더 적은 거래소의 합계입니다.",
 
   // web/funding-chart.ts
   "The funding chart is unavailable right now. The backtest below is unaffected.":

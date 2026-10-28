@@ -137,8 +137,8 @@ export const charts: Catalog = {
   // web/cvd.ts: the page.
   "taker buys": "テイカー買い",
   "taker sells": "テイカー売り",
-  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Gate and Bitget publish weeks of it and OKX five days, while Bybit, Hyperliquid and the spot books other than Binance's are counted from their live trades since 28 October 2026, so older bars sum fewer venues.":
-    "時間足ボタンの横にある銘柄ボタンでスクリーナーが開きます：取得対象の全銘柄の、期間内のテイカーフローです。銘柄を選ぶとチャートを表示し、検索欄でティッカーを探したり、見出しで並べ替えたりできます。騰落率は取得対象で最も出来高の多い市場の、期間内の最初の終値から最後の終値までの変化です。履歴の長さは取引所によって異なります。Binance、Gate、Bitget は数週間分、OKX は5日分を公開しています。Bybit、Hyperliquid、および Binance 以外の現物板は2026年10月28日からリアルタイムの約定で集計しているため、古い足に含まれる取引所は少なくなります。",
+  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Aster, Gate and Bitget publish weeks of it and OKX five days, while every other venue, spot books other than Binance's included, is counted from its live trades since 28 October 2026, so older bars sum fewer venues.":
+    "時間足ボタンの横にある銘柄ボタンでスクリーナーが開きます：取得対象の全銘柄の、期間内のテイカーフローです。銘柄を選ぶとチャートを表示し、検索欄でティッカーを探したり、見出しで並べ替えたりできます。騰落率は取得対象で最も出来高の多い市場の、期間内の最初の終値から最後の終値までの変化です。履歴の長さは取引所によって異なります。Binance、Aster、Gate、Bitget は数週間分、OKX は5日分を公開しています。それ以外のすべての取引所（Binance 以外の現物板を含む）は2026年10月28日からリアルタイムの約定で集計しているため、古い足に含まれる取引所は少なくなります。",
 
   // web/funding-chart.ts
   "The funding chart is unavailable right now. The backtest below is unaffected.":
