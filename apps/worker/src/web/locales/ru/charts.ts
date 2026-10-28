@@ -220,4 +220,28 @@ export const charts: Catalog = {
   Low: "Минимум",
   Futures: "Фьючерсы",
   "Spot (Binance)": "Спот (Binance)",
+  // The Chart page's fund-flow dropdown (web/fund-flow.ts).
+  "No spot book on Binance for this asset.": "У Binance нет спотового стакана по этому активу.",
+  "No futures flow for this asset yet.": "По этому активу пока нет потока фьючерсов.",
+  Time: "Время",
+  "Taker buys in the window, in dollars": "Покупки тейкеров за окно, в долларах",
+  "Inflow ($)": "Приток ($)",
+  "Taker sells in the window, in dollars": "Продажи тейкеров за окно, в долларах",
+  "Outflow ($)": "Отток ($)",
+  "Inflow less outflow": "Приток минус отток",
+  "Net inflow ($)": "Чистый приток ($)",
+  "Net inflow against the window of the same length before it":
+    "Чистый приток против предыдущего окна той же длины",
+  "Net inflow change": "Изменение чистого притока",
+  "Net inflow as a share of the asset's market cap":
+    "Чистый приток как доля рыночной капитализации актива",
+  "F/M cap ratio": "Поток/капитализация",
+  "Spot fund": "Спотовые средства",
+  "Binance USDT spot book": "Спотовый стакан Binance USDT",
+  "Futures fund": "Фьючерсные средства",
+  "Perpetuals on {venues}": "Бессрочные фьючерсы на {venues}",
+  "Fund flow": "Денежный поток",
+  "Inflow is taker buying and outflow taker selling, summed over each window back from the newest bucket every venue has published. Net inflow change compares the net with the window of the same length before it. F/M cap ratio is the net as a share of the asset's market cap (CoinGecko). A dash means the history does not reach back that far yet.":
+    "Приток — покупки тейкеров, отток — продажи тейкеров, суммированные за каждое окно назад от последнего интервала, опубликованного всеми биржами. Изменение чистого притока сравнивает его с предыдущим окном той же длины. Поток/капитализация — чистый приток как доля рыночной капитализации актива (CoinGecko). Прочерк значит, что история ещё не дотягивается до этого окна.",
+  "Up to": "По состоянию на",
 };

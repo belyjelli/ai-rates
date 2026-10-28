@@ -220,4 +220,27 @@ export const charts: Catalog = {
   Low: "安値",
   Futures: "先物",
   "Spot (Binance)": "現物（Binance）",
+  // The Chart page's fund-flow dropdown (web/fund-flow.ts).
+  "No spot book on Binance for this asset.": "この資産の Binance 現物板はありません。",
+  "No futures flow for this asset yet.": "この資産の先物フローはまだありません。",
+  Time: "時間",
+  "Taker buys in the window, in dollars": "期間内のテイカー買い（ドル）",
+  "Inflow ($)": "流入（$）",
+  "Taker sells in the window, in dollars": "期間内のテイカー売り（ドル）",
+  "Outflow ($)": "流出（$）",
+  "Inflow less outflow": "流入から流出を引いた額",
+  "Net inflow ($)": "純流入（$）",
+  "Net inflow against the window of the same length before it":
+    "直前の同じ長さの期間の純流入との比較",
+  "Net inflow change": "純流入の変化",
+  "Net inflow as a share of the asset's market cap": "純流入の時価総額に対する比率",
+  "F/M cap ratio": "資金/時価総額比",
+  "Spot fund": "現物資金",
+  "Binance USDT spot book": "Binance USDT 現物板",
+  "Futures fund": "先物資金",
+  "Perpetuals on {venues}": "{venues} の無期限先物",
+  "Fund flow": "資金フロー",
+  "Inflow is taker buying and outflow taker selling, summed over each window back from the newest bucket every venue has published. Net inflow change compares the net with the window of the same length before it. F/M cap ratio is the net as a share of the asset's market cap (CoinGecko). A dash means the history does not reach back that far yet.":
+    "流入はテイカー買い、流出はテイカー売りで、全取引所が公開済みの最新バケットから各期間をさかのぼって合計します。純流入の変化は、直前の同じ長さの期間の純流入との比較です。資金/時価総額比は、純流入が資産の時価総額（CoinGecko）に占める割合です。ダッシュは履歴がまだその期間に届いていないことを示します。",
+  "Up to": "時点",
 };

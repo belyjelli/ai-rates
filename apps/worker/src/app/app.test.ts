@@ -162,6 +162,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     }),
     assetBars: async () => [],
     cvdHistory: async () => [],
+    fundFlow: async () => ({ end: null, futures: [], spot: null, market_cap_usd: null }),
     liquidationFeeds: async () => [],
     whalePositions: async () => [],
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
@@ -4155,6 +4156,44 @@ describe("cvd", () => {
     expect(html).toContain('data-u="cvd-total" class="">$0<');
     // An asset with no price shows a dash, not a zero change.
     expect(html).toContain('<span data-u="change">–</span>');
+  });
+
+  test("the fund-flow dropdown sits beside the picker and reads one asset's windows", async () => {
+    const asked: { base: string; assetClass: string }[] = [];
+    const { data } = fakeData({
+      cvd: async () => flow(),
+      fundFlow: async (options) => {
+        asked.push(options);
+        return {
+          end: new Date(NOW),
+          futures: [{ minutes: 5, inflow: 110, outflow: 80, prev_net: 30 }],
+          spot: null,
+          market_cap_usd: 2e12,
+        };
+      },
+    });
+    const html = await (await get("/chart", data)).text();
+    // Spot and futures tables for a crypto asset, a row per window, read only when opened.
+    expect(html).toContain(
+      '<details class="cvd-fund" data-fund="/data/fund-flow?asset=BTC&amp;class=crypto">',
+    );
+    expect(html).toContain('data-side="spot"');
+    expect(html).toContain('<tr data-m="43200"><th scope="row">30D</th>');
+    expect(asked).toEqual([]);
+
+    const res = await get("/data/fund-flow?asset=eth&class=crypto", data);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("public, max-age=60");
+    const body = (await res.json()) as {
+      asset: string;
+      futures: unknown[];
+      market_cap_usd: number;
+    };
+    expect(body.asset).toBe("ETH");
+    expect(body.futures).toHaveLength(1);
+    expect(body.market_cap_usd).toBe(2e12);
+    expect(asked).toEqual([{ base: "ETH", assetClass: "crypto" }]);
+    expect((await get("/data/fund-flow?asset=ETH&class=nope", data)).status).toBe(400);
   });
 
   test("the chart ships every slot's figures for the hover readout, with a cursor on both panels", async () => {

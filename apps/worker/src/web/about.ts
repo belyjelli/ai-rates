@@ -41,6 +41,15 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-28",
+    title: "Fund flow beside the chart's asset picker",
+    changes: [
+      "A Fund flow button beside the Chart page's asset picker opens two tables: spot fund (Binance's USDT spot book) and futures fund (the perpetuals on Binance, OKX, Gate and Bitget). Each has a row per window from 5 minutes to 30 days.",
+      "The columns: inflow (taker buying) and outflow (taker selling) in dollars, net inflow, net inflow change against the window of the same length before it, and F/M cap ratio, the net as a share of the asset's market cap from CoinGecko.",
+      "Windows run back from the newest 5-minute bucket every venue has published. A window longer than the history collected so far shows a dash rather than a short sum; the busiest hundred assets have futures flow back to mid-September, while the rest, and every spot book, started on 28 October with about a week, so their longer windows fill in over the coming weeks.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     title: "A setup guide for MCP and AI agents",
     changes: [
       "New page, MCP and agents, in the footer menu: how to add airrates to Claude, Claude Code, Cursor, VS Code, Windsurf, Gemini CLI, Codex or any MCP client, with the config to copy for each. No key or sign-in is needed.",

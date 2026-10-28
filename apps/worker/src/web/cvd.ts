@@ -12,6 +12,7 @@ import {
 } from "../app/params";
 import { CHART_SKELETON_JS } from "./chart-skeleton";
 import { ageText, esc, formatPrice, formatUsd, LOCK_ICON } from "./format";
+import { FUND_CSS, FUND_SCRIPT, fundPanel } from "./fund-flow";
 import { helpHeading } from "./help";
 import { msg, tr, trMsg } from "./i18n";
 import {
@@ -776,13 +777,15 @@ export function cvd(data: {
         },
       )}</p><p>${tr("Spot CVD is Binance's USDT spot book alone, for the crypto assets it lists; stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.")}</p><p>${tr("Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the line above the chart; on a phone, tap.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.")}</p><p>${tr("Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.")}</p>`,
     )}
-<div class="lq-controls wh-controls">${picker}${intervalStrip}</div>
+<style>${FUND_CSS}</style>
+<div class="lq-controls wh-controls">${picker}${flow.asset_class === null ? "" : fundPanel(asset, chartClass)}${intervalStrip}</div>
 ${tiles}
 <div id="cvd-chart" class="cvd-anchor">${chart}${flow.bars.length ? KC_HOST : ""}</div>
 <script>${SLOT_SCRIPT}</script>
 <script>${KCHART_SCRIPT}</script>
 <script>${PICK_SCRIPT}</script>
 <script>${CVD_SWITCH_SCRIPT}</script>
+<script>${FUND_SCRIPT}</script>
 <p class="notes" data-live="cvd-asof">${lag}</p>
 ${empty}`,
   });

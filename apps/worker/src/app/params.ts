@@ -974,3 +974,13 @@ export function whaleToQuery(params: WhaleParams): string {
   const text = query.toString();
   return text ? `?${text}` : "";
 }
+
+/** The Chart page's fund-flow tables ask /data/fund-flow for one asset: ?asset=BTC&class=crypto. */
+export function parseFundFlowParams(
+  params: URLSearchParams,
+): { asset: string; assetClass: AssetClass } | null {
+  const asset = params.get("asset") ?? "";
+  const assetClass = ASSET_CLASSES.find((c) => c === params.get("class"));
+  if (!HISTORY_ASSET.test(asset) || !assetClass) return null;
+  return { asset: asset.toUpperCase(), assetClass };
+}

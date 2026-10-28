@@ -10,6 +10,7 @@ import { docs } from "../web/docs";
 import { BOOK_BASKET } from "../web/exchange-grade";
 import { exchangeCosts, exchangesPage, parseExchangeSort } from "../web/exchanges";
 import { esc } from "../web/format";
+import { FUND_FLOW_PATH } from "../web/fund-flow";
 import type { FundingHistory } from "../web/funding-chart";
 import { gammaBookFor, gammaFragment } from "../web/gamma";
 import { greekFragment, isGreek } from "../web/greeks";
@@ -73,6 +74,7 @@ import {
   parseConvergenceParams,
   parseCvdHistoryParams,
   parseCvdParams,
+  parseFundFlowParams,
   parseGammaParams,
   parseHeatmapParams,
   parseLiquidationAssetParams,
@@ -229,6 +231,19 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
             "x-robots-tag": "noindex, nofollow",
           },
         },
+      );
+    }
+
+    // The Chart page's fund-flow dropdown (web/fund-flow.ts): one asset's spot and futures taker flow
+    // over each window from 5 minutes to 30 days, and its market cap. Read when the dropdown opens;
+    // the newest bucket moves every five minutes, so the edge keeps an answer a minute.
+    if (path === FUND_FLOW_PATH) {
+      const asked = parseFundFlowParams(url.searchParams);
+      if (!asked) return json({ error: "bad_request" }, 400, 0);
+      const flow = await deps.data.fundFlow({ base: asked.asset, assetClass: asked.assetClass });
+      return Response.json(
+        { asset: asked.asset, asset_class: asked.assetClass, ...flow },
+        { headers: { "cache-control": "public, max-age=60", "x-robots-tag": "noindex, nofollow" } },
       );
     }
 

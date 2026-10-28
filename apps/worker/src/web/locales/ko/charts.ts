@@ -219,4 +219,27 @@ export const charts: Catalog = {
   Low: "저가",
   Futures: "선물",
   "Spot (Binance)": "현물(Binance)",
+  // The Chart page's fund-flow dropdown (web/fund-flow.ts).
+  "No spot book on Binance for this asset.": "이 자산은 Binance 현물 호가창이 없습니다.",
+  "No futures flow for this asset yet.": "이 자산은 아직 선물 자금 흐름이 없습니다.",
+  Time: "시간",
+  "Taker buys in the window, in dollars": "구간 내 테이커 매수(달러)",
+  "Inflow ($)": "유입($)",
+  "Taker sells in the window, in dollars": "구간 내 테이커 매도(달러)",
+  "Outflow ($)": "유출($)",
+  "Inflow less outflow": "유입에서 유출을 뺀 값",
+  "Net inflow ($)": "순유입($)",
+  "Net inflow against the window of the same length before it":
+    "직전 같은 길이 구간의 순유입과 비교",
+  "Net inflow change": "순유입 변화",
+  "Net inflow as a share of the asset's market cap": "순유입이 자산 시가총액에서 차지하는 비율",
+  "F/M cap ratio": "자금/시총 비율",
+  "Spot fund": "현물 자금",
+  "Binance USDT spot book": "Binance USDT 현물 호가창",
+  "Futures fund": "선물 자금",
+  "Perpetuals on {venues}": "{venues}의 무기한 선물",
+  "Fund flow": "자금 흐름",
+  "Inflow is taker buying and outflow taker selling, summed over each window back from the newest bucket every venue has published. Net inflow change compares the net with the window of the same length before it. F/M cap ratio is the net as a share of the asset's market cap (CoinGecko). A dash means the history does not reach back that far yet.":
+    "유입은 테이커 매수, 유출은 테이커 매도이며, 모든 거래소가 발표한 가장 최근 구간부터 각 기간을 거슬러 합산합니다. 순유입 변화는 직전 같은 길이 구간의 순유입과 비교한 값입니다. 자금/시총 비율은 순유입이 자산 시가총액(CoinGecko)에서 차지하는 비율입니다. 대시는 아직 그 기간만큼의 기록이 없다는 뜻입니다.",
+  "Up to": "기준",
 };

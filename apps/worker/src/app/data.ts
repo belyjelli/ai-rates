@@ -1356,6 +1356,8 @@ export interface DataSource {
   assetBars(options: CvdOptions): Promise<CvdBar[]>;
   /** An older page of one asset's CVD bars, for a chart dragged back past what the page shipped. */
   cvdHistory(options: CvdHistoryOptions): Promise<CvdBar[]>;
+  /** One asset's spot and futures fund flow over each window of FUND_WINDOWS, for the Chart page. */
+  fundFlow(options: { base: string; assetClass: AssetClass }): Promise<FundFlow>;
   /** What each liquidation feed actually stored in the last day. */
   liquidationFeeds(): Promise<LiquidationFeedRow[]>;
   /** The whale-orders page: the tracked markets, and one market's candles and walls over a window. */
@@ -1546,6 +1548,160 @@ async function spotBars(
     if (code === "42P01" || code === "42501") return [];
     throw error;
   }
+}
+
+/**
+ * The Chart page's fund-flow windows, in minutes: 5m to 30 days, as valuescan's spot and futures fund
+ * tables have them. Each is summed back from the newest complete bucket, and compared with the window
+ * of the same length before it.
+ */
+export const FUND_WINDOWS = [
+  5, 15, 30, 60, 120, 240, 480, 720, 1440, 2880, 4320, 7200, 10080, 14400, 21600, 43200,
+] as const;
+
+/** One window of one side's taker flow. */
+export interface FundWindow {
+  minutes: number;
+  /** Taker buys and sells in the window, in dollars; null when the history does not reach back that far. */
+  inflow: number | null;
+  outflow: number | null;
+  /** The net of the window before it, of the same length; null when the history does not reach it. */
+  prev_net: number | null;
+}
+
+export interface FundFlow {
+  /** End of the newest complete bucket the windows run back from; null with no flow at all. */
+  end: Date | null;
+  futures: FundWindow[];
+  /** Binance's USDT spot book; null for an asset with no spot book (any non-crypto class). */
+  spot: FundWindow[] | null;
+  /** CoinGecko's market cap (collector migration 052), when fetched within two days. */
+  market_cap_usd: number | null;
+}
+
+type FundRow = {
+  minutes: number;
+  inflow: number | null;
+  outflow: number | null;
+  prev_net: number | null;
+  end_at: Date | null;
+};
+
+/**
+ * Sums one side's per-bucket flow over every fund window. `flow` is a query yielding bucket_start,
+ * buy, sell and venues (how many venues reported the bucket).
+ *
+ * THE END. The windows run back from the end of the newest bucket that every venue reporting in the
+ * last two hours has reported, not simply the newest bucket: Bitget's sweep runs past five minutes, so
+ * the newest bucket often lacks it, and a 5m window ending there would undercount. A window that
+ * reaches back past the oldest bucket read is null rather than a short sum, and so is a comparison
+ * that does.
+ */
+function fundWindows(sql: postgres.Sql, flow: postgres.PendingQuery<postgres.Row[]>) {
+  // Text, not an array parameter: the client runs with fetch_types off.
+  const windows = FUND_WINDOWS.join(",");
+  return sql<FundRow[]>`
+    WITH f AS (${flow}),
+    e AS (
+      SELECT max(bucket_start) FILTER (
+               WHERE venues >= coalesce(
+                 (SELECT max(venues) FROM f WHERE bucket_start > now() - interval '2 hours'), 0)
+             ) + interval '5 minutes' AS end_at,
+             min(bucket_start) AS first_at
+      FROM f
+    ),
+    w AS (SELECT unnest(string_to_array(${windows}, ','))::int AS minutes)
+    SELECT w.minutes,
+           CASE WHEN e.first_at <= e.end_at - make_interval(mins => w.minutes) THEN
+             coalesce(sum(f.buy) FILTER (
+               WHERE f.bucket_start >= e.end_at - make_interval(mins => w.minutes)), 0)::float8
+           END AS inflow,
+           CASE WHEN e.first_at <= e.end_at - make_interval(mins => w.minutes) THEN
+             coalesce(sum(f.sell) FILTER (
+               WHERE f.bucket_start >= e.end_at - make_interval(mins => w.minutes)), 0)::float8
+           END AS outflow,
+           CASE WHEN e.first_at <= e.end_at - make_interval(mins => 2 * w.minutes) THEN
+             coalesce(sum(f.buy - f.sell) FILTER (
+               WHERE f.bucket_start < e.end_at - make_interval(mins => w.minutes)), 0)::float8
+           END AS prev_net,
+           e.end_at
+    FROM w CROSS JOIN e
+    LEFT JOIN f ON f.bucket_start >= e.end_at - make_interval(mins => 2 * w.minutes)
+               AND f.bucket_start < e.end_at
+    GROUP BY w.minutes, e.end_at, e.first_at
+    ORDER BY w.minutes`;
+}
+
+/** How far back fundWindows reads: the longest window and the one before it, and a day to spare. */
+const FUND_LOOKBACK = `${(2 * FUND_WINDOWS[FUND_WINDOWS.length - 1]) / 1440 + 1} days`;
+
+const fundWindowsOf = (rows: readonly FundRow[]): FundWindow[] =>
+  rows.map(({ minutes, inflow, outflow, prev_net }) => ({ minutes, inflow, outflow, prev_net }));
+
+/** Spot and futures fund flow for one asset, and its market cap. */
+async function fundFlowQuery(
+  sql: postgres.Sql,
+  { base, assetClass }: { base: string; assetClass: AssetClass },
+): Promise<FundFlow> {
+  // The perpetuals of every polled venue, walked by taker_flow's key as the chart's bars are.
+  const futures = fundWindows(
+    sql,
+    sql`
+      SELECT t.bucket_start, sum(t.buy_usd) AS buy, sum(t.sell_usd) AS sell,
+             count(DISTINCT t.venue_id) AS venues
+      FROM market_latest ml
+      JOIN taker_flow t ON t.venue_id = ml.venue_id AND t.venue_symbol = ml.venue_symbol
+      WHERE ml.base = ${base} AND ml.asset_class = ${assetClass}
+        AND t.bucket_start > now() - ${FUND_LOOKBACK}::interval
+      GROUP BY t.bucket_start`,
+  );
+  // Tolerant of a database without migration 051 or 052, or without the grant, as spotBars is.
+  const tolerant = async <T>(read: () => Promise<T>, otherwise: T): Promise<T> => {
+    try {
+      return await read();
+    } catch (error) {
+      const code = (error as { code?: unknown } | null)?.code;
+      if (code === "42P01" || code === "42501") return otherwise;
+      throw error;
+    }
+  };
+  const crypto = assetClass === "crypto";
+  const [fut, spot, cap] = await Promise.all([
+    futures,
+    crypto
+      ? tolerant(
+          async () => [
+            ...(await fundWindows(
+              sql,
+              sql`
+                SELECT bucket_start, sum(buy_usd) AS buy, sum(sell_usd) AS sell, 1 AS venues
+                FROM spot_taker_flow
+                WHERE base = ${base} AND bucket_start > now() - ${FUND_LOOKBACK}::interval
+                GROUP BY bucket_start`,
+            )),
+          ],
+          [] as FundRow[],
+        )
+      : ([] as FundRow[]),
+    crypto
+      ? tolerant(
+          async () =>
+            (
+              await sql<{ market_cap_usd: number }[]>`
+                SELECT market_cap_usd::float8 AS market_cap_usd FROM asset_market_cap
+                WHERE base = ${base} AND fetched_at > now() - interval '2 days'`
+            )[0]?.market_cap_usd ?? null,
+          null as number | null,
+        )
+      : null,
+  ]);
+  const hasSpot = spot.some((row) => row.end_at !== null);
+  return {
+    end: fut[0]?.end_at ?? spot[0]?.end_at ?? null,
+    futures: fundWindowsOf(fut),
+    spot: hasSpot ? fundWindowsOf(spot) : null,
+    market_cap_usd: cap,
+  };
 }
 
 /**
@@ -2558,6 +2714,10 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         spot ? spotBars(sql, options, { fromMs, toMs }) : [],
       ]);
       return spot ? withSpot(bars, spotRows) : [...bars];
+    },
+
+    async fundFlow(options) {
+      return fundFlowQuery(connect(), options);
     },
 
     async liquidationFeeds() {
