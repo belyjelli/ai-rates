@@ -1690,8 +1690,23 @@ export interface PredictionMarket {
   yes_7d: number | null;
 }
 
+/** One outcome's top holders summed (outcome 0 is Yes, 1 is No), and the smart wallets among them. */
+export interface HolderSum {
+  holders: number;
+  shares: number;
+  smart_holders: number;
+  smart_shares: number;
+}
+
+/** A market's holder sums in the latest hour read, and a day before; keyed by market id. */
+export type Holdings = Record<string, { now: [HolderSum | null, HolderSum | null]; d1: [HolderSum | null, HolderSum | null] }>;
+
 export interface Predictions {
   polymarket: PredictionMarket[];
+  /** Polymarket's smart money (collector migration 056); empty before it is read. */
+  holdings: Holdings;
+  /** How many wallets the smart set holds: the leaderboard's top by profit, read with the holders. */
+  smartWallets: number;
   /** Kalshi's open markets for the questions both venues ask, and their probability a day and a week ago. */
   kalshi: MacroOdds[];
   kalshiPast: Record<string, { d1: number | null; d7: number | null }>;
@@ -1707,6 +1722,7 @@ export interface OptionChainRead {
 
 export interface BtcOdds {
   markets: PredictionMarket[];
+  holdings: Holdings;
   chain: OptionChainRead | null;
 }
 
@@ -1718,6 +1734,37 @@ const missingOrRefused = (error: unknown) => {
   const code = (error as { code?: unknown } | null)?.code;
   return code === "42P01" || code === "42501";
 };
+
+/**
+ * The latest hour's holder sums per market and outcome, and the same a day before (collector migration
+ * 056), with the smart set's size; empty, not a failure, before the tables exist or are granted.
+ */
+async function holdingsQuery(sql: postgres.Sql): Promise<{ holdings: Holdings; smartWallets: number }> {
+  try {
+    const [rows, wallets] = await Promise.all([
+      sql<({ market_id: string; outcome: number; ago: boolean } & HolderSum)[]>`
+        WITH latest AS (SELECT max(hour) AS h FROM prediction_holders)
+        SELECT market_id, outcome::int AS outcome, (hour < (SELECT h FROM latest)) AS ago,
+               holders::int AS holders, shares::float8 AS shares,
+               smart_holders::int AS smart_holders, smart_shares::float8 AS smart_shares
+        FROM prediction_holders
+        WHERE hour = (SELECT h FROM latest) OR hour = (SELECT h FROM latest) - interval '1 day'`,
+      sql<{ n: number }[]>`
+        SELECT count(DISTINCT wallet)::int AS n FROM polymarket_leaders
+        WHERE day = (SELECT max(day) FROM polymarket_leaders)`,
+    ]);
+    const holdings: Holdings = {};
+    for (const r of rows) {
+      const h = (holdings[r.market_id] ??= { now: [null, null], d1: [null, null] });
+      const sum = { holders: r.holders, shares: r.shares, smart_holders: r.smart_holders, smart_shares: r.smart_shares };
+      (r.ago ? h.d1 : h.now)[r.outcome === 0 ? 0 : 1] = sum;
+    }
+    return { holdings, smartWallets: wallets[0]?.n ?? 0 };
+  } catch (error) {
+    if (missingOrRefused(error)) return { holdings: {}, smartWallets: 0 };
+    throw error;
+  }
+}
 
 /** Open markets of the given kinds with their prices a day and a week back, soonest ending first. */
 function predictionMarketsQuery(sql: postgres.Sql, kinds: string, within: string) {
@@ -3009,7 +3056,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
     async predictions() {
       const sql = connect();
       const kalshi = PREDICTION_KALSHI.join(",");
-      const [polymarket, odds, past] = await Promise.all([
+      const [polymarket, odds, past, held] = await Promise.all([
         predictionMarketsQuery(
           sql,
           "fed_decision,fed_cuts,fed_rate_end,fed_hike,inflation_high,unemployment,unemployment_high,gdp,gdp_year,recession",
@@ -3032,9 +3079,12 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                    AND h.at <= now() - interval '7 days' ORDER BY h.at DESC LIMIT 1)::float8 AS d7
           FROM macro_odds o
           WHERE o.series = ANY(string_to_array(${kalshi}, ',')) AND o.closes_at > now()`,
+        holdingsQuery(sql),
       ]);
       return {
         polymarket: [...polymarket],
+        holdings: held.holdings,
+        smartWallets: held.smartWallets,
         kalshi: [...odds],
         kalshiPast: Object.fromEntries(past.map((r) => [r.market, { d1: r.d1, d7: r.d7 }])),
       };
@@ -3042,7 +3092,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
     async btcOdds() {
       const sql = connect();
-      const [markets, chain] = await Promise.all([
+      const [markets, chain, held] = await Promise.all([
         predictionMarketsQuery(sql, "btc_above", "8 days").catch((error) => {
           if (missingOrRefused(error)) return [] as PredictionMarket[];
           throw error;
@@ -3073,8 +3123,9 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
             throw error;
           }
         })(),
+        holdingsQuery(sql),
       ]);
-      return { markets: [...markets], chain };
+      return { markets: [...markets], chain, holdings: held.holdings };
     },
 
     async etfFlows(asset) {

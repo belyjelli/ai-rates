@@ -384,8 +384,8 @@ export const macro: Catalog = {
   "Polymarket median": "Polymarket 中位数",
   "Polymarket's change over the last day, in percentage points":
     "Polymarket 过去一天的变化，单位为百分点",
-  "Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do.":
-    "Polymarket 的阶梯按纽约中午币安 BTC/USDT 一分钟收盘价结算。期权一栏是 Deribit 最新 BTC 期权链对同一价格和时刻的隐含概率：每个行权价的波动率取自微笑曲线，计入微笑斜率计算收于其上方的概率，总方差在前后两个到期日之间读取。差值为正表示 Polymarket 的人群给出的概率高于期权。",
+  "Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do. Smart $ is what the smart wallets (the leaderboard's most profitable, as on the Prediction markets tab) hold on Yes less what they hold on No.":
+    "Polymarket 的阶梯按纽约中午币安 BTC/USDT 一分钟收盘价结算。期权一栏是 Deribit 最新 BTC 期权链对同一价格和时刻的隐含概率：每个行权价的波动率取自微笑曲线，计入微笑斜率计算收于其上方的概率，总方差在前后两个到期日之间读取。差值为正表示 Polymarket 的人群给出的概率高于期权。 聪明钱是聪明钱包（排行榜上最赚钱的钱包，与预测市场标签页相同）持有的 Yes 金额减去 No 金额。",
   "Polymarket's median outcome": "Polymarket 的中位结果",
   "Prediction markets": "预测市场",
   Predictions: "预测",
@@ -413,4 +413,23 @@ export const macro: Catalog = {
   "noon New York": "纽约中午",
   "{change} pp over a week": "一周内 {change} 个百分点",
   "{n} more outcomes under 1%": "另有 {n} 个结果低于 1%",
+  "Change in the smart share over the last day, in percentage points":
+    "聪明钱占比在过去一天的变化（百分点）",
+  Crowd: "人群",
+  "Fed, {meeting}": "美联储，{meeting}",
+  No: "否",
+  Question: "问题",
+  "Share of smart $": "聪明钱占比",
+  "Smart $": "聪明钱",
+  "Smart money backs": "聪明钱押注",
+  "Smart money is the {n} wallets with the most profit on Polymarket's own leaderboard in Economics and in Crypto, over the past month or all time. Each market's top 100 holders per outcome are read every hour; a smart wallet holding less than that is not seen. Where smart money and the crowd's price part, one side is wrong, and the smart side has the better record.":
+    "聪明钱是 Polymarket 自身排行榜上经济和加密类别中、过去一个月或历史上盈利最多的 {n} 个钱包。每个市场每个结果的前 100 名持有者每小时读取一次；持仓少于此的聪明钱包不会被看到。当聪明钱与人群价格分歧时，必有一方是错的，而聪明钱的记录更好。",
+  "Smart money on Polymarket": "Polymarket 上的聪明钱",
+  "That outcome's share of the smart wallets' dollars on the question":
+    "该结果在聪明钱包对此问题所投金额中的占比",
+  "The crowd's price for that outcome": "人群对该结果的价格",
+  "The smart wallets' dollars on Yes less their dollars on No":
+    "聪明钱包在 Yes 上的金额减去在 No 上的金额",
+  Wallets: "钱包数",
+  Yes: "是",
 };

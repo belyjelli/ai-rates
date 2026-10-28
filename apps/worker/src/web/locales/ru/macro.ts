@@ -393,8 +393,8 @@ export const macro: Catalog = {
   "Polymarket median": "Медиана Polymarket",
   "Polymarket's change over the last day, in percentage points":
     "Изменение Polymarket за последний день, в процентных пунктах",
-  "Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do.":
-    "Лестницы Polymarket рассчитываются по минутному закрытию BTC/USDT на Binance в полдень по Нью-Йорку. Колонка опционов — то, что последняя цепочка BTC на Deribit подразумевает для той же цены и момента: волатильность каждого страйка из улыбки, шанс закрыться выше с учётом наклона улыбки, общая дисперсия между соседними экспирациями. Положительная разница значит, что толпа Polymarket даёт цене больше шансов, чем опционы.",
+  "Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do. Smart $ is what the smart wallets (the leaderboard's most profitable, as on the Prediction markets tab) hold on Yes less what they hold on No.":
+    "Лестницы Polymarket рассчитываются по минутному закрытию BTC/USDT на Binance в полдень по Нью-Йорку. Колонка опционов — то, что последняя цепочка BTC на Deribit подразумевает для той же цены и момента: волатильность каждого страйка из улыбки, шанс закрыться выше с учётом наклона улыбки, общая дисперсия между соседними экспирациями. Положительная разница значит, что толпа Polymarket даёт цене больше шансов, чем опционы. «Умные $» — сумма умных кошельков (самых прибыльных по таблице лидеров, как во вкладке рынков прогнозов) на Yes минус их сумма на No.",
   "Polymarket's median outcome": "Медианный исход Polymarket",
   "Prediction markets": "Рынки прогнозов",
   Predictions: "Прогнозы",
@@ -424,4 +424,23 @@ export const macro: Catalog = {
   "noon New York": "полдень по Нью-Йорку",
   "{change} pp over a week": "{change} п.п. за неделю",
   "{n} more outcomes under 1%": "ещё {n} исходов ниже 1%",
+  "Change in the smart share over the last day, in percentage points":
+    "Изменение доли умных денег за день, в процентных пунктах",
+  Crowd: "Толпа",
+  "Fed, {meeting}": "ФРС, {meeting}",
+  No: "Нет",
+  Question: "Вопрос",
+  "Share of smart $": "Доля умных $",
+  "Smart $": "Умные $",
+  "Smart money backs": "Умные деньги ставят на",
+  "Smart money is the {n} wallets with the most profit on Polymarket's own leaderboard in Economics and in Crypto, over the past month or all time. Each market's top 100 holders per outcome are read every hour; a smart wallet holding less than that is not seen. Where smart money and the crowd's price part, one side is wrong, and the smart side has the better record.":
+    "Умные деньги — это {n} кошельков с наибольшей прибылью в собственной таблице лидеров Polymarket по экономике и крипто за последний месяц или за всё время. Топ-100 держателей каждого исхода читаются ежечасно; меньшие позиции умных кошельков не видны. Когда умные деньги и цена толпы расходятся, одна сторона ошибается, и у умной стороны лучше история.",
+  "Smart money on Polymarket": "Умные деньги на Polymarket",
+  "That outcome's share of the smart wallets' dollars on the question":
+    "Доля этого исхода в деньгах умных кошельков по вопросу",
+  "The crowd's price for that outcome": "Цена толпы для этого исхода",
+  "The smart wallets' dollars on Yes less their dollars on No":
+    "Деньги умных кошельков на Yes минус на No",
+  Wallets: "Кошельки",
+  Yes: "Да",
 };

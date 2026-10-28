@@ -166,8 +166,14 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     cvdHistory: async () => [],
     fundFlow: async () => ({ end: null, futures: [], spot: null, market_cap_usd: null }),
     etfFlows: async () => ({ days: [], funds: [] }),
-    predictions: async () => ({ polymarket: [], kalshi: [], kalshiPast: {} }),
-    btcOdds: async () => ({ markets: [], chain: null }),
+    predictions: async () => ({
+      polymarket: [],
+      holdings: {},
+      smartWallets: 0,
+      kalshi: [],
+      kalshiPast: {},
+    }),
+    btcOdds: async () => ({ markets: [], chain: null, holdings: {} }),
     liquidationFeeds: async () => [],
     whalePositions: async () => [],
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
@@ -4229,8 +4235,8 @@ describe("cvd", () => {
     const { data } = fakeData({
       predictions: async () => ({
         polymarket: [
-          market({ label: "No change", strike: 0, yes: 0.2 }),
-          market({ label: "25 bps increase", strike: 25, yes: 0.8 }),
+          market({ market_id: "hold", label: "No change", strike: 0, yes: 0.2 }),
+          market({ market_id: "hike", label: "25 bps increase", strike: 25, yes: 0.8 }),
           market({
             kind: "recession",
             event_slug: "us-recession-by-end-of-2026",
@@ -4242,10 +4248,23 @@ describe("cvd", () => {
             question: "US recession by end of 2026?",
           }),
         ],
+        // Smart wallets hold 9,000 Yes shares of the hold, 100 of the hike: they back the hold.
+        holdings: {
+          hold: {
+            now: [{ holders: 10, shares: 50_000, smart_holders: 3, smart_shares: 9_000 }, null],
+            d1: [null, null],
+          },
+          hike: {
+            now: [{ holders: 10, shares: 60_000, smart_holders: 1, smart_shares: 100 }, null],
+            d1: [null, null],
+          },
+        },
+        smartWallets: 186,
         kalshi: [],
         kalshiPast: {},
       }),
       btcOdds: async () => ({
+        holdings: {},
         markets: [
           market({
             kind: "btc_above",
@@ -4280,6 +4299,12 @@ describe("cvd", () => {
     expect(crowdTab).toMatch(/<td class="num">20%<\/td>/);
     expect(crowdTab).toContain("+20 bp");
     expect(crowdTab).toContain("US recession by end of 2026?");
+    // $1,800 of the smart wallets' $1,880 sits on the hold: 96%, against the crowd's 20%.
+    expect(crowdTab).toContain("Smart money on Polymarket");
+    expect(crowdTab).toMatch(
+      /<td>No change<\/td><td class="num">96%<\/td><td class="num">20%<\/td>/,
+    );
+    expect(crowdTab).toContain("186 wallets");
     const btcTab = await (await get("/rates?panel=btcodds", data)).text();
     expect(btcTab).toContain("$84,000");
     expect(btcTab).toContain("crowd median");

@@ -1,4 +1,11 @@
-import type { BtcOdds, MacroOdds, PredictionMarket, Predictions } from "../app/data";
+import type {
+  BtcOdds,
+  HolderSum,
+  Holdings,
+  MacroOdds,
+  PredictionMarket,
+  Predictions,
+} from "../app/data";
 import { lazyPlaceholder } from "./chart-skeleton";
 import { esc } from "./format";
 import { tr } from "./i18n";
@@ -261,6 +268,119 @@ function printsSection(data: Predictions): string {
 <tbody>${row(tr("Unemployment rate"), "unemployment", "KXU3", (v) => pct(v))}${row(tr("GDP growth, the quarter"), "gdp", "KXGDP", (v) => pct(v))}${row(tr("CPI, on the month"), null, "KXCPI", (v) => pct(v))}${row(tr("CPI, year on year"), null, "KXCPIYOY", (v) => pct(v))}</tbody></table></div>`;
 }
 
+// ---- Smart money ---------------------------------------------------------------------------------
+
+/** A dollar amount in short form: "$12k", "$1.4M". */
+const usdShort = (v: number) => {
+  const a = Math.abs(v);
+  const t =
+    a >= 1e6
+      ? `${(a / 1e6).toFixed(1)}M`
+      : a >= 1e3
+        ? `${Math.round(a / 1e3)}k`
+        : `${Math.round(a)}`;
+  return `${v < 0 ? MINUS : ""}$${t}`;
+};
+
+/** The smart wallets' dollars on Yes and on No in a market, at its current price. */
+function smartDollars(
+  m: PredictionMarket,
+  sums: readonly [HolderSum | null, HolderSum | null] | undefined,
+) {
+  if (!sums) return null;
+  const yes = (sums[0]?.smart_shares ?? 0) * m.yes;
+  const no = (sums[1]?.smart_shares ?? 0) * (1 - m.yes);
+  const wallets = (sums[0]?.smart_holders ?? 0) + (sums[1]?.smart_holders ?? 0);
+  return { yes, no, wallets };
+}
+
+/**
+ * Each question's smart-money reading: for a question of several outcomes, the outcome holding the
+ * most of the smart wallets' Yes dollars and its share of them; for a yes-or-no question, the share
+ * of their dollars on Yes. With the crowd's price beside it, and the share a day before.
+ */
+function smartRow(title: string, markets: readonly PredictionMarket[], holdings: Holdings): string {
+  if (markets.length === 0) return "";
+  const share = (when: "now" | "d1") => {
+    if (markets.length === 1) {
+      const m = markets[0] as PredictionMarket;
+      const d = smartDollars(m, holdings[m.market_id]?.[when]);
+      if (!d || d.yes + d.no <= 0) return null;
+      // The side holding more of the smart dollars, with the crowd's price for that side.
+      const yes = d.yes >= d.no;
+      return {
+        label: yes ? tr("Yes") : tr("No"),
+        m,
+        crowd: yes ? m.yes : 1 - m.yes,
+        share: (yes ? d.yes : d.no) / (d.yes + d.no),
+        dollars: d.yes + d.no,
+        wallets: d.wallets,
+      };
+    }
+    const each = markets.map((m) => ({ m, d: smartDollars(m, holdings[m.market_id]?.[when]) }));
+    const total = each.reduce((a, e) => a + (e.d?.yes ?? 0), 0);
+    if (!(total > 0)) return null;
+    const best = each.reduce((a, e) => ((e.d?.yes ?? 0) > (a.d?.yes ?? 0) ? e : a));
+    const wallets = each.reduce((a, e) => a + (e.d?.wallets ?? 0), 0);
+    return {
+      label: best.m.label,
+      m: best.m,
+      crowd: best.m.yes,
+      share: (best.d?.yes ?? 0) / total,
+      dollars: total,
+      wallets,
+    };
+  };
+  const now = share("now");
+  if (!now) return "";
+  const before = share("d1");
+  const change =
+    before && before.label === now.label
+      ? ppChange(now.share, before.share)
+      : `<td class="num">${dash}</td>`;
+  return `<tr><td>${title}</td><td>${esc(now.label)}</td><td class="num">${prob(now.share)}</td><td class="num">${prob(now.crowd)}</td>${change}<td class="num">${now.wallets}</td><td class="num">${usdShort(now.dollars)}</td></tr>`;
+}
+
+function smartSection(data: Predictions): string {
+  const byEvent = new Map<string, PredictionMarket[]>();
+  for (const m of data.polymarket) {
+    const list = byEvent.get(m.event_slug) ?? [];
+    list.push(m);
+    byEvent.set(m.event_slug, list);
+  }
+  const titled = (kind: string) => [...byEvent.values()].filter((list) => list[0]?.kind === kind);
+  const fedMeetings = titled("fed_decision")
+    .slice(0, 3)
+    .map((list) =>
+      smartRow(
+        tr("Fed, {meeting}", { meeting: dayName((list[0] as PredictionMarket).ends_at) }),
+        list,
+        data.holdings,
+      ),
+    );
+  const singles = data.polymarket
+    .filter((m) => m.kind === "recession" || m.kind === "fed_hike")
+    .map((m) => smartRow(esc(m.question || m.event_title), [m], data.holdings));
+  const others = (
+    [
+      ["fed_cuts", tr("How many Fed cuts in 2026")],
+      ["fed_rate_end", tr("The Fed rate at the end of 2026")],
+      ["inflation_high", tr("How high inflation gets in 2026")],
+      ["unemployment", tr("Unemployment rate")],
+      ["gdp", tr("GDP growth, the quarter")],
+    ] as const
+  ).map(([kind, title]) => {
+    const list = titled(kind)[0];
+    return list ? smartRow(title, list, data.holdings) : "";
+  });
+  const rows = [...fedMeetings, ...singles, ...others].join("");
+  if (!rows) return "";
+  return `${h3(tr("Smart money on Polymarket"))}<div class="sheet-wrap"><table class="sheet mc-table cr-smart">
+<thead><tr><th>${tr("Question")}</th><th>${tr("Smart money backs")}</th><th class="num" title="${esc(tr("That outcome's share of the smart wallets' dollars on the question"))}">${tr("Share of smart $")}</th><th class="num" title="${esc(tr("The crowd's price for that outcome"))}">${tr("Crowd")}</th><th class="num" title="${esc(tr("Change in the smart share over the last day, in percentage points"))}">${tr("1d")}</th><th class="num">${tr("Wallets")}</th><th class="num">${tr("Smart $")}</th></tr></thead>
+<tbody>${rows}</tbody></table></div>
+<p class="notes">${tr("Smart money is the {n} wallets with the most profit on Polymarket's own leaderboard in Economics and in Crypto, over the past month or all time. Each market's top 100 holders per outcome are read every hour; a smart wallet holding less than that is not seen. Where smart money and the crowd's price part, one side is wrong, and the smart side has the better record.", { n: data.smartWallets })}</p>`;
+}
+
 export function crowd(data: Predictions | null, _now: number): string {
   if (data === null) return empty(tr("The prediction markets could not be read right now."));
   if (data.polymarket.length === 0 && data.kalshi.length === 0)
@@ -314,6 +434,7 @@ export function crowd(data: Predictions | null, _now: number): string {
   ].join("");
   return `<div class="cvd-tiles mc-tiles">${tiles}</div>
 ${fed.html}
+${smartSection(data)}
 ${printsSection(data)}
 ${h3(tr("The year ahead, on Polymarket"))}<div class="cr-grid">${year}</div>
 <p class="notes">${tr("Each price is the chance the venue's traders give the outcome, its Yes price; a fed meeting's outcomes are scaled to add up to one. Changes are in percentage points against the price a day and a week before. Polymarket is read every 15 minutes and kept hourly for good; Kalshi's odds are the Fed, Jobs and Growth tabs' own.")}</p>`;
@@ -362,12 +483,18 @@ export function btcodds(data: BtcOdds | null, now: number): string {
             gap === null
               ? `<td class="num">${dash}</td>`
               : `<td class="num${Math.round(gap * 100) > 0 ? " mc-up" : Math.round(gap * 100) < 0 ? " mc-down" : ""}">${Math.round(gap * 100) === 0 ? "0" : `${gap > 0 ? "+" : MINUS}${Math.abs(Math.round(gap * 100))}`}</td>`;
-          return `<tr><td class="num">${usd0(m.strike as number)}</td><td class="num">${prob(m.yes)}</td><td class="num">${prob(o)}</td>${gapCell}${ppChange(m.yes, m.yes_1d)}<td class="num dim">${m.volume === null ? "–" : usd0(m.volume)}</td></tr>`;
+          const smart = smartDollars(m, data.holdings[m.market_id]?.now);
+          const net = smart ? smart.yes - smart.no : null;
+          const smartCell =
+            net === null || Math.abs(net) < 1
+              ? `<td class="num">${dash}</td>`
+              : `<td class="num ${net > 0 ? "mc-up" : "mc-down"}">${net > 0 ? "+" : ""}${usdShort(net)}</td>`;
+          return `<tr><td class="num">${usd0(m.strike as number)}</td><td class="num">${prob(m.yes)}</td><td class="num">${prob(o)}</td>${gapCell}${ppChange(m.yes, m.yes_1d)}${smartCell}<td class="num dim">${m.volume === null ? "–" : usd0(m.volume)}</td></tr>`;
         })
         .join("");
       const head = `${dayName(new Date(at))} · ${tr("noon New York")}`;
       return `<div class="cr-q"><p class="mc-ladder-t">${tr("Bitcoin above, {when}", { when: head })} <span class="dim">${tr("crowd median {crowd} · options median {options}", { crowd: crowd === null ? "–" : usd0(crowd), options: options === null ? "–" : usd0(options) })}</span></p>
-<table class="sheet mc-table cr-table"><thead><tr><th class="num">${tr("Price")}</th><th class="num">Polymarket</th><th class="num" title="${esc(tr("Deribit's option chain: Black-76 with the smile's slope, between the expiries either side"))}">${tr("Options")}</th><th class="num" title="${esc(tr("Polymarket less options, in percentage points"))}">${tr("Gap")}</th><th class="num" title="${esc(tr("Polymarket's change over the last day, in percentage points"))}">${tr("1d")}</th><th class="num">${tr("Volume")}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+<table class="sheet mc-table cr-table"><thead><tr><th class="num">${tr("Price")}</th><th class="num">Polymarket</th><th class="num" title="${esc(tr("Deribit's option chain: Black-76 with the smile's slope, between the expiries either side"))}">${tr("Options")}</th><th class="num" title="${esc(tr("Polymarket less options, in percentage points"))}">${tr("Gap")}</th><th class="num" title="${esc(tr("Polymarket's change over the last day, in percentage points"))}">${tr("1d")}</th><th class="num" title="${esc(tr("The smart wallets' dollars on Yes less their dollars on No"))}">${tr("Smart $")}</th><th class="num">${tr("Volume")}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     })
     .join("");
   const w = widest as { at: number; strike: number; gap: number } | null;
@@ -404,7 +531,7 @@ export function btcodds(data: BtcOdds | null, now: number): string {
     .join("");
   return `<div class="cvd-tiles mc-tiles">${tiles}</div>
 <div class="cr-grid cr-grid-btc">${tables}</div>
-<p class="notes">${tr("Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do.")}</p>`;
+<p class="notes">${tr("Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do. Smart $ is what the smart wallets (the leaderboard's most profitable, as on the Prediction markets tab) hold on Yes less what they hold on No.")}</p>`;
 }
 
 // ---- Panel plumbing -----------------------------------------------------------------------------
@@ -432,9 +559,11 @@ export const CROWD_CSS = `.cr-grid{display:grid;grid-template-columns:repeat(aut
 .cr-grid-btc{grid-template-columns:repeat(auto-fill,minmax(420px,1fr))}
 .cr-q .mc-ladder-t{margin:0 0 4px}
 .cr-table{width:100%}
-.cr-table td:first-child{overflow-wrap:anywhere}
+.cr-table td:first-child{white-space:normal;width:46%}
+.cr-table .mc-bar-cell{width:22%}
 .cr-grid-btc .cr-table td:first-child{white-space:nowrap}
 .cr-bar{display:block;height:6px;background:var(--accent);min-width:1px}
 .cr-more{margin:2px 0 0;font-size:11px}
 .cr-fed td[rowspan]{vertical-align:middle}
+.cr-smart td:first-child{white-space:normal}
 @media (max-width:640px){.cr-grid,.cr-grid-btc{grid-template-columns:minmax(0,1fr)}}`;

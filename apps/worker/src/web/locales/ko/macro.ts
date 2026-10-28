@@ -390,8 +390,8 @@ export const macro: Catalog = {
   "Polymarket median": "Polymarket 중앙값",
   "Polymarket's change over the last day, in percentage points":
     "Polymarket 지난 하루 변화, 퍼센트포인트",
-  "Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do.":
-    "Polymarket 래더는 뉴욕 정오 바이낸스 BTC/USDT 1분봉 종가로 정산됩니다. 옵션 열은 Deribit의 최신 BTC 체인이 같은 가격과 시점에 대해 내포하는 확률입니다. 각 행사가의 변동성은 스마일에서, 스마일 기울기를 반영해 그 위에서 마감할 확률을 구하고, 총분산은 앞뒤 만기 사이에서 읽습니다. 격차가 양수면 Polymarket 참여자가 옵션보다 높은 확률을 준다는 뜻입니다.",
+  "Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do. Smart $ is what the smart wallets (the leaderboard's most profitable, as on the Prediction markets tab) hold on Yes less what they hold on No.":
+    "Polymarket 래더는 뉴욕 정오 바이낸스 BTC/USDT 1분봉 종가로 정산됩니다. 옵션 열은 Deribit의 최신 BTC 체인이 같은 가격과 시점에 대해 내포하는 확률입니다. 각 행사가의 변동성은 스마일에서, 스마일 기울기를 반영해 그 위에서 마감할 확률을 구하고, 총분산은 앞뒤 만기 사이에서 읽습니다. 격차가 양수면 Polymarket 참여자가 옵션보다 높은 확률을 준다는 뜻입니다. 스마트 $는 스마트 지갑(예측시장 탭과 같은, 리더보드에서 가장 수익이 큰 지갑)이 Yes에 보유한 금액에서 No에 보유한 금액을 뺀 값입니다.",
   "Polymarket's median outcome": "Polymarket 중앙값 결과",
   "Prediction markets": "예측시장",
   Predictions: "예측",
@@ -420,4 +420,23 @@ export const macro: Catalog = {
   "noon New York": "뉴욕 정오",
   "{change} pp over a week": "일주일간 {change}pp",
   "{n} more outcomes under 1%": "1% 미만 결과 {n}개 더",
+  "Change in the smart share over the last day, in percentage points":
+    "지난 하루 스마트 비중 변화, 퍼센트포인트",
+  Crowd: "참여자",
+  "Fed, {meeting}": "연준, {meeting}",
+  No: "아니오",
+  Question: "질문",
+  "Share of smart $": "스마트 $ 비중",
+  "Smart $": "스마트 $",
+  "Smart money backs": "스마트 머니의 선택",
+  "Smart money is the {n} wallets with the most profit on Polymarket's own leaderboard in Economics and in Crypto, over the past month or all time. Each market's top 100 holders per outcome are read every hour; a smart wallet holding less than that is not seen. Where smart money and the crowd's price part, one side is wrong, and the smart side has the better record.":
+    "스마트 머니는 Polymarket 자체 리더보드의 경제·암호화폐 부문에서 지난 한 달 또는 전체 기간 수익이 가장 큰 {n}개 지갑입니다. 각 시장의 결과별 상위 100명 보유자를 매시간 읽으며, 그보다 적게 보유한 스마트 지갑은 보이지 않습니다. 스마트 머니와 참여자 가격이 갈리면 한쪽은 틀린 것이고, 더 나은 기록을 가진 쪽은 스마트 쪽입니다.",
+  "Smart money on Polymarket": "Polymarket의 스마트 머니",
+  "That outcome's share of the smart wallets' dollars on the question":
+    "이 질문에 대한 스마트 지갑 금액 중 해당 결과의 비중",
+  "The crowd's price for that outcome": "해당 결과에 대한 참여자 가격",
+  "The smart wallets' dollars on Yes less their dollars on No":
+    "스마트 지갑의 Yes 금액에서 No 금액을 뺀 값",
+  Wallets: "지갑 수",
+  Yes: "예",
 };

@@ -389,8 +389,8 @@ export const macro: Catalog = {
   "Polymarket median": "Polymarket 中央値",
   "Polymarket's change over the last day, in percentage points":
     "Polymarket の過去1日の変化（パーセントポイント）",
-  "Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do.":
-    "Polymarket のラダーはニューヨーク正午のバイナンス BTC/USDT 1分足終値で決済されます。オプション列は Deribit の最新 BTC チェーンが同じ価格・時点について示す確率です：各行使価格のボラティリティはスマイルから、スマイルの傾きを含めて上回る確率を算出し、総分散は前後の満期の間で読み取ります。差がプラスなら Polymarket の参加者はオプションより高い確率を付けています。",
+  "Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do. Smart $ is what the smart wallets (the leaderboard's most profitable, as on the Prediction markets tab) hold on Yes less what they hold on No.":
+    "Polymarket のラダーはニューヨーク正午のバイナンス BTC/USDT 1分足終値で決済されます。オプション列は Deribit の最新 BTC チェーンが同じ価格・時点について示す確率です：各行使価格のボラティリティはスマイルから、スマイルの傾きを含めて上回る確率を算出し、総分散は前後の満期の間で読み取ります。差がプラスなら Polymarket の参加者はオプションより高い確率を付けています。 スマートマネーは、スマートウォレット（予測市場タブと同じくリーダーボードで最も利益を上げた参加者）が Yes に持つ金額から No に持つ金額を引いたものです。",
   "Polymarket's median outcome": "Polymarket の中央値の結果",
   "Prediction markets": "予測市場",
   Predictions: "予測",
@@ -419,4 +419,23 @@ export const macro: Catalog = {
   "noon New York": "ニューヨーク正午",
   "{change} pp over a week": "1週間で {change} pp",
   "{n} more outcomes under 1%": "ほか {n} 件の結果は1%未満",
+  "Change in the smart share over the last day, in percentage points":
+    "スマートマネー比率の過去1日の変化（パーセントポイント）",
+  Crowd: "参加者",
+  "Fed, {meeting}": "FRB、{meeting}",
+  No: "いいえ",
+  Question: "質問",
+  "Share of smart $": "スマートマネー比率",
+  "Smart $": "スマート$",
+  "Smart money backs": "スマートマネーの支持",
+  "Smart money is the {n} wallets with the most profit on Polymarket's own leaderboard in Economics and in Crypto, over the past month or all time. Each market's top 100 holders per outcome are read every hour; a smart wallet holding less than that is not seen. Where smart money and the crowd's price part, one side is wrong, and the smart side has the better record.":
+    "スマートマネーとは、Polymarket 自身のリーダーボードで経済と暗号資産の各カテゴリーにおいて、過去1か月または全期間で最も利益を上げた {n} のウォレットです。各市場の結果ごとの上位100保有者を毎時取得するため、それ未満の保有は見えません。スマートマネーと参加者の価格が分かれるとき、どちらかが間違っており、実績が良いのはスマート側です。",
+  "Smart money on Polymarket": "Polymarket のスマートマネー",
+  "That outcome's share of the smart wallets' dollars on the question":
+    "この質問に対するスマートウォレットの金額に占めるその結果の割合",
+  "The crowd's price for that outcome": "その結果に対する参加者の価格",
+  "The smart wallets' dollars on Yes less their dollars on No":
+    "スマートウォレットの Yes の金額から No の金額を引いた値",
+  Wallets: "ウォレット数",
+  Yes: "はい",
 };

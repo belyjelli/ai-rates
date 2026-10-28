@@ -45,7 +45,8 @@ export const CHANGELOG: readonly Release[] = [
     changes: [
       "A Prediction markets tab sets Polymarket's prices beside Kalshi's: each coming FOMC meeting's odds on both venues, with the expected move and how it changed in a day, the next unemployment, GDP and CPI prints, and the year's questions only Polymarket asks, such as how many cuts in 2026, the year-end Fed rate and a US recession. Every price shows its change over a day and a week.",
       "A BTC: crowd vs options tab sets Polymarket's daily \"Bitcoin above $X\" ladders beside what Deribit's option chain implies for the same price and moment, with each ladder's median on both sides and the widest gap between them.",
-      "Polymarket is read every 15 minutes and its prices are kept hourly for good, so the history of what the crowd expected stays readable.",
+      "Smart money: the wallets with the most profit on Polymarket's own leaderboard in Economics and Crypto. Each question shows the outcome they hold the most money on, their share and the crowd's price beside it; on the BTC ladders, their dollars on Yes less No at each price. A wallet outside a market's top 100 holders is not seen.",
+      "Polymarket is read every 15 minutes and its prices are kept hourly for good, so the history of what the crowd expected stays readable. Short-dated up-or-down markets were checked and left out: an hour's window sits at even odds until it opens and then only follows the price.",
     ],
   },
   {
