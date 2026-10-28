@@ -58,7 +58,8 @@ import { venueName } from "./venues";
  * alike: FUTURES_TAKER_VENUES and SPOT_TAKER_VENUES. Binance, OKX, Gate and Bitget publish their
  * perpetuals' taker split as 5-minute statistics (migration 023), and Binance its spot books' in its
  * klines (051); the rest publish none, so the collector counts their flow trade by trade from the live
- * tape (its stream.TapeFeed), from 2026-10-28 on. Spot is one book an exchange (USDT; USD on Coinbase),
+ * tape (its stream.TapeFeed), from 2026-10-28 on. An asset's USDT, USDC and USD markets count as one,
+ * spot and futures alike (owner, 2026-10-28): the reads sum by asset, whatever the quote. Spot is
  * crypto only: stocks, commodities and indices have no spot book on a crypto exchange and chart
  * perpetuals only. The assets are the ~500 deepest by open interest on the four REST venues, plus every
  * commodity, index and currency pair. Nothing is finer than five minutes. The lede says all of it, and
@@ -793,7 +794,7 @@ export function cvd(data: {
       tr("Chart"),
       "cvd",
       `<p>${tr(
-        "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars, summed over every exchange we collect that lists the asset. Futures CVD adds up the perpetuals on <b>{futures}</b>; spot CVD the spot books on <b>{spot}</b>, one book an exchange. It covers the ~500 assets deepest by open interest and every commodity, index and currency pair, in 5-minute buckets. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.",
+        "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars, summed over every exchange we collect that lists the asset, with its USDT, USDC and USD markets counted as one. Futures CVD adds up the perpetuals on <b>{futures}</b>; spot CVD the spot books on <b>{spot}</b>. It covers the ~500 assets deepest by open interest and every commodity, index and currency pair, in 5-minute buckets. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.",
         {
           buys: `<span class="cvd-up">${tr("taker buys")}</span>`,
           sells: `<span class="cvd-down">${tr("taker sells")}</span>`,

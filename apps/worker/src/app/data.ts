@@ -1542,8 +1542,9 @@ interface SpotBars {
 
 /**
  * One asset's spot taker flow in bars (collector migration 051), every collected exchange summed:
- * Binance's klines, and the tapes the collector counts from OKX, Bybit, Coinbase, Bitget and Gate, one
- * book an exchange. The other half of the Chart page's CVD. Crypto only -- a stock or commodity
+ * Binance's klines, and the tapes the collector counts from OKX, Bybit, Coinbase, Bitget and Gate,
+ * each asset's USDT, USDC and USD books as one (it stores the asset on every row, so they sum by base
+ * here). The other half of the Chart page's CVD. Crypto only -- a stock or commodity
  * perpetual has no spot book on a crypto exchange -- so any other class asks nothing.
  *
  * TOLERANT OF A DATABASE WITHOUT IT. Until the collector's migration 051 is applied the table does
@@ -1633,7 +1634,10 @@ export interface FundFlow {
   /** End of the newest complete bucket the windows run back from; null with no flow at all. */
   end: Date | null;
   futures: FundWindow[];
-  /** Binance's USDT spot book; null for an asset with no spot book (any non-crypto class). */
+  /**
+   * Every collected spot book in USDT, USDC and USD; null for an asset with none (any non-crypto
+   * class).
+   */
   spot: FundWindow[] | null;
   /** CoinGecko's market cap (collector migration 052), when fetched within two days. */
   market_cap_usd: number | null;
