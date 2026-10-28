@@ -38,8 +38,9 @@ function table(side: "spot" | "futures", title: string, source: string): string 
  */
 export function fundPanel(asset: string, assetClass: AssetClass): string {
   const src = `${FUND_FLOW_PATH}?asset=${encodeURIComponent(asset)}&class=${assetClass}`;
+  // Stocks have spot books too: their tokenized shares (collector migration 054).
   const spot =
-    assetClass === "crypto"
+    assetClass === "crypto" || assetClass === "equity"
       ? table(
           "spot",
           tr("Spot fund"),

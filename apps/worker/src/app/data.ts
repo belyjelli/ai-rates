@@ -1543,7 +1543,8 @@ interface SpotBars {
 }
 
 /**
- * One asset's spot taker flow in bars (collector migration 051), every collected exchange summed:
+ * One asset's spot taker flow in bars (collector migrations 051 and 054), every collected exchange
+ * summed, for crypto and for stocks (their tokenized shares):
  * Binance's klines, and the tapes the collector counts from OKX, Bybit, Coinbase, Bitget and Gate,
  * each asset's USDT, USDC and USD books as one (it stores the asset on every row, so they sum by base
  * here). The other half of the Chart page's CVD. Crypto only -- a stock or commodity
@@ -1560,18 +1561,21 @@ async function spotBars(
   range: Pick<CvdHistoryOptions, "fromMs" | "toMs"> | null = null,
 ): Promise<SpotBars> {
   const none: SpotBars = { rows: [], venues: [] };
-  if (assetClass !== null && assetClass !== "crypto") return none;
+  // The class whose spot rows are read: the address's, or crypto for an address naming none (the
+  // site names every other class in its addresses). A stock's spot books are its tokenized shares
+  // (collector migration 054); commodities, indices and currencies have none collected.
+  const spotClass = assetClass ?? "crypto";
+  if (spotClass !== "crypto" && spotClass !== "equity") return none;
   const barSeconds = barMinutes * 60;
   const within = range
     ? sql`bucket_start >= to_timestamp(${range.fromMs / 1000}) AND bucket_start < to_timestamp(${range.toMs / 1000})`
     : sql`bucket_start > now() - ${`${windowHours} hours`}::interval`;
-  try {
-    const rows = await sql<
-      { bucket_start: Date; buy_usd: number; sell_usd: number; venues: string | null }[]
-    >`
+  const read = (ofClass: postgres.PendingQuery<postgres.Row[]>) => sql<
+    { bucket_start: Date; buy_usd: number; sell_usd: number; venues: string | null }[]
+  >`
       WITH flow AS (
         SELECT venue_id, bucket_start, buy_usd, sell_usd FROM spot_taker_flow
-        WHERE base = ${base} AND ${within}
+        WHERE base = ${base} AND ${ofClass} AND ${within}
       )
       SELECT to_timestamp(floor(extract(epoch FROM bucket_start) / ${barSeconds}) * ${barSeconds})
                AS bucket_start,
@@ -1582,6 +1586,16 @@ async function spotBars(
                AS venues
       FROM flow
       GROUP BY 1 ORDER BY 1`;
+  const codeOf = (error: unknown) => (error as { code?: unknown } | null)?.code;
+  try {
+    let rows: Awaited<ReturnType<typeof read>>;
+    try {
+      rows = await read(sql`asset_class = ${spotClass}`);
+    } catch (error) {
+      // 42703: no asset_class yet (before migration 054), when every row is crypto's.
+      if (codeOf(error) !== "42703" || spotClass !== "crypto") throw error;
+      rows = await read(sql`true`);
+    }
     return {
       rows: rows.map(({ bucket_start, buy_usd, sell_usd }) => ({
         bucket_start,
@@ -1591,8 +1605,8 @@ async function spotBars(
       venues: venueList(rows[0]?.venues),
     };
   } catch (error) {
-    const code = (error as { code?: unknown } | null)?.code;
-    if (code === "42P01" || code === "42501") return none;
+    const code = codeOf(error);
+    if (code === "42P01" || code === "42501" || code === "42703") return none;
     throw error;
   }
 }
@@ -1751,8 +1765,8 @@ export interface FundFlow {
   end: Date | null;
   futures: FundWindow[];
   /**
-   * Every collected spot book in USDT, USDC and USD; null for an asset with none (any non-crypto
-   * class).
+   * Every collected spot book in USDT, USDC and USD, a stock's tokenized shares included; null for
+   * a class with none collected (commodities, indices, currencies).
    */
   spot: FundWindow[] | null;
   /** CoinGecko's market cap (collector migration 052), when fetched within two days. */
@@ -1845,14 +1859,16 @@ async function fundFlowQuery(
       return await read();
     } catch (error) {
       const code = (error as { code?: unknown } | null)?.code;
-      if (code === "42P01" || code === "42501") return otherwise;
+      if (code === "42P01" || code === "42501" || code === "42703") return otherwise;
       throw error;
     }
   };
   const crypto = assetClass === "crypto";
+  // Stocks have spot books too, their tokenized shares (collector migration 054).
+  const spotBooks = crypto || assetClass === "equity";
   const [fut, spot, cap] = await Promise.all([
     futures,
-    crypto
+    spotBooks
       ? tolerant(
           async () => [
             ...(await fundWindows(
@@ -1860,7 +1876,8 @@ async function fundFlowQuery(
               sql`
                 SELECT bucket_start, sum(buy_usd) AS buy, sum(sell_usd) AS sell, 1 AS venues
                 FROM spot_taker_flow
-                WHERE base = ${base} AND bucket_start > now() - ${FUND_LOOKBACK}::interval
+                WHERE base = ${base} AND asset_class = ${assetClass}
+                  AND bucket_start > now() - ${FUND_LOOKBACK}::interval
                 GROUP BY bucket_start`,
             )),
           ],
@@ -2879,15 +2896,16 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         barsQuery,
         spotBars(sql, { windowHours, barMinutes, base, assetClass }),
       ]);
-      const crypto = resolved?.asset_class === "crypto";
+      // The spot rows were read for the address's class, or crypto's when it names none.
+      const spotFits = resolved?.asset_class === (assetClass ?? "crypto");
       const futuresVenues = venueList(bars[0]?.venues);
       const perps: CvdBar[] = bars.map(({ venues: _, ...bar }) => bar);
-      const withSpotBook = perps.length > 0 && crypto && spot.rows.length > 0;
+      const withSpotBook = perps.length > 0 && spotFits && spot.rows.length > 0;
 
       return {
         rows: [...rows],
         asset_class: resolved?.asset_class ?? null,
-        bars: perps.length && crypto ? withSpot(perps, spot.rows) : perps,
+        bars: withSpotBook ? withSpot(perps, spot.rows) : perps,
         spot: withSpotBook,
         futures_venues: futuresVenues,
         spot_venues: withSpotBook ? spot.venues : [],
