@@ -1591,9 +1591,12 @@ type FundRow = {
  * Sums one side's per-bucket flow over every fund window. `flow` is a query yielding bucket_start,
  * buy, sell and venues (how many venues reported the bucket).
  *
- * THE END. The windows run back from the end of the newest bucket that every venue reporting in the
- * last two hours has reported, not simply the newest bucket: Bitget's sweep runs past five minutes, so
- * the newest bucket often lacks it, and a 5m window ending there would undercount. A window that
+ * THE END. The windows run back from the end of the newest CLOSED bucket that every venue reporting
+ * in the last two hours has reported, not simply the newest bucket. Binance's klines include the
+ * candle still open, which the sweep stores and later overwrites, so the newest bucket can hold a
+ * minute of trading (the spot table, with one venue, showed a $17k BTC "5m" on 2026-10-28). And
+ * Bitget's sweep runs past five minutes, so a closed bucket often lacks it; a 5m window ending
+ * there would undercount. A window that
  * reaches back past the oldest bucket read is null rather than a short sum, and so is a comparison
  * that does.
  */
@@ -1604,7 +1607,8 @@ function fundWindows(sql: postgres.Sql, flow: postgres.PendingQuery<postgres.Row
     WITH f AS (${flow}),
     e AS (
       SELECT max(bucket_start) FILTER (
-               WHERE venues >= coalesce(
+               WHERE bucket_start <= now() - interval '5 minutes'
+                 AND venues >= coalesce(
                  (SELECT max(venues) FROM f WHERE bucket_start > now() - interval '2 hours'), 0)
              ) + interval '5 minutes' AS end_at,
              min(bucket_start) AS first_at
