@@ -1657,6 +1657,9 @@ export const SPOT_TAKER_VENUES = [
   "bybit",
   "bitget",
   "gate",
+  "mexc",
+  "kucoin",
+  "bingx",
   "hyperliquid",
 ] as const;
 
