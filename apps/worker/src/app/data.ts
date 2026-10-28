@@ -1363,6 +1363,10 @@ export interface DataSource {
   assetBars(options: CvdOptions): Promise<CvdBar[]>;
   /** An older page of one asset's CVD bars, for a chart dragged back past what the page shipped. */
   cvdHistory(options: CvdHistoryOptions): Promise<CvdBar[]>;
+  /** Polymarket's macro markets beside Kalshi's odds, for the Rates page's Prediction tab (migration 055). */
+  predictions(): Promise<Predictions>;
+  /** Polymarket's Bitcoin "above" ladders and Deribit's latest BTC chain, for the Crowd vs options tab. */
+  btcOdds(): Promise<BtcOdds>;
   /** US spot ETF flows for one asset by trade date, for the Chart page's pins (collector migration 053). */
   etfFlows(asset: string): Promise<EtfFlows>;
   /** One asset's spot and futures fund flow over each window of FUND_WINDOWS, for the Chart page. */
@@ -1662,6 +1666,77 @@ export const SPOT_TAKER_VENUES = [
   "bingx",
   "hyperliquid",
 ] as const;
+
+/** One open prediction market, its Yes price now and a day and a week ago (collector migration 055). */
+export interface PredictionMarket {
+  venue: string;
+  market_id: string;
+  event_slug: string;
+  event_title: string;
+  /** fed_decision, fed_cuts, fed_rate_end, fed_hike, inflation_high, unemployment, unemployment_high,
+   * gdp, gdp_year, recession, btc_above. */
+  kind: string;
+  question: string;
+  label: string;
+  /** The number the label names: a price, a move in basis points, a count, a rate. */
+  strike: number | null;
+  ends_at: Date;
+  yes: number;
+  bid: number | null;
+  ask: number | null;
+  volume: number | null;
+  /** The Yes price at or before a day and a week ago; null before the history reaches back. */
+  yes_1d: number | null;
+  yes_7d: number | null;
+}
+
+export interface Predictions {
+  polymarket: PredictionMarket[];
+  /** Kalshi's open markets for the questions both venues ask, and their probability a day and a week ago. */
+  kalshi: MacroOdds[];
+  kalshiPast: Record<string, { d1: number | null; d7: number | null }>;
+}
+
+/** Deribit's latest BTC option chain as stored (collector migration 049), for the options side. */
+export interface OptionChainRead {
+  taken_at: Date;
+  spot: number;
+  /** [expiry ms, strike, is call, implied vol (fraction), forward] */
+  options: [number, number, boolean, number, number][];
+}
+
+export interface BtcOdds {
+  markets: PredictionMarket[];
+  chain: OptionChainRead | null;
+}
+
+/** The Kalshi series the Prediction tab sets beside Polymarket's questions. */
+export const PREDICTION_KALSHI = ["KXFEDDECISION", "KXU3", "KXGDP", "KXCPI", "KXCPIYOY"];
+
+/** Postgres refuses a table the site's role may not read (42501), or one not created yet (42P01). */
+const missingOrRefused = (error: unknown) => {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === "42P01" || code === "42501";
+};
+
+/** Open markets of the given kinds with their prices a day and a week back, soonest ending first. */
+function predictionMarketsQuery(sql: postgres.Sql, kinds: string, within: string) {
+  return sql<PredictionMarket[]>`
+    SELECT m.venue, m.market_id, m.event_slug, m.event_title, m.kind, m.question, m.label,
+           m.strike::float8 AS strike, m.ends_at, m.yes::float8 AS yes, m.bid::float8 AS bid,
+           m.ask::float8 AS ask, m.volume::float8 AS volume,
+           (SELECT o.yes FROM prediction_odds o
+             WHERE o.venue = m.venue AND o.market_id = m.market_id AND o.hour <= now() - interval '1 day'
+             ORDER BY o.hour DESC LIMIT 1)::float8 AS yes_1d,
+           (SELECT o.yes FROM prediction_odds o
+             WHERE o.venue = m.venue AND o.market_id = m.market_id AND o.hour <= now() - interval '7 days'
+             ORDER BY o.hour DESC LIMIT 1)::float8 AS yes_7d
+    FROM prediction_markets m
+    WHERE m.kind = ANY(string_to_array(${kinds}, ',')) AND m.ends_at > now()
+      AND m.ends_at < now() + ${within}::interval
+      AND m.fetched_at > now() - interval '1 day'
+    ORDER BY m.ends_at, m.event_slug, m.strike NULLS LAST, m.label`;
+}
 
 /** One trade date's spot ETF flow for an asset, every fund the collector reads summed. */
 export interface EtfFlowDay {
@@ -2929,6 +3004,77 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         spot ? spotBars(sql, options, { fromMs, toMs }) : null,
       ]);
       return spotBook ? withSpot(bars, spotBook.rows) : [...bars];
+    },
+
+    async predictions() {
+      const sql = connect();
+      const kalshi = PREDICTION_KALSHI.join(",");
+      const [polymarket, odds, past] = await Promise.all([
+        predictionMarketsQuery(
+          sql,
+          "fed_decision,fed_cuts,fed_rate_end,fed_hike,inflation_high,unemployment,unemployment_high,gdp,gdp_year,recession",
+          "3 years",
+        ).catch((error) => {
+          if (missingOrRefused(error)) return [] as PredictionMarket[];
+          throw error;
+        }),
+        sql<MacroOdds[]>`
+          SELECT market, series, event, period, label, strike, strike_type, closes_at, probability,
+                 volume, fetched_at
+          FROM macro_odds
+          WHERE series = ANY(string_to_array(${kalshi}, ',')) AND closes_at > now()
+          ORDER BY closes_at, strike`,
+        sql<{ market: string; d1: number | null; d7: number | null }[]>`
+          SELECT o.market,
+                 (SELECT h.probability FROM macro_odds_history h WHERE h.market = o.market
+                   AND h.at <= now() - interval '1 day' ORDER BY h.at DESC LIMIT 1)::float8 AS d1,
+                 (SELECT h.probability FROM macro_odds_history h WHERE h.market = o.market
+                   AND h.at <= now() - interval '7 days' ORDER BY h.at DESC LIMIT 1)::float8 AS d7
+          FROM macro_odds o
+          WHERE o.series = ANY(string_to_array(${kalshi}, ',')) AND o.closes_at > now()`,
+      ]);
+      return {
+        polymarket: [...polymarket],
+        kalshi: [...odds],
+        kalshiPast: Object.fromEntries(past.map((r) => [r.market, { d1: r.d1, d7: r.d7 }])),
+      };
+    },
+
+    async btcOdds() {
+      const sql = connect();
+      const [markets, chain] = await Promise.all([
+        predictionMarketsQuery(sql, "btc_above", "8 days").catch((error) => {
+          if (missingOrRefused(error)) return [] as PredictionMarket[];
+          throw error;
+        }),
+        (async (): Promise<OptionChainRead | null> => {
+          try {
+            const [read] = await sql<{ taken_at: Date; spot: number }[]>`
+              SELECT taken_at, spot::float8 AS spot FROM option_chain_reads
+              WHERE currency = 'BTC' ORDER BY taken_at DESC LIMIT 1`;
+            if (!read) return null;
+            // One read is about 1,400 options; only the expiries the ladders can need are shipped.
+            const rows = await sql<
+              { expiry: number; strike: number; is_call: boolean; iv: number; forward: number }[]
+            >`
+              SELECT (extract(epoch FROM expiry) * 1000)::float8 AS expiry, strike::float8 AS strike,
+                     is_call, iv::float8 AS iv, forward::float8 AS forward
+              FROM option_chain
+              WHERE currency = 'BTC' AND taken_at = ${read.taken_at} AND root = ''
+                AND expiry > now() AND expiry < now() + interval '12 days' AND iv > 0
+              ORDER BY expiry, strike, is_call`;
+            return {
+              taken_at: read.taken_at,
+              spot: read.spot,
+              options: rows.map((r) => [r.expiry, r.strike, r.is_call, r.iv, r.forward]),
+            };
+          } catch (error) {
+            if (missingOrRefused(error)) return null;
+            throw error;
+          }
+        })(),
+      ]);
+      return { markets: [...markets], chain };
     },
 
     async etfFlows(asset) {

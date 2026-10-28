@@ -166,6 +166,8 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     cvdHistory: async () => [],
     fundFlow: async () => ({ end: null, futures: [], spot: null, market_cap_usd: null }),
     etfFlows: async () => ({ days: [], funds: [] }),
+    predictions: async () => ({ polymarket: [], kalshi: [], kalshiPast: {} }),
+    btcOdds: async () => ({ markets: [], chain: null }),
     liquidationFeeds: async () => [],
     whalePositions: async () => [],
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
@@ -4202,6 +4204,89 @@ describe("cvd", () => {
     expect(html).toContain('data-u="cvd-total" class="">$0<');
     // An asset with no price shows a dash, not a zero change.
     expect(html).toContain('<span data-u="change">–</span>');
+  });
+
+  test("the Rates page's prediction tabs set Polymarket beside Kalshi and the options", async () => {
+    const DAY = 86_400_000;
+    const market = (over: Record<string, unknown>) => ({
+      venue: "polymarket",
+      market_id: String(Math.random()),
+      event_slug: "fed-decision-in-december",
+      event_title: "Fed Decision in December?",
+      kind: "fed_decision",
+      question: "",
+      label: "",
+      strike: 0,
+      ends_at: new Date(NOW + 40 * DAY),
+      yes: 0.5,
+      bid: null,
+      ask: null,
+      volume: 1000,
+      yes_1d: 0.4,
+      yes_7d: null,
+      ...over,
+    });
+    const { data } = fakeData({
+      predictions: async () => ({
+        polymarket: [
+          market({ label: "No change", strike: 0, yes: 0.2 }),
+          market({ label: "25 bps increase", strike: 25, yes: 0.8 }),
+          market({
+            kind: "recession",
+            event_slug: "us-recession-by-end-of-2026",
+            event_title: "US recession by end of 2026?",
+            label: "",
+            strike: null,
+            yes: 0.07,
+            yes_7d: 0.1,
+            question: "US recession by end of 2026?",
+          }),
+        ],
+        kalshi: [],
+        kalshiPast: {},
+      }),
+      btcOdds: async () => ({
+        markets: [
+          market({
+            kind: "btc_above",
+            event_slug: "bitcoin-above",
+            label: "80,000",
+            strike: 80_000,
+            yes: 0.6,
+            ends_at: new Date(NOW + 2 * DAY),
+          }),
+          market({
+            kind: "btc_above",
+            event_slug: "bitcoin-above",
+            label: "84,000",
+            strike: 84_000,
+            yes: 0.2,
+            ends_at: new Date(NOW + 2 * DAY),
+          }),
+        ],
+        chain: {
+          taken_at: new Date(NOW),
+          spot: 80_000,
+          options: [70_000, 75_000, 80_000, 85_000, 90_000].flatMap((k) => [
+            [NOW + 3 * DAY, k, true, 0.5, 80_000] as [number, number, boolean, number, number],
+            [NOW + 3 * DAY, k, false, 0.5, 80_000] as [number, number, boolean, number, number],
+          ]),
+        },
+      }),
+    });
+    const crowdTab = await (await get("/rates?panel=crowd", data)).text();
+    expect(crowdTab).toContain("Each FOMC meeting, both venues");
+    // The meeting's outcomes, scaled to one: hold 20%, hike 25 80%, an expected +20 bp.
+    expect(crowdTab).toMatch(/<td class="num">20%<\/td>/);
+    expect(crowdTab).toContain("+20 bp");
+    expect(crowdTab).toContain("US recession by end of 2026?");
+    const btcTab = await (await get("/rates?panel=btcodds", data)).text();
+    expect(btcTab).toContain("$84,000");
+    expect(btcTab).toContain("crowd median");
+    // The tabs are on the Rates page's bar, each loaded on its own.
+    const rates = await (await get("/rates", data)).text();
+    expect(rates).toContain('data-lazy="/rates?panel=crowd"');
+    expect(rates).toContain('data-lazy="/rates?panel=btcodds"');
   });
 
   test("the trading chart ships the spot ETF flows its pins are drawn from, for crypto only", async () => {

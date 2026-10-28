@@ -352,4 +352,71 @@ export const macro: Catalog = {
     "出典：CFTC の建玉明細報告（先物のみ{date}）、ステーブルコインは DefiLlama。",
   ", report of {date}": "、報告日 {date}",
   "The macro data could not be read right now.": "現在マクロデータを読み込めません。",
+  // The Rates page's prediction-market tabs (web/crowd.ts).
+  "1d": "1日",
+  "1d change": "1日変化",
+  "7d": "7日",
+  "Another Fed hike in 2026": "2026年にFRBが再利上げするか",
+  "BTC odds": "BTC確率",
+  "BTC: crowd vs options": "BTC：予測市場 vs オプション",
+  "Bitcoin above, {when}": "ビットコインが上回る（{when}）",
+  "Bitcoin now": "ビットコイン現在値",
+  Chance: "確率",
+  "Change in the expected move over the last day": "期待変化の過去1日の変化",
+  "Deribit index at the option chain's read": "オプションチェーン取得時の Deribit 指数",
+  "Deribit's option chain: Black-76 with the smile's slope, between the expiries either side":
+    "Deribit のオプションチェーン：スマイルの傾きを含む Black-76、前後の満期の間で補間",
+  "Each FOMC meeting, both venues": "各 FOMC 会合、両市場",
+  "Each price is the chance the venue's traders give the outcome, its Yes price; a fed meeting's outcomes are scaled to add up to one. Changes are in percentage points against the price a day and a week before. Polymarket is read every 15 minutes and kept hourly for good; Kalshi's odds are the Fed, Jobs and Growth tabs' own.":
+    "各価格はその市場のトレーダーが結果に与える確率（Yes価格）です。FRB会合の各結果は合計が1になるよう調整しています。変化は1日前・1週間前の価格に対するパーセントポイントです。Polymarket は15分ごとに取得し、1時間ごとに永久保存します。Kalshi の確率は Fed・雇用・成長タブと同じです。",
+  "Fed cuts in 2026": "2026年のFRB利下げ回数",
+  "Fed rate at the end of 2026": "2026年末の政策金利",
+  "GDP growth, the quarter": "四半期GDP成長率",
+  Gap: "差",
+  "How high US unemployment goes in 2026": "2026年の米失業率の最高値",
+  "How high inflation gets in 2026": "2026年のインフレ率の最高値",
+  "How many Fed cuts in 2026": "2026年にFRBは何回利下げするか",
+  "Kalshi median": "Kalshi 中央値",
+  "Next settlement": "次の決済",
+  "No Bitcoin ladder has been read yet. The collector reads Polymarket every 15 minutes.":
+    "ビットコインのラダーはまだ取得していません。コレクターは15分ごとに Polymarket を取得します。",
+  "No prediction market has been read yet. The collector reads Polymarket every 15 minutes.":
+    "予測市場はまだ取得していません。コレクターは15分ごとに Polymarket を取得します。",
+  "Percentage points over the last day": "過去1日のパーセントポイント変化",
+  "Percentage points over the last week": "過去1週間のパーセントポイント変化",
+  "Polymarket less options, in percentage points":
+    "Polymarket からオプションを引いた値（パーセントポイント）",
+  "Polymarket median": "Polymarket 中央値",
+  "Polymarket's change over the last day, in percentage points":
+    "Polymarket の過去1日の変化（パーセントポイント）",
+  "Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do.":
+    "Polymarket のラダーはニューヨーク正午のバイナンス BTC/USDT 1分足終値で決済されます。オプション列は Deribit の最新 BTC チェーンが同じ価格・時点について示す確率です：各行使価格のボラティリティはスマイルから、スマイルの傾きを含めて上回る確率を算出し、総分散は前後の満期の間で読み取ります。差がプラスなら Polymarket の参加者はオプションより高い確率を付けています。",
+  "Polymarket's median outcome": "Polymarket の中央値の結果",
+  "Prediction markets": "予測市場",
+  Predictions: "予測",
+  Print: "指標",
+  Settles: "決済",
+  "The Fed rate at the end of 2026": "2026年末の政策金利",
+  "The next prints, both venues": "次の指標発表、両市場",
+  "The outcome bucket where Polymarket's chances, in order, pass one half":
+    "Polymarket の確率を順に足して半分を超える結果区分",
+  "The prediction markets could not be read right now.": "現在、予測市場を読み込めません。",
+  "The year ahead, on Polymarket": "今後1年、Polymarket の見通し",
+  "US GDP growth in 2026": "2026年の米GDP成長率",
+  "US recession": "米国の景気後退",
+  "Where Kalshi's ladder of above-X chances crosses one half":
+    "Kalshi の「X以上」確率ラダーが半分を横切る点",
+  "Widest gap": "最大の差",
+  "above {price} on {date}: the crowd is {side} than the options":
+    "{date} に {price} 超：参加者はオプションより{side}",
+  bp: "bp",
+  "by the end of each year": "各年末まで",
+  "crowd median {crowd} · options median {options}":
+    "参加者中央値 {crowd} · オプション中央値 {options}",
+  "more bearish": "より弱気",
+  "more bullish": "より強気",
+  "no option chain read yet": "オプションチェーンは未取得",
+  "noon New York": "ニューヨーク正午",
+  "{change} pp over a week": "1週間で {change} pp",
+  "{n} more outcomes under 1%": "ほか {n} 件の結果は1%未満",
 };

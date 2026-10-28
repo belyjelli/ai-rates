@@ -348,4 +348,69 @@ export const macro: Catalog = {
 
   // Chart readout (slot-chart.ts).
   "week of {month} {day}, {year}": "{year}年{month}{day}日当周",
+  // The Rates page's prediction-market tabs (web/crowd.ts).
+  "1d": "1日",
+  "1d change": "1日变化",
+  "7d": "7日",
+  "Another Fed hike in 2026": "2026 年美联储是否再加息",
+  "BTC odds": "BTC 概率",
+  "BTC: crowd vs options": "BTC：预测市场 vs 期权",
+  "Bitcoin above, {when}": "比特币高于（{when}）",
+  "Bitcoin now": "比特币现价",
+  Chance: "概率",
+  "Change in the expected move over the last day": "预期变动在过去一天的变化",
+  "Deribit index at the option chain's read": "读取期权链时的 Deribit 指数",
+  "Deribit's option chain: Black-76 with the smile's slope, between the expiries either side":
+    "Deribit 期权链：含微笑斜率的 Black-76，在前后两个到期日之间插值",
+  "Each FOMC meeting, both venues": "每次 FOMC 会议，两家平台",
+  "Each price is the chance the venue's traders give the outcome, its Yes price; a fed meeting's outcomes are scaled to add up to one. Changes are in percentage points against the price a day and a week before. Polymarket is read every 15 minutes and kept hourly for good; Kalshi's odds are the Fed, Jobs and Growth tabs' own.":
+    "每个价格是该平台交易者给出的结果概率，即其 Yes 价格；每次美联储会议的各结果按比例缩放至合计为一。变化以百分点表示，对比一天前和一周前的价格。Polymarket 每 15 分钟读取一次，并按小时永久保存；Kalshi 的概率与美联储、就业和增长标签页相同。",
+  "Fed cuts in 2026": "2026 年美联储降息次数",
+  "Fed rate at the end of 2026": "2026 年底联邦基金利率",
+  "GDP growth, the quarter": "季度 GDP 增长",
+  Gap: "差值",
+  "How high US unemployment goes in 2026": "2026 年美国失业率最高到多少",
+  "How high inflation gets in 2026": "2026 年通胀最高到多少",
+  "How many Fed cuts in 2026": "2026 年美联储降息几次",
+  "Kalshi median": "Kalshi 中位数",
+  "Next settlement": "下次结算",
+  "No Bitcoin ladder has been read yet. The collector reads Polymarket every 15 minutes.":
+    "尚未读取比特币阶梯。采集器每 15 分钟读取一次 Polymarket。",
+  "No prediction market has been read yet. The collector reads Polymarket every 15 minutes.":
+    "尚未读取预测市场。采集器每 15 分钟读取一次 Polymarket。",
+  "Percentage points over the last day": "过去一天的百分点变化",
+  "Percentage points over the last week": "过去一周的百分点变化",
+  "Polymarket less options, in percentage points": "Polymarket 减期权，单位为百分点",
+  "Polymarket median": "Polymarket 中位数",
+  "Polymarket's change over the last day, in percentage points":
+    "Polymarket 过去一天的变化，单位为百分点",
+  "Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do.":
+    "Polymarket 的阶梯按纽约中午币安 BTC/USDT 一分钟收盘价结算。期权一栏是 Deribit 最新 BTC 期权链对同一价格和时刻的隐含概率：每个行权价的波动率取自微笑曲线，计入微笑斜率计算收于其上方的概率，总方差在前后两个到期日之间读取。差值为正表示 Polymarket 的人群给出的概率高于期权。",
+  "Polymarket's median outcome": "Polymarket 的中位结果",
+  "Prediction markets": "预测市场",
+  Predictions: "预测",
+  Print: "数据",
+  Settles: "结算",
+  "The Fed rate at the end of 2026": "2026 年底的联邦基金利率",
+  "The next prints, both venues": "下一次数据公布，两家平台",
+  "The outcome bucket where Polymarket's chances, in order, pass one half":
+    "按顺序累计 Polymarket 概率超过一半时所在的结果区间",
+  "The prediction markets could not be read right now.": "暂时无法读取预测市场。",
+  "The year ahead, on Polymarket": "未来一年，Polymarket 上的预期",
+  "US GDP growth in 2026": "2026 年美国 GDP 增长",
+  "US recession": "美国衰退",
+  "Where Kalshi's ladder of above-X chances crosses one half":
+    "Kalshi 高于 X 概率阶梯越过一半的位置",
+  "Widest gap": "最大差值",
+  "above {price} on {date}: the crowd is {side} than the options":
+    "{date} 高于 {price}：人群比期权{side}",
+  bp: "基点",
+  "by the end of each year": "截至每年年底",
+  "crowd median {crowd} · options median {options}": "人群中位数 {crowd} · 期权中位数 {options}",
+  "more bearish": "更看跌",
+  "more bullish": "更看涨",
+  "no option chain read yet": "尚未读取期权链",
+  "noon New York": "纽约中午",
+  "{change} pp over a week": "一周内 {change} 个百分点",
+  "{n} more outcomes under 1%": "另有 {n} 个结果低于 1%",
 };

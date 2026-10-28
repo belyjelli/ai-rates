@@ -357,4 +357,71 @@ export const macro: Catalog = {
     "Источники: отчёт COT от CFTC, только фьючерсы{date}; стейблкоины — DefiLlama.",
   ", report of {date}": ", отчёт от {date}",
   "The macro data could not be read right now.": "Макроданные сейчас не удалось прочитать.",
+  // The Rates page's prediction-market tabs (web/crowd.ts).
+  "1d": "1д",
+  "1d change": "За 1 день",
+  "7d": "7д",
+  "Another Fed hike in 2026": "Ещё одно повышение ставки ФРС в 2026",
+  "BTC odds": "BTC шансы",
+  "BTC: crowd vs options": "BTC: толпа против опционов",
+  "Bitcoin above, {when}": "Биткоин выше, {when}",
+  "Bitcoin now": "Биткоин сейчас",
+  Chance: "Шанс",
+  "Change in the expected move over the last day": "Изменение ожидаемого шага за последний день",
+  "Deribit index at the option chain's read": "Индекс Deribit на момент чтения опционов",
+  "Deribit's option chain: Black-76 with the smile's slope, between the expiries either side":
+    "Опционы Deribit: Black-76 с наклоном улыбки, между соседними экспирациями",
+  "Each FOMC meeting, both venues": "Каждое заседание FOMC, обе площадки",
+  "Each price is the chance the venue's traders give the outcome, its Yes price; a fed meeting's outcomes are scaled to add up to one. Changes are in percentage points against the price a day and a week before. Polymarket is read every 15 minutes and kept hourly for good; Kalshi's odds are the Fed, Jobs and Growth tabs' own.":
+    "Каждая цена — шанс, который трейдеры площадки дают исходу (цена Yes); исходы заседания ФРС приведены к сумме один. Изменения — в процентных пунктах к цене день и неделю назад. Polymarket читается каждые 15 минут и хранится по часам навсегда; шансы Kalshi те же, что во вкладках ФРС, занятость и рост.",
+  "Fed cuts in 2026": "Снижения ставки ФРС в 2026",
+  "Fed rate at the end of 2026": "Ставка ФРС на конец 2026",
+  "GDP growth, the quarter": "Рост ВВП за квартал",
+  Gap: "Разница",
+  "How high US unemployment goes in 2026": "Насколько вырастет безработица в США в 2026",
+  "How high inflation gets in 2026": "Насколько вырастет инфляция в 2026",
+  "How many Fed cuts in 2026": "Сколько раз ФРС снизит ставку в 2026",
+  "Kalshi median": "Медиана Kalshi",
+  "Next settlement": "Следующий расчёт",
+  "No Bitcoin ladder has been read yet. The collector reads Polymarket every 15 minutes.":
+    "Лестницы по биткоину ещё не прочитаны. Сборщик читает Polymarket каждые 15 минут.",
+  "No prediction market has been read yet. The collector reads Polymarket every 15 minutes.":
+    "Рынки прогнозов ещё не прочитаны. Сборщик читает Polymarket каждые 15 минут.",
+  "Percentage points over the last day": "Процентные пункты за последний день",
+  "Percentage points over the last week": "Процентные пункты за последнюю неделю",
+  "Polymarket less options, in percentage points": "Polymarket минус опционы, в процентных пунктах",
+  "Polymarket median": "Медиана Polymarket",
+  "Polymarket's change over the last day, in percentage points":
+    "Изменение Polymarket за последний день, в процентных пунктах",
+  "Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do.":
+    "Лестницы Polymarket рассчитываются по минутному закрытию BTC/USDT на Binance в полдень по Нью-Йорку. Колонка опционов — то, что последняя цепочка BTC на Deribit подразумевает для той же цены и момента: волатильность каждого страйка из улыбки, шанс закрыться выше с учётом наклона улыбки, общая дисперсия между соседними экспирациями. Положительная разница значит, что толпа Polymarket даёт цене больше шансов, чем опционы.",
+  "Polymarket's median outcome": "Медианный исход Polymarket",
+  "Prediction markets": "Рынки прогнозов",
+  Predictions: "Прогнозы",
+  Print: "Показатель",
+  Settles: "Расчёт",
+  "The Fed rate at the end of 2026": "Ставка ФРС на конец 2026 года",
+  "The next prints, both venues": "Следующие публикации, обе площадки",
+  "The outcome bucket where Polymarket's chances, in order, pass one half":
+    "Интервал, где накопленные по порядку шансы Polymarket переходят половину",
+  "The prediction markets could not be read right now.":
+    "Сейчас не удаётся прочитать рынки прогнозов.",
+  "The year ahead, on Polymarket": "Год вперёд на Polymarket",
+  "US GDP growth in 2026": "Рост ВВП США в 2026",
+  "US recession": "Рецессия в США",
+  "Where Kalshi's ladder of above-X chances crosses one half":
+    "Где лестница шансов «выше X» Kalshi пересекает половину",
+  "Widest gap": "Наибольшая разница",
+  "above {price} on {date}: the crowd is {side} than the options":
+    "выше {price} на {date}: толпа {side}, чем опционы",
+  bp: "бп",
+  "by the end of each year": "к концу каждого года",
+  "crowd median {crowd} · options median {options}":
+    "медиана толпы {crowd} · медиана опционов {options}",
+  "more bearish": "более медвежья",
+  "more bullish": "более бычья",
+  "no option chain read yet": "опционы ещё не прочитаны",
+  "noon New York": "полдень по Нью-Йорку",
+  "{change} pp over a week": "{change} п.п. за неделю",
+  "{n} more outcomes under 1%": "ещё {n} исходов ниже 1%",
 };

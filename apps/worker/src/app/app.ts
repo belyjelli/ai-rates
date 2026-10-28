@@ -5,6 +5,7 @@ import { about } from "../web/about";
 import { AGENTS_PATH, agents } from "../web/agents";
 import { SEARCH_PATH, searchJson } from "../web/command";
 import { convergencePage } from "../web/convergence-page";
+import { crowdFragment, isCrowdPanel } from "../web/crowd";
 import { cvd } from "../web/cvd";
 import { docs } from "../web/docs";
 import { BOOK_BASKET } from "../web/exchange-grade";
@@ -360,6 +361,18 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           return null;
         });
       const askedPanel = url.searchParams.get("panel");
+      // The prediction-market tabs (web/crowd.ts), each read for its own `?panel=`; a failed read
+      // says so in the tab.
+      if (isCrowdPanel(askedPanel)) {
+        const read = askedPanel === "crowd" ? deps.data.predictions() : deps.data.btcOdds();
+        const data = await (read as Promise<unknown>).catch((error) => {
+          deps.log?.(
+            `${askedPanel} unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return null;
+        });
+        return page(() => crowdFragment(askedPanel, data as never, now));
+      }
       if (isMacroPanel(askedPanel)) {
         const data = await readMacro(askedPanel);
         return page(() => macroFragment(askedPanel, data, now));

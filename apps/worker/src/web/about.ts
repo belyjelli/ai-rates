@@ -41,6 +41,15 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-28",
+    title: "Prediction markets on the Rates page",
+    changes: [
+      "A Prediction markets tab sets Polymarket's prices beside Kalshi's: each coming FOMC meeting's odds on both venues, with the expected move and how it changed in a day, the next unemployment, GDP and CPI prints, and the year's questions only Polymarket asks, such as how many cuts in 2026, the year-end Fed rate and a US recession. Every price shows its change over a day and a week.",
+      "A BTC: crowd vs options tab sets Polymarket's daily \"Bitcoin above $X\" ladders beside what Deribit's option chain implies for the same price and moment, with each ladder's median on both sides and the widest gap between them.",
+      "Polymarket is read every 15 minutes and its prices are kept hourly for good, so the history of what the crowd expected stays readable.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     title: "Spot bitcoin ETF flows pinned on the chart",
     changes: [
       "The Chart page now pins each trading day's net flow into the US spot bitcoin ETFs on BTC's candles, at 4 pm New York, when the funds strike the NAV their creations and redemptions are priced at. An inflow sits under its candle pointing up, an outflow above pointing down, and a larger flow draws a larger pin. Hover or tap one for each fund's share.",

@@ -53,6 +53,7 @@ import {
 import { retailSchedule } from "../app/retail-fees";
 import { BT_SCRIPT } from "./backtest-swap";
 import { badge, badgeKey, legBadges } from "./badges";
+import { CROWD_CSS, CROWD_PANELS, crowdPlaceholder, crowdTabs } from "./crowd";
 import {
   ageText,
   aprTone,
@@ -986,6 +987,7 @@ ${tabBar({
     { id: "ivwalls", label: tr("IV Walls"), shortLabel: tr("IV walls") },
     { id: "levels", label: tr("Ceiling & Floor"), shortLabel: tr("Ceiling") },
     ...macroTabs(),
+    ...crowdTabs(),
   ],
   activeId: macro ? macro.panel : gammaFilled ? "gamma" : "rates",
 })}
@@ -1015,6 +1017,13 @@ ${MACRO_PANELS.map((id) => {
 ${filled ? macroPanel(id, macro.data, now) : macroPlaceholder(id)}
 </div>`;
 }).join("\n")}
+<style>${CROWD_CSS}</style>
+${CROWD_PANELS.map(
+  (id) =>
+    `<div class="tabpanel mc-panel" role="tabpanel" id="panel-rates-${id}" data-tab-panel="${id}" aria-labelledby="tab-rates-${id}" data-lazy="/rates?panel=${id}">
+${crowdPlaceholder(id)}
+</div>`,
+).join("\n")}
 <script>${SLOT_SCRIPT}</script>
 <script>${GX_SWAP_SCRIPT}</script>
 ${GREEKS.map((greek) => `<script>${gxSwapScript(greekPanelId(greek), greek)}</script>`).join("")}

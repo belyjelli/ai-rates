@@ -354,4 +354,70 @@ export const macro: Catalog = {
   "Sources: the CFTC's Commitments of Traders, futures only{date}; DefiLlama for stablecoins.":
     "출처: CFTC 투자자별 포지션 보고서(COT, 선물만{date}), 스테이블코인은 DefiLlama.",
   ", report of {date}": ", {date} 기준",
+  // The Rates page's prediction-market tabs (web/crowd.ts).
+  "1d": "1일",
+  "1d change": "1일 변화",
+  "7d": "7일",
+  "Another Fed hike in 2026": "2026년 연준 추가 인상 여부",
+  "BTC odds": "BTC 확률",
+  "BTC: crowd vs options": "BTC: 예측시장 vs 옵션",
+  "Bitcoin above, {when}": "비트코인 초과 ({when})",
+  "Bitcoin now": "비트코인 현재가",
+  Chance: "확률",
+  "Change in the expected move over the last day": "지난 하루 동안 예상 변동의 변화",
+  "Deribit index at the option chain's read": "옵션 체인 조회 시점의 Deribit 지수",
+  "Deribit's option chain: Black-76 with the smile's slope, between the expiries either side":
+    "Deribit 옵션 체인: 스마일 기울기를 반영한 Black-76, 앞뒤 만기 사이 보간",
+  "Each FOMC meeting, both venues": "각 FOMC 회의, 두 시장",
+  "Each price is the chance the venue's traders give the outcome, its Yes price; a fed meeting's outcomes are scaled to add up to one. Changes are in percentage points against the price a day and a week before. Polymarket is read every 15 minutes and kept hourly for good; Kalshi's odds are the Fed, Jobs and Growth tabs' own.":
+    "각 가격은 해당 시장 트레이더들이 결과에 부여한 확률, 즉 Yes 가격입니다. 연준 회의의 결과들은 합이 1이 되도록 조정했습니다. 변화는 하루 전과 일주일 전 가격 대비 퍼센트포인트입니다. Polymarket은 15분마다 읽고 시간 단위로 영구 보관하며, Kalshi 확률은 연준·고용·성장 탭과 같습니다.",
+  "Fed cuts in 2026": "2026년 연준 인하 횟수",
+  "Fed rate at the end of 2026": "2026년 말 연준 금리",
+  "GDP growth, the quarter": "분기 GDP 성장률",
+  Gap: "격차",
+  "How high US unemployment goes in 2026": "2026년 미국 실업률 최고치",
+  "How high inflation gets in 2026": "2026년 인플레이션 최고치",
+  "How many Fed cuts in 2026": "2026년 연준 인하는 몇 번",
+  "Kalshi median": "Kalshi 중앙값",
+  "Next settlement": "다음 정산",
+  "No Bitcoin ladder has been read yet. The collector reads Polymarket every 15 minutes.":
+    "아직 읽은 비트코인 래더가 없습니다. 수집기는 15분마다 Polymarket을 읽습니다.",
+  "No prediction market has been read yet. The collector reads Polymarket every 15 minutes.":
+    "아직 읽은 예측시장이 없습니다. 수집기는 15분마다 Polymarket을 읽습니다.",
+  "Percentage points over the last day": "지난 하루 퍼센트포인트 변화",
+  "Percentage points over the last week": "지난 일주일 퍼센트포인트 변화",
+  "Polymarket less options, in percentage points": "Polymarket에서 옵션을 뺀 값, 퍼센트포인트",
+  "Polymarket median": "Polymarket 중앙값",
+  "Polymarket's change over the last day, in percentage points":
+    "Polymarket 지난 하루 변화, 퍼센트포인트",
+  "Polymarket's ladders settle on Binance's BTC/USDT one-minute close at noon New York. The options column is what Deribit's latest BTC chain implies for the same price and moment: each strike's volatility from the smile, the chance of finishing above it with the smile's slope counted, the total variance read between the expiries either side. A positive gap means Polymarket's crowd gives the price better odds than the options do.":
+    "Polymarket 래더는 뉴욕 정오 바이낸스 BTC/USDT 1분봉 종가로 정산됩니다. 옵션 열은 Deribit의 최신 BTC 체인이 같은 가격과 시점에 대해 내포하는 확률입니다. 각 행사가의 변동성은 스마일에서, 스마일 기울기를 반영해 그 위에서 마감할 확률을 구하고, 총분산은 앞뒤 만기 사이에서 읽습니다. 격차가 양수면 Polymarket 참여자가 옵션보다 높은 확률을 준다는 뜻입니다.",
+  "Polymarket's median outcome": "Polymarket 중앙값 결과",
+  "Prediction markets": "예측시장",
+  Predictions: "예측",
+  Print: "지표",
+  Settles: "정산",
+  "The Fed rate at the end of 2026": "2026년 말 연준 금리",
+  "The next prints, both venues": "다음 지표 발표, 두 시장",
+  "The outcome bucket where Polymarket's chances, in order, pass one half":
+    "Polymarket 확률을 순서대로 더해 절반을 넘는 결과 구간",
+  "The prediction markets could not be read right now.": "지금은 예측시장을 읽을 수 없습니다.",
+  "The year ahead, on Polymarket": "앞으로의 한 해, Polymarket",
+  "US GDP growth in 2026": "2026년 미국 GDP 성장률",
+  "US recession": "미국 경기침체",
+  "Where Kalshi's ladder of above-X chances crosses one half":
+    "Kalshi의 X 초과 확률 래더가 절반을 지나는 지점",
+  "Widest gap": "가장 큰 격차",
+  "above {price} on {date}: the crowd is {side} than the options":
+    "{date} {price} 초과: 참여자가 옵션보다 {side}",
+  bp: "bp",
+  "by the end of each year": "각 연말까지",
+  "crowd median {crowd} · options median {options}":
+    "참여자 중앙값 {crowd} · 옵션 중앙값 {options}",
+  "more bearish": "더 약세",
+  "more bullish": "더 강세",
+  "no option chain read yet": "아직 옵션 체인을 읽지 않음",
+  "noon New York": "뉴욕 정오",
+  "{change} pp over a week": "일주일간 {change}pp",
+  "{n} more outcomes under 1%": "1% 미만 결과 {n}개 더",
 };
