@@ -73,8 +73,8 @@ export const charts: Catalog = {
     "{asset} · 누적 거래량 델타 · {n}분 봉, {zone}",
   "{asset} futures taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.":
     "최근 {window} {asset} 선물 테이커 CVD: {cvd}. 시장가 매수 {bought}, 시장가 매도 {sold}.",
-  "{asset}, last {window}: futures CVD {futures}, Binance spot CVD {spot}, delta {delta}.":
-    "최근 {window} {asset}: 선물 CVD {futures}, Binance 현물 CVD {spot}, 델타 {delta}.",
+  "{asset}, last {window}: futures CVD {futures}, spot CVD {spot}, delta {delta}.":
+    "최근 {window} {asset}: 선물 CVD {futures}, 현물 CVD {spot}, 델타 {delta}.",
   "Last {window}": "최근 {window}",
   "Loading {interval} bars…": "{interval} 봉 불러오는 중…",
   "Loading {asset}…": "{asset} 불러오는 중…",
@@ -130,14 +130,14 @@ export const charts: Catalog = {
   "No live market lists {asset}, so there is no flow to chart.":
     "{asset}의 운영 중인 종목이 없어 차트로 그릴 흐름이 없습니다.",
   "Newest bucket {age}.": "최신 구간: {age}.",
-  "Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.":
-    "거래소는 5분 구간이 끝난 뒤에 그 구간을 발표하므로 차트 오른쪽 끝은 몇 분 늦습니다.",
+  "The venues that publish statistics release each 5-minute bucket after it closes, so the newest bar holds only the live tapes for a few minutes.":
+    "통계를 발표하는 거래소는 5분 구간이 끝난 뒤에 그 구간을 발표하므로, 최신 봉은 몇 분 동안 실시간 체결 집계만 담습니다.",
 
   // web/cvd.ts: the page.
   "taker buys": "테이커 매수",
   "taker sells": "테이커 매도",
-  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.":
-    "봉 간격 옆의 자산 버튼을 누르면 스크리너가 열립니다: 수집 대상인 모든 자산의 기간 내 테이커 흐름입니다. 하나를 골라 차트로 보거나, 검색창에서 티커를 찾거나, 열 제목으로 정렬할 수 있습니다. 변동률은 수집 대상 중 거래가 가장 활발한 종목의 기간 내 첫 종가 대비 마지막 종가입니다. 거래소마다 기록 길이가 다릅니다: Binance와 Gate는 몇 주치, OKX는 5일치를 제공하므로 새 7일 기간의 가장 오래된 봉은 더 적은 거래소의 합계입니다.",
+  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Gate and Bitget publish weeks of it and OKX five days, while Bybit, Hyperliquid and the spot books other than Binance's are counted from their live trades since 28 October 2026, so older bars sum fewer venues.":
+    "봉 간격 옆의 자산 버튼을 누르면 스크리너가 열립니다: 수집 대상인 모든 자산의 기간 내 테이커 흐름입니다. 하나를 골라 차트로 보거나, 검색창에서 티커를 찾거나, 열 제목으로 정렬할 수 있습니다. 변동률은 수집 대상 중 거래가 가장 활발한 종목의 기간 내 첫 종가 대비 마지막 종가입니다. 거래소마다 기록 길이가 다릅니다: Binance, Gate, Bitget은 몇 주치, OKX는 5일치를 제공하며, Bybit, Hyperliquid와 Binance 외의 현물 호가창은 2026년 10월 28일부터 실시간 체결로 집계하므로 오래된 봉일수록 더 적은 거래소의 합계입니다.",
 
   // web/funding-chart.ts
   "The funding chart is unavailable right now. The backtest below is unaffected.":
@@ -203,12 +203,12 @@ export const charts: Catalog = {
     "최근 {window} 동안 {asset}의 테이커 흐름이 없습니다. {venues}에서 미결제약정이 가장 큰 약 500개 자산만 수집합니다. 위의 자산 목록에서 하나를 선택하세요.",
   "Price with cumulative volume delta under it: spot and futures taker buying against taker selling, their combined delta per bar, and where price and order flow disagree.":
     "가격과 그 아래의 누적 거래량 델타: 현물과 선물의 테이커 매수와 테이커 매도 비교, 봉별 합산 델타, 그리고 가격과 주문 흐름이 엇갈리는 지점.",
-  "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars. Futures CVD is the exchanges' own 5-minute taker statistics for their perpetuals from <b>{venues}</b>, summed, for the ~500 assets deepest on them and every commodity, index and currency pair they list — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.":
-    "가격, 그리고 그 아래의 누적 거래량 델타(CVD): {buys}에서 {sells}을(를) 뺀 값으로, 달러 기준입니다. 선물 CVD는 <b>{venues}</b>의 무기한 선물에 대한 거래소 자체 5분 테이커 통계를 합산한 것이며, 이들 거래소에서 미결제약정이 가장 큰 약 500개 자산과 상장된 모든 원자재·지수·통화쌍이 대상입니다 — 모든 거래소가 아니며, 5분보다 세밀한 단위도 없습니다. 다이버전스는 가격과 흐름이 반대 방향을 가리킨 기간을 표시합니다. 이는 일어난 일을 설명할 뿐, 앞으로 일어날 일을 말하지 않습니다.",
-  "Spot CVD is Binance's USDT spot book alone, for the crypto assets it lists; stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.":
-    "현물 CVD는 Binance의 USDT 현물 호가창만 사용하며, Binance에 상장된 암호화폐가 대상입니다. 주식·원자재·지수는 암호화폐 거래소에 현물 호가창이 없어 선물만 표시합니다. 대부분의 자산에서 규모가 한 자릿수 이상 차이 나므로 현물과 선물은 각각 별도의 패널을 씁니다. 그 아래 히스토그램은 델타로, 봉마다 현물 순액과 선물 순액을 합한 값입니다.",
-  "Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the line above the chart; on a phone, tap.":
-    "가격은 수집 대상 중 거래가 가장 활발한 종목의 자체 캔들입니다. 패널마다 축이 따로 있으므로 선이 교차하는 지점에는 아무 의미가 없습니다. 드래그하면 과거를 볼 수 있고, 휠이나 핀치로 확대·축소하며, 캔들에 마우스를 올리면 차트 위 줄에 값이 표시됩니다. 휴대폰에서는 탭하세요.",
+  "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars, summed over every exchange we collect that lists the asset. Futures CVD adds up the perpetuals on <b>{futures}</b>; spot CVD the spot books on <b>{spot}</b>, one book an exchange. It covers the ~500 assets deepest by open interest and every commodity, index and currency pair, in 5-minute buckets. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.":
+    "가격, 그리고 그 아래의 누적 거래량 델타(CVD): {buys}에서 {sells}을(를) 뺀 값으로, 달러 기준이며 해당 자산을 상장한 수집 대상 거래소 전체를 합산합니다. 선물 CVD는 <b>{futures}</b>의 무기한 선물을, 현물 CVD는 <b>{spot}</b>의 현물 호가창(거래소당 하나)을 합산합니다. 미결제약정이 가장 큰 약 500개 자산과 모든 원자재·지수·통화쌍이 대상이며, 5분 단위입니다. 다이버전스는 가격과 흐름이 반대 방향을 가리킨 기간을 표시합니다. 이는 일어난 일을 설명할 뿐, 앞으로 일어날 일을 말하지 않습니다.",
+  "Each key above the chart says how many venues its line sums for this asset; hover it for their names. Spot is crypto only: stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.":
+    "차트 위의 각 범례는 그 선이 이 자산에 대해 몇 곳의 거래소를 합산하는지 보여 줍니다. 마우스를 올리면 거래소 이름이 표시됩니다. 현물은 암호화폐만 해당합니다. 주식·원자재·지수는 암호화폐 거래소에 현물 호가창이 없어 선물만 표시합니다. 대부분의 자산에서 규모가 한 자릿수 이상 차이 나므로 현물과 선물은 각각 별도의 패널을 씁니다. 그 아래 히스토그램은 델타로, 봉마다 현물 순액과 선물 순액을 합한 값입니다.",
+  "Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the box beside it; on a phone, tap.":
+    "가격은 수집 대상 중 거래가 가장 활발한 종목의 자체 캔들입니다. 패널마다 축이 따로 있으므로 선이 교차하는 지점에는 아무 의미가 없습니다. 드래그하면 과거를 볼 수 있고, 휠이나 핀치로 확대·축소하며, 캔들에 마우스를 올리면 옆의 상자에 값이 표시됩니다. 휴대폰에서는 탭하세요.",
   "futures net {net}": "선물 순액 {net}",
   "spot net {net}": "현물 순액 {net}",
   "delta {net}": "델타 {net}",
@@ -220,7 +220,8 @@ export const charts: Catalog = {
   Futures: "선물",
   "Spot (Binance)": "현물(Binance)",
   // The Chart page's fund-flow dropdown (web/fund-flow.ts).
-  "No spot book on Binance for this asset.": "이 자산은 Binance 현물 호가창이 없습니다.",
+  "No spot book for this asset on the collected exchanges.":
+    "수집 대상 거래소에 이 자산의 현물 호가창이 없습니다.",
   "No futures flow for this asset yet.": "이 자산은 아직 선물 자금 흐름이 없습니다.",
   Time: "시간",
   "Taker buys in the window, in dollars": "구간 내 테이커 매수(달러)",
@@ -235,7 +236,8 @@ export const charts: Catalog = {
   "Net inflow as a share of the asset's market cap": "순유입이 자산 시가총액에서 차지하는 비율",
   "F/M cap ratio": "자금/시총 비율",
   "Spot fund": "현물 자금",
-  "Binance USDT spot book": "Binance USDT 현물 호가창",
+  "Spot books on {venues}": "{venues}의 현물 호가창",
+  "{count} venues": "거래소 {count}곳",
   "Futures fund": "선물 자금",
   "Perpetuals on {venues}": "{venues}의 무기한 선물",
   "Fund flow": "자금 흐름",

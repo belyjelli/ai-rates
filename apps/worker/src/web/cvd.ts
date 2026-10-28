@@ -1,5 +1,12 @@
 import type { AssetClass } from "@ai-rates/core";
-import type { CvdAssetRow, CvdBar, CvdData, Overview } from "../app/data";
+import {
+  type CvdAssetRow,
+  type CvdBar,
+  type CvdData,
+  FUTURES_TAKER_VENUES,
+  type Overview,
+  SPOT_TAKER_VENUES,
+} from "../app/data";
 import {
   CVD_DEFAULT_INTERVAL,
   CVD_INTERVALS,
@@ -47,22 +54,37 @@ import { venueName } from "./venues";
  * volume, taker buys against taker sells -- split into the perpetuals' and the spot book's, with
  * their sum per bar, the delta, as a histogram.
  *
- * SPOT is Binance spot's USDT book alone (collector migration 051), for crypto assets that have one;
- * stocks, commodities and indices have no spot book on a crypto exchange and chart perpetuals only.
- *
- * WHAT THE NUMBER IS, and it is narrower than the name suggests. Every figure is the venues' OWN
- * 5-minute taker statistics (migration 023), summed across the venues polled: binance, okx, gate
- * and bitget (out between 2026-09-27 and its reinstatement on 2026-10-18), for the ~500 assets deepest
- * by open interest on them. It is not every exchange, it is not
- * finer than five minutes, and it is not our count of trades. The lede says all three.
+ * EVERY COLLECTED EXCHANGE THAT LISTS THE ASSET, SUMMED (owner, 2026-10-28), for spot and futures
+ * alike: FUTURES_TAKER_VENUES and SPOT_TAKER_VENUES. Binance, OKX, Gate and Bitget publish their
+ * perpetuals' taker split as 5-minute statistics (migration 023), and Binance its spot books' in its
+ * klines (051); the rest publish none, so the collector counts their flow trade by trade from the live
+ * tape (its stream.TapeFeed), from 2026-10-28 on. Spot is one book an exchange (USDT; USD on Coinbase),
+ * crypto only: stocks, commodities and indices have no spot book on a crypto exchange and chart
+ * perpetuals only. The assets are the ~500 deepest by open interest on the four REST venues, plus every
+ * commodity, index and currency pair. Nothing is finer than five minutes. The lede says all of it, and
+ * the keys name the venues a given asset's bars actually hold.
  *
  * A DIVERGENCE IS A FLAG, NOT A CALL. "Price up while takers sold" is a description of the window,
  * not a prediction of the next one, and the page words it as one. The thresholds are written down
  * below and in the notes so a reader can disagree with them rather than trust a badge.
  */
 
-/** The venues whose taker statistics are collected. Listed in the lede, so it cannot drift. */
+/** The venues whose open interest picks the ~500 assets polled: the four REST venues. */
 export const CVD_VENUES = ["binance", "okx", "gate", "bitget"] as const;
+
+/** Venue ids as the page names them, each once: a HIP-3 dex ("hl-xyz") is Hyperliquid. */
+export function venueNames(ids: readonly string[]): string[] {
+  return [...new Set(ids.map((id) => (id.startsWith("hl-") ? "hyperliquid" : id)))].map(venueName);
+}
+
+/** A key's venue tag: the one venue's name, or how many with their names on hover. */
+function venueTag(ids: readonly string[]): string {
+  const names = venueNames(ids);
+  if (names.length === 0) return "";
+  const text =
+    names.length === 1 ? esc(names[0] ?? "") : tr("{count} venues", { count: names.length });
+  return ` <span class="dim" title="${esc(names.join(", "))}">${text}</span>`;
+}
 
 /**
  * A divergence needs both a real price move and a real flow imbalance. Below these, "price up 0.02%
@@ -160,10 +182,13 @@ function cvdChart(data: {
   bars: readonly CvdBar[];
   /** Whether the bars carry a spot book's flow. */
   spot: boolean;
+  /** The venues in the bars, busiest first: CvdData's lists. */
+  futuresVenues: readonly string[];
+  spotVenues: readonly string[];
   params: CvdParams;
   now: number;
 }): string {
-  const { label, asset, assetClass, bars, spot, params, now } = data;
+  const { label, asset, assetClass, bars, spot, futuresVenues, spotVenues, params, now } = data;
   const { hours, barMinutes, span: window } = CVD_INTERVALS[params.interval];
   const bucketMs = barMinutes * 60_000;
   const current = Math.floor(now / bucketMs) * bucketMs;
@@ -325,16 +350,13 @@ function cvdChart(data: {
   const cite = `${
     spot
       ? citeMark(
-          tr(
-            "{asset}, last {window}: futures CVD {futures}, Binance spot CVD {spot}, delta {delta}.",
-            {
-              asset: plainLabel(label),
-              window,
-              futures: signedUsd(total),
-              spot: signedUsd(spotTotal),
-              delta: signedUsd(total + spotTotal),
-            },
-          ),
+          tr("{asset}, last {window}: futures CVD {futures}, spot CVD {spot}, delta {delta}.", {
+            asset: plainLabel(label),
+            window,
+            futures: signedUsd(total),
+            spot: signedUsd(spotTotal),
+            delta: signedUsd(total + spotTotal),
+          }),
         )
       : ""
   }${citeMark(
@@ -392,7 +414,7 @@ function cvdChart(data: {
   });
 
   return `<figure class="fchart cvd-chart" data-live="cvd-chart" data-cursors>${cite}
-<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>${tr("Price")}${market ? ` <span class="dim">${tr("close, {market}", { market: esc(market) })}</span>` : ""}</span><span><i class="cvd-key-cvd"></i>${spot ? tr("Futures CVD") : "CVD"} <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b></span>${spot ? `<span><i class="cvd-key-spot"></i>${tr("Spot CVD")} <b data-u="spot-total" class="${tone(spotTotal).trim()}">${signedUsd(spotTotal)}</b> <span class="dim">Binance</span></span>` : ""}<span><i class="cvd-key-buy"></i>${spot ? tr("Delta buy") : tr("Net buy")}</span><span><i class="cvd-key-sell"></i>${spot ? tr("Delta sell") : tr("Net sell")}</span>${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
+<div class="fchart-head"><p class="fchart-title">${title}</p><div class="fchart-keys"><span><i class="cvd-key-price"></i>${tr("Price")}${market ? ` <span class="dim">${tr("close, {market}", { market: esc(market) })}</span>` : ""}</span><span><i class="cvd-key-cvd"></i>${spot ? tr("Futures CVD") : "CVD"} <b data-u="cvd-total" class="${tone(total).trim()}">${signedUsd(total)}</b>${venueTag(futuresVenues)}</span>${spot ? `<span><i class="cvd-key-spot"></i>${tr("Spot CVD")} <b data-u="spot-total" class="${tone(spotTotal).trim()}">${signedUsd(spotTotal)}</b>${venueTag(spotVenues)}</span>` : ""}<span><i class="cvd-key-buy"></i>${spot ? tr("Delta buy") : tr("Net buy")}</span><span><i class="cvd-key-sell"></i>${spot ? tr("Delta sell") : tr("Net sell")}</span>${slotCursorSwitch()}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
 <div class="slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}">
 <div class="fchart-plot cvd-plot" data-axes="${priceAxes}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} price and cumulative volume delta over the last {window}", { asset: label, window }))}">${grid}${SLOT_BAND}<line class="cvd-zero" x1="0" x2="1000" y1="${zeroY}" y2="${zeroY}"></line><path class="cvd-area" d="${cvdArea}"></path><polyline class="cvd-line" points="${cvdPoints.join(" ")}"></polyline>${spot ? `<polyline class="cvd-spot" points="${spotPoints.join(" ")}"></polyline>` : ""}${
     pricePath.length > 1
@@ -748,6 +770,8 @@ export function cvd(data: {
             assetClass: chartClass,
             bars: flow.bars,
             spot: flow.spot,
+            futuresVenues: flow.futures_venues,
+            spotVenues: flow.spot_venues,
             params,
             now,
           });
@@ -769,13 +793,14 @@ export function cvd(data: {
       tr("Chart"),
       "cvd",
       `<p>${tr(
-        "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars. Futures CVD is the exchanges' own 5-minute taker statistics for their perpetuals from <b>{venues}</b>, summed, for the ~500 assets deepest on them and every commodity, index and currency pair they list — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.",
+        "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars, summed over every exchange we collect that lists the asset. Futures CVD adds up the perpetuals on <b>{futures}</b>; spot CVD the spot books on <b>{spot}</b>, one book an exchange. It covers the ~500 assets deepest by open interest and every commodity, index and currency pair, in 5-minute buckets. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.",
         {
           buys: `<span class="cvd-up">${tr("taker buys")}</span>`,
           sells: `<span class="cvd-down">${tr("taker sells")}</span>`,
-          venues: CVD_VENUES.map(venueName).join(", "),
+          futures: FUTURES_TAKER_VENUES.map(venueName).join(", "),
+          spot: SPOT_TAKER_VENUES.map(venueName).join(", "),
         },
-      )}</p><p>${tr("Spot CVD is Binance's USDT spot book alone, for the crypto assets it lists; stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.")}</p><p>${tr("Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the line above the chart; on a phone, tap.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.")}</p><p>${tr("Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.")}</p>`,
+      )}</p><p>${tr("Each key above the chart says how many venues its line sums for this asset; hover it for their names. Spot is crypto only: stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.")}</p><p>${tr("Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the box beside it; on a phone, tap.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Gate and Bitget publish weeks of it and OKX five days, while Bybit, Hyperliquid and the spot books other than Binance's are counted from their live trades since 28 October 2026, so older bars sum fewer venues.")}</p><p>${tr("The venues that publish statistics release each 5-minute bucket after it closes, so the newest bar holds only the live tapes for a few minutes.")}</p>`,
     )}
 <style>${FUND_CSS}</style>
 <div class="lq-controls wh-controls">${picker}${flow.asset_class === null ? "" : fundPanel(asset, chartClass)}${intervalStrip}</div>

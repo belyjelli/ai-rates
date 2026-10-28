@@ -158,6 +158,8 @@ function fakeData(overrides: Partial<DataSource> = {}) {
       asset_class: "crypto" as const,
       bars: [],
       spot: false,
+      futures_venues: [],
+      spot_venues: [],
       newest: null,
     }),
     assetBars: async () => [],
@@ -4119,6 +4121,8 @@ describe("cvd", () => {
     ],
     newest: bucket(1),
     spot: false,
+    futures_venues: ["binance", "okx"],
+    spot_venues: [],
     ...overrides,
   });
 
@@ -4371,6 +4375,8 @@ describe("cvd", () => {
   test("a crypto asset with a spot book charts spot CVD beside futures, and the strip is the delta", async () => {
     const spotFlow = flow();
     spotFlow.spot = true;
+    spotFlow.futures_venues = ["binance", "bybit", "hl-xyz", "hyperliquid"];
+    spotFlow.spot_venues = ["binance", "coinbase", "okx"];
     spotFlow.bars = spotFlow.bars.map((bar, i) => ({
       ...bar,
       spot_buy_usd: i === 0 ? 3e6 : null,
@@ -4382,6 +4388,11 @@ describe("cvd", () => {
     expect(figure).toContain('<polyline class="cvd-spot"');
     expect(figure).toContain("Futures CVD");
     expect(figure).toContain("Spot CVD");
+    // Each key says how many venues its line sums, busiest first on hover; a HIP-3 dex is Hyperliquid.
+    expect(figure).toContain(
+      '<span class="dim" title="Binance, Bybit, Hyperliquid">3 venues</span>',
+    );
+    expect(figure).toContain('<span class="dim" title="Binance, Coinbase, OKX">3 venues</span>');
     const kc = JSON.parse(
       figure.match(/<script type="application\/json" class="kc-data">([\s\S]*?)<\/script>/)?.[1] ??
         "{}",
@@ -4390,9 +4401,7 @@ describe("cvd", () => {
     expect(kc.src).toBe("/data/chart?asset=BTC&class=crypto&bar=15&spot=1");
     // The cite button's lines: all three in one sentence first, then the perpetuals' flow, named.
     const cites = [...figure.matchAll(/data-cite="([^"]*)"/g)].map((m) => m[1]);
-    expect(cites[0]).toMatch(
-      /^BTC, last 24h: futures CVD .+, Binance spot CVD \+\$2\.0M, delta .+\.$/,
-    );
+    expect(cites[0]).toMatch(/^BTC, last 24h: futures CVD .+, spot CVD \+\$2\.0M, delta .+\.$/);
     expect(cites[1]).toMatch(/^BTC futures taker CVD, last 24h: /);
     expect(kc.bars[0].slice(7)).toEqual([3e6, 1e6]);
     expect(kc.bars[1].slice(7)).toEqual([null, null]);

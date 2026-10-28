@@ -752,8 +752,9 @@ export interface CvdBar {
   price_venue: string | null;
   price_symbol: string | null;
   /**
-   * Binance spot's taker flow over the bar (collector migration 051), for a crypto asset with a USDT
-   * spot book; null for a bar with none, absent from readers that never asked for it.
+   * The spot books' taker flow over the bar, every collected exchange summed (collector migration
+   * 051), for a crypto asset with a spot book; null for a bar with none, absent from readers that
+   * never asked for it.
    */
   spot_buy_usd?: number | null;
   spot_sell_usd?: number | null;
@@ -788,8 +789,14 @@ export interface CvdData {
   /** The charted asset's class, resolved as every asset page resolves it; null when nothing lists it. */
   asset_class: AssetClass | null;
   bars: CvdBar[];
-  /** Whether the bars carry a spot book's flow: a crypto asset with a Binance USDT spot book. */
+  /** Whether the bars carry spot flow: a crypto asset with a spot book on a collected exchange. */
   spot: boolean;
+  /**
+   * The venues whose flow is in the bars, busiest first over the window: the perpetuals' and the spot
+   * books'. A HIP-3 dex is its own venue id here ("hl-xyz"); the page names it Hyperliquid.
+   */
+  futures_venues: string[];
+  spot_venues: string[];
   /** The newest bucket stored for any asset: how far behind the venues' own statistics run. */
   newest: Date | null;
 }
@@ -1441,10 +1448,14 @@ function chosenClass(sql: postgres.Sql, base: string, assetClass: AssetClass | n
 // The chart reads one asset, so it starts from that asset's markets (market_latest_class_base)
 // and walks taker_flow's primary key for each, instead of building every asset's flow and
 // throwing all but one away. Same reference rule as above, within the asset.
+//
+// `venues` adds, on every bar alike, the venues in the window busiest first, comma-joined: one more
+// pass over the flow CTE, which is materialised already, rather than a second walk of taker_flow.
 function assetBarsQuery(
   sql: postgres.Sql,
   { base, assetClass, windowHours, barMinutes }: CvdOptions,
   range: Pick<CvdHistoryOptions, "fromMs" | "toMs" | "ref"> | null = null,
+  venues = false,
 ) {
   const windowInterval = `${windowHours} hours`;
   const barSeconds = barMinutes * 60;
@@ -1452,7 +1463,7 @@ function assetBarsQuery(
   const within = range
     ? sql`t.bucket_start >= to_timestamp(${range.fromMs / 1000}) AND t.bucket_start < to_timestamp(${range.toMs / 1000})`
     : sql`t.bucket_start > now() - ${windowInterval}::interval`;
-  return sql<CvdBar[]>`
+  return sql<(CvdBar & { venues?: string | null })[]>`
     WITH chosen AS (${chosenClass(sql, base, assetClass)}),
     mk AS (
       SELECT ml.venue_id, ml.venue_symbol, nullif(k.multiplier, 0) AS mult
@@ -1507,16 +1518,33 @@ function assetBarsQuery(
                 AND f.venue_symbol = r.venue_symbol
             ))::float8 AS low,
            min(r.venue_id) AS price_venue,
-           min(r.venue_symbol) AS price_symbol
+           min(r.venue_symbol) AS price_symbol${
+             venues
+               ? sql`,
+           (SELECT string_agg(venue_id, ',' ORDER BY usd DESC, venue_id)
+            FROM (SELECT venue_id, sum(buy_usd + sell_usd) AS usd FROM flow GROUP BY venue_id) v) AS venues`
+               : sql``
+}
     FROM flow f
     LEFT JOIN reference r ON true
     GROUP BY 1 ORDER BY 1`;
 }
 
+/** The comma-joined venue list assetBarsQuery and spotBars carry, as a list; empty for none. */
+const venueList = (joined: string | null | undefined): string[] =>
+  joined ? joined.split(",") : [];
+
+/** Spot bars and the venues in them, busiest first. */
+interface SpotBars {
+  rows: { bucket_start: Date; buy_usd: number; sell_usd: number }[];
+  venues: string[];
+}
+
 /**
- * One asset's Binance spot taker flow in bars (collector migration 051): the other half of the Chart
- * page's CVD. Crypto only -- a stock or commodity perpetual has no spot book on a crypto exchange --
- * so any other class asks nothing.
+ * One asset's spot taker flow in bars (collector migration 051), every collected exchange summed:
+ * Binance's klines, and the tapes the collector counts from OKX, Bybit, Coinbase, Bitget and Gate, one
+ * book an exchange. The other half of the Chart page's CVD. Crypto only -- a stock or commodity
+ * perpetual has no spot book on a crypto exchange -- so any other class asks nothing.
  *
  * TOLERANT OF A DATABASE WITHOUT IT. Until the collector's migration 051 is applied the table does
  * not exist (42P01), and until the site's role is granted it the read is refused (42501); either way
@@ -1527,28 +1555,60 @@ async function spotBars(
   sql: postgres.Sql,
   { base, assetClass, windowHours, barMinutes }: CvdOptions,
   range: Pick<CvdHistoryOptions, "fromMs" | "toMs"> | null = null,
-): Promise<{ bucket_start: Date; buy_usd: number; sell_usd: number }[]> {
-  if (assetClass !== null && assetClass !== "crypto") return [];
+): Promise<SpotBars> {
+  const none: SpotBars = { rows: [], venues: [] };
+  if (assetClass !== null && assetClass !== "crypto") return none;
   const barSeconds = barMinutes * 60;
   const within = range
     ? sql`bucket_start >= to_timestamp(${range.fromMs / 1000}) AND bucket_start < to_timestamp(${range.toMs / 1000})`
     : sql`bucket_start > now() - ${`${windowHours} hours`}::interval`;
   try {
-    const rows = await sql<{ bucket_start: Date; buy_usd: number; sell_usd: number }[]>`
+    const rows = await sql<
+      { bucket_start: Date; buy_usd: number; sell_usd: number; venues: string | null }[]
+    >`
+      WITH flow AS (
+        SELECT venue_id, bucket_start, buy_usd, sell_usd FROM spot_taker_flow
+        WHERE base = ${base} AND ${within}
+      )
       SELECT to_timestamp(floor(extract(epoch FROM bucket_start) / ${barSeconds}) * ${barSeconds})
                AS bucket_start,
              sum(buy_usd)::float8 AS buy_usd,
-             sum(sell_usd)::float8 AS sell_usd
-      FROM spot_taker_flow
-      WHERE base = ${base} AND ${within}
+             sum(sell_usd)::float8 AS sell_usd,
+             (SELECT string_agg(venue_id, ',' ORDER BY usd DESC, venue_id)
+              FROM (SELECT venue_id, sum(buy_usd + sell_usd) AS usd FROM flow GROUP BY venue_id) v)
+               AS venues
+      FROM flow
       GROUP BY 1 ORDER BY 1`;
-    return [...rows];
+    return {
+      rows: rows.map(({ bucket_start, buy_usd, sell_usd }) => ({
+        bucket_start,
+        buy_usd,
+        sell_usd,
+      })),
+      venues: venueList(rows[0]?.venues),
+    };
   } catch (error) {
     const code = (error as { code?: unknown } | null)?.code;
-    if (code === "42P01" || code === "42501") return [];
+    if (code === "42P01" || code === "42501") return none;
     throw error;
   }
 }
+
+/**
+ * The exchanges whose taker flow the Chart page sums, as the collector gathers it: the perpetuals'
+ * from the four that publish it by REST and the tapes it counts from Bybit and Hyperliquid (core and
+ * HIP-3), and the spot books' from Binance's klines and the tapes of the other five. Biggest first, for
+ * the lede; what a given asset's bars hold is CvdData's venue lists.
+ */
+export const FUTURES_TAKER_VENUES = [
+  "binance",
+  "bybit",
+  "okx",
+  "bitget",
+  "gate",
+  "hyperliquid",
+] as const;
+export const SPOT_TAKER_VENUES = ["binance", "coinbase", "okx", "bybit", "bitget", "gate"] as const;
 
 /**
  * The Chart page's fund-flow windows, in minutes: 5m to 30 days, as valuescan's spot and futures fund
@@ -2679,7 +2739,12 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         GROUP BY n.asset, n.asset_class
         ORDER BY sum(n.buy_usd + n.sell_usd) DESC, n.asset`;
 
-      const barsQuery = assetBarsQuery(sql, { windowHours, barMinutes, base, assetClass });
+      const barsQuery = assetBarsQuery(
+        sql,
+        { windowHours, barMinutes, base, assetClass },
+        null,
+        true,
+      );
 
       // Five independent reads at once: the chart no longer waits on the class lookup, which it only
       // used to learn whether to run. With no live market the class is null, the chart's market list
@@ -2695,12 +2760,17 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         spotBars(sql, { windowHours, barMinutes, base, assetClass }),
       ]);
       const crypto = resolved?.asset_class === "crypto";
+      const futuresVenues = venueList(bars[0]?.venues);
+      const perps: CvdBar[] = bars.map(({ venues: _, ...bar }) => bar);
+      const withSpotBook = perps.length > 0 && crypto && spot.rows.length > 0;
 
       return {
         rows: [...rows],
         asset_class: resolved?.asset_class ?? null,
-        bars: bars.length && crypto ? withSpot(bars, spot) : [...bars],
-        spot: bars.length > 0 && crypto && spot.length > 0,
+        bars: perps.length && crypto ? withSpot(perps, spot.rows) : perps,
+        spot: withSpotBook,
+        futures_venues: futuresVenues,
+        spot_venues: withSpotBook ? spot.venues : [],
         newest: newest[0]?.newest ?? null,
       };
     },
@@ -2713,11 +2783,11 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
     async cvdHistory({ base, assetClass, barMinutes, fromMs, toMs, ref, spot }) {
       const sql = connect();
       const options = { base, assetClass, barMinutes, windowHours: 0 };
-      const [bars, spotRows] = await Promise.all([
+      const [bars, spotBook] = await Promise.all([
         assetBarsQuery(sql, options, { fromMs, toMs, ref }),
-        spot ? spotBars(sql, options, { fromMs, toMs }) : [],
+        spot ? spotBars(sql, options, { fromMs, toMs }) : null,
       ]);
-      return spot ? withSpot(bars, spotRows) : [...bars];
+      return spotBook ? withSpot(bars, spotBook.rows) : [...bars];
     },
 
     async fundFlow(options) {

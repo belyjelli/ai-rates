@@ -74,8 +74,8 @@ export const charts: Catalog = {
     "{asset} · 累積出来高デルタ · {n}分足、{zone}",
   "{asset} futures taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.":
     "{asset} の直近 {window} の先物テイカー CVD：{cvd}。成行の買い手 {bought}、売り手 {sold}。",
-  "{asset}, last {window}: futures CVD {futures}, Binance spot CVD {spot}, delta {delta}.":
-    "{asset} の直近 {window}：先物 CVD {futures}、Binance 現物 CVD {spot}、デルタ {delta}。",
+  "{asset}, last {window}: futures CVD {futures}, spot CVD {spot}, delta {delta}.":
+    "{asset} の直近 {window}：先物 CVD {futures}、現物 CVD {spot}、デルタ {delta}。",
   "Last {window}": "直近 {window}",
   "Loading {interval} bars…": "{interval} 足を読み込み中…",
   "Loading {asset}…": "{asset} を読み込み中…",
@@ -131,14 +131,14 @@ export const charts: Catalog = {
   "No live market lists {asset}, so there is no flow to chart.":
     "{asset} を扱う稼働中の市場がないため、表示するフローはありません。",
   "Newest bucket {age}.": "最新の区間：{age}。",
-  "Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.":
-    "取引所は5分ごとの区間を締めてから公開するため、右端は数分遅れます。",
+  "The venues that publish statistics release each 5-minute bucket after it closes, so the newest bar holds only the live tapes for a few minutes.":
+    "統計を公開する取引所は5分ごとの区間を締めてから公開するため、最新の足は数分間、リアルタイム集計の取引所だけを含みます。",
 
   // web/cvd.ts: the page.
   "taker buys": "テイカー買い",
   "taker sells": "テイカー売り",
-  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.":
-    "時間足ボタンの横にある銘柄ボタンでスクリーナーが開きます：取得対象の全銘柄の、期間内のテイカーフローです。銘柄を選ぶとチャートを表示し、検索欄でティッカーを探したり、見出しで並べ替えたりできます。騰落率は取得対象で最も出来高の多い市場の、期間内の最初の終値から最後の終値までの変化です。履歴の長さは取引所によって異なります。Binance と Gate は数週間分、OKX は5日分を公開しているため、新しい7日間の期間では、最も古い足に含まれる取引所が少なくなります。",
+  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Gate and Bitget publish weeks of it and OKX five days, while Bybit, Hyperliquid and the spot books other than Binance's are counted from their live trades since 28 October 2026, so older bars sum fewer venues.":
+    "時間足ボタンの横にある銘柄ボタンでスクリーナーが開きます：取得対象の全銘柄の、期間内のテイカーフローです。銘柄を選ぶとチャートを表示し、検索欄でティッカーを探したり、見出しで並べ替えたりできます。騰落率は取得対象で最も出来高の多い市場の、期間内の最初の終値から最後の終値までの変化です。履歴の長さは取引所によって異なります。Binance、Gate、Bitget は数週間分、OKX は5日分を公開しています。Bybit、Hyperliquid、および Binance 以外の現物板は2026年10月28日からリアルタイムの約定で集計しているため、古い足に含まれる取引所は少なくなります。",
 
   // web/funding-chart.ts
   "The funding chart is unavailable right now. The backtest below is unaffected.":
@@ -204,12 +204,12 @@ export const charts: Catalog = {
     "直近 {window} に {asset} のテイカーフローはありません。{venues} で建玉の大きい約500銘柄のみを取得しています。上の銘柄リストから選んでください。",
   "Price with cumulative volume delta under it: spot and futures taker buying against taker selling, their combined delta per bar, and where price and order flow disagree.":
     "価格とその下の累積出来高デルタ：現物と先物のテイカー買いとテイカー売りの比較、バーごとの合計デルタ、そして価格とオーダーフローが食い違う箇所。",
-  "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars. Futures CVD is the exchanges' own 5-minute taker statistics for their perpetuals from <b>{venues}</b>, summed, for the ~500 assets deepest on them and every commodity, index and currency pair they list — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.":
-    "価格と、その下の累積出来高デルタ（CVD）：{buys} から {sells} を引いた額（ドル）。先物 CVD は <b>{venues}</b> が公開する無期限先物の5分ごとのテイカー統計を合計したもので、これらの取引所で建玉の大きい約500銘柄と、上場しているすべてのコモディティ・指数・通貨ペアが対象です — すべての取引所ではなく、5分より細かい粒度もありません。ダイバージェンスは価格とフローが逆を向いた期間を示します。起きたことを表すもので、この先を予測するものではありません。",
-  "Spot CVD is Binance's USDT spot book alone, for the crypto assets it lists; stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.":
-    "現物 CVD は Binance の USDT 現物板のみで、同取引所に上場している暗号資産が対象です。株式・コモディティ・指数は暗号資産取引所に現物板がないため、先物のみを表示します。多くの銘柄で規模が一桁違うため、現物と先物はそれぞれ別のパネルです。その下のヒストグラムはデルタで、バーごとの現物と先物のネットの合計です。",
-  "Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the line above the chart; on a phone, tap.":
-    "価格は取得対象で最も出来高の多い市場自身のローソク足です。パネルごとに目盛りが異なるため、線が交差する位置に意味はありません。ドラッグで過去をさかのぼり、ホイールまたはピンチで拡大縮小し、ローソク足にカーソルを合わせるとチャートの上の行に値が表示されます。スマートフォンではタップしてください。",
+  "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars, summed over every exchange we collect that lists the asset. Futures CVD adds up the perpetuals on <b>{futures}</b>; spot CVD the spot books on <b>{spot}</b>, one book an exchange. It covers the ~500 assets deepest by open interest and every commodity, index and currency pair, in 5-minute buckets. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.":
+    "価格と、その下の累積出来高デルタ（CVD）：{buys} から {sells} を引いた額（ドル）で、その銘柄を上場している取得対象のすべての取引所を合計したものです。先物 CVD は <b>{futures}</b> の無期限先物を、現物 CVD は <b>{spot}</b> の現物板（取引所ごとに1つ）を合計します。建玉の大きい約500銘柄と、すべてのコモディティ・指数・通貨ペアが対象で、5分単位です。ダイバージェンスは価格とフローが逆を向いた期間を示します。起きたことを表すもので、この先を予測するものではありません。",
+  "Each key above the chart says how many venues its line sums for this asset; hover it for their names. Spot is crypto only: stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.":
+    "チャート上の各凡例には、その線がこの銘柄で何取引所を合計しているかが表示されます。カーソルを合わせると取引所名が出ます。現物は暗号資産のみです。株式・コモディティ・指数は暗号資産取引所に現物板がないため、先物のみを表示します。多くの銘柄で規模が一桁違うため、現物と先物はそれぞれ別のパネルです。その下のヒストグラムはデルタで、バーごとの現物と先物のネットの合計です。",
+  "Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the box beside it; on a phone, tap.":
+    "価格は取得対象で最も出来高の多い市場自身のローソク足です。パネルごとに目盛りが異なるため、線が交差する位置に意味はありません。ドラッグで過去をさかのぼり、ホイールまたはピンチで拡大縮小し、ローソク足にカーソルを合わせると横のボックスに値が表示されます。スマートフォンではタップしてください。",
   "futures net {net}": "先物ネット {net}",
   "spot net {net}": "現物ネット {net}",
   "delta {net}": "デルタ {net}",
@@ -221,7 +221,8 @@ export const charts: Catalog = {
   Futures: "先物",
   "Spot (Binance)": "現物（Binance）",
   // The Chart page's fund-flow dropdown (web/fund-flow.ts).
-  "No spot book on Binance for this asset.": "この資産の Binance 現物板はありません。",
+  "No spot book for this asset on the collected exchanges.":
+    "取得対象の取引所にこの資産の現物板はありません。",
   "No futures flow for this asset yet.": "この資産の先物フローはまだありません。",
   Time: "時間",
   "Taker buys in the window, in dollars": "期間内のテイカー買い（ドル）",
@@ -236,7 +237,8 @@ export const charts: Catalog = {
   "Net inflow as a share of the asset's market cap": "純流入の時価総額に対する比率",
   "F/M cap ratio": "資金/時価総額比",
   "Spot fund": "現物資金",
-  "Binance USDT spot book": "Binance USDT 現物板",
+  "Spot books on {venues}": "{venues} の現物板",
+  "{count} venues": "{count} 取引所",
   "Futures fund": "先物資金",
   "Perpetuals on {venues}": "{venues} の無期限先物",
   "Fund flow": "資金フロー",

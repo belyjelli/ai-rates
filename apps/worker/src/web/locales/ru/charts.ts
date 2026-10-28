@@ -72,8 +72,8 @@ export const charts: Catalog = {
     "{asset} · кумулятивная дельта объёма · бары по {n} мин, {zone}",
   "{asset} futures taker CVD, last {window}: {cvd}. Market buyers {bought} vs sellers {sold}.":
     "CVD тейкеров фьючерсов по {asset} за {window}: {cvd}. Рыночные покупатели {bought}, продавцы {sold}.",
-  "{asset}, last {window}: futures CVD {futures}, Binance spot CVD {spot}, delta {delta}.":
-    "{asset} за {window}: CVD фьючерсов {futures}, CVD спота Binance {spot}, дельта {delta}.",
+  "{asset}, last {window}: futures CVD {futures}, spot CVD {spot}, delta {delta}.":
+    "{asset} за {window}: CVD фьючерсов {futures}, CVD спота {spot}, дельта {delta}.",
   "Last {window}": "За {window}",
   "Loading {interval} bars…": "Загрузка баров {interval}…",
   "Loading {asset}…": "Загрузка {asset}…",
@@ -129,14 +129,14 @@ export const charts: Catalog = {
   "No live market lists {asset}, so there is no flow to chart.":
     "Ни один действующий рынок не торгует {asset}, поэтому потока для графика нет.",
   "Newest bucket {age}.": "Последний интервал — {age}.",
-  "Venues publish each 5-minute bucket after it closes, so the right edge runs a few minutes behind.":
-    "Биржи публикуют каждый 5-минутный интервал после его закрытия, поэтому правый край графика отстаёт на несколько минут.",
+  "The venues that publish statistics release each 5-minute bucket after it closes, so the newest bar holds only the live tapes for a few minutes.":
+    "Биржи, публикующие статистику, выпускают каждый 5-минутный интервал после его закрытия, поэтому несколько минут последний бар содержит только живые ленты сделок.",
 
   // web/cvd.ts: the page.
   "taker buys": "покупки тейкеров",
   "taker sells": "продажи тейкеров",
-  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance and Gate publish weeks of it and OKX five days, so the oldest bars of a new 7-day window sum fewer venues.":
-    "Кнопка актива рядом с интервалами открывает скринер: поток тейкеров за окно по каждому опрашиваемому активу. Выберите актив, чтобы построить его график, найдите тикер в поле поиска или отсортируйте по заголовку. Изменение — от первого до последнего закрытия самого активного из опрашиваемых рынков в окне. Глубина истории у бирж разная: Binance и Gate публикуют её за несколько недель, OKX — за пять дней, поэтому самые старые бары нового 7-дневного окна суммируют меньше бирж.",
+  "The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Gate and Bitget publish weeks of it and OKX five days, while Bybit, Hyperliquid and the spot books other than Binance's are counted from their live trades since 28 October 2026, so older bars sum fewer venues.":
+    "Кнопка актива рядом с интервалами открывает скринер: поток тейкеров за окно по каждому опрашиваемому активу. Выберите актив, чтобы построить его график, найдите тикер в поле поиска или отсортируйте по заголовку. Изменение — от первого до последнего закрытия самого активного из опрашиваемых рынков в окне. Глубина истории у бирж разная: Binance, Gate и Bitget публикуют её за несколько недель, OKX — за пять дней, а Bybit, Hyperliquid и спотовые книги кроме Binance считаются по живым сделкам с 28 октября 2026 года, поэтому старые бары суммируют меньше бирж.",
 
   // web/funding-chart.ts
   "The funding chart is unavailable right now. The backtest below is unaffected.":
@@ -204,12 +204,12 @@ export const charts: Catalog = {
     "За {window} потока тейкеров по {asset} нет. Опрашиваются только ~500 самых ликвидных активов на {venues}; выберите актив из списка выше.",
   "Price with cumulative volume delta under it: spot and futures taker buying against taker selling, their combined delta per bar, and where price and order flow disagree.":
     "Цена и под ней кумулятивная дельта объёма: покупки тейкеров против продаж на споте и фьючерсах, их общая дельта по барам и места, где цена и поток ордеров расходятся.",
-  "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars. Futures CVD is the exchanges' own 5-minute taker statistics for their perpetuals from <b>{venues}</b>, summed, for the ~500 assets deepest on them and every commodity, index and currency pair they list — not every venue, and nothing finer than five minutes. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.":
-    "Цена, а под ней кумулятивная дельта объёма (CVD): {buys} минус {sells}, в долларах. CVD фьючерсов — собственная 5-минутная статистика тейкеров по бессрочным фьючерсам бирж <b>{venues}</b>, просуммированная по ~500 самым ликвидным на них активам и всем товарам, индексам и валютным парам, которые там торгуются, — не все биржи и ничего детальнее пяти минут. Дивергенция отмечает окно, в котором цена и поток шли в разные стороны; она описывает то, что произошло, а не то, что будет дальше.",
-  "Spot CVD is Binance's USDT spot book alone, for the crypto assets it lists; stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.":
-    "CVD спота — только спотовая книга USDT на Binance, для криптоактивов, которые там торгуются; у акций, товаров и индексов нет спотовой книги на криптобирже, и для них показаны только фьючерсы. У спота и фьючерсов по отдельной панели, потому что на большинстве активов их объёмы различаются на порядок. Гистограмма под ними — дельта: сумма нетто спота и фьючерсов за каждый бар.",
-  "Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the line above the chart; on a phone, tap.":
-    "Цена — собственные свечи самого активного из опрашиваемых рынков. У каждой панели своя шкала, поэтому пересечение линий ничего не значит. Перетащите, чтобы заглянуть в прошлое, колесом или щипком меняйте масштаб, наведите на свечу, чтобы прочитать её в строке над графиком; на телефоне нажмите.",
+  "Price, with cumulative volume delta (CVD) under it: {buys} less {sells}, in dollars, summed over every exchange we collect that lists the asset. Futures CVD adds up the perpetuals on <b>{futures}</b>; spot CVD the spot books on <b>{spot}</b>, one book an exchange. It covers the ~500 assets deepest by open interest and every commodity, index and currency pair, in 5-minute buckets. A divergence marks a window where price and flow pointed opposite ways; it describes what happened, not what happens next.":
+    "Цена, а под ней кумулятивная дельта объёма (CVD): {buys} минус {sells}, в долларах, по всем собираемым биржам, где торгуется актив. CVD фьючерсов складывает бессрочные фьючерсы на <b>{futures}</b>; CVD спота — спотовые книги на <b>{spot}</b>, по одной на биржу. Охвачены ~500 активов с наибольшим открытым интересом и все товары, индексы и валютные пары, с шагом 5 минут. Дивергенция отмечает окно, в котором цена и поток шли в разные стороны; она описывает то, что произошло, а не то, что будет дальше.",
+  "Each key above the chart says how many venues its line sums for this asset; hover it for their names. Spot is crypto only: stocks, commodities and indices have no spot book on a crypto exchange and show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.":
+    "Каждая подпись над графиком показывает, сколько бирж суммирует её линия для этого актива; наведите на неё, чтобы увидеть их названия. Спот есть только у криптоактивов: у акций, товаров и индексов нет спотовой книги на криптобирже, и для них показаны только фьючерсы. У спота и фьючерсов по отдельной панели, потому что на большинстве активов их объёмы различаются на порядок. Гистограмма под ними — дельта: сумма нетто спота и фьючерсов за каждый бар.",
+  "Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the box beside it; on a phone, tap.":
+    "Цена — собственные свечи самого активного из опрашиваемых рынков. У каждой панели своя шкала, поэтому пересечение линий ничего не значит. Перетащите, чтобы заглянуть в прошлое, колесом или щипком меняйте масштаб, наведите на свечу, чтобы прочитать её в окне рядом; на телефоне нажмите.",
   "futures net {net}": "нетто фьючерсов {net}",
   "spot net {net}": "нетто спота {net}",
   "delta {net}": "дельта {net}",
@@ -221,7 +221,8 @@ export const charts: Catalog = {
   Futures: "Фьючерсы",
   "Spot (Binance)": "Спот (Binance)",
   // The Chart page's fund-flow dropdown (web/fund-flow.ts).
-  "No spot book on Binance for this asset.": "У Binance нет спотового стакана по этому активу.",
+  "No spot book for this asset on the collected exchanges.":
+    "Ни на одной из собираемых бирж нет спотового стакана по этому активу.",
   "No futures flow for this asset yet.": "По этому активу пока нет потока фьючерсов.",
   Time: "Время",
   "Taker buys in the window, in dollars": "Покупки тейкеров за окно, в долларах",
@@ -237,7 +238,8 @@ export const charts: Catalog = {
     "Чистый приток как доля рыночной капитализации актива",
   "F/M cap ratio": "Поток/капитализация",
   "Spot fund": "Спотовые средства",
-  "Binance USDT spot book": "Спотовый стакан Binance USDT",
+  "Spot books on {venues}": "Спотовые стаканы на {venues}",
+  "{count} venues": "бирж: {count}",
   "Futures fund": "Фьючерсные средства",
   "Perpetuals on {venues}": "Бессрочные фьючерсы на {venues}",
   "Fund flow": "Денежный поток",

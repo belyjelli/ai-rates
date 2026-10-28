@@ -1,5 +1,5 @@
 import type { AssetClass } from "@ai-rates/core";
-import { FUND_WINDOWS } from "../app/data";
+import { FUND_WINDOWS, FUTURES_TAKER_VENUES, SPOT_TAKER_VENUES } from "../app/data";
 import { esc } from "./format";
 import { tr } from "./i18n";
 import { icon } from "./icons";
@@ -7,9 +7,6 @@ import { venueName } from "./venues";
 
 /** Where the panel reads its figures: one asset's windows as JSON, kept a minute at the edge. */
 export const FUND_FLOW_PATH = "/data/fund-flow";
-
-/** The perpetual venues whose taker flow is summed, as on the chart. */
-const FUTURES_VENUES = ["binance", "okx", "gate", "bitget"];
 
 /** A window's name in the first column: 5m, 1H, 1D, as valuescan's tables write them. */
 export function windowLabel(minutes: number): string {
@@ -25,7 +22,7 @@ function table(side: "spot" | "futures", title: string, source: string): string 
   ).join("");
   return `<section class="cvd-fund-side" data-side="${side}">
 <h3>${title} <small class="dim">${source}</small></h3>
-<p class="cvd-fund-none dim" hidden>${side === "spot" ? tr("No spot book on Binance for this asset.") : tr("No futures flow for this asset yet.")}</p>
+<p class="cvd-fund-none dim" hidden>${side === "spot" ? tr("No spot book for this asset on the collected exchanges.") : tr("No futures flow for this asset yet.")}</p>
 <div class="cvd-fund-scroll"><table class="cvd-fund-table">
 <thead><tr><th scope="col">${tr("Time")}</th><th scope="col" title="${esc(tr("Taker buys in the window, in dollars"))}">${tr("Inflow ($)")}</th><th scope="col" title="${esc(tr("Taker sells in the window, in dollars"))}">${tr("Outflow ($)")}</th><th scope="col" title="${esc(tr("Inflow less outflow"))}">${tr("Net inflow ($)")}</th><th scope="col" title="${esc(tr("Net inflow against the window of the same length before it"))}">${tr("Net inflow change")}</th><th scope="col" title="${esc(tr("Net inflow as a share of the asset's market cap"))}">${tr("F/M cap ratio")}</th></tr></thead>
 <tbody>${rows}</tbody>
@@ -42,11 +39,17 @@ function table(side: "spot" | "futures", title: string, source: string): string 
 export function fundPanel(asset: string, assetClass: AssetClass): string {
   const src = `${FUND_FLOW_PATH}?asset=${encodeURIComponent(asset)}&class=${assetClass}`;
   const spot =
-    assetClass === "crypto" ? table("spot", tr("Spot fund"), tr("Binance USDT spot book")) : "";
+    assetClass === "crypto"
+      ? table(
+          "spot",
+          tr("Spot fund"),
+          tr("Spot books on {venues}", { venues: SPOT_TAKER_VENUES.map(venueName).join(", ") }),
+        )
+      : "";
   const futures = table(
     "futures",
     tr("Futures fund"),
-    tr("Perpetuals on {venues}", { venues: FUTURES_VENUES.map(venueName).join(", ") }),
+    tr("Perpetuals on {venues}", { venues: FUTURES_TAKER_VENUES.map(venueName).join(", ") }),
   );
   return `<details class="cvd-fund" data-fund="${esc(src)}">
 <summary class="wh-pick-btn cvd-fund-btn">${icon("swap")}<b>${tr("Fund flow")}</b></summary>
