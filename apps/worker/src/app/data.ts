@@ -3110,7 +3110,10 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
               SELECT (extract(epoch FROM expiry) * 1000)::float8 AS expiry, strike::float8 AS strike,
                      is_call, iv::float8 AS iv, forward::float8 AS forward
               FROM option_chain
-              WHERE currency = 'BTC' AND taken_at = ${read.taken_at} AND root = ''
+              -- The read is matched in SQL, not by the Date read above: a JavaScript Date keeps
+              -- milliseconds and the stored time has microseconds, so the two never compare equal.
+              WHERE currency = 'BTC' AND root = ''
+                AND taken_at = (SELECT max(taken_at) FROM option_chain_reads WHERE currency = 'BTC')
                 AND expiry > now() AND expiry < now() + interval '12 days' AND iv > 0
               ORDER BY expiry, strike, is_call`;
             return {
