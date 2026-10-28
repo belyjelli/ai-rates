@@ -4207,7 +4207,7 @@ describe("cvd", () => {
       ],
     });
     // The note names what the total leaves out.
-    expect(payload.words.etfCounted).toContain("FBTC");
+    expect(payload.words.etfCounted).toContain("BTCW");
     expect(payload.words.etfPin).toContain("<svg");
     expect(asked).toEqual(["BTC"]);
 

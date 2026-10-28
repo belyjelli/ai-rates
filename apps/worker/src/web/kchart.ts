@@ -142,7 +142,7 @@ export interface KEtf {
  * The US spot Bitcoin ETFs the collector cannot read, which the pins' total leaves out: their issuers
  * refuse automated reads from the collector's host (profitlock-worker collector/internal/etf).
  */
-export const ETF_NOT_READ = ["FBTC", "GBTC", "BTC", "BTCO", "BTCW", "MSBT", "BRRR"];
+export const ETF_NOT_READ = ["BTCW", "MSBT", "BRRR"];
 
 /** The flows in the shipped form: whole dollars. */
 export function kEtf(flows: {
