@@ -3113,7 +3113,8 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
     async indexLevels() {
       const sql = connect();
       // The last quote of each UTC day over the past month, as text: no arrays under fetch_types off.
-      // Every Asian and Indian session closes inside its UTC day, so a day's last quote is its close.
+      // Every session read sits inside its UTC day (Tokyo opens at 00:00 UTC, New York and Sao Paulo
+      // close by 21:30 with the feed's delay), so a day's last quote is its close.
       const [levels, closes] = await Promise.all([
         sql<Omit<IndexLevelRow, "closes">[]>`
           SELECT ticker, name, source, price::float8 AS price, prev_close::float8 AS prev_close,

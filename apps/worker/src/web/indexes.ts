@@ -1,23 +1,25 @@
 import type { IndexLevelRow } from "../app/data";
 import { lazyPlaceholder } from "./chart-skeleton";
 import { esc } from "./format";
-import { bookName } from "./gamma";
-import { tr } from "./i18n";
+import { bookName, gammaBookFor } from "./gamma";
+import { msg, tr, trMsg } from "./i18n";
 import { timeTag } from "./localtime";
 
 /**
  * The Rates page's World indexes tab: every stock index level the collector reads (collector
- * internal/indexlevel, migrations 037 and 057), grouped by market, with the day's change and range and
- * a month of daily closes.
+ * internal/indexlevel, migrations 037 and 057), grouped by region with each index's market under its
+ * name, with the day's change and range and a month of daily closes.
  *
- * WHY HERE. The Gamma, Greeks and IV tabs already carry option books on the Nifty 50, Sensex, Nikkei
- * 225 and ASX 200; this is the level those books sit on, and for the indexes with no free options
- * data (KOSPI, TOPIX, the Straits Times, the broader Nifty indexes) the only figure the site has.
- * Rows with a book link to it.
+ * WHY HERE. The Gamma, Greeks and IV tabs carry option books on the S&P 500, Nasdaq-100, Russell
+ * 2000, Euro Stoxx 50, DAX, SMI, the Hang Seng and mainland indexes, TAIEX, Nikkei 225, ASX 200, Nifty
+ * and Sensex; this is the level those books sit on, and for the indexes with no free options data
+ * (the FTSE 100, CAC 40, KOSPI, TOPIX and most of the rest) the only figure the site has. A row whose
+ * ticker has a book links to it.
  *
- * LIVE OR A CLOSE, SAID PER ROW. KRX and Sina quote during the session; NSE's file is the day's close,
- * read once in the evening. A close shown as if it were live would read as a frozen market, so the
- * As of column names which it is, in the reader's own time (localtime.ts).
+ * LIVE OR A CLOSE, SAID PER ROW. KRX, Sina and TradingView quote during the session (TradingView up to
+ * 20 minutes behind, stamped with the time its level stands for); NSE's file is the day's close, read
+ * once in the evening. A close shown as if it were live would read as a frozen market, so the As of
+ * column names which it is, in the reader's own time (localtime.ts).
  *
  * BSE-100, BSE-200 and BSE-500 are not here: Sina's codes for them froze in 2025-09 and BSE's own API
  * refuses the collector, so there is no source (checked 2026-10-29).
@@ -32,20 +34,94 @@ export const indexTabs = (): { id: typeof INDEX_PANEL; label: string; shortLabel
   { id: INDEX_PANEL, label: tr("World indexes"), shortLabel: tr("Indexes") },
 ];
 
-/** Markets in the order the tab lists them, each with its indexes in order. */
-const MARKETS: { region: () => string; tickers: string[] }[] = [
+const US = msg("United States");
+const HONG_KONG = msg("Hong Kong");
+const JAPAN = msg("Japan");
+const INDIA = msg("India");
+const CHINA = msg("China");
+const KOREA = msg("Korea");
+
+/** Regions in the order the tab lists them, each with its indexes in order and the market of each. */
+const REGIONS: { region: () => string; indexes: [ticker: string, market: string][] }[] = [
   {
-    region: () => tr("India"),
-    tickers: ["NIFTY", "NIFTY100", "NIFTY200", "NIFTY500", "NIFTYMID150", "SENSEX", "INDIAVIX"],
+    region: () => tr("Americas"),
+    indexes: [
+      ["SPX", US],
+      ["DJI", US],
+      ["COMP", US],
+      ["NDX", US],
+      ["RUT", US],
+      ["VIX", US],
+      ["SPTSX", msg("Canada")],
+      ["IBOV", msg("Brazil")],
+      ["MEXBOL", msg("Mexico")],
+    ],
   },
-  { region: () => tr("Japan"), tickers: ["NK225", "TOPIX"] },
-  { region: () => tr("Korea"), tickers: ["KOSPI", "KOSPI200"] },
-  { region: () => tr("Singapore"), tickers: ["STI"] },
-  { region: () => tr("Australia"), tickers: ["XJO"] },
+  {
+    region: () => tr("Europe"),
+    indexes: [
+      ["DAX", msg("Germany")],
+      ["UKX", msg("United Kingdom")],
+      ["CAC", msg("France")],
+      ["SX5E", msg("Euro area")],
+      ["AEX", msg("Netherlands")],
+      ["IBEX", msg("Spain")],
+      ["FTSEMIB", msg("Italy")],
+      ["SMI", msg("Switzerland")],
+      ["PSI", msg("Portugal")],
+      ["BEL20", msg("Belgium")],
+      ["ATX", msg("Austria")],
+      ["OMXS30", msg("Sweden")],
+      ["OMXC25", msg("Denmark")],
+      ["WIG20", msg("Poland")],
+      ["XU100", msg("Turkey")],
+    ],
+  },
+  {
+    region: () => tr("Middle East"),
+    indexes: [
+      ["TA35", msg("Israel")],
+      ["TASI", msg("Saudi Arabia")],
+    ],
+  },
+  {
+    region: () => tr("Asia-Pacific"),
+    indexes: [
+      ["HSI", HONG_KONG],
+      ["HSCEI", HONG_KONG],
+      ["HSTECH", HONG_KONG],
+      ["NK225", JAPAN],
+      ["TOPIX", JAPAN],
+      ["XJO", msg("Australia")],
+      ["NIFTY", INDIA],
+      ["NIFTY100", INDIA],
+      ["NIFTY200", INDIA],
+      ["NIFTY500", INDIA],
+      ["NIFTYMID150", INDIA],
+      ["BANKNIFTY", INDIA],
+      ["SENSEX", INDIA],
+      ["INDIAVIX", INDIA],
+      ["SHCOMP", CHINA],
+      ["SZI", CHINA],
+      ["XIN9", CHINA],
+      ["SSE50", CHINA],
+      ["CSI300", CHINA],
+      ["CSI1000", CHINA],
+      ["TAIEX", msg("Taiwan")],
+      ["KOSPI", KOREA],
+      ["KOSPI200", KOREA],
+      ["SET", msg("Thailand")],
+      ["JKSE", msg("Indonesia")],
+      ["PSEI", msg("Philippines")],
+      ["STI", msg("Singapore")],
+      ["KLCI", msg("Malaysia")],
+      ["VNINDEX", msg("Vietnam")],
+    ],
+  },
 ];
 
-/** Indexes with an option book on the Gamma tab, by the same ticker. */
-const BOOKS = new Set(["NIFTY", "SENSEX", "NK225", "XJO"]);
+/** Whether an index has an option book on the Gamma tab, by the same ticker (SPX, DAX, NIFTY ...). */
+const hasBook = (ticker: string): boolean => gammaBookFor(ticker, "index") !== null;
 
 /** A quote older than this is the market's close, not a live level. */
 const LIVE_MS = 30 * 60 * 1000;
@@ -76,9 +152,10 @@ function spark(closes: number[]): string {
   return `<svg class="ix-spark ${tone}" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(tr("{n} daily closes, {change}%", { n: closes.length, change }))}"><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
 }
 
-function row(l: IndexLevelRow, now: number): string {
-  const name = BOOKS.has(l.ticker) ? bookName(l.ticker) : esc(l.name);
-  const book = BOOKS.has(l.ticker)
+function row(l: IndexLevelRow, now: number, market?: string): string {
+  const name = hasBook(l.ticker) ? bookName(l.ticker) : esc(l.name);
+  const where = market ? `<span class="ix-where">${esc(trMsg(market))}</span>` : "";
+  const book = hasBook(l.ticker)
     ? ` <a class="ix-book" href="/rates?gex=${encodeURIComponent(l.ticker)}#gamma" title="${esc(tr("Its option book on the Gamma Exposure tab"))}">${tr("options")}</a>`
     : "";
   let change = `<td class="num">${dash}</td>`;
@@ -93,7 +170,7 @@ function row(l: IndexLevelRow, now: number): string {
   const asOf = live
     ? `<span class="ix-live">${tr("live")}</span> ${timeTag(l.at_ms, "hm")}`
     : `${tr("closing")} ${timeTag(l.at_ms, "md")}`;
-  return `<tr><td>${name}${book}</td><td class="num">${level(l.price)}</td>${change}<td class="num dim">${range}</td><td class="ix-spark-cell">${spark(l.closes)}</td><td class="dim">${asOf}</td></tr>`;
+  return `<tr><td>${name}${book}${where}</td><td class="num">${level(l.price)}</td>${change}<td class="num dim">${range}</td><td class="ix-spark-cell">${spark(l.closes)}</td><td class="dim">${asOf}</td></tr>`;
 }
 
 export function indexesPanel(data: IndexLevelRow[] | null, now: number): string {
@@ -103,12 +180,12 @@ export function indexesPanel(data: IndexLevelRow[] | null, now: number): string 
     return `<p class="empty">${tr("No index level has been read yet. The collector reads them every five minutes.")}</p>`;
   const byTicker = new Map(data.map((l) => [l.ticker, l]));
   const listed = new Set<string>();
-  const groups = MARKETS.map(({ region, tickers }) => {
-    const rows = tickers.flatMap((t) => {
+  const groups = REGIONS.map(({ region, indexes }) => {
+    const rows = indexes.flatMap(([t, market]) => {
       const l = byTicker.get(t);
       if (!l) return [];
       listed.add(t);
-      return [row(l, now)];
+      return [row(l, now, market)];
     });
     return rows.length > 0
       ? `<tr class="ix-region"><th colspan="6">${region()}</th></tr>${rows.join("")}`
@@ -118,9 +195,9 @@ export function indexesPanel(data: IndexLevelRow[] | null, now: number): string 
   const others = data.filter((l) => !listed.has(l.ticker)).map((l) => row(l, now));
   if (others.length > 0)
     groups.push(`<tr class="ix-region"><th colspan="6">${tr("Other")}</th></tr>${others.join("")}`);
-  return `<p class="dim ix-lede">${tr("Stock index levels from each exchange's own data: the day's change against the previous close, the day's range, and a month of daily closes.")}</p>
+  return `<p class="dim ix-lede">${tr("Stock index levels across the Americas, Europe, the Middle East and Asia-Pacific: the day's change against the previous close, the day's range, and a month of daily closes.")}</p>
 <div class="sheet-wrap"><table class="sheet mc-table ix-table"><thead><tr><th>${tr("Index")}</th><th class="num">${tr("Level")}</th><th class="num">${tr("Change")}</th><th class="num">${tr("Day range")}</th><th>${tr("30 days")}</th><th>${tr("As of")}</th></tr></thead><tbody>${groups.join("")}</tbody></table></div>
-<p class="notes">${tr("India's Nifty indexes and India VIX are NSE's daily closing file, read once each evening; the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 are Sina's quotes and KOSPI and KOSPI 200 the Korea Exchange's, read every five minutes during the session. BSE-100, BSE-200 and BSE-500 have no free source we can read.")}</p>`;
+<p class="notes">${tr("India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close. BSE-100, BSE-200 and BSE-500 have no free source we can read.")}</p>`;
 }
 
 export function indexesFragment(data: IndexLevelRow[] | null, now: number): string {
@@ -137,6 +214,7 @@ export const INDEXES_CSS = `.ix-lede{margin:2px 0 10px}
 .ix-table .ix-region th{text-align:left;padding-top:12px;font-weight:600;color:var(--muted)}
 .ix-table td:first-child{white-space:nowrap}
 .ix-book{margin-left:6px;font-size:11px}
+.ix-where{display:block;font-size:11px;color:var(--muted)}
 .ix-live{color:var(--accent)}
 .ix-spark-cell{width:104px}
 .ix-spark{display:block}

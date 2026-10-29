@@ -4345,10 +4345,39 @@ describe("cvd", () => {
           closes: [],
         }),
         level({ ticker: "NEWIDX", name: "New Index", source: "sina", at_ms: NOW - 2 * DAY }),
+        level({
+          ticker: "UKX",
+          name: "FTSE 100",
+          source: "tv",
+          price: 10728.03,
+          prev_close: 10694.5,
+          at_ms: NOW - 15 * 60_000,
+        }),
+        level({
+          ticker: "SPX",
+          name: "S&P 500",
+          source: "tv",
+          price: 7743.98,
+          prev_close: 7722.6,
+          at_ms: NOW - 14 * 3_600_000,
+        }),
       ],
     });
     const tab = await (await get("/rates?panel=indexes", data)).text();
-    // India first, Nifty 50 by the gamma book's name, linked to its book; −0.22% on the day, its range.
+    // By region, the Americas first, each index with its market; the S&P 500 links to its book, the
+    // FTSE 100 (no book) does not.
+    const at = (text: string) => tab.indexOf(text);
+    expect(at(">Americas<")).toBeGreaterThan(-1);
+    expect(at(">Americas<")).toBeLessThan(at(">Europe<"));
+    expect(at(">Europe<")).toBeLessThan(at(">Asia-Pacific<"));
+    expect(at("S&amp;P 500")).toBeLessThan(at("FTSE 100"));
+    expect(tab).toContain('<span class="ix-where">United States</span>');
+    expect(tab).toContain('<span class="ix-where">United Kingdom</span>');
+    expect(tab).toContain('href="/rates?gex=SPX#gamma"');
+    expect(tab).not.toContain('href="/rates?gex=UKX#gamma"');
+    // The FTSE 100's day against its previous close.
+    expect(tab).toContain("+0.31%");
+    // India before Korea, Nifty 50 by the gamma book's name, linked to its book; −0.22% on the day, its range.
     expect(tab.indexOf("India")).toBeLessThan(tab.indexOf("Korea"));
     expect(tab).toContain('href="/rates?gex=NIFTY#gamma"');
     expect(tab).toContain("22,698.85");
