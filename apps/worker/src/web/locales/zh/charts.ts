@@ -235,6 +235,31 @@ export const charts: Catalog = {
   "Inflow is taker buying and outflow taker selling, summed over each window back from the newest bucket every venue has published. Net inflow change compares the net with the window of the same length before it. F/M cap ratio is the net as a share of the asset's market cap (CoinGecko). A dash means the history does not reach back that far yet.":
     "流入为主动买入，流出为主动卖出，从所有交易所都已发布的最新时段往回累计每个窗口。净流入变化是与前一个同长度窗口的净流入相比。资金/市值比是净流入占该资产市值（CoinGecko）的比例。短横线表示历史数据尚不够长。",
   "Up to": "截至",
+
+  // web/cvd.ts: the Detail view, the charted asset's own figures in place of the chart.
+  "{ratio} of {volume} taker volume, {venues}": "占 {volume} 主动成交量的 {ratio}，{venues}",
+  "Bullish divergence": "看涨背离",
+  "Bearish divergence": "看跌背离",
+  "No divergence": "无背离",
+  "price {change}, futures flow {ratio} of volume; a flag needs both past {price}% and {flow}%":
+    "价格 {change}，合约净流量占成交量 {ratio}；价格和流量需分别超过 {price}% 与 {flow}% 才标记",
+  "{venue} spot": "{venue} 现货",
+  "largest net buy and net sell by exchange": "按交易所的最大净买入和净卖出",
+  "{n} markets, 24h volume {volume}": "{n} 个市场，24 小时成交量 {volume}",
+  "weighted by open interest; {low} to {high} across markets":
+    "按持仓量加权；各市场 {low} 至 {high}",
+  "Market cap": "市值",
+  "CoinGecko's, read hourly; crypto only": "来自 CoinGecko，每小时读取；仅限加密资产",
+  "{interval} bars": "{interval} 柱",
+  "Signal by window": "各时间窗口信号",
+  "More on {asset}:": "{asset} 的更多页面：",
+  "By exchange": "按交易所",
+  "Back to the chart": "返回图表",
+  "{asset}'s flow by window and by exchange, with its open interest and funding":
+    "{asset} 按时间窗口和交易所的资金流，以及持仓量和资金费率",
+  Detail: "详情",
+  "Detail, beside Fund flow, puts the asset's own figures where the chart and the market's tiles are, over the same window: its futures and spot CVD, whether it diverged, the exchanges that bought and sold it most, its open interest, funding and market cap; then its signal over every interval's span, and its flow exchange by exchange. Chart brings the chart back.":
+    "「资金流向」旁的「详情」会在图表和全市场卡片的位置，显示该资产在同一时间窗口内自己的数据：合约与现货 CVD、是否出现背离、买入和卖出最多的交易所、持仓量、资金费率和市值；其下是它在每个周期跨度上的信号，以及按交易所拆分的资金流。点「图表」即可回到图表。",
   // The Chart page's spot ETF flow pins (web/kchart.ts).
   "Spot ETF net inflow": "现货 ETF 净流入",
   "Spot ETF net outflow": "现货 ETF 净流出",

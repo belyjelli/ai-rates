@@ -3,26 +3,33 @@ import {
   type CvdAssetRow,
   type CvdBar,
   type CvdData,
+  type CvdDetail,
+  type CvdSpan,
+  type CvdVenueFlow,
   type EtfFlows,
   FUTURES_TAKER_VENUES,
+  type MarketRow,
   type Overview,
   SPOT_TAKER_VENUES,
 } from "../app/data";
 import {
   CVD_DEFAULT_INTERVAL,
+  CVD_INTERVAL_KEYS,
   CVD_INTERVALS,
   CVD_SORTS,
   CVD_STRIP,
   type CvdParams,
   type CvdSort,
+  type CvdView,
   cvdToQuery,
   isCvdLockedInterval,
 } from "../app/params";
 import { CHART_SKELETON_JS } from "./chart-skeleton";
-import { ageText, esc, formatPrice, formatUsd, LOCK_ICON } from "./format";
+import { ageText, aprTone, esc, formatApr, formatPrice, formatUsd, LOCK_ICON } from "./format";
 import { FUND_CSS, FUND_SCRIPT, fundPanel } from "./fund-flow";
 import { helpHeading } from "./help";
 import { msg, tr, trMsg } from "./i18n";
+import { icon } from "./icons";
 import {
   KC_HOST,
   KC_PAGE_BARS,
@@ -36,7 +43,7 @@ import {
 } from "./kchart";
 import { layout } from "./layout";
 import { timeTag, zoneTag } from "./localtime";
-import { assetKey, assetName } from "./pages";
+import { assetHref, assetKey, assetName, exchangeHref, pairHref } from "./pages";
 import { PICK_SCRIPT } from "./picker";
 import { citeMark, plainLabel } from "./share";
 import {
@@ -114,7 +121,9 @@ export function flowRatio(row: { buy_usd: number; sell_usd: number }): number | 
  * Bullish: price fell while takers net bought -- someone absorbing the selling. Bearish: price rose
  * while takers net sold -- someone unloading into the bid.
  */
-export function divergence(row: CvdAssetRow): Divergence {
+export function divergence(
+  row: Pick<CvdAssetRow, "buy_usd" | "sell_usd" | "change_pct">,
+): Divergence {
   const ratio = flowRatio(row);
   if (row.change_pct === null || ratio === null) return null;
   if (row.change_pct <= -DIVERGENCE_PRICE_PCT && ratio >= DIVERGENCE_FLOW_PCT) return "bullish";
@@ -473,7 +482,8 @@ export const CVD_SWITCH_SCRIPT = `(() => {
     if (box.top < 0 || box.top > innerHeight * 0.5) chart.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
   };
 
-  // link: an interval in the strip (data-cvd-switch) or an asset to chart (data-cvd-select).
+  // link: an interval (data-cvd-switch), an asset to chart (data-cvd-select), or the Detail button
+  // and its way back (data-cvd-view).
   const go = async (link) => {
     if (busy) return;
     busy = true;
@@ -483,9 +493,12 @@ export const CVD_SWITCH_SCRIPT = `(() => {
     // Looked up per click: the strip is replaced with the rest of <main> on every switch.
     const nav = document.querySelector(".cvd-intervals");
     let label = "";
-    if (link.dataset.cvdSwitch) {
+    if (link.dataset.cvdView) {
+      label = (nav.dataset.loadingAsset || "").replace("{asset}", link.dataset.cvdAsset || "");
+    } else if (link.dataset.cvdSwitch) {
+      // By interval rather than by element: the Detail view's window table links to them too.
       for (const a of nav.querySelectorAll("a")) {
-        const on = a === link;
+        const on = a.dataset.cvdSwitch === link.dataset.cvdSwitch;
         a.classList.toggle("on", on);
         if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
       }
@@ -579,7 +592,7 @@ export const CVD_SWITCH_SCRIPT = `(() => {
       sortBy(heading);
       return;
     }
-    const link = event.target.closest("a[data-cvd-switch], a[data-cvd-select]");
+    const link = event.target.closest("a[data-cvd-switch], a[data-cvd-select], a[data-cvd-view]");
     if (!link || modified(event)) return;
     event.preventDefault();
     if (link.getAttribute("aria-current")) {
@@ -666,7 +679,7 @@ function assetPicker(data: {
       : ""
   }${params.sort !== "volume" ? `<input type="hidden" name="sort" value="${esc(params.sort)}">` : ""}${
     params.asc ? '<input type="hidden" name="dir" value="asc">' : ""
-  }`;
+  }${params.view === "detail" ? '<input type="hidden" name="view" value="detail">' : ""}`;
   const current = rows.find((row) => row.asset === asset && row.asset_class === assetClass);
   const summary = current
     ? `<b>${label}</b><span class="num">${formatPrice(current.price)}</span><span class="num${tone(current.change_pct)}">${signedPct(current.change_pct)}</span>`
@@ -683,6 +696,256 @@ function assetPicker(data: {
 </details>`;
 }
 
+/** A path segment for an asset on the other asset pages: crypto unmarked, every other class named. */
+const assetSegment = (asset: string, assetClass: AssetClass) =>
+  assetClass === "crypto"
+    ? encodeURIComponent(asset)
+    : `${assetClass}/${encodeURIComponent(asset)}`;
+
+/**
+ * The Detail view (owner, 2026-10-29): the Detail button beside the asset picker puts the charted
+ * asset's own figures where the chart and the all-asset tiles were, over the same window as the
+ * interval strip's, so the two views agree on every figure they share.
+ *
+ * WHAT TAKES THE PLACE OF WHAT. The chart view's tiles are the market's: breadth, how many assets
+ * diverged each way, the largest flows. Here they are the asset's: its futures and spot CVD, whether
+ * it diverged and by how much, which exchanges bought and sold it most, and beside them its price,
+ * open interest, funding and market cap. Under them its signal over every interval's span, so a
+ * reader sees whether a divergence is a day's or a month's, and its flow by exchange, each perpetual
+ * with its own price, funding and open interest.
+ *
+ * THE SIGNAL IS THE PICKER'S. A span's row is the figure the asset's picker row shows under that
+ * interval: perpetuals only, change on the span's busiest priced market. Spot sits beside it.
+ */
+function detailView(data: {
+  label: string;
+  asset: string;
+  assetClass: AssetClass;
+  detail: CvdDetail;
+  /** The asset's live perpetual markets (the funding page's rows), for price, funding and OI. */
+  markets: readonly MarketRow[];
+  params: CvdParams;
+  /** The address the interval links keep. */
+  base: string;
+}): string {
+  const { label, asset, assetClass, detail, markets, params, base } = data;
+  const { hours, span: window } = CVD_INTERVALS[params.interval];
+  const now = detail.spans.find((s) => s.hours === hours) ?? null;
+  const futures = now && now.buy_usd + now.sell_usd > 0 ? now : null;
+  const spotSide = (s: CvdSpan | null) =>
+    s && s.spot_buy_usd !== null && s.spot_sell_usd !== null
+      ? { buy_usd: s.spot_buy_usd, sell_usd: s.spot_sell_usd }
+      : null;
+  const spot = spotSide(now);
+  const tile = (eyebrow: string, big: string, dim: string, cls = "") =>
+    `<div class="cvd-tile"><p class="eyebrow">${eyebrow}</p><p class="cvd-big${cls}">${big}</p><p class="dim">${dim}</p></div>`;
+  const dash = '<span class="dim">–</span>';
+
+  // --- the asset's tiles ------------------------------------------------------------------------
+  const market = now?.price_venue
+    ? `${venueName(now.price_venue)} ${now.price_symbol ?? ""}`.trim()
+    : null;
+  const priceTile = tile(
+    tr("Price"),
+    now?.price == null
+      ? dash
+      : `<span data-u="price">${formatPrice(now.price)}</span> <small class="cvd-dt-move${tone(now.change_pct)}"><span data-u="change">${signedPct(now.change_pct)}</span></small>`,
+    `${tr("Last {window}", { window: esc(window) })}${market ? ` · ${tr("close, {market}", { market: esc(market) })}` : ""}`,
+  );
+  const flowTile = (
+    eyebrow: string,
+    side: { buy_usd: number; sell_usd: number } | null,
+    venues: readonly string[],
+    none: string,
+    unit: string,
+  ) =>
+    side
+      ? tile(
+          eyebrow,
+          `<span data-u="${unit}">${signedUsd(net(side))}</span>`,
+          tr("{ratio} of {volume} taker volume, {venues}", {
+            ratio: signedPct(flowRatio(side), 1),
+            volume: formatUsd(volume(side)),
+            venues: venueCountTag(venues, ""),
+          }),
+          tone(net(side)),
+        )
+      : tile(eyebrow, dash, none);
+  const futuresTile = flowTile(
+    tr("Futures CVD"),
+    futures,
+    detail.futures.map((m) => m.venue_id),
+    tr("No futures flow for this asset yet."),
+    "futures-cvd",
+  );
+  const spotTile = flowTile(
+    tr("Spot CVD"),
+    spot,
+    detail.spot.map((v) => v.venue_id),
+    tr("No spot book for this asset on the collected exchanges."),
+    "spot-cvd",
+  );
+  const signal = futures ? divergence(futures) : null;
+  const signalTile = tile(
+    tr("Signal"),
+    signal === "bullish"
+      ? tr("Bullish divergence")
+      : signal === "bearish"
+        ? tr("Bearish divergence")
+        : tr("No divergence"),
+    futures
+      ? tr(
+          "price {change}, futures flow {ratio} of volume; a flag needs both past {price}% and {flow}%",
+          {
+            change: signedPct(futures.change_pct),
+            ratio: signedPct(flowRatio(futures), 1),
+            price: DIVERGENCE_PRICE_PCT,
+            flow: DIVERGENCE_FLOW_PCT,
+          },
+        )
+      : tr("No futures flow for this asset yet."),
+    ` cvd-dt-word${signal === "bullish" ? " cvd-up" : signal === "bearish" ? " cvd-down" : ""}`,
+  );
+
+  // The exchanges that bought and sold it most over the window, perpetuals and spot books alike.
+  const venueLabel = (v: CvdVenueFlow) =>
+    v.venue_symbol === null
+      ? tr("{venue} spot", { venue: esc(venueName(v.venue_id)) })
+      : `${esc(venueName(v.venue_id))} <span class="dim">${esc(v.venue_symbol)}</span>`;
+  const byNet = [...detail.futures, ...detail.spot].sort((a, b) => net(b) - net(a));
+  const topBuy = byNet[0] && net(byNet[0]) > 0 ? byNet[0] : null;
+  const last = byNet.at(-1);
+  const topSell = last && net(last) < 0 ? last : null;
+  const topLine = (v: CvdVenueFlow | null) =>
+    v ? `<span class="${tone(net(v)).trim()}">${venueLabel(v)} ${signedUsd(net(v))}</span>` : dash;
+  const topTile = `<div class="cvd-tile"><p class="eyebrow">${tr("Top CVD flows")}</p><p class="cvd-flows">${topLine(topBuy)}<br>${topLine(topSell)}</p><p class="dim">${tr("largest net buy and net sell by exchange")}</p></div>`;
+
+  const oi = markets.reduce((sum, m) => sum + (m.open_interest_usd ?? 0), 0);
+  const traded = markets.reduce((sum, m) => sum + (m.volume_24h_usd ?? 0), 0);
+  const oiTile = tile(
+    tr("Open interest"),
+    oi > 0 ? formatUsd(oi) : dash,
+    tr("{n} markets, 24h volume {volume}", { n: markets.length, volume: formatUsd(traded) }),
+  );
+  // Funding weighted by open interest, so a thin market's extreme rate does not set the asset's.
+  const weighted = markets.filter((m) => (m.open_interest_usd ?? 0) > 0);
+  const weight = weighted.reduce((sum, m) => sum + (m.open_interest_usd ?? 0), 0);
+  const funding =
+    weight > 0
+      ? weighted.reduce((sum, m) => sum + m.apr * (m.open_interest_usd ?? 0), 0) / weight
+      : null;
+  const aprs = markets.map((m) => m.apr);
+  const fundingTile = tile(
+    tr("Funding"),
+    funding === null ? dash : `<span class="${aprTone(funding)}">${formatApr(funding)}</span>`,
+    aprs.length
+      ? tr("weighted by open interest; {low} to {high} across markets", {
+          low: formatApr(Math.min(...aprs)),
+          high: formatApr(Math.max(...aprs)),
+        })
+      : tr("No futures flow for this asset yet."),
+  );
+  const capTile = tile(
+    tr("Market cap"),
+    detail.market_cap_usd === null ? dash : formatUsd(detail.market_cap_usd),
+    tr("CoinGecko's, read hourly; crypto only"),
+  );
+  const tiles = `<div class="cvd-tiles cvd-dt-tiles" data-live="cvd-detail-tiles">
+${priceTile}${futuresTile}${spotTile}${signalTile}
+${topTile}${oiTile}${fundingTile}${capTile}
+</div>`;
+
+  // --- the signal over every interval's span ----------------------------------------------------
+  const spanRows = CVD_INTERVAL_KEYS.map((key) => {
+    const { hours: h, span } = CVD_INTERVALS[key];
+    const s = detail.spans.find((row) => row.hours === h) ?? null;
+    const perps = s && s.buy_usd + s.sell_usd > 0 ? s : null;
+    const book = spotSide(s);
+    const flag = perps ? divergence(perps) : null;
+    const href = esc(base + cvdToQuery({ ...params, q: "", interval: key }));
+    const on = key === params.interval;
+    const cell = (value: number | null, text: string) =>
+      `<td class="num${tone(value)}">${text}</td>`;
+    const delta = perps || book ? (perps ? net(perps) : 0) + (book ? net(book) : 0) : null;
+    return `<tr data-k="${key}"${on ? ' class="on"' : ""}><th scope="row"><a href="${href}" data-cvd-switch="${key}"${on ? ' aria-current="page"' : ""}>${esc(span)}</a> <span class="dim">${tr("{interval} bars", { interval: key })}</span></th>${cell(perps?.change_pct ?? null, `<span data-u="change">${signedPct(perps?.change_pct ?? null)}</span>`)}${cell(perps ? net(perps) : null, `<span data-u="cvd">${perps ? signedUsd(net(perps)) : "–"}</span>`)}${cell(perps ? flowRatio(perps) : null, `<span data-u="ratio">${perps ? signedPct(flowRatio(perps)) : "–"}</span>`)}${cell(book ? net(book) : null, `<span data-u="spot">${book ? signedUsd(net(book)) : "–"}</span>`)}${cell(delta, `<span data-u="delta">${delta === null ? "–" : signedUsd(delta)}</span>`)}<td>${flag === null ? "" : `<span class="cvd-badge cvd-badge-${flag}">${flag === "bullish" ? tr("bullish div") : tr("bearish div")}</span>`}</td></tr>`;
+  }).join("");
+  const spans = `<section class="cvd-dt-sec">
+<h2 class="cvd-h2">${tr("Signal by window")}</h2>
+<div class="sheet-wrap"><table class="sheet cvd-dt-table">
+<thead><tr><th>${tr("Window")}</th><th class="num">${tr("Change")}</th><th class="num">${tr("Futures CVD")}</th><th class="num">${tr("CVD / volume")}</th><th class="num">${tr("Spot CVD")}</th><th class="num">${tr("Delta")}</th><th>${tr("Signal")}</th></tr></thead>
+<tbody data-live="cvd-spans">${spanRows}</tbody>
+</table></div>
+</section>`;
+
+  // --- flow by exchange -------------------------------------------------------------------------
+  const byMarket = new Map(markets.map((m) => [`${m.venue_id} ${m.venue_symbol}`, m]));
+  const flowCells = (v: CvdVenueFlow) =>
+    `<td class="num"><span data-u="buy">${formatUsd(v.buy_usd)}</span></td><td class="num"><span data-u="sell">${formatUsd(v.sell_usd)}</span></td><td class="num${tone(net(v))}"><span data-u="net">${signedUsd(net(v))}</span></td><td class="num${tone(flowRatio(v))}"><span data-u="ratio">${signedPct(flowRatio(v))}</span></td>`;
+  const exchange = (id: string) =>
+    `<td><a href="${esc(exchangeHref(id))}">${esc(venueName(id))}</a></td>`;
+  const futuresRows = detail.futures
+    .map((v) => {
+      const m = byMarket.get(`${v.venue_id} ${v.venue_symbol}`);
+      return `<tr data-k="${esc(`${v.venue_id}:${v.venue_symbol}`)}">${exchange(v.venue_id)}<td class="dim">${esc(v.venue_symbol ?? "")}</td><td class="num">${formatPrice(m?.mark_price ?? null)}</td><td class="num"><span class="${aprTone(m?.apr ?? null)}">${m ? formatApr(m.apr) : "–"}</span></td><td class="num">${formatUsd(m?.open_interest_usd ?? null)}</td>${flowCells(v)}</tr>`;
+    })
+    .join("");
+  const spotTotal = detail.spot.reduce((sum, v) => sum + volume(v), 0);
+  const spotRows = detail.spot
+    .map(
+      (v) =>
+        `<tr data-k="${esc(v.venue_id)}">${exchange(v.venue_id)}${flowCells(v)}<td class="num dim">${spotTotal > 0 ? `${((volume(v) / spotTotal) * 100).toFixed(1)}%` : "–"}</td></tr>`,
+    )
+    .join("");
+  const flowHeads = `<th class="num">${tr("taker buys")}</th><th class="num">${tr("taker sells")}</th><th class="num">${tr("Net")}</th><th class="num">${tr("CVD / volume")}</th>`;
+  const futuresTable = detail.futures.length
+    ? `<div class="sheet-wrap"><table class="sheet cvd-dt-table">
+<thead><tr><th>${tr("Exchange")}</th><th>${tr("Market")}</th><th class="num">${tr("Price")}</th><th class="num">${tr("Funding APR")}</th><th class="num">${tr("Open interest")}</th>${flowHeads}</tr></thead>
+<tbody data-live="cvd-venues">${futuresRows}</tbody>
+</table></div>`
+    : `<p class="empty">${tr("No futures flow for this asset yet.")}</p>`;
+  const spotTable = detail.spot.length
+    ? `<div class="sheet-wrap"><table class="sheet cvd-dt-table">
+<thead><tr><th>${tr("Exchange")}</th>${flowHeads}<th class="num">${tr("Share")}</th></tr></thead>
+<tbody data-live="cvd-spot-venues">${spotRows}</tbody>
+</table></div>`
+    : `<p class="empty">${tr("No spot book for this asset on the collected exchanges.")}</p>`;
+  const where = assetSegment(asset, assetClass);
+  const more = `<p class="notes cvd-dt-more">${tr("More on {asset}:", { asset: label })} <a href="${esc(assetHref(asset, assetClass))}">${tr("Funding rates")}</a> · <a href="${esc(pairHref(asset, assetClass))}">${tr("Funding spreads")}</a> · <a href="${esc(`/liquidations/${where}`)}">${tr("Liquidations")}</a></p>`;
+
+  return `${tiles}
+${spans}
+<section class="cvd-dt-sec">
+<h2 class="cvd-h2">${tr("By exchange")} <small class="dim">${tr("Last {window}", { window: esc(window) })}</small></h2>
+<h3 class="cvd-dt-h3">${tr("Futures CVD")}</h3>
+${futuresTable}
+${
+  assetClass === "crypto" || assetClass === "equity"
+    ? `<h3 class="cvd-dt-h3">${tr("Spot CVD")}</h3>
+${spotTable}`
+    : ""
+}
+</section>
+${more}`;
+}
+
+/** The Detail view's own styles. */
+const DETAIL_CSS = `.cvd-view-btn{min-width:0;align-items:center;text-decoration:none;color:inherit}
+.cvd-view-btn::after{display:none}
+.cvd-view-btn .ico{color:var(--muted)}
+.cvd-view-btn b{font-size:13px}
+.cvd-view-btn:hover{border-color:var(--muted)}
+.cvd-dt-move{font-size:.55em;font-weight:400}
+.cvd-dt-sec{margin:0 0 14px}
+.cvd-dt-sec>.cvd-h2{margin:0 0 6px}
+.cvd-dt-sec>.cvd-h2 small{font-weight:400;text-transform:none;letter-spacing:0;font-size:11px}
+.cvd-dt-h3{margin:10px 0 4px;font-size:12px;font-weight:400;color:var(--muted)}
+.cvd-dt-table td,.cvd-dt-table th{padding:3px 8px}
+.cvd-dt-table tbody tr.on{outline:1px solid var(--muted);outline-offset:-1px}
+.cvd-dt-table tbody th{font-weight:400;text-align:left;white-space:nowrap;text-transform:none;color:inherit;border-bottom:0}
+.cvd-dt-word{font-size:clamp(18px,2.2vw,22px);line-height:1.45}
+.cvd-dt-table tbody th a{font-weight:700}
+.cvd-dt-more{margin-top:0}`;
+
 export function cvd(data: {
   overview: Overview;
   cvd: CvdData;
@@ -692,6 +955,8 @@ export function cvd(data: {
   now: number;
   /** Spot ETF flows for the charted asset, pinned on its price; null when none are read. */
   etf?: EtfFlows | null;
+  /** The Detail view's figures and the asset's live markets, read only when it is asked for. */
+  detail?: { flow: CvdDetail; markets: readonly MarketRow[] } | null;
 }): string {
   const { overview, cvd: flow, asset, params, now } = data;
   const rows = flow.rows;
@@ -748,6 +1013,18 @@ export function cvd(data: {
     },
   ).join("")}</nav>`;
 
+  // --- the Detail button: the asset's own figures in place of the chart and the tiles, and back ---
+  const detailShown = params.view === "detail" && Boolean(data.detail) && flow.asset_class !== null;
+  const viewTo = (view: CvdView) =>
+    esc((assetInAddress ? selfPath : CHART_PATH) + cvdToQuery({ ...params, q: "", view }));
+  const plain = label.replace(/<[^>]+>/g, "");
+  const viewButton =
+    flow.asset_class === null
+      ? ""
+      : detailShown
+        ? `<a class="wh-pick-btn cvd-view-btn" href="${viewTo("chart")}" data-cvd-view="chart" data-cvd-asset="${esc(plain)}" title="${esc(tr("Back to the chart"))}">${icon("left")}<b>${tr("Chart")}</b></a>`
+        : `<a class="wh-pick-btn cvd-view-btn" href="${viewTo("detail")}" data-cvd-view="detail" data-cvd-asset="${esc(plain)}" title="${esc(tr("{asset}'s flow by window and by exchange, with its open interest and funding", { asset: plain }))}">${icon("info")}<b>${tr("Detail")}</b></a>`;
+
   // --- the screener, as the asset picker beside the intervals -------------------------------------
   const picker =
     rows.length === 0
@@ -787,8 +1064,27 @@ export function cvd(data: {
     ? tr("Newest bucket {age}.", { age: esc(ageText(flow.newest, now)) })
     : "";
 
+  // In the Detail view the asset's own figures take the place of the tiles and the chart.
+  const shown =
+    detailShown && data.detail
+      ? `<div id="cvd-chart" class="cvd-anchor cvd-detail">${detailView({
+          label,
+          asset,
+          assetClass: chartClass,
+          detail: data.detail.flow,
+          markets: data.detail.markets,
+          params,
+          base: assetInAddress ? selfPath : CHART_PATH,
+        })}</div>`
+      : `${tiles}
+<div id="cvd-chart" class="cvd-anchor">${chart}${flow.bars.length ? KC_HOST : ""}</div>`;
+
   return layout({
-    title: assetInAddress ? `${label.replace(/<[^>]+>/g, "")} ${tr("Chart")}` : tr("Chart"),
+    title: detailShown
+      ? `${plain} ${tr("Detail")}`
+      : assetInAddress
+        ? `${plain} ${tr("Chart")}`
+        : tr("Chart"),
     description: tr(
       "Price with cumulative volume delta under it: spot and futures taker buying against taker selling, their combined delta per bar, and where price and order flow disagree.",
     ),
@@ -807,12 +1103,11 @@ export function cvd(data: {
           futures: esc(venuesByKind([...FUTURES_TAKER_VENUES, ...HIP3_VENUE_IDS])),
           spot: esc(venuesByKind(SPOT_TAKER_VENUES)),
         },
-      )}</p><p>${tr("Each key above the chart says how many venues its line sums for this asset; hover it for their names. Spot covers crypto and stocks: a stock's spot books are its tokenized shares (xStocks, Ondo and the like) on the collected exchanges, counted only while they trade at the stock's own price. Commodities and indices show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.")}</p><p>${tr("Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the box beside it; on a phone, tap.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Aster, Gate and Bitget publish weeks of it and OKX five days, while every other venue, spot books other than Binance's included, is counted from its live trades since 28 October 2026, so older bars sum fewer venues.")}</p><p>${tr("The venues that publish statistics release each 5-minute bucket after it closes, so the newest bar holds only the live tapes for a few minutes.")}</p>`,
+      )}</p><p>${tr("Each key above the chart says how many venues its line sums for this asset; hover it for their names. Spot covers crypto and stocks: a stock's spot books are its tokenized shares (xStocks, Ondo and the like) on the collected exchanges, counted only while they trade at the stock's own price. Commodities and indices show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.")}</p><p>${tr("Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the box beside it; on a phone, tap.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Aster, Gate and Bitget publish weeks of it and OKX five days, while every other venue, spot books other than Binance's included, is counted from its live trades since 28 October 2026, so older bars sum fewer venues.")}</p><p>${tr("Detail, beside Fund flow, puts the asset's own figures where the chart and the market's tiles are, over the same window: its futures and spot CVD, whether it diverged, the exchanges that bought and sold it most, its open interest, funding and market cap; then its signal over every interval's span, and its flow exchange by exchange. Chart brings the chart back.")}</p><p>${tr("The venues that publish statistics release each 5-minute bucket after it closes, so the newest bar holds only the live tapes for a few minutes.")}</p>`,
     )}
-<style>${FUND_CSS}</style>
-<div class="lq-controls wh-controls">${picker}${flow.asset_class === null ? "" : fundPanel(asset, chartClass)}${intervalStrip}</div>
-${tiles}
-<div id="cvd-chart" class="cvd-anchor">${chart}${flow.bars.length ? KC_HOST : ""}</div>
+<style>${FUND_CSS}${DETAIL_CSS}</style>
+<div class="lq-controls wh-controls">${picker}${flow.asset_class === null ? "" : fundPanel(asset, chartClass)}${viewButton}${intervalStrip}</div>
+${shown}
 <script>${SLOT_SCRIPT}</script>
 <script>${KCHART_SCRIPT}</script>
 <script>${PICK_SCRIPT}</script>

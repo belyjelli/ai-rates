@@ -246,6 +246,31 @@ export const charts: Catalog = {
   "Inflow is taker buying and outflow taker selling, summed over each window back from the newest bucket every venue has published. Net inflow change compares the net with the window of the same length before it. F/M cap ratio is the net as a share of the asset's market cap (CoinGecko). A dash means the history does not reach back that far yet.":
     "Приток — покупки тейкеров, отток — продажи тейкеров, суммированные за каждое окно назад от последнего интервала, опубликованного всеми биржами. Изменение чистого притока сравнивает его с предыдущим окном той же длины. Поток/капитализация — чистый приток как доля рыночной капитализации актива (CoinGecko). Прочерк значит, что история ещё не дотягивается до этого окна.",
   "Up to": "По состоянию на",
+
+  // web/cvd.ts: the Detail view, the charted asset's own figures in place of the chart.
+  "{ratio} of {volume} taker volume, {venues}": "{ratio} от объёма тейкеров {volume}, {venues}",
+  "Bullish divergence": "Бычья дивергенция",
+  "Bearish divergence": "Медвежья дивергенция",
+  "No divergence": "Нет дивергенции",
+  "price {change}, futures flow {ratio} of volume; a flag needs both past {price}% and {flow}%":
+    "цена {change}, поток фьючерсов {ratio} объёма; флаг ставится, когда превышены и {price}%, и {flow}%",
+  "{venue} spot": "{venue} спот",
+  "largest net buy and net sell by exchange": "крупнейшие нетто-покупки и нетто-продажи по биржам",
+  "{n} markets, 24h volume {volume}": "рынков: {n}, объём за 24 ч {volume}",
+  "weighted by open interest; {low} to {high} across markets":
+    "взвешено по открытому интересу; от {low} до {high} по рынкам",
+  "Market cap": "Капитализация",
+  "CoinGecko's, read hourly; crypto only": "по данным CoinGecko, раз в час; только криптовалюты",
+  "{interval} bars": "бары {interval}",
+  "Signal by window": "Сигнал по периодам",
+  "More on {asset}:": "Ещё о {asset}:",
+  "By exchange": "По биржам",
+  "Back to the chart": "Назад к графику",
+  "{asset}'s flow by window and by exchange, with its open interest and funding":
+    "Потоки {asset} по периодам и биржам, открытый интерес и фандинг",
+  Detail: "Детали",
+  "Detail, beside Fund flow, puts the asset's own figures where the chart and the market's tiles are, over the same window: its futures and spot CVD, whether it diverged, the exchanges that bought and sold it most, its open interest, funding and market cap; then its signal over every interval's span, and its flow exchange by exchange. Chart brings the chart back.":
+    "Кнопка «Детали» рядом с кнопкой «Денежный поток» показывает на месте графика и плиток рынка собственные цифры актива за тот же период: CVD фьючерсов и спота, была ли дивергенция, биржи с крупнейшими нетто-покупками и нетто-продажами, открытый интерес, фандинг и капитализацию; ниже — сигнал по периоду каждого интервала и поток по биржам. «График» возвращает график.",
   // The Chart page's spot ETF flow pins (web/kchart.ts).
   "Spot ETF net inflow": "Чистый приток в спотовые ETF",
   "Spot ETF net outflow": "Чистый отток из спотовых ETF",

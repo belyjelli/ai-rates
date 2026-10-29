@@ -802,6 +802,71 @@ export interface CvdData {
 }
 
 /**
+ * One asset's taker flow over the span of one of the Chart page's intervals, as the picker's row for
+ * it reads under that interval: the perpetuals of every collected venue summed, with the change on
+ * the span's busiest priced market. Spot beside it, which the picker leaves out.
+ */
+export interface CvdSpan {
+  hours: number;
+  buy_usd: number;
+  sell_usd: number;
+  /** Distinct venues whose perpetual flow is in the sum. */
+  venues: number;
+  /** The reference market's last close in the span; null when no market has a price. */
+  price: number | null;
+  /** First close to last close on the reference market, as a percentage. Null without two closes. */
+  change_pct: number | null;
+  price_venue: string | null;
+  price_symbol: string | null;
+  /** The spot books' flow, every collected exchange summed; null with none in the span. */
+  spot_buy_usd: number | null;
+  spot_sell_usd: number | null;
+}
+
+/** One market's, or one spot venue's, taker flow over the reader's window. */
+export interface CvdVenueFlow {
+  venue_id: string;
+  /** The perpetual's symbol; null for a spot venue, whose books sum by asset whatever the quote. */
+  venue_symbol: string | null;
+  buy_usd: number;
+  sell_usd: number;
+}
+
+/** The Chart page's Detail view of one asset (web/cvd.ts). */
+export interface CvdDetail {
+  /** One per span asked for, shortest first. */
+  spans: CvdSpan[];
+  /** The window's flow per perpetual market, busiest first. */
+  futures: CvdVenueFlow[];
+  /** The window's flow per spot venue, busiest first; empty without a spot book. */
+  spot: CvdVenueFlow[];
+  /** CoinGecko's market cap (collector migration 052), when fetched within two days; crypto only. */
+  market_cap_usd: number | null;
+}
+
+/** One market's flow over one span, as cvdDetail reads it; cvdSpans folds these into the spans. */
+export interface CvdSpanMarketRow {
+  hours: number;
+  venue_id: string;
+  venue_symbol: string;
+  buy_usd: number;
+  sell_usd: number;
+  /** Volume of the buckets with a close: what ranks a market as the reference, as in cvd(). */
+  priced_usd: number;
+  closes: number;
+  first_price: number | null;
+  last_price: number | null;
+}
+
+/** One spot venue's flow over one span. */
+export interface CvdSpanSpotRow {
+  hours: number;
+  venue_id: string;
+  buy_usd: number;
+  sell_usd: number;
+}
+
+/**
  * One venue's liquidation ingestion over the last day: what actually landed in the table.
  *
  * Separate from VenueStatus, which answers "did the collector run". A feed can run every flush and
@@ -1363,6 +1428,16 @@ export interface DataSource {
   assetBars(options: CvdOptions): Promise<CvdBar[]>;
   /** An older page of one asset's CVD bars, for a chart dragged back past what the page shipped. */
   cvdHistory(options: CvdHistoryOptions): Promise<CvdBar[]>;
+  /**
+   * One asset's flow for the Chart page's Detail view: over each span in `spans` (hours), and over
+   * `windowHours`, which must be one of them, by perpetual market and by spot venue.
+   */
+  cvdDetail(options: {
+    base: string;
+    assetClass: AssetClass;
+    windowHours: number;
+    spans: readonly number[];
+  }): Promise<CvdDetail>;
   /** Polymarket's macro markets beside Kalshi's odds, for the Rates page's Prediction tab (migration 055). */
   predictions(): Promise<Predictions>;
   /** Every stock index level the collector reads, for the Rates page's World indexes tab. */
@@ -2079,6 +2154,51 @@ export function withSpot(
     });
   }
   return out.sort((a, b) => a.bucket_start.getTime() - b.bucket_start.getTime());
+}
+
+/**
+ * The Detail view's spans from its per-market and per-spot-venue rows: each span's flow summed, and
+ * its change read on one market, the busiest with closes in that span, as cvd() picks the picker's
+ * reference market (ties broken by venue and symbol, as there).
+ */
+export function cvdSpans(
+  hours: readonly number[],
+  markets: readonly CvdSpanMarketRow[],
+  spot: readonly CvdSpanSpotRow[],
+): CvdSpan[] {
+  return hours.map((h) => {
+    const own = markets.filter((row) => row.hours === h);
+    const books = spot.filter((row) => row.hours === h);
+    const reference = own
+      .filter((row) => row.closes > 0 && row.last_price !== null)
+      .sort(
+        (a, b) =>
+          b.priced_usd - a.priced_usd ||
+          (a.venue_id < b.venue_id ? -1 : a.venue_id > b.venue_id ? 1 : 0) ||
+          (a.venue_symbol < b.venue_symbol ? -1 : a.venue_symbol > b.venue_symbol ? 1 : 0),
+      )[0];
+    const first = reference?.first_price ?? null;
+    const last = reference?.last_price ?? null;
+    const sum = (
+      rows: readonly { buy_usd: number; sell_usd: number }[],
+      side: "buy_usd" | "sell_usd",
+    ) => rows.reduce((total, row) => total + row[side], 0);
+    return {
+      hours: h,
+      buy_usd: sum(own, "buy_usd"),
+      sell_usd: sum(own, "sell_usd"),
+      venues: new Set(own.map((row) => row.venue_id)).size,
+      price: last,
+      change_pct:
+        reference && reference.closes >= 2 && first !== null && first > 0 && last !== null
+          ? (last / first - 1) * 100
+          : null,
+      price_venue: reference?.venue_id ?? null,
+      price_symbol: reference?.venue_symbol ?? null,
+      spot_buy_usd: books.length ? sum(books, "buy_usd") : null,
+      spot_sell_usd: books.length ? sum(books, "sell_usd") : null,
+    };
+  });
 }
 
 /**
@@ -3071,6 +3191,103 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         spot ? spotBars(sql, options, { fromMs, toMs }) : null,
       ]);
       return spotBook ? withSpot(bars, spotBook.rows) : [...bars];
+    },
+
+    async cvdDetail({ base, assetClass, windowHours, spans }) {
+      const sql = connect();
+      const hours = [...new Set([...spans, windowHours])]
+        .filter((h) => Number.isInteger(h) && h > 0)
+        .sort((a, b) => a - b);
+      const longest = `${hours.at(-1) ?? windowHours} hours`;
+      // Text, not an array parameter: the client runs with fetch_types off.
+      const list = hours.join(",");
+      // The asset's markets first, then taker_flow walked by its key for each, as the chart's bars
+      // are; every span is summed in the one pass over the longest. The ordered array_aggs sort
+      // within one market and span, a few thousand buckets at most.
+      const perps = sql<CvdSpanMarketRow[]>`
+        WITH mk AS (
+          SELECT ml.venue_id, ml.venue_symbol, nullif(k.multiplier, 0) AS mult
+          FROM market_latest ml
+          JOIN markets k ON k.venue_id = ml.venue_id AND k.venue_symbol = ml.venue_symbol
+          WHERE ml.base = ${base} AND ml.asset_class = ${assetClass}
+        ),
+        flow AS (
+          SELECT t.venue_id, t.venue_symbol, t.bucket_start, t.buy_usd, t.sell_usd,
+                 CASE WHEN t.close_price > 0 THEN t.close_price / mk.mult END AS price
+          FROM mk
+          JOIN taker_flow t ON t.venue_id = mk.venue_id AND t.venue_symbol = mk.venue_symbol
+          WHERE t.bucket_start > now() - ${longest}::interval
+        ),
+        w AS (SELECT unnest(string_to_array(${list}, ','))::int AS hours)
+        SELECT w.hours, f.venue_id, f.venue_symbol,
+               sum(f.buy_usd)::float8 AS buy_usd,
+               sum(f.sell_usd)::float8 AS sell_usd,
+               coalesce(sum(f.buy_usd + f.sell_usd) FILTER (WHERE f.price IS NOT NULL), 0)::float8
+                 AS priced_usd,
+               count(f.price)::int AS closes,
+               ((array_agg(f.price ORDER BY f.bucket_start) FILTER (WHERE f.price IS NOT NULL))[1])::float8
+                 AS first_price,
+               ((array_agg(f.price ORDER BY f.bucket_start DESC) FILTER (WHERE f.price IS NOT NULL))[1])::float8
+                 AS last_price
+        FROM w
+        JOIN flow f ON f.bucket_start > now() - make_interval(hours => w.hours)
+        GROUP BY w.hours, f.venue_id, f.venue_symbol`;
+      // Spot books: crypto's, and a stock's tokenized shares (collector migration 054). Tolerant of a
+      // database without the table or the grant, as spotBars is.
+      const spotBooks = assetClass === "crypto" || assetClass === "equity";
+      const spot = spotBooks
+        ? sql<CvdSpanSpotRow[]>`
+            WITH w AS (SELECT unnest(string_to_array(${list}, ','))::int AS hours)
+            SELECT w.hours, s.venue_id,
+                   sum(s.buy_usd)::float8 AS buy_usd,
+                   sum(s.sell_usd)::float8 AS sell_usd
+            FROM spot_taker_flow s
+            JOIN w ON s.bucket_start > now() - make_interval(hours => w.hours)
+            WHERE s.base = ${base} AND s.asset_class = ${assetClass}
+              AND s.bucket_start > now() - ${longest}::interval
+            GROUP BY w.hours, s.venue_id`.catch((error) => {
+            if (missingOrRefused(error)) return [] as CvdSpanSpotRow[];
+            throw error;
+          })
+        : ([] as CvdSpanSpotRow[]);
+      const cap =
+        assetClass === "crypto"
+          ? sql<{ market_cap_usd: number }[]>`
+              SELECT market_cap_usd::float8 AS market_cap_usd FROM asset_market_cap
+              WHERE base = ${base} AND fetched_at > now() - interval '2 days'`.then(
+              (rows) => rows[0]?.market_cap_usd ?? null,
+              (error) => {
+                if (missingOrRefused(error)) return null;
+                throw error;
+              },
+            )
+          : null;
+      const [markets, books, marketCap] = await Promise.all([perps, spot, cap]);
+      const busiest = (a: CvdVenueFlow, b: CvdVenueFlow) =>
+        b.buy_usd + b.sell_usd - (a.buy_usd + a.sell_usd) ||
+        (a.venue_id < b.venue_id ? -1 : a.venue_id > b.venue_id ? 1 : 0);
+      return {
+        spans: cvdSpans(hours, markets, books),
+        futures: markets
+          .filter((row) => row.hours === windowHours)
+          .map(({ venue_id, venue_symbol, buy_usd, sell_usd }) => ({
+            venue_id,
+            venue_symbol,
+            buy_usd,
+            sell_usd,
+          }))
+          .sort(busiest),
+        spot: books
+          .filter((row) => row.hours === windowHours)
+          .map(({ venue_id, buy_usd, sell_usd }) => ({
+            venue_id,
+            venue_symbol: null,
+            buy_usd,
+            sell_usd,
+          }))
+          .sort(busiest),
+        market_cap_usd: marketCap,
+      };
     },
 
     async predictions() {

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { STALE_MS, type VenueStatus, venueState } from "./data";
+import { cvdSpans, STALE_MS, type VenueStatus, venueState } from "./data";
 
 const NOW = Date.parse("2026-09-13T12:00:00Z");
 
@@ -82,5 +82,67 @@ describe("venueState", () => {
       live_markets: 0,
     });
     expect(venueState(unbuilt, NOW)).toBe("planned");
+  });
+});
+
+describe("cvdSpans", () => {
+  const row = (over: Partial<Parameters<typeof cvdSpans>[1][number]>) => ({
+    hours: 24,
+    venue_id: "binance",
+    venue_symbol: "ETHUSDT",
+    buy_usd: 10,
+    sell_usd: 5,
+    priced_usd: 15,
+    closes: 288,
+    first_price: 2000,
+    last_price: 2100,
+    ...over,
+  });
+
+  test("sums each span and reads its change on the busiest priced market", () => {
+    const [day, month] = cvdSpans(
+      [24, 720],
+      [
+        row({}),
+        // Busier, but without a close: it adds flow and sets no price.
+        row({
+          venue_id: "okx",
+          buy_usd: 100,
+          sell_usd: 50,
+          priced_usd: 0,
+          closes: 0,
+          first_price: null,
+          last_price: null,
+        }),
+        row({
+          venue_id: "gate",
+          venue_symbol: "ETH_USDT",
+          priced_usd: 12,
+          first_price: 1000,
+          last_price: 900,
+        }),
+        row({ hours: 720, closes: 1, first_price: 2100, last_price: 2100 }),
+      ],
+      [{ hours: 24, venue_id: "coinbase", buy_usd: 3, sell_usd: 1 }],
+    );
+    expect(day).toEqual({
+      hours: 24,
+      buy_usd: 120,
+      sell_usd: 60,
+      venues: 3,
+      price: 2100,
+      change_pct: 5.000000000000004,
+      price_venue: "binance",
+      price_symbol: "ETHUSDT",
+      spot_buy_usd: 3,
+      spot_sell_usd: 1,
+    });
+    // One close is a price but not a change; no spot rows is no spot book.
+    expect(month).toMatchObject({
+      price: 2100,
+      change_pct: null,
+      spot_buy_usd: null,
+      spot_sell_usd: null,
+    });
   });
 });

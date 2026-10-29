@@ -59,6 +59,7 @@ import {
   asksForGamma,
   type BacktestParams,
   CONVERGENCE_WINDOWS,
+  CVD_INTERVAL_KEYS,
   CVD_INTERVALS,
   DEFAULT_FILTERS,
   DEFAULT_WHALE_ZOOM,
@@ -449,10 +450,27 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const params = parseCvdParams(url.searchParams);
       const { hours, barMinutes } = CVD_INTERVALS[params.interval];
       const asset = address?.asset ?? "BTC";
+      const wantDetail = params.view === "detail";
+      // The Detail view's reads, beside the page's: the asset's flow over every interval's span and
+      // by exchange, and its live markets. Read for the address's class, crypto for one naming none,
+      // and again below in the rare case the asset resolves to another class.
+      const guess = address?.assetClass ?? "crypto";
+      const readDetail = async (assetClass: AssetClass) => {
+        const [detailFlow, markets] = await Promise.all([
+          deps.data.cvdDetail({
+            base: asset,
+            assetClass,
+            windowHours: hours,
+            spans: CVD_INTERVAL_KEYS.map((key) => CVD_INTERVALS[key].hours),
+          }),
+          deps.data.asset(asset, assetClass),
+        ]);
+        return { flow: detailFlow, markets };
+      };
       // The spot ETFs' daily flows, pinned on the price (crypto only: a stock's ETFs are not read).
-      // Fail-soft: the chart is the page, the pins an extra.
-      const etfAsset = (address?.assetClass ?? "crypto") === "crypto";
-      const [overview, flow, etf] = await Promise.all([
+      // Fail-soft: the chart is the page, the pins an extra. The Detail view draws no chart.
+      const etfAsset = guess === "crypto" && !wantDetail;
+      const [overview, flow, etf, early] = await Promise.all([
         deps.data.overview(),
         deps.data.cvd({
           windowHours: hours,
@@ -466,6 +484,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
               return null;
             })
           : null,
+        wantDetail ? readDetail(guess) : null,
       ]);
       if (address && flow.asset_class === null) {
         return page(
@@ -473,7 +492,11 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           404,
         );
       }
-      return page(() => cvd({ overview, cvd: flow, asset, params, now, etf }));
+      const detail =
+        wantDetail && flow.asset_class !== null && flow.asset_class !== guess
+          ? await readDetail(flow.asset_class)
+          : early;
+      return page(() => cvd({ overview, cvd: flow, asset, params, now, etf, detail }));
     }
 
     // Whale orders: /whales is BTC, /whales/<asset> (or /whales/<class>/<asset>) one of the forty

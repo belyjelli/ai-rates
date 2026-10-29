@@ -795,6 +795,13 @@ const CVD_LEGACY_WINDOWS: Record<string, CvdInterval> = {
 export const CVD_SORTS = ["volume", "cvd", "ratio", "change"] as const;
 export type CvdSort = (typeof CVD_SORTS)[number];
 
+/**
+ * What the page shows under its controls: the chart with the all-asset tiles, or the charted asset's
+ * Detail in their place (owner, 2026-10-29). `?view=detail`; the chart is the bare address.
+ */
+export const CVD_VIEWS = ["chart", "detail"] as const;
+export type CvdView = (typeof CVD_VIEWS)[number];
+
 export interface CvdParams {
   interval: CvdInterval;
   sort: CvdSort;
@@ -802,6 +809,7 @@ export interface CvdParams {
   asc: boolean;
   /** A case-insensitive substring of the asset name, or "" for every asset. */
   q: string;
+  view: CvdView;
 }
 
 export function parseCvdParams(params: URLSearchParams): CvdParams {
@@ -821,6 +829,7 @@ export function parseCvdParams(params: URLSearchParams): CvdParams {
       .toUpperCase()
       .replace(/[^A-Z0-9._-]/g, "")
       .slice(0, 20),
+    view: params.get("view") === "detail" ? "detail" : "chart",
   };
 }
 
@@ -830,6 +839,7 @@ export function cvdToQuery(params: CvdParams): string {
   if (params.sort !== "volume") query.set("sort", params.sort);
   if (params.asc) query.set("dir", "asc");
   if (params.q) query.set("q", params.q);
+  if (params.view === "detail") query.set("view", "detail");
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
 }

@@ -11,7 +11,9 @@ import type {
   CvdAssetRow,
   CvdBar,
   CvdData,
+  CvdDetail,
   CvdOptions,
+  CvdSpan,
   DailyFundingRow,
   DataSource,
   GammaData,
@@ -165,6 +167,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     assetBars: async () => [],
     cvdHistory: async () => [],
     fundFlow: async () => ({ end: null, futures: [], spot: null, market_cap_usd: null }),
+    cvdDetail: async () => ({ spans: [], futures: [], spot: [], market_cap_usd: null }),
     etfFlows: async () => ({ days: [], funds: [] }),
     predictions: async () => ({
       polymarket: [],
@@ -4455,6 +4458,87 @@ describe("cvd", () => {
     // A stock's chart asks for none.
     await get("/chart/equity/NVDA", data);
     expect(asked).toEqual(["BTC"]);
+  });
+
+  test("the Detail button puts the asset's own figures in place of the chart and the tiles", async () => {
+    const asked: Parameters<DataSource["cvdDetail"]>[0][] = [];
+    const span = (hours: number, over: Partial<CvdSpan> = {}): CvdSpan => ({
+      hours,
+      buy_usd: 40e6,
+      sell_usd: 60e6,
+      venues: 2,
+      price: 75_900,
+      change_pct: 1.2,
+      price_venue: "binance",
+      price_symbol: "BTCUSDT",
+      spot_buy_usd: 3e6,
+      spot_sell_usd: 1e6,
+      ...over,
+    });
+    const detail: CvdDetail = {
+      spans: [
+        span(8, { change_pct: -0.1 }),
+        span(24),
+        span(96, { buy_usd: 70e6, sell_usd: 30e6, change_pct: -2 }),
+        span(384, { spot_buy_usd: null, spot_sell_usd: null }),
+        span(720, { buy_usd: 0, sell_usd: 0, change_pct: null }),
+      ],
+      futures: [
+        { venue_id: "okx", venue_symbol: "BTC-USDT-SWAP", buy_usd: 30e6, sell_usd: 45e6 },
+        { venue_id: "gate", venue_symbol: "BTC_USDT", buy_usd: 10e6, sell_usd: 15e6 },
+      ],
+      spot: [{ venue_id: "coinbase", venue_symbol: null, buy_usd: 3e6, sell_usd: 1e6 }],
+      market_cap_usd: 1.5e12,
+    };
+    const { data } = fakeData({
+      cvd: async () => flow(),
+      cvdDetail: async (options) => {
+        asked.push(options);
+        return detail;
+      },
+    });
+
+    // The chart view reads nothing for it, and offers it beside the picker.
+    const chartHtml = await (await get("/chart", data)).text();
+    expect(asked).toEqual([]);
+    expect(chartHtml).toContain(
+      '<a class="wh-pick-btn cvd-view-btn" href="/chart?view=detail" data-cvd-view="detail" data-cvd-asset="BTC"',
+    );
+    expect(chartHtml).toContain('data-u="breadth"');
+
+    const html = await (await get("/chart/BTC?view=detail", data)).text();
+    expect(asked).toEqual([
+      { base: "BTC", assetClass: "crypto", windowHours: 24, spans: [8, 24, 96, 384, 720] },
+    ]);
+    // In place of the market's tiles and the chart: the asset's own, and no trading chart.
+    expect(html).not.toContain('data-u="breadth"');
+    expect(html).not.toContain('class="kc-data"');
+    expect(html).toContain('<div id="cvd-chart" class="cvd-anchor cvd-detail">');
+    expect(html).toContain('data-live="cvd-detail-tiles"');
+    expect(html).toContain('<span data-u="futures-cvd">−$20.0M</span>');
+    expect(html).toContain('<span data-u="spot-cvd">+$2.0M</span>');
+    // Price up 1.2% while takers sold 20% of volume: bearish, on the picker's thresholds.
+    expect(html).toContain("Bearish divergence");
+    // Largest net buy and net sell across perpetual markets and spot books.
+    expect(html).toContain("Coinbase spot +$2.0M");
+    expect(html).toContain('OKX <span class="dim">BTC-USDT-SWAP</span> −$15.0M');
+    // Open interest from the asset's live markets, funding weighted by it.
+    expect(html).toContain('<p class="cvd-big">$4.2B</p>');
+    expect(html).toContain('<p class="cvd-big">$1.5T</p>');
+    // A row per interval's span; the reader's own is marked, and each one links to its interval.
+    expect(html).toContain('<tr data-k="15m" class="on">');
+    expect(html).toContain('href="/chart?interval=1h&amp;view=detail" data-cvd-switch="1h">4d</a>');
+    expect(html).toMatch(/<tr data-k="1h">.*cvd-badge-bullish/);
+    expect(html).toMatch(/<tr data-k="24h">.*<span data-u="cvd">–<\/span>/);
+    // Flow by exchange, each perpetual with its own funding and open interest.
+    expect(html).toContain('<tr data-k="okx:BTC-USDT-SWAP">');
+    expect(html).toContain('<tr data-k="coinbase">');
+    // The way back, and every link on the page keeps the view.
+    expect(html).toContain('href="/chart" data-cvd-view="chart"');
+    expect(html).toContain('href="/chart?interval=1h&amp;view=detail" data-cvd-switch="1h">1h</a>');
+    expect(html).toContain('href="/chart/ZEC?view=detail#cvd-chart" data-cvd-select="ZEC"');
+    expect(html).toContain('<input type="hidden" name="view" value="detail">');
+    expect(html).toContain("<title>BTC Detail");
   });
 
   test("the fund-flow dropdown sits beside the picker and reads one asset's windows", async () => {

@@ -244,6 +244,31 @@ export const charts: Catalog = {
   "Inflow is taker buying and outflow taker selling, summed over each window back from the newest bucket every venue has published. Net inflow change compares the net with the window of the same length before it. F/M cap ratio is the net as a share of the asset's market cap (CoinGecko). A dash means the history does not reach back that far yet.":
     "유입은 테이커 매수, 유출은 테이커 매도이며, 모든 거래소가 발표한 가장 최근 구간부터 각 기간을 거슬러 합산합니다. 순유입 변화는 직전 같은 길이 구간의 순유입과 비교한 값입니다. 자금/시총 비율은 순유입이 자산 시가총액(CoinGecko)에서 차지하는 비율입니다. 대시는 아직 그 기간만큼의 기록이 없다는 뜻입니다.",
   "Up to": "기준",
+
+  // web/cvd.ts: the Detail view, the charted asset's own figures in place of the chart.
+  "{ratio} of {volume} taker volume, {venues}": "테이커 거래량 {volume} 중 {ratio}, {venues}",
+  "Bullish divergence": "강세 다이버전스",
+  "Bearish divergence": "약세 다이버전스",
+  "No divergence": "다이버전스 없음",
+  "price {change}, futures flow {ratio} of volume; a flag needs both past {price}% and {flow}%":
+    "가격 {change}, 선물 흐름은 거래량의 {ratio}. {price}%와 {flow}%를 모두 넘어야 표시됩니다",
+  "{venue} spot": "{venue} 현물",
+  "largest net buy and net sell by exchange": "거래소별 최대 순매수와 순매도",
+  "{n} markets, 24h volume {volume}": "{n}개 시장, 24시간 거래량 {volume}",
+  "weighted by open interest; {low} to {high} across markets":
+    "미결제약정 가중, 시장별 {low} ~ {high}",
+  "Market cap": "시가총액",
+  "CoinGecko's, read hourly; crypto only": "CoinGecko 기준, 매시간 갱신, 암호화폐만",
+  "{interval} bars": "{interval} 봉",
+  "Signal by window": "기간별 신호",
+  "More on {asset}:": "{asset} 더 보기:",
+  "By exchange": "거래소별",
+  "Back to the chart": "차트로 돌아가기",
+  "{asset}'s flow by window and by exchange, with its open interest and funding":
+    "{asset}의 기간별·거래소별 흐름과 미결제약정, 펀딩비",
+  Detail: "상세",
+  "Detail, beside Fund flow, puts the asset's own figures where the chart and the market's tiles are, over the same window: its futures and spot CVD, whether it diverged, the exchanges that bought and sold it most, its open interest, funding and market cap; then its signal over every interval's span, and its flow exchange by exchange. Chart brings the chart back.":
+    "「자금 흐름」 옆의 「상세」는 차트와 시장 전체 타일 자리에 같은 기간의 해당 자산 수치를 보여 줍니다. 선물·현물 CVD, 다이버전스 여부, 가장 많이 사고판 거래소, 미결제약정, 펀딩비, 시가총액입니다. 그 아래에는 각 인터벌 기간별 신호와 거래소별 흐름이 있습니다. 「차트」를 누르면 차트로 돌아갑니다.",
   // The Chart page's spot ETF flow pins (web/kchart.ts).
   "Spot ETF net inflow": "현물 ETF 순유입",
   "Spot ETF net outflow": "현물 ETF 순유출",

@@ -245,6 +245,31 @@ export const charts: Catalog = {
   "Inflow is taker buying and outflow taker selling, summed over each window back from the newest bucket every venue has published. Net inflow change compares the net with the window of the same length before it. F/M cap ratio is the net as a share of the asset's market cap (CoinGecko). A dash means the history does not reach back that far yet.":
     "流入はテイカー買い、流出はテイカー売りで、全取引所が公開済みの最新バケットから各期間をさかのぼって合計します。純流入の変化は、直前の同じ長さの期間の純流入との比較です。資金/時価総額比は、純流入が資産の時価総額（CoinGecko）に占める割合です。ダッシュは履歴がまだその期間に届いていないことを示します。",
   "Up to": "時点",
+
+  // web/cvd.ts: the Detail view, the charted asset's own figures in place of the chart.
+  "{ratio} of {volume} taker volume, {venues}": "テイカー出来高 {volume} の {ratio}、{venues}",
+  "Bullish divergence": "強気ダイバージェンス",
+  "Bearish divergence": "弱気ダイバージェンス",
+  "No divergence": "ダイバージェンスなし",
+  "price {change}, futures flow {ratio} of volume; a flag needs both past {price}% and {flow}%":
+    "価格 {change}、先物フローは出来高の {ratio}。{price}% と {flow}% の両方を超えるとフラグが立ちます",
+  "{venue} spot": "{venue} 現物",
+  "largest net buy and net sell by exchange": "取引所別の最大の買い越しと売り越し",
+  "{n} markets, 24h volume {volume}": "{n} 市場、24時間出来高 {volume}",
+  "weighted by open interest; {low} to {high} across markets":
+    "建玉で加重。市場ごとに {low} 〜 {high}",
+  "Market cap": "時価総額",
+  "CoinGecko's, read hourly; crypto only": "CoinGecko の値、1時間ごとに取得。暗号資産のみ",
+  "{interval} bars": "{interval} 足",
+  "Signal by window": "期間別シグナル",
+  "More on {asset}:": "{asset} の他のページ：",
+  "By exchange": "取引所別",
+  "Back to the chart": "チャートに戻る",
+  "{asset}'s flow by window and by exchange, with its open interest and funding":
+    "{asset} の期間別・取引所別フロー、建玉と資金調達率",
+  Detail: "詳細",
+  "Detail, beside Fund flow, puts the asset's own figures where the chart and the market's tiles are, over the same window: its futures and spot CVD, whether it diverged, the exchanges that bought and sold it most, its open interest, funding and market cap; then its signal over every interval's span, and its flow exchange by exchange. Chart brings the chart back.":
+    "「資金フロー」の横の「詳細」は、チャートと市場全体のタイルの代わりに、同じ期間のその銘柄自身の数値を表示します。先物と現物の CVD、ダイバージェンスの有無、最も買い越し・売り越した取引所、建玉、資金調達率、時価総額です。その下に各インターバルの期間ごとのシグナルと、取引所ごとのフローが並びます。「チャート」でチャートに戻ります。",
   // The Chart page's spot ETF flow pins (web/kchart.ts).
   "Spot ETF net inflow": "現物 ETF 純流入",
   "Spot ETF net outflow": "現物 ETF 純流出",
