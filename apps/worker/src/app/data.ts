@@ -1,6 +1,20 @@
 import { type AssetClass, DIVERGENCE_TRIGGER, type IdentityVerdict } from "@ai-rates/core";
 import { DEFAULT_VENUE_IDS } from "@ai-rates/venues";
 import type postgres from "postgres";
+import {
+  type HeldStock,
+  heldStocks,
+  type OnchainHolder,
+  onchainHolders,
+  type PortfolioCard,
+  type PortfolioMove,
+  type PortfolioPage,
+  portfolioCards,
+  portfolioMoves,
+  portfolioPage,
+  type StockPage,
+  stockPage,
+} from "./holdings-data";
 import { RETAIL_TAKER_BPS } from "./retail-fees";
 
 /** Markets whose latest snapshot is older than this are treated as not live. */
@@ -1499,6 +1513,18 @@ export interface DataSource {
   exchangeReserves(): Promise<ExchangeReserveRow[]>;
   /** Every asset with a fresh market, deepest first, for the site-wide search. About 2,500 rows. */
   searchIndex(): Promise<SearchAsset[]>;
+  /** The Holdings idea grid: a card per listed portfolio (collector migration 058; holdings-data.ts). */
+  holdingsCards(): Promise<PortfolioCard[]>;
+  /** One investor's page; null when there is no such portfolio. */
+  holdingsInvestor(slug: string): Promise<PortfolioPage | null>;
+  /** The Stocks topic: securities by how many tracked investors hold them. */
+  holdingsStocks(): Promise<HeldStock[]>;
+  /** One stock's holders; null when no tracked portfolio has held it. */
+  holdingsStock(ticker: string): Promise<StockPage | null>;
+  /** The Moves topic: the newest 13F filings with their biggest buy and sell. */
+  holdingsMoves(): Promise<PortfolioMove[]>;
+  /** The On chain topic: the holders with traced wallets. */
+  holdingsOnchain(): Promise<OnchainHolder[]>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -3766,6 +3792,13 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         ORDER BY venue_id, day DESC`;
       return [...rows];
     },
+
+    holdingsCards: () => portfolioCards(connect()),
+    holdingsInvestor: (slug) => portfolioPage(connect(), slug),
+    holdingsStocks: () => heldStocks(connect()),
+    holdingsStock: (ticker) => stockPage(connect(), ticker),
+    holdingsMoves: () => portfolioMoves(connect()),
+    holdingsOnchain: () => onchainHolders(connect()),
 
     async searchIndex() {
       // One pass over market_latest (36 ms for 15,000 markets, measured 2026-10-18) plus the eighty

@@ -248,6 +248,12 @@ function fakeData(overrides: Partial<DataSource> = {}) {
       totals: [],
       sides: [],
     }),
+    holdingsCards: async () => [],
+    holdingsInvestor: async () => null,
+    holdingsStocks: async () => [],
+    holdingsStock: async () => null,
+    holdingsMoves: async () => [],
+    holdingsOnchain: async () => [],
     ...overrides,
   };
   return { data, calls };
@@ -4495,6 +4501,88 @@ describe("cvd", () => {
     expect(await (await get("/rates?panel=indexes", tab)).text()).toContain(
       'href="/indexes/NK225"',
     );
+  });
+
+  test("Holdings: the grid with lazy topics, each topic on its own, an investor's page and a stock's", async () => {
+    const asked: string[] = [];
+    const card = {
+      portfolio: "warren-buffett",
+      name: "Warren Buffett",
+      summary: "The stocks Warren Buffett holds.",
+      title: "Berkshire Hathaway",
+      style: "value",
+      period: "2026-06-30",
+      filed_on: "2026-08-14",
+      value_usd: 2.99e11,
+      value_change_pct: 13.7,
+      positions: 29,
+      crypto_positions: 0,
+      tickers: "AAPL AXP KO",
+      return_3y_pct: 72,
+      return_1y_pct: 13.8,
+      sparkline: [
+        ["2023-10-27", 110],
+        ["2026-10-28", 190],
+      ] as [string, number][],
+    };
+    const { data } = fakeData({
+      holdingsCards: async () => [card],
+      holdingsStocks: async () => {
+        throw new Error("permission denied");
+      },
+      holdingsInvestor: async (slug) => {
+        asked.push(slug);
+        return slug === "warren-buffett"
+          ? {
+              portfolio: "warren-buffett",
+              holder: "warren-buffett",
+              name: "Warren Buffett",
+              kind: "person",
+              country: "US",
+              summary_text: "",
+              title: "Berkshire Hathaway",
+              style: "value",
+              benchmark: "INDEX:SPX",
+              ciks: ["0001067983"],
+              socials: [],
+              companies: [],
+              summary: null,
+              performance: [],
+              holdings: [],
+              pullback: [],
+              history: [],
+              wallets: [],
+            }
+          : null;
+      },
+      holdingsStock: async (ticker) => {
+        asked.push(ticker);
+        return null;
+      },
+    });
+    const hub = await (await get("/holdings", data)).text();
+    expect(hub).toContain('<a href="/holdings" aria-current="page">holdings</a>');
+    expect(hub).toContain('data-lazy="/holdings?panel=stocks"');
+    expect(hub).toContain('data-lazy="/holdings?panel=onchain"');
+    expect(hub).toContain('href="/holdings/warren-buffett"');
+    expect(hub).toContain("+72.0%");
+    // A topic read on its own; one that fails says so in the tab rather than taking the page down.
+    const investors = await get("/holdings?panel=investors", data);
+    expect(investors.status).toBe(200);
+    expect(await investors.text()).not.toContain("<html");
+    const stocks = await get("/holdings?panel=stocks", data);
+    expect(stocks.status).toBe(200);
+    expect(await stocks.text()).toContain("could not be read");
+    // An investor's page by its slug, read in lower case; an unknown one or a malformed one is a 404.
+    const page = await get("/holdings/Warren-Buffett", data);
+    expect(page.status).toBe(200);
+    expect(await page.text()).toContain("Nothing read for this portfolio yet");
+    expect((await get("/holdings/nobody", data)).status).toBe(404);
+    expect((await get("/holdings/bad%20slug", data)).status).toBe(404);
+    // A stock by its ticker, read in capitals.
+    expect((await get("/holdings/stock/brk.b", data)).status).toBe(404);
+    expect(asked).toEqual(["warren-buffett", "nobody", "BRK.B"]);
+    expect((await get("/holdings/stock/a%20b", data)).status).toBe(404);
   });
 
   test("the trading chart ships the spot ETF flows its pins are drawn from, for crypto only", async () => {

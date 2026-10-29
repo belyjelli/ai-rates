@@ -42,6 +42,7 @@ const NAV = [
   },
   { href: "/chart", label: msg("chart"), match: (p: string) => p.startsWith("/chart") },
   { href: "/whales", label: msg("whales"), match: (p: string) => p.startsWith("/whales") },
+  { href: "/holdings", label: msg("holdings"), match: (p: string) => p.startsWith("/holdings") },
 ];
 
 /**
@@ -94,6 +95,7 @@ const DATASET_PATHS = [
   "/sentiment",
   "/markets",
   "/whales",
+  "/holdings",
 ];
 
 /**

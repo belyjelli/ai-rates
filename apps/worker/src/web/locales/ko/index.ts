@@ -38,6 +38,7 @@ import type { Catalog } from "../../i18n";
 import { charts } from "./charts";
 import { exchanges } from "./exchanges";
 import { gamma } from "./gamma";
+import { holdings } from "./holdings";
 import { keyboard } from "./keyboard";
 import { layout } from "./layout";
 import { liquidations } from "./liquidations";
@@ -58,6 +59,7 @@ export const KO_PARTS: Readonly<Record<string, Catalog>> = {
   gamma,
   macro,
   exchanges,
+  holdings,
 };
 
 export const ko: Catalog = Object.assign({}, ...Object.values(KO_PARTS));

@@ -72,6 +72,14 @@ export const ACTIONS: readonly HotkeyAction[] = [
   { id: "cvd", label: msg("chart"), group: "go", href: "/chart", key: "c", legend: true },
   { id: "whales", label: msg("whales"), group: "go", href: "/whales", key: "w", legend: true },
   {
+    id: "holdings",
+    label: msg("holdings"),
+    group: "go",
+    href: "/holdings",
+    key: "o",
+    legend: true,
+  },
+  {
     id: "exchanges",
     label: msg("exchanges"),
     group: "go",

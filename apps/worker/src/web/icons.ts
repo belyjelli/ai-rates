@@ -38,6 +38,8 @@ const PATHS = {
   /** An explanation: an i in a circle. */
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  /** Copy to the clipboard: one sheet over another. */
+  copy: '<rect x="9" y="9" width="11" height="11" rx="1"/><path d="M5 15V5a1 1 0 0 1 1-1h9"/>',
   /** The footer dock: the member area, the Telegram group, the language and the menu. */
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/>',
   send: '<path d="M21 3L3 10.5l7 3 3 7.5z"/><path d="M10 13.5L21 3"/>',

@@ -40,6 +40,15 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-10-30",
+    title: "A Holdings section: what well-known investors hold",
+    changes: [
+      "HOLDINGS in the menu: a card for each tracked investor, from their SEC 13F filings since 2020 with the three-year return against the S&P 500: Warren Buffett, Carl Icahn, Bill Gates, Ray Dalio, George Soros, Bill Ackman, Leopold Aschenbrenner, Starboard Value, SoftBank, Merk Investments and Marvin & Palmer. Beside them, holders whose wallets are publicly known: Satoshi Nakamoto's coins, Vitalik Buterin, Justin Sun, Chris Larsen, Rain Lõhmus, Donald Trump and the Lazarus Group's sanctioned wallets.",
+      "Each investor's page: the filing's period and date with links to SEC; holdings value, its change and turnover on the quarter, and the holdings count with coins; performance over 1, 3 and 5 years against the S&P 500; the holdings ranked 14 ways with a top-10 chart; the holdings furthest below their 1-month high; and the upside to a fair value, analysts' targets or Ben Graham's formula as a histogram.",
+      "Stocks shows who holds a stock and who bought or sold it; Moves lists each new 13F as it lands; On chain lists every traced wallet with its evidence. An address is shown only when the holder published it, an official record names it, or established news outlets or explorers attribute it to a public figure.",
+    ],
+  },
+  {
     date: "2026-10-29",
     title: "A Detail view for each asset on the Chart page",
     changes: [

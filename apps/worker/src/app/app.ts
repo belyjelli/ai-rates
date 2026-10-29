@@ -15,6 +15,8 @@ import { FUND_FLOW_PATH } from "../web/fund-flow";
 import type { FundingHistory } from "../web/funding-chart";
 import { gammaBookFor, gammaFragment } from "../web/gamma";
 import { greekFragment, isGreek } from "../web/greeks";
+import { holdingsFragment, holdingsPage, isHoldingsPanel, stockPageView } from "../web/holdings";
+import { investorPage } from "../web/holdings-investor";
 import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
 import { indexPage } from "../web/index-page";
 import { INDEX_PANEL, INDEX_PERPS, indexesFragment } from "../web/indexes";
@@ -700,6 +702,62 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(() => liquidations({ ...view, overview, active: address ? "price" : "map" }));
     }
 
+    // Holdings (web/holdings.ts): the idea grid with its topics, each investor's page and each
+    // stock's. A topic is read for its own `?panel=`, as the Rates page's tabs are. A failed read of
+    // a topic says so in the tab; the grid and the pages fail like any page.
+    if (path === "/holdings") {
+      const askedPanel = url.searchParams.get("panel");
+      if (isHoldingsPanel(askedPanel)) {
+        const read =
+          askedPanel === "investors"
+            ? deps.data.holdingsCards().then((cards) => ({ cards }))
+            : askedPanel === "stocks"
+              ? deps.data.holdingsStocks().then((stocks) => ({ stocks }))
+              : askedPanel === "moves"
+                ? deps.data.holdingsMoves().then((moves) => ({ moves }))
+                : deps.data.holdingsOnchain().then((onchain) => ({ onchain }));
+        const data = await read.catch((error) => {
+          deps.log?.(
+            `holdings ${askedPanel} unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return null;
+        });
+        return page(() => holdingsFragment(askedPanel, data));
+      }
+      const [overview, cards] = await Promise.all([
+        deps.data.overview(),
+        deps.data.holdingsCards(),
+      ]);
+      return page(() => holdingsPage({ cards, overview, now }));
+    }
+    if (segments[0] === "holdings" && segments[1] === "stock" && segments.length === 3) {
+      const ticker = (segments[2] as string).toUpperCase();
+      const notFound = () =>
+        page(
+          () => pages.notFound(path, now, tr("No tracked investor holds {ticker}.", { ticker })),
+          404,
+        );
+      if (!/^[A-Z0-9][A-Z0-9.-]{0,15}$/.test(ticker)) return notFound();
+      const [overview, stock] = await Promise.all([
+        deps.data.overview(),
+        deps.data.holdingsStock(ticker),
+      ]);
+      if (!stock) return notFound();
+      return page(() => stockPageView({ stock, overview, now }));
+    }
+    if (segments[0] === "holdings" && segments.length === 2) {
+      const slug = (segments[1] as string).toLowerCase();
+      const notFound = () =>
+        page(() => pages.notFound(path, now, tr("No investor {slug}.", { slug })), 404);
+      if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(slug)) return notFound();
+      const [overview, investor] = await Promise.all([
+        deps.data.overview(),
+        deps.data.holdingsInvestor(slug),
+      ]);
+      if (!investor) return notFound();
+      return page(() => investorPage({ page: investor, overview, now }));
+    }
+
     // One index's page (web/index-page.ts): any ticker the collector reads a level for.
     if (segments[0] === "indexes" && segments.length === 2) {
       const ticker = (segments[1] as string).toUpperCase();
@@ -1280,6 +1338,7 @@ const SITEMAP_PATHS = [
   "/arbitrage",
   "/chart",
   "/whales",
+  "/holdings",
   "/liquidations",
   "/sentiment",
   "/markets",
