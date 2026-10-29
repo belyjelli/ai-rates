@@ -491,8 +491,8 @@ export const macro: Catalog = {
   Level: "水準",
   Change: "騰落率",
   "Day range": "当日の値幅",
-  "India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close. BSE-100, BSE-200 and BSE-500 have no free source we can read.":
-    "インドの Nifty 指数、Nifty Bank、India VIX は NSE の日次終値ファイルで、毎晩1回読み込みます。それ以外は5分ごとに読み込みます：KOSPI と KOSPI 200 は韓国取引所、BSE Sensex、日経225、TOPIX、ストレーツ・タイムズ指数、S&P/ASX 200 は Sina の気配値、その他の指数は最大20分遅れの気配値です。取引を終えた市場は終値を表示します。BSE-100、BSE-200、BSE-500 には読み込める無料のソースがありません。",
+  "India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close.":
+    "インドの Nifty 指数、Nifty Bank、India VIX は NSE の日次終値ファイルで、毎晩1回読み込みます。それ以外は5分ごとに読み込みます：KOSPI と KOSPI 200 は韓国取引所、日経225、TOPIX、ストレーツ・タイムズ指数、S&P/ASX 200 は Sina の気配値、その他の指数は最大20分遅れの気配値です。取引を終えた市場は終値を表示します。",
   // An index's page (web/index-page.ts)
   "No index {ticker}.": "指数 {ticker} はありません。",
   "the Korea Exchange's own index charts, every five minutes":
@@ -501,6 +501,7 @@ export const macro: Catalog = {
   "NSE's daily closing file, read once each evening": "NSE の日次終値ファイル、毎晩1回読み込み",
   "TradingView's quotes, up to 20 minutes behind, every five minutes":
     "TradingView の気配値、最大20分遅れ、5分ごと",
+  "Yahoo Finance's quotes, every five minutes": "Yahoo Finance の気配値、5分ごと",
   "Hover or tap the chart to read a point.":
     "チャートにカーソルを合わせるかタップすると、その点を読み取れます。",
   "from {prev}": "前回 {prev}",

@@ -496,8 +496,8 @@ export const macro: Catalog = {
   Level: "Уровень",
   Change: "Изменение",
   "Day range": "Дневной диапазон",
-  "India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close. BSE-100, BSE-200 and BSE-500 have no free source we can read.":
-    "Индексы Nifty, Nifty Bank и India VIX — это дневной файл закрытий NSE, читаемый раз в вечер. Остальные читаются каждые пять минут: KOSPI и KOSPI 200 — с Корейской биржи, BSE Sensex, Nikkei 225, TOPIX, Straits Times и S&P/ASX 200 — из котировок Sina, прочие индексы — из котировок с задержкой до 20 минут; у закрывшегося рынка показано его закрытие. Для BSE-100, BSE-200 и BSE-500 нет бесплатного источника, который мы можем читать.",
+  "India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close.":
+    "Индексы Nifty, Nifty Bank и India VIX — это дневной файл закрытий NSE, читаемый раз в вечер. Остальные читаются каждые пять минут: KOSPI и KOSPI 200 — с Корейской биржи, Nikkei 225, TOPIX, Straits Times и S&P/ASX 200 — из котировок Sina, прочие индексы — из котировок с задержкой до 20 минут; у закрывшегося рынка показано его закрытие.",
   // An index's page (web/index-page.ts)
   "No index {ticker}.": "Индекса {ticker} нет.",
   "the Korea Exchange's own index charts, every five minutes":
@@ -507,6 +507,7 @@ export const macro: Catalog = {
     "дневной файл закрытий NSE, читается раз в вечер",
   "TradingView's quotes, up to 20 minutes behind, every five minutes":
     "котировки TradingView с задержкой до 20 минут, каждые пять минут",
+  "Yahoo Finance's quotes, every five minutes": "котировки Yahoo Finance, каждые пять минут",
   "Hover or tap the chart to read a point.":
     "Наведите курсор или коснитесь графика, чтобы прочитать точку.",
   "from {prev}": "с {prev}",

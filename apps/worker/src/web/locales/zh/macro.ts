@@ -485,8 +485,8 @@ export const macro: Catalog = {
   Level: "水平",
   Change: "涨跌幅",
   "Day range": "当日区间",
-  "India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close. BSE-100, BSE-200 and BSE-500 have no free source we can read.":
-    "印度 Nifty 系列指数、Nifty Bank 和 India VIX 来自 NSE 的每日收盘文件，每晚读取一次。其余每五分钟读取一次：KOSPI 和 KOSPI 200 来自韩国交易所，BSE Sensex、日经 225、TOPIX、海峡时报指数和 S&P/ASX 200 来自新浪行情，其他指数来自延迟最多 20 分钟的行情；已收盘的市场显示其收盘价。BSE-100、BSE-200 和 BSE-500 没有我们可读取的免费数据源。",
+  "India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close.":
+    "印度 Nifty 系列指数、Nifty Bank 和 India VIX 来自 NSE 的每日收盘文件，每晚读取一次。其余每五分钟读取一次：KOSPI 和 KOSPI 200 来自韩国交易所，日经 225、TOPIX、海峡时报指数和 S&P/ASX 200 来自新浪行情，其他指数来自延迟最多 20 分钟的行情；已收盘的市场显示其收盘价。",
   // An index's page (web/index-page.ts)
   "No index {ticker}.": "没有指数 {ticker}。",
   "the Korea Exchange's own index charts, every five minutes":
@@ -495,6 +495,7 @@ export const macro: Catalog = {
   "NSE's daily closing file, read once each evening": "NSE 的每日收盘文件，每晚读取一次",
   "TradingView's quotes, up to 20 minutes behind, every five minutes":
     "TradingView 行情，最多延迟 20 分钟，每五分钟一次",
+  "Yahoo Finance's quotes, every five minutes": "Yahoo Finance 行情，每五分钟一次",
   "Hover or tap the chart to read a point.": "悬停或点击图表读取某一点。",
   "from {prev}": "前值 {prev}",
   "Daily closes": "日收盘",

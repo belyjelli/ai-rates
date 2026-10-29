@@ -9,7 +9,8 @@ import { MONTHS } from "./slot-chart";
 /**
  * One index's page, /indexes/<ticker>: the level with the day's change and range, whether it is live
  * or a close and where it comes from, its daily closes over the history the collector keeps (400
- * days, from when each source was added: 2026-10-17 for KRX and Sina, 10-29 for NSE and TradingView),
+ * days, from when each source was added: 2026-10-17 for KRX and Sina, 10-29 for NSE, TradingView and
+ * Yahoo),
  * the last day and a half of quotes, and what trades on it here: the perpetuals on the same index and
  * its option book.
  *
@@ -29,6 +30,7 @@ const SOURCES: Record<string, () => string> = {
   sina: () => tr("Sina's quote feed, every five minutes"),
   nse: () => tr("NSE's daily closing file, read once each evening"),
   tv: () => tr("TradingView's quotes, up to 20 minutes behind, every five minutes"),
+  yahoo: () => tr("Yahoo Finance's quotes, every five minutes"),
 };
 
 const signedPct = (pct: number) =>

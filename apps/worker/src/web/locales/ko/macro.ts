@@ -492,8 +492,8 @@ export const macro: Catalog = {
   Level: "수준",
   Change: "변동률",
   "Day range": "당일 범위",
-  "India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close. BSE-100, BSE-200 and BSE-500 have no free source we can read.":
-    "인도의 Nifty 지수, Nifty Bank, India VIX는 NSE의 일별 종가 파일로 매일 저녁 한 번 읽습니다. 나머지는 5분마다 읽습니다: KOSPI와 KOSPI 200은 한국거래소, BSE Sensex, 닛케이 225, TOPIX, 스트레이츠 타임스 지수, S&P/ASX 200은 Sina 시세, 그 밖의 지수는 최대 20분 지연된 시세입니다. 장이 마감된 시장은 종가를 보여 줍니다. BSE-100, BSE-200, BSE-500은 읽을 수 있는 무료 출처가 없습니다.",
+  "India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close.":
+    "인도의 Nifty 지수, Nifty Bank, India VIX는 NSE의 일별 종가 파일로 매일 저녁 한 번 읽습니다. 나머지는 5분마다 읽습니다: KOSPI와 KOSPI 200은 한국거래소, 닛케이 225, TOPIX, 스트레이츠 타임스 지수, S&P/ASX 200은 Sina 시세, 그 밖의 지수는 최대 20분 지연된 시세입니다. 장이 마감된 시장은 종가를 보여 줍니다.",
   // An index's page (web/index-page.ts)
   "No index {ticker}.": "지수 {ticker}가 없습니다.",
   "the Korea Exchange's own index charts, every five minutes": "한국거래소 자체 지수 차트, 5분마다",
@@ -501,6 +501,7 @@ export const macro: Catalog = {
   "NSE's daily closing file, read once each evening": "NSE 일별 종가 파일, 매일 저녁 한 번 읽음",
   "TradingView's quotes, up to 20 minutes behind, every five minutes":
     "TradingView 시세, 최대 20분 지연, 5분마다",
+  "Yahoo Finance's quotes, every five minutes": "Yahoo Finance 시세, 5분마다",
   "Hover or tap the chart to read a point.":
     "차트에 마우스를 올리거나 탭하면 그 지점을 읽을 수 있습니다.",
   "from {prev}": "이전 {prev}",

@@ -1782,12 +1782,13 @@ export type Holdings = Record<string, { now: [HolderSum | null, HolderSum | null
 
 /**
  * One stock index's latest level (collector migrations 037, 057) and its daily closes over the last
- * month, oldest first: KRX, Sina and NSE's daily file, for the Rates page's World indexes tab.
+ * month, oldest first: KRX, Sina, Yahoo, TradingView and NSE's daily file, for the Rates page's World
+ * indexes tab.
  */
 export interface IndexLevelRow {
   ticker: string;
   name: string;
-  /** "krx", "sina" (live quotes) or "nse" (NSE's daily file: a close, once a day). */
+  /** "krx", "sina", "yahoo", "tv" (live quotes) or "nse" (NSE's daily file: a close, once a day). */
   source: string;
   price: number;
   prev_close: number | null;

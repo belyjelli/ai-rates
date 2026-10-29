@@ -16,13 +16,14 @@ import { timeTag } from "./localtime";
  * (the FTSE 100, CAC 40, KOSPI, TOPIX and most of the rest) the only figure the site has. A row whose
  * ticker has a book links to it.
  *
- * LIVE OR A CLOSE, SAID PER ROW. KRX, Sina and TradingView quote during the session (TradingView up to
- * 20 minutes behind, stamped with the time its level stands for); NSE's file is the day's close, read
+ * LIVE OR A CLOSE, SAID PER ROW. KRX, Sina, Yahoo and TradingView quote during the session
+ * (TradingView up to 20 minutes behind, stamped with the time its level stands for); NSE's file is the day's close, read
  * once in the evening. A close shown as if it were live would read as a frozen market, so the As of
  * column names which it is, in the reader's own time (localtime.ts).
  *
- * BSE-100, BSE-200 and BSE-500 are not here: Sina's codes for them froze in 2025-09 and BSE's own API
- * refuses the collector, so there is no source (checked 2026-10-29).
+ * The BSE Sensex, BSE 100, 200 and 500 are Yahoo's quotes (since 2026-10-29): Sina's codes for the three
+ * froze in 2025-09, BSE's own API refuses the collector, and Sina's Sensex gave the wrong previous
+ * close after the bell.
  *
  * Loads by itself (`?panel=indexes`), as the macro and prediction tabs do.
  */
@@ -100,6 +101,9 @@ const REGIONS: { region: () => string; indexes: [ticker: string, market: string]
       ["NIFTYMID150", INDIA],
       ["BANKNIFTY", INDIA],
       ["SENSEX", INDIA],
+      ["BSE100", INDIA],
+      ["BSE200", INDIA],
+      ["BSE500", INDIA],
       ["INDIAVIX", INDIA],
       ["SHCOMP", CHINA],
       ["SZI", CHINA],
@@ -236,7 +240,7 @@ export function indexesPanel(data: IndexLevelRow[] | null, now: number): string 
     groups.push(`<tr class="ix-region"><th colspan="8">${tr("Other")}</th></tr>${others.join("")}`);
   return `<p class="dim ix-lede">${tr("Stock index levels across the Americas, Europe, the Middle East and Asia-Pacific: the day's change against the previous close, the day's range, and a month of daily closes.")}</p>
 <div class="sheet-wrap"><table class="sheet mc-table ix-table"><thead><tr><th>${tr("Index")}</th><th>${tr("Country")}</th><th class="num">${tr("Level")}</th><th class="num">${tr("Change")}</th><th class="num">${tr("Day range")}</th><th>${tr("30 days")}</th><th>${tr("Option book")}</th><th>${tr("As of")}</th></tr></thead><tbody>${groups.join("")}</tbody></table></div>
-<p class="notes">${tr("India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close. BSE-100, BSE-200 and BSE-500 have no free source we can read.")}</p>`;
+<p class="notes">${tr("India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close.")}</p>`;
 }
 
 export function indexesFragment(data: IndexLevelRow[] | null, now: number): string {
@@ -258,4 +262,4 @@ export const INDEXES_CSS = `.ix-lede{margin:2px 0 10px}
 .ix-live{color:var(--accent)}
 .ix-spark-cell{width:104px}
 .ix-spark{display:block}
-@media (max-width:640px){.ix-table th:nth-child(5),.ix-table td:nth-child(5),.ix-table th:nth-child(6),.ix-table td:nth-child(6){display:none}}`;
+@media (max-width:640px){.ix-table th:nth-child(5),.ix-table td:nth-child(5),.ix-table th:nth-child(6),.ix-table td:nth-child(6){display:none}.ix-table td:first-child{white-space:normal}.ix-table td:last-child{white-space:nowrap}}`;
