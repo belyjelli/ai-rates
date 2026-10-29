@@ -84,6 +84,7 @@ import { GREEKS, greekPanelHref, greekPanelId, greekPlaceholder } from "./greeks
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { msg, tr, trMsg, withLocale } from "./i18n";
 import { icon } from "./icons";
+import { INDEX_PANEL, INDEXES_CSS, indexesPlaceholder, indexTabs } from "./indexes";
 import { layout } from "./layout";
 import { IVWALLS_PANEL_ID, LEVELS_PANEL_ID, levelsPanelHref, levelsPlaceholder } from "./levels";
 import { FEEDS, liquidationFeedTable } from "./liquidation-feeds";
@@ -988,6 +989,7 @@ ${tabBar({
     { id: "levels", label: tr("Ceiling & Floor"), shortLabel: tr("Ceiling") },
     ...macroTabs(),
     ...crowdTabs(),
+    ...indexTabs(),
   ],
   activeId: macro ? macro.panel : gammaFilled ? "gamma" : "rates",
 })}
@@ -1024,6 +1026,10 @@ ${CROWD_PANELS.map(
 ${crowdPlaceholder(id)}
 </div>`,
 ).join("\n")}
+<style>${INDEXES_CSS}</style>
+<div class="tabpanel mc-panel" role="tabpanel" id="panel-rates-${INDEX_PANEL}" data-tab-panel="${INDEX_PANEL}" aria-labelledby="tab-rates-${INDEX_PANEL}" data-lazy="/rates?panel=${INDEX_PANEL}">
+${indexesPlaceholder()}
+</div>
 <script>${SLOT_SCRIPT}</script>
 <script>${GX_SWAP_SCRIPT}</script>
 ${GREEKS.map((greek) => `<script>${gxSwapScript(greekPanelId(greek), greek)}</script>`).join("")}

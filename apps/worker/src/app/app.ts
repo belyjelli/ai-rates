@@ -16,6 +16,7 @@ import type { FundingHistory } from "../web/funding-chart";
 import { gammaBookFor, gammaFragment } from "../web/gamma";
 import { greekFragment, isGreek } from "../web/greeks";
 import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
+import { INDEX_PANEL, indexesFragment } from "../web/indexes";
 import { installAsset } from "../web/install";
 import { kBars, kRef, lwcAsset } from "../web/kchart";
 import { keyboard } from "../web/keyboard";
@@ -372,6 +373,16 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           return null;
         });
         return page(() => crowdFragment(askedPanel, data as never, now));
+      }
+      // The World indexes tab (web/indexes.ts), read for its own `?panel=`.
+      if (askedPanel === INDEX_PANEL) {
+        const data = await deps.data.indexLevels().catch((error) => {
+          deps.log?.(
+            `indexes unavailable: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return null;
+        });
+        return page(() => indexesFragment(data, now));
       }
       if (isMacroPanel(askedPanel)) {
         const data = await readMacro(askedPanel);

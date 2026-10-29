@@ -443,4 +443,29 @@ export const macro: Catalog = {
     "Деньги умных кошельков на Yes минус на No",
   Wallets: "Кошельки",
   Yes: "Да",
+  // World indexes tab (web/indexes.ts)
+  "World indexes": "Мировые индексы",
+  Indexes: "Индексы",
+  India: "Индия",
+  Japan: "Япония",
+  Korea: "Корея",
+  Singapore: "Сингапур",
+  Australia: "Австралия",
+  Other: "Другое",
+  "{n} daily closes, {change}%": "{n} дневных закрытий, {change}%",
+  "Its option book on the Gamma Exposure tab": "Его опционная книга на вкладке Gamma Exposure",
+  options: "опционы",
+  live: "онлайн",
+  closing: "закрытие",
+  "The index levels could not be read right now.": "Сейчас не удаётся прочитать уровни индексов.",
+  "No index level has been read yet. The collector reads them every five minutes.":
+    "Уровни индексов ещё не прочитаны. Коллектор читает их каждые пять минут.",
+  "Stock index levels from each exchange's own data: the day's change against the previous close, the day's range, and a month of daily closes.":
+    "Уровни фондовых индексов по данным самих бирж: изменение за день к предыдущему закрытию, дневной диапазон и месяц дневных закрытий.",
+  Index: "Индекс",
+  Level: "Уровень",
+  Change: "Изменение",
+  "Day range": "Дневной диапазон",
+  "India's Nifty indexes and India VIX are NSE's daily closing file, read once each evening; the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 are Sina's quotes and KOSPI and KOSPI 200 the Korea Exchange's, read every five minutes during the session. BSE-100, BSE-200 and BSE-500 have no free source we can read.":
+    "Индексы Nifty и India VIX — это дневной файл закрытий NSE, читаемый раз в вечер; BSE Sensex, Nikkei 225, TOPIX, Straits Times и S&P/ASX 200 — котировки Sina, а KOSPI и KOSPI 200 — данные Корейской биржи, читаемые каждые пять минут в течение сессии. Для BSE-100, BSE-200 и BSE-500 нет бесплатного источника, который мы можем читать.",
 };

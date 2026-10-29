@@ -174,6 +174,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
       kalshiPast: {},
     }),
     btcOdds: async () => ({ markets: [], chain: null, holdings: {} }),
+    indexLevels: async () => [],
     liquidationFeeds: async () => [],
     whalePositions: async () => [],
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
@@ -4313,6 +4314,65 @@ describe("cvd", () => {
     const rates = await (await get("/rates", data)).text();
     expect(rates).toContain('data-lazy="/rates?panel=crowd"');
     expect(rates).toContain('data-lazy="/rates?panel=btcodds"');
+  });
+
+  test("the Rates page's World indexes tab lists each market's levels, live or a close", async () => {
+    const DAY = 86_400_000;
+    const level = (over: Record<string, unknown>) => ({
+      ticker: "NIFTY",
+      name: "Nifty 50",
+      source: "nse",
+      price: 22698.85,
+      prev_close: 22749.75,
+      day_high: 22778.05,
+      day_low: 22497.7,
+      at_ms: NOW - DAY,
+      closes: [22000, 22400, 22698.85],
+      ...over,
+    });
+    const { data } = fakeData({
+      indexLevels: async () => [
+        level({}),
+        level({
+          ticker: "KOSPI",
+          name: "KOSPI",
+          source: "krx",
+          price: 5668.05,
+          prev_close: 5554.22,
+          day_high: null,
+          day_low: null,
+          at_ms: NOW - 60_000,
+          closes: [],
+        }),
+        level({ ticker: "NEWIDX", name: "New Index", source: "sina", at_ms: NOW - 2 * DAY }),
+      ],
+    });
+    const tab = await (await get("/rates?panel=indexes", data)).text();
+    // India first, Nifty 50 by the gamma book's name, linked to its book; −0.22% on the day, its range.
+    expect(tab.indexOf("India")).toBeLessThan(tab.indexOf("Korea"));
+    expect(tab).toContain('href="/rates?gex=NIFTY#gamma"');
+    expect(tab).toContain("22,698.85");
+    expect(tab).toContain("−0.22%");
+    expect(tab).toContain("22,497.70–22,778.05");
+    // NSE's file is a close, KRX a minute old is live, and KOSPI has no range: a dash.
+    expect(tab).toContain("closing");
+    expect(tab).toContain('<span class="ix-live">live</span>');
+    expect(tab).toContain("+2.05%");
+    // An index the tab does not know yet still shows, under Other.
+    expect(tab).toContain("Other");
+    expect(tab).toContain("New Index");
+    expect(tab).toContain("<polyline");
+    // On the Rates page's bar, loaded on its own; a failed read says so instead of failing the page.
+    const rates = await (await get("/rates", data)).text();
+    expect(rates).toContain('data-lazy="/rates?panel=indexes"');
+    const { data: down } = fakeData({
+      indexLevels: async () => {
+        throw new Error("boom");
+      },
+    });
+    expect(await (await get("/rates?panel=indexes", down)).text()).toContain(
+      "The index levels could not be read right now.",
+    );
   });
 
   test("the trading chart ships the spot ETF flows its pins are drawn from, for crypto only", async () => {

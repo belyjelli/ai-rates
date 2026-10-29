@@ -40,6 +40,16 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-10-29",
+    title:
+      "World indexes on the Rates page, and pending liquidations from each market's own history",
+    changes: [
+      "A World indexes tab on the Rates page lists every stock index level the site reads, by market: India's Nifty 50, Nifty 100, Nifty 200, Nifty 500, Nifty Midcap 150, the BSE Sensex and India VIX, then the Nikkei 225, TOPIX, KOSPI, KOSPI 200, the Straits Times and the S&P/ASX 200. Each row shows the day's change and range, a month of daily closes and whether the figure is live or a close; the indexes with an option book link to it on the Gamma tab.",
+      "India's Nifty indexes and India VIX come from NSE's daily closing file, read each evening; the Sensex and the other markets are quoted every five minutes during the session. BSE-100, BSE-200 and BSE-500 are not listed: there is no free source we can read for them.",
+      "The pending liquidations on the Longs vs shorts chart are now modeled from each market's own last 30 days: where its open interest was opened, how far the price has moved since, which positions that move would already have liquidated, and the leverage its biggest market allows. Before, every asset drew the same shape at a different size, with longs always equal to shorts. Zoom out now runs to ±50% in equal 5% rows both ways.",
+    ],
+  },
+  {
     date: "2026-10-28",
     title: "Prediction markets on the Rates page",
     changes: [

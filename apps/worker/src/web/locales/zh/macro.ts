@@ -432,4 +432,29 @@ export const macro: Catalog = {
     "聪明钱包在 Yes 上的金额减去在 No 上的金额",
   Wallets: "钱包数",
   Yes: "是",
+  // World indexes tab (web/indexes.ts)
+  "World indexes": "全球指数",
+  Indexes: "指数",
+  India: "印度",
+  Japan: "日本",
+  Korea: "韩国",
+  Singapore: "新加坡",
+  Australia: "澳大利亚",
+  Other: "其他",
+  "{n} daily closes, {change}%": "{n} 个日收盘，{change}%",
+  "Its option book on the Gamma Exposure tab": "Gamma 敞口标签页上的期权簿",
+  options: "期权",
+  live: "实时",
+  closing: "收盘",
+  "The index levels could not be read right now.": "暂时无法读取指数点位。",
+  "No index level has been read yet. The collector reads them every five minutes.":
+    "尚未读取到任何指数点位。采集器每五分钟读取一次。",
+  "Stock index levels from each exchange's own data: the day's change against the previous close, the day's range, and a month of daily closes.":
+    "来自各交易所自有数据的股票指数点位：相对前收盘的当日涨跌、当日区间，以及一个月的日收盘。",
+  Index: "指数",
+  Level: "水平",
+  Change: "涨跌幅",
+  "Day range": "当日区间",
+  "India's Nifty indexes and India VIX are NSE's daily closing file, read once each evening; the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 are Sina's quotes and KOSPI and KOSPI 200 the Korea Exchange's, read every five minutes during the session. BSE-100, BSE-200 and BSE-500 have no free source we can read.":
+    "印度 Nifty 系列指数和 India VIX 来自 NSE 的每日收盘文件，每晚读取一次；BSE Sensex、日经 225、TOPIX、海峡时报指数和 S&P/ASX 200 来自新浪行情，KOSPI 和 KOSPI 200 来自韩国交易所，交易时段内每五分钟读取一次。BSE-100、BSE-200 和 BSE-500 没有我们可读取的免费数据源。",
 };

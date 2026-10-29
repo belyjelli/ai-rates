@@ -438,4 +438,29 @@ export const macro: Catalog = {
     "スマートウォレットの Yes の金額から No の金額を引いた値",
   Wallets: "ウォレット数",
   Yes: "はい",
+  // World indexes tab (web/indexes.ts)
+  "World indexes": "世界の株価指数",
+  Indexes: "指数",
+  India: "インド",
+  Japan: "日本",
+  Korea: "韓国",
+  Singapore: "シンガポール",
+  Australia: "オーストラリア",
+  Other: "その他",
+  "{n} daily closes, {change}%": "日次終値 {n} 本、{change}%",
+  "Its option book on the Gamma Exposure tab": "ガンマエクスポージャータブのオプションブック",
+  options: "オプション",
+  live: "リアルタイム",
+  closing: "終値",
+  "The index levels could not be read right now.": "現在、指数の水準を読み込めません。",
+  "No index level has been read yet. The collector reads them every five minutes.":
+    "指数の水準はまだ読み込まれていません。コレクターは5分ごとに読み込みます。",
+  "Stock index levels from each exchange's own data: the day's change against the previous close, the day's range, and a month of daily closes.":
+    "各取引所自身のデータによる株価指数の水準：前日終値に対する当日の騰落、当日の値幅、1か月分の日次終値。",
+  Index: "指数",
+  Level: "水準",
+  Change: "騰落率",
+  "Day range": "当日の値幅",
+  "India's Nifty indexes and India VIX are NSE's daily closing file, read once each evening; the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 are Sina's quotes and KOSPI and KOSPI 200 the Korea Exchange's, read every five minutes during the session. BSE-100, BSE-200 and BSE-500 have no free source we can read.":
+    "インドの Nifty 指数と India VIX は NSE の日次終値ファイルで、毎晩1回読み込みます。BSE Sensex、日経225、TOPIX、ストレーツ・タイムズ指数、S&P/ASX 200 は Sina の気配値、KOSPI と KOSPI 200 は韓国取引所のもので、取引時間中5分ごとに読み込みます。BSE-100、BSE-200、BSE-500 には読み込める無料のソースがありません。",
 };

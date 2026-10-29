@@ -439,4 +439,29 @@ export const macro: Catalog = {
     "스마트 지갑의 Yes 금액에서 No 금액을 뺀 값",
   Wallets: "지갑 수",
   Yes: "예",
+  // World indexes tab (web/indexes.ts)
+  "World indexes": "세계 지수",
+  Indexes: "지수",
+  India: "인도",
+  Japan: "일본",
+  Korea: "한국",
+  Singapore: "싱가포르",
+  Australia: "호주",
+  Other: "기타",
+  "{n} daily closes, {change}%": "일별 종가 {n}개, {change}%",
+  "Its option book on the Gamma Exposure tab": "감마 익스포저 탭의 옵션 북",
+  options: "옵션",
+  live: "실시간",
+  closing: "종가",
+  "The index levels could not be read right now.": "지금은 지수 수준을 읽을 수 없습니다.",
+  "No index level has been read yet. The collector reads them every five minutes.":
+    "아직 읽은 지수 수준이 없습니다. 수집기는 5분마다 읽습니다.",
+  "Stock index levels from each exchange's own data: the day's change against the previous close, the day's range, and a month of daily closes.":
+    "각 거래소 자체 데이터의 주가지수 수준: 전일 종가 대비 당일 등락, 당일 범위, 한 달간의 일별 종가.",
+  Index: "지수",
+  Level: "수준",
+  Change: "변동률",
+  "Day range": "당일 범위",
+  "India's Nifty indexes and India VIX are NSE's daily closing file, read once each evening; the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 are Sina's quotes and KOSPI and KOSPI 200 the Korea Exchange's, read every five minutes during the session. BSE-100, BSE-200 and BSE-500 have no free source we can read.":
+    "인도의 Nifty 지수와 India VIX는 NSE의 일별 종가 파일로 매일 저녁 한 번 읽습니다. BSE Sensex, 닛케이 225, TOPIX, 스트레이츠 타임스 지수, S&P/ASX 200은 Sina 시세, KOSPI와 KOSPI 200은 한국거래소 데이터이며 거래 시간 중 5분마다 읽습니다. BSE-100, BSE-200, BSE-500은 읽을 수 있는 무료 출처가 없습니다.",
 };

@@ -1365,6 +1365,8 @@ export interface DataSource {
   cvdHistory(options: CvdHistoryOptions): Promise<CvdBar[]>;
   /** Polymarket's macro markets beside Kalshi's odds, for the Rates page's Prediction tab (migration 055). */
   predictions(): Promise<Predictions>;
+  /** Every stock index level the collector reads, for the Rates page's World indexes tab. */
+  indexLevels(): Promise<IndexLevelRow[]>;
   /** Polymarket's Bitcoin "above" ladders and Deribit's latest BTC chain, for the Crowd vs options tab. */
   btcOdds(): Promise<BtcOdds>;
   /** US spot ETF flows for one asset by trade date, for the Chart page's pins (collector migration 053). */
@@ -1700,6 +1702,24 @@ export interface HolderSum {
 
 /** A market's holder sums in the latest hour read, and a day before; keyed by market id. */
 export type Holdings = Record<string, { now: [HolderSum | null, HolderSum | null]; d1: [HolderSum | null, HolderSum | null] }>;
+
+/**
+ * One stock index's latest level (collector migrations 037, 057) and its daily closes over the last
+ * month, oldest first: KRX, Sina and NSE's daily file, for the Rates page's World indexes tab.
+ */
+export interface IndexLevelRow {
+  ticker: string;
+  name: string;
+  /** "krx", "sina" (live quotes) or "nse" (NSE's daily file: a close, once a day). */
+  source: string;
+  price: number;
+  prev_close: number | null;
+  day_high: number | null;
+  day_low: number | null;
+  /** The quote's own time, epoch ms; a closed market's stays at its close. */
+  at_ms: number;
+  closes: number[];
+}
 
 export interface Predictions {
   polymarket: PredictionMarket[];
@@ -3088,6 +3108,34 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         kalshi: [...odds],
         kalshiPast: Object.fromEntries(past.map((r) => [r.market, { d1: r.d1, d7: r.d7 }])),
       };
+    },
+
+    async indexLevels() {
+      const sql = connect();
+      // The last quote of each UTC day over the past month, as text: no arrays under fetch_types off.
+      // Every Asian and Indian session closes inside its UTC day, so a day's last quote is its close.
+      const [levels, closes] = await Promise.all([
+        sql<Omit<IndexLevelRow, "closes">[]>`
+          SELECT ticker, name, source, price::float8 AS price, prev_close::float8 AS prev_close,
+                 day_high::float8 AS day_high, day_low::float8 AS day_low,
+                 (extract(epoch FROM at) * 1000)::float8 AS at_ms
+          FROM index_levels`,
+        sql<{ ticker: string; closes: string }[]>`
+          SELECT ticker, string_agg(price::text, ',' ORDER BY day) AS closes
+          FROM (
+            SELECT DISTINCT ON (ticker, date_trunc('day', at)) ticker, date_trunc('day', at) AS day, price
+            FROM index_level_history
+            WHERE at > now() - interval '31 days'
+            ORDER BY ticker, date_trunc('day', at), at DESC
+          ) d
+          GROUP BY ticker`,
+      ]).catch((error) => {
+        // Empty, not a failure, before the tables exist or the web role is granted them.
+        if (missingOrRefused(error)) return [[], []] as const;
+        throw error;
+      });
+      const byTicker = new Map(closes.map((c) => [c.ticker, c.closes.split(",").map(Number)]));
+      return levels.map((l) => ({ ...l, closes: byTicker.get(l.ticker) ?? [] }));
     },
 
     async btcOdds() {
