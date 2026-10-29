@@ -1712,6 +1712,7 @@ export const FUTURES_TAKER_VENUES = [
   "bitget",
   "bingx",
   "bitunix",
+  "blofin",
   "kucoin",
   "htx",
   "kraken",
@@ -1732,6 +1733,7 @@ export const FUTURES_TAKER_VENUES = [
   "sodex",
   "backpack",
   "risex",
+  "txflow",
 ] as const;
 export const SPOT_TAKER_VENUES = [
   "binance",

@@ -4400,7 +4400,9 @@ describe("cvd", () => {
     expect(tab).toContain("−0.22%");
     expect(tab).toContain("22,497.70–22,778.05");
     // BSE 100 (Yahoo's) under India with the rest of India's, not under Other.
-    expect(tab).toContain('href="/indexes/BSE100">BSE 100</a></td><td class="ix-country">India</td>');
+    expect(tab).toContain(
+      'href="/indexes/BSE100">BSE 100</a><span class="ix-cm">India</span></td><td class="ix-country">India</td>',
+    );
     expect(tab).toContain("+1.09%");
     // NSE's file is a close, KRX a minute old is live, and KOSPI has no range: a dash.
     expect(tab).toContain("closing");

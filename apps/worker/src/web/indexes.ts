@@ -213,7 +213,13 @@ function row(l: IndexLevelRow, now: number, market?: string): string {
   const asOf = live
     ? `<span class="ix-live">${tr("live")}</span> ${timeTag(l.at_ms, "hm")}`
     : `${tr("closing")} ${timeTag(l.at_ms, "md")}`;
-  return `<tr><td>${name}</td><td class="ix-country">${country}</td><td class="num">${level(l.price)}</td>${change}<td class="num dim">${range}</td><td class="ix-spark-cell">${spark(l.closes)}</td><td class="ix-opt">${book}</td><td class="dim">${asOf}</td></tr>`;
+  // On a phone the Country column gives way, and the country rides under the name instead (ix-cm).
+  // Narrower still, the Option book column goes too and its link joins that line (ix-cmb).
+  const underBook = hasBook(l.ticker)
+    ? `<span class="ix-cmb"> · <a href="/rates?gex=${encodeURIComponent(l.ticker)}#gamma">${tr("Gamma")}</a></span>`
+    : "";
+  const under = market || underBook ? `<span class="ix-cm">${market ? country : ""}${underBook}</span>` : "";
+  return `<tr><td>${name}${under}</td><td class="ix-country">${country}</td><td class="num">${level(l.price)}</td>${change}<td class="num dim">${range}</td><td class="ix-spark-cell">${spark(l.closes)}</td><td class="ix-opt">${book}</td><td class="dim">${asOf}</td></tr>`;
 }
 
 export function indexesPanel(data: IndexLevelRow[] | null, now: number): string {
@@ -258,8 +264,11 @@ export const INDEXES_CSS = `.ix-lede{margin:2px 0 10px}
 .ix-table td:first-child{white-space:nowrap}
 .ix-book{white-space:nowrap}
 .ix-country{color:var(--muted);white-space:nowrap}
+.ix-cm{display:none}
+.ix-cmb{display:none}
 .ix-name{color:inherit}
 .ix-live{color:var(--accent)}
 .ix-spark-cell{width:104px}
 .ix-spark{display:block}
-@media (max-width:640px){.ix-table th:nth-child(5),.ix-table td:nth-child(5),.ix-table th:nth-child(6),.ix-table td:nth-child(6){display:none}.ix-table td:first-child{white-space:normal}.ix-table td:last-child{white-space:nowrap}}`;
+@media (max-width:640px){.ix-table th:nth-child(2),.ix-table td:nth-child(2),.ix-table th:nth-child(5),.ix-table td:nth-child(5),.ix-table th:nth-child(6),.ix-table td:nth-child(6){display:none}.ix-cm{display:block;font-size:11px;color:var(--muted)}.ix-table td:first-child{white-space:normal}.ix-table td:last-child{white-space:nowrap}}
+@media (max-width:460px){.ix-table th:nth-child(7),.ix-table td:nth-child(7){display:none}.ix-cmb{display:inline}}`;
