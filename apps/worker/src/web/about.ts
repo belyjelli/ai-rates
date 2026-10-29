@@ -41,6 +41,14 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-29",
+    title: "A Detail view for each asset on the Chart page",
+    changes: [
+      "A Detail button beside Fund flow on the Chart page shows the picked asset's own figures where the chart and the market's tiles are, over the same window: its price and change, futures and spot CVD, whether its price and flow diverged, the exchanges that bought and sold it most, its open interest, funding weighted by open interest, and its market cap. Chart brings the chart back.",
+      "Under them, its signal over every interval's span from 8 hours to 30 days, each row opening that interval, and its flow exchange by exchange: each futures market's price, funding, open interest, taker buys and sells, and each spot exchange's share of the spot volume.",
+    ],
+  },
+  {
+    date: "2026-10-29",
     title:
       "World indexes on the Rates page, and pending liquidations from each market's own history",
     changes: [
