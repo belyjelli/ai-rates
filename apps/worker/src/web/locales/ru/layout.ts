@@ -95,6 +95,9 @@ export const layout: Catalog = {
   "Other tickers": "Другие тикеры",
   Exchanges: "Биржи",
   "markets, costs and grade": "рынки, издержки и оценка",
+  "Index levels": "Уровни индексов",
+  "the level, its daily closes and what trades on it":
+    "уровень, дневные закрытия и что на нём торгуется",
   "Indices and option books": "Индексы и опционы",
   Pages: "Страницы",
   Recent: "Недавние",

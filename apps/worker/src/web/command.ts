@@ -33,8 +33,14 @@ export const SEARCH_PATH = "/data/search";
  * [ticker, class index into ASSET_CLASSES, venues, open interest in whole dollars (0 unknown),
  * 1 if quoted a top of book, whale page venue or 0].
  */
-export function searchJson(rows: readonly SearchAsset[]): string {
+export function searchJson(
+  rows: readonly SearchAsset[],
+  levels: readonly { ticker: string; name: string }[] = [],
+): string {
   return JSON.stringify({
+    // Every index level the collector reads, [ticker, name]: each has a page (web/index-page.ts),
+    // most of them with no perpetual to find them by.
+    i: levels.map((l) => [l.ticker, l.name]),
     a: rows.map((r) => [
       r.base,
       ASSET_CLASSES.indexOf(r.asset_class),
@@ -131,6 +137,8 @@ const searchStrings = () => ({
   exchanges: tr("Exchanges"),
   exchangePage: tr("markets, costs and grade"),
   indices: tr("Indices and option books"),
+  levels: tr("Index levels"),
+  levelNote: tr("the level, its daily closes and what trades on it"),
   pages: tr("Pages"),
   recent: tr("Recent"),
   loading: tr("Loading tickers…"),
@@ -158,21 +166,22 @@ export function searchScript(): string {
   const S = ${scriptStrings(searchStrings())};
   const CL = ${scriptJson(classes)}, V = ${scriptJson(venues)}, B = ${scriptJson(namedBooks())}, P = ${scriptJson(pages)};
   const input = root.querySelector("input"), list = root.querySelector(".cmdk-list");
-  const CACHE = "airrates.search.v1", RECENT = "airrates.search.recent";
-  let assets = null, loading = null, failed = false, items = [], at = 0, pick = null, back = null;
+  const CACHE = "airrates.search.v2", RECENT = "airrates.search.recent";
+  let assets = null, levels = [], loading = null, failed = false, items = [], at = 0, pick = null, back = null;
 
   const load = () => {
     if (assets || loading) return;
     try {
       const c = JSON.parse(sessionStorage.getItem(CACHE) || "null");
-      if (c && Date.now() - c.t < 300000 && Array.isArray(c.a)) { assets = c.a; return; }
+      if (c && Date.now() - c.t < 300000 && Array.isArray(c.a)) { assets = c.a; levels = c.i || []; return; }
     } catch (e) {}
     failed = false;
     loading = fetch(${JSON.stringify(SEARCH_PATH)})
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((j) => {
         assets = j.a;
-        try { sessionStorage.setItem(CACHE, JSON.stringify({ t: Date.now(), a: assets })); } catch (e) {}
+        levels = j.i || [];
+        try { sessionStorage.setItem(CACHE, JSON.stringify({ t: Date.now(), a: assets, i: levels })); } catch (e) {}
       })
       .catch(() => { failed = true; })
       .then(() => { loading = null; if (!root.hidden) render(); });
@@ -338,6 +347,15 @@ export function searchScript(): string {
     if (books.length) {
       head(S.indices);
       for (const b of books) row(b[0], b[1] + " · " + S.gammaNote, "/rates?gex=" + encodeURIComponent(b[0]));
+    }
+    // Index levels by ticker or name: "nifty", "nikkei", "SENSEX".
+    const lv = best(levels, (l) => {
+      const a = rank(l[0], p.q), n = l[1].toLowerCase().includes(lower) && lower.length > 1 ? 2 : -1;
+      return a < 0 ? n : a;
+    }, 5);
+    if (lv.length) {
+      head(S.levels);
+      for (const l of lv) row(l[1], l[0] + " · " + S.levelNote, "/indexes/" + encodeURIComponent(l[0]));
     }
     const pages = best(P, (x) => rank(x[0].toLowerCase(), lower), 3);
     if (pages.length) {

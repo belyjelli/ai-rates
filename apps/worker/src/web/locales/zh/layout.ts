@@ -90,6 +90,8 @@ export const layout: Catalog = {
   "Other tickers": "其他代码",
   Exchanges: "交易所",
   "markets, costs and grade": "市场、成本和评级",
+  "Index levels": "指数点位",
+  "the level, its daily closes and what trades on it": "点位、日收盘及相关交易品种",
   "Indices and option books": "指数和期权",
   Pages: "页面",
   Recent: "最近",

@@ -1442,6 +1442,8 @@ export interface DataSource {
   predictions(): Promise<Predictions>;
   /** Every stock index level the collector reads, for the Rates page's World indexes tab. */
   indexLevels(): Promise<IndexLevelRow[]>;
+  /** One index's level, history and perpetuals for its page; null when the collector has no such index. */
+  indexDetail(ticker: string, perpBase: string | null): Promise<IndexDetail | null>;
   /** Polymarket's Bitcoin "above" ladders and Deribit's latest BTC chain, for the Crowd vs options tab. */
   btcOdds(): Promise<BtcOdds>;
   /** US spot ETF flows for one asset by trade date, for the Chart page's pins (collector migration 053). */
@@ -1794,6 +1796,19 @@ export interface IndexLevelRow {
   /** The quote's own time, epoch ms; a closed market's stays at its close. */
   at_ms: number;
   closes: number[];
+}
+
+/**
+ * One index's page (/indexes/<ticker>): its latest level, its daily closes over the kept history
+ * (index_level_history keeps 400 days) and the last day and a half of quotes, each [epoch ms, level]
+ * oldest first, and the perpetuals on the same index where the site lists any.
+ */
+export interface IndexDetail {
+  level: Omit<IndexLevelRow, "closes">;
+  daily: [number, number][];
+  intraday: [number, number][];
+  /** The perpetuals filed under `perpBase` (class index): fresh markets and their open interest. */
+  perps: { base: string; markets: number; open_interest_usd: number } | null;
 }
 
 export interface Predictions {
@@ -3354,6 +3369,51 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       });
       const byTicker = new Map(closes.map((c) => [c.ticker, c.closes.split(",").map(Number)]));
       return levels.map((l) => ({ ...l, closes: byTicker.get(l.ticker) ?? [] }));
+    },
+
+    async indexDetail(ticker, perpBase) {
+      const sql = connect();
+      const [levels, daily, intraday, perps] = await Promise.all([
+        sql<Omit<IndexLevelRow, "closes">[]>`
+          SELECT ticker, name, source, price::float8 AS price, prev_close::float8 AS prev_close,
+                 day_high::float8 AS day_high, day_low::float8 AS day_low,
+                 (extract(epoch FROM at) * 1000)::float8 AS at_ms
+          FROM index_levels WHERE ticker = ${ticker}`,
+        // A day's last quote is its close, as on the tab (indexLevels).
+        sql<{ t: number; v: number }[]>`
+          SELECT (extract(epoch FROM day) * 1000)::float8 AS t, price::float8 AS v
+          FROM (
+            SELECT DISTINCT ON (date_trunc('day', at)) date_trunc('day', at) AS day, price
+            FROM index_level_history
+            WHERE ticker = ${ticker} AND at > now() - interval '400 days'
+            ORDER BY date_trunc('day', at), at DESC
+          ) d
+          ORDER BY day`,
+        sql<{ t: number; v: number }[]>`
+          SELECT (extract(epoch FROM at) * 1000)::float8 AS t, price::float8 AS v
+          FROM index_level_history
+          WHERE ticker = ${ticker} AND at > now() - interval '36 hours'
+          ORDER BY at`,
+        perpBase
+          ? sql<{ markets: number; open_interest_usd: number }[]>`
+              SELECT count(*)::int AS markets, coalesce(sum(open_interest_usd), 0)::float8 AS open_interest_usd
+              FROM market_latest
+              WHERE asset_class = 'index' AND base = ${perpBase}
+                AND observed_at > now() - interval '5 minutes'`
+          : Promise.resolve([]),
+      ]).catch((error) => {
+        if (missingOrRefused(error)) return [[], [], [], []] as const;
+        throw error;
+      });
+      const [level] = levels;
+      if (!level) return null;
+      const [p] = perps;
+      return {
+        level,
+        daily: daily.map((r) => [r.t, r.v] as [number, number]),
+        intraday: intraday.map((r) => [r.t, r.v] as [number, number]),
+        perps: perpBase && p && p.markets > 0 ? { base: perpBase, ...p } : null,
+      };
     },
 
     async btcOdds() {

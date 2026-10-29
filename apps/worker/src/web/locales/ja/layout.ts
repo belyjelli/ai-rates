@@ -95,6 +95,8 @@ export const layout: Catalog = {
   "Other tickers": "その他のティッカー",
   Exchanges: "取引所",
   "markets, costs and grade": "市場・コスト・評価",
+  "Index levels": "指数の水準",
+  "the level, its daily closes and what trades on it": "水準、日次終値、取引できる商品",
   "Indices and option books": "指数とオプション",
   Pages: "ページ",
   Recent: "最近",

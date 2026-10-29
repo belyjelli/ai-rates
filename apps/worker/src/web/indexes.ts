@@ -121,14 +121,51 @@ const REGIONS: { region: () => string; indexes: [ticker: string, market: string]
 ];
 
 /** Whether an index has an option book on the Gamma tab, by the same ticker (SPX, DAX, NIFTY ...). */
-const hasBook = (ticker: string): boolean => gammaBookFor(ticker, "index") !== null;
+export const hasBook = (ticker: string): boolean => gammaBookFor(ticker, "index") !== null;
+
+/**
+ * The perpetuals on each index, by the base the collector files them under (core/symbols.go), where
+ * it differs from the level's ticker or is the same index under the same name. Only exact matches:
+ * HSCHKD and TW88 are left out until someone checks what they track.
+ */
+export const INDEX_PERPS: Record<string, string> = {
+  SPX: "US500",
+  NDX: "US100",
+  DJI: "US30",
+  RUT: "US2000",
+  VIX: "VIX",
+  DAX: "GER40",
+  UKX: "UK100",
+  NK225: "JP225",
+  XJO: "AUS200",
+  HSI: "HK50",
+  KOSPI: "KOSPI",
+  KOSPI200: "KR200",
+  NIFTY: "NIFTY",
+};
+
+/** An index's region and market as the tab lists them, or null for one it does not list. */
+export function indexPlace(ticker: string): { region: string; market: string } | null {
+  for (const { region, indexes } of REGIONS) {
+    const found = indexes.find(([t]) => t === ticker);
+    if (found) return { region: region(), market: trMsg(found[1]) };
+  }
+  return null;
+}
+
+/** The name an index is shown under: its option book's where it has one, else the collector's. */
+export const indexName = (l: { ticker: string; name: string }): string =>
+  hasBook(l.ticker) ? bookName(l.ticker) : esc(l.name);
+
+/** An index's page. */
+export const indexHref = (ticker: string): string => `/indexes/${encodeURIComponent(ticker)}`;
 
 /** A quote older than this is the market's close, not a live level. */
 const LIVE_MS = 30 * 60 * 1000;
 
 const MINUS = "−";
 const dash = `<span class="dim">–</span>`;
-const level = (v: number) =>
+export const level = (v: number) =>
   v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 /** A month of daily closes as a line, toned by the month's direction. */
@@ -153,7 +190,7 @@ function spark(closes: number[]): string {
 }
 
 function row(l: IndexLevelRow, now: number, market?: string): string {
-  const name = hasBook(l.ticker) ? bookName(l.ticker) : esc(l.name);
+  const name = `<a class="ix-name" href="${indexHref(l.ticker)}">${indexName(l)}</a>`;
   const where = market ? `<span class="ix-where">${esc(trMsg(market))}</span>` : "";
   const book = hasBook(l.ticker)
     ? ` <a class="ix-book" href="/rates?gex=${encodeURIComponent(l.ticker)}#gamma" title="${esc(tr("Its option book on the Gamma Exposure tab"))}">${tr("options")}</a>`
@@ -214,6 +251,7 @@ export const INDEXES_CSS = `.ix-lede{margin:2px 0 10px}
 .ix-table .ix-region th{text-align:left;padding-top:12px;font-weight:600;color:var(--muted)}
 .ix-table td:first-child{white-space:nowrap}
 .ix-book{margin-left:6px;font-size:11px}
+.ix-name{color:inherit}
 .ix-where{display:block;font-size:11px;color:var(--muted)}
 .ix-live{color:var(--accent)}
 .ix-spark-cell{width:104px}

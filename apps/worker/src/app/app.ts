@@ -16,7 +16,8 @@ import type { FundingHistory } from "../web/funding-chart";
 import { gammaBookFor, gammaFragment } from "../web/gamma";
 import { greekFragment, isGreek } from "../web/greeks";
 import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
-import { INDEX_PANEL, indexesFragment } from "../web/indexes";
+import { indexPage } from "../web/index-page";
+import { INDEX_PANEL, INDEX_PERPS, indexesFragment } from "../web/indexes";
 import { installAsset } from "../web/install";
 import { kBars, kRef, lwcAsset } from "../web/kchart";
 import { keyboard } from "../web/keyboard";
@@ -255,8 +256,12 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     // edge keeps it five minutes: a new listing waits that long to be found, and the query runs a few
     // times an hour rather than once per search.
     if (path === SEARCH_PATH) {
-      const rows = await deps.data.searchIndex();
-      return new Response(searchJson(rows), {
+      const [rows, levels] = await Promise.all([
+        deps.data.searchIndex(),
+        // The index levels are an extra: a failed read leaves the tickers searchable.
+        deps.data.indexLevels().catch(() => []),
+      ]);
+      return new Response(searchJson(rows, levels), {
         headers: {
           "content-type": "application/json; charset=utf-8",
           "cache-control": "public, max-age=300",
@@ -693,6 +698,22 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       };
       if (panel !== null) return page(() => liquidationsPanel(view, panel));
       return page(() => liquidations({ ...view, overview, active: address ? "price" : "map" }));
+    }
+
+    // One index's page (web/index-page.ts): any ticker the collector reads a level for.
+    if (segments[0] === "indexes" && segments.length === 2) {
+      const ticker = (segments[1] as string).toUpperCase();
+      if (!/^[A-Z0-9]{1,16}$/.test(ticker)) {
+        return page(() => pages.notFound(path, now, tr("No index {ticker}.", { ticker })), 404);
+      }
+      const [overview, detail] = await Promise.all([
+        deps.data.overview(),
+        deps.data.indexDetail(ticker, INDEX_PERPS[ticker] ?? null),
+      ]);
+      if (!detail) {
+        return page(() => pages.notFound(path, now, tr("No index {ticker}.", { ticker })), 404);
+      }
+      return page(() => indexPage({ detail, overview, now }));
     }
 
     if (segments[0] === "price-pair" && (segments.length === 2 || segments.length === 3)) {

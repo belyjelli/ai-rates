@@ -498,4 +498,35 @@ export const macro: Catalog = {
   "Day range": "Дневной диапазон",
   "India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close. BSE-100, BSE-200 and BSE-500 have no free source we can read.":
     "Индексы Nifty, Nifty Bank и India VIX — это дневной файл закрытий NSE, читаемый раз в вечер. Остальные читаются каждые пять минут: KOSPI и KOSPI 200 — с Корейской биржи, BSE Sensex, Nikkei 225, TOPIX, Straits Times и S&P/ASX 200 — из котировок Sina, прочие индексы — из котировок с задержкой до 20 минут; у закрывшегося рынка показано его закрытие. Для BSE-100, BSE-200 и BSE-500 нет бесплатного источника, который мы можем читать.",
+  // An index's page (web/index-page.ts)
+  "No index {ticker}.": "Индекса {ticker} нет.",
+  "the Korea Exchange's own index charts, every five minutes":
+    "собственные графики индексов Корейской биржи, каждые пять минут",
+  "Sina's quote feed, every five minutes": "котировки Sina, каждые пять минут",
+  "NSE's daily closing file, read once each evening":
+    "дневной файл закрытий NSE, читается раз в вечер",
+  "TradingView's quotes, up to 20 minutes behind, every five minutes":
+    "котировки TradingView с задержкой до 20 минут, каждые пять минут",
+  "Hover or tap the chart to read a point.":
+    "Наведите курсор или коснитесь графика, чтобы прочитать точку.",
+  "from {prev}": "с {prev}",
+  "Daily closes": "Дневные закрытия",
+  "The last 36 hours": "Последние 36 часов",
+  "The collector has kept this index since {date}: {n} daily closes so far. The chart fills in a close a day.":
+    "Коллектор хранит этот индекс с {date}: пока {n} дневных закрытий. График пополняется на одно закрытие в день.",
+  "No close kept yet.": "Закрытий пока нет.",
+  "Perpetuals on it: {base}": "Бессрочные фьючерсы на него: {base}",
+  "{n} markets, {oi} open interest": "{n} рынков, открытый интерес {oi}",
+  "Its chart and order flow (CVD)": "Его график и поток ордеров (CVD)",
+  "Its liquidations": "Его ликвидации",
+  "Its option book: gamma exposure, Greeks and IV walls":
+    "Его опционная книга: гамма-экспозиция, греки и IV-стены",
+  "Every index on the World indexes tab": "Все индексы на вкладке «Мировые индексы»",
+  "{name} index level": "Уровень индекса {name}",
+  "{name}: the level now, the day's change and range, and the daily closes kept since the site began reading it.":
+    "{name}: текущий уровень, изменение и диапазон за день и дневные закрытия с тех пор, как сайт начал его читать.",
+  "On this site": "На этом сайте",
+  "The level is from {source}.": "Уровень берётся из источника: {source}.",
+  "A close is the session's last level; a market that is shut shows its close until it opens again. Daily closes are each UTC day's last level.":
+    "Закрытие — последний уровень сессии; закрытый рынок показывает своё закрытие, пока не откроется снова. Дневные закрытия — последний уровень каждого дня по UTC.",
 };

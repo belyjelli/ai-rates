@@ -494,4 +494,32 @@ export const macro: Catalog = {
   "Day range": "당일 범위",
   "India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close. BSE-100, BSE-200 and BSE-500 have no free source we can read.":
     "인도의 Nifty 지수, Nifty Bank, India VIX는 NSE의 일별 종가 파일로 매일 저녁 한 번 읽습니다. 나머지는 5분마다 읽습니다: KOSPI와 KOSPI 200은 한국거래소, BSE Sensex, 닛케이 225, TOPIX, 스트레이츠 타임스 지수, S&P/ASX 200은 Sina 시세, 그 밖의 지수는 최대 20분 지연된 시세입니다. 장이 마감된 시장은 종가를 보여 줍니다. BSE-100, BSE-200, BSE-500은 읽을 수 있는 무료 출처가 없습니다.",
+  // An index's page (web/index-page.ts)
+  "No index {ticker}.": "지수 {ticker}가 없습니다.",
+  "the Korea Exchange's own index charts, every five minutes": "한국거래소 자체 지수 차트, 5분마다",
+  "Sina's quote feed, every five minutes": "Sina 시세, 5분마다",
+  "NSE's daily closing file, read once each evening": "NSE 일별 종가 파일, 매일 저녁 한 번 읽음",
+  "TradingView's quotes, up to 20 minutes behind, every five minutes":
+    "TradingView 시세, 최대 20분 지연, 5분마다",
+  "Hover or tap the chart to read a point.":
+    "차트에 마우스를 올리거나 탭하면 그 지점을 읽을 수 있습니다.",
+  "from {prev}": "이전 {prev}",
+  "Daily closes": "일별 종가",
+  "The last 36 hours": "최근 36시간",
+  "The collector has kept this index since {date}: {n} daily closes so far. The chart fills in a close a day.":
+    "수집기는 {date}부터 이 지수를 기록했습니다: 지금까지 일별 종가 {n}개. 차트는 하루에 종가 하나씩 채워집니다.",
+  "No close kept yet.": "아직 기록된 종가가 없습니다.",
+  "Perpetuals on it: {base}": "이 지수의 무기한 선물: {base}",
+  "{n} markets, {oi} open interest": "시장 {n}개, 미결제약정 {oi}",
+  "Its chart and order flow (CVD)": "차트와 주문 흐름(CVD)",
+  "Its liquidations": "청산",
+  "Its option book: gamma exposure, Greeks and IV walls": "옵션 북: 감마 익스포저, 그릭스, IV 월",
+  "Every index on the World indexes tab": "세계 지수 탭의 모든 지수",
+  "{name} index level": "{name} 지수 수준",
+  "{name}: the level now, the day's change and range, and the daily closes kept since the site began reading it.":
+    "{name}: 현재 수준, 당일 등락과 범위, 이 사이트가 읽기 시작한 이후의 일별 종가.",
+  "On this site": "이 사이트에서",
+  "The level is from {source}.": "수준의 출처는 {source}입니다.",
+  "A close is the session's last level; a market that is shut shows its close until it opens again. Daily closes are each UTC day's last level.":
+    "종가는 해당 세션의 마지막 수준입니다. 휴장 중인 시장은 다시 열릴 때까지 종가를 표시합니다. 일별 종가는 각 UTC 일의 마지막 수준입니다.",
 };

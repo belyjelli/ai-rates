@@ -487,4 +487,32 @@ export const macro: Catalog = {
   "Day range": "当日区间",
   "India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close. BSE-100, BSE-200 and BSE-500 have no free source we can read.":
     "印度 Nifty 系列指数、Nifty Bank 和 India VIX 来自 NSE 的每日收盘文件，每晚读取一次。其余每五分钟读取一次：KOSPI 和 KOSPI 200 来自韩国交易所，BSE Sensex、日经 225、TOPIX、海峡时报指数和 S&P/ASX 200 来自新浪行情，其他指数来自延迟最多 20 分钟的行情；已收盘的市场显示其收盘价。BSE-100、BSE-200 和 BSE-500 没有我们可读取的免费数据源。",
+  // An index's page (web/index-page.ts)
+  "No index {ticker}.": "没有指数 {ticker}。",
+  "the Korea Exchange's own index charts, every five minutes":
+    "韩国交易所自有的指数图表，每五分钟一次",
+  "Sina's quote feed, every five minutes": "新浪行情，每五分钟一次",
+  "NSE's daily closing file, read once each evening": "NSE 的每日收盘文件，每晚读取一次",
+  "TradingView's quotes, up to 20 minutes behind, every five minutes":
+    "TradingView 行情，最多延迟 20 分钟，每五分钟一次",
+  "Hover or tap the chart to read a point.": "悬停或点击图表读取某一点。",
+  "from {prev}": "前值 {prev}",
+  "Daily closes": "日收盘",
+  "The last 36 hours": "最近 36 小时",
+  "The collector has kept this index since {date}: {n} daily closes so far. The chart fills in a close a day.":
+    "采集器自 {date} 起记录此指数：目前共 {n} 个日收盘。图表每天增加一个收盘。",
+  "No close kept yet.": "尚无收盘记录。",
+  "Perpetuals on it: {base}": "基于它的永续合约：{base}",
+  "{n} markets, {oi} open interest": "{n} 个市场，持仓量 {oi}",
+  "Its chart and order flow (CVD)": "它的图表与订单流（CVD）",
+  "Its liquidations": "它的爆仓",
+  "Its option book: gamma exposure, Greeks and IV walls": "它的期权簿：Gamma 敞口、希腊值和 IV 墙",
+  "Every index on the World indexes tab": "全球指数标签页上的所有指数",
+  "{name} index level": "{name} 指数点位",
+  "{name}: the level now, the day's change and range, and the daily closes kept since the site began reading it.":
+    "{name}：当前点位、当日涨跌与区间，以及本站开始读取以来记录的日收盘。",
+  "On this site": "本站相关",
+  "The level is from {source}.": "点位来自{source}。",
+  "A close is the session's last level; a market that is shut shows its close until it opens again. Daily closes are each UTC day's last level.":
+    "收盘为该交易时段的最后点位；休市的市场显示其收盘，直到重新开市。日收盘为每个 UTC 日的最后点位。",
 };

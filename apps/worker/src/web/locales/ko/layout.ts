@@ -95,6 +95,8 @@ export const layout: Catalog = {
   "Other tickers": "다른 티커",
   Exchanges: "거래소",
   "markets, costs and grade": "시장, 비용, 등급",
+  "Index levels": "지수 수준",
+  "the level, its daily closes and what trades on it": "수준, 일별 종가와 거래 상품",
   "Indices and option books": "지수와 옵션",
   Pages: "페이지",
   Recent: "최근",

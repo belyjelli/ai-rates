@@ -493,4 +493,34 @@ export const macro: Catalog = {
   "Day range": "当日の値幅",
   "India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close. BSE-100, BSE-200 and BSE-500 have no free source we can read.":
     "インドの Nifty 指数、Nifty Bank、India VIX は NSE の日次終値ファイルで、毎晩1回読み込みます。それ以外は5分ごとに読み込みます：KOSPI と KOSPI 200 は韓国取引所、BSE Sensex、日経225、TOPIX、ストレーツ・タイムズ指数、S&P/ASX 200 は Sina の気配値、その他の指数は最大20分遅れの気配値です。取引を終えた市場は終値を表示します。BSE-100、BSE-200、BSE-500 には読み込める無料のソースがありません。",
+  // An index's page (web/index-page.ts)
+  "No index {ticker}.": "指数 {ticker} はありません。",
+  "the Korea Exchange's own index charts, every five minutes":
+    "韓国取引所自身の指数チャート、5分ごと",
+  "Sina's quote feed, every five minutes": "Sina の気配値、5分ごと",
+  "NSE's daily closing file, read once each evening": "NSE の日次終値ファイル、毎晩1回読み込み",
+  "TradingView's quotes, up to 20 minutes behind, every five minutes":
+    "TradingView の気配値、最大20分遅れ、5分ごと",
+  "Hover or tap the chart to read a point.":
+    "チャートにカーソルを合わせるかタップすると、その点を読み取れます。",
+  "from {prev}": "前回 {prev}",
+  "Daily closes": "日次終値",
+  "The last 36 hours": "直近36時間",
+  "The collector has kept this index since {date}: {n} daily closes so far. The chart fills in a close a day.":
+    "コレクターは {date} からこの指数を記録しています：これまでに日次終値 {n} 本。チャートは1日1本ずつ増えます。",
+  "No close kept yet.": "まだ終値の記録はありません。",
+  "Perpetuals on it: {base}": "この指数の無期限先物：{base}",
+  "{n} markets, {oi} open interest": "{n} 市場、建玉 {oi}",
+  "Its chart and order flow (CVD)": "チャートとオーダーフロー（CVD）",
+  "Its liquidations": "清算",
+  "Its option book: gamma exposure, Greeks and IV walls":
+    "オプションブック：ガンマエクスポージャー、グリークス、IV ウォール",
+  "Every index on the World indexes tab": "世界の株価指数タブのすべての指数",
+  "{name} index level": "{name} の指数水準",
+  "{name}: the level now, the day's change and range, and the daily closes kept since the site began reading it.":
+    "{name}：現在の水準、当日の騰落と値幅、本サイトが読み込みを始めてからの日次終値。",
+  "On this site": "本サイトでは",
+  "The level is from {source}.": "水準の出所は{source}です。",
+  "A close is the session's last level; a market that is shut shows its close until it opens again. Daily closes are each UTC day's last level.":
+    "終値はその取引時間の最後の水準です。休場中の市場は再開まで終値を表示します。日次終値は各 UTC 日の最後の水準です。",
 };

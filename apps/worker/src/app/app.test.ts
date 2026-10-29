@@ -178,6 +178,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     }),
     btcOdds: async () => ({ markets: [], chain: null, holdings: {} }),
     indexLevels: async () => [],
+    indexDetail: async () => null,
     liquidationFeeds: async () => [],
     whalePositions: async () => [],
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
@@ -4407,6 +4408,78 @@ describe("cvd", () => {
     );
   });
 
+  test("each index has a page: its level, its closes, and what trades on it here", async () => {
+    const DAY = 86_400_000;
+    const asked: [string, string | null][] = [];
+    const level = (over: Record<string, unknown>) => ({
+      ticker: "NK225",
+      name: "Nikkei 225",
+      source: "sina",
+      price: 64659.25,
+      prev_close: 63955.68,
+      day_high: 64831.29,
+      day_low: 63749.2,
+      at_ms: NOW - 60_000,
+      ...over,
+    });
+    const { data } = fakeData({
+      indexDetail: async (ticker, perpBase) => {
+        asked.push([ticker, perpBase]);
+        if (ticker === "NK225")
+          return {
+            level: level({}),
+            daily: [
+              [NOW - 2 * DAY, 63000],
+              [NOW - DAY, 63955.68],
+              [NOW, 64659.25],
+            ],
+            intraday: [
+              [NOW - 7_200_000, 64400],
+              [NOW - 3_600_000, 64500],
+              [NOW, 64659.25],
+            ],
+            perps: { base: "JP225", markets: 9, open_interest_usd: 4_200_000 },
+          };
+        if (ticker === "TOPIX")
+          return {
+            level: level({ ticker: "TOPIX", name: "TOPIX", price: 4003.28, at_ms: NOW - DAY }),
+            daily: [[NOW - DAY, 4003.28]],
+            intraday: [],
+            perps: null,
+          };
+        return null;
+      },
+    });
+    const nikkei = await (await get("/indexes/nk225", data)).text();
+    // The ticker is read in capitals and the Nikkei's perpetuals are asked for under JP225.
+    expect(asked[0]).toEqual(["NK225", "JP225"]);
+    expect(nikkei).toContain("64,659.25");
+    expect(nikkei).toContain("+1.10%");
+    expect(nikkei).toContain("63,749.20–64,831.29");
+    expect(nikkei).toContain("Daily closes");
+    expect(nikkei).toContain("The last 36 hours");
+    expect(nikkei).toContain('href="/markets/asset/index/JP225"');
+    expect(nikkei).toContain('href="/chart/index/JP225"');
+    expect(nikkei).toContain('href="/rates?gex=NK225#gamma"');
+    expect(nikkei).toContain("Japan");
+    // An index with neither: its level, no chart yet and no perpetual links, and it says why.
+    const topix = await (await get("/indexes/TOPIX", data)).text();
+    expect(topix).toContain("4,003.28");
+    expect(topix).toContain("1 daily closes so far");
+    expect(topix).not.toContain("/markets/asset/index/");
+    expect(topix).not.toContain("Daily closes</p>");
+    // No such index: a 404, not an empty page.
+    expect((await get("/indexes/NOPE", data)).status).toBe(404);
+    expect((await get("/indexes/bad%20ticker", data)).status).toBe(404);
+    // The tab links each name to its page.
+    const { data: tab } = fakeData({
+      indexLevels: async () => [{ ...level({}), closes: [] }],
+    });
+    expect(await (await get("/rates?panel=indexes", tab)).text()).toContain(
+      'href="/indexes/NK225"',
+    );
+  });
+
   test("the trading chart ships the spot ETF flows its pins are drawn from, for crypto only", async () => {
     const asked: string[] = [];
     const { data } = fakeData({
@@ -6122,13 +6195,29 @@ describe("load shedding", () => {
 
 describe("site-wide search", () => {
   test("/data/search lists every asset compactly, deepest first, cached five minutes", async () => {
-    const { data } = fakeData();
+    const { data } = fakeData({
+      indexLevels: async () => [
+        {
+          ticker: "NK225",
+          name: "Nikkei 225",
+          source: "sina",
+          price: 64659.25,
+          prev_close: null,
+          day_high: null,
+          day_low: null,
+          at_ms: NOW,
+          closes: [],
+        },
+      ],
+    });
     const response = await get("/data/search", data);
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("public, max-age=300");
     expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
-    // [ticker, class index, venues, open interest (0 unknown), quoted, whale venue or 0]
+    // [ticker, class index, venues, open interest (0 unknown), quoted, whale venue or 0]; and the
+    // index levels, [ticker, name], each with its own page.
     expect(await response.json()).toEqual({
+      i: [["NK225", "Nikkei 225"]],
       a: [
         ["BTC", 0, 24, 32_000_000_000, 1, "binance"],
         ["AAPL", 1, 6, 0, 0, 0],
