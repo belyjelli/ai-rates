@@ -440,6 +440,7 @@ export const macro: Catalog = {
   Wallets: "지갑 수",
   Yes: "예",
   // World indexes tab (web/indexes.ts)
+  Country: "국가",
   "World indexes": "세계 지수",
   Indexes: "지수",
   India: "인도",
@@ -480,7 +481,6 @@ export const macro: Catalog = {
   Other: "기타",
   "{n} daily closes, {change}%": "일별 종가 {n}개, {change}%",
   "Its option book on the Gamma Exposure tab": "감마 익스포저 탭의 옵션 북",
-  options: "옵션",
   live: "실시간",
   closing: "종가",
   "The index levels could not be read right now.": "지금은 지수 수준을 읽을 수 없습니다.",

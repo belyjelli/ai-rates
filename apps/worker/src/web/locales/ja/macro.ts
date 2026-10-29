@@ -439,6 +439,7 @@ export const macro: Catalog = {
   Wallets: "ウォレット数",
   Yes: "はい",
   // World indexes tab (web/indexes.ts)
+  Country: "国",
   "World indexes": "世界の株価指数",
   Indexes: "指数",
   India: "インド",
@@ -479,7 +480,6 @@ export const macro: Catalog = {
   Other: "その他",
   "{n} daily closes, {change}%": "日次終値 {n} 本、{change}%",
   "Its option book on the Gamma Exposure tab": "ガンマエクスポージャータブのオプションブック",
-  options: "オプション",
   live: "リアルタイム",
   closing: "終値",
   "The index levels could not be read right now.": "現在、指数の水準を読み込めません。",

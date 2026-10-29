@@ -4375,8 +4375,12 @@ describe("cvd", () => {
     expect(at(">Americas<")).toBeLessThan(at(">Europe<"));
     expect(at(">Europe<")).toBeLessThan(at(">Asia-Pacific<"));
     expect(at("S&amp;P 500")).toBeLessThan(at("FTSE 100"));
-    expect(tab).toContain('<span class="ix-where">United States</span>');
-    expect(tab).toContain('<span class="ix-where">United Kingdom</span>');
+    // Country and option book are columns of their own: the FTSE 100 has no book, a dash.
+    expect(tab).toContain("<th>Country</th>");
+    expect(tab).toContain("<th>Option book</th>");
+    expect(tab).toContain('<td class="ix-country">United States</td>');
+    expect(tab).toContain('<td class="ix-country">United Kingdom</td>');
+    expect(tab).toMatch(/href="\/rates\?gex=SPX#gamma"[^>]*>Gamma<\/a>/);
     expect(tab).toContain('href="/rates?gex=SPX#gamma"');
     expect(tab).not.toContain('href="/rates?gex=UKX#gamma"');
     // The FTSE 100's day against its previous close.

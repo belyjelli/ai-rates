@@ -191,10 +191,12 @@ function spark(closes: number[]): string {
 
 function row(l: IndexLevelRow, now: number, market?: string): string {
   const name = `<a class="ix-name" href="${indexHref(l.ticker)}">${indexName(l)}</a>`;
-  const where = market ? `<span class="ix-where">${esc(trMsg(market))}</span>` : "";
+  const country = market ? esc(trMsg(market)) : dash;
+  // The option book, where the Gamma tab has one under the same ticker: the column says which of the
+  // 55 indexes can be read for gamma, Greeks and IV walls at all.
   const book = hasBook(l.ticker)
-    ? ` <a class="ix-book" href="/rates?gex=${encodeURIComponent(l.ticker)}#gamma" title="${esc(tr("Its option book on the Gamma Exposure tab"))}">${tr("options")}</a>`
-    : "";
+    ? `<a class="ix-book" href="/rates?gex=${encodeURIComponent(l.ticker)}#gamma" title="${esc(tr("Its option book on the Gamma Exposure tab"))}">${tr("Gamma")}</a>`
+    : dash;
   let change = `<td class="num">${dash}</td>`;
   if (l.prev_close !== null && l.prev_close > 0) {
     const pct = (l.price / l.prev_close - 1) * 100;
@@ -207,7 +209,7 @@ function row(l: IndexLevelRow, now: number, market?: string): string {
   const asOf = live
     ? `<span class="ix-live">${tr("live")}</span> ${timeTag(l.at_ms, "hm")}`
     : `${tr("closing")} ${timeTag(l.at_ms, "md")}`;
-  return `<tr><td>${name}${book}${where}</td><td class="num">${level(l.price)}</td>${change}<td class="num dim">${range}</td><td class="ix-spark-cell">${spark(l.closes)}</td><td class="dim">${asOf}</td></tr>`;
+  return `<tr><td>${name}</td><td class="ix-country">${country}</td><td class="num">${level(l.price)}</td>${change}<td class="num dim">${range}</td><td class="ix-spark-cell">${spark(l.closes)}</td><td class="ix-opt">${book}</td><td class="dim">${asOf}</td></tr>`;
 }
 
 export function indexesPanel(data: IndexLevelRow[] | null, now: number): string {
@@ -225,15 +227,15 @@ export function indexesPanel(data: IndexLevelRow[] | null, now: number): string 
       return [row(l, now, market)];
     });
     return rows.length > 0
-      ? `<tr class="ix-region"><th colspan="6">${region()}</th></tr>${rows.join("")}`
+      ? `<tr class="ix-region"><th colspan="8">${region()}</th></tr>${rows.join("")}`
       : "";
   });
   // An index the collector reads that this list does not know yet still shows, last.
   const others = data.filter((l) => !listed.has(l.ticker)).map((l) => row(l, now));
   if (others.length > 0)
-    groups.push(`<tr class="ix-region"><th colspan="6">${tr("Other")}</th></tr>${others.join("")}`);
+    groups.push(`<tr class="ix-region"><th colspan="8">${tr("Other")}</th></tr>${others.join("")}`);
   return `<p class="dim ix-lede">${tr("Stock index levels across the Americas, Europe, the Middle East and Asia-Pacific: the day's change against the previous close, the day's range, and a month of daily closes.")}</p>
-<div class="sheet-wrap"><table class="sheet mc-table ix-table"><thead><tr><th>${tr("Index")}</th><th class="num">${tr("Level")}</th><th class="num">${tr("Change")}</th><th class="num">${tr("Day range")}</th><th>${tr("30 days")}</th><th>${tr("As of")}</th></tr></thead><tbody>${groups.join("")}</tbody></table></div>
+<div class="sheet-wrap"><table class="sheet mc-table ix-table"><thead><tr><th>${tr("Index")}</th><th>${tr("Country")}</th><th class="num">${tr("Level")}</th><th class="num">${tr("Change")}</th><th class="num">${tr("Day range")}</th><th>${tr("30 days")}</th><th>${tr("Option book")}</th><th>${tr("As of")}</th></tr></thead><tbody>${groups.join("")}</tbody></table></div>
 <p class="notes">${tr("India's Nifty indexes, Nifty Bank and India VIX are NSE's daily closing file, read once each evening. The rest are read every five minutes: KOSPI and KOSPI 200 from the Korea Exchange, the BSE Sensex, Nikkei 225, TOPIX, Straits Times and S&P/ASX 200 from Sina's quotes, and the other indexes from quotes delayed by up to 20 minutes; a market that has closed shows its close. BSE-100, BSE-200 and BSE-500 have no free source we can read.")}</p>`;
 }
 
@@ -250,10 +252,10 @@ export const INDEXES_CSS = `.ix-lede{margin:2px 0 10px}
 .ix-table{width:100%}
 .ix-table .ix-region th{text-align:left;padding-top:12px;font-weight:600;color:var(--muted)}
 .ix-table td:first-child{white-space:nowrap}
-.ix-book{margin-left:6px;font-size:11px}
+.ix-book{white-space:nowrap}
+.ix-country{color:var(--muted);white-space:nowrap}
 .ix-name{color:inherit}
-.ix-where{display:block;font-size:11px;color:var(--muted)}
 .ix-live{color:var(--accent)}
 .ix-spark-cell{width:104px}
 .ix-spark{display:block}
-@media (max-width:640px){.ix-table th:nth-child(4),.ix-table td:nth-child(4),.ix-table th:nth-child(5),.ix-table td:nth-child(5){display:none}}`;
+@media (max-width:640px){.ix-table th:nth-child(5),.ix-table td:nth-child(5),.ix-table th:nth-child(6),.ix-table td:nth-child(6){display:none}}`;

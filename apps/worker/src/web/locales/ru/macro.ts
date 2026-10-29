@@ -444,6 +444,7 @@ export const macro: Catalog = {
   Wallets: "Кошельки",
   Yes: "Да",
   // World indexes tab (web/indexes.ts)
+  Country: "Страна",
   "World indexes": "Мировые индексы",
   Indexes: "Индексы",
   India: "Индия",
@@ -484,7 +485,6 @@ export const macro: Catalog = {
   Other: "Другое",
   "{n} daily closes, {change}%": "{n} дневных закрытий, {change}%",
   "Its option book on the Gamma Exposure tab": "Его опционная книга на вкладке Gamma Exposure",
-  options: "опционы",
   live: "онлайн",
   closing: "закрытие",
   "The index levels could not be read right now.": "Сейчас не удаётся прочитать уровни индексов.",

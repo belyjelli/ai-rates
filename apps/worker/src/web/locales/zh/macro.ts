@@ -433,6 +433,7 @@ export const macro: Catalog = {
   Wallets: "钱包数",
   Yes: "是",
   // World indexes tab (web/indexes.ts)
+  Country: "国家",
   "World indexes": "全球指数",
   Indexes: "指数",
   India: "印度",
@@ -473,7 +474,6 @@ export const macro: Catalog = {
   Other: "其他",
   "{n} daily closes, {change}%": "{n} 个日收盘，{change}%",
   "Its option book on the Gamma Exposure tab": "Gamma 敞口标签页上的期权簿",
-  options: "期权",
   live: "实时",
   closing: "收盘",
   "The index levels could not be read right now.": "暂时无法读取指数点位。",
