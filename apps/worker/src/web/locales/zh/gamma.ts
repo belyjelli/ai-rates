@@ -93,6 +93,8 @@ export const gamma: Catalog = {
     "生物科技与医疗、金属与矿业：同样是 Cboe 的期权链，覆盖制药公司、医疗保健和生物科技基金，以及金、银、铜矿企及其基金、黄金和白银本身（GLD、SLV），还有电池所需的锂、镍和稀土生产商。永续合约交易其中的少数；持仓量约 5 亿美元及以上的期权簿才会收录，因此小型锂矿股未计入。",
   "Asia-Pacific and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, its three nearest months), ASX (S&amp;P/ASX 200), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement (for ASX, its closing theoretical price) with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.":
     "亚太和欧洲：各交易所的日终文件，发布后读取一次 —— 港交所（恒生系列指数）、中金所（沪深 300、上证 50、中证 1000）、台湾期交所（台湾加权指数）、日本交易所 JPX（日经 225，最近三个合约月）、澳交所 ASX（S&amp;P/ASX 200）、NSE 和 BSE（Nifty、Sensex）以及 Eurex（欧洲斯托克 50、DAX、SMI）。它们公布结算价和持仓量，但不公布波动率，因此各行权价的波动率由其价外结算价（ASX 为收盘理论价）按 Black-76 反推，远期价格取自看涨看跌平价或交易所自己的期货。这些数字以合约结算货币计，截至当日收盘。",
+  "Indonesia: the IDX lists no options on the Jakarta Composite and no exchange lists a perp on it, so Indonesia's book is Cboe's chain for the iShares MSCI Indonesia ETF (EIDO), in dollars, shown under Asia-Pacific. It follows MSCI's Indonesia index, not the Jakarta Composite, and it is thin: about eleven thousand contracts open in four expiries.":
+    "印度尼西亚：印尼证券交易所（IDX）没有雅加达综合指数的期权，也没有交易所上线该指数的永续合约，因此印尼的期权簿取 Cboe 上 iShares MSCI 印尼 ETF（EIDO）的期权链，以美元计，列在亚太之下。它跟踪的是 MSCI 印尼指数，而非雅加达综合指数，而且很薄：四个到期日合计约一万一千张未平仓合约。",
   "The options data could not be read right now.": "暂时无法读取期权数据。",
   "No gamma exposure has been computed for {currency} yet.": "{currency} 尚未计算 Gamma 敞口。",
   "{source}'s {currency} options were last read {ago}, too long ago to show as current positioning.":
@@ -182,6 +184,7 @@ export const gamma: Catalog = {
   "iShares Semiconductor ETF": "iShares 半导体 ETF",
   "Direxion Semiconductor Bull 3X": "Direxion 三倍做多半导体 ETF",
   "iShares MSCI South Korea ETF": "iShares MSCI 韩国 ETF",
+  "iShares MSCI Indonesia ETF": "iShares MSCI 印尼 ETF",
   "Direxion Semiconductor Bear 3X": "Direxion 三倍做空半导体 ETF",
   "Direxion Micron Bull 2X": "Direxion 两倍做多美光 ETF",
   "Direxion South Korea Bull 3X": "Direxion 三倍做多韩国 ETF",

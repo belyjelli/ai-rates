@@ -97,6 +97,8 @@ export const gamma: Catalog = {
     "바이오·헬스케어, 금속·광업: 같은 Cboe 옵션 체인으로, 제약사, 헬스케어·바이오테크 펀드, 금·은·구리 광산 기업과 그 펀드, 금과 은 자체(GLD, SLV), 그리고 배터리에 필요한 리튬·니켈·희토류 생산 기업입니다. 무기한 선물로 거래되는 종목은 일부입니다. 미결제약정이 약 5억 달러 이상인 옵션 북만 수록하므로 소형 리튬 종목은 빠져 있습니다.",
   "Asia-Pacific and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, its three nearest months), ASX (S&amp;P/ASX 200), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement (for ASX, its closing theoretical price) with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.":
     "아시아·태평양·유럽: 각 거래소의 장 마감 파일을 발표 후 한 번 읽습니다 -- HKEX(항셍 지수 계열), CFFEX(CSI 300, SSE 50, CSI 1000), TAIFEX(대만 가권지수), JPX(닛케이 225, 가장 가까운 3개 월물), ASX(S&amp;P/ASX 200), NSE·BSE(니프티, 센섹스), Eurex(유로 스톡스 50, DAX, SMI). 이들 거래소는 정산가와 미결제약정은 공개하지만 변동성은 공개하지 않으므로, 각 행사가의 변동성은 외가격 옵션의 정산가(ASX는 장 마감 이론가)에서 Black-76으로 역산하며, 선도가격은 풋-콜 패리티 또는 거래소 자체 선물에서 구합니다. 수치는 계약의 결제 통화 기준이며, 그날 종가 시점입니다.",
+  "Indonesia: the IDX lists no options on the Jakarta Composite and no exchange lists a perp on it, so Indonesia's book is Cboe's chain for the iShares MSCI Indonesia ETF (EIDO), in dollars, shown under Asia-Pacific. It follows MSCI's Indonesia index, not the Jakarta Composite, and it is thin: about eleven thousand contracts open in four expiries.":
+    "인도네시아: 인도네시아 증권거래소(IDX)는 자카르타 종합지수 옵션을 상장하지 않으며, 이 지수의 무기한 선물을 상장한 거래소도 없습니다. 그래서 인도네시아의 북은 Cboe의 iShares MSCI 인도네시아 ETF(EIDO) 옵션 체인으로, 달러 기준이며 아시아·태평양 아래에 표시됩니다. 따르는 것은 MSCI 인도네시아 지수이지 자카르타 종합지수가 아니며, 얇습니다: 네 개 만기에 미결제약정 약 1만 1천 계약입니다.",
   "The options data could not be read right now.": "지금은 옵션 데이터를 읽을 수 없습니다.",
   "No gamma exposure has been computed for {currency} yet.":
     "{currency}의 감마 익스포저는 아직 계산되지 않았습니다.",
@@ -187,6 +189,7 @@ export const gamma: Catalog = {
   "iShares Semiconductor ETF": "iShares 반도체 ETF",
   "Direxion Semiconductor Bull 3X": "디렉시온 반도체 3배 ETF",
   "iShares MSCI South Korea ETF": "iShares MSCI 한국 ETF",
+  "iShares MSCI Indonesia ETF": "iShares MSCI 인도네시아 ETF",
   "Direxion Semiconductor Bear 3X": "디렉시온 반도체 3배 인버스 ETF",
   "Direxion Micron Bull 2X": "디렉시온 마이크론 2배 ETF",
   "Direxion South Korea Bull 3X": "디렉시온 한국 3배 ETF",

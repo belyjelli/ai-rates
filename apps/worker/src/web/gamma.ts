@@ -127,11 +127,19 @@ const REGIONS: readonly [Region, string][] = [
 ];
 
 /**
+ * Cboe books on a market abroad, grouped with that market rather than the US: EIDO is Indonesia's one
+ * option book, as the IDX lists no index options (owner, 2026-10-29).
+ */
+const CBOE_ABROAD: Readonly<Record<string, Region>> = { EIDO: "asia" };
+
+/**
  * The picker group a book goes under: a US book in one of the sectors (sectors.ts, shared with the
- * liquidations picker) under that sector, every other book under its publisher's region.
+ * liquidations picker) under that sector, a Cboe book on a market abroad under that market's region,
+ * every other book under its publisher's region.
  */
 const bookRegion = (b: { currency: string; source: string }): Region =>
-  (b.source === "cboe" ? sectorOf(b.currency) : null) ?? publisher(b.source).region;
+  (b.source === "cboe" ? (CBOE_ABROAD[b.currency] ?? sectorOf(b.currency)) : null) ??
+  publisher(b.source).region;
 
 /**
  * A reader's name for each book, in the picker's order within its region: the collector's own lists
@@ -242,6 +250,7 @@ const BOOK_NAMES: Readonly<Record<string, string>> = {
   NIFTY: msg("Nifty 50"),
   BANKNIFTY: msg("Nifty Bank"),
   SENSEX: msg("BSE Sensex"),
+  EIDO: msg("iShares MSCI Indonesia ETF"),
   SX5E: msg("Euro Stoxx 50"),
   DAX: msg("DAX"),
   SMI: msg("Swiss Market Index"),
@@ -1295,6 +1304,8 @@ ${helpPanel(
     "Biotech and health, and Metals and mining: the same Cboe chains for the drug makers, health care and biotech funds, and for the gold, silver and copper miners, their funds, gold and silver themselves (GLD, SLV), and the lithium, nickel and rare-earth producers batteries need. The perps trade few of them; a book is kept when its open interest is about $0.5B or more, which leaves out the small lithium names.",
   )}</p><p>${tr(
     "Asia-Pacific and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, its three nearest months), ASX (S&amp;P/ASX 200), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement (for ASX, its closing theoretical price) with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.",
+  )}</p><p>${tr(
+    "Indonesia: the IDX lists no options on the Jakarta Composite and no exchange lists a perp on it, so Indonesia's book is Cboe's chain for the iShares MSCI Indonesia ETF (EIDO), in dollars, shown under Asia-Pacific. It follows MSCI's Indonesia index, not the Jakarta Composite, and it is thin: about eleven thousand contracts open in four expiries.",
   )}</p>`,
 )}`;
 

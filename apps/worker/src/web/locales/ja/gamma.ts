@@ -102,6 +102,8 @@ export const gamma: Catalog = {
     "バイオ・ヘルスケア、金属・鉱業：同じ Cboe のチェーンで、製薬会社、ヘルスケアとバイオテックのファンド、金・銀・銅の鉱山会社とそのファンド、金と銀そのもの（GLD、SLV）、そして電池に必要なリチウム、ニッケル、レアアースの生産者です。無期限先物で取引されているのはその一部です。建玉がおよそ 5 億ドル以上のブックだけを収録しており、小型のリチウム銘柄は含めていません。",
   "Asia-Pacific and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, its three nearest months), ASX (S&amp;P/ASX 200), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement (for ASX, its closing theoretical price) with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.":
     "アジア太平洋と欧州：各取引所の日次ファイルを、公開後に1回取得します：HKEX（ハンセン系指数）、CFFEX（CSI 300、上証50、CSI 1000）、TAIFEX（台湾加権指数）、JPX（日経225、直近3限月）、ASX（S&amp;P/ASX 200）、NSE と BSE（ニフティ、センセックス）、Eurex（ユーロ・ストックス50、DAX、SMI）。これらは決済価格と建玉を公表しますがボラティリティは公表しないため、各行使価格のボラティリティはアウト・オブ・ザ・マネーの決済価格（ASX は引け時点の理論価格）から Black-76 で逆算し、フォワードにはプット・コール・パリティまたは取引所自身の先物を用います。数値は契約の決済通貨建てで、その日の終値時点のものです。",
+  "Indonesia: the IDX lists no options on the Jakarta Composite and no exchange lists a perp on it, so Indonesia's book is Cboe's chain for the iShares MSCI Indonesia ETF (EIDO), in dollars, shown under Asia-Pacific. It follows MSCI's Indonesia index, not the Jakarta Composite, and it is thin: about eleven thousand contracts open in four expiries.":
+    "インドネシア：インドネシア証券取引所（IDX）はジャカルタ総合指数のオプションを上場しておらず、この指数の無期限先物を上場する取引所もありません。そのためインドネシアのブックは Cboe の iシェアーズ MSCI インドネシア ETF（EIDO）のチェーンで、ドル建てで、アジア太平洋の下に表示します。追うのは MSCI のインドネシア指数で、ジャカルタ総合指数ではありません。また薄く、4 つの満期で建玉は約 1 万 1 千枚です。",
   "The options data could not be read right now.": "現在オプションデータを読み込めません。",
   "No gamma exposure has been computed for {currency} yet.":
     "{currency} のガンマエクスポージャーはまだ計算されていません。",
@@ -193,6 +195,7 @@ export const gamma: Catalog = {
   "iShares Semiconductor ETF": "iシェアーズ 半導体 ETF",
   "Direxion Semiconductor Bull 3X": "ディレクシオン 半導体ブル 3倍 ETF",
   "iShares MSCI South Korea ETF": "iシェアーズ MSCI 韓国 ETF",
+  "iShares MSCI Indonesia ETF": "iシェアーズ MSCI インドネシア ETF",
   "Direxion Semiconductor Bear 3X": "ディレクシオン 半導体ベア 3倍 ETF",
   "Direxion Micron Bull 2X": "ディレクシオン マイクロン ブル 2倍 ETF",
   "Direxion South Korea Bull 3X": "ディレクシオン 韓国ブル 3倍 ETF",

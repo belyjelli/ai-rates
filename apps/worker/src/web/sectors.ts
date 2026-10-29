@@ -66,7 +66,8 @@ export const ASSET_GROUPS: readonly [AssetGroup, string][] = [
 
 const METAL_TOKENS = new Set(["XAUT", "PAXG"]);
 // Commodity perps that are metals, by the names venues give them: XAU, XAG, XPT, XPD, XCU, XAL,
-// XNI, XZN, XPB, COPPER, PLATINUM, and the NCCO*GOLD/ZINC/... series. XTI is WTI crude, not titanium.
+// XNI, XZN, XPB, COPPER, PLATINUM, and gold's crosses (XAUAUD, XAUEUR ...). BingX's NCCO*GOLD/ZINC/...
+// codes are filed under these tickers since 2026-10-29. XTI is WTI crude, not titanium.
 const METAL_COMMODITY =
   /^(XAU|XAG|XPT|XPD|XCU|XAL|XNI|XZN|XPB)|GOLD|SILVER|COPPER|PLATINUM|PALLADIUM|ALUMIN|NICKEL|ZINC|LEAD/;
 

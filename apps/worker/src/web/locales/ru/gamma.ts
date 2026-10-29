@@ -99,6 +99,8 @@ export const gamma: Catalog = {
     "Биотех и здравоохранение, металлы и добыча: те же цепочки Cboe для фармкомпаний, фондов здравоохранения и биотеха, а также для добытчиков золота, серебра и меди, их фондов, самих золота и серебра (GLD, SLV) и производителей лития, никеля и редкоземельных металлов, нужных для батарей. Бессрочными фьючерсами торгуют лишь немногие из них; книга сохраняется, если открытый интерес около $0,5 млрд или больше, поэтому мелкие литиевые компании не включены.",
   "Asia-Pacific and Europe: each exchange's end-of-day file, read once after it is published -- HKEX (Hang Seng indexes), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, its three nearest months), ASX (S&amp;P/ASX 200), NSE and BSE (Nifty, Sensex) and Eurex (Euro Stoxx 50, DAX, SMI). They publish settlement prices and open interest but no volatility, so each strike's is backed out of its out-of-the-money settlement (for ASX, its closing theoretical price) with Black-76, against the forward that put-call parity or the exchange's own future gives. Their figures are in the currency the contract pays, and as of that day's close.":
     "АТР и Европа: файл каждой биржи по итогам дня, читается один раз после публикации — HKEX (индексы Hang Seng), CFFEX (CSI 300, SSE 50, CSI 1000), TAIFEX (TAIEX), JPX (Nikkei 225, три ближайших месяца), ASX (S&amp;P/ASX 200), NSE и BSE (Nifty, Sensex) и Eurex (Euro Stoxx 50, DAX, SMI). Они публикуют расчётные цены и открытый интерес, но не волатильность, поэтому волатильность каждого страйка выводится по Black-76 из расчётной цены его опциона вне денег (для ASX — из теоретической цены на закрытие), относительно форварда из паритета пут-колл или собственного фьючерса биржи. Значения — в валюте расчётов по контракту, на закрытие того дня.",
+  "Indonesia: the IDX lists no options on the Jakarta Composite and no exchange lists a perp on it, so Indonesia's book is Cboe's chain for the iShares MSCI Indonesia ETF (EIDO), in dollars, shown under Asia-Pacific. It follows MSCI's Indonesia index, not the Jakarta Composite, and it is thin: about eleven thousand contracts open in four expiries.":
+    "Индонезия: Индонезийская биржа (IDX) не листингует опционы на Jakarta Composite, и ни одна биржа не листингует на него бессрочный фьючерс, поэтому книга Индонезии — цепочка Cboe по iShares MSCI Indonesia ETF (EIDO), в долларах, показанная в разделе АТР. Он следует индексу MSCI Indonesia, а не Jakarta Composite, и он тонкий: около одиннадцати тысяч открытых контрактов в четырёх экспирациях.",
   "The options data could not be read right now.":
     "Данные по опционам сейчас не удалось прочитать.",
   "No gamma exposure has been computed for {currency} yet.":
@@ -191,6 +193,7 @@ export const gamma: Catalog = {
   "iShares Semiconductor ETF": "iShares Semiconductor ETF (полупроводники)",
   "Direxion Semiconductor Bull 3X": "Direxion Semiconductor Bull 3X (полупроводники ×3)",
   "iShares MSCI South Korea ETF": "iShares MSCI South Korea ETF (Корея)",
+  "iShares MSCI Indonesia ETF": "iShares MSCI Indonesia ETF (Индонезия)",
   "Direxion Semiconductor Bear 3X": "Direxion Semiconductor Bear 3X (полупроводники, шорт ×3)",
   "Direxion Micron Bull 2X": "Direxion Micron Bull 2X (Micron ×2)",
   "Direxion South Korea Bull 3X": "Direxion South Korea Bull 3X (Корея ×3)",

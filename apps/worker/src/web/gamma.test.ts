@@ -513,6 +513,24 @@ describe("book picker", () => {
     expect(ko).toContain("<b>SKHY</b><small>SK하이닉스(ADR)</small>");
   });
 
+  test("Indonesia's book, a Cboe fund, sits under Asia-Pacific after the exchanges' own indexes", () => {
+    const books = [
+      book("EIDO", "cboe", "USD"),
+      book("HSI", "hkex", "HKD"),
+      book("SPX", "cboe", "USD"),
+    ];
+    expect(sortBooks(books).map((b) => b.currency)).toEqual(["SPX", "HSI", "EIDO"]);
+    const html = panel(gammaData({ books }));
+    const at = (text: string) => html.indexOf(text);
+    expect(html).toContain('<p class="wh-pick-group">United States <span class="dim">1</span></p>');
+    expect(html).toContain('<p class="wh-pick-group">Asia-Pacific <span class="dim">2</span></p>');
+    expect(at(">Asia-Pacific <")).toBeLessThan(at("gex=EIDO#gamma"));
+    expect(html).toContain("<b>EIDO</b><small>iShares MSCI Indonesia ETF</small>");
+    expect(html).toContain("not the Jakarta Composite");
+    const ja = withLocale("ja", () => panel(gammaData({ books })));
+    expect(ja).toContain("<b>EIDO</b><small>iシェアーズ MSCI インドネシア ETF</small>");
+  });
+
   test("biotech and metals books get groups of their own, gold and silver with the miners", () => {
     const books = [
       book("GLD", "cboe", "USD"),
