@@ -113,8 +113,8 @@ export const liquidations: Catalog = {
   "longs liquidate if price falls": "価格が下がるとロングが清算",
   "pending is modeled": "未発動分は推定",
   "pending by price band": "価格帯別の未発動の清算",
-  "Modeled from open interest and leverage tiers, not reported by venues.":
-    "建玉とレバレッジ段階から推定したもので、取引所の公表値ではありません。",
+  "Modeled from 30 days of open interest and price on each market and its leverage limits, not reported by venues.":
+    "各市場の30日間の建玉と価格、レバレッジ上限から推定したもので、取引所の公表値ではありません。",
   Pending: "未発動",
   "Pending on": "未発動を表示",
   "Pending off": "未発動を隠す",

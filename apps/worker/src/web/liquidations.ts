@@ -898,7 +898,7 @@ function bandRows(reach: number): number[] {
  * The modeled pending side panel: shorts at risk above the price, longs below, ten rows a side.
  *
  * TWO ZOOMS, both prepared by the collector. Near is ±10% in 1% rows, where the high-leverage money
- * sits. Zoomed out is half the mark to double it (5% rows below, 10% above): the 2-5x positions only
+ * sits. Zoomed out is ±50% in 5% rows both ways: the 2-5x positions only
  * appear there, and it answers "what would a crash or a squeeze take out", which ±10% cannot.
  *
  * ITS OWN SCALE, NOT THE BARS'. The first design shared one axis so a $3M row was as long as a $3M
@@ -1146,7 +1146,7 @@ function sidesChart(data: {
 <div class="fchart-head"><p class="fchart-title">${chartTitle}${pend ? ` · ${tr("pending by price band")}` : ""}</p><div class="fchart-keys"><span><i class="lqc-key-long"></i>${tr("Longs closed")} <b data-u="lqc-long">${money(longSum)}</b></span><span><i class="lqc-key-short"></i>${tr("Shorts closed")} <b data-u="lqc-short">${money(shortSum)}</b></span>${pend ? pend.keys : ""}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
 <div class="lqc-body"><div class="fchart-plot lqc-plot slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} longs closed above zero and shorts closed below, over the last {window}", { asset: label, window: params.window }))}">${grid}${SLOT_BAND}${bars.join("")}${SLOT_CURSOR}</svg>${yLabels}${xLabels.join("")}</div>${pend ? pend.html : ""}</div>
 ${slotData({ kind: "lqc", from: fromMs, unit: bucketMs, slots })}
-${pending ? `<div class="lqc-foot">${pending.strip}${pend ? `<p class="lqc-warn">${tr("Modeled from open interest and leverage tiers, not reported by venues.")}</p>` : ""}</div>` : ""}
+${pending ? `<div class="lqc-foot">${pending.strip}${pend ? `<p class="lqc-warn">${tr("Modeled from 30 days of open interest and price on each market and its leverage limits, not reported by venues.")}</p>` : ""}</div>` : ""}
 </figure>`;
 }
 

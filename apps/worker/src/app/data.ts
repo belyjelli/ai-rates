@@ -660,7 +660,7 @@ export interface LiquidationAssetOptions {
   reach: number;
   /** Bar width of the longs-vs-shorts series, in minutes. */
   sideMinutes: number;
-  /** Read the pending strip's zoomed-out rows (half the mark to double it) instead of the ±10% ones. */
+  /** Read the pending strip's zoomed-out rows (±50%) instead of the ±10% ones. */
   pendingWide?: boolean;
 }
 

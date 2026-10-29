@@ -115,8 +115,8 @@ export const liquidations: Catalog = {
   "longs liquidate if price falls": "лонги ликвидируются при падении цены",
   "pending is modeled": "ожидаемые — по модели",
   "pending by price band": "ожидаемые по ценовым диапазонам",
-  "Modeled from open interest and leverage tiers, not reported by venues.":
-    "Модель по открытому интересу и уровням плеча; биржи этого не публикуют.",
+  "Modeled from 30 days of open interest and price on each market and its leverage limits, not reported by venues.":
+    "Модель по открытому интересу и цене каждого рынка за 30 дней и его пределам плеча; биржи этого не публикуют.",
   Pending: "Ожидаемые",
   "Pending on": "Ожидаемые: вкл",
   "Pending off": "Ожидаемые: выкл",

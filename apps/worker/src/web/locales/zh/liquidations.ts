@@ -108,8 +108,8 @@ export const liquidations: Catalog = {
   "longs liquidate if price falls": "价格下跌则多头被强平",
   "pending is modeled": "待触发部分为模型估算",
   "pending by price band": "按价格区间的待触发爆仓",
-  "Modeled from open interest and leverage tiers, not reported by venues.":
-    "根据未平仓合约和杠杆档位估算，并非交易所披露的数据。",
+  "Modeled from 30 days of open interest and price on each market and its leverage limits, not reported by venues.":
+    "根据各市场30天的未平仓合约、价格及其杠杆上限估算，并非交易所披露的数据。",
   Pending: "待触发",
   "Pending on": "显示待触发",
   "Pending off": "隐藏待触发",

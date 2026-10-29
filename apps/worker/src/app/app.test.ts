@@ -1530,7 +1530,7 @@ describe("pages", () => {
     expect(sides).toContain("pending is modeled");
     // It is an estimate, and the page says so beside the chart.
     expect(sides).toContain(
-      "Modeled from open interest and leverage tiers, not reported by venues.",
+      "Modeled from 30 days of open interest and price on each market and its leverage limits, not reported by venues.",
     );
     // Each row reads itself in the header line, and the price line carries the mark.
     expect(sides).toContain("Longs at risk, modeled");
@@ -1559,15 +1559,16 @@ describe("pages", () => {
 
     const sides = await tab("/liquidations?zoom=out", "sides", data);
     expect(asked).toEqual([false, true]);
-    // 10% rows above to +100% (double), 5% rows below to −50% (half), both ticked at the outer edge.
-    expect(sides).toContain(">+100%<");
-    expect(sides).toContain(">+20%<");
+    // 5% rows both ways to ±50%, ticked at the outer edge; equal rows, so neither side reads
+    // heavier only because its rows are wider.
+    expect(sides).toContain(">+50%<");
+    expect(sides).toContain(">+10%<");
     expect(sides).toContain(">−50%<");
     expect(sides).toContain(">−10%<");
-    expect(sides).not.toContain(">+10%<");
+    expect(sides).not.toContain(">+100%<");
     // A row reads its own range: the first one below spans 0-5%, from 2,280 to the 2,400 mark.
     expect(sides).toContain("price falls &lt;b&gt;0–5%&lt;/b&gt; to 2,280–2,400");
-    expect(sides).toContain("price rises &lt;b&gt;90–100%&lt;/b&gt; to 4,560–4,800");
+    expect(sides).toContain("price rises &lt;b&gt;45–50%&lt;/b&gt; to 3,480–3,600");
     // The switch keeps the tab and drops back to ±10%; turning pending off drops the zoom with it.
     expect(sides).toContain('href="/liquidations#sides"');
     expect(sides).toContain('href="/liquidations?pending=0&amp;zoom=out#sides"');

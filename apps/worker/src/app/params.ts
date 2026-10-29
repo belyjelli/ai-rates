@@ -672,7 +672,7 @@ export interface LiquidationAssetParams {
   band: LiquidationBand | null;
   /** Whether the sides chart draws the modeled pending-by-price panel. On unless the address says 0. */
   pending: boolean;
-  /** The pending strip's range: ±10% ("near"), or zoomed out to half the mark through double it. */
+  /** The pending strip's range: ±10% ("near"), or zoomed out to ±50%. */
   zoom: "near" | "wide";
   /** The whale map's smallest position: $1M, as whale trackers count them, or $100k. */
   whale: WhaleFloor;

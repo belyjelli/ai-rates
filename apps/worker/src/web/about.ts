@@ -291,7 +291,7 @@ export const CHANGELOG: readonly Release[] = [
     title: "CVD by interval, and pending liquidations",
     changes: [
       "The CVD page lets you pick the bar interval: 5 minutes, 15 minutes, 1 hour, 4 hours or 24 hours. 2 hours and 7 days are shown but not available yet. Switching the interval, or clicking an asset's row, redraws the chart in place.",
-      "The Longs vs shorts chart can show modeled pending liquidations: how much of each side would be force-closed as the price moves through each band, estimated from open interest and leverage tiers rather than reported by exchanges. Pending off hides it, and Zoom out widens it from ±10% to half the price and double it.",
+      "The Longs vs shorts chart can show modeled pending liquidations: how much of each side would be force-closed as the price moves through each band, estimated from where each market's open interest was opened over the past 30 days, how far the price has moved since and the leverage each market allows, rather than reported by exchanges. Pending off hides it, and Zoom out widens it from ±10% to ±50%.",
       "The liquidation tabs you have not opened load when you first show them, so the page opens faster. The Longs vs shorts and Price levels help explains what each time column covers.",
     ],
   },
