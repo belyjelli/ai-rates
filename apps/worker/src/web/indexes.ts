@@ -218,7 +218,8 @@ function row(l: IndexLevelRow, now: number, market?: string): string {
   const underBook = hasBook(l.ticker)
     ? `<span class="ix-cmb"> · <a href="/rates?gex=${encodeURIComponent(l.ticker)}#gamma">${tr("Gamma")}</a></span>`
     : "";
-  const under = market || underBook ? `<span class="ix-cm">${market ? country : ""}${underBook}</span>` : "";
+  const under =
+    market || underBook ? `<span class="ix-cm">${market ? country : ""}${underBook}</span>` : "";
   return `<tr><td>${name}${under}</td><td class="ix-country">${country}</td><td class="num">${level(l.price)}</td>${change}<td class="num dim">${range}</td><td class="ix-spark-cell">${spark(l.closes)}</td><td class="ix-opt">${book}</td><td class="dim">${asOf}</td></tr>`;
 }
 
