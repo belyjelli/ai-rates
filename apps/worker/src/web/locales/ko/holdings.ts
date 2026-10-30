@@ -217,8 +217,8 @@ export const holdings: Catalog = {
     "상위 500개 주소의 {coin} 중 보유자 유형별 비중",
   "{day}: the list's history starts here, one point a day from now.":
     "{day}: 목록의 이력은 여기서 시작하며, 이후 하루에 한 점씩 늘어납니다.",
-  "A name is shown only where a published source gives one: the holder's own address in the address book, an exchange's own proof-of-reserves list, a project's own page, or the explorer's name for a contract or an account. Every other address stays unlabelled; we never trace who owns one. A balance is one address's own, so an exchange or a fund that splits its coins over many addresses ranks each one apart.":
-    "이름은 공개된 출처가 있을 때만 표시합니다: 주소록에 있는 보유자 본인의 주소, 거래소 자체의 준비금 증명 목록, 프로젝트 자체의 페이지, 또는 컨트랙트나 계정에 대한 익스플로러의 이름입니다. 그 밖의 주소는 라벨 없이 두며, 소유자를 추적하지 않습니다. 잔액은 한 주소의 것이므로, 코인을 여러 주소에 나눠 둔 거래소나 펀드는 주소마다 따로 순위가 매겨집니다.",
+  "A name is shown only where a published source gives one: a known holder's address from our reviewed address book (each one published by the holder, named in an official record or reported by established news), an exchange's own proof-of-reserves list, a project's own page, or the explorer's name for a contract or an account. Every other address stays unlabelled; we never trace who owns one. A balance is one address's own, so an exchange or a fund that splits its coins over many addresses ranks each one apart.":
+    "이름은 공개된 출처가 있을 때만 표시합니다: 검토를 거친 주소록에 있는 알려진 보유자의 주소(모두 보유자 본인이 공개했거나, 공식 기록에 나오거나, 주요 언론이 보도한 것), 거래소 자체의 준비금 증명 목록, 프로젝트 자체의 페이지, 또는 컨트랙트나 계정에 대한 익스플로러의 이름입니다. 그 밖의 주소는 라벨 없이 두며, 소유자를 추적하지 않습니다. 잔액은 한 주소의 것이므로, 코인을 여러 주소에 나눠 둔 거래소나 펀드는 주소마다 따로 순위가 매겨집니다.",
   "Sources: Bitcoin's list from {blockchair}'s daily dump of every address, Ethereum's from {blockscout}, Tron's from {tronscan}; exchanges' wallets from their proof-of-reserves lists and {defillama}'s exchange adapters; prices from DefiLlama.":
     "출처: 비트코인 목록은 {blockchair}의 일일 전체 주소 덤프, 이더리움은 {blockscout}, Tron은 {tronscan}; 거래소 지갑은 각 거래소의 준비금 증명 목록과 {defillama}의 거래소 어댑터; 가격은 DefiLlama.",
   "No list read yet for {chain}: the holdings worker reads it once a day.":

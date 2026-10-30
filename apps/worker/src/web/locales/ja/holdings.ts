@@ -217,8 +217,8 @@ export const holdings: Catalog = {
     "上位 500 の {coin} を保有者の種類別に見た割合",
   "{day}: the list's history starts here, one point a day from now.":
     "{day}：一覧の履歴はここから始まり、今後は 1 日 1 点ずつ増えます。",
-  "A name is shown only where a published source gives one: the holder's own address in the address book, an exchange's own proof-of-reserves list, a project's own page, or the explorer's name for a contract or an account. Every other address stays unlabelled; we never trace who owns one. A balance is one address's own, so an exchange or a fund that splits its coins over many addresses ranks each one apart.":
-    "名前は公開された出典があるときだけ表示します：アドレス帳にある保有者自身のアドレス、取引所自身の準備金証明の一覧、プロジェクト自身のページ、またはコントラクトやアカウントに対するエクスプローラーの名称です。それ以外のアドレスはラベルなしのままで、所有者を追跡することはありません。残高は 1 つのアドレス自身のものなので、コインを多数のアドレスに分ける取引所やファンドは、アドレスごとに別々に順位が付きます。",
+  "A name is shown only where a published source gives one: a known holder's address from our reviewed address book (each one published by the holder, named in an official record or reported by established news), an exchange's own proof-of-reserves list, a project's own page, or the explorer's name for a contract or an account. Every other address stays unlabelled; we never trace who owns one. A balance is one address's own, so an exchange or a fund that splits its coins over many addresses ranks each one apart.":
+    "名前は公開された出典があるときだけ表示します：審査済みのアドレス帳にある著名な保有者のアドレス（いずれも保有者自身が公表したもの、公的記録に記載されたもの、または主要な報道で伝えられたもの）、取引所自身の準備金証明の一覧、プロジェクト自身のページ、またはコントラクトやアカウントに対するエクスプローラーの名称です。それ以外のアドレスはラベルなしのままで、所有者を追跡することはありません。残高は 1 つのアドレス自身のものなので、コインを多数のアドレスに分ける取引所やファンドは、アドレスごとに別々に順位が付きます。",
   "Sources: Bitcoin's list from {blockchair}'s daily dump of every address, Ethereum's from {blockscout}, Tron's from {tronscan}; exchanges' wallets from their proof-of-reserves lists and {defillama}'s exchange adapters; prices from DefiLlama.":
     "出典：ビットコインの一覧は {blockchair} の全アドレス日次ダンプ、イーサリアムは {blockscout}、Tron は {tronscan}。取引所のウォレットは各社の準備金証明の一覧と {defillama} の取引所アダプター、価格は DefiLlama。",
   "No list read yet for {chain}: the holdings worker reads it once a day.":

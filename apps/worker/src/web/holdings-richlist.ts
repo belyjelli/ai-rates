@@ -233,7 +233,7 @@ export function richShareChart(days: readonly RichListCategoryDay[], chain: Rich
 /** The note under the list: where the names come from, and the sources. */
 const richNote = () =>
   `<p class="notes">${tr(
-    "A name is shown only where a published source gives one: the holder's own address in the address book, an exchange's own proof-of-reserves list, a project's own page, or the explorer's name for a contract or an account. Every other address stays unlabelled; we never trace who owns one. A balance is one address's own, so an exchange or a fund that splits its coins over many addresses ranks each one apart.",
+    "A name is shown only where a published source gives one: a known holder's address from our reviewed address book (each one published by the holder, named in an official record or reported by established news), an exchange's own proof-of-reserves list, a project's own page, or the explorer's name for a contract or an account. Every other address stays unlabelled; we never trace who owns one. A balance is one address's own, so an exchange or a fund that splits its coins over many addresses ranks each one apart.",
   )}</p>
 <p class="notes">${tr(
     "Sources: Bitcoin's list from {blockchair}'s daily dump of every address, Ethereum's from {blockscout}, Tron's from {tronscan}; exchanges' wallets from their proof-of-reserves lists and {defillama}'s exchange adapters; prices from DefiLlama.",

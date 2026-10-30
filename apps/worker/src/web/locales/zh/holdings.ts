@@ -213,8 +213,8 @@ export const holdings: Catalog = {
   "What each kind of holder has of the top 500's {coin}": "前 500 名所持 {coin} 中各类持有者的占比",
   "{day}: the list's history starts here, one point a day from now.":
     "{day}：榜单的历史从这里开始，此后每天一个点。",
-  "A name is shown only where a published source gives one: the holder's own address in the address book, an exchange's own proof-of-reserves list, a project's own page, or the explorer's name for a contract or an account. Every other address stays unlabelled; we never trace who owns one. A balance is one address's own, so an exchange or a fund that splits its coins over many addresses ranks each one apart.":
-    "只有在公开来源给出名称时才显示名称：地址簿中持有者本人的地址、交易所自己的储备证明列表、项目自己的页面，或浏览器对合约或账户的命名。其余地址一律保持未标记；我们从不追查地址的所有者。余额是单个地址自己的余额，因此把币分散在多个地址的交易所或基金，每个地址分别排名。",
+  "A name is shown only where a published source gives one: a known holder's address from our reviewed address book (each one published by the holder, named in an official record or reported by established news), an exchange's own proof-of-reserves list, a project's own page, or the explorer's name for a contract or an account. Every other address stays unlabelled; we never trace who owns one. A balance is one address's own, so an exchange or a fund that splits its coins over many addresses ranks each one apart.":
+    "只有在公开来源给出名称时才显示名称：我们审核过的地址簿中知名持有者的地址（每个地址都由持有者本人公布、由官方记录点名，或由主流新闻报道）、交易所自己的储备证明列表、项目自己的页面，或浏览器对合约或账户的命名。其余地址一律保持未标记；我们从不追查地址的所有者。余额是单个地址自己的余额，因此把币分散在多个地址的交易所或基金，每个地址分别排名。",
   "Sources: Bitcoin's list from {blockchair}'s daily dump of every address, Ethereum's from {blockscout}, Tron's from {tronscan}; exchanges' wallets from their proof-of-reserves lists and {defillama}'s exchange adapters; prices from DefiLlama.":
     "来源：比特币榜单来自 {blockchair} 每日的全地址导出，以太坊来自 {blockscout}，Tron 来自 {tronscan}；交易所钱包来自其储备证明列表和 {defillama} 的交易所适配器；价格来自 DefiLlama。",
   "No list read yet for {chain}: the holdings worker reads it once a day.":
