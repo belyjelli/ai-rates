@@ -5,12 +5,15 @@ import type {
   PortfolioCard,
   PortfolioMove,
   PortfolioWallet,
+  RichChain,
+  RichList,
   StockPage,
 } from "../app/holdings-data";
 import { lazyPlaceholder } from "./chart-skeleton";
 import { esc, formatUsd } from "./format";
 import { HOLDINGS_CHART_CSS, sparkline } from "./holdings-charts";
 import { signedPct, signedUsd } from "./holdings-rank";
+import { RICH_LIST_CSS, RICH_SWAP_SCRIPT, richListPanel, richPanelHref } from "./holdings-richlist";
 import { msg, tr, trMsg } from "./i18n";
 import { icon } from "./icons";
 import { layout } from "./layout";
@@ -19,12 +22,13 @@ import { tabBar } from "./tabs";
 
 /**
  * The Holdings section, /holdings: what well-known investors hold, as on Investing.com's Pro Ideas
- * (owner, 2026-10-29). Four topics as tabs, the first rendered and the rest loaded when shown:
+ * (owner, 2026-10-29). Five topics as tabs, the first rendered and the rest loaded when shown:
  *
  *   Investors  the idea grid, a card per portfolio (13F filers and holders with traced wallets)
  *   Stocks     what the tracked investors hold most, and per stock who holds it
  *   Moves      each new filing with its biggest buy and sell
  *   On chain   the holders with traced wallets, their evidence and balances
+ *   Rich list  the 500 largest addresses on Bitcoin, Ethereum and Tron (web/holdings-richlist.ts)
  *
  * Each investor has a page of their own (web/holdings-investor.ts). The tables are the holdings
  * worker's (collector migration 058); before they exist every topic says so.
@@ -34,7 +38,7 @@ import { tabBar } from "./tabs";
  * innerHTML and runs no script) and with JavaScript off. The one script is the Copy button's.
  */
 
-export const HOLDINGS_PANELS = ["investors", "stocks", "moves", "onchain"] as const;
+export const HOLDINGS_PANELS = ["investors", "stocks", "moves", "onchain", "richlist"] as const;
 export type HoldingsPanel = (typeof HOLDINGS_PANELS)[number];
 export const isHoldingsPanel = (value: string | null): value is HoldingsPanel =>
   HOLDINGS_PANELS.some((p) => p === value);
@@ -313,6 +317,7 @@ export function holdingsFragment(
     stocks?: readonly HeldStock[];
     moves?: readonly PortfolioMove[];
     onchain?: readonly OnchainHolder[];
+    richlist?: RichList;
   } | null,
 ): string {
   if (data === null)
@@ -326,6 +331,10 @@ export function holdingsFragment(
       return movesPanel(data.moves ?? []);
     case "onchain":
       return onchainPanel(data.onchain ?? []);
+    case "richlist":
+      return data.richlist
+        ? richListPanel(data.richlist)
+        : `<p class="empty">${tr("No holdings read yet.")}</p>`;
   }
 }
 
@@ -335,19 +344,26 @@ const panelLabel = (panel: HoldingsPanel) =>
     stocks: tr("Stocks"),
     moves: tr("Moves"),
     onchain: tr("On chain"),
+    richlist: tr("Rich list"),
   })[panel];
 
-/** /holdings: the Investors topic filled, the other three loaded when shown. */
+/**
+ * /holdings: the Investors topic filled, the others loaded when shown. `chain` is the Rich list's
+ * (/holdings?chain=tron#richlist), which its tab loads.
+ */
 export function holdingsPage(options: {
   cards: readonly PortfolioCard[];
   overview: Overview | null;
   now: number;
+  chain?: RichChain;
 }): string {
   const { cards, overview, now } = options;
   const panels = HOLDINGS_PANELS.map((id) => {
     const filled = id === "investors";
-    return `<div class="tabpanel" role="tabpanel" id="panel-holdings-${id}" data-tab-panel="${id}" aria-labelledby="tab-holdings-${id}"${filled ? "" : ` data-lazy="/holdings?panel=${id}"`}>
-${filled ? investorsPanel(cards) : lazyPlaceholder(`/holdings?panel=${id}`)}
+    const href =
+      id === "richlist" ? richPanelHref(options.chain ?? "bitcoin") : `/holdings?panel=${id}`;
+    return `<div class="tabpanel" role="tabpanel" id="panel-holdings-${id}" data-tab-panel="${id}" aria-labelledby="tab-holdings-${id}"${filled ? "" : ` data-lazy="${esc(href)}"`}>
+${filled ? investorsPanel(cards) : lazyPlaceholder(href)}
 </div>`;
   }).join("\n");
   return layout({
@@ -362,8 +378,10 @@ ${filled ? investorsPanel(cards) : lazyPlaceholder(`/holdings?panel=${id}`)}
 <p class="lede">${tr("What well-known investors hold: each one's latest 13F filing with the SEC, or their wallets on chain, with how the portfolio has done against the S&amp;P 500.")}</p>
 ${tabBar({ name: "holdings", tabs: HOLDINGS_PANELS.map((id) => ({ id, label: panelLabel(id) })), activeId: "investors" })}
 ${panels}
-<style>${HOLDINGS_CSS}</style>
-<script>${COPY_SCRIPT}</script>`,
+<style>${HOLDINGS_CSS}
+${RICH_LIST_CSS}</style>
+<script>${COPY_SCRIPT}</script>
+<script>${RICH_SWAP_SCRIPT}</script>`,
   });
 }
 

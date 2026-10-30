@@ -40,6 +40,7 @@ import { whales, whaleVenueName } from "../web/whales";
 import { A2A_PATH, agentCard, handleA2a } from "./a2a";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import { type Referral, requestGeo } from "./geo";
+import { richChain } from "./holdings-data";
 import { handleMcp, MCP_PATH, mcpServerCard } from "./mcp";
 import {
   AUTH_MD,
@@ -707,16 +708,17 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     // a topic says so in the tab; the grid and the pages fail like any page.
     if (path === "/holdings") {
       const askedPanel = url.searchParams.get("panel");
+      // The Rich list's chain; an unknown one is Bitcoin's list rather than a 404.
+      const chain = richChain(url.searchParams.get("chain"));
       if (isHoldingsPanel(askedPanel)) {
-        const read =
-          askedPanel === "investors"
-            ? deps.data.holdingsCards().then((cards) => ({ cards }))
-            : askedPanel === "stocks"
-              ? deps.data.holdingsStocks().then((stocks) => ({ stocks }))
-              : askedPanel === "moves"
-                ? deps.data.holdingsMoves().then((moves) => ({ moves }))
-                : deps.data.holdingsOnchain().then((onchain) => ({ onchain }));
-        const data = await read.catch((error) => {
+        const read = {
+          investors: () => deps.data.holdingsCards().then((cards) => ({ cards })),
+          stocks: () => deps.data.holdingsStocks().then((stocks) => ({ stocks })),
+          moves: () => deps.data.holdingsMoves().then((moves) => ({ moves })),
+          onchain: () => deps.data.holdingsOnchain().then((onchain) => ({ onchain })),
+          richlist: () => deps.data.holdingsRichList(chain).then((richlist) => ({ richlist })),
+        }[askedPanel];
+        const data = await read().catch((error) => {
           deps.log?.(
             `holdings ${askedPanel} unavailable: ${error instanceof Error ? error.message : String(error)}`,
           );
@@ -728,7 +730,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         deps.data.overview(),
         deps.data.holdingsCards(),
       ]);
-      return page(() => holdingsPage({ cards, overview, now }));
+      return page(() => holdingsPage({ cards, overview, now, chain }));
     }
     if (segments[0] === "holdings" && segments[1] === "stock" && segments.length === 3) {
       const ticker = (segments[2] as string).toUpperCase();

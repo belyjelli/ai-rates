@@ -12,6 +12,9 @@ import {
   portfolioCards,
   portfolioMoves,
   portfolioPage,
+  type RichChain,
+  type RichList,
+  richList,
   type StockPage,
   stockPage,
 } from "./holdings-data";
@@ -1525,6 +1528,8 @@ export interface DataSource {
   holdingsMoves(): Promise<PortfolioMove[]>;
   /** The On chain topic: the holders with traced wallets. */
   holdingsOnchain(): Promise<OnchainHolder[]>;
+  /** The Rich list topic: a chain's 500 largest addresses with their names (collector migration 059). */
+  holdingsRichList(chain: RichChain): Promise<RichList>;
 }
 
 const EMPTY_OVERVIEW: Overview = {
@@ -3799,6 +3804,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
     holdingsStock: (ticker) => stockPage(connect(), ticker),
     holdingsMoves: () => portfolioMoves(connect()),
     holdingsOnchain: () => onchainHolders(connect()),
+    holdingsRichList: (chain) => richList(connect(), chain),
 
     async searchIndex() {
       // One pass over market_latest (36 ms for 15,000 markets, measured 2026-10-18) plus the eighty

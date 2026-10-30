@@ -198,4 +198,48 @@ export const holdings: Catalog = {
   "Also in the 13F": "13F 中另有",
   "{options} in options at the shares' value · {bonds} in bonds and notes":
     "期权 {options}（按标的股票价值）· 债券与票据 {bonds}",
+  // The Rich list topic (web/holdings-richlist.ts).
+  "Rich list": "富豪榜",
+  exchange: "交易所",
+  fund: "基金",
+  bridge: "跨链桥",
+  staking: "质押",
+  contract: "合约",
+  "known holder": "已知持有人",
+  "other named": "其他已命名",
+  unlabelled: "未标记",
+  "official page": "官方页面",
+  "Copy the address": "复制地址",
+  "What each kind of holder has of the top 500's {coin}": "前 500 名所持 {coin} 中各类持有者的占比",
+  "{day}: the list's history starts here, one point a day from now.":
+    "{day}：榜单的历史从这里开始，此后每天一个点。",
+  "A name is shown only where a published source gives one: the holder's own address in the address book, an exchange's own proof-of-reserves list, a project's own page, or the explorer's name for a contract or an account. Every other address stays unlabelled; we never trace who owns one. A balance is one address's own, so an exchange or a fund that splits its coins over many addresses ranks each one apart.":
+    "只有在公开来源给出名称时才显示名称：地址簿中持有者本人的地址、交易所自己的储备证明列表、项目自己的页面，或浏览器对合约或账户的命名。其余地址一律保持未标记；我们从不追查地址的所有者。余额是单个地址自己的余额，因此把币分散在多个地址的交易所或基金，每个地址分别排名。",
+  "Sources: Bitcoin's list from {blockchair}'s daily dump of every address, Ethereum's from {blockscout}, Tron's from {tronscan}; exchanges' wallets from their proof-of-reserves lists and {defillama}'s exchange adapters; prices from DefiLlama.":
+    "来源：比特币榜单来自 {blockchair} 每日的全地址导出，以太坊来自 {blockscout}，Tron 来自 {tronscan}；交易所钱包来自其储备证明列表和 {defillama} 的交易所适配器；价格来自 DefiLlama。",
+  "No list read yet for {chain}: the holdings worker reads it once a day.":
+    "尚未读取 {chain} 的榜单：持仓任务每天读取一次。",
+  "Top {n} hold": "前 {n} 名持有",
+  "{usd} at {price} a coin": "按每枚 {price} 计为 {usd}",
+  "no price read": "未读取到价格",
+  "Share of supply": "占供应量",
+  Named: "已命名",
+  "of the coins, in {n} of {total} addresses; the rest are unlabelled":
+    "的币，分布在 {total} 个地址中的 {n} 个；其余未标记",
+  "Numbers from": "数据时间",
+  "Blockchair's dump of {time}": "Blockchair {time} 的导出",
+  "read {time}": "读取于 {time}",
+  "of supply": "占供应量",
+  "The 30-day change shows once the list has a month of history.":
+    "榜单有一个月的历史后显示 30 天变化。",
+  "The 7- and 30-day changes show once the list has a week and a month of history.":
+    "榜单分别有一周和一个月的历史后显示 7 天和 30 天变化。",
+  "The {n} largest {chain} addresses by {coin} held, read once a day, each with a name where a published source gives one.":
+    "按所持 {coin} 排名的 {n} 个最大 {chain} 地址，每天读取一次；公开来源给出名称的地址附上名称。",
+  "Share of issued bitcoin": "占已发行比特币",
+  "of {supply} BTC issued to date, lost coins included": "已发行 {supply} BTC（含丢失的币）",
+  "of {supply} ETH, Blockscout's total supply": "Blockscout 所示总供应量 {supply} ETH 中",
+  "of {supply} TRX in circulation, by Tronscan": "Tronscan 所示流通量 {supply} TRX 中",
+  "The staking deposit contract is left out: every ETH deposited to it since 2020 stays there for good (withdrawals are paid in new ETH), so its balance is no one's holding, and counting it would put the top 500 above the whole supply.":
+    "质押存款合约未计入：自 2020 年以来存入其中的每一枚 ETH 都永久留在那里（提款以新发行的 ETH 支付），因此其余额不是任何人的持仓；计入它会让前 500 名超过全部供应量。",
 };

@@ -2,7 +2,7 @@ import type postgres from "postgres";
 
 /**
  * The Holdings section's reads (web/holdings.ts): what well-known investors hold, from the tables the
- * holdings worker writes (collector migration 058). Each read follows plans/holdings/queries.sql, with
+ * holdings worker writes (collector migration 058, and 059 for the rich list). Each read follows plans/holdings/queries.sql, with
  * every numeric cast to float8 and every date to text: under Hyperdrive's fetch_types: false a numeric
  * arrives as a string and a date as a Date at midnight UTC, and neither is what a page prints.
  *
@@ -270,6 +270,66 @@ export interface OnchainHolder {
   evidence: string;
   value_usd: number;
   coins: { security: string; value_usd: number }[];
+}
+
+/** The chains the rich list reads (collector migration 059), Bitcoin first. */
+export const RICH_CHAINS = ["bitcoin", "ethereum", "tron"] as const;
+export type RichChain = (typeof RICH_CHAINS)[number];
+/** A `?chain=` value as a chain the list has; anything else is Bitcoin. */
+export const richChain = (value: string | null): RichChain =>
+  RICH_CHAINS.find((c) => c === value) ?? "bitcoin";
+
+/** One chain's newest read: what the listed addresses hold together, and when the numbers are from. */
+export interface RichListDay {
+  day: string;
+  addresses: number;
+  /** The listed addresses' coins together. */
+  balance: number;
+  price_usd: number | null;
+  /** The coins in circulation; null where the source gives none (Tron). */
+  supply: number | null;
+  source: string;
+  /** When the source's numbers are from (Blockchair's dump), YYYY-MM-DDTHH:MMZ; null when read live. */
+  as_of: string | null;
+  read_at: string;
+}
+
+/** One address on the list, named by the address-book rule (rich_list_named). */
+export interface RichListRow {
+  rank: number;
+  address: string;
+  balance: number;
+  value_usd: number | null;
+  is_contract: boolean | null;
+  entity: string | null;
+  /** exchange, fund, government, bridge, staking, contract, holder, other or unlabelled. */
+  category: string;
+  evidence: string | null;
+  evidence_url: string | null;
+  /** A known holder's card, when the address is in the address book. */
+  portfolio: string | null;
+  /** Its balance on the stored day 7 (30) days back; null when it was not listed that day. */
+  balance_7d: number | null;
+  balance_30d: number | null;
+}
+
+/** What one category of the list held on one day. */
+export interface RichListCategoryDay {
+  day: string;
+  category: string;
+  addresses: number;
+  balance: number;
+}
+
+/** The Rich list topic for one chain. */
+export interface RichList {
+  chain: RichChain;
+  day: RichListDay | null;
+  /** The stored days the 7- and 30-day changes compare with; null until the history reaches back. */
+  back_7d: string | null;
+  back_30d: string | null;
+  rows: RichListRow[];
+  categories: RichListCategoryDay[];
 }
 
 const missingOrRefused = (error: unknown) => {
@@ -619,4 +679,51 @@ export async function onchainHolders(sql: postgres.Sql): Promise<OnchainHolder[]
       ORDER BY value_usd DESC, h.name`,
   );
   return [...rows];
+}
+
+/**
+ * The Rich list topic: a chain's newest read with each address's name, its balance a week and a month
+ * back (from the stored day at or before then), and each category's share per day for the chart.
+ * Times come as text in UTC, since a timestamptz under fetch_types: false is not what a page prints.
+ */
+export async function richList(sql: postgres.Sql, chain: RichChain): Promise<RichList> {
+  type Head = RichListDay & { back_7d: string | null; back_30d: string | null };
+  const heads = await rowsOrNone(
+    sql<Head[]>`
+      SELECT d.day::text AS day, d.addresses::int AS addresses, d.balance::float8 AS balance,
+             d.price_usd::float8 AS price_usd, d.supply::float8 AS supply, d.source,
+             to_char(d.as_of AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI"Z"') AS as_of,
+             to_char(d.read_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI"Z"') AS read_at,
+             (SELECT max(x.day)::text FROM rich_list_days x WHERE x.chain = d.chain AND x.day <= d.day - 7) AS back_7d,
+             (SELECT max(x.day)::text FROM rich_list_days x WHERE x.chain = d.chain AND x.day <= d.day - 30) AS back_30d
+      FROM rich_list_days d
+      WHERE d.chain = ${chain}
+      ORDER BY d.day DESC
+      LIMIT 1`,
+  );
+  const [head] = heads;
+  if (!head) return { chain, day: null, back_7d: null, back_30d: null, rows: [], categories: [] };
+  const { back_7d, back_30d, ...day } = head;
+  const [rows, categories] = await Promise.all([
+    rowsOrNone(
+      sql<RichListRow[]>`
+        SELECT n.rank::int AS rank, n.address, n.balance::float8 AS balance, n.value_usd::float8 AS value_usd,
+               n.is_contract, n.entity, n.category, n.evidence, n.evidence_url, n.portfolio,
+               w.balance::float8 AS balance_7d, m.balance::float8 AS balance_30d
+        FROM rich_list_named n
+        LEFT JOIN rich_list w ON w.chain = n.chain AND w.address = n.address AND w.day = ${back_7d}::date
+        LEFT JOIN rich_list m ON m.chain = n.chain AND m.address = n.address AND m.day = ${back_30d}::date
+        WHERE n.chain = ${chain} AND n.day = ${day.day}::date
+        ORDER BY n.rank
+        LIMIT 500`,
+    ),
+    rowsOrNone(
+      sql<RichListCategoryDay[]>`
+        SELECT day::text AS day, category, addresses::int AS addresses, balance::float8 AS balance
+        FROM rich_list_categories
+        WHERE chain = ${chain} AND day > ${day.day}::date - 400
+        ORDER BY day, category`,
+    ),
+  ]);
+  return { chain, day, back_7d, back_30d, rows: [...rows], categories: [...categories] };
 }

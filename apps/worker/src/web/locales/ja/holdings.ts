@@ -201,4 +201,50 @@ export const holdings: Catalog = {
   "Also in the 13F": "13F にはほかに",
   "{options} in options at the shares' value · {bonds} in bonds and notes":
     "オプション {options}（原株の価値）・債券とノート {bonds}",
+  // The Rich list topic (web/holdings-richlist.ts).
+  "Rich list": "保有ランキング",
+  exchange: "取引所",
+  fund: "ファンド",
+  bridge: "ブリッジ",
+  staking: "ステーキング",
+  contract: "コントラクト",
+  "known holder": "既知の保有者",
+  "other named": "その他の名称あり",
+  unlabelled: "ラベルなし",
+  "official page": "公式ページ",
+  "Copy the address": "アドレスをコピー",
+  "What each kind of holder has of the top 500's {coin}":
+    "上位 500 の {coin} を保有者の種類別に見た割合",
+  "{day}: the list's history starts here, one point a day from now.":
+    "{day}：一覧の履歴はここから始まり、今後は 1 日 1 点ずつ増えます。",
+  "A name is shown only where a published source gives one: the holder's own address in the address book, an exchange's own proof-of-reserves list, a project's own page, or the explorer's name for a contract or an account. Every other address stays unlabelled; we never trace who owns one. A balance is one address's own, so an exchange or a fund that splits its coins over many addresses ranks each one apart.":
+    "名前は公開された出典があるときだけ表示します：アドレス帳にある保有者自身のアドレス、取引所自身の準備金証明の一覧、プロジェクト自身のページ、またはコントラクトやアカウントに対するエクスプローラーの名称です。それ以外のアドレスはラベルなしのままで、所有者を追跡することはありません。残高は 1 つのアドレス自身のものなので、コインを多数のアドレスに分ける取引所やファンドは、アドレスごとに別々に順位が付きます。",
+  "Sources: Bitcoin's list from {blockchair}'s daily dump of every address, Ethereum's from {blockscout}, Tron's from {tronscan}; exchanges' wallets from their proof-of-reserves lists and {defillama}'s exchange adapters; prices from DefiLlama.":
+    "出典：ビットコインの一覧は {blockchair} の全アドレス日次ダンプ、イーサリアムは {blockscout}、Tron は {tronscan}。取引所のウォレットは各社の準備金証明の一覧と {defillama} の取引所アダプター、価格は DefiLlama。",
+  "No list read yet for {chain}: the holdings worker reads it once a day.":
+    "{chain} の一覧はまだ読み取っていません：保有データのワーカーが 1 日 1 回読み取ります。",
+  "Top {n} hold": "上位 {n} の保有量",
+  "{usd} at {price} a coin": "1 枚 {price} で {usd}",
+  "no price read": "価格未取得",
+  "Share of supply": "供給量に占める割合",
+  Named: "名前あり",
+  "of the coins, in {n} of {total} addresses; the rest are unlabelled":
+    "（コイン量）、{total} アドレス中 {n} アドレス；残りはラベルなし",
+  "Numbers from": "データ時点",
+  "Blockchair's dump of {time}": "Blockchair の {time} のダンプ",
+  "read {time}": "{time} に読み取り",
+  "of supply": "供給量比",
+  "The 30-day change shows once the list has a month of history.":
+    "30 日の変化は、一覧に 1 か月分の履歴がたまると表示されます。",
+  "The 7- and 30-day changes show once the list has a week and a month of history.":
+    "7 日と 30 日の変化は、一覧にそれぞれ 1 週間と 1 か月分の履歴がたまると表示されます。",
+  "The {n} largest {chain} addresses by {coin} held, read once a day, each with a name where a published source gives one.":
+    "{coin} 保有量で上位 {n} の {chain} アドレス。1 日 1 回読み取り、公開された出典があるものには名前を付けています。",
+  "Share of issued bitcoin": "発行済みビットコインに占める割合",
+  "of {supply} BTC issued to date, lost coins included":
+    "これまでに発行された {supply} BTC のうち（失われたコインを含む）",
+  "of {supply} ETH, Blockscout's total supply": "Blockscout の総供給量 {supply} ETH のうち",
+  "of {supply} TRX in circulation, by Tronscan": "Tronscan による流通量 {supply} TRX のうち",
+  "The staking deposit contract is left out: every ETH deposited to it since 2020 stays there for good (withdrawals are paid in new ETH), so its balance is no one's holding, and counting it would put the top 500 above the whole supply.":
+    "ステーキングのデポジットコントラクトは除外しています：2020 年以来預け入れられた ETH はすべてそこに永久にとどまり（引き出しは新たな ETH で支払われる）、その残高は誰の保有でもありません。含めると上位 500 が総供給量を上回ってしまいます。",
 };

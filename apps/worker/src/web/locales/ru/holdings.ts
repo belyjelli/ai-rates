@@ -202,4 +202,50 @@ export const holdings: Catalog = {
   "Also in the 13F": "Также в 13F",
   "{options} in options at the shares' value · {bonds} in bonds and notes":
     "{options} в опционах (по стоимости акций) · {bonds} в облигациях и нотах",
+  // The Rich list topic (web/holdings-richlist.ts).
+  "Rich list": "Крупнейшие адреса",
+  exchange: "биржа",
+  fund: "фонд",
+  bridge: "мост",
+  staking: "стейкинг",
+  contract: "контракт",
+  "known holder": "известный держатель",
+  "other named": "другое с именем",
+  unlabelled: "без метки",
+  "official page": "официальная страница",
+  "Copy the address": "Скопировать адрес",
+  "What each kind of holder has of the top 500's {coin}":
+    "Доля каждого типа держателей в {coin} топ-500",
+  "{day}: the list's history starts here, one point a day from now.":
+    "{day}: история списка начинается здесь, дальше по точке в день.",
+  "A name is shown only where a published source gives one: the holder's own address in the address book, an exchange's own proof-of-reserves list, a project's own page, or the explorer's name for a contract or an account. Every other address stays unlabelled; we never trace who owns one. A balance is one address's own, so an exchange or a fund that splits its coins over many addresses ranks each one apart.":
+    "Имя показывается, только когда его даёт опубликованный источник: собственный адрес держателя из адресной книги, собственный список подтверждения резервов биржи, собственная страница проекта или имя контракта либо аккаунта в обозревателе. Все остальные адреса остаются без метки; мы никогда не выясняем, кому принадлежит адрес. Баланс — это баланс одного адреса, поэтому биржа или фонд, разделившие монеты по многим адресам, ранжируются по каждому адресу отдельно.",
+  "Sources: Bitcoin's list from {blockchair}'s daily dump of every address, Ethereum's from {blockscout}, Tron's from {tronscan}; exchanges' wallets from their proof-of-reserves lists and {defillama}'s exchange adapters; prices from DefiLlama.":
+    "Источники: список Bitcoin — из ежедневной выгрузки всех адресов {blockchair}, Ethereum — из {blockscout}, Tron — из {tronscan}; кошельки бирж — из их списков подтверждения резервов и адаптеров бирж {defillama}; цены — из DefiLlama.",
+  "No list read yet for {chain}: the holdings worker reads it once a day.":
+    "Список {chain} ещё не прочитан: воркер читает его раз в день.",
+  "Top {n} hold": "Топ-{n} держат",
+  "{usd} at {price} a coin": "{usd} по {price} за монету",
+  "no price read": "цена не прочитана",
+  "Share of supply": "Доля предложения",
+  Named: "С именем",
+  "of the coins, in {n} of {total} addresses; the rest are unlabelled":
+    "монет, у {n} из {total} адресов; остальные без метки",
+  "Numbers from": "Данные на",
+  "Blockchair's dump of {time}": "выгрузка Blockchair от {time}",
+  "read {time}": "прочитано {time}",
+  "of supply": "доля предложения",
+  "The 30-day change shows once the list has a month of history.":
+    "Изменение за 30 дней появится, когда у списка будет месяц истории.",
+  "The 7- and 30-day changes show once the list has a week and a month of history.":
+    "Изменения за 7 и 30 дней появятся, когда у списка будет неделя и месяц истории.",
+  "The {n} largest {chain} addresses by {coin} held, read once a day, each with a name where a published source gives one.":
+    "{n} крупнейших адресов {chain} по количеству {coin}, читаются раз в день; имя указано, где его даёт опубликованный источник.",
+  "Share of issued bitcoin": "Доля выпущенных биткоинов",
+  "of {supply} BTC issued to date, lost coins included":
+    "из {supply} BTC, выпущенных к сегодняшнему дню, включая утерянные",
+  "of {supply} ETH, Blockscout's total supply": "из {supply} ETH, общего предложения по Blockscout",
+  "of {supply} TRX in circulation, by Tronscan": "из {supply} TRX в обращении, по Tronscan",
+  "The staking deposit contract is left out: every ETH deposited to it since 2020 stays there for good (withdrawals are paid in new ETH), so its balance is no one's holding, and counting it would put the top 500 above the whole supply.":
+    "Депозитный контракт стейкинга не учитывается: каждый ETH, внесённый в него с 2020 года, остаётся там навсегда (выводы выплачиваются новыми ETH), поэтому его баланс ничей, а с ним топ-500 превысил бы всё предложение.",
 };

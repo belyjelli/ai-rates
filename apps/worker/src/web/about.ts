@@ -41,6 +41,14 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-10-30",
+    title: "Holdings: a rich list of the 500 largest addresses on Bitcoin, Ethereum and Tron",
+    changes: [
+      "A Rich list tab under HOLDINGS: the 500 largest addresses on Bitcoin, Ethereum and Tron, read once a day, with what they hold in coins and dollars, their share of supply, and their change over 7 and 30 days as the history builds.",
+      "Each address is named only where a published source gives a name: an exchange's own proof-of-reserves list, a project's own page, the explorer's name for a contract or account, or a known holder's card. The rest stay unlabelled; a chart shows how much of the top 500's coins sits with exchanges, bridges, staking and the unlabelled.",
+    ],
+  },
+  {
+    date: "2026-10-30",
     title: "A Holdings section: what well-known investors hold",
     changes: [
       "HOLDINGS in the menu: a card for each tracked investor, from their SEC 13F filings since 2020 with the three-year return against the S&P 500: Warren Buffett, Carl Icahn, Bill Gates, Ray Dalio, George Soros, Bill Ackman, Leopold Aschenbrenner, Starboard Value, SoftBank, Merk Investments and Marvin & Palmer. Beside them, holders whose wallets are publicly known: Satoshi Nakamoto's coins, Vitalik Buterin, Justin Sun, Chris Larsen, Rain Lõhmus, Donald Trump and the Lazarus Group's sanctioned wallets.",

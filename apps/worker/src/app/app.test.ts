@@ -254,6 +254,14 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     holdingsStock: async () => null,
     holdingsMoves: async () => [],
     holdingsOnchain: async () => [],
+    holdingsRichList: async (chain) => ({
+      chain,
+      day: null,
+      back_7d: null,
+      back_30d: null,
+      rows: [],
+      categories: [],
+    }),
     ...overrides,
   };
   return { data, calls };
@@ -4583,6 +4591,32 @@ describe("cvd", () => {
     expect((await get("/holdings/stock/brk.b", data)).status).toBe(404);
     expect(asked).toEqual(["warren-buffett", "nobody", "BRK.B"]);
     expect((await get("/holdings/stock/a%20b", data)).status).toBe(404);
+  });
+
+  test("Holdings: the Rich list tab reads the chain asked, Bitcoin for any other, and the hub keeps it", async () => {
+    const asked: string[] = [];
+    const { data } = fakeData({
+      holdingsRichList: async (chain) => {
+        asked.push(chain);
+        if (chain === "tron") throw new Error("permission denied");
+        return { chain, day: null, back_7d: null, back_30d: null, rows: [], categories: [] };
+      },
+    });
+    const eth = await get("/holdings?panel=richlist&chain=ethereum", data);
+    expect(eth.status).toBe(200);
+    const body = await eth.text();
+    expect(body).not.toContain("<html");
+    expect(body).toContain("No list read yet for Ethereum");
+    await get("/holdings?panel=richlist&chain=dogecoin", data);
+    await get("/holdings?panel=richlist", data);
+    // A failed read says so in the tab.
+    expect(await (await get("/holdings?panel=richlist&chain=tron", data)).text()).toContain(
+      "could not be read",
+    );
+    expect(asked).toEqual(["ethereum", "bitcoin", "bitcoin", "tron"]);
+    const hub = await (await get("/holdings?chain=tron", data)).text();
+    expect(hub).toContain('data-lazy="/holdings?panel=richlist&amp;chain=tron"');
+    expect(hub).toContain('id="tab-holdings-richlist"');
   });
 
   test("the trading chart ships the spot ETF flows its pins are drawn from, for crypto only", async () => {

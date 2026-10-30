@@ -201,4 +201,50 @@ export const holdings: Catalog = {
   "Also in the 13F": "13F의 기타 항목",
   "{options} in options at the shares' value · {bonds} in bonds and notes":
     "옵션 {options}(기초 주식 가치 기준) · 채권 및 어음 {bonds}",
+  // The Rich list topic (web/holdings-richlist.ts).
+  "Rich list": "보유 순위",
+  exchange: "거래소",
+  fund: "펀드",
+  bridge: "브리지",
+  staking: "스테이킹",
+  contract: "컨트랙트",
+  "known holder": "알려진 보유자",
+  "other named": "기타 명칭",
+  unlabelled: "라벨 없음",
+  "official page": "공식 페이지",
+  "Copy the address": "주소 복사",
+  "What each kind of holder has of the top 500's {coin}":
+    "상위 500개 주소의 {coin} 중 보유자 유형별 비중",
+  "{day}: the list's history starts here, one point a day from now.":
+    "{day}: 목록의 이력은 여기서 시작하며, 이후 하루에 한 점씩 늘어납니다.",
+  "A name is shown only where a published source gives one: the holder's own address in the address book, an exchange's own proof-of-reserves list, a project's own page, or the explorer's name for a contract or an account. Every other address stays unlabelled; we never trace who owns one. A balance is one address's own, so an exchange or a fund that splits its coins over many addresses ranks each one apart.":
+    "이름은 공개된 출처가 있을 때만 표시합니다: 주소록에 있는 보유자 본인의 주소, 거래소 자체의 준비금 증명 목록, 프로젝트 자체의 페이지, 또는 컨트랙트나 계정에 대한 익스플로러의 이름입니다. 그 밖의 주소는 라벨 없이 두며, 소유자를 추적하지 않습니다. 잔액은 한 주소의 것이므로, 코인을 여러 주소에 나눠 둔 거래소나 펀드는 주소마다 따로 순위가 매겨집니다.",
+  "Sources: Bitcoin's list from {blockchair}'s daily dump of every address, Ethereum's from {blockscout}, Tron's from {tronscan}; exchanges' wallets from their proof-of-reserves lists and {defillama}'s exchange adapters; prices from DefiLlama.":
+    "출처: 비트코인 목록은 {blockchair}의 일일 전체 주소 덤프, 이더리움은 {blockscout}, Tron은 {tronscan}; 거래소 지갑은 각 거래소의 준비금 증명 목록과 {defillama}의 거래소 어댑터; 가격은 DefiLlama.",
+  "No list read yet for {chain}: the holdings worker reads it once a day.":
+    "{chain} 목록을 아직 읽지 않았습니다: 보유 워커가 하루에 한 번 읽습니다.",
+  "Top {n} hold": "상위 {n}개 보유량",
+  "{usd} at {price} a coin": "코인당 {price} 기준 {usd}",
+  "no price read": "가격 없음",
+  "Share of supply": "공급량 대비 비중",
+  Named: "이름 있음",
+  "of the coins, in {n} of {total} addresses; the rest are unlabelled":
+    "(코인 기준), {total}개 주소 중 {n}개; 나머지는 라벨 없음",
+  "Numbers from": "데이터 시점",
+  "Blockchair's dump of {time}": "Blockchair {time} 덤프",
+  "read {time}": "{time} 조회",
+  "of supply": "공급량 비중",
+  "The 30-day change shows once the list has a month of history.":
+    "30일 변화는 목록에 한 달 치 이력이 쌓이면 표시됩니다.",
+  "The 7- and 30-day changes show once the list has a week and a month of history.":
+    "7일·30일 변화는 목록에 각각 일주일·한 달 치 이력이 쌓이면 표시됩니다.",
+  "The {n} largest {chain} addresses by {coin} held, read once a day, each with a name where a published source gives one.":
+    "{coin} 보유량 기준 상위 {n}개 {chain} 주소. 하루에 한 번 읽으며, 공개된 출처가 이름을 주는 주소에는 이름을 붙입니다.",
+  "Share of issued bitcoin": "발행된 비트코인 대비 비중",
+  "of {supply} BTC issued to date, lost coins included":
+    "지금까지 발행된 {supply} BTC 중 (분실된 코인 포함)",
+  "of {supply} ETH, Blockscout's total supply": "Blockscout 기준 총 공급량 {supply} ETH 중",
+  "of {supply} TRX in circulation, by Tronscan": "Tronscan 기준 유통량 {supply} TRX 중",
+  "The staking deposit contract is left out: every ETH deposited to it since 2020 stays there for good (withdrawals are paid in new ETH), so its balance is no one's holding, and counting it would put the top 500 above the whole supply.":
+    "스테이킹 예치 컨트랙트는 제외합니다: 2020년 이후 예치된 모든 ETH는 영구히 그곳에 남고(출금은 새로 발행된 ETH로 지급), 그 잔액은 누구의 보유도 아니며, 포함하면 상위 500개가 전체 공급량을 넘게 됩니다.",
 };
