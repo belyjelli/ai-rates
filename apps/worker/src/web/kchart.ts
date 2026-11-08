@@ -197,6 +197,9 @@ export function kchartData(payload: KChartPayload): string {
     etfKey: tr("pins: spot ETF net flow per trade day, at the 4 pm New York NAV"),
     etfDay: tr("{date}, 4 pm New York close"),
     etfPending: tr("Not reported yet: {funds}"),
+    etfInSoFar: tr("Spot ETF net inflow so far"),
+    etfOutSoFar: tr("Spot ETF net outflow so far"),
+    etfReported: tr("{n} of {total} funds reported"),
     etfPin: icon("pin"),
   };
   return `<script type="application/json" class="kc-data">${JSON.stringify({ ...payload, words }).replace(/</g, "\\u003c")}</script>`;
@@ -326,14 +329,21 @@ export const KCHART_SCRIPT = `(() => {
     const months = w.months.split("|");
     const dayName = (date) => w.etfDay.replace("{date}", () => months[Number(date.slice(5, 7)) - 1] + " " + Number(date.slice(8, 10)));
     st.pinList = etf.days.map(([at, total, funds, date, pending]) => {
+      // A day some funds have yet to report (IBIT's shares trail a day) is a partial sum: it says
+      // "so far" with how many funds are in it, in a muted tone, and its pin is faded, so the newest
+      // day's number is not read as the day's flow.
+      const part = !!(pending && pending.length);
       const el = document.createElement("button");
       el.type = "button";
-      el.className = "kc-pin " + (total >= 0 ? "kc-pin-in" : "kc-pin-out");
+      el.className = "kc-pin " + (total >= 0 ? "kc-pin-in" : "kc-pin-out") + (part ? " kc-pin-part" : "");
       el.style.fontSize = pinSize(total) + "px";
       const when = dayName(date);
+      const count = part ? w.etfReported.replace("{n}", () => String(funds.length)).replace("{total}", () => String(funds.length + pending.length)) : "";
+      const head = part ? (total >= 0 ? w.etfInSoFar : w.etfOutSoFar) : total >= 0 ? w.etfIn : w.etfOut;
+      const tone = part ? "kc-pin-sofar" : total >= 0 ? "kc-up" : "kc-down";
       const rows = funds.map(([f, v]) => '<tr><th>' + f + '</th><td class="' + (v >= 0 ? "kc-up" : "kc-down") + '">' + signed(v) + "</td></tr>").join("");
-      el.innerHTML = w.etfPin + '<span class="kc-pin-tip" role="tooltip"><b>' + (total >= 0 ? w.etfIn : w.etfOut) + ' <span class="' + (total >= 0 ? "kc-up" : "kc-down") + '">' + signed(total) + "</span></b><span class='kc-pin-when'>" + when + "</span><table>" + rows + "</table>" + (pending && pending.length ? '<span class="kc-pin-note">' + w.etfPending.replace("{funds}", () => pending.join(", ")) + "</span>" : "") + '<span class="kc-pin-note">' + w.etfCounted + "</span></span>";
-      el.setAttribute("aria-label", (total >= 0 ? w.etfIn : w.etfOut) + " " + signed(total) + ", " + when);
+      el.innerHTML = w.etfPin + '<span class="kc-pin-tip" role="tooltip"><b>' + head + ' <span class="' + tone + '">' + signed(total) + "</span></b><span class='kc-pin-when'>" + when + "</span>" + (part ? "<span class='kc-pin-when'>" + count + "</span>" : "") + "<table>" + rows + "</table>" + (part ? '<span class="kc-pin-note">' + w.etfPending.replace("{funds}", () => pending.join(", ")) + "</span>" : "") + '<span class="kc-pin-note">' + w.etfCounted + "</span></span>";
+      el.setAttribute("aria-label", head + " " + signed(total) + ", " + when + (part ? ", " + count : ""));
       el.hidden = true;
       st.pins.append(el);
       return { el, at, total, size: pinSize(total) };

@@ -655,6 +655,8 @@ html:not([data-whgex=split]) .whx-split,html:not([data-whgex=net]):not([data-whg
 .kc-pin>svg.ico{width:1em;height:1em;vertical-align:top;filter:drop-shadow(0 0 1px var(--bg))}
 .kc-pin-in{color:var(--long)}.kc-pin-in>svg.ico{transform:rotate(180deg)}
 .kc-pin-out{color:var(--short)}
+.kc-pin-part>svg.ico{opacity:.45}
+.kc-pin-tip .kc-pin-sofar{color:var(--muted)}
 .kc-pin:focus-visible{outline:1px solid var(--accent);outline-offset:1px}
 .kc-pin-tip{display:none;text-transform:none;letter-spacing:normal;font-family:var(--mono);position:absolute;top:calc(100% + 4px);left:50%;transform:translateX(-50%);z-index:5;padding:6px 9px;background:var(--bg);border:1px solid var(--muted);color:var(--muted);font-size:11px;line-height:1.55;white-space:nowrap;text-align:left;box-shadow:0 2px 10px rgba(0,0,0,.5)}
 .kc-pin-out .kc-pin-tip{top:auto;bottom:calc(100% + 4px)}

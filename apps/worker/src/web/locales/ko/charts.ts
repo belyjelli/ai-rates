@@ -278,4 +278,7 @@ export const charts: Catalog = {
     "핀: 거래일별 현물 ETF 순흐름, 뉴욕 오후 4시 NAV 기준",
   "{date}, 4 pm New York close": "{date}, 뉴욕 오후 4시 마감",
   "Not reported yet: {funds}": "아직 미발표: {funds}",
+  "Spot ETF net inflow so far": "현물 ETF 순유입 (잠정)",
+  "Spot ETF net outflow so far": "현물 ETF 순유출 (잠정)",
+  "{n} of {total} funds reported": "{total}개 중 {n}개 펀드 발표",
 };

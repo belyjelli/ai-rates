@@ -269,4 +269,7 @@ export const charts: Catalog = {
     "图钉：每个交易日的现货 ETF 净流量，按纽约下午 4 点的净值计",
   "{date}, 4 pm New York close": "{date}，纽约下午 4 点收盘",
   "Not reported yet: {funds}": "尚未公布：{funds}",
+  "Spot ETF net inflow so far": "现货 ETF 目前净流入",
+  "Spot ETF net outflow so far": "现货 ETF 目前净流出",
+  "{n} of {total} funds reported": "已公布 {n}/{total} 只基金",
 };

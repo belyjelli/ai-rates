@@ -279,4 +279,7 @@ export const charts: Catalog = {
     "ピン：取引日ごとの現物 ETF 純フロー（ニューヨーク午後4時の NAV）",
   "{date}, 4 pm New York close": "{date}、ニューヨーク午後4時の終値",
   "Not reported yet: {funds}": "未公表：{funds}",
+  "Spot ETF net inflow so far": "現物 ETF 純流入（暫定）",
+  "Spot ETF net outflow so far": "現物 ETF 純流出（暫定）",
+  "{n} of {total} funds reported": "{total} 本中 {n} 本が公表済み",
 };

@@ -280,4 +280,7 @@ export const charts: Catalog = {
     "метки: чистый поток спотовых ETF за торговый день, по NAV на 16:00 Нью-Йорка",
   "{date}, 4 pm New York close": "{date}, закрытие в 16:00 по Нью-Йорку",
   "Not reported yet: {funds}": "Ещё не опубликовали: {funds}",
+  "Spot ETF net inflow so far": "Чистый приток в спотовые ETF на данный момент",
+  "Spot ETF net outflow so far": "Чистый отток из спотовых ETF на данный момент",
+  "{n} of {total} funds reported": "отчитались {n} из {total} фондов",
 };
