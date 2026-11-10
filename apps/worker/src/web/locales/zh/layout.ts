@@ -122,8 +122,8 @@ export const layout: Catalog = {
     "网站上的所有快捷键。会员可以重新映射，并把方案保存在自己的账户中。",
   "keyboard shortcuts": "键盘快捷键",
   Reset: "重置",
-  "Back to the defaults: Night, local time, the crosshair, and every chart's own view.":
-    "恢复默认：夜间、本地时间、十字线，以及每个图表自己的视图。",
+  "Back to the defaults: Night, local time, the crosshair, the narrator open and typing, and every chart's own view.":
+    "恢复默认：夜间、本地时间、十字线、展开并逐字打出的解说，以及每个图表自己的视图。",
   "reset settings": "重置设置",
   "Saved in this browser.": "已保存在此浏览器中。",
   "Back to the defaults.": "已恢复默认。",

@@ -44,6 +44,7 @@ import { keyboard } from "./keyboard";
 import { layout } from "./layout";
 import { liquidations } from "./liquidations";
 import { macro } from "./macro";
+import { narrator } from "./narrator";
 import { pages } from "./pages";
 import { site } from "./site";
 import { whales } from "./whales";
@@ -61,6 +62,7 @@ export const RU_PARTS: Readonly<Record<string, Catalog>> = {
   macro,
   exchanges,
   holdings,
+  narrator,
 };
 
 export const ru: Catalog = Object.assign({}, ...Object.values(RU_PARTS));

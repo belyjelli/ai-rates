@@ -46,6 +46,13 @@ const PATHS = {
   globe:
     '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  /** The market narrator in the masthead (narrator.ts): a mast sending both ways. */
+  signal:
+    '<circle cx="12" cy="12" r="2"/><path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8"/>',
+  /** A narrator line that changes the picture: a warning triangle. */
+  alert: '<path d="M12 3.5L2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.3"/>',
+  /** A narrator line about a sudden change in size: a bolt. */
+  zap: '<path fill="currentColor" stroke="none" d="M13.5 2L4 13.5h6.5L9.5 22 20 9.5h-6.5z"/>',
   /** The Chart page's spot ETF flow pins: a map pin, its point at the bottom. */
   pin: '<path fill="currentColor" d="M12 22s-6.5-6-6.5-12a6.5 6.5 0 0 1 13 0c0 6-6.5 12-6.5 12z"/><circle cx="12" cy="10" r="2.4" stroke="none" style="fill:var(--bg)"/>',
 } as const;

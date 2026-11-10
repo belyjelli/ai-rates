@@ -1382,6 +1382,18 @@ export interface SearchAsset {
   whale_venue: string | null;
 }
 
+/** One five-minute read of a book's gamma, every expiry, for the market narrator (web/narrator.ts). */
+export interface GammaRead {
+  /** The read's time, ms. */
+  at: number;
+  spot: number;
+  /** Net gamma at the spot, dollars per 1% move. */
+  net: number;
+  flip: number | null;
+  callWall: number | null;
+  putWall: number | null;
+}
+
 export interface DataSource {
   overview(): Promise<Overview>;
   screener(filters: ScreenerFilters, options?: PairingOptions): Promise<ScreenerPair[]>;
@@ -1516,6 +1528,11 @@ export interface DataSource {
   exchangeReserves(): Promise<ExchangeReserveRow[]>;
   /** Every asset with a fresh market, deepest first, for the site-wide search. About 2,500 rows. */
   searchIndex(): Promise<SearchAsset[]>;
+  /**
+   * A book's five-minute gamma reads (gamma_history, every expiry) since `since` (ms), oldest first:
+   * what the market narrator compares one with the next (web/narrator.ts). About 600 rows a book.
+   */
+  gammaReads(options: { currency: string; since: number }): Promise<GammaRead[]>;
   /** The Holdings idea grid: a card per listed portfolio (collector migration 058; holdings-data.ts). */
   holdingsCards(): Promise<PortfolioCard[]>;
   /** One investor's page; null when there is no such portfolio. */
@@ -3805,6 +3822,33 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
     holdingsMoves: () => portfolioMoves(connect()),
     holdingsOnchain: () => onchainHolders(connect()),
     holdingsRichList: (chain) => richList(connect(), chain),
+
+    async gammaReads({ currency, since }) {
+      // The primary key (currency, scope, computed_at) is the index: a range read of ~600 rows.
+      const rows = await connect()<
+        {
+          computed_at: Date;
+          spot: number;
+          net_gex_usd: number;
+          flip_price: number | null;
+          call_wall: number | null;
+          put_wall: number | null;
+        }[]
+      >`
+        SELECT computed_at, spot, net_gex_usd, flip_price, call_wall, put_wall
+        FROM gamma_history
+        WHERE currency = ${currency} AND scope = 'all'
+          AND computed_at >= ${new Date(since).toISOString()}::timestamptz
+        ORDER BY computed_at`;
+      return rows.map((r) => ({
+        at: new Date(r.computed_at).getTime(),
+        spot: Number(r.spot),
+        net: Number(r.net_gex_usd),
+        flip: r.flip_price === null ? null : Number(r.flip_price),
+        callWall: r.call_wall === null ? null : Number(r.call_wall),
+        putWall: r.put_wall === null ? null : Number(r.put_wall),
+      }));
+    },
 
     async searchIndex() {
       // One pass over market_latest (36 ms for 15,000 markets, measured 2026-10-18) plus the eighty

@@ -29,6 +29,15 @@ import { legal } from "../web/legal";
 import { levelsFragment } from "../web/levels";
 import { liquidations, liquidationsPanel } from "../web/liquidations";
 import { isMacroPanel, MACRO_NEEDS, type MacroPanel, macroFragment } from "../web/macro";
+import {
+  NARRATOR_KEEP,
+  NARRATOR_PATH,
+  narrate,
+  narratorFeed,
+  narratorResponse,
+  narratorSince,
+  parseNarratorBook,
+} from "../web/narrator";
 import * as pages from "../web/pages";
 import { assetHref } from "../web/pages";
 import { referralCta } from "../web/referral";
@@ -254,6 +263,17 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         { asset: asked.asset, asset_class: asked.assetClass, ...flow },
         { headers: { "cache-control": "public, max-age=60", "x-robots-tag": "noindex, nofollow" } },
       );
+    }
+
+    // The market narrator's list (web/narrator.ts), fetched by the masthead strip after the page loads
+    // and every minute after: the book's reads since yesterday's UTC midnight told as events, in the
+    // reader's language. Kept a minute at the edge; the gamma job writes every five.
+    if (path === NARRATOR_PATH) {
+      const book = parseNarratorBook(url.searchParams.get("book"));
+      if (!book) return json({ error: "bad_request" }, 400, 0);
+      const reads = await deps.data.gammaReads({ currency: book, since: narratorSince(now) });
+      const entries = narrate(reads).slice(-NARRATOR_KEEP);
+      return narratorResponse(withLocale(locale, () => narratorFeed(book, entries)));
     }
 
     // The site-wide search's asset list (web/command.ts), fetched when a reader first opens it. The

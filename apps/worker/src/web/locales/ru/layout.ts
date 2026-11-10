@@ -128,8 +128,8 @@ export const layout: Catalog = {
     "Все горячие клавиши сайта. Участники переназначают их и хранят профили в своём аккаунте.",
   "keyboard shortcuts": "горячие клавиши",
   Reset: "Сброс",
-  "Back to the defaults: Night, local time, the crosshair, and every chart's own view.":
-    "Вернуть настройки по умолчанию: ночь, местное время, перекрестие и вид каждого графика.",
+  "Back to the defaults: Night, local time, the crosshair, the narrator open and typing, and every chart's own view.":
+    "Вернуть настройки по умолчанию: ночь, местное время, перекрестие, развёрнутый комментатор с набором текста и вид каждого графика.",
   "reset settings": "сбросить настройки",
   "Saved in this browser.": "Сохранено в этом браузере.",
   "Back to the defaults.": "Настройки по умолчанию восстановлены.",

@@ -38,6 +38,7 @@ import { keyboard } from "./keyboard";
 import { layout } from "./layout";
 import { liquidations } from "./liquidations";
 import { macro } from "./macro";
+import { narrator } from "./narrator";
 import { pages } from "./pages";
 import { site } from "./site";
 import { whales } from "./whales";
@@ -55,6 +56,7 @@ export const ZH_PARTS: Readonly<Record<string, Catalog>> = {
   macro,
   exchanges,
   holdings,
+  narrator,
 };
 
 export const zh: Catalog = Object.assign({}, ...Object.values(ZH_PARTS));

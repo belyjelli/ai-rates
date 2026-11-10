@@ -127,8 +127,8 @@ export const layout: Catalog = {
     "サイトのすべてのショートカット。会員は割り当てを変え、プロファイルをアカウントに保存できます。",
   "keyboard shortcuts": "キーボードショートカット",
   Reset: "リセット",
-  "Back to the defaults: Night, local time, the crosshair, and every chart's own view.":
-    "初期設定に戻します：ナイト、現地時間、十字線、各チャートの表示。",
+  "Back to the defaults: Night, local time, the crosshair, the narrator open and typing, and every chart's own view.":
+    "初期設定に戻します：ナイト、現地時間、十字線、展開してタイピングする実況、各チャートの表示。",
   "reset settings": "設定をリセット",
   "Saved in this browser.": "このブラウザに保存しました。",
   "Back to the defaults.": "初期設定に戻しました。",

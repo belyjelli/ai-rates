@@ -21,6 +21,7 @@ import { ICON_CSS, icon, iconMask } from "./icons";
 import { INSTALL_CSS, INSTALL_HEAD } from "./install";
 import { LIVE_SCRIPT } from "./live";
 import { localTimeScript } from "./localtime";
+import { NARRATOR_CSS, NARRATOR_HEAD_SCRIPT, narratorScript, narratorStrip } from "./narrator";
 import { ROW_LINK_SCRIPT } from "./row-link";
 import { SHARE_CSS, shareBar, shareScript } from "./share";
 import { SHARE_CARD_ALT, SHARE_CARD_HEIGHT, SHARE_CARD_PATH, SHARE_CARD_WIDTH } from "./share-card";
@@ -1465,7 +1466,7 @@ footer.dock{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--b
 // everyone); a click flips it to UTC, the clock funding settles by, and the choice is remembered.
 // The click also tells localtime.ts, whose script redraws every chart time in the same zone.
 const pageScript = () =>
-  `(()=>{const L=${scriptStrings({ ...durationStrings(), ...clockStrings() })};for(const a of document.querySelectorAll("a[data-lang]"))a.href=a.pathname+"?back="+encodeURIComponent(location.pathname+location.search);const dk=k=>{for(const q of document.querySelectorAll(".dock-pop.open"))if(q!==k){q.classList.remove("open");q.firstElementChild.setAttribute("aria-expanded","false")}};for(const b of document.querySelectorAll(".dock-pop>button"))b.addEventListener("click",e=>{const q=b.parentElement,o=!q.classList.contains("open");dk(q);q.classList.toggle("open",o);b.setAttribute("aria-expanded",String(o));if(!o)b.blur();e.stopPropagation()});document.addEventListener("click",e=>{if(!e.target.closest(".dock-pop"))dk(null)});document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.querySelector(".dock-pop.open,.dock-pop:focus-within")){dk(null);document.activeElement&&document.activeElement.closest(".dock-pop")&&document.activeElement.blur()}});const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?L.s.replace("{s}",s):s<3600?L.m.replace("{m}",Math.floor(s/60)):L.hm.replace("{h}",Math.floor(s/3600)).replace("{m}",p(Math.floor(s%3600/60)))};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=L.ago.replace("{time}",f((n-e.dataset.since)/1e3));for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):L.settling}if(c){const d=new Date(),o=u?0:-d.getTimezoneOffset(),a=Math.abs(o);c.textContent=(u?[d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()]:[d.getHours(),d.getMinutes(),d.getSeconds()]).map(p).join(":")+" UTC"+(o?(o>0?"+":"-")+Math.floor(a/60)+(a%60?":"+p(a%60):""):"");c.title=u?L.utc:L.local.replace("{zone}",z)}};const c=document.getElementById("clock");let u=false,z="";try{u=localStorage.getItem("clock")==="utc"}catch{}try{z=Intl.DateTimeFormat().resolvedOptions().timeZone||""}catch{}c&&c.addEventListener("click",()=>{u=!u;try{localStorage.setItem("clock",u?"utc":"local")}catch{}t();dispatchEvent(new Event("airrates:clock"))});t();setInterval(t,1e3);})();`;
+  `(()=>{const L=${scriptStrings({ ...durationStrings(), ...clockStrings() })};for(const a of document.querySelectorAll("a[data-lang]"))a.href=a.pathname+"?back="+encodeURIComponent(location.pathname+location.search);const dk=k=>{for(const q of document.querySelectorAll(".dock-pop.open"))if(q!==k){q.classList.remove("open");q.firstElementChild.setAttribute("aria-expanded","false")}};for(const b of document.querySelectorAll(".dock-pop>button"))b.addEventListener("click",e=>{const q=b.parentElement,o=!q.classList.contains("open");dk(q);q.classList.toggle("open",o);b.setAttribute("aria-expanded",String(o));if(!o)b.blur();e.stopPropagation()});document.addEventListener("click",e=>{if(!e.target.closest(".dock-pop"))dk(null)});document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.querySelector(".dock-pop.open,.dock-pop:focus-within")){dk(null);document.activeElement&&document.activeElement.closest(".dock-pop")&&document.activeElement.blur()}});const m=document.querySelector(".mast"),ms=()=>{const d=document.documentElement;d.style.setProperty("--vw",d.clientWidth+"px");m&&d.style.setProperty("--mast",m.offsetHeight+"px")};ms();addEventListener("resize",ms);m&&typeof ResizeObserver==="function"&&new ResizeObserver(ms).observe(m);const p=n=>String(n).padStart(2,"0");const f=s=>{s=Math.max(0,Math.round(s));return s<60?L.s.replace("{s}",s):s<3600?L.m.replace("{m}",Math.floor(s/60)):L.hm.replace("{h}",Math.floor(s/3600)).replace("{m}",p(Math.floor(s%3600/60)))};const t=()=>{const n=Date.now();for(const e of document.querySelectorAll("[data-since]"))e.textContent=L.ago.replace("{time}",f((n-e.dataset.since)/1e3));for(const e of document.querySelectorAll("[data-until]")){const d=(e.dataset.until-n)/1e3;e.textContent=d>0?f(d):L.settling}if(c){const d=new Date(),o=u?0:-d.getTimezoneOffset(),a=Math.abs(o);c.textContent=(u?[d.getUTCHours(),d.getUTCMinutes(),d.getUTCSeconds()]:[d.getHours(),d.getMinutes(),d.getSeconds()]).map(p).join(":")+" UTC"+(o?(o>0?"+":"-")+Math.floor(a/60)+(a%60?":"+p(a%60):""):"");c.title=u?L.utc:L.local.replace("{zone}",z)}};const c=document.getElementById("clock");let u=false,z="";try{u=localStorage.getItem("clock")==="utc"}catch{}try{z=Intl.DateTimeFormat().resolvedOptions().timeZone||""}catch{}c&&c.addEventListener("click",()=>{u=!u;try{localStorage.setItem("clock",u?"utc":"local")}catch{}t();dispatchEvent(new Event("airrates:clock"))});t();setInterval(t,1e3);})();`;
 
 /** The clock's tooltips, for the page script: the zone is the browser's, filled in there. */
 const clockStrings = () => ({
@@ -1507,6 +1508,9 @@ export function layout(options: {
     (locale) =>
       `<a href="${switchHref(locale, path)}" data-lang hreflang="${LOCALE_INFO[locale].htmlLang}" lang="${LOCALE_INFO[locale].htmlLang}"${locale === currentLocale() ? ' aria-current="true"' : ""}>${LOCALE_INFO[locale].name}</a>`,
   ).join("");
+  // The market narrator (narrator.ts) on every page that reads the data; a page that reads none (the
+  // geo-probe, the error pages) has no strip, as it has no status line.
+  const narrator = overview !== undefined;
   const disclaimer = tr(
     "Not financial advice. Data may be delayed or inaccurate. Not affiliated with or endorsed by any exchange.",
   );
@@ -1523,12 +1527,12 @@ ${GA_TAG}
 ${discoverability(title, description, path)}
 ${INSTALL_HEAD}
 <script>${THEME_HEAD_SCRIPT}</script>
-<style>${CSS}${THEME_CSS}${SHARE_CSS}${INSTALL_CSS}${HELP_CSS}${SEARCH_CSS}</style>
+${narrator ? `<script>${NARRATOR_HEAD_SCRIPT}</script>\n` : ""}<style>${CSS}${THEME_CSS}${SHARE_CSS}${INSTALL_CSS}${HELP_CSS}${SEARCH_CSS}${narrator ? NARRATOR_CSS : ""}</style>
 </head>
 <body data-rendered="${now}" data-build="${esc(BUILD.commit ?? "")}">
 <header class="mast">
 <div class="wrap bar"><a class="brand" href="/">airrates<small>${tr("What settled. Not what might.")}</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${shareBar()}${searchButton()}<button type="button" class="clock" id="clock">--:--:--</button></div>
-<div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav></div>
+${narrator ? narratorStrip() : ""}<div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav></div>
 </header>
 <main class="wrap" data-loading="${esc(tr("Loading…"))}">${body}</main>
 <footer class="dock"><div class="wrap dock-bar">
@@ -1541,7 +1545,7 @@ ${INSTALL_HEAD}
 ${searchDialog()}
 <script>${pageScript()}</script>
 <script>${localTimeScript()}</script>
-<script>${hotkeyScript()}</script>
+${narrator ? `<script>${narratorScript()}</script>\n` : ""}<script>${hotkeyScript()}</script>
 <script>${searchScript()}</script>
 <script>${HELP_SCRIPT}</script>
 <script>${LIVE_SCRIPT}</script>

@@ -126,8 +126,8 @@ export const layout: Catalog = {
     "사이트의 모든 단축키. 회원은 키를 바꾸고 프로필을 계정에 저장할 수 있습니다.",
   "keyboard shortcuts": "키보드 단축키",
   Reset: "초기화",
-  "Back to the defaults: Night, local time, the crosshair, and every chart's own view.":
-    "기본값으로 돌아갑니다: 밤, 현지 시간, 십자선, 각 차트의 기본 보기.",
+  "Back to the defaults: Night, local time, the crosshair, the narrator open and typing, and every chart's own view.":
+    "기본값으로 돌아갑니다: 밤, 현지 시간, 십자선, 펼쳐진 채 타이핑하는 내레이터, 각 차트의 기본 보기.",
   "reset settings": "설정 초기화",
   "Saved in this browser.": "이 브라우저에 저장했습니다.",
   "Back to the defaults.": "기본값으로 돌아갔습니다.",

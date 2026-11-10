@@ -184,6 +184,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
     bookQuality: async () => ({ rows: [], weights: {} }),
     exchangeReserves: async () => [],
+    gammaReads: async () => [],
     searchIndex: async () => [
       {
         base: "BTC",
@@ -6374,5 +6375,61 @@ describe("site-wide search", () => {
     expect(html.match(/window\.airratesSearch = open/g)).toHaveLength(1);
     // The plain K key is one of the site's shortcuts, so /keys lists it.
     expect(html).toContain('"search":{"key":"k"');
+  });
+});
+
+describe("market narrator", () => {
+  test("/data/narrator tells a book's reads since yesterday's UTC midnight, cached a minute", async () => {
+    const asked: { currency: string; since: number }[] = [];
+    const { data } = fakeData({
+      gammaReads: async (options) => {
+        asked.push(options);
+        return [
+          {
+            at: NOW - 600_000,
+            spot: 100_000,
+            net: 5e7,
+            flip: 99_000,
+            callWall: 110_000,
+            putWall: 90_000,
+          },
+          {
+            at: NOW - 300_000,
+            spot: 98_500,
+            net: -2e7,
+            flip: 99_000,
+            callWall: 110_000,
+            putWall: 90_000,
+          },
+        ];
+      },
+    });
+    const response = await get("/data/narrator?book=btc", data);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=60");
+    expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    expect(asked).toEqual([{ currency: "BTC", since: Date.parse("2026-09-11T00:00:00Z") }]);
+    const html = await response.text();
+    expect(html).toStartWith('<ol class="narr-feed" data-book="BTC">');
+    expect(html).toContain("Price is now below the gamma flip at 99,000");
+  });
+
+  test("a book the narrator does not read is a bad request, and asks the database nothing", async () => {
+    const { data } = fakeData({
+      gammaReads: async () => {
+        throw new Error("not asked");
+      },
+    });
+    expect((await get("/data/narrator?book=SOL", data)).status).toBe(400);
+    expect((await get("/data/narrator", data)).status).toBe(400);
+  });
+
+  test("every page that reads the data carries the strip and its switch for /settings", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/settings", data)).text();
+    expect(html).toContain('<section class="narr" id="narr"');
+    expect(html).toContain('data-narr-set="expanded"');
+    expect(html).toContain('data-narr-typing="off"');
   });
 });
