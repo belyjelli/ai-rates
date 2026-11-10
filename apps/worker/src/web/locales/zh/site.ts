@@ -119,4 +119,34 @@ export const site: Catalog = {
 
   // web/tabs.ts
   Sections: "分区",
+
+  // web/glossary.ts (and its entry in the footer menu and the shortcut map)
+  terminology: "术语",
+  Terminology: "术语",
+  "Order-flow and volume-profile terms in one line each: delta, CVD, imbalance, absorption, VPOC, value area, LVN and single prints.":
+    "订单流与成交量分布术语，每个一句话：Delta、CVD、失衡、承接、VPOC、价值区、LVN 与单一印记。",
+  "The words traders use to read order flow and the volume profile, each in one line. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
+    "交易者解读订单流和成交量分布时所用的术语，每个一句话。每个术语都有可分享的链接：/glossary#cvd 会打开本页并定位到 CVD。",
+  "Order flow": "订单流",
+  "Aggressive buying minus aggressive selling.": "主动买入减去主动卖出。",
+  "cumulative volume delta": "累计成交量 Delta",
+  "Delta added up through the session.": "整个交易时段内 Delta 的累加。",
+  'Shown on the <a href="/chart">Chart</a> page, spot and futures apart, summed across exchanges.':
+    '见<a href="/chart">图表</a>页，现货与合约分开，汇总各交易所。',
+  Imbalance: "失衡",
+  "One side trading 3x or more the other at a price.":
+    "在某一价位上，一方的成交量达到另一方的 3 倍或以上。",
+  Absorption: "承接",
+  "Heavy aggression, no progress.": "主动成交很重，价格却推不动。",
+  'Read on the <a href="/liquidations#odds">Liquidations</a> page’s Odds tab, as initiative vs absorption.':
+    '见<a href="/liquidations#odds">爆仓</a>页的概率标签，即主动成交与承接。',
+  "Volume profile": "成交量分布",
+  "volume point of control": "成交量控制点",
+  "The price with the most volume.": "成交量最大的价格。",
+  "Value area": "价值区",
+  "Where 70% of the volume traded.": "70% 的成交量所在的价格区间。",
+  "low-volume node": "低成交量节点",
+  "A thin price the market moved through fast.": "成交稀薄、市场快速穿过的价格。",
+  "Single prints": "单一印记",
+  "A zone only one 30-minute period traded.": "只有一个 30 分钟时段成交过的区间。",
 };

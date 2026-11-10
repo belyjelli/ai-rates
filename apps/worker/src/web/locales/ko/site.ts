@@ -125,4 +125,34 @@ export const site: Catalog = {
 
   // web/tabs.ts
   Sections: "섹션",
+
+  // web/glossary.ts (and its entry in the footer menu and the shortcut map)
+  terminology: "용어",
+  Terminology: "용어",
+  "Order-flow and volume-profile terms in one line each: delta, CVD, imbalance, absorption, VPOC, value area, LVN and single prints.":
+    "오더 플로우와 볼륨 프로파일 용어를 한 줄씩: 델타, CVD, 임밸런스, 흡수, VPOC, 밸류 에어리어, LVN, 싱글 프린트.",
+  "The words traders use to read order flow and the volume profile, each in one line. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
+    "트레이더가 오더 플로우와 볼륨 프로파일을 읽을 때 쓰는 용어를 한 줄씩 설명합니다. 용어마다 공유할 수 있는 링크가 있습니다. /glossary#cvd는 이 페이지의 CVD를 엽니다.",
+  "Order flow": "오더 플로우",
+  "Aggressive buying minus aggressive selling.": "시장가 매수에서 시장가 매도를 뺀 값입니다.",
+  "cumulative volume delta": "누적 거래량 델타",
+  "Delta added up through the session.": "거래 시간 동안 델타를 누적한 값입니다.",
+  'Shown on the <a href="/chart">Chart</a> page, spot and futures apart, summed across exchanges.':
+    '<a href="/chart">차트</a> 페이지에 표시됩니다. 현물과 선물을 따로 보며, 거래소 전체를 합산합니다.',
+  Imbalance: "임밸런스",
+  "One side trading 3x or more the other at a price.":
+    "한 가격에서 한쪽이 다른 쪽보다 3배 이상 거래된 것입니다.",
+  Absorption: "흡수",
+  "Heavy aggression, no progress.": "시장가 주문이 몰리는데도 가격이 나아가지 못하는 것입니다.",
+  'Read on the <a href="/liquidations#odds">Liquidations</a> page’s Odds tab, as initiative vs absorption.':
+    '<a href="/liquidations#odds">청산</a> 페이지의 확률 탭에서 주도 매매 대 흡수로 읽습니다.',
+  "Volume profile": "볼륨 프로파일",
+  "volume point of control": "거래량 포인트 오브 컨트롤",
+  "The price with the most volume.": "거래량이 가장 많은 가격입니다.",
+  "Value area": "밸류 에어리어",
+  "Where 70% of the volume traded.": "거래량의 70%가 체결된 구간입니다.",
+  "low-volume node": "저거래량 노드",
+  "A thin price the market moved through fast.": "거래가 얇아 시장이 빠르게 지나간 가격입니다.",
+  "Single prints": "싱글 프린트",
+  "A zone only one 30-minute period traded.": "30분 구간 하나에서만 거래된 영역입니다.",
 };

@@ -17,7 +17,6 @@ export const keyboard: Catalog = {
   "keyboard map": "键盘图",
 
   // web/layout.ts
-  "Keyboard shortcuts: change them on the keyboard page": "键盘快捷键：在键盘页修改",
   keyboard: "键盘",
 
   // web/keyboard.ts

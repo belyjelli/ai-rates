@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { contentSecurityPolicy } from "../app/security-headers";
-import { ACTIONS, HOTKEYS_API, hotkeyLegend, hotkeyScript } from "./hotkeys";
+import { ACTIONS, HOTKEYS_API, hotkeyScript, navKeyCap } from "./hotkeys";
 import { bindable, DRAWN_KEYS } from "./keyboard";
 
 describe("hotkeys", () => {
@@ -34,12 +34,17 @@ describe("hotkeys", () => {
     for (const key of ["r", "?", "[", "Escape", "F1", "F10"]) expect(bindable(key)).toBe(true);
   });
 
-  test("the status-bar legend shows the advertised actions in their default keys", () => {
-    const legend = hotkeyLegend();
-    expect(legend).toContain('<span data-act="rates"><b>r</b>rates</span>');
-    expect(legend).toContain('<span data-act="filter"><b>/</b>filter</span>');
-    expect(legend).toContain('<span data-act="keys"><b>?</b>keyboard map</span>');
-    expect(legend).not.toContain('data-act="top"');
+  test("each nav link wears the default key of the action that leads to it", () => {
+    expect(navKeyCap("/rates")).toEqual({
+      cap: '<b class="nav-key" data-act="rates" aria-hidden="true">r</b>',
+      attr: ' aria-keyshortcuts="r"',
+    });
+    // The Chart action kept its old id, which saved profiles name it by.
+    expect(navKeyCap("/chart").cap).toContain('data-act="cvd"');
+    expect(navKeyCap("/").cap).toContain(">h</b>");
+    // A page with no go action, or one that ships unbound, gets no cap.
+    expect(navKeyCap("/nowhere")).toEqual({ cap: "", attr: "" });
+    expect(navKeyCap("/glossary")).toEqual({ cap: "", attr: "" });
   });
 
   test("the page script cannot be closed early by anything in its data", () => {

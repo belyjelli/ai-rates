@@ -14,6 +14,7 @@ import { esc } from "../web/format";
 import { FUND_FLOW_PATH } from "../web/fund-flow";
 import type { FundingHistory } from "../web/funding-chart";
 import { gammaBookFor, gammaFragment } from "../web/gamma";
+import { glossary } from "../web/glossary";
 import { greekFragment, isGreek } from "../web/greeks";
 import { holdingsFragment, holdingsPage, isHoldingsPanel, stockPageView } from "../web/holdings";
 import { investorPage } from "../web/holdings-investor";
@@ -872,6 +873,11 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       return page(() => settings({ overview, now }));
     }
 
+    if (path === "/glossary") {
+      const overview = await deps.data.overview();
+      return page(() => glossary({ overview, now }));
+    }
+
     if (path === "/tos") {
       const overview = await deps.data.overview();
       return page(() => tos({ overview, now }));
@@ -1351,6 +1357,7 @@ const SITEMAP_PATHS = [
   "/docs",
   AGENTS_PATH,
   "/keys",
+  "/glossary",
 ];
 
 /** Seconds a client is told to wait after a 503. Past the cooldown the edge cache applies to a failed render. */

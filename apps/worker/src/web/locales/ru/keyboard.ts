@@ -21,8 +21,6 @@ export const keyboard: Catalog = {
   "keyboard map": "карта клавиш",
 
   // web/layout.ts
-  "Keyboard shortcuts: change them on the keyboard page":
-    "Горячие клавиши: настраиваются на странице клавиатуры",
   keyboard: "клавиатура",
 
   // web/keyboard.ts

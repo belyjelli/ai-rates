@@ -4,7 +4,7 @@ import { awaitScript } from "./await";
 import { SEARCH_CSS, searchButton, searchDialog, searchScript } from "./command";
 import { durationStrings, esc, sentimentLabel, sentimentTone, since } from "./format";
 import { HELP_CSS, HELP_SCRIPT } from "./help";
-import { hotkeyLegend, hotkeyScript, keyboardIcon } from "./hotkeys";
+import { hotkeyScript, keyboardIcon, navKeyCap } from "./hotkeys";
 import {
   currentLocale,
   htmlLang,
@@ -195,6 +195,12 @@ a:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .mast nav a{border:0;color:var(--muted);text-transform:uppercase;padding:0 6px}
 .mast nav a[aria-current=page]{background:var(--ink);color:var(--bg)}
 .mast nav a:hover{color:var(--accent)}
+/* Each nav link's shortcut, in a cap before its name. A touch screen has no keys to press, so there
+   the caps would only widen a row that already scrolls sideways. */
+.mast nav .nav-key{margin-right:5px;padding:0 4px;background:var(--dim);color:var(--bg);font-weight:700}
+.mast nav a[aria-current=page] .nav-key{background:var(--muted)}
+.mast nav a:hover .nav-key{background:var(--accent)}
+@media (hover:none) and (pointer:coarse){.mast nav .nav-key{display:none}}
 .status{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--muted)}
 .status.stale{color:var(--warn)}
 /* The header's fear/greed badge, and the same tones used on /sentiment's headline and chart. */
@@ -205,11 +211,7 @@ a:hover{color:var(--accent);border-bottom-color:var(--accent)}
 .sent-ink{color:var(--ink)}
 /* A button (a click flips it to UTC) that must not look like one: the global button rule styles hover too. */
 .clock,.clock:hover{color:var(--ink);background:none;border:0;padding:0;font:inherit;letter-spacing:normal;text-transform:none;cursor:pointer}
-.keys{margin-left:auto;display:flex;gap:12px;color:var(--dim);border:0}
-.keys:hover{color:var(--muted)}
-.keys [hidden]{display:none}
 .kb-link .kb-icon{margin-right:5px;vertical-align:-2px}
-.keys b{margin-right:5px;padding:0 4px;background:var(--dim);color:var(--bg);font-weight:700}
 main.wrap{padding-top:12px;padding-bottom:32px}
 h1{font:700 15px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.04em;margin:0 0 4px}
 h2{font:700 12px/1.2 var(--mono);text-transform:uppercase;letter-spacing:.06em;margin:0}
@@ -291,7 +293,12 @@ body:has(.heat-wrap,.sheet-wrap.stick){width:max-content;min-width:100%}
 body:has(.heat-wrap,.sheet-wrap.stick) .mast{position:sticky;left:0;width:var(--vw,100vw);box-sizing:border-box}
 body:has(.heat-wrap,.sheet-wrap.stick) .mast{top:0}
 body:has(.heat-wrap,.sheet-wrap.stick) main.wrap{max-width:none;margin:0;width:max-content;min-width:100%;box-sizing:border-box}
-body:has(.heat-wrap,.sheet-wrap.stick) main.wrap>:not(.heat-wrap):not(.sheet-wrap){position:sticky;left:10px;max-width:calc(var(--vw,100vw) - 20px);box-sizing:border-box}
+body:has(.heat-wrap,.sheet-wrap.stick) main.wrap>:not(.heat-wrap):not(.sheet-wrap):not(:has(>.heat-wrap,>.sheet-wrap)){position:sticky;left:10px;max-width:calc(var(--vw,100vw) - 20px);box-sizing:border-box}
+/* A tab panel holding the grid (Rates > Funding rates) is see-through: it grows with the grid, and its
+   other children -- the period strip, the pager -- stick in its place. Held to the viewport like the
+   other children, it kept the page from widening: the grid overflowed it, the page scrolled sideways
+   anyway, and the masthead and nav scrolled away with it, having no wider page to stick inside. */
+body:has(.heat-wrap,.sheet-wrap.stick) main.wrap>:has(>.heat-wrap,>.sheet-wrap)>:not(.heat-wrap):not(.sheet-wrap){position:sticky;left:10px;max-width:calc(var(--vw,100vw) - 20px);box-sizing:border-box}
 }
 @media (max-width:860px){
 .heat-wrap,.sheet-wrap.stick{overflow:auto;width:auto;min-width:0;max-height:calc(100vh - var(--mast) - var(--dock) - 8px);max-height:calc(100dvh - var(--mast) - var(--dock) - 8px);-webkit-overflow-scrolling:touch}
@@ -1447,9 +1454,6 @@ footer.dock{position:fixed;left:0;right:0;bottom:0;z-index:15;background:var(--b
 .about-log li+li{margin-top:4px}
 /* Reduced motion: a still outline in place of the live-refresh fade, cleared on the next refresh. */
 .chg{outline:1px solid var(--muted);outline-offset:-1px}.chg-up{outline-color:var(--up)}.chg-down{outline-color:#ff4757}
-/* The hotkey legend needs ~1,250px beside the nav since "? keyboard map" joined it; below that it was
-   clipped mid-word ("lliquidations"), so it goes rather than half-shows. The keys still work. */
-@media (max-width:1300px){.keys{display:none}}
 @media (max-width:860px){.status{font-size:11px}.legs .short{text-align:left}}
 `;
 
@@ -1478,10 +1482,10 @@ export function layout(options: {
   now: number;
 }): string {
   const { title, description, path, body, overview, now } = options;
-  const nav = NAV.map(
-    (item) =>
-      `<a href="${item.href}"${item.match(path) ? ' aria-current="page"' : ""}>${trMsg(item.label)}</a>`,
-  ).join("");
+  const nav = NAV.map((item) => {
+    const key = navKeyCap(item.href);
+    return `<a href="${item.href}"${item.match(path) ? ' aria-current="page"' : ""}${key.attr}>${key.cap}${trMsg(item.label)}</a>`;
+  }).join("");
   // A page that reads no database (the geo-probe, the error pages) passes no overview: it has no
   // status to report, which is not the same as "no venue has reported".
   const status =
@@ -1524,7 +1528,7 @@ ${INSTALL_HEAD}
 <body data-rendered="${now}" data-build="${esc(BUILD.commit ?? "")}">
 <header class="mast">
 <div class="wrap bar"><a class="brand" href="/">airrates<small>${tr("What settled. Not what might.")}</small></a><span class="status" data-live="status">${status}</span>${sentimentBadge}${shareBar()}${searchButton()}<button type="button" class="clock" id="clock">--:--:--</button></div>
-<div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav><a class="keys" href="/keys" title="${tr("Keyboard shortcuts: change them on the keyboard page")}">${hotkeyLegend()}</a></div>
+<div class="wrap bar bar2"><nav aria-label="Main">${nav}</nav></div>
 </header>
 <main class="wrap" data-loading="${esc(tr("Loading…"))}">${body}</main>
 <footer class="dock"><div class="wrap dock-bar">
@@ -1532,7 +1536,7 @@ ${INSTALL_HEAD}
 <a class="dock-item" href="${TELEGRAM_URL}" target="_blank" rel="noopener" title="${tr("Join the airrates group on Telegram: @airratesnet")}">${icon("send")}<span>${tr("telegram")}</span></a>
 <p class="dock-note">${disclaimer}</p>
 <div class="dock-pop"><button type="button" class="dock-item" aria-haspopup="true" aria-expanded="false" aria-label="${tr("Language")}" title="${esc(LOCALE_INFO[currentLocale()].name)}">${icon("globe")}</button><nav class="dock-menu" aria-label="${tr("Language")}">${languages}</nav></div>
-<div class="dock-pop"><button type="button" class="dock-item" aria-haspopup="true" aria-expanded="false">${icon("menu")}<span>${tr("menu")}</span></button><nav class="dock-menu" aria-label="${tr("menu")}"><a href="/settings"${path === "/settings" ? ' aria-current="page"' : ""}>${icon("sliders")}${tr("settings")}</a><a href="/markets"${path.startsWith("/markets") ? ' aria-current="page"' : ""}>${tr("exchanges")}</a><a href="/status">${tr("status")}</a><a class="keep-case" href="/agents"${path === "/agents" ? ' aria-current="page"' : ""}>${tr("MCP &amp; agents")}</a><a href="/about">${tr("about")}</a><a href="/probe">${tr("geo-probe")}</a><a class="kb-link" href="/keys">${keyboardIcon()}${tr("keyboard")}</a><a href="/referrals">${tr("referral links")}</a><a href="/legal">${tr("legal &amp; privacy")}</a><a href="/tos">${tr("terms")}</a><p class="dock-menu-note">${disclaimer}</p></nav></div>
+<div class="dock-pop"><button type="button" class="dock-item" aria-haspopup="true" aria-expanded="false">${icon("menu")}<span>${tr("menu")}</span></button><nav class="dock-menu" aria-label="${tr("menu")}"><a href="/settings"${path === "/settings" ? ' aria-current="page"' : ""}>${icon("sliders")}${tr("settings")}</a><a href="/markets"${path.startsWith("/markets") ? ' aria-current="page"' : ""}>${tr("exchanges")}</a><a href="/status">${tr("status")}</a><a class="keep-case" href="/agents"${path === "/agents" ? ' aria-current="page"' : ""}>${tr("MCP &amp; agents")}</a><a href="/about">${tr("about")}</a><a href="/glossary"${path === "/glossary" ? ' aria-current="page"' : ""}>${tr("terminology")}</a><a href="/probe">${tr("geo-probe")}</a><a class="kb-link" href="/keys">${keyboardIcon()}${tr("keyboard")}</a><a href="/referrals">${tr("referral links")}</a><a href="/legal">${tr("legal &amp; privacy")}</a><a href="/tos">${tr("terms")}</a><p class="dock-menu-note">${disclaimer}</p></nav></div>
 </div></footer>
 ${searchDialog()}
 <script>${pageScript()}</script>

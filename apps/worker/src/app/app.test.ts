@@ -4569,7 +4569,9 @@ describe("cvd", () => {
       },
     });
     const hub = await (await get("/holdings", data)).text();
-    expect(hub).toContain('<a href="/holdings" aria-current="page">holdings</a>');
+    expect(hub).toContain(
+      '<a href="/holdings" aria-current="page" aria-keyshortcuts="o"><b class="nav-key" data-act="holdings" aria-hidden="true">o</b>holdings</a>',
+    );
     expect(hub).toContain('data-lazy="/holdings?panel=stocks"');
     expect(hub).toContain('data-lazy="/holdings?panel=onchain"');
     expect(hub).toContain('href="/holdings/warren-buffett"');

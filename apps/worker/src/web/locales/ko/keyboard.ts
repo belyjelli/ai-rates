@@ -20,7 +20,6 @@ export const keyboard: Catalog = {
   "keyboard map": "키보드 맵",
 
   // web/layout.ts
-  "Keyboard shortcuts: change them on the keyboard page": "키보드 단축키: 키보드 페이지에서 변경",
   keyboard: "키보드",
 
   // web/keyboard.ts

@@ -40,6 +40,16 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-11-10",
+    title:
+      "A Terminology page, shortcut keys on the menu, and a Rates grid that scrolls on its own",
+    changes: [
+      "Terminology, in the footer menu: delta, CVD, imbalance, absorption, VPOC, value area, LVN and single prints, each in one line. Every term has a link of its own to share, such as /glossary#cvd.",
+      "Each page in the top menu now shows its shortcut key before its name, in place of the separate list of keys at the right of the bar. A member who has remapped the keys sees their own.",
+      "On a wide screen, scrolling the Rates grid sideways moves only the grid: the menu, title, tabs and pager stay in place, as they do on the Screener. Before, they scrolled away with it.",
+    ],
+  },
+  {
     date: "2026-10-30",
     title: "Holdings: a rich list of the 500 largest addresses on Bitcoin, Ethereum and Tron",
     changes: [

@@ -2,8 +2,8 @@
  * The site's keyboard shortcuts: what each one does, the key it has out of the box, and the script
  * every page runs to answer them.
  *
- * ONE LIST. The status-bar legend, the keyboard page (/keys) and the script all read ACTIONS, so a key
- * cannot be advertised and do nothing, or work without being shown. An action with no `key` exists
+ * ONE LIST. The key caps in the nav, the keyboard page (/keys) and the script all read ACTIONS, so a
+ * key cannot be advertised and do nothing, or work without being shown. An action with no `key` exists
  * but is unbound until a reader binds it on /keys.
  *
  * PROFILES belong to a member. Anyone may read the map on /keys and use the default keys; remapping
@@ -37,28 +37,24 @@ export interface HotkeyAction {
   href?: string;
   /** The default key, or "" for an action that ships unbound. */
   key: string;
-  /** Shown in the status bar, as the destinations and the filter always were. */
-  legend?: boolean;
 }
 
 export const ACTIONS: readonly HotkeyAction[] = [
-  { id: "spreads", label: msg("spreads"), group: "go", href: "/", key: "h", legend: true },
+  { id: "spreads", label: msg("spreads"), group: "go", href: "/", key: "h" },
   {
     id: "screener",
     label: msg("screener"),
     group: "go",
     href: "/screener",
     key: "s",
-    legend: true,
   },
-  { id: "rates", label: msg("rates"), group: "go", href: "/rates", key: "r", legend: true },
+  { id: "rates", label: msg("rates"), group: "go", href: "/rates", key: "r" },
   {
     id: "arbitrage",
     label: msg("arbitrage"),
     group: "go",
     href: "/arbitrage",
     key: "a",
-    legend: true,
   },
   {
     id: "liquidations",
@@ -66,18 +62,16 @@ export const ACTIONS: readonly HotkeyAction[] = [
     group: "go",
     href: "/liquidations",
     key: "l",
-    legend: true,
   },
   // The id stays "cvd" from before the page was renamed: saved key profiles name the binding by it.
-  { id: "cvd", label: msg("chart"), group: "go", href: "/chart", key: "c", legend: true },
-  { id: "whales", label: msg("whales"), group: "go", href: "/whales", key: "w", legend: true },
+  { id: "cvd", label: msg("chart"), group: "go", href: "/chart", key: "c" },
+  { id: "whales", label: msg("whales"), group: "go", href: "/whales", key: "w" },
   {
     id: "holdings",
     label: msg("holdings"),
     group: "go",
     href: "/holdings",
     key: "o",
-    legend: true,
   },
   {
     id: "exchanges",
@@ -85,20 +79,20 @@ export const ACTIONS: readonly HotkeyAction[] = [
     group: "go",
     href: "/markets",
     key: "e",
-    legend: true,
   },
   { id: "sentiment", label: msg("sentiment"), group: "go", href: "/sentiment", key: "" },
   { id: "status", label: msg("status"), group: "go", href: "/status", key: "" },
   { id: "docs", label: msg("API docs"), group: "go", href: "/docs", key: "" },
   { id: "about", label: msg("about"), group: "go", href: "/about", key: "" },
-  { id: "filter", label: msg("filter"), group: "page", key: "/", legend: true },
+  { id: "glossary", label: msg("terminology"), group: "go", href: "/glossary", key: "" },
+  { id: "filter", label: msg("filter"), group: "page", key: "/" },
   // Cmd+K and Ctrl+K open it too (web/command.ts), as everywhere else; this is the plain key.
   { id: "search", label: msg("search"), group: "page", key: "k" },
   { id: "prev-tab", label: msg("previous tab"), group: "page", key: "[" },
   { id: "next-tab", label: msg("next tab"), group: "page", key: "]" },
   { id: "top", label: msg("back to top"), group: "page", key: "" },
   { id: "cancel", label: msg("leave field"), group: "cancel", key: "Escape" },
-  { id: "keys", label: msg("keyboard map"), group: "map", href: "/keys", key: "?", legend: true },
+  { id: "keys", label: msg("keyboard map"), group: "map", href: "/keys", key: "?" },
 ];
 
 /** This browser's copy of a member's profiles. */
@@ -138,13 +132,20 @@ export function scriptActions(): string {
   );
 }
 
-/** The status-bar legend, in the default keys; the page script redraws it for a custom profile. */
-export function hotkeyLegend(): string {
-  return ACTIONS.filter((action) => action.legend)
-    .map(
-      (action) => `<span data-act="${action.id}"><b>${action.key}</b>${trMsg(action.label)}</span>`,
-    )
-    .join("");
+/**
+ * The key cap a nav link wears, in the default key: the go action that leads to `href`, or "" when
+ * none does or it ships unbound. The cap is hidden from screen readers, which hear the link's
+ * aria-keyshortcuts instead of a stray letter before its name; the page script redraws both for a
+ * member's own profile. (Owner, 2026-11-10: the caps sit on the nav links, where the status bar's
+ * separate legend of them used to be.)
+ */
+export function navKeyCap(href: string): { cap: string; attr: string } {
+  const action = ACTIONS.find((a) => a.group === "go" && a.href === href && a.key);
+  if (!action) return { cap: "", attr: "" };
+  return {
+    cap: `<b class="nav-key" data-act="${action.id}" aria-hidden="true">${action.key}</b>`,
+    attr: ` aria-keyshortcuts="${action.key}"`,
+  };
 }
 
 /**
@@ -154,14 +155,14 @@ export function hotkeyLegend(): string {
 const FILTER_TARGET = "form.filters select,form.filters input,.wh-pick-q";
 
 /**
- * The script every page runs: read the reader's active profile, redraw the legend if it is not the
- * default, and answer the keys. Ctrl, Alt and Cmd combinations are always the browser's. In a text
+ * The script every page runs: read the reader's active profile, redraw the nav's key caps if it is
+ * not the default, and answer the keys. Ctrl, Alt and Cmd combinations are always the browser's. In a text
  * field only the cancel action is heard, and only when it sits on a named key (Escape, F2), since a
  * letter there is typing. The keyboard page (#kb) answers keys itself, so a reader trying a key there
  * is shown what it does instead of being taken away.
  */
 export function hotkeyScript(): string {
-  return `(()=>{if(document.getElementById("kb"))return;const A=${scriptActions()};let P=null;try{const s=JSON.parse(localStorage.getItem(${JSON.stringify(STORE_KEY)})||"null");P=s&&s.profiles&&s.profiles[s.active]||null}catch(e){}const K={};for(const id in A)if(A[id].key&&!(P&&typeof P[id]==="string"))K[A[id].key]=id;if(P)for(const id in A)if(typeof P[id]==="string"&&P[id])K[P[id]]=id;const cap=k=>k==="Escape"?"esc":k;if(P)for(const s of document.querySelectorAll(".keys [data-act]")){const id=s.dataset.act,k=typeof P[id]==="string"?P[id]:A[id].key,b=s.querySelector("b");if(!k||K[k]!==id)s.hidden=true;else if(b)b.textContent=cap(k)}addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey||e.isComposing)return;let k=e.key;if(!k)return;if(k.length===1)k=k.toLowerCase();const id=K[k],t=e.target,n=t&&t.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA"||t&&t.isContentEditable){if(id==="cancel"&&k.length>1)t.blur();return}if(!id)return;if(id==="cancel"){const f=document.activeElement;if(f&&f!==document.body&&f.blur)f.blur();return}if(id==="search"){if(window.airratesSearch){e.preventDefault();window.airratesSearch()}return}if(id==="filter"){const q=document.querySelector(${JSON.stringify(FILTER_TARGET)});if(q){e.preventDefault();const d=q.closest("details");if(d)d.open=true;q.hidden=false;q.focus()}return}if(id==="prev-tab"||id==="next-tab"){const s=document.querySelector(".tabbar-tabs");const b=s?[...s.querySelectorAll(".btn-tab")]:[];if(b.length<2)return;e.preventDefault();const i=b.findIndex(x=>x.classList.contains("active")),j=b[(i+(id==="next-tab"?1:-1)+b.length)%b.length];j.click();j.focus();return}if(id==="top"){e.preventDefault();scrollTo({top:0});return}if(A[id].href){e.preventDefault();location.href=A[id].href}})})();`;
+  return `(()=>{if(document.getElementById("kb"))return;const A=${scriptActions()};let P=null;try{const s=JSON.parse(localStorage.getItem(${JSON.stringify(STORE_KEY)})||"null");P=s&&s.profiles&&s.profiles[s.active]||null}catch(e){}const K={};for(const id in A)if(A[id].key&&!(P&&typeof P[id]==="string"))K[A[id].key]=id;if(P)for(const id in A)if(typeof P[id]==="string"&&P[id])K[P[id]]=id;const cap=k=>k==="Escape"?"esc":k;if(P)for(const s of document.querySelectorAll(".nav-key[data-act]")){const id=s.dataset.act,k=typeof P[id]==="string"?P[id]:A[id].key,a=s.parentElement;if(!k||K[k]!==id){s.hidden=true;a.removeAttribute("aria-keyshortcuts")}else{s.textContent=cap(k);a.setAttribute("aria-keyshortcuts",k)}}addEventListener("keydown",e=>{if(e.metaKey||e.ctrlKey||e.altKey||e.isComposing)return;let k=e.key;if(!k)return;if(k.length===1)k=k.toLowerCase();const id=K[k],t=e.target,n=t&&t.tagName;if(n==="INPUT"||n==="SELECT"||n==="TEXTAREA"||t&&t.isContentEditable){if(id==="cancel"&&k.length>1)t.blur();return}if(!id)return;if(id==="cancel"){const f=document.activeElement;if(f&&f!==document.body&&f.blur)f.blur();return}if(id==="search"){if(window.airratesSearch){e.preventDefault();window.airratesSearch()}return}if(id==="filter"){const q=document.querySelector(${JSON.stringify(FILTER_TARGET)});if(q){e.preventDefault();const d=q.closest("details");if(d)d.open=true;q.hidden=false;q.focus()}return}if(id==="prev-tab"||id==="next-tab"){const s=document.querySelector(".tabbar-tabs");const b=s?[...s.querySelectorAll(".btn-tab")]:[];if(b.length<2)return;e.preventDefault();const i=b.findIndex(x=>x.classList.contains("active")),j=b[(i+(id==="next-tab"?1:-1)+b.length)%b.length];j.click();j.focus();return}if(id==="top"){e.preventDefault();scrollTo({top:0});return}if(A[id].href){e.preventDefault();location.href=A[id].href}})})();`;
 }
 
 /**

@@ -126,4 +126,34 @@ export const site: Catalog = {
 
   // web/tabs.ts
   Sections: "セクション",
+
+  // web/glossary.ts (and its entry in the footer menu and the shortcut map)
+  terminology: "用語集",
+  Terminology: "用語集",
+  "Order-flow and volume-profile terms in one line each: delta, CVD, imbalance, absorption, VPOC, value area, LVN and single prints.":
+    "オーダーフローとボリュームプロファイルの用語を1行ずつ：デルタ、CVD、インバランス、吸収、VPOC、バリューエリア、LVN、シングルプリント。",
+  "The words traders use to read order flow and the volume profile, each in one line. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
+    "トレーダーがオーダーフローとボリュームプロファイルを読むときの用語を、1行ずつ説明します。用語ごとに共有できるリンクがあり、/glossary#cvd でこのページの CVD が開きます。",
+  "Order flow": "オーダーフロー",
+  "Aggressive buying minus aggressive selling.": "成行買いから成行売りを引いたものです。",
+  "cumulative volume delta": "累積出来高デルタ",
+  "Delta added up through the session.": "取引時間を通じてデルタを足し上げたものです。",
+  'Shown on the <a href="/chart">Chart</a> page, spot and futures apart, summed across exchanges.':
+    '<a href="/chart">チャート</a>ページに表示されます。現物と先物を分け、取引所をまたいで合計しています。',
+  Imbalance: "インバランス",
+  "One side trading 3x or more the other at a price.":
+    "ある価格で、片側の出来高がもう片側の3倍以上あることです。",
+  Absorption: "吸収",
+  "Heavy aggression, no progress.": "成行注文が厚いのに、価格が進まないことです。",
+  'Read on the <a href="/liquidations#odds">Liquidations</a> page’s Odds tab, as initiative vs absorption.':
+    '<a href="/liquidations#odds">清算</a>ページの確率タブで、仕掛けと吸収として読めます。',
+  "Volume profile": "ボリュームプロファイル",
+  "volume point of control": "出来高のポイント・オブ・コントロール",
+  "The price with the most volume.": "出来高が最も多い価格です。",
+  "Value area": "バリューエリア",
+  "Where 70% of the volume traded.": "出来高の70%が成立した価格帯です。",
+  "low-volume node": "低出来高ノード",
+  "A thin price the market moved through fast.": "出来高が薄く、相場が素早く通過した価格です。",
+  "Single prints": "シングルプリント",
+  "A zone only one 30-minute period traded.": "1つの30分間だけで取引された価格帯です。",
 };

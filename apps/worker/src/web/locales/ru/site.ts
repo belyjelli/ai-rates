@@ -131,4 +131,34 @@ export const site: Catalog = {
 
   // web/tabs.ts
   Sections: "Разделы",
+
+  // web/glossary.ts (and its entry in the footer menu and the shortcut map)
+  terminology: "термины",
+  Terminology: "Термины",
+  "Order-flow and volume-profile terms in one line each: delta, CVD, imbalance, absorption, VPOC, value area, LVN and single prints.":
+    "Термины потока ордеров и профиля объёма, по строке на каждый: дельта, CVD, дисбаланс, поглощение, VPOC, зона стоимости, LVN и одиночные принты.",
+  "The words traders use to read order flow and the volume profile, each in one line. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
+    "Слова, которыми трейдеры читают поток ордеров и профиль объёма, по строке на каждое. У каждого термина своя ссылка: /glossary#cvd открывает эту страницу на CVD.",
+  "Order flow": "Поток ордеров",
+  "Aggressive buying minus aggressive selling.": "Агрессивные покупки минус агрессивные продажи.",
+  "cumulative volume delta": "кумулятивная дельта объёма",
+  "Delta added up through the session.": "Дельта, накопленная за сессию.",
+  'Shown on the <a href="/chart">Chart</a> page, spot and futures apart, summed across exchanges.':
+    'Есть на странице <a href="/chart">График</a>: спот и фьючерсы отдельно, сумма по биржам.',
+  Imbalance: "Дисбаланс",
+  "One side trading 3x or more the other at a price.":
+    "Объём одной стороны на цене в 3 раза и более превышает объём другой.",
+  Absorption: "Поглощение",
+  "Heavy aggression, no progress.": "Сильная агрессия, а цена стоит на месте.",
+  'Read on the <a href="/liquidations#odds">Liquidations</a> page’s Odds tab, as initiative vs absorption.':
+    'Читается на вкладке «Шансы» страницы <a href="/liquidations#odds">Ликвидации</a> как инициатива против поглощения.',
+  "Volume profile": "Профиль объёма",
+  "volume point of control": "точка контроля объёма",
+  "The price with the most volume.": "Цена с наибольшим объёмом.",
+  "Value area": "Зона стоимости",
+  "Where 70% of the volume traded.": "Где прошло 70% объёма.",
+  "low-volume node": "узел низкого объёма",
+  "A thin price the market moved through fast.": "Тонкая цена, которую рынок прошёл быстро.",
+  "Single prints": "Одиночные принты",
+  "A zone only one 30-minute period traded.": "Зона, где торговал только один 30-минутный период.",
 };

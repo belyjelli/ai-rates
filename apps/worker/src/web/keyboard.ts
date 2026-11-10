@@ -384,11 +384,14 @@ function pageScript(): string {
       r.querySelector("kbd").textContent = id === listen ? "…" : k ? cap(k) : "—";
       r.querySelector("[data-change] .lbl").textContent = id === listen ? S.press : S.change;
     }
-    // The status bar's legend, which every other page's script draws for itself.
-    for (const s of document.querySelectorAll(".keys [data-act]")) {
-      const k = bound(s.dataset.act), b = s.querySelector("b");
+    // The nav's key caps, which every other page's script draws for itself.
+    for (const s of document.querySelectorAll(".nav-key[data-act]")) {
+      const k = bound(s.dataset.act), a = s.parentElement;
       s.hidden = !k;
-      if (k && b) b.textContent = k === "Escape" ? "esc" : k;
+      if (k) {
+        s.textContent = k === "Escape" ? "esc" : k;
+        a.setAttribute("aria-keyshortcuts", k);
+      } else a.removeAttribute("aria-keyshortcuts");
     }
     if (picked && signed) showPick();
     else edit.hidden = true;
