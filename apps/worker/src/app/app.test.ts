@@ -1535,6 +1535,47 @@ describe("pages", () => {
     expect(sides).toContain('data-u="lqc-long">$8.0M<');
   });
 
+  test("one tower of a bar squeezes into the top tenth and the other bars get the rest", async () => {
+    // Nineteen quarter hours of $100k-$500k longs, and one $20M flush.
+    const towered = Array.from({ length: 20 }, (_, i) => ({
+      bucket_start: new Date(Math.floor((NOW - (i + 1) * 900_000) / 900_000) * 900_000),
+      long_usd: i === 5 ? 20_000_000 : 100_000 + (i % 5) * 100_000,
+      short_usd: 0,
+      events: 10,
+    }));
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset({ sides: towered }),
+    });
+    const sides = await tab("/liquidations", "sides", data);
+    const figure = sides.slice(sides.indexOf('<figure class="fchart lqc"'));
+
+    // Nine bars in ten are at most $500k, so $500k is the knee, nine tenths up each side.
+    expect(figure).toContain("axis squeezed above $500k");
+    expect(figure).toContain('class="lqc-grid lqc-knee" x1="0" x2="1000" y1="50.0" y2="50.0"');
+    for (const label of [">$20M<", ">$500k<", ">$250k<", ">−$250k<", ">−$500k<", ">−$20M<"]) {
+      expect(figure).toContain(label);
+    }
+    // A $500k bar reaches the knee; the $20M one is cut there and ends at the top.
+    expect(figure).toMatch(
+      /class="lqc-long" x="[\d.]+" y="50\.00" width="[\d.]+" height="450\.00"/,
+    );
+    expect(figure).toMatch(
+      /class="lqc-long" x="[\d.]+" y="54\.00" width="[\d.]+" height="446\.00"/,
+    );
+    expect(figure).toMatch(/class="lqc-long" x="[\d.]+" y="0\.00" width="[\d.]+" height="46\.00"/);
+  });
+
+  test("a chart without a tower keeps the straight scale and says nothing of squeezing", async () => {
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    const sides = await tab("/liquidations", "sides", data);
+    expect(sides).not.toContain("axis squeezed");
+    expect(sides).not.toContain("lqc-knee");
+  });
+
   // What the collector would have written for roughly $2B of open interest.
   const PENDING = {
     longs: [4e6, 9e6, 11e6, 16e6, 24e6, 31e6, 20e6, 7e6, 3e6, 1e6],

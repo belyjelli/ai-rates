@@ -1010,6 +1010,13 @@ function pendingPanel(
  * LINEAR, NOT LOG, unlike the grid's intensity: here the height IS the comparison, and a log axis
  * would make a $30M bar look like three times a $30k one.
  *
+ * BUT LINEAR IN TWO PIECES when a few bars tower over the rest (owner, 2026-11-10). One flush set
+ * the whole axis: on the live 24h chart a $22M bar put nine bars in ten under 3% of the height, a
+ * row of flat lines. So the axis runs linear up to where nine bars in ten end (`sidesScale`), and
+ * that takes nine tenths of each side; the bars above it share the last tenth on their own, squeezed
+ * scale. The labels say where it changes, a gap cuts every bar that crosses it, and the title says
+ * the axis is squeezed. A window without such a tower keeps the one straight scale.
+ *
  * THE AXIS SPANS THE WHOLE WINDOW, empty buckets included, for the same reason `columns` does: a
  * quiet stretch is a fact, and dropping it would put two distant flushes side by side.
  *
@@ -1017,6 +1024,35 @@ function pendingPanel(
  * a slot reads that slot there instead, through slot-chart.ts, which says why that replaced a native
  * <title> per bar.
  */
+/** The share of bars drawn on the full scale, and the share of each side's height they get. */
+const SIDES_KNEE_SHARE = 0.9;
+const SIDES_KNEE_HEIGHT = 0.9;
+/** Fewer bars than this and "nine in ten" is one or two bars: keep the straight scale. */
+const SIDES_KNEE_MIN_BARS = 10;
+/** Round steps for the knee, so its label and the one at half of it read as round money. */
+const SIDES_KNEE_STEPS = [1, 2, 3, 4, 5, 6, 8, 10];
+
+/**
+ * The axis of the longs vs shorts chart: `top` is the tallest bar, and `knee` the round amount
+ * nine bars in ten stay under, or null when the axis needs no break -- too few bars, or the tallest
+ * not even twice the knee, where squeezing would distort more than it shows.
+ *
+ * Both sides pooled into one ranking, because they share one scale: a long bar and a short bar of
+ * equal height must stay equal money. Only bars that exist count; an empty slot is not a short bar.
+ */
+export function sidesScale(values: readonly number[]): { top: number; knee: number | null } {
+  const bars = values.filter((usd) => usd > 0).sort((a, b) => a - b);
+  const peak = bars.at(-1) ?? 0;
+  const top = peak > 0 ? peak : 1_000;
+  if (bars.length < SIDES_KNEE_MIN_BARS) return { top, knee: null };
+  // Nearest rank: the bar at or above which the tallest tenth starts.
+  const p90 = bars[Math.ceil(SIDES_KNEE_SHARE * bars.length) - 1] ?? peak;
+  const power = 10 ** Math.floor(Math.log10(p90));
+  const step = SIDES_KNEE_STEPS.find((n) => n * power >= p90) ?? 10;
+  const knee = step * power;
+  return { top, knee: knee * 2 <= top ? knee : null };
+}
+
 function sidesChart(data: {
   label: string;
   points: LiquidationAssetMap["sides"];
@@ -1036,18 +1072,40 @@ function sidesChart(data: {
   const span = toMs - fromMs;
 
   const byBucket = new Map(points.map((point) => [point.bucket_start.getTime(), point]));
-  let peak = 0;
-  for (const point of points) peak = Math.max(peak, point.long_usd, point.short_usd);
   // The axis ends at the tallest bar, not at a round number above it: rounding up wasted up to half
   // the plot (a $5.1M peak got a $10M axis) and flattened every other bar.
-  const top = peak > 0 ? peak : 1_000;
+  const { top, knee } = sidesScale(points.flatMap((point) => [point.long_usd, point.short_usd]));
   const pend = pending && model ? pendingPanel(pending.map, model, pending.zoom) : null;
 
   // viewBox 1000 x 1000 with zero at 500: each side gets half the height and the same scale, so a
   // long bar and a short bar of equal height are equal money.
   const slot = 1000 / count;
   const barWidth = Math.max(slot * 0.72, 1);
-  const height = (usd: number) => (usd / top) * 500;
+  const kneeAt = SIDES_KNEE_HEIGHT * 500;
+  const height = (usd: number) => {
+    const abs = Math.abs(usd);
+    const h =
+      knee === null
+        ? (abs / top) * 500
+        : abs <= knee
+          ? (abs / knee) * kneeAt
+          : kneeAt + ((abs - knee) / (top - knee)) * (500 - kneeAt);
+    return usd < 0 ? -h : h;
+  };
+  // The gap that cuts a bar where the scale changes, in viewBox units (about 2px on a 260px plot).
+  const cut = 8;
+  // One side's bar, from zero outwards; `up` for longs. A bar past the knee is two pieces with the
+  // cut between them, so the squeezed part never reads as the same scale as the rest.
+  const sideBar = (cls: string, x: string, usd: number, up: boolean): string => {
+    const h = height(usd);
+    const rect = (from: number, to: number) => {
+      const y = up ? 500 - to : 500 + from;
+      return `<rect class="${cls}" x="${x}" y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}" height="${(to - from).toFixed(2)}"></rect>`;
+    };
+    if (knee === null || usd <= knee) return rect(0, h);
+    // A bar a hair over the knee still shows its cut, with a sliver above it (about 1px).
+    return rect(0, kneeAt - cut / 2) + rect(kneeAt + cut / 2, Math.max(h, kneeAt + cut / 2 + 4));
+  };
 
   const bars: string[] = [];
   const slots: SidesSlots["slots"] = [];
@@ -1062,29 +1120,33 @@ function sidesChart(data: {
     const partial = start === current ? " lqc-now" : "";
     bars.push(
       `<g class="lqc-bar${partial}">${
-        point.long_usd > 0
-          ? `<rect class="lqc-long" x="${x}" y="${(500 - height(point.long_usd)).toFixed(2)}" width="${barWidth.toFixed(2)}" height="${height(point.long_usd).toFixed(2)}"></rect>`
-          : ""
-      }${
-        point.short_usd > 0
-          ? `<rect class="lqc-short" x="${x}" y="500" width="${barWidth.toFixed(2)}" height="${height(point.short_usd).toFixed(2)}"></rect>`
-          : ""
-      }</g>`,
+        point.long_usd > 0 ? sideBar("lqc-long", x, point.long_usd, true) : ""
+      }${point.short_usd > 0 ? sideBar("lqc-short", x, point.short_usd, false) : ""}</g>`,
     );
   }
 
-  const levels = [top, top / 2, 0, -top / 2, -top];
+  // A broken axis labels both pieces: half the knee and the knee on the straight part, the tallest
+  // bar at the end of the squeezed one.
+  const levels =
+    knee === null
+      ? [top, top / 2, 0, -top / 2, -top]
+      : [top, knee, knee / 2, 0, -knee / 2, -knee, -top];
+  const levelClass = (usd: number) =>
+    usd === 0 ? " lqc-zero" : knee !== null && Math.abs(usd) === knee ? " lqc-knee" : "";
   const grid = levels
     .map((usd) => {
       const y = (500 - height(usd)).toFixed(1);
-      return `<line class="lqc-grid${usd === 0 ? " lqc-zero" : ""}" x1="0" x2="1000" y1="${y}" y2="${y}"></line>`;
+      return `<line class="lqc-grid${levelClass(usd)}" x1="0" x2="1000" y1="${y}" y2="${y}"></line>`;
     })
     .join("");
+  // The ends sit just outside the plot when the axis is broken, so the tallest bar's label clears
+  // the knee's, a tenth of a side away.
   const yLabels = levels
-    .map(
-      (usd) =>
-        `<span class="lqc-y" style="top:${((500 - height(usd)) / 10).toFixed(2)}%">${usd === 0 ? "0" : formatUsd(usd).replace(".0", "")}</span>`,
-    )
+    .map((usd) => {
+      const end =
+        knee !== null && Math.abs(usd) === top ? (usd > 0 ? " lqc-y-top" : " lqc-y-bottom") : "";
+      return `<span class="lqc-y${levelClass(usd)}${end}" style="top:${((500 - height(usd)) / 10).toFixed(2)}%">${usd === 0 ? "0" : formatUsd(usd).replace(".0", "")}</span>`;
+    })
     .join("");
 
   // Ticks on round UTC hours: every 4h over a day, 8h over two, midnight over a week.
@@ -1143,7 +1205,7 @@ function sidesChart(data: {
         });
 
   return `<figure class="fchart lqc" data-live="lq-side-chart">${cite}
-<div class="fchart-head"><p class="fchart-title">${chartTitle}${pend ? ` · ${tr("pending by price band")}` : ""}</p><div class="fchart-keys"><span><i class="lqc-key-long"></i>${tr("Longs closed")} <b data-u="lqc-long">${money(longSum)}</b></span><span><i class="lqc-key-short"></i>${tr("Shorts closed")} <b data-u="lqc-short">${money(shortSum)}</b></span>${pend ? pend.keys : ""}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
+<div class="fchart-head"><p class="fchart-title">${chartTitle}${knee !== null ? ` · ${tr("axis squeezed above {usd}", { usd: formatUsd(knee).replace(".0", "") })}` : ""}${pend ? ` · ${tr("pending by price band")}` : ""}</p><div class="fchart-keys"><span><i class="lqc-key-long"></i>${tr("Longs closed")} <b data-u="lqc-long">${money(longSum)}</b></span><span><i class="lqc-key-short"></i>${tr("Shorts closed")} <b data-u="lqc-short">${money(shortSum)}</b></span>${pend ? pend.keys : ""}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
 <div class="lqc-body"><div class="fchart-plot lqc-plot slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} longs closed above zero and shorts closed below, over the last {window}", { asset: label, window: params.window }))}">${grid}${SLOT_BAND}${bars.join("")}${SLOT_CURSOR}</svg>${yLabels}${xLabels.join("")}</div>${pend ? pend.html : ""}</div>
 ${slotData({ kind: "lqc", from: fromMs, unit: bucketMs, slots })}
 ${pending ? `<div class="lqc-foot">${pending.strip}${pend ? `<p class="lqc-warn">${tr("Modeled from 30 days of open interest and price on each market and its leverage limits, not reported by venues.")}</p>` : ""}</div>` : ""}

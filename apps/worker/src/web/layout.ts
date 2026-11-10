@@ -451,6 +451,11 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .lqc-key-long{background:var(--long)}.lqc-key-short{background:var(--short)}
 .lqc-y,.lqc-x{position:absolute;color:var(--dim);white-space:nowrap;pointer-events:none}
 .lqc-y{left:-56px;width:50px;text-align:right;transform:translateY(-50%)}
+/* A broken axis: the knee dashed, its label brighter, and the ends nudged out so the tallest bar's
+   label clears the knee's a tenth of a side away. */
+.lqc-grid.lqc-knee{stroke:var(--muted);stroke-dasharray:3 3}
+.lqc-y.lqc-knee{color:var(--muted)}
+.lqc-y.lqc-y-top{transform:translateY(-90%)}.lqc-y.lqc-y-bottom{transform:translateY(-10%)}
 .lqc-x{top:100%;padding-top:3px;transform:translateX(-50%)}
 .lqc-day{color:var(--muted)}
 .lqc .fchart-plot{margin-left:56px}

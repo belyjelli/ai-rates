@@ -113,6 +113,7 @@ export const liquidations: Catalog = {
   "longs liquidate if price falls": "가격 하락 시 롱 청산",
   "pending is modeled": "대기 청산은 모델 추정",
   "pending by price band": "가격 구간별 대기 청산",
+  "axis squeezed above {usd}": "{usd} 초과는 세로축 압축",
   "Modeled from 30 days of open interest and price on each market and its leverage limits, not reported by venues.":
     "각 시장의 30일 미결제약정과 가격, 레버리지 한도로 추정한 값이며, 거래소가 공개한 데이터가 아닙니다.",
   Pending: "대기 청산",
