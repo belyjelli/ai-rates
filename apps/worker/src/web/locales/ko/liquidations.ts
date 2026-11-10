@@ -154,7 +154,8 @@ export const liquidations: Catalog = {
     "이 데이터는 수집기가 청산 피드를 읽는 유일한 거래소인 {venues}의 것으로, 시장 전체가 아닙니다.",
   "This is {venues}, the {count} venues whose liquidation feed the collector reads — not the whole market.":
     "이 데이터는 수집기가 청산 피드를 읽는 거래소 {count}곳({venues})의 것으로, 시장 전체가 아닙니다.",
-  "By asset and hour": "자산·시간별",
+  "Asset Timeline": "자산 타임라인",
+  Timeline: "타임라인",
   Assets: "자산",
   "Longs vs shorts": "롱 대 숏",
   "{asset} longs vs shorts": "{asset} 롱 대 숏",

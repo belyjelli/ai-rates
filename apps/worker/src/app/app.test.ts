@@ -1116,15 +1116,20 @@ describe("pages", () => {
     expect(bar).toBeLessThan(html.indexOf('<tbody data-live="lq-all"'));
   });
 
-  test("the address picks the tab: the map by default, prices when an asset is named", async () => {
+  test("the address picks the tab: the whale map by default, prices when an asset is named", async () => {
     const { data } = fakeData({
       liquidationMap: async () => liqMap(),
       liquidationAsset: async () => liqAsset(),
     });
 
     const list = await (await get("/liquidations", data)).text();
-    expect(list).toContain('id="tab-liq-map" class="btn-tab active"');
-    expect(list).not.toContain('id="tab-liq-price" class="btn-tab active"');
+    expect(list).toContain('id="tab-liq-whales" class="btn-tab active"');
+    expect(list).not.toContain('id="tab-liq-map" class="btn-tab active"');
+    // The whale map first and the Asset Timeline (the map by asset and hour) last (owner, 2026-11-10).
+    const order = [...list.matchAll(/id="tab-liq-([a-z]+)"/g)].map((m) => m[1]);
+    expect(order).toEqual(["whales", "sides", "price", "odds", "map"]);
+    expect(list).toContain("Asset Timeline");
+    expect(list).not.toContain("By asset and hour");
 
     const one = await (await get("/liquidations/ETH", data)).text();
     expect(one).toContain('id="tab-liq-price" class="btn-tab active"');
@@ -1234,7 +1239,7 @@ describe("pages", () => {
       }),
     ];
 
-    test("the whale tab loads itself and lists the busiest asset's positions, nearest liquidation first", async () => {
+    test("the whale tab opens the page and lists the busiest asset's positions, nearest liquidation first", async () => {
       const calls: string[] = [];
       const { data } = fakeData({
         liquidationMap: async () => liqMap(),
@@ -1244,14 +1249,15 @@ describe("pages", () => {
         },
       });
       const page = await (await get("/liquidations", data)).text();
-      // A fifth tab, named for the busiest asset, read only when opened.
+      // The first tab, named for the busiest asset, and the one the bare page opens on: drawn with
+      // the page, not loaded after it.
       expect(page).toContain('data-tab="whales"');
       expect(page).toContain("ETH whale map");
-      expect(page).toContain('data-lazy="/liquidations?panel=whales"');
-      expect(calls).toEqual([]);
+      expect(page).not.toContain('data-lazy="/liquidations?panel=whales"');
+      expect(calls).toEqual(["ETH"]);
 
       const html = await tab("/liquidations", "whales", data);
-      expect(calls).toEqual(["ETH"]);
+      expect(calls).toEqual(["ETH", "ETH"]);
       // $1M and up by default: the $400k long is left out.
       const rows = [...html.matchAll(/<tr data-k="hyperliquid\|([^|]+)\|ETH">/g)].map((m) => m[1]);
       expect(rows).toEqual([
@@ -1280,7 +1286,7 @@ describe("pages", () => {
       expect(html).toContain('aria-current="page" data-lq-swap="whales">±25%<');
       // What a member's live pass names (live.ts), and the line each reader sees until it has one.
       expect(page).toContain(
-        'data-tab-panel="whales" aria-labelledby="tab-liq-whales" data-lazy="/liquidations?panel=whales" data-member-live-tab',
+        'data-tab-panel="whales" aria-labelledby="tab-liq-whales" data-member-live-tab',
       );
       expect(html).toContain(
         'data-member-live data-base="ETH" data-class="crypto" data-floor="1m"',

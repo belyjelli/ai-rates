@@ -156,7 +156,8 @@ export const liquidations: Catalog = {
     "Это {venues} — единственная биржа, чей поток ликвидаций читает сборщик, а не весь рынок.",
   "This is {venues}, the {count} venues whose liquidation feed the collector reads — not the whole market.":
     "Это {venues} — биржи, чьи потоки ликвидаций читает сборщик (всего: {count}), а не весь рынок.",
-  "By asset and hour": "По активам и часам",
+  "Asset Timeline": "Хронология активов",
+  Timeline: "Хронология",
   Assets: "Активы",
   "Longs vs shorts": "Лонги и шорты",
   "{asset} longs vs shorts": "{asset}: лонги и шорты",

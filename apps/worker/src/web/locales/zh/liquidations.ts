@@ -148,7 +148,8 @@ export const liquidations: Catalog = {
     "以上数据来自 {venues}，即本站采集器读取其爆仓数据流的唯一一家交易所 — 并非全市场。",
   "This is {venues}, the {count} venues whose liquidation feed the collector reads — not the whole market.":
     "以上数据来自 {venues}，即本站采集器读取其爆仓数据流的 {count} 家交易所 — 并非全市场。",
-  "By asset and hour": "按资产和时段",
+  "Asset Timeline": "资产时间线",
+  Timeline: "时间线",
   Assets: "资产",
   "Longs vs shorts": "多空对比",
   "{asset} longs vs shorts": "{asset} 多空对比",

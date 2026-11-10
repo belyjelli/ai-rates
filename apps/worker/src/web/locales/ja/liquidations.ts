@@ -154,7 +154,8 @@ export const liquidations: Catalog = {
     "これは {venues}、つまりコレクターが清算フィードを読み取っている唯一の取引所のデータです — 市場全体ではありません。",
   "This is {venues}, the {count} venues whose liquidation feed the collector reads — not the whole market.":
     "これは {venues}、つまりコレクターが清算フィードを読み取っている {count} 取引所のデータです — 市場全体ではありません。",
-  "By asset and hour": "銘柄・時間帯別",
+  "Asset Timeline": "銘柄タイムライン",
+  Timeline: "タイムライン",
   Assets: "銘柄",
   "Longs vs shorts": "ロング対ショート",
   "{asset} longs vs shorts": "{asset} ロング対ショート",

@@ -1330,8 +1330,12 @@ ${sidesChart({ label, points: map.sides, params, now, pending: { show: showPendi
 ${table}`;
 }
 
-/** The tabs of /liquidations, in order. Only the map always ships; the rest may load themselves. */
-export const LIQUIDATION_TABS = ["map", "sides", "price", "odds", "whales"] as const;
+/**
+ * The tabs of /liquidations, in order (owner, 2026-11-10: the whale map first, the asset timeline --
+ * the map by asset and hour -- last). The map and the tab the page opens on ship filled; the rest may
+ * load themselves.
+ */
+export const LIQUIDATION_TABS = ["whales", "sides", "price", "odds", "map"] as const;
 export type LiquidationTab = (typeof LIQUIDATION_TABS)[number];
 
 /** What a render of /liquidations read. A field left undefined was not read by THIS render. */
@@ -1553,8 +1557,9 @@ function assetTabLabels(
  * work as before: each placeholder's address is an ordinary cached URL.
  *
  * WHICH ASSET the per-asset tabs show: the one in the address, or the busiest by notional when the
- * address names none. `/liquidations` therefore opens on the map with the day's biggest asset
- * behind the other tabs, and `/liquidations/ETH` opens on ETH's prices directly.
+ * address names none. `/liquidations` therefore opens on the day's biggest asset's whale map, its
+ * other tabs behind (owner, 2026-11-10; it opened on the map by asset and hour before, which is now
+ * the last tab, Asset Timeline), and `/liquidations/ETH` opens on ETH's prices directly.
  */
 export function liquidations(
   data: LiquidationView & {
@@ -1628,16 +1633,16 @@ ${body ?? lazyPanel(data, id)}
 ${tabBar({
   name: "liq",
   tabs: [
-    {
-      id: "map",
-      label: tr("By asset and hour"),
-      shortLabel: tr("Assets"),
-      badge: totalEvents,
-    },
+    { id: "whales", label: labels.whales, shortLabel: tr("Whales") },
     { id: "sides", label: labels.sides, shortLabel: tr("Sides") },
     { id: "price", label: labels.price, shortLabel: tr("Prices") },
     { id: "odds", label: labels.odds, shortLabel: tr("Odds") },
-    { id: "whales", label: labels.whales, shortLabel: tr("Whales") },
+    {
+      id: "map",
+      label: tr("Asset Timeline"),
+      shortLabel: tr("Timeline"),
+      badge: totalEvents,
+    },
   ],
   activeId: active,
 })}

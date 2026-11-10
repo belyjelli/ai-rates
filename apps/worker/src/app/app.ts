@@ -640,11 +640,13 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           !assetParams.pending ||
           assetParams.zoom === "wide");
       const wantsOdds = wanted !== null && panel === "odds";
-      // The whale map is read only for its own tab, or when its floor switch is in the query: a reader
-      // who just clicked $100k+ lands on a drawn tab. A failed read says so in the tab, not a 500.
+      // The whale map is read for its own tab, for the bare page (which opens on it: owner,
+      // 2026-11-10), or when its floor switch is in the query: a reader who just clicked $100k+ lands
+      // on a drawn tab. A failed read says so in the tab, not a 500.
       const wantsWhales =
         wanted !== null &&
         (panel === "whales" ||
+          (panel === null && address === null) ||
           assetParams.whale !== "1m" ||
           assetParams.wzoom !== DEFAULT_WHALE_ZOOM);
       // A failed read of the bars or the funding leaves the Odds tab saying it has too little
@@ -721,7 +723,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         now,
       };
       if (panel !== null) return page(() => liquidationsPanel(view, panel));
-      return page(() => liquidations({ ...view, overview, active: address ? "price" : "map" }));
+      return page(() => liquidations({ ...view, overview, active: address ? "price" : "whales" }));
     }
 
     // Holdings (web/holdings.ts): the idea grid with its topics, each investor's page and each
