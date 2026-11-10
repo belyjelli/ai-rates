@@ -524,4 +524,33 @@ export const macro: Catalog = {
   "The level is from {source}.": "水準の出所は{source}です。",
   "A close is the session's last level; a market that is shut shows its close until it opens again. Daily closes are each UTC day's last level.":
     "終値はその取引時間の最後の水準です。休場中の市場は再開まで終値を表示します。日次終値は各 UTC 日の最後の水準です。",
+  Table: "表",
+  "Return map": "リターンマップ",
+  "By country": "国別",
+  View: "表示",
+  "5 days": "5日",
+  "the last 5 sessions": "直近5営業日",
+  "the last 21 sessions": "直近21営業日",
+  "Europe and the Middle East": "欧州・中東",
+  "Markets with too little history for this window yet, left out: {n}.":
+    "この期間の履歴がまだ足りず除外した市場：{n}。",
+  "Too little history for this window yet.": "この期間の履歴はまだ足りません。",
+  "{market} · {name}: {ret} over {span}, {day} in the latest session, {swing} on a typical day":
+    "{market} · {name}：{span}で {ret}、直近の取引日 {day}、普段の1日の値動き {swing}",
+  "{n} markets, {up} up over {span} · hover or tap a bubble to read it":
+    "{n} 市場、{span}で上昇 {up} · バブルにカーソルを合わせるかタップで表示",
+  "Return over {span} against the latest session, one index per market":
+    "{span}のリターンと直近の取引日の騰落（1市場1指数）",
+  "bubble size: the typical daily move": "バブルの大きさ：普段の1日の値動き",
+  "Markets by return over {span} and the latest session":
+    "{span}のリターンと直近の取引日でみた各市場",
+  "over {span}": "{span}のリターン",
+  "latest session": "直近の取引日",
+  "{market} over {span}: {list}": "{market}（{span}）：{list}",
+  "{n} markets · hover or tap a row to read it": "{n} 市場 · 行にカーソルを合わせるかタップで表示",
+  "Each market's indexes by return over {span}: the bar is its first index in the table, a dot each of its others":
+    "各市場の指数の{span}のリターン：バーは表で最初の指数、点はその他の指数",
+  "other indexes": "その他の指数",
+  "Volatility indexes (VIX, India VIX) are left out of the charts: their moves are not returns.":
+    "ボラティリティ指数（VIX、インドVIX）はグラフから除外しています。その値動きはリターンではないためです。",
 };

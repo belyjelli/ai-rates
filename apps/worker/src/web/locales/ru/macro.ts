@@ -530,4 +530,34 @@ export const macro: Catalog = {
   "The level is from {source}.": "Уровень берётся из источника: {source}.",
   "A close is the session's last level; a market that is shut shows its close until it opens again. Daily closes are each UTC day's last level.":
     "Закрытие — последний уровень сессии; закрытый рынок показывает своё закрытие, пока не откроется снова. Дневные закрытия — последний уровень каждого дня по UTC.",
+  Table: "Таблица",
+  "Return map": "Карта доходности",
+  "By country": "По странам",
+  View: "Вид",
+  "5 days": "5 дней",
+  "the last 5 sessions": "последние 5 сессий",
+  "the last 21 sessions": "последние 21 сессию",
+  "Europe and the Middle East": "Европа и Ближний Восток",
+  "Markets with too little history for this window yet, left out: {n}.":
+    "Рынков без достаточной истории для этого периода: {n}; они не показаны.",
+  "Too little history for this window yet.": "Для этого периода пока мало истории.",
+  "{market} · {name}: {ret} over {span}, {day} in the latest session, {swing} on a typical day":
+    "{market} · {name}: {ret} за {span}, {day} за последнюю сессию, {swing} в обычный день",
+  "{n} markets, {up} up over {span} · hover or tap a bubble to read it":
+    "Рынков: {n}, выросли за {span}: {up} · наведите или нажмите на пузырь, чтобы прочитать",
+  "Return over {span} against the latest session, one index per market":
+    "Доходность за {span} против последней сессии, один индекс на рынок",
+  "bubble size: the typical daily move": "размер пузыря: обычное дневное движение",
+  "Markets by return over {span} and the latest session":
+    "Рынки по доходности за {span} и за последнюю сессию",
+  "over {span}": "за {span}",
+  "latest session": "последняя сессия",
+  "{market} over {span}: {list}": "{market} за {span}: {list}",
+  "{n} markets · hover or tap a row to read it":
+    "Рынков: {n} · наведите или нажмите на строку, чтобы прочитать",
+  "Each market's indexes by return over {span}: the bar is its first index in the table, a dot each of its others":
+    "Индексы каждого рынка по доходности за {span}: полоса — его первый индекс в таблице, точки — остальные",
+  "other indexes": "другие индексы",
+  "Volatility indexes (VIX, India VIX) are left out of the charts: their moves are not returns.":
+    "Индексы волатильности (VIX, India VIX) не показаны на графиках: их движения — не доходность.",
 };

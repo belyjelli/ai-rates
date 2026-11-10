@@ -516,4 +516,32 @@ export const macro: Catalog = {
   "The level is from {source}.": "点位来自{source}。",
   "A close is the session's last level; a market that is shut shows its close until it opens again. Daily closes are each UTC day's last level.":
     "收盘为该交易时段的最后点位；休市的市场显示其收盘，直到重新开市。日收盘为每个 UTC 日的最后点位。",
+  Table: "表格",
+  "Return map": "回报分布图",
+  "By country": "按国家",
+  View: "视图",
+  "5 days": "5 天",
+  "the last 5 sessions": "最近 5 个交易日",
+  "the last 21 sessions": "最近 21 个交易日",
+  "Europe and the Middle East": "欧洲与中东",
+  "Markets with too little history for this window yet, left out: {n}.":
+    "此区间历史数据尚不足、暂未列入的市场：{n} 个。",
+  "Too little history for this window yet.": "此区间的历史数据尚不足。",
+  "{market} · {name}: {ret} over {span}, {day} in the latest session, {swing} on a typical day":
+    "{market} · {name}：{span} {ret}，最近一个交易日 {day}，日常波动 {swing}",
+  "{n} markets, {up} up over {span} · hover or tap a bubble to read it":
+    "{n} 个市场，{span}上涨 {up} 个 · 悬停或轻点气泡查看",
+  "Return over {span} against the latest session, one index per market":
+    "{span}回报与最近一个交易日涨跌，每个市场一个指数",
+  "bubble size: the typical daily move": "气泡大小：日常波动幅度",
+  "Markets by return over {span} and the latest session": "各市场按{span}回报与最近一个交易日涨跌",
+  "over {span}": "{span}回报",
+  "latest session": "最近一个交易日",
+  "{market} over {span}: {list}": "{market}，{span}：{list}",
+  "{n} markets · hover or tap a row to read it": "{n} 个市场 · 悬停或轻点一行查看",
+  "Each market's indexes by return over {span}: the bar is its first index in the table, a dot each of its others":
+    "各市场指数的{span}回报：条形为该市场在表中的第一个指数，圆点为其其他指数",
+  "other indexes": "其他指数",
+  "Volatility indexes (VIX, India VIX) are left out of the charts: their moves are not returns.":
+    "波动率指数（VIX、印度 VIX）不列入图表：其涨跌并非回报。",
 };

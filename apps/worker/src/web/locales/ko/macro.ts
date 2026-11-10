@@ -523,4 +523,32 @@ export const macro: Catalog = {
   "The level is from {source}.": "수준의 출처는 {source}입니다.",
   "A close is the session's last level; a market that is shut shows its close until it opens again. Daily closes are each UTC day's last level.":
     "종가는 해당 세션의 마지막 수준입니다. 휴장 중인 시장은 다시 열릴 때까지 종가를 표시합니다. 일별 종가는 각 UTC 일의 마지막 수준입니다.",
+  Table: "표",
+  "Return map": "수익률 지도",
+  "By country": "국가별",
+  View: "보기",
+  "5 days": "5일",
+  "the last 5 sessions": "최근 5거래일",
+  "the last 21 sessions": "최근 21거래일",
+  "Europe and the Middle East": "유럽·중동",
+  "Markets with too little history for this window yet, left out: {n}.":
+    "이 기간의 기록이 아직 부족해 제외한 시장: {n}개.",
+  "Too little history for this window yet.": "이 기간의 기록이 아직 부족합니다.",
+  "{market} · {name}: {ret} over {span}, {day} in the latest session, {swing} on a typical day":
+    "{market} · {name}: {span} {ret}, 최근 거래일 {day}, 평소 하루 변동 {swing}",
+  "{n} markets, {up} up over {span} · hover or tap a bubble to read it":
+    "{n}개 시장, {span} 상승 {up}개 · 버블에 마우스를 올리거나 탭해 보기",
+  "Return over {span} against the latest session, one index per market":
+    "{span} 수익률과 최근 거래일 등락, 시장별 지수 하나",
+  "bubble size: the typical daily move": "버블 크기: 평소 하루 변동폭",
+  "Markets by return over {span} and the latest session": "{span} 수익률과 최근 거래일 기준 시장",
+  "over {span}": "{span} 수익률",
+  "latest session": "최근 거래일",
+  "{market} over {span}: {list}": "{market}, {span}: {list}",
+  "{n} markets · hover or tap a row to read it": "{n}개 시장 · 행에 마우스를 올리거나 탭해 보기",
+  "Each market's indexes by return over {span}: the bar is its first index in the table, a dot each of its others":
+    "시장별 지수의 {span} 수익률: 막대는 표의 첫 지수, 점은 그 밖의 지수",
+  "other indexes": "그 밖의 지수",
+  "Volatility indexes (VIX, India VIX) are left out of the charts: their moves are not returns.":
+    "변동성 지수(VIX, 인도 VIX)는 차트에서 제외했습니다. 그 등락은 수익률이 아니기 때문입니다.",
 };

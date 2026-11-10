@@ -84,7 +84,7 @@ import { GREEKS, greekPanelHref, greekPanelId, greekPlaceholder } from "./greeks
 import { helpButton, helpHeading, helpPanel } from "./help";
 import { msg, tr, trMsg, withLocale } from "./i18n";
 import { icon } from "./icons";
-import { INDEX_PANEL, INDEXES_CSS, indexesPlaceholder, indexTabs } from "./indexes";
+import { INDEX_PANEL, INDEXES_CSS, IX_VIEW_SCRIPT, indexesPlaceholder, indexTabs } from "./indexes";
 import { layout } from "./layout";
 import { IVWALLS_PANEL_ID, LEVELS_PANEL_ID, levelsPanelHref, levelsPlaceholder } from "./levels";
 import { FEEDS, liquidationFeedTable } from "./liquidation-feeds";
@@ -1037,6 +1037,7 @@ ${GREEKS.map((greek) => `<script>${gxSwapScript(greekPanelId(greek), greek)}</sc
 <script>${gxSwapScript(LEVELS_PANEL_ID, "levels")}</script>
 <script>${GX_VIEW_SCRIPT}</script>
 <script>${GXX_VIEW_SCRIPT}</script>
+<script>${IX_VIEW_SCRIPT}</script>
 <script>${PICK_SCRIPT}</script>`,
   });
 }
