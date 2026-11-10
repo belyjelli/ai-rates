@@ -123,10 +123,6 @@ export const site: Catalog = {
   // web/glossary.ts (and its entry in the footer menu and the shortcut map)
   terminology: "术语",
   Terminology: "术语",
-  "Order-flow and volume-profile terms in one line each: delta, CVD, imbalance, absorption, VPOC, value area, LVN and single prints.":
-    "订单流与成交量分布术语，每个一句话：Delta、CVD、失衡、承接、VPOC、价值区、LVN 与单一印记。",
-  "The words traders use to read order flow and the volume profile, each in one line. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
-    "交易者解读订单流和成交量分布时所用的术语，每个一句话。每个术语都有可分享的链接：/glossary#cvd 会打开本页并定位到 CVD。",
   "Order flow": "订单流",
   "Aggressive buying minus aggressive selling.": "主动买入减去主动卖出。",
   "cumulative volume delta": "累计成交量 Delta",
@@ -149,4 +145,106 @@ export const site: Catalog = {
   "A thin price the market moved through fast.": "成交稀薄、市场快速穿过的价格。",
   "Single prints": "单一印记",
   "A zone only one 30-minute period traded.": "只有一个 30 分钟时段成交过的区间。",
+  // web/glossary.ts: the terms added 2026-11-10 beside the owner's first eight
+  "Delta (order flow)": "Delta（订单流）",
+  Initiative: "主动成交",
+  "Aggression that moves price; the opposite of absorption.": "推动价格的主动成交；与承接相反。",
+  "Taker flow": "吃单流",
+  "The trades CVD is added up from, buys against sells.":
+    "CVD 由这些成交累加而来：主动买入对主动卖出。",
+  "Options and gamma": "期权与 Gamma",
+  "gamma exposure": "Gamma 敞口",
+  "How much dealers must buy or sell for each 1% move.":
+    "价格每波动 1%，做市商需要买入或卖出多少。",
+  'Shown on the <a href="/rates#gamma">Rates</a> page’s Gamma Exposure tab, and told as it moves by the market narrator at the top of every page.':
+    '见<a href="/rates#gamma">费率</a>页的 Gamma 敞口标签；页面顶部的行情解说也会随其变动讲述。',
+  "The price where dealers' net gamma changes sign.": "做市商净 Gamma 变号的价格。",
+  'Marked on the <a href="/rates#gamma">Gamma Exposure</a> tab, and the line the market narrator reads every price against.':
+    '标注在 <a href="/rates#gamma">Gamma 敞口</a>标签上，也是行情解说衡量每个价格的基准线。',
+  "Long / short gamma": "正 / 负 Gamma",
+  "Long: dealers' hedging sells rises and buys dips, damping moves. Short: it chases price, adding to moves.":
+    "正 Gamma：做市商的对冲在上涨时卖出、下跌时买入，抑制波动。负 Gamma：对冲追随价格，放大波动。",
+  'Shaded in the zones view of the <a href="/rates#gamma">Gamma Exposure</a> tab.':
+    '在 <a href="/rates#gamma">Gamma 敞口</a>标签的区域视图中以阴影标出。',
+  "The strike holding the most call or put gamma; it tends to cap or floor price.":
+    "看涨或看跌 Gamma 最集中的行权价；往往压住或托住价格。",
+  'Shown on the <a href="/rates#gamma">Gamma Exposure</a> tab and in every market narrator line.':
+    '见 <a href="/rates#gamma">Gamma 敞口</a>标签，行情解说的每一条也会写出。',
+  "Delta (options)": "Delta（期权）",
+  "How much an option's price moves per point of the underlying.":
+    "标的每变动 1 点，期权价格变动多少。",
+  'By strike on the <a href="/rates#delta">Rates</a> page’s Delta tab.':
+    '按行权价见<a href="/rates#delta">费率</a>页的 Delta 标签。',
+  "How much an option's price moves per point of implied volatility.":
+    "隐含波动率每变动 1 点，期权价格变动多少。",
+  'By strike on the <a href="/rates#vega">Rates</a> page’s Vega tab.':
+    '按行权价见<a href="/rates#vega">费率</a>页的 Vega 标签。',
+  "What an option loses in value each day as expiry nears.": "临近到期时，期权每天损失的价值。",
+  'By strike on the <a href="/rates#theta">Rates</a> page’s Theta tab.':
+    '按行权价见<a href="/rates#theta">费率</a>页的 Theta 标签。',
+  "implied volatility": "隐含波动率",
+  "The size of move the option prices expect, per year.": "期权价格所预期的波动幅度，按年计。",
+  'Drawn as walls on the <a href="/rates#ivwalls">Rates</a> page’s IV Walls tab.':
+    '在<a href="/rates#ivwalls">费率</a>页的 IV 墙标签中画成墙。',
+  "1σ move": "1σ 波幅",
+  "The day's expected move from the options: one standard deviation either side.":
+    "由期权推算的当日预期波幅：上下各一个标准差。",
+  'The IV walls on the <a href="/rates#ivwalls">Rates</a> page, and the IV move on <a href="/whales">Whales</a>.':
+    '见<a href="/rates#ivwalls">费率</a>页的 IV 墙，以及<a href="/whales">巨鲸挂单</a>页的 IV 波幅。',
+  "The strike where option buyers lose the most at expiry.": "到期时期权买方损失最大的行权价。",
+  'Marked on the <a href="/rates#levels">Rates</a> page’s Ceiling &amp; Floor tab.':
+    '标注在<a href="/rates#levels">费率</a>页的天花板与地板标签上。',
+  "Reaction zone": "反应区",
+  "Where an IV wall and a gamma wall line up.": "IV 墙与 Gamma 墙重合之处。",
+  'In full on the <a href="/rates#ivwalls">IV Walls</a> and <a href="/rates#levels">Ceiling &amp; Floor</a> tabs, folded on the other option tabs.':
+    '在 <a href="/rates#ivwalls">IV 墙</a>和<a href="/rates#levels">天花板与地板</a>标签中完整显示，其他期权标签中折叠为一行。',
+  "Funding and perps": "资金费率与永续合约",
+  "Funding rate": "资金费率",
+  "What longs pay shorts, or shorts pay longs, to keep a perp near spot.":
+    "多头付给空头（或空头付给多头）的费用，让永续合约价格贴近现货。",
+  'Every exchange side by side on the <a href="/rates">Rates</a> page.':
+    '见<a href="/rates">费率</a>页，各交易所并排。',
+  "annual percentage rate": "年化利率",
+  "A funding rate scaled to a year, so different settlement intervals compare.":
+    "换算成一年的资金费率，让不同结算周期可以比较。",
+  'The unit the <a href="/screener">Screener</a> shows by default.':
+    '<a href="/screener">筛选器</a>默认使用的单位。',
+  "Settlement interval": "结算周期",
+  "How often funding is paid: every 1, 4 or 8 hours.": "资金费率多久结算一次：每 1、4 或 8 小时。",
+  'In each leg of a <a href="/screener">Screener</a> row.':
+    '见<a href="/screener">筛选器</a>每行的各条腿。',
+  "Funding spread / carry": "资金费率价差 / 套利",
+  "Long where funding is cheap, short where it is rich, and collect the gap.":
+    "在资金费率低的地方做多，高的地方做空，赚取差额。",
+  'The pairs the <a href="/">home page</a> and the <a href="/screener">Screener</a> rank.':
+    '<a href="/">首页</a>和<a href="/screener">筛选器</a>排名的配对。',
+  "Contracts still open: money in the market, not traded volume.":
+    "仍未平仓的合约：留在市场里的资金，而不是成交量。",
+  'In each leg of a <a href="/screener">Screener</a> row, and per asset on the <a href="/chart">Chart</a> page.':
+    '见<a href="/screener">筛选器</a>每行的各条腿，以及<a href="/chart">图表</a>页的各资产。',
+  "A perp or future's price minus spot.": "永续或期货价格减去现货价格。",
+  "Mark / index price": "标记价格 / 指数价格",
+  "Mark is the price used for liquidations; index is the spot average it tracks.":
+    "标记价格用于计算爆仓；指数价格是它所跟踪的现货均价。",
+  'Each pair’s page, opened from a row on <a href="/arbitrage">Arbitrage</a>, charts the mark prices hourly.':
+    '从<a href="/arbitrage">套利</a>页的一行打开的配对页面，按小时绘出标记价格。',
+  "Taker / maker": "吃单 / 挂单",
+  "A taker crosses the spread and pays the higher fee; a maker rests an order and waits.":
+    "吃单方跨过买卖价差成交，付较高手续费；挂单方挂出订单等待成交。",
+  'The <a href="/markets">Exchanges</a> page prices a $10k market order with each exchange’s taker fee.':
+    '<a href="/markets">交易所</a>页按各交易所的吃单手续费，计算一笔 1 万美元市价单的成本。',
+  "Liquidations and whales": "爆仓与巨鲸",
+  Liquidation: "爆仓",
+  "A position the exchange closes because its margin ran out.":
+    "保证金耗尽、被交易所强制平掉的仓位。",
+  'Every exchange’s, live, on the <a href="/liquidations">Liquidations</a> page.':
+    '见<a href="/liquidations">爆仓</a>页，各交易所实时数据。',
+  "Whale order": "巨鲸挂单",
+  "A resting order big enough to show on the depth chart.": "大到能在深度图上显现的挂单。",
+  'Binance walls and Hyperliquid whale orders on the <a href="/whales">Whales</a> page.':
+    '见<a href="/whales">巨鲸挂单</a>页：Binance 的挂单墙与 Hyperliquid 的巨鲸订单。',
+  "The site's terms in one line each: order flow, the volume profile, options and gamma, funding and perps, liquidations and whales.":
+    "本站术语，每个一句话：订单流、成交量分布、期权与 Gamma、资金费率与永续合约、爆仓与巨鲸。",
+  "The words the site uses, each in one line: order flow, the volume profile, options and gamma, funding, liquidations. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
+    "本站用到的术语，每个一句话：订单流、成交量分布、期权与 Gamma、资金费率、爆仓。每个术语都有可分享的链接：/glossary#cvd 会打开本页并定位到 CVD。",
 };

@@ -135,10 +135,6 @@ export const site: Catalog = {
   // web/glossary.ts (and its entry in the footer menu and the shortcut map)
   terminology: "термины",
   Terminology: "Термины",
-  "Order-flow and volume-profile terms in one line each: delta, CVD, imbalance, absorption, VPOC, value area, LVN and single prints.":
-    "Термины потока ордеров и профиля объёма, по строке на каждый: дельта, CVD, дисбаланс, поглощение, VPOC, зона стоимости, LVN и одиночные принты.",
-  "The words traders use to read order flow and the volume profile, each in one line. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
-    "Слова, которыми трейдеры читают поток ордеров и профиль объёма, по строке на каждое. У каждого термина своя ссылка: /glossary#cvd открывает эту страницу на CVD.",
   "Order flow": "Поток ордеров",
   "Aggressive buying minus aggressive selling.": "Агрессивные покупки минус агрессивные продажи.",
   "cumulative volume delta": "кумулятивная дельта объёма",
@@ -161,4 +157,113 @@ export const site: Catalog = {
   "A thin price the market moved through fast.": "Тонкая цена, которую рынок прошёл быстро.",
   "Single prints": "Одиночные принты",
   "A zone only one 30-minute period traded.": "Зона, где торговал только один 30-минутный период.",
+  // web/glossary.ts: the terms added 2026-11-10 beside the owner's first eight
+  "Delta (order flow)": "Дельта (поток ордеров)",
+  Initiative: "Инициатива",
+  "Aggression that moves price; the opposite of absorption.":
+    "Агрессия, которая двигает цену; противоположность поглощения.",
+  "Taker flow": "Поток тейкеров",
+  "The trades CVD is added up from, buys against sells.":
+    "Сделки, из которых складывается CVD: агрессивные покупки против продаж.",
+  "Options and gamma": "Опционы и гамма",
+  "gamma exposure": "гамма-экспозиция",
+  "How much dealers must buy or sell for each 1% move.":
+    "Сколько дилерам нужно купить или продать на каждый 1% движения.",
+  'Shown on the <a href="/rates#gamma">Rates</a> page’s Gamma Exposure tab, and told as it moves by the market narrator at the top of every page.':
+    'На вкладке «Гамма-экспозиция» страницы <a href="/rates#gamma">Ставки</a>; комментатор рынка вверху каждой страницы рассказывает, как она меняется.',
+  "The price where dealers' net gamma changes sign.":
+    "Цена, на которой чистая гамма дилеров меняет знак.",
+  'Marked on the <a href="/rates#gamma">Gamma Exposure</a> tab, and the line the market narrator reads every price against.':
+    'Отмечен на вкладке <a href="/rates#gamma">Гамма-экспозиция</a>; с этой линией комментатор рынка сравнивает каждую цену.',
+  "Long / short gamma": "Длинная / короткая гамма",
+  "Long: dealers' hedging sells rises and buys dips, damping moves. Short: it chases price, adding to moves.":
+    "Длинная: хеджируясь, дилеры продают на росте и покупают на падении и гасят движения. Короткая: хеджирование гонится за ценой и усиливает движения.",
+  'Shaded in the zones view of the <a href="/rates#gamma">Gamma Exposure</a> tab.':
+    'Закрашена в режиме зон на вкладке <a href="/rates#gamma">Гамма-экспозиция</a>.',
+  "The strike holding the most call or put gamma; it tends to cap or floor price.":
+    "Страйк с наибольшей гаммой коллов или путов; цена часто упирается в него сверху или снизу.",
+  'Shown on the <a href="/rates#gamma">Gamma Exposure</a> tab and in every market narrator line.':
+    'На вкладке <a href="/rates#gamma">Гамма-экспозиция</a> и в каждой строке комментатора рынка.',
+  "Delta (options)": "Дельта (опционы)",
+  "How much an option's price moves per point of the underlying.":
+    "На сколько меняется цена опциона при движении базового актива на один пункт.",
+  'By strike on the <a href="/rates#delta">Rates</a> page’s Delta tab.':
+    'По страйкам на вкладке «Дельта» страницы <a href="/rates#delta">Ставки</a>.',
+  "How much an option's price moves per point of implied volatility.":
+    "На сколько меняется цена опциона при изменении подразумеваемой волатильности на один пункт.",
+  'By strike on the <a href="/rates#vega">Rates</a> page’s Vega tab.':
+    'По страйкам на вкладке «Вега» страницы <a href="/rates#vega">Ставки</a>.',
+  "What an option loses in value each day as expiry nears.":
+    "Сколько опцион теряет в цене каждый день по мере приближения экспирации.",
+  'By strike on the <a href="/rates#theta">Rates</a> page’s Theta tab.':
+    'По страйкам на вкладке «Тета» страницы <a href="/rates#theta">Ставки</a>.',
+  "implied volatility": "подразумеваемая волатильность",
+  "The size of move the option prices expect, per year.":
+    "Размер движения, который закладывают цены опционов, в годовом выражении.",
+  'Drawn as walls on the <a href="/rates#ivwalls">Rates</a> page’s IV Walls tab.':
+    'Нарисована стенами на вкладке «IV-стены» страницы <a href="/rates#ivwalls">Ставки</a>.',
+  "1σ move": "Движение 1σ",
+  "The day's expected move from the options: one standard deviation either side.":
+    "Ожидаемое движение за день по опционам: одно стандартное отклонение в каждую сторону.",
+  'The IV walls on the <a href="/rates#ivwalls">Rates</a> page, and the IV move on <a href="/whales">Whales</a>.':
+    'IV-стены на странице <a href="/rates#ivwalls">Ставки</a> и IV-движение на странице <a href="/whales">Киты</a>.',
+  "The strike where option buyers lose the most at expiry.":
+    "Страйк, на котором покупатели опционов теряют больше всего при экспирации.",
+  'Marked on the <a href="/rates#levels">Rates</a> page’s Ceiling &amp; Floor tab.':
+    'Отмечен на вкладке «Потолок и пол» страницы <a href="/rates#levels">Ставки</a>.',
+  "Reaction zone": "Зона реакции",
+  "Where an IV wall and a gamma wall line up.": "Место, где IV-стена и гамма-стена совпадают.",
+  'In full on the <a href="/rates#ivwalls">IV Walls</a> and <a href="/rates#levels">Ceiling &amp; Floor</a> tabs, folded on the other option tabs.':
+    'Полностью на вкладках <a href="/rates#ivwalls">IV-стены</a> и <a href="/rates#levels">Потолок и пол</a>, свёрнута на остальных опционных вкладках.',
+  "Funding and perps": "Фандинг и перпетуалы",
+  "Funding rate": "Ставка финансирования",
+  "What longs pay shorts, or shorts pay longs, to keep a perp near spot.":
+    "Что лонги платят шортам или шорты лонгам, чтобы перпетуал держался у спота.",
+  'Every exchange side by side on the <a href="/rates">Rates</a> page.':
+    'Все биржи рядом на странице <a href="/rates">Ставки</a>.',
+  "annual percentage rate": "годовая процентная ставка",
+  "A funding rate scaled to a year, so different settlement intervals compare.":
+    "Ставка финансирования в пересчёте на год, чтобы сравнивать разные интервалы расчёта.",
+  'The unit the <a href="/screener">Screener</a> shows by default.':
+    'Единица, которую <a href="/screener">Скринер</a> показывает по умолчанию.',
+  "Settlement interval": "Интервал расчёта",
+  "How often funding is paid: every 1, 4 or 8 hours.":
+    "Как часто платится фандинг: каждые 1, 4 или 8 часов.",
+  'In each leg of a <a href="/screener">Screener</a> row.':
+    'В каждой ноге строки <a href="/screener">Скринера</a>.',
+  "Funding spread / carry": "Спред фандинга / кэрри",
+  "Long where funding is cheap, short where it is rich, and collect the gap.":
+    "Лонг там, где фандинг дешёвый, шорт там, где дорогой, и забрать разницу.",
+  'The pairs the <a href="/">home page</a> and the <a href="/screener">Screener</a> rank.':
+    'Пары, которые ранжируют <a href="/">главная страница</a> и <a href="/screener">Скринер</a>.',
+  "Contracts still open: money in the market, not traded volume.":
+    "Ещё не закрытые контракты: деньги в рынке, а не объём торгов.",
+  'In each leg of a <a href="/screener">Screener</a> row, and per asset on the <a href="/chart">Chart</a> page.':
+    'В каждой ноге строки <a href="/screener">Скринера</a> и по каждому активу на странице <a href="/chart">График</a>.',
+  "A perp or future's price minus spot.": "Цена перпетуала или фьючерса минус спот.",
+  "Mark / index price": "Цена маркировки / индексная цена",
+  "Mark is the price used for liquidations; index is the spot average it tracks.":
+    "Цена маркировки используется для ликвидаций; индексная — среднее по споту, за которым она следует.",
+  'Each pair’s page, opened from a row on <a href="/arbitrage">Arbitrage</a>, charts the mark prices hourly.':
+    'Страница каждой пары, открытая из строки на странице <a href="/arbitrage">Арбитраж</a>, показывает цены маркировки по часам.',
+  "Taker / maker": "Тейкер / мейкер",
+  "A taker crosses the spread and pays the higher fee; a maker rests an order and waits.":
+    "Тейкер пересекает спред и платит более высокую комиссию; мейкер выставляет заявку и ждёт.",
+  'The <a href="/markets">Exchanges</a> page prices a $10k market order with each exchange’s taker fee.':
+    'Страница <a href="/markets">Биржи</a> считает рыночную заявку на $10k по тейкер-комиссии каждой биржи.',
+  "Liquidations and whales": "Ликвидации и киты",
+  Liquidation: "Ликвидация",
+  "A position the exchange closes because its margin ran out.":
+    "Позиция, которую биржа закрывает, потому что кончилась маржа.",
+  'Every exchange’s, live, on the <a href="/liquidations">Liquidations</a> page.':
+    'Ликвидации всех бирж в реальном времени на странице <a href="/liquidations">Ликвидации</a>.',
+  "Whale order": "Заявка кита",
+  "A resting order big enough to show on the depth chart.":
+    "Лимитная заявка, настолько крупная, что видна на графике глубины.",
+  'Binance walls and Hyperliquid whale orders on the <a href="/whales">Whales</a> page.':
+    'Стены Binance и заявки китов Hyperliquid на странице <a href="/whales">Киты</a>.',
+  "The site's terms in one line each: order flow, the volume profile, options and gamma, funding and perps, liquidations and whales.":
+    "Термины сайта, по одной строке: поток ордеров, профиль объёма, опционы и гамма, фандинг и перпетуалы, ликвидации и киты.",
+  "The words the site uses, each in one line: order flow, the volume profile, options and gamma, funding, liquidations. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
+    "Слова, которыми пользуется сайт, по одной строке: поток ордеров, профиль объёма, опционы и гамма, фандинг, ликвидации. У каждого термина своя ссылка: /glossary#cvd открывает эту страницу на CVD.",
 };

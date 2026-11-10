@@ -8,6 +8,11 @@ import { layout } from "./layout";
  * in the one line the owner wrote for it. Each term has its own id, so a page or a chat can link
  * straight to one (/glossary#cvd) and the term lights up when it is the target.
  *
+ * The same day the owner added the words the rest of the site leans on (lines drafted and approved in
+ * chat): options and gamma, which the market narrator in the masthead uses in every line, funding and
+ * perps, and liquidations and whales. Delta is two terms, the order-flow one and the option greek the
+ * Rates page has a tab for, so each says which it is.
+ *
  * Where the site shows a term, a line under it says where. Only those: VPOC, value area, LVN and
  * single prints are not drawn on any public page yet, and a link to where they are not would mislead.
  */
@@ -30,7 +35,7 @@ function groups(): { id: string; title: string; terms: Term[] }[] {
       terms: [
         {
           id: "delta",
-          name: tr("Delta"),
+          name: tr("Delta (order flow)"),
           long: "",
           text: tr("Aggressive buying minus aggressive selling."),
           see: "",
@@ -58,6 +63,24 @@ function groups(): { id: string; title: string; terms: Term[] }[] {
           text: tr("Heavy aggression, no progress."),
           see: tr(
             'Read on the <a href="/liquidations#odds">Liquidations</a> page’s Odds tab, as initiative vs absorption.',
+          ),
+        },
+        {
+          id: "initiative",
+          name: tr("Initiative"),
+          long: "",
+          text: tr("Aggression that moves price; the opposite of absorption."),
+          see: tr(
+            'Read on the <a href="/liquidations#odds">Liquidations</a> page’s Odds tab, as initiative vs absorption.',
+          ),
+        },
+        {
+          id: "taker-flow",
+          name: tr("Taker flow"),
+          long: "",
+          text: tr("The trades CVD is added up from, buys against sells."),
+          see: tr(
+            'Shown on the <a href="/chart">Chart</a> page, spot and futures apart, summed across exchanges.',
           ),
         },
       ],
@@ -96,6 +119,199 @@ function groups(): { id: string; title: string; terms: Term[] }[] {
         },
       ],
     },
+    {
+      id: "options",
+      title: tr("Options and gamma"),
+      terms: [
+        {
+          id: "gex",
+          name: "GEX",
+          long: tr("gamma exposure"),
+          text: tr("How much dealers must buy or sell for each 1% move."),
+          see: tr(
+            'Shown on the <a href="/rates#gamma">Rates</a> page’s Gamma Exposure tab, and told as it moves by the market narrator at the top of every page.',
+          ),
+        },
+        {
+          id: "gamma-flip",
+          name: tr("Gamma flip"),
+          long: "",
+          text: tr("The price where dealers' net gamma changes sign."),
+          see: tr(
+            'Marked on the <a href="/rates#gamma">Gamma Exposure</a> tab, and the line the market narrator reads every price against.',
+          ),
+        },
+        {
+          id: "long-short-gamma",
+          name: tr("Long / short gamma"),
+          long: "",
+          text: tr(
+            "Long: dealers' hedging sells rises and buys dips, damping moves. Short: it chases price, adding to moves.",
+          ),
+          see: tr('Shaded in the zones view of the <a href="/rates#gamma">Gamma Exposure</a> tab.'),
+        },
+        {
+          id: "walls",
+          name: tr("Call wall / put wall"),
+          long: "",
+          text: tr(
+            "The strike holding the most call or put gamma; it tends to cap or floor price.",
+          ),
+          see: tr(
+            'Shown on the <a href="/rates#gamma">Gamma Exposure</a> tab and in every market narrator line.',
+          ),
+        },
+        {
+          id: "option-delta",
+          name: tr("Delta (options)"),
+          long: "",
+          text: tr("How much an option's price moves per point of the underlying."),
+          see: tr('By strike on the <a href="/rates#delta">Rates</a> page’s Delta tab.'),
+        },
+        {
+          id: "vega",
+          name: tr("Vega"),
+          long: "",
+          text: tr("How much an option's price moves per point of implied volatility."),
+          see: tr('By strike on the <a href="/rates#vega">Rates</a> page’s Vega tab.'),
+        },
+        {
+          id: "theta",
+          name: tr("Theta"),
+          long: "",
+          text: tr("What an option loses in value each day as expiry nears."),
+          see: tr('By strike on the <a href="/rates#theta">Rates</a> page’s Theta tab.'),
+        },
+        {
+          id: "iv",
+          name: "IV",
+          long: tr("implied volatility"),
+          text: tr("The size of move the option prices expect, per year."),
+          see: tr('Drawn as walls on the <a href="/rates#ivwalls">Rates</a> page’s IV Walls tab.'),
+        },
+        {
+          id: "one-sigma",
+          name: tr("1σ move"),
+          long: "",
+          text: tr("The day's expected move from the options: one standard deviation either side."),
+          see: tr(
+            'The IV walls on the <a href="/rates#ivwalls">Rates</a> page, and the IV move on <a href="/whales">Whales</a>.',
+          ),
+        },
+        {
+          id: "max-pain",
+          name: tr("Max pain"),
+          long: "",
+          text: tr("The strike where option buyers lose the most at expiry."),
+          see: tr(
+            'Marked on the <a href="/rates#levels">Rates</a> page’s Ceiling &amp; Floor tab.',
+          ),
+        },
+        {
+          id: "reaction-zone",
+          name: tr("Reaction zone"),
+          long: "",
+          text: tr("Where an IV wall and a gamma wall line up."),
+          see: tr(
+            'In full on the <a href="/rates#ivwalls">IV Walls</a> and <a href="/rates#levels">Ceiling &amp; Floor</a> tabs, folded on the other option tabs.',
+          ),
+        },
+      ],
+    },
+    {
+      id: "funding",
+      title: tr("Funding and perps"),
+      terms: [
+        {
+          id: "funding-rate",
+          name: tr("Funding rate"),
+          long: "",
+          text: tr("What longs pay shorts, or shorts pay longs, to keep a perp near spot."),
+          see: tr('Every exchange side by side on the <a href="/rates">Rates</a> page.'),
+        },
+        {
+          id: "apr",
+          name: "APR",
+          long: tr("annual percentage rate"),
+          text: tr("A funding rate scaled to a year, so different settlement intervals compare."),
+          see: tr('The unit the <a href="/screener">Screener</a> shows by default.'),
+        },
+        {
+          id: "settlement-interval",
+          name: tr("Settlement interval"),
+          long: "",
+          text: tr("How often funding is paid: every 1, 4 or 8 hours."),
+          see: tr('In each leg of a <a href="/screener">Screener</a> row.'),
+        },
+        {
+          id: "funding-spread",
+          name: tr("Funding spread / carry"),
+          long: "",
+          text: tr("Long where funding is cheap, short where it is rich, and collect the gap."),
+          see: tr(
+            'The pairs the <a href="/">home page</a> and the <a href="/screener">Screener</a> rank.',
+          ),
+        },
+        {
+          id: "oi",
+          name: "OI",
+          long: tr("open interest"),
+          text: tr("Contracts still open: money in the market, not traded volume."),
+          see: tr(
+            'In each leg of a <a href="/screener">Screener</a> row, and per asset on the <a href="/chart">Chart</a> page.',
+          ),
+        },
+        {
+          id: "basis",
+          name: tr("Basis"),
+          long: "",
+          text: tr("A perp or future's price minus spot."),
+          see: "",
+        },
+        {
+          id: "mark-index",
+          name: tr("Mark / index price"),
+          long: "",
+          text: tr("Mark is the price used for liquidations; index is the spot average it tracks."),
+          see: tr(
+            'Each pair’s page, opened from a row on <a href="/arbitrage">Arbitrage</a>, charts the mark prices hourly.',
+          ),
+        },
+        {
+          id: "taker-maker",
+          name: tr("Taker / maker"),
+          long: "",
+          text: tr(
+            "A taker crosses the spread and pays the higher fee; a maker rests an order and waits.",
+          ),
+          see: tr(
+            'The <a href="/markets">Exchanges</a> page prices a $10k market order with each exchange’s taker fee.',
+          ),
+        },
+      ],
+    },
+    {
+      id: "liquidations",
+      title: tr("Liquidations and whales"),
+      terms: [
+        {
+          id: "liquidation",
+          name: tr("Liquidation"),
+          long: "",
+          text: tr("A position the exchange closes because its margin ran out."),
+          see: tr('Every exchange’s, live, on the <a href="/liquidations">Liquidations</a> page.'),
+        },
+        {
+          id: "whale-order",
+          name: tr("Whale order"),
+          long: "",
+          text: tr("A resting order big enough to show on the depth chart."),
+          see: tr(
+            'Binance walls and Hyperliquid whale orders on the <a href="/whales">Whales</a> page.',
+          ),
+        },
+      ],
+    },
   ];
 }
 
@@ -131,13 +347,13 @@ export function glossary(data: { overview: Overview; now: number }): string {
   return layout({
     title: tr("Terminology"),
     description: tr(
-      "Order-flow and volume-profile terms in one line each: delta, CVD, imbalance, absorption, VPOC, value area, LVN and single prints.",
+      "The site's terms in one line each: order flow, the volume profile, options and gamma, funding and perps, liquidations and whales.",
     ),
     path: "/glossary",
     overview: data.overview,
     now: data.now,
     body: `<style>${CSS}</style>
-${helpHeading("h1", tr("Terminology"), "glossary", `<p>${tr("The words traders use to read order flow and the volume profile, each in one line. Every term has its own link to share: /glossary#cvd opens this page at CVD.")}</p>`)}
+${helpHeading("h1", tr("Terminology"), "glossary", `<p>${tr("The words the site uses, each in one line: order flow, the volume profile, options and gamma, funding, liquidations. Every term has its own link to share: /glossary#cvd opens this page at CVD.")}</p>`)}
 <div class="gl">${body}</div>`,
   });
 }

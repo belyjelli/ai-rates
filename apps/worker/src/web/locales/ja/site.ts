@@ -130,10 +130,6 @@ export const site: Catalog = {
   // web/glossary.ts (and its entry in the footer menu and the shortcut map)
   terminology: "用語集",
   Terminology: "用語集",
-  "Order-flow and volume-profile terms in one line each: delta, CVD, imbalance, absorption, VPOC, value area, LVN and single prints.":
-    "オーダーフローとボリュームプロファイルの用語を1行ずつ：デルタ、CVD、インバランス、吸収、VPOC、バリューエリア、LVN、シングルプリント。",
-  "The words traders use to read order flow and the volume profile, each in one line. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
-    "トレーダーがオーダーフローとボリュームプロファイルを読むときの用語を、1行ずつ説明します。用語ごとに共有できるリンクがあり、/glossary#cvd でこのページの CVD が開きます。",
   "Order flow": "オーダーフロー",
   "Aggressive buying minus aggressive selling.": "成行買いから成行売りを引いたものです。",
   "cumulative volume delta": "累積出来高デルタ",
@@ -156,4 +152,113 @@ export const site: Catalog = {
   "A thin price the market moved through fast.": "出来高が薄く、相場が素早く通過した価格です。",
   "Single prints": "シングルプリント",
   "A zone only one 30-minute period traded.": "1つの30分間だけで取引された価格帯です。",
+  // web/glossary.ts: the terms added 2026-11-10 beside the owner's first eight
+  "Delta (order flow)": "デルタ（オーダーフロー）",
+  Initiative: "仕掛け",
+  "Aggression that moves price; the opposite of absorption.":
+    "価格を動かす成行注文のことです。吸収の反対です。",
+  "Taker flow": "テイカーフロー",
+  "The trades CVD is added up from, buys against sells.":
+    "CVD の元になる約定です。成行買いと成行売りを比べます。",
+  "Options and gamma": "オプションとガンマ",
+  "gamma exposure": "ガンマエクスポージャー",
+  "How much dealers must buy or sell for each 1% move.":
+    "価格が 1% 動くごとに、ディーラーがどれだけ売買しなければならないかです。",
+  'Shown on the <a href="/rates#gamma">Rates</a> page’s Gamma Exposure tab, and told as it moves by the market narrator at the top of every page.':
+    '<a href="/rates#gamma">レート</a>ページのガンマエクスポージャータブにあり、ページ上部のマーケット実況が動きに合わせて伝えます。',
+  "The price where dealers' net gamma changes sign.":
+    "ディーラーのネットガンマの符号が変わる価格です。",
+  'Marked on the <a href="/rates#gamma">Gamma Exposure</a> tab, and the line the market narrator reads every price against.':
+    '<a href="/rates#gamma">ガンマエクスポージャー</a>タブに印があり、マーケット実況はすべての価格をこの線と比べます。',
+  "Long / short gamma": "ロング / ショートガンマ",
+  "Long: dealers' hedging sells rises and buys dips, damping moves. Short: it chases price, adding to moves.":
+    "ロング：ディーラーのヘッジは上昇で売り下落で買い、値動きを抑えます。ショート：ヘッジが価格を追い、値動きを増幅します。",
+  'Shaded in the zones view of the <a href="/rates#gamma">Gamma Exposure</a> tab.':
+    '<a href="/rates#gamma">ガンマエクスポージャー</a>タブのゾーン表示で色分けされます。',
+  "The strike holding the most call or put gamma; it tends to cap or floor price.":
+    "コールまたはプットのガンマが最も集中する行使価格です。価格の天井や底になりやすい水準です。",
+  'Shown on the <a href="/rates#gamma">Gamma Exposure</a> tab and in every market narrator line.':
+    '<a href="/rates#gamma">ガンマエクスポージャー</a>タブと、マーケット実況のすべての行にあります。',
+  "Delta (options)": "デルタ（オプション）",
+  "How much an option's price moves per point of the underlying.":
+    "原資産が 1 ポイント動いたときに、オプション価格が動く量です。",
+  'By strike on the <a href="/rates#delta">Rates</a> page’s Delta tab.':
+    '行使価格ごとに<a href="/rates#delta">レート</a>ページのデルタタブにあります。',
+  "How much an option's price moves per point of implied volatility.":
+    "インプライド・ボラティリティが 1 ポイント動いたときに、オプション価格が動く量です。",
+  'By strike on the <a href="/rates#vega">Rates</a> page’s Vega tab.':
+    '行使価格ごとに<a href="/rates#vega">レート</a>ページのベガタブにあります。',
+  "What an option loses in value each day as expiry nears.":
+    "満期が近づくにつれて、オプションが毎日失う価値です。",
+  'By strike on the <a href="/rates#theta">Rates</a> page’s Theta tab.':
+    '行使価格ごとに<a href="/rates#theta">レート</a>ページのセータタブにあります。',
+  "implied volatility": "インプライド・ボラティリティ",
+  "The size of move the option prices expect, per year.":
+    "オプション価格が織り込んでいる値動きの大きさで、年率で表します。",
+  'Drawn as walls on the <a href="/rates#ivwalls">Rates</a> page’s IV Walls tab.':
+    '<a href="/rates#ivwalls">レート</a>ページの IV ウォールタブでウォールとして描かれます。',
+  "1σ move": "1σ の値幅",
+  "The day's expected move from the options: one standard deviation either side.":
+    "オプションから求めたその日の予想値幅で、上下に 1 標準偏差ずつです。",
+  'The IV walls on the <a href="/rates#ivwalls">Rates</a> page, and the IV move on <a href="/whales">Whales</a>.':
+    '<a href="/rates#ivwalls">レート</a>ページの IV ウォールと、<a href="/whales">クジラ注文</a>ページの IV 変動幅です。',
+  "The strike where option buyers lose the most at expiry.":
+    "満期時にオプションの買い手の損失が最も大きくなる行使価格です。",
+  'Marked on the <a href="/rates#levels">Rates</a> page’s Ceiling &amp; Floor tab.':
+    '<a href="/rates#levels">レート</a>ページの天井と底タブに印があります。',
+  "Reaction zone": "反応ゾーン",
+  "Where an IV wall and a gamma wall line up.": "IV ウォールとガンマのウォールが重なる場所です。",
+  'In full on the <a href="/rates#ivwalls">IV Walls</a> and <a href="/rates#levels">Ceiling &amp; Floor</a> tabs, folded on the other option tabs.':
+    '<a href="/rates#ivwalls">IV ウォール</a>と<a href="/rates#levels">天井と底</a>のタブに全体が、ほかのオプションタブには折りたたんで表示されます。',
+  "Funding and perps": "資金調達率と無期限先物",
+  "Funding rate": "資金調達率",
+  "What longs pay shorts, or shorts pay longs, to keep a perp near spot.":
+    "無期限先物の価格を現物に近づけるため、ロングがショートに（またはショートがロングに）払う料金です。",
+  'Every exchange side by side on the <a href="/rates">Rates</a> page.':
+    '<a href="/rates">レート</a>ページに全取引所が並びます。',
+  "annual percentage rate": "年率",
+  "A funding rate scaled to a year, so different settlement intervals compare.":
+    "資金調達率を 1 年分に換算したもので、決済間隔の違う市場を比べられます。",
+  'The unit the <a href="/screener">Screener</a> shows by default.':
+    '<a href="/screener">スクリーナー</a>の既定の単位です。',
+  "Settlement interval": "決済間隔",
+  "How often funding is paid: every 1, 4 or 8 hours.":
+    "資金調達率が支払われる頻度で、1、4、8 時間ごとです。",
+  'In each leg of a <a href="/screener">Screener</a> row.':
+    '<a href="/screener">スクリーナー</a>の各行の各レッグにあります。',
+  "Funding spread / carry": "資金調達率スプレッド / キャリー",
+  "Long where funding is cheap, short where it is rich, and collect the gap.":
+    "資金調達率の安い市場でロング、高い市場でショートし、その差を受け取ることです。",
+  'The pairs the <a href="/">home page</a> and the <a href="/screener">Screener</a> rank.':
+    '<a href="/">ホーム</a>ページと<a href="/screener">スクリーナー</a>が順位をつけるペアです。',
+  "Contracts still open: money in the market, not traded volume.":
+    "まだ決済されていない契約で、出来高ではなく市場に残っている資金です。",
+  'In each leg of a <a href="/screener">Screener</a> row, and per asset on the <a href="/chart">Chart</a> page.':
+    '<a href="/screener">スクリーナー</a>の各行の各レッグと、<a href="/chart">チャート</a>ページの銘柄ごとにあります。',
+  "A perp or future's price minus spot.": "無期限先物や先物の価格から現物価格を引いたものです。",
+  "Mark / index price": "マーク価格 / インデックス価格",
+  "Mark is the price used for liquidations; index is the spot average it tracks.":
+    "マーク価格は清算に使う価格で、インデックス価格はそれが追う現物の平均価格です。",
+  'Each pair’s page, opened from a row on <a href="/arbitrage">Arbitrage</a>, charts the mark prices hourly.':
+    '<a href="/arbitrage">アービトラージ</a>の行から開く各ペアのページが、マーク価格を 1 時間ごとに描きます。',
+  "Taker / maker": "テイカー / メイカー",
+  "A taker crosses the spread and pays the higher fee; a maker rests an order and waits.":
+    "テイカーはスプレッドをまたいで約定し高い手数料を払い、メイカーは注文を置いて待ちます。",
+  'The <a href="/markets">Exchanges</a> page prices a $10k market order with each exchange’s taker fee.':
+    '<a href="/markets">取引所</a>ページが、各取引所のテイカー手数料で 1 万ドルの成行注文のコストを示します。',
+  "Liquidations and whales": "清算とクジラ",
+  Liquidation: "清算",
+  "A position the exchange closes because its margin ran out.":
+    "証拠金が尽きたため、取引所が強制的に決済するポジションです。",
+  'Every exchange’s, live, on the <a href="/liquidations">Liquidations</a> page.':
+    '<a href="/liquidations">清算</a>ページで、全取引所の清算をリアルタイムで見られます。',
+  "Whale order": "クジラ注文",
+  "A resting order big enough to show on the depth chart.":
+    "板の深さチャートに現れるほど大きな指値注文です。",
+  'Binance walls and Hyperliquid whale orders on the <a href="/whales">Whales</a> page.':
+    '<a href="/whales">クジラ注文</a>ページに、Binance のウォールと Hyperliquid のクジラ注文があります。',
+  "The site's terms in one line each: order flow, the volume profile, options and gamma, funding and perps, liquidations and whales.":
+    "このサイトの用語を 1 行ずつ：オーダーフロー、ボリュームプロファイル、オプションとガンマ、資金調達率と無期限先物、清算とクジラ。",
+  "The words the site uses, each in one line: order flow, the volume profile, options and gamma, funding, liquidations. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
+    "このサイトで使う用語を 1 行ずつ：オーダーフロー、ボリュームプロファイル、オプションとガンマ、資金調達率、清算。用語ごとに共有用のリンクがあり、/glossary#cvd でこのページの CVD が開きます。",
 };

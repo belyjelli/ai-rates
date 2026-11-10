@@ -129,10 +129,6 @@ export const site: Catalog = {
   // web/glossary.ts (and its entry in the footer menu and the shortcut map)
   terminology: "용어",
   Terminology: "용어",
-  "Order-flow and volume-profile terms in one line each: delta, CVD, imbalance, absorption, VPOC, value area, LVN and single prints.":
-    "오더 플로우와 볼륨 프로파일 용어를 한 줄씩: 델타, CVD, 임밸런스, 흡수, VPOC, 밸류 에어리어, LVN, 싱글 프린트.",
-  "The words traders use to read order flow and the volume profile, each in one line. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
-    "트레이더가 오더 플로우와 볼륨 프로파일을 읽을 때 쓰는 용어를 한 줄씩 설명합니다. 용어마다 공유할 수 있는 링크가 있습니다. /glossary#cvd는 이 페이지의 CVD를 엽니다.",
   "Order flow": "오더 플로우",
   "Aggressive buying minus aggressive selling.": "시장가 매수에서 시장가 매도를 뺀 값입니다.",
   "cumulative volume delta": "누적 거래량 델타",
@@ -155,4 +151,112 @@ export const site: Catalog = {
   "A thin price the market moved through fast.": "거래가 얇아 시장이 빠르게 지나간 가격입니다.",
   "Single prints": "싱글 프린트",
   "A zone only one 30-minute period traded.": "30분 구간 하나에서만 거래된 영역입니다.",
+  // web/glossary.ts: the terms added 2026-11-10 beside the owner's first eight
+  "Delta (order flow)": "델타 (오더 플로우)",
+  Initiative: "주도 매매",
+  "Aggression that moves price; the opposite of absorption.":
+    "가격을 움직이는 시장가 주문입니다. 흡수의 반대입니다.",
+  "Taker flow": "테이커 플로우",
+  "The trades CVD is added up from, buys against sells.":
+    "CVD를 누적하는 바탕이 되는 체결로, 시장가 매수와 시장가 매도를 맞세운 것입니다.",
+  "Options and gamma": "옵션과 감마",
+  "gamma exposure": "감마 익스포저",
+  "How much dealers must buy or sell for each 1% move.":
+    "가격이 1% 움직일 때마다 딜러가 사거나 팔아야 하는 양입니다.",
+  'Shown on the <a href="/rates#gamma">Rates</a> page’s Gamma Exposure tab, and told as it moves by the market narrator at the top of every page.':
+    '<a href="/rates#gamma">요율</a> 페이지의 감마 익스포저 탭에 있고, 페이지 위쪽의 마켓 내레이터가 움직일 때마다 전합니다.',
+  "The price where dealers' net gamma changes sign.": "딜러의 순감마 부호가 바뀌는 가격입니다.",
+  'Marked on the <a href="/rates#gamma">Gamma Exposure</a> tab, and the line the market narrator reads every price against.':
+    '<a href="/rates#gamma">감마 익스포저</a> 탭에 표시되며, 마켓 내레이터가 모든 가격을 이 선과 비교합니다.',
+  "Long / short gamma": "롱 / 숏 감마",
+  "Long: dealers' hedging sells rises and buys dips, damping moves. Short: it chases price, adding to moves.":
+    "롱: 딜러의 헤지가 상승 때 팔고 하락 때 사서 움직임을 줄입니다. 숏: 헤지가 가격을 쫓아 움직임을 키웁니다.",
+  'Shaded in the zones view of the <a href="/rates#gamma">Gamma Exposure</a> tab.':
+    '<a href="/rates#gamma">감마 익스포저</a> 탭의 구간 보기에서 음영으로 표시됩니다.',
+  "The strike holding the most call or put gamma; it tends to cap or floor price.":
+    "콜 또는 풋 감마가 가장 많이 몰린 행사가로, 가격의 천장이나 바닥이 되기 쉽습니다.",
+  'Shown on the <a href="/rates#gamma">Gamma Exposure</a> tab and in every market narrator line.':
+    '<a href="/rates#gamma">감마 익스포저</a> 탭과 마켓 내레이터의 모든 줄에 나옵니다.',
+  "Delta (options)": "델타 (옵션)",
+  "How much an option's price moves per point of the underlying.":
+    "기초자산이 1포인트 움직일 때 옵션 가격이 움직이는 양입니다.",
+  'By strike on the <a href="/rates#delta">Rates</a> page’s Delta tab.':
+    '행사가별로 <a href="/rates#delta">요율</a> 페이지의 델타 탭에 있습니다.',
+  "How much an option's price moves per point of implied volatility.":
+    "내재 변동성이 1포인트 움직일 때 옵션 가격이 움직이는 양입니다.",
+  'By strike on the <a href="/rates#vega">Rates</a> page’s Vega tab.':
+    '행사가별로 <a href="/rates#vega">요율</a> 페이지의 베가 탭에 있습니다.',
+  "What an option loses in value each day as expiry nears.":
+    "만기가 다가오면서 옵션이 매일 잃는 가치입니다.",
+  'By strike on the <a href="/rates#theta">Rates</a> page’s Theta tab.':
+    '행사가별로 <a href="/rates#theta">요율</a> 페이지의 세타 탭에 있습니다.',
+  "implied volatility": "내재 변동성",
+  "The size of move the option prices expect, per year.":
+    "옵션 가격이 예상하는 움직임의 크기로, 연 단위입니다.",
+  'Drawn as walls on the <a href="/rates#ivwalls">Rates</a> page’s IV Walls tab.':
+    '<a href="/rates#ivwalls">요율</a> 페이지의 IV 월 탭에 월로 그려집니다.',
+  "1σ move": "1σ 변동폭",
+  "The day's expected move from the options: one standard deviation either side.":
+    "옵션에서 구한 그날의 예상 변동폭으로, 위아래로 1 표준편차씩입니다.",
+  'The IV walls on the <a href="/rates#ivwalls">Rates</a> page, and the IV move on <a href="/whales">Whales</a>.':
+    '<a href="/rates#ivwalls">요율</a> 페이지의 IV 월과 <a href="/whales">고래 주문</a> 페이지의 IV 변동폭입니다.',
+  "The strike where option buyers lose the most at expiry.":
+    "만기에 옵션 매수자의 손실이 가장 커지는 행사가입니다.",
+  'Marked on the <a href="/rates#levels">Rates</a> page’s Ceiling &amp; Floor tab.':
+    '<a href="/rates#levels">요율</a> 페이지의 천장과 바닥 탭에 표시됩니다.',
+  "Reaction zone": "반응 구간",
+  "Where an IV wall and a gamma wall line up.": "IV 월과 감마 월이 겹치는 곳입니다.",
+  'In full on the <a href="/rates#ivwalls">IV Walls</a> and <a href="/rates#levels">Ceiling &amp; Floor</a> tabs, folded on the other option tabs.':
+    '<a href="/rates#ivwalls">IV 월</a>과 <a href="/rates#levels">천장과 바닥</a> 탭에 전체가, 다른 옵션 탭에는 접힌 채로 나옵니다.',
+  "Funding and perps": "펀딩비와 무기한 선물",
+  "Funding rate": "펀딩비",
+  "What longs pay shorts, or shorts pay longs, to keep a perp near spot.":
+    "무기한 선물 가격을 현물에 붙여 두려고 롱이 숏에게(또는 숏이 롱에게) 내는 비용입니다.",
+  'Every exchange side by side on the <a href="/rates">Rates</a> page.':
+    '<a href="/rates">요율</a> 페이지에 모든 거래소가 나란히 있습니다.',
+  "annual percentage rate": "연환산 이율",
+  "A funding rate scaled to a year, so different settlement intervals compare.":
+    "펀딩비를 1년 기준으로 환산한 값으로, 정산 주기가 다른 시장을 비교할 수 있습니다.",
+  'The unit the <a href="/screener">Screener</a> shows by default.':
+    '<a href="/screener">스크리너</a>의 기본 단위입니다.',
+  "Settlement interval": "정산 주기",
+  "How often funding is paid: every 1, 4 or 8 hours.":
+    "펀딩비가 지급되는 간격으로, 1, 4, 8시간마다입니다.",
+  'In each leg of a <a href="/screener">Screener</a> row.':
+    '<a href="/screener">스크리너</a> 각 행의 각 레그에 있습니다.',
+  "Funding spread / carry": "펀딩비 스프레드 / 캐리",
+  "Long where funding is cheap, short where it is rich, and collect the gap.":
+    "펀딩비가 싼 곳에서 롱, 비싼 곳에서 숏을 잡고 그 차이를 받는 것입니다.",
+  'The pairs the <a href="/">home page</a> and the <a href="/screener">Screener</a> rank.':
+    '<a href="/">홈</a> 페이지와 <a href="/screener">스크리너</a>가 순위를 매기는 페어입니다.',
+  "Contracts still open: money in the market, not traded volume.":
+    "아직 청산되지 않은 계약으로, 거래량이 아니라 시장에 남아 있는 돈입니다.",
+  'In each leg of a <a href="/screener">Screener</a> row, and per asset on the <a href="/chart">Chart</a> page.':
+    '<a href="/screener">스크리너</a> 각 행의 각 레그와 <a href="/chart">차트</a> 페이지의 자산별로 있습니다.',
+  "A perp or future's price minus spot.": "무기한 선물이나 선물 가격에서 현물 가격을 뺀 값입니다.",
+  "Mark / index price": "마크 / 인덱스 가격",
+  "Mark is the price used for liquidations; index is the spot average it tracks.":
+    "마크 가격은 청산에 쓰는 가격이고, 인덱스 가격은 그것이 따라가는 현물 평균입니다.",
+  'Each pair’s page, opened from a row on <a href="/arbitrage">Arbitrage</a>, charts the mark prices hourly.':
+    '<a href="/arbitrage">차익거래</a>의 행에서 여는 각 페어 페이지가 마크 가격을 시간별로 그립니다.',
+  "Taker / maker": "테이커 / 메이커",
+  "A taker crosses the spread and pays the higher fee; a maker rests an order and waits.":
+    "테이커는 스프레드를 건너 체결하며 더 높은 수수료를 내고, 메이커는 주문을 걸어 두고 기다립니다.",
+  'The <a href="/markets">Exchanges</a> page prices a $10k market order with each exchange’s taker fee.':
+    '<a href="/markets">거래소</a> 페이지가 각 거래소의 테이커 수수료로 1만 달러 시장가 주문의 비용을 매깁니다.',
+  "Liquidations and whales": "청산과 고래",
+  Liquidation: "청산",
+  "A position the exchange closes because its margin ran out.":
+    "증거금이 바닥나 거래소가 강제로 정리하는 포지션입니다.",
+  'Every exchange’s, live, on the <a href="/liquidations">Liquidations</a> page.':
+    '<a href="/liquidations">청산</a> 페이지에서 모든 거래소의 청산을 실시간으로 봅니다.',
+  "Whale order": "고래 주문",
+  "A resting order big enough to show on the depth chart.":
+    "호가 깊이 차트에 드러날 만큼 큰 지정가 주문입니다.",
+  'Binance walls and Hyperliquid whale orders on the <a href="/whales">Whales</a> page.':
+    '<a href="/whales">고래 주문</a> 페이지에 Binance 월과 Hyperliquid 고래 주문이 있습니다.',
+  "The site's terms in one line each: order flow, the volume profile, options and gamma, funding and perps, liquidations and whales.":
+    "이 사이트의 용어를 한 줄씩: 오더 플로우, 볼륨 프로파일, 옵션과 감마, 펀딩비와 무기한 선물, 청산과 고래.",
+  "The words the site uses, each in one line: order flow, the volume profile, options and gamma, funding, liquidations. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
+    "이 사이트에서 쓰는 용어를 한 줄씩: 오더 플로우, 볼륨 프로파일, 옵션과 감마, 펀딩비, 청산. 용어마다 공유용 링크가 있어 /glossary#cvd를 열면 이 페이지의 CVD로 갑니다.",
 };
