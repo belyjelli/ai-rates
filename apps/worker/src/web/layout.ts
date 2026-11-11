@@ -182,7 +182,7 @@ a{color:inherit;text-decoration:none;border-bottom:1px solid var(--rule)}
 a:hover{color:var(--accent);border-bottom-color:var(--accent)}
 :focus-visible{outline:1px solid var(--accent);outline-offset:1px}
 .wrap{max-width:1600px;margin:0 auto;padding:0 10px}
-.mast{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--rule)}
+.mast{position:sticky;top:0;z-index:7;background:var(--bg);border-bottom:1px solid var(--rule)}
 .bar{display:flex;align-items:center;gap:0 16px;height:22px;white-space:nowrap;overflow:hidden}
 .bar2{border-top:1px solid var(--rule)}
 .brand{font-weight:700;text-transform:uppercase;letter-spacing:.04em;border:0}
@@ -300,6 +300,12 @@ body:has(.heat-wrap,.sheet-wrap.stick) main.wrap>:not(.heat-wrap):not(.sheet-wra
    other children, it kept the page from widening: the grid overflowed it, the page scrolled sideways
    anyway, and the masthead and nav scrolled away with it, having no wider page to stick inside. */
 body:has(.heat-wrap,.sheet-wrap.stick) main.wrap>:has(>.heat-wrap,>.sheet-wrap)>:not(.heat-wrap):not(.sheet-wrap){position:sticky;left:10px;max-width:calc(var(--vw,100vw) - 20px);box-sizing:border-box}
+/* Each of those sticky blocks is a layer of its own, painted in page order, so a dropdown opened in one
+   (the asset picker in a tab's controls row) went under every block after it: the whale map's tiles and
+   chart covered its list (2026-11-11). The block holding an open dropdown goes on top of the page,
+   table headers included, and still under the masthead (z-index 7), which it scrolls beneath. */
+body:has(.heat-wrap,.sheet-wrap.stick) main.wrap>:not(.heat-wrap):not(.sheet-wrap):not(:has(>.heat-wrap,>.sheet-wrap)):has(details[open]),
+body:has(.heat-wrap,.sheet-wrap.stick) main.wrap>:has(>.heat-wrap,>.sheet-wrap)>:not(.heat-wrap):not(.sheet-wrap):has(details[open]){z-index:6}
 }
 @media (max-width:860px){
 .heat-wrap,.sheet-wrap.stick{overflow:auto;width:auto;min-width:0;max-height:calc(100vh - var(--mast) - var(--dock) - 8px);max-height:calc(100dvh - var(--mast) - var(--dock) - 8px);-webkit-overflow-scrolling:touch}
