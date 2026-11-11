@@ -550,8 +550,8 @@ export const macro: Catalog = {
   "bubble size: the typical daily move": "размер пузыря: обычное дневное движение",
   "Markets by return over {span} and the latest session":
     "Рынки по доходности за {span} и за последнюю сессию",
-  "over {span}": "за {span}",
-  "latest session": "последняя сессия",
+  "Return over {span}": "Доходность за {span}",
+  "Change in the latest session": "Изменение за последнюю сессию",
   "{market} over {span}: {list}": "{market} за {span}: {list}",
   "{n} markets · hover or tap a row to read it":
     "Рынков: {n} · наведите или нажмите на строку, чтобы прочитать",

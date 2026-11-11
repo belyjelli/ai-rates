@@ -119,6 +119,9 @@ describe("the World indexes tab's views", () => {
     expect(bubbles.sort()).toEqual(["am", "ap", "ap", "eu", "eu"]);
     expect(fiveDays).toContain(">United States</span>");
     expect(fiveDays).toContain(">Saudi Arabia</span>");
+    // Each axis says what it measures.
+    expect(fiveDays).toContain('<span class="ixm-yt">Return over the last 5 sessions</span>');
+    expect(fiveDays).toContain('<span class="ixm-xt">Change in the latest session</span>');
     expect(fiveDays).not.toContain("VIX ");
     expect(fiveDays).toContain("Markets with too little history for this window yet, left out: 1.");
     // The S&P 500 at 108 against 103 five sessions back: +4.9%; its latest session 108 against 107.
@@ -134,6 +137,7 @@ describe("the World indexes tab's views", () => {
       (m) => m[1],
     );
     expect(names).toEqual(["India", "United States", "Germany", "Saudi Arabia", "Japan"]);
+    expect(fiveDays).toContain('<span class="ixc-xt">Return over the last 5 sessions</span>');
     // India's Sensex rides as a dot beside the Nifty 50's bar; the US its Nasdaq-100; Japan TOPIX.
     const india = fiveDays.slice(fiveDays.indexOf(">India<"), fiveDays.indexOf(">United States<"));
     expect(india.match(/class="ixc-dot"/g)?.length).toBe(1);

@@ -232,7 +232,7 @@ function returnMap(entries: readonly ChartIndex[], w: IxWindow): string {
   });
   return `<figure class="fchart ixm">
 <div class="fchart-head"><p class="fchart-title">${tr("Return over {span} against the latest session, one index per market", { span: w.span() })}</p><div class="fchart-keys">${legend(`<span class="fchart-key dim">${tr("bubble size: the typical daily move")}</span>`)}</div><p class="fchart-read" aria-live="polite" data-idle="${idle}">${idle}</p></div>
-<div class="ixm-plot" role="group" aria-label="${tr("Markets by return over {span} and the latest session", { span: w.span() })}"><span class="ixm-yt">${tr("over {span}", { span: w.span() })}</span><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">${grid}</svg>${yLabels}${xLabels}${bubbles}<span class="ixm-xt">${tr("latest session")}</span></div>
+<div class="ixm-plot" role="group" aria-label="${tr("Markets by return over {span} and the latest session", { span: w.span() })}"><span class="ixm-yt">${tr("Return over {span}", { span: w.span() })}</span><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true">${grid}</svg>${yLabels}${xLabels}${bubbles}<span class="ixm-xt">${tr("Change in the latest session")}</span></div>
 ${missingNote(missing)}
 </figure>`;
 }
@@ -298,7 +298,7 @@ function countryChart(entries: readonly ChartIndex[], w: IxWindow): string {
   return `<figure class="fchart ixc">
 <div class="fchart-head"><p class="fchart-title">${tr("Each market's indexes by return over {span}: the bar is its first index in the table, a dot each of its others", { span: w.span() })}</p><div class="fchart-keys">${legend(`<span class="fchart-key"><i class="ixc-key-dot"></i>${tr("other indexes")}</span>`)}</div><p class="fchart-read" aria-live="polite" data-idle="${idle}">${idle}</p></div>
 <div class="ixc-rows"><div class="ixc-grid" aria-hidden="true">${grid}</div>${body}</div>
-<div class="ixc-axis" aria-hidden="true"><span class="ixc-axis-track">${ticks}</span></div>
+<div class="ixc-axis" aria-hidden="true"><span class="ixc-axis-track">${ticks}</span><span class="ixc-xt">${tr("Return over {span}", { span: w.span() })}</span></div>
 ${missingNote(missing)}
 </figure>`;
 }
@@ -341,15 +341,16 @@ html[data-ixview="table"] .ix-pane-map,html[data-ixview="table"] .ix-pane-countr
 html[data-ixwin="5d"] .ix-w-1m,html[data-ixwin="1m"] .ix-w-5d,html:not([data-ixwin]) .ix-w:not(.ix-w-def){display:none}
 .fchart-keys i.ix-key{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--ixc)}
 .ixm .fchart-read,.ixc .fchart-read{min-height:1.4em}
-.ixm-plot{position:relative;height:440px;margin:8px 6px 40px 52px}
+.ixm-plot{position:relative;height:440px;margin:8px 6px 46px 78px}
 .ixm-plot svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
 .ixm-grid{stroke:var(--rule);stroke-width:1;vector-effect:non-scaling-stroke}
 .ixm-zero{stroke:var(--muted)}
 .ixm-y,.ixm-x,.ixm-yt,.ixm-xt{position:absolute;color:var(--dim);white-space:nowrap;pointer-events:none;font-size:11px}
 .ixm-y{left:-52px;width:46px;text-align:right;transform:translateY(-50%)}
 .ixm-x{top:100%;padding-top:3px;transform:translateX(-50%)}
-.ixm-yt{left:4px;top:4px;color:var(--muted)}
-.ixm-xt{right:0;top:calc(100% + 20px);color:var(--muted)}
+.ixm-yt,.ixm-xt{color:var(--ink);font-size:12px}
+.ixm-yt{left:-66px;top:50%;transform:translate(-50%,-50%) rotate(-90deg)}
+.ixm-xt{left:50%;top:calc(100% + 22px);transform:translateX(-50%)}
 .ixm-b{position:absolute;width:calc(var(--r) * 2);height:calc(var(--r) * 2);margin:calc(var(--r) * -1) 0 0 calc(var(--r) * -1);border-radius:50%;background:var(--ixc);box-shadow:0 0 0 1.5px var(--panel);outline:none}
 .ixm-b:hover,.ixm-b:focus-visible,.ixm-b.on{box-shadow:0 0 0 1.5px var(--panel),0 0 0 3px var(--ink);z-index:2}
 .ixm-l{position:absolute;left:calc(100% + 4px);top:50%;transform:translateY(-50%);white-space:nowrap;color:var(--muted);font-size:11px;line-height:1.1;pointer-events:none}
@@ -373,7 +374,8 @@ html[data-ixwin="5d"] .ix-w-1m,html[data-ixwin="1m"] .ix-w-5d,html:not([data-ixw
 .ixc-dot{position:absolute;top:50%;margin:-4px 0 0 -4px}
 .fchart-keys i.ixc-key-dot{display:inline-block;width:8px;height:8px}
 .ixc-val{text-align:left}
-.ixc-axis{display:grid;grid-template-columns:var(--ixc-n) 1fr var(--ixc-v);gap:var(--ixc-gap);height:20px;margin-bottom:4px}
+.ixc-axis{display:grid;grid-template-columns:var(--ixc-n) 1fr var(--ixc-v);grid-template-rows:20px auto;column-gap:var(--ixc-gap);margin-bottom:4px}
+.ixc-xt{grid-column:2;padding-top:4px;text-align:center;color:var(--ink);font-size:12px}
 .ixc-axis-track{grid-column:2;position:relative}
 .ixc-x{position:absolute;top:3px;transform:translateX(-50%);color:var(--dim);font-size:11px;white-space:nowrap}
-@media (max-width:640px){.ixm-plot{height:360px;margin-left:44px}.ixm-y{left:-44px;width:40px}.ixc{--ixc-n:92px;--ixc-v:52px;--ixc-gap:6px}.ixm-x.x-alt,.ixc-x.x-alt{display:none}}`;
+@media (max-width:640px){.ixm-plot{height:360px;margin-left:64px}.ixm-y{left:-44px;width:40px}.ixm-yt{left:-54px}.ixc{--ixc-n:92px;--ixc-v:52px;--ixc-gap:6px}.ixm-x.x-alt,.ixc-x.x-alt{display:none}}`;

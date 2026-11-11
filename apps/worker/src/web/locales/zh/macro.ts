@@ -535,8 +535,8 @@ export const macro: Catalog = {
     "{span}回报与最近一个交易日涨跌，每个市场一个指数",
   "bubble size: the typical daily move": "气泡大小：日常波动幅度",
   "Markets by return over {span} and the latest session": "各市场按{span}回报与最近一个交易日涨跌",
-  "over {span}": "{span}回报",
-  "latest session": "最近一个交易日",
+  "Return over {span}": "{span}回报",
+  "Change in the latest session": "最近一个交易日涨跌",
   "{market} over {span}: {list}": "{market}，{span}：{list}",
   "{n} markets · hover or tap a row to read it": "{n} 个市场 · 悬停或轻点一行查看",
   "Each market's indexes by return over {span}: the bar is its first index in the table, a dot each of its others":

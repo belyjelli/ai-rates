@@ -544,8 +544,8 @@ export const macro: Catalog = {
   "bubble size: the typical daily move": "バブルの大きさ：普段の1日の値動き",
   "Markets by return over {span} and the latest session":
     "{span}のリターンと直近の取引日でみた各市場",
-  "over {span}": "{span}のリターン",
-  "latest session": "直近の取引日",
+  "Return over {span}": "{span}のリターン",
+  "Change in the latest session": "直近の取引日の騰落率",
   "{market} over {span}: {list}": "{market}（{span}）：{list}",
   "{n} markets · hover or tap a row to read it": "{n} 市場 · 行にカーソルを合わせるかタップで表示",
   "Each market's indexes by return over {span}: the bar is its first index in the table, a dot each of its others":

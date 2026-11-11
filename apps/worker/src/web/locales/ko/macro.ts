@@ -542,8 +542,8 @@ export const macro: Catalog = {
     "{span} 수익률과 최근 거래일 등락, 시장별 지수 하나",
   "bubble size: the typical daily move": "버블 크기: 평소 하루 변동폭",
   "Markets by return over {span} and the latest session": "{span} 수익률과 최근 거래일 기준 시장",
-  "over {span}": "{span} 수익률",
-  "latest session": "최근 거래일",
+  "Return over {span}": "{span} 수익률",
+  "Change in the latest session": "최근 거래일 등락률",
   "{market} over {span}: {list}": "{market}, {span}: {list}",
   "{n} markets · hover or tap a row to read it": "{n}개 시장 · 행에 마우스를 올리거나 탭해 보기",
   "Each market's indexes by return over {span}: the bar is its first index in the table, a dot each of its others":
