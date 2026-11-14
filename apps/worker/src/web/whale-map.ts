@@ -59,6 +59,41 @@ function liveNote(asset: string, assetClass: string, floor: WhaleFloor): string 
 <span class="wm-live-on" data-live-on hidden>${tr("Live for members: refreshes every 10 s, and the nearest accounts are re-read about every minute.")}</span></p>`;
 }
 
+function place(p: WhalePosition): Placed {
+  return {
+    p,
+    long: p.size > 0,
+    distance:
+      p.liquidation_price !== null && p.mark_price !== null && p.mark_price > 0
+        ? p.liquidation_price / p.mark_price - 1
+        : null,
+  };
+}
+
+/** How far from the price the "near" tile reaches: 5%, a normal day's range for most of the book. */
+const NEAR_REACH = 0.05;
+
+function nearMark(placed: readonly Placed[], reach: number): { longs: number; shorts: number } {
+  const total = (long: boolean) =>
+    placed
+      .filter((x) => x.long === long && x.distance !== null && Math.abs(x.distance) <= reach + 1e-9)
+      .reduce((sum, x) => sum + x.p.position_usd, 0);
+  return { longs: total(true), shorts: total(false) };
+}
+
+/**
+ * The money the watched whale positions of `floor` or more would have liquidated within 5% of the
+ * price: longs below, shorts above, each measured from its own market's mark. The figure the map's
+ * "Within 5% of the mark" tile shows, for the page's written summary, so the two cannot disagree.
+ */
+export function whalesNearMark(
+  positions: readonly WhalePosition[],
+  floor: WhaleFloor,
+): { longs: number; shorts: number; positions: number } {
+  const shown = positions.filter((p) => p.position_usd >= WHALE_FLOORS[floor]);
+  return { ...nearMark(shown.map(place), NEAR_REACH), positions: shown.length };
+}
+
 /** "$1M", "$100k": the floors as the switch and the sentences name them. */
 export const floorLabel = (floor: WhaleFloor) => (floor === "1m" ? "$1M" : "$100k");
 
@@ -315,14 +350,7 @@ ${helpPanel(
     }</p>`;
   }
 
-  const placed: Placed[] = shown.map((p) => ({
-    p,
-    long: p.size > 0,
-    distance:
-      p.liquidation_price !== null && p.mark_price !== null && p.mark_price > 0
-        ? p.liquidation_price / p.mark_price - 1
-        : null,
-  }));
+  const placed: Placed[] = shown.map(place);
   const mark = mainMark(placed);
   const longs = placed.filter((x) => x.long);
   const shorts = placed.filter((x) => !x.long);
@@ -331,8 +359,7 @@ ${helpPanel(
     xs
       .filter((x) => x.distance !== null)
       .sort((a, b) => Math.abs(a.distance as number) - Math.abs(b.distance as number))[0];
-  const within = (xs: readonly Placed[]) =>
-    sum(xs.filter((x) => x.distance !== null && Math.abs(x.distance) <= 0.05 + 1e-9));
+  const near = nearMark(placed, NEAR_REACH);
   const nearestLine = (x: Placed | undefined) =>
     x
       ? tr("nearest at {price} ({pct})", {
@@ -347,7 +374,7 @@ ${helpPanel(
   const tiles = `<div class="cvd-tiles" data-live="whale-tiles">
 <div class="cvd-tile"><p class="eyebrow">${tr("Whale longs")}</p><p class="cvd-big lq-ink-l"><span data-u="longs">${formatUsd(sum(longs))}</span></p><p class="dim">${positionCount(longs.length)} · ${nearestLine(nearest(longs))}</p></div>
 <div class="cvd-tile"><p class="eyebrow">${tr("Whale shorts")}</p><p class="cvd-big lq-ink-s"><span data-u="shorts">${formatUsd(sum(shorts))}</span></p><p class="dim">${positionCount(shorts.length)} · ${nearestLine(nearest(shorts))}</p></div>
-<div class="cvd-tile"><p class="eyebrow">${tr("Within 5% of the mark")}</p><p class="cvd-big"><span data-u="near-l" class="lq-ink-l">${formatUsd(within(longs))}</span> / <span data-u="near-s" class="lq-ink-s">${formatUsd(within(shorts))}</span></p><p class="dim">${tr("longs below / shorts above")}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("Within 5% of the mark")}</p><p class="cvd-big"><span data-u="near-l" class="lq-ink-l">${formatUsd(near.longs)}</span> / <span data-u="near-s" class="lq-ink-s">${formatUsd(near.shorts)}</span></p><p class="dim">${tr("longs below / shorts above")}</p></div>
 <div class="cvd-tile"><p class="eyebrow">${tr("Accounts")}</p><p class="cvd-big"><span data-u="accounts">${accounts}</span></p><p class="dim">${tr("read a median {age}", { age: ageText(medianRead, now) })}</p></div>
 </div>
 <p class="wm-venues dim" data-live="whale-venues">${tr("By venue:")} ${venueTotals(placed)

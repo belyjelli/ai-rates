@@ -313,4 +313,48 @@ export const liquidations: Catalog = {
   "{asset} liquidations": "{asset} 爆仓",
   "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
     "{asset} 各交易所爆仓：逐小时多空对比、仓位被强平的价位，以及大额未平仓位的爆仓价。",
+  "All assets": "全部资产",
+  "{n} exchange": "{n} 家交易所",
+  "{n} asset": "{n} 个资产",
+  "In the last 7 days": "过去 7 天内",
+  "In the last 48 hours": "过去 48 小时内",
+  "In the last 24 hours": "过去 24 小时内",
+  "{share} of it longs": "其中 {share} 为多头",
+  "{share} of it shorts": "其中 {share} 为空头",
+  "{window}, no {asset} position was force-closed on the exchanges whose liquidation feeds the collector reads.":
+    "{window}，在采集器读取爆仓数据的交易所中，没有 {asset} 仓位被强平。",
+  "{window}, {total} of {asset} positions were force-closed in {events} on {venues}, {sides}.":
+    "{window}，{venues}共强平 {asset} 仓位 {total}，计 {events}，{sides}。",
+  "The largest single one was a {usd} long on {venue} at {price}, {ago}.":
+    "单笔最大的是 {venue} 上一笔 {usd} 的多头，成交于 {price}，{ago}。",
+  "The largest single one was a {usd} short on {venue} at {price}, {ago}.":
+    "单笔最大的是 {venue} 上一笔 {usd} 的空头，成交于 {price}，{ago}。",
+  "Of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX, {longs} of longs would be liquidated within 5% below the price and {shorts} of shorts within 5% above.":
+    "在 Hyperliquid、Lighter 和 dYdX 上关注的 $1M 及以上巨鲸仓位中，价格下方 5% 以内有 {longs} 的多头会被强平，上方 5% 以内有 {shorts} 的空头。",
+  "{window}, {total} of positions were force-closed across {assets} on {venues}, {sides}.":
+    "{window}，{venues}共强平 {assets}的仓位 {total}，{sides}。",
+  "The most liquidated: {list}.": "爆仓最多：{list}。",
+  "The largest single liquidation was a {usd} {asset} long on {venue} at {price}, {ago}.":
+    "单笔最大爆仓是 {venue} 上一笔 {usd} 的 {asset} 多头，成交于 {price}，{ago}。",
+  "The largest single liquidation was a {usd} {asset} short on {venue} at {price}, {ago}.":
+    "单笔最大爆仓是 {venue} 上一笔 {usd} 的 {asset} 空头，成交于 {price}，{ago}。",
+  Order: "排序",
+  "Largest first": "最大优先",
+  "Newest first": "最新优先",
+  "Smallest close": "最小金额",
+  "The largest liquidations could not be read right now.": "暂时无法读取最大爆仓。",
+  "No single liquidation of {floor} or more in this window.":
+    "此时间窗口内没有 {floor} 及以上的单笔爆仓。",
+  "Nothing has been force-closed in this window.": "此时间窗口内没有仓位被强平。",
+  "The {n} newest liquidations of {floor} or more in this window.":
+    "此时间窗口内最新的 {n} 笔 {floor} 及以上爆仓。",
+  "Every liquidation of {floor} or more in this window.": "此时间窗口内所有 {floor} 及以上的爆仓。",
+  "The {n} largest single liquidations in this window.": "此时间窗口内最大的 {n} 笔单笔爆仓。",
+  "Every liquidation in this window, largest first.": "此时间窗口内的全部爆仓，按金额从大到小。",
+  "The position's value at the fill price": "按成交价格计算的仓位价值",
+  "Each row is one forced close as its exchange reported it: the side is the position that was closed, the size its value at the fill price. Times are in {zone}.":
+    "每行是交易所报告的一笔强平：方向是被平掉的仓位，金额是按成交价格计算的价值。时间为 {zone}。",
+  "{asset} largest liquidations": "{asset} 最大爆仓",
+  "Largest liquidations": "最大爆仓",
+  Largest: "最大",
 };

@@ -1077,6 +1077,45 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       expect(map.cells.some((c) => c.asset === liqSymbolB)).toBe(false);
     });
 
+    test("the largest closes: biggest or newest, named as the map names them, by venue and asset", async () => {
+      const read = (over: Partial<Parameters<typeof data.largestLiquidations>[0]>) =>
+        data.largestLiquidations({
+          windowHours: 24,
+          base: null,
+          assetClass: null,
+          // Only this suite's venues, so whatever else the database holds stays out of the answer.
+          venues: [venueA, venueB],
+          order: "size",
+          minUsd: 0,
+          limit: 50,
+          ...over,
+        });
+      const biggest = await read({});
+      const sizes = biggest.map((row) => row.notional_usd);
+      expect(sizes).toEqual([...sizes].sort((a, b) => b - a));
+      expect(sizes).toContain(1_000);
+      expect(biggest.every((row) => row.venue_id === venueA || row.venue_id === venueB)).toBe(true);
+      // venueB's symbol was never collected: named by its symbol minus the quote, as on the map.
+      const fromB = biggest.find((row) => row.venue_id === venueB);
+      expect(fromB?.asset).toBe(liqAsset);
+      expect(fromB?.side).toBe("short");
+      expect(typeof fromB?.fill_price).toBe("number");
+
+      // Newest first above a floor: the $200 close is under it.
+      const newest = await read({ order: "time", minUsd: 300 });
+      expect(newest.every((row) => row.notional_usd >= 300)).toBe(true);
+      const times = newest.map((row) => row.liquidated_at.getTime());
+      expect(times).toEqual([...times].sort((a, b) => b - a));
+
+      // One asset: only its own markets' closes, through market_latest.
+      const one = await read({ base: liqAsset, assetClass: "crypto" });
+      expect(one.map((row) => [row.venue_symbol, row.notional_usd])).toEqual([
+        [liqSymbolA, 1_000],
+        [liqSymbolA, 400],
+      ]);
+      expect((await read({ limit: 1 })).length).toBe(1);
+    });
+
     test("each venue's total carries its newest close, not a bucket boundary", async () => {
       const map = await mine();
       const totalB = map.totals.find((t) => t.venue_id === venueB);

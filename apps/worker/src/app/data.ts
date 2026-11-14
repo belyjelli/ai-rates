@@ -715,6 +715,37 @@ export interface LiquidationAssetMap {
 }
 
 /**
+ * One forced close on its own: the row the liquidations table keeps, named by its asset. What the
+ * Largest tab lists and what the page's summary quotes as the window's biggest.
+ */
+export interface LiquidationEvent {
+  venue_id: string;
+  /** The venue's own market, so two of one asset on one venue (a USDT perp and a USDC one) differ. */
+  venue_symbol: string;
+  asset: string;
+  asset_class: AssetClass;
+  liquidated_at: Date;
+  /** The side of the POSITION that was closed, as everywhere on this page. */
+  side: "long" | "short";
+  notional_usd: number;
+  fill_price: number;
+}
+
+export interface LargestLiquidationsOptions {
+  windowHours: number;
+  /** One asset, or null for every asset in the window. */
+  base: string | null;
+  assetClass: AssetClass | null;
+  /** The venues to read, or null for every feed. Ids only, matched as data, never as SQL. */
+  venues: readonly string[] | null;
+  /** Biggest first, or newest first. */
+  order: "size" | "time";
+  /** The smallest close to list, in dollars; 0 for none. */
+  minUsd: number;
+  limit: number;
+}
+
+/**
  * The collector's pending rows, sent as comma-joined text (see the query for why). Null unless both
  * sides parse to the same number of finite, non-negative figures: a half-read model is not drawn.
  */
@@ -1448,6 +1479,11 @@ export interface DataSource {
    * map, and the only view here where the price a position died at is on an axis.
    */
   liquidationAsset(options: LiquidationAssetOptions): Promise<LiquidationAssetMap>;
+  /**
+   * Single forced closes, the biggest or the newest, in one asset or in all of them: the Largest tab
+   * of /liquidations and the window's biggest close in the page's summary.
+   */
+  largestLiquidations(options: LargestLiquidationsOptions): Promise<LiquidationEvent[]>;
   /** Taker flow for every polled asset over a window, and one asset's bars for the chart. */
   cvd(options: CvdOptions): Promise<CvdData>;
   /**
@@ -3137,6 +3173,68 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         totals: [...totals],
         sides: [...sides],
       };
+    },
+
+    async largestLiquidations({ windowHours, base, assetClass, venues, order, minUsd, limit }) {
+      const sql = connect();
+      const windowInterval = `${windowHours} hours`;
+      // One string or null, split in SQL: a list parameter does not survive fetch_types off.
+      const venueList = venues === null ? null : venues.join(",");
+      // A total order, so a tie cannot swap two rows between one refresh and the next.
+      const ranking =
+        order === "size"
+          ? sql`notional_usd DESC, liquidated_at DESC, venue_id, venue_symbol`
+          : sql`liquidated_at DESC, notional_usd DESC, venue_id, venue_symbol`;
+
+      if (base === null) {
+        // Every asset: the top rows are cut from the window first and only those few are named, as
+        // the map names its buckets, rather than joining every close in the window to market_latest.
+        // A market the funding path has never recorded keeps its symbol with the quote stripped.
+        const rows = await sql<LiquidationEvent[]>`
+          WITH top AS (
+            SELECT venue_id, venue_symbol, liquidated_at, side, notional_usd, fill_price
+            FROM liquidations
+            WHERE liquidated_at > now() - ${windowInterval}::interval
+              AND notional_usd >= ${minUsd}
+              AND (${venueList}::text IS NULL
+                   OR venue_id = ANY(string_to_array(${venueList}::text, ',')))
+            ORDER BY ${ranking}
+            LIMIT ${limit}
+          )
+          SELECT t.venue_id, t.venue_symbol, t.liquidated_at, t.side,
+                 t.notional_usd::float8 AS notional_usd, t.fill_price::float8 AS fill_price,
+                 coalesce(m.base,
+                          nullif(regexp_replace(upper(t.venue_symbol), ${QUOTE_SUFFIX}::text, ''), ''),
+                          t.venue_symbol) AS asset,
+                 coalesce(m.asset_class, 'crypto') AS asset_class
+          FROM top t
+          LEFT JOIN market_latest m ON m.venue_id = t.venue_id AND m.venue_symbol = t.venue_symbol
+          ORDER BY ${ranking}`;
+        return [...rows];
+      }
+
+      // One asset: its markets first, the same class resolution as the asset's other tabs, and the
+      // closes in those markets through the (venue, symbol, time) index.
+      const rows = await sql<LiquidationEvent[]>`
+        WITH chosen AS (${chosenClass(sql, base, assetClass)})
+        SELECT l.venue_id, l.venue_symbol, l.liquidated_at, l.side,
+               l.notional_usd::float8 AS notional_usd, l.fill_price::float8 AS fill_price,
+               m.base AS asset, m.asset_class
+        FROM liquidations l
+        JOIN market_latest m ON m.venue_id = l.venue_id AND m.venue_symbol = l.venue_symbol
+        WHERE l.liquidated_at > now() - ${windowInterval}::interval
+          AND l.notional_usd >= ${minUsd}
+          AND m.base = ${base}
+          AND m.asset_class = (SELECT asset_class FROM chosen)
+          AND (${venueList}::text IS NULL
+               OR l.venue_id = ANY(string_to_array(${venueList}::text, ',')))
+        ORDER BY ${
+          order === "size"
+            ? sql`l.notional_usd DESC, l.liquidated_at DESC, l.venue_id, l.venue_symbol`
+            : sql`l.liquidated_at DESC, l.notional_usd DESC, l.venue_id, l.venue_symbol`
+        }
+        LIMIT ${limit}`;
+      return [...rows];
     },
 
     async cvd({ windowHours, barMinutes, base, assetClass }) {

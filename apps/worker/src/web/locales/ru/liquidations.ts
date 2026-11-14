@@ -326,4 +326,53 @@ export const liquidations: Catalog = {
   "{asset} liquidations": "Ликвидации {asset}",
   "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
     "Ликвидации {asset} на всех биржах: лонги против шортов по часам, уровни цены, на которых закрывались позиции, и где будут ликвидированы крупные открытые позиции.",
+  "All assets": "Все активы",
+  "{n} exchange": "бирж: {n}",
+  "{n} asset": "активов: {n}",
+  "In the last 7 days": "За последние 7 дней",
+  "In the last 48 hours": "За последние 48 часов",
+  "In the last 24 hours": "За последние 24 часа",
+  "{share} of it longs": "{share} из них — лонги",
+  "{share} of it shorts": "{share} из них — шорты",
+  "{window}, no {asset} position was force-closed on the exchanges whose liquidation feeds the collector reads.":
+    "{window} на биржах, чьи ленты ликвидаций читает коллектор, ни одна позиция {asset} не была принудительно закрыта.",
+  "{window}, {total} of {asset} positions were force-closed in {events} on {venues}, {sides}.":
+    "{window} принудительно закрыто позиций {asset} на {total} ({events}, {venues}), {sides}.",
+  "The largest single one was a {usd} long on {venue} at {price}, {ago}.":
+    "Крупнейшая — лонг на {usd} на {venue} по {price}, {ago}.",
+  "The largest single one was a {usd} short on {venue} at {price}, {ago}.":
+    "Крупнейшая — шорт на {usd} на {venue} по {price}, {ago}.",
+  "Of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX, {longs} of longs would be liquidated within 5% below the price and {shorts} of shorts within 5% above.":
+    "Из отслеживаемых позиций китов от $1M на Hyperliquid, Lighter и dYdX в пределах 5% ниже цены ликвидировались бы лонги на {longs}, а в пределах 5% выше — шорты на {shorts}.",
+  "{window}, {total} of positions were force-closed across {assets} on {venues}, {sides}.":
+    "{window} принудительно закрыто позиций на {total} ({assets}, {venues}), {sides}.",
+  "The most liquidated: {list}.": "Больше всего ликвидаций: {list}.",
+  "The largest single liquidation was a {usd} {asset} long on {venue} at {price}, {ago}.":
+    "Крупнейшая ликвидация — лонг {asset} на {usd} на {venue} по {price}, {ago}.",
+  "The largest single liquidation was a {usd} {asset} short on {venue} at {price}, {ago}.":
+    "Крупнейшая ликвидация — шорт {asset} на {usd} на {venue} по {price}, {ago}.",
+  Order: "Порядок",
+  "Largest first": "Сначала крупные",
+  "Newest first": "Сначала новые",
+  "Smallest close": "Минимальный размер",
+  "The largest liquidations could not be read right now.":
+    "Крупнейшие ликвидации сейчас не удалось прочитать.",
+  "No single liquidation of {floor} or more in this window.":
+    "За этот период нет ни одной ликвидации от {floor}.",
+  "Nothing has been force-closed in this window.":
+    "За этот период ничего не было принудительно закрыто.",
+  "The {n} newest liquidations of {floor} or more in this window.":
+    "{n} последних ликвидаций от {floor} за этот период.",
+  "Every liquidation of {floor} or more in this window.":
+    "Все ликвидации от {floor} за этот период.",
+  "The {n} largest single liquidations in this window.":
+    "{n} крупнейших ликвидаций за этот период.",
+  "Every liquidation in this window, largest first.":
+    "Все ликвидации за этот период, начиная с крупнейших.",
+  "The position's value at the fill price": "Стоимость позиции по цене исполнения",
+  "Each row is one forced close as its exchange reported it: the side is the position that was closed, the size its value at the fill price. Times are in {zone}.":
+    "Каждая строка — одно принудительное закрытие, как его сообщила биржа: сторона — это закрытая позиция, размер — её стоимость по цене исполнения. Время в {zone}.",
+  "{asset} largest liquidations": "Крупнейшие ликвидации {asset}",
+  "Largest liquidations": "Крупнейшие ликвидации",
+  Largest: "Крупнейшие",
 };

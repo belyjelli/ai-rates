@@ -324,4 +324,48 @@ export const liquidations: Catalog = {
   "{asset} liquidations": "{asset} の清算",
   "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
     "取引所横断の {asset} 清算：1時間ごとのロング対ショート、ポジションが強制決済された価格帯、大口の未決済ポジションが清算される価格。",
+  "All assets": "すべての銘柄",
+  "{n} exchange": "{n} 取引所",
+  "{n} asset": "{n}銘柄",
+  "In the last 7 days": "過去7日間で",
+  "In the last 48 hours": "過去48時間で",
+  "In the last 24 hours": "過去24時間で",
+  "{share} of it longs": "うち {share} がロング",
+  "{share} of it shorts": "うち {share} がショート",
+  "{window}, no {asset} position was force-closed on the exchanges whose liquidation feeds the collector reads.":
+    "{window}、コレクターが清算フィードを読み取っている取引所では {asset} のポジションは強制決済されていません。",
+  "{window}, {total} of {asset} positions were force-closed in {events} on {venues}, {sides}.":
+    "{window}、{venues}で {asset} のポジション {total} が強制決済されました（{events}）。{sides}。",
+  "The largest single one was a {usd} long on {venue} at {price}, {ago}.":
+    "単独で最大は {venue} の {usd} のロングで、{price} で約定、{ago}。",
+  "The largest single one was a {usd} short on {venue} at {price}, {ago}.":
+    "単独で最大は {venue} の {usd} のショートで、{price} で約定、{ago}。",
+  "Of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX, {longs} of longs would be liquidated within 5% below the price and {shorts} of shorts within 5% above.":
+    "Hyperliquid、Lighter、dYdX で監視している $1M 以上のクジラのポジションのうち、価格の下 5% 以内で {longs} のロングが、上 5% 以内で {shorts} のショートが清算されます。",
+  "{window}, {total} of positions were force-closed across {assets} on {venues}, {sides}.":
+    "{window}、{venues}で {assets}のポジション {total} が強制決済されました。{sides}。",
+  "The most liquidated: {list}.": "清算が最も多いのは：{list}。",
+  "The largest single liquidation was a {usd} {asset} long on {venue} at {price}, {ago}.":
+    "単独で最大の清算は {venue} の {usd} の {asset} ロングで、{price} で約定、{ago}。",
+  "The largest single liquidation was a {usd} {asset} short on {venue} at {price}, {ago}.":
+    "単独で最大の清算は {venue} の {usd} の {asset} ショートで、{price} で約定、{ago}。",
+  Order: "並び順",
+  "Largest first": "大きい順",
+  "Newest first": "新しい順",
+  "Smallest close": "最小額",
+  "The largest liquidations could not be read right now.": "最大の清算を現在読み取れません。",
+  "No single liquidation of {floor} or more in this window.":
+    "この期間に {floor} 以上の清算はありません。",
+  "Nothing has been force-closed in this window.": "この期間に強制決済はありません。",
+  "The {n} newest liquidations of {floor} or more in this window.":
+    "この期間の {floor} 以上の清算のうち新しい {n} 件。",
+  "Every liquidation of {floor} or more in this window.": "この期間の {floor} 以上の清算すべて。",
+  "The {n} largest single liquidations in this window.": "この期間で最大の清算 {n} 件。",
+  "Every liquidation in this window, largest first.": "この期間の清算すべて、大きい順。",
+  "The position's value at the fill price": "約定価格でのポジション価値",
+  "Each row is one forced close as its exchange reported it: the side is the position that was closed, the size its value at the fill price. Times are in {zone}.":
+    "各行は取引所が報告した強制決済1件です。サイドは決済されたポジション、サイズは約定価格での価値です。時刻は {zone}。",
+  "{asset} largest liquidations": "{asset} 最大の清算",
+  "Largest liquidations": "最大の清算",
+  Largest: "最大",
 };

@@ -14,6 +14,7 @@ import {
   DEFAULT_MIN_GAP_BPS,
   filtersToQuery,
   heatmapToQuery,
+  liquidationAssetToQuery,
   liquidationsToQuery,
   MAX_ARBITRAGE_LIMIT,
   MAX_BACKTEST_DAYS,
@@ -24,6 +25,7 @@ import {
   parseArbitrageParams,
   parseBacktestParams,
   parseHeatmapParams,
+  parseLiquidationAssetParams,
   parseLiquidationParams,
   parseScreenerFilters,
   parseUsd,
@@ -403,6 +405,30 @@ describe("filtersToQuery", () => {
     const b = parseScreenerFilters(new URLSearchParams("min_oi=0&types=cex&types=hip3"));
     expect(filtersToQuery(a)).toBe("?min_oi=0&types=cex%2Chip3");
     expect(filtersToQuery(b)).toBe(filtersToQuery(a));
+  });
+});
+
+describe("the Largest tab's order and floor", () => {
+  const parse = (query: string) => parseLiquidationAssetParams(new URLSearchParams(query));
+
+  test("biggest first by default; newest first takes a floor from the allowlist", () => {
+    expect([parse("").order, parse("").min]).toEqual(["size", "100k"]);
+    expect([parse("order=newest&min=1m").order, parse("order=newest&min=1m").min]).toEqual([
+      "newest",
+      "1m",
+    ]);
+    // A floor becomes a number in the query, so only the listed ones get through.
+    expect(parse("order=newest&min=5").min).toBe("100k");
+    expect(parse("order=newest&min=toString").min).toBe("100k");
+    expect(parse("order=sideways").order).toBe("size");
+  });
+
+  test("round-trips, and the floor is written only where it means something", () => {
+    for (const query of ["", "order=newest", "order=newest&min=10k"]) {
+      expect(liquidationAssetToQuery(parse(query))).toBe(query ? `?${query}` : "");
+    }
+    // The biggest-first list has no floor, so a stray one is not carried into its address.
+    expect(liquidationAssetToQuery(parse("min=1m"))).toBe("");
   });
 });
 

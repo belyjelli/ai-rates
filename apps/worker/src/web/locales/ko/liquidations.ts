@@ -320,4 +320,48 @@ export const liquidations: Catalog = {
   "{asset} liquidations": "{asset} 청산",
   "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
     "거래소 전체의 {asset} 청산: 시간별 롱 대 숏, 포지션이 강제 청산된 가격대, 대형 미결제 포지션의 청산 가격.",
+  "All assets": "전체 자산",
+  "{n} exchange": "거래소 {n}곳",
+  "{n} asset": "자산 {n}개",
+  "In the last 7 days": "지난 7일 동안",
+  "In the last 48 hours": "지난 48시간 동안",
+  "In the last 24 hours": "지난 24시간 동안",
+  "{share} of it longs": "그중 {share}가 롱",
+  "{share} of it shorts": "그중 {share}가 숏",
+  "{window}, no {asset} position was force-closed on the exchanges whose liquidation feeds the collector reads.":
+    "{window} 수집기가 청산 피드를 읽는 거래소에서는 {asset} 포지션이 강제 청산되지 않았습니다.",
+  "{window}, {total} of {asset} positions were force-closed in {events} on {venues}, {sides}.":
+    "{window} {venues}에서 {asset} 포지션 {total}이 강제 청산되었습니다({events}). {sides}.",
+  "The largest single one was a {usd} long on {venue} at {price}, {ago}.":
+    "단일 최대는 {venue}의 {usd} 롱으로, {price}에 체결, {ago}.",
+  "The largest single one was a {usd} short on {venue} at {price}, {ago}.":
+    "단일 최대는 {venue}의 {usd} 숏으로, {price}에 체결, {ago}.",
+  "Of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX, {longs} of longs would be liquidated within 5% below the price and {shorts} of shorts within 5% above.":
+    "Hyperliquid, Lighter, dYdX에서 지켜보는 $1M 이상 고래 포지션 중 가격 아래 5% 이내에서 롱 {longs}, 위 5% 이내에서 숏 {shorts}이 청산됩니다.",
+  "{window}, {total} of positions were force-closed across {assets} on {venues}, {sides}.":
+    "{window} {venues}에서 {assets}의 포지션 {total}이 강제 청산되었습니다. {sides}.",
+  "The most liquidated: {list}.": "청산이 가장 많은 자산: {list}.",
+  "The largest single liquidation was a {usd} {asset} long on {venue} at {price}, {ago}.":
+    "단일 최대 청산은 {venue}의 {usd} {asset} 롱으로, {price}에 체결, {ago}.",
+  "The largest single liquidation was a {usd} {asset} short on {venue} at {price}, {ago}.":
+    "단일 최대 청산은 {venue}의 {usd} {asset} 숏으로, {price}에 체결, {ago}.",
+  Order: "정렬",
+  "Largest first": "큰 순",
+  "Newest first": "최신 순",
+  "Smallest close": "최소 금액",
+  "The largest liquidations could not be read right now.": "지금은 최대 청산을 읽을 수 없습니다.",
+  "No single liquidation of {floor} or more in this window.":
+    "이 기간에 {floor} 이상의 단일 청산이 없습니다.",
+  "Nothing has been force-closed in this window.": "이 기간에 강제 청산된 포지션이 없습니다.",
+  "The {n} newest liquidations of {floor} or more in this window.":
+    "이 기간 {floor} 이상 청산 중 최신 {n}건.",
+  "Every liquidation of {floor} or more in this window.": "이 기간 {floor} 이상 청산 전체.",
+  "The {n} largest single liquidations in this window.": "이 기간 최대 단일 청산 {n}건.",
+  "Every liquidation in this window, largest first.": "이 기간 청산 전체, 큰 순.",
+  "The position's value at the fill price": "체결 가격 기준 포지션 가치",
+  "Each row is one forced close as its exchange reported it: the side is the position that was closed, the size its value at the fill price. Times are in {zone}.":
+    "각 행은 거래소가 보고한 강제 청산 1건입니다. 방향은 청산된 포지션, 규모는 체결 가격 기준 가치입니다. 시간대는 {zone}.",
+  "{asset} largest liquidations": "{asset} 최대 청산",
+  "Largest liquidations": "최대 청산",
+  Largest: "최대",
 };

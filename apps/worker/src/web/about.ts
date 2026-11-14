@@ -40,6 +40,14 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-11-15",
+    title: "Liquidations: the page in words, and the largest single liquidations",
+    changes: [
+      "Each liquidations page now opens with a short summary: how much was force-closed in the window and on how many exchanges, which side took most of it, the biggest single liquidation, and, on an asset's own page, how much of the watched whale positions would be liquidated within 5% of the price.",
+      "A Largest tab lists single liquidations: the window's 50 biggest, or the newest of $10k, $100k or $1M and up. It covers every asset on /liquidations and one asset on its own page, and can be narrowed to chosen exchanges.",
+    ],
+  },
+  {
     date: "2026-11-10",
     title:
       "A Terminology page, shortcut keys on the menu, and a Rates grid that scrolls on its own",

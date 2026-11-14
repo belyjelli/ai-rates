@@ -678,7 +678,25 @@ export interface LiquidationAssetParams {
   whale: WhaleFloor;
   /** How far either side of the mark the whale map's price axis reaches, in percent. */
   wzoom: WhaleZoom;
+  /** The Largest tab's order: the window's biggest closes, or its newest above `min`. */
+  order: LargestOrder;
+  /** The newest-first list's smallest close. The biggest-first list needs no floor. */
+  min: LargestFloor;
 }
+
+/**
+ * The Largest tab's two lists. Biggest first answers "what were the big ones"; newest first, above a
+ * floor, is the running tape of big closes, which is the view the floor exists for -- on a list
+ * already ranked by size a floor would change nothing.
+ */
+export const LARGEST_ORDERS = ["size", "newest"] as const;
+export type LargestOrder = (typeof LARGEST_ORDERS)[number];
+/** The newest-first floors, in dollars by their query value. */
+export const LARGEST_FLOORS = { "10k": 10_000, "100k": 100_000, "1m": 1_000_000 } as const;
+export type LargestFloor = keyof typeof LARGEST_FLOORS;
+export const DEFAULT_LARGEST_FLOOR: LargestFloor = "100k";
+/** Rows in either list: enough to scroll a day's big closes, few enough to read every one. */
+export const LARGEST_ROWS = 50;
 
 /**
  * The whale map's price ranges. Fixed rather than fitted: most of a whale book sits far from its
@@ -711,6 +729,10 @@ export function parseLiquidationAssetParams(params: URLSearchParams): Liquidatio
     wzoom: (WHALE_ZOOMS as readonly number[]).includes(Number(params.get("wzoom")))
       ? (Number(params.get("wzoom")) as WhaleZoom)
       : DEFAULT_WHALE_ZOOM,
+    order: params.get("order") === "newest" ? "newest" : "size",
+    min: Object.hasOwn(LARGEST_FLOORS, params.get("min") ?? "")
+      ? (params.get("min") as LargestFloor)
+      : DEFAULT_LARGEST_FLOOR,
   };
 }
 
@@ -722,6 +744,10 @@ export function liquidationAssetToQuery(params: LiquidationAssetParams): string 
   if (params.zoom === "wide") query.set("zoom", "out");
   if (params.whale !== "1m") query.set("whale", params.whale);
   if (params.wzoom !== DEFAULT_WHALE_ZOOM) query.set("wzoom", String(params.wzoom));
+  if (params.order === "newest") {
+    query.set("order", "newest");
+    if (params.min !== DEFAULT_LARGEST_FLOOR) query.set("min", params.min);
+  }
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
 }

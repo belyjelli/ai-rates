@@ -2,14 +2,20 @@ import type { AssetClass } from "@ai-rates/core";
 import type {
   LiquidationAssetMap,
   LiquidationAssetSummary,
+  LiquidationEvent,
   LiquidationMap,
   Overview,
   WhalePosition,
 } from "../app/data";
 import type { Outlook } from "../app/outlook";
 import {
+  DEFAULT_LARGEST_FLOOR,
   DEFAULT_LIQUIDATION_ASSETS,
   DEFAULT_WHALE_ZOOM,
+  LARGEST_FLOORS,
+  LARGEST_ROWS,
+  type LargestFloor,
+  type LargestOrder,
   LIQUIDATION_BAND_REACH,
   LIQUIDATION_BANDS,
   LIQUIDATION_VENUE_ALL,
@@ -50,7 +56,7 @@ import {
   slotData,
 } from "./slot-chart";
 import { tabBar } from "./tabs";
-import { floorLabel, whalePanel } from "./whale-map";
+import { floorLabel, whalePanel, whalesNearMark } from "./whale-map";
 
 /** The address form every asset page uses: crypto unmarked, every other class in the path. */
 const assetPathFor = (asset: string, assetClass: AssetClass | null) =>
@@ -210,6 +216,8 @@ function controlHref(
     zoom?: PendingZoom;
     whale?: WhaleFloor;
     wzoom?: WhaleZoom;
+    order?: LargestOrder;
+    min?: LargestFloor;
     /** Swap the asset the address names. Null returns to the all-assets address. */
     asset?: { name: string; assetClass: AssetClass } | null;
   } = {},
@@ -244,6 +252,11 @@ function controlHref(
   if (whale !== "1m") query.set("whale", whale);
   const wzoom = overrides.wzoom ?? state.assetParams.wzoom;
   if (wzoom !== DEFAULT_WHALE_ZOOM) query.set("wzoom", String(wzoom));
+  if ((overrides.order ?? state.assetParams.order) === "newest") {
+    query.set("order", "newest");
+    const min = overrides.min ?? state.assetParams.min;
+    if (min !== DEFAULT_LARGEST_FLOOR) query.set("min", min);
+  }
   const encoded = readableQuery(query);
   return `${base}${encoded ? `?${encoded}` : ""}${hash}`;
 }
@@ -293,6 +306,8 @@ function venueStrip(
     assetParams: LiquidationAssetParams;
   },
   feeds: readonly string[],
+  /** The tab the strip sits in, which a click reloads: the map, or the Largest list. */
+  tab: "map" | "largest" = "map",
 ): string {
   if (feeds.length < 2) return "";
   const picked = pickedFeeds(state.params, feeds);
@@ -301,21 +316,21 @@ function venueStrip(
       controlHref(
         state,
         { venue: ids.length === feeds.length ? LIQUIDATION_VENUE_ALL : liquidationVenueParam(ids) },
-        "#map",
+        `#${tab}`,
       ),
     );
-  // data-lq-swap="map" makes the link an in-place reload of this tab (LQ_SWAP_SCRIPT), and
+  // data-lq-swap="<tab>" makes the link an in-place reload of this tab (LQ_SWAP_SCRIPT), and
   // data-lq-venue says what it toggles: "all", or one venue.
   const all =
     picked.length === 0
-      ? `<a class="on" href="${href([])}" aria-current="true" data-lq-swap="map" data-lq-venue="${LIQUIDATION_VENUE_ALL}">${tr("all")}</a>`
-      : `<a href="${href([])}" data-lq-swap="map" data-lq-venue="${LIQUIDATION_VENUE_ALL}">${tr("all")}</a>`;
+      ? `<a class="on" href="${href([])}" aria-current="true" data-lq-swap="${tab}" data-lq-venue="${LIQUIDATION_VENUE_ALL}">${tr("all")}</a>`
+      : `<a href="${href([])}" data-lq-swap="${tab}" data-lq-venue="${LIQUIDATION_VENUE_ALL}">${tr("all")}</a>`;
   const venues = feeds
     .map((venueId) => {
       const label = esc(venueName(venueId).toLowerCase());
       return picked.includes(venueId)
-        ? `<a class="on" href="${href(picked.filter((id) => id !== venueId))}" aria-current="true" data-lq-swap="map" data-lq-venue="${esc(venueId)}">${label}</a>`
-        : `<a href="${href([...picked, venueId])}" data-lq-swap="map" data-lq-venue="${esc(venueId)}">${label}</a>`;
+        ? `<a class="on" href="${href(picked.filter((id) => id !== venueId))}" aria-current="true" data-lq-swap="${tab}" data-lq-venue="${esc(venueId)}">${label}</a>`
+        : `<a href="${href([...picked, venueId])}" data-lq-swap="${tab}" data-lq-venue="${esc(venueId)}">${label}</a>`;
     })
     .join("");
   return `<nav class="tf" aria-label="${tr("Venue")}"><span class="tf-label">${tr("Venue")}</span>${all}${venues}</nav>`;
@@ -386,6 +401,9 @@ const LQ_SWAP_SCRIPT = `(() => {
     for (const a of document.querySelectorAll("a[data-lang]")) {
       a.href = a.pathname + "?back=" + encodeURIComponent(location.pathname + location.search);
     }
+    // The summary speaks for the address it was rendered for, not one a tab swapped to in place.
+    const brief = document.querySelector("[data-lq-brief]");
+    if (brief) brief.hidden = brief.getAttribute("data-lq-brief") !== here.pathname;
     for (const id in labels) {
       const label = document.querySelector('[data-tab="' + id + '"] .tab-label--full, [data-tab="' + id + '"] .tab-label');
       if (label) label.textContent = labels[id];
@@ -860,7 +878,9 @@ function assetPicker(
   const shown = every.find((entry) => entry.asset === current);
   const summary = shown
     ? `<b>${assetName(shown.asset, shown.asset_class)}</b><span class="num" data-u="usd">${money(shown.notional_usd)}</span>`
-    : `<b>${esc(current ?? "")}</b>`;
+    : current === null
+      ? `<b>${tr("All assets")}</b>`
+      : `<b>${esc(current)}</b>`;
   return `<details class="wh-pick lq-pick">
 <summary class="wh-pick-btn" aria-label="${esc(tr("Pick an asset"))}">${summary}<span class="wh-pick-more dim">${tr("{n} assets", { n: every.length })}</span></summary>
 <div class="wh-pick-panel">
@@ -1392,12 +1412,291 @@ ${sidesChart({ label, points: map.sides, params, now, pending: { show: showPendi
 ${table}`;
 }
 
+/** A count with its noun, singular for one. */
+const liquidationCount = (n: number) =>
+  n === 1
+    ? tr("{n} liquidation", { n: n.toLocaleString("en-US") })
+    : tr("{n} liquidations", { n: n.toLocaleString("en-US") });
+const exchangeCount = (n: number) =>
+  n === 1 ? tr("{n} exchange", { n }) : tr("{n} exchanges", { n });
+
+/** How the summary opens, by window. */
+function windowWords(window: LiquidationWindow): string {
+  if (window === "7d") return tr("In the last 7 days");
+  if (window === "48h") return tr("In the last 48 hours");
+  return tr("In the last 24 hours");
+}
+
+/** "71% of it longs": the side that took most of the money, never a 50/50 coin flip as a finding. */
+function sideShare(longUsd: number, shortUsd: number): string {
+  const total = longUsd + shortUsd;
+  if (!(total > 0)) return "";
+  const share = (part: number) => `${Math.round((part / total) * 100)}%`;
+  return longUsd >= shortUsd
+    ? tr("{share} of it longs", { share: `<b class="lq-ink-l">${share(longUsd)}</b>` })
+    : tr("{share} of it shorts", { share: `<b class="lq-ink-s">${share(shortUsd)}</b>` });
+}
+
+/**
+ * The page in words, above the tabs: what was force-closed in the window, which side took it, the
+ * biggest single close and -- on an asset's own page -- how much of the watched whale book sits within
+ * 5% of the price.
+ *
+ * WHY WORDS (2026-11-15). The tabs are charts and grids, which a reader scans and a search engine does
+ * not read; the per-asset pages had nothing in them a search result could quote, or a reader could
+ * paste. Every figure here is one the tabs below show too -- the totals are the map's, the biggest is
+ * the Largest tab's first row, the whale figure is the whale map's "Within 5% of the mark" tile -- so
+ * the sentence is a reading of the page, never a second source that could disagree with it.
+ *
+ * The figures are the whole market's, whatever the venue strip narrows a tab to: this sits above the
+ * tabs and speaks for the window, as the window strip beside it does.
+ */
+function liquidationBrief(view: LiquidationView): string {
+  const { map, asset, params, now } = view;
+  const biggest = view.biggest ?? null;
+  const opening = windowWords(params.window);
+  const sentences: string[] = [];
+
+  if (view.addressed && asset !== null) {
+    const assetClass = view.assetMap?.asset_class ?? view.assetClass ?? "crypto";
+    const entry = map.every.find(
+      (candidate) => candidate.asset === asset && candidate.asset_class === assetClass,
+    );
+    const name = `<b>${esc(asset)}</b>`;
+    if (!entry || !(entry.notional_usd > 0)) {
+      sentences.push(
+        tr(
+          "{window}, no {asset} position was force-closed on the exchanges whose liquidation feeds the collector reads.",
+          { window: opening, asset: name },
+        ),
+      );
+    } else {
+      sentences.push(
+        tr(
+          "{window}, {total} of {asset} positions were force-closed in {events} on {venues}, {sides}.",
+          {
+            window: opening,
+            total: `<b>${money(entry.notional_usd)}</b>`,
+            asset: name,
+            events: liquidationCount(entry.events),
+            venues: exchangeCount(entry.venues),
+            sides: sideShare(entry.long_usd, entry.short_usd),
+          },
+        ),
+      );
+      if (biggest) {
+        const values = {
+          usd: `<b>${money(biggest.notional_usd)}</b>`,
+          venue: esc(venueName(biggest.venue_id)),
+          price: formatPrice(biggest.fill_price),
+          ago: since(biggest.liquidated_at, now),
+        };
+        sentences.push(
+          biggest.side === "long"
+            ? tr("The largest single one was a {usd} long on {venue} at {price}, {ago}.", values)
+            : tr("The largest single one was a {usd} short on {venue} at {price}, {ago}.", values),
+        );
+      }
+    }
+    if (view.whales) {
+      const near = whalesNearMark(view.whales, "1m");
+      if (near.positions > 0) {
+        sentences.push(
+          tr(
+            "Of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX, {longs} of longs would be liquidated within 5% below the price and {shorts} of shorts within 5% above.",
+            {
+              longs: `<b class="lq-ink-l">${money(near.longs)}</b>`,
+              shorts: `<b class="lq-ink-s">${money(near.shorts)}</b>`,
+            },
+          ),
+        );
+      }
+    }
+  } else {
+    const sum = (pick: (total: (typeof map.totals)[number]) => number) =>
+      map.totals.reduce((total, venue) => total + pick(venue), 0);
+    const total = sum((venue) => venue.notional_usd);
+    // Nothing in the window: the line under the heading already says no venue reported a close.
+    if (!(total > 0)) return "";
+    sentences.push(
+      tr("{window}, {total} of positions were force-closed across {assets} on {venues}, {sides}.", {
+        window: opening,
+        total: `<b>${money(total)}</b>`,
+        assets:
+          map.every.length === 1
+            ? tr("{n} asset", { n: 1 })
+            : tr("{n} assets", { n: map.every.length.toLocaleString("en-US") }),
+        venues: exchangeCount(map.totals.length),
+        sides: sideShare(
+          sum((venue) => venue.long_usd),
+          sum((venue) => venue.short_usd),
+        ),
+      }),
+    );
+    // The busiest three, each a link to its own page: where a reader goes next, and the internal
+    // links that tell a search engine the asset pages exist.
+    const top = map.every.slice(0, 3).map((entry) => {
+      const href = esc(
+        controlHref(controlState(view), {
+          asset: { name: entry.asset, assetClass: entry.asset_class },
+        }),
+      );
+      return `<a href="${href}">${esc(entry.asset)}</a> ${money(entry.notional_usd)}`;
+    });
+    if (top.length > 0) {
+      sentences.push(
+        tr("The most liquidated: {list}.", {
+          list:
+            top.length === 1
+              ? (top[0] as string)
+              : tr("{first} and {last}", {
+                  first: top.slice(0, -1).join(tr(", ")),
+                  last: top[top.length - 1] as string,
+                }),
+        }),
+      );
+    }
+    if (biggest) {
+      const values = {
+        usd: `<b>${money(biggest.notional_usd)}</b>`,
+        asset: esc(biggest.asset),
+        venue: esc(venueName(biggest.venue_id)),
+        price: formatPrice(biggest.fill_price),
+        ago: since(biggest.liquidated_at, now),
+      };
+      sentences.push(
+        biggest.side === "long"
+          ? tr(
+              "The largest single liquidation was a {usd} {asset} long on {venue} at {price}, {ago}.",
+              values,
+            )
+          : tr(
+              "The largest single liquidation was a {usd} {asset} short on {venue} at {price}, {ago}.",
+              values,
+            ),
+      );
+    }
+  }
+  // Which address the words describe: a tab that swaps the asset in place hides them (LQ_SWAP_SCRIPT),
+  // rather than leave one asset's figures above another's tabs.
+  const path = esc(controlHref(controlState(view)).split("?")[0] as string);
+  return `<p class="lede lq-brief" data-lq-brief="${path}">${sentences.join(" ")}</p>`;
+}
+
+/**
+ * The Largest tab: single forced closes, the biggest in the window or the newest above a floor, in
+ * every asset on /liquidations and in the asset on its own page.
+ *
+ * WHY A LIST HERE, when the page's own docblock argues against one. A list of every close is noise --
+ * a day holds over a hundred thousand of them. A list of the fifty biggest is the opposite: it is
+ * the handful a reader asks about ("who got taken out for $8M?"), which the grids sum away into a
+ * cell. Newest first above a floor is the running tape of big closes.
+ */
+/** The floors as their buttons and sentences name them: "$10k", not formatUsd's "$10.0k". */
+const LARGEST_FLOOR_LABEL: Record<LargestFloor, string> = {
+  "10k": "$10k",
+  "100k": "$100k",
+  "1m": "$1M",
+};
+
+function largestPanel(view: LiquidationView, list: readonly LiquidationEvent[] | null): string {
+  const { map, assetParams } = view;
+  const state = controlState(view);
+  const scoped = view.addressed ? view.asset : null;
+  const swap = (href: string, on: boolean, text: string) =>
+    on
+      ? `<a class="on" href="${esc(href)}" aria-current="page" data-lq-swap="largest">${text}</a>`
+      : `<a href="${esc(href)}" data-lq-swap="largest">${text}</a>`;
+  const orderStrip = `<nav class="tf" aria-label="${tr("Order")}">${swap(
+    controlHref(state, { order: "size" }, "#largest"),
+    assetParams.order === "size",
+    tr("Largest first"),
+  )}${swap(
+    controlHref(state, { order: "newest" }, "#largest"),
+    assetParams.order === "newest",
+    tr("Newest first"),
+  )}</nav>`;
+  // The floor only means something on the newest-first list: the biggest-first one is ranked by it.
+  const floorStrip =
+    assetParams.order === "newest"
+      ? `<nav class="tf" aria-label="${tr("Smallest close")}">${(
+          Object.keys(LARGEST_FLOORS) as LargestFloor[]
+        )
+          .map((floor) =>
+            swap(
+              controlHref(state, { min: floor }, "#largest"),
+              floor === assetParams.min,
+              `${LARGEST_FLOOR_LABEL[floor]}+`,
+            ),
+          )
+          .join("")}</nav>`
+      : "";
+  // Every asset, or one: the picker moves to an asset's page, and from one "all assets" comes back.
+  const scope = `${assetPicker(state, map.every, scoped, "#largest")}${
+    scoped === null
+      ? ""
+      : `<nav class="tf" aria-label="${tr("Assets")}">${swap(controlHref(state, { asset: null }, "#largest"), false, tr("All assets"))}</nav>`
+  }`;
+  const feeds = map.totals.map((total) => total.venue_id);
+  const controls = `<div class="lq-controls">${scope}${orderStrip}${floorStrip}${venueStrip(state, feeds, "largest")}</div>`;
+
+  if (list === null) {
+    return `${controls}<p class="empty">${tr("The largest liquidations could not be read right now.")}</p>`;
+  }
+  if (list.length === 0) {
+    return `${controls}<p class="empty">${
+      assetParams.order === "newest"
+        ? tr("No single liquidation of {floor} or more in this window.", {
+            floor: LARGEST_FLOOR_LABEL[assetParams.min],
+          })
+        : tr("Nothing has been force-closed in this window.")
+    }</p>`;
+  }
+
+  const rows = list
+    .map((event) => {
+      const long = event.side === "long";
+      const assetCell =
+        scoped === null
+          ? `<td><a href="${esc(
+              controlHref(
+                state,
+                { asset: { name: event.asset, assetClass: event.asset_class } },
+                "#largest",
+              ),
+            )}">${assetName(event.asset, event.asset_class)}</a></td>`
+          : "";
+      return `<tr><td class="dim">${timeTag(event.liquidated_at.getTime(), "mdhm")}</td>${assetCell}<td title="${esc(event.venue_symbol)}">${esc(venueName(event.venue_id))}</td><td class="${long ? "lq-ink-l" : "lq-ink-s"}">${long ? tr("long") : tr("short")}</td><td class="num"><b>${money(event.notional_usd)}</b></td><td class="num">${formatPrice(event.fill_price)}</td></tr>`;
+    })
+    .join("");
+  const full = list.length >= LARGEST_ROWS;
+  const note =
+    assetParams.order === "newest"
+      ? full
+        ? tr("The {n} newest liquidations of {floor} or more in this window.", {
+            n: list.length,
+            floor: LARGEST_FLOOR_LABEL[assetParams.min],
+          })
+        : tr("Every liquidation of {floor} or more in this window.", {
+            floor: LARGEST_FLOOR_LABEL[assetParams.min],
+          })
+      : full
+        ? tr("The {n} largest single liquidations in this window.", { n: list.length })
+        : tr("Every liquidation in this window, largest first.");
+  return `${controls}
+<div class="sheet-wrap"><table class="sheet lq-big">
+<thead><tr><th>${tr("Time")}</th>${scoped === null ? `<th>${tr("Asset")}</th>` : ""}<th>${tr("Venue")}</th><th>${tr("Side")}</th><th class="num" title="${esc(tr("The position's value at the fill price"))}">${tr("Size")}</th><th class="num">${tr("Fill price")}</th></tr></thead>
+<tbody>${rows}</tbody></table></div>
+<p class="notes">${note} ${tr("Each row is one forced close as its exchange reported it: the side is the position that was closed, the size its value at the fill price. Times are in {zone}.", { zone: zoneTag() })}</p>`;
+}
+
 /**
  * The tabs of /liquidations, in order (owner, 2026-11-10: the whale map first, the asset timeline --
- * the map by asset and hour -- last). The map and the tab the page opens on ship filled; the rest may
+ * the map by asset and hour -- last; the Largest list, 2026-11-15, beside it, the other tab that reads
+ * every asset). The map and the tab the page opens on ship filled; the rest may
  * load themselves.
  */
-export const LIQUIDATION_TABS = ["whales", "sides", "price", "odds", "map"] as const;
+export const LIQUIDATION_TABS = ["whales", "sides", "price", "odds", "largest", "map"] as const;
 export type LiquidationTab = (typeof LIQUIDATION_TABS)[number];
 
 /** What a render of /liquidations read. A field left undefined was not read by THIS render. */
@@ -1422,6 +1721,16 @@ export interface LiquidationView {
    * undefined when this render skipped it (the tab then loads itself).
    */
   whales?: readonly WhalePosition[] | null;
+  /**
+   * The Largest tab's list, as its order, floor and venues ask; null when the read failed, undefined
+   * when this render skipped it (the tab then loads itself).
+   */
+  largest?: readonly LiquidationEvent[] | null;
+  /**
+   * The window's single biggest close in the page's scope, every venue, for the summary; null when
+   * there is none or the read failed, undefined when not read (a tab rendered on its own).
+   */
+  biggest?: LiquidationEvent | null;
   params: LiquidationParams;
   assetParams: LiquidationAssetParams;
   now: number;
@@ -1444,6 +1753,7 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
   const { map, asset, params, assetParams, now } = view;
   const state = controlState(view);
   if (id === "map") return mapPanel({ map, params, strip: state, now });
+  if (id === "largest") return view.largest === undefined ? null : largestPanel(view, view.largest);
 
   if (id === "whales") {
     if (asset === null) {
@@ -1587,15 +1897,23 @@ export function liquidationsPanel(view: LiquidationView, id: LiquidationTab): st
   // The per-asset tab labels ride along, for a tab loaded in place after the asset changed: the
   // tab bar is outside every panel, so LQ_SWAP_SCRIPT relabels it from these.
   return `<div class="lazy-body" data-rendered="${view.now}" data-labels="${esc(
-    JSON.stringify(assetTabLabels(view.asset)),
+    JSON.stringify(assetTabLabels(view.asset, view.addressed)),
   )}">${body}</div>`;
 }
 
-/** The per-asset tabs' full labels, which name the asset they show. */
+/**
+ * The per-asset tabs' full labels, which name the asset they show. The Largest list names one only on
+ * that asset's own page: on /liquidations it is every asset's, whichever one the other tabs prime.
+ */
 function assetTabLabels(
   asset: string | null,
-): Record<"sides" | "price" | "odds" | "whales", string> {
+  addressed: boolean,
+): Record<"sides" | "price" | "odds" | "whales" | "largest", string> {
   return {
+    largest:
+      addressed && asset !== null
+        ? tr("{asset} largest liquidations", { asset })
+        : tr("Largest liquidations"),
     sides: asset === null ? tr("Longs vs shorts") : tr("{asset} longs vs shorts", { asset }),
     price: asset === null ? tr("By price level") : tr("{asset} price levels", { asset }),
     odds: asset === null ? tr("Odds") : tr("{asset} odds", { asset }),
@@ -1632,7 +1950,7 @@ export function liquidations(
 ): string {
   const { overview, map, asset, params, active, now } = data;
   const state = controlState(data);
-  const labels = assetTabLabels(asset);
+  const labels = assetTabLabels(asset, data.addressed);
 
   const panels = LIQUIDATION_TABS.map((id) => {
     const body = tabBody(data, id);
@@ -1705,6 +2023,7 @@ ${body ?? lazyPanel(data, id)}
               )
       }</p>`,
     )}
+${liquidationBrief(data)}
 <div class="lq-controls">${windowStrip(state)}${legend()}</div>
 ${tabBar({
   name: "liq",
@@ -1713,6 +2032,7 @@ ${tabBar({
     { id: "sides", label: labels.sides, shortLabel: tr("Sides") },
     { id: "price", label: labels.price, shortLabel: tr("Prices") },
     { id: "odds", label: labels.odds, shortLabel: tr("Odds") },
+    { id: "largest", label: labels.largest, shortLabel: tr("Largest") },
     {
       id: "map",
       label: tr("Asset Timeline"),

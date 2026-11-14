@@ -80,6 +80,8 @@ import {
   filtersToQuery,
   HEATMAP_MIN_VENUES,
   heatmapToQuery,
+  LARGEST_FLOORS,
+  LARGEST_ROWS,
   LIQUIDATION_BAND_REACH,
   LIQUIDATION_BANDS,
   LIQUIDATION_WINDOWS,
@@ -614,8 +616,9 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       // what the map tab reloads itself from when the reader picks venues (LQ_VENUE_SCRIPT).
       const askedPanel = url.searchParams.get("panel");
       const panel =
-        (["map", "sides", "price", "odds", "whales"] as const).find((id) => id === askedPanel) ??
-        null;
+        (["map", "sides", "price", "odds", "whales", "largest"] as const).find(
+          (id) => id === askedPanel,
+        ) ?? null;
       const [overview, map] = await Promise.all([
         deps.data.overview(),
         deps.data.liquidationMap({ windowHours: hours, bucketHours, assets: params.assets }),
@@ -643,15 +646,41 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       // The whale map is read for its own tab, for the bare page (which opens on it: owner,
       // 2026-11-10), or when its floor switch is in the query: a reader who just clicked $100k+ lands
       // on a drawn tab. A failed read says so in the tab, not a 500.
+      // An asset's own page reads it too (2026-11-15): its summary quotes the book within 5% of the
+      // price, and the tab then ships drawn.
       const wantsWhales =
         wanted !== null &&
         (panel === "whales" ||
-          (panel === null && address === null) ||
+          panel === null ||
           assetParams.whale !== "1m" ||
           assetParams.wzoom !== DEFAULT_WHALE_ZOOM);
+      // The Largest list, for its own tab and for every whole page, whose summary quotes the window's
+      // biggest close: in the addressed asset, or in every asset on /liquidations. The venues are the
+      // ones picked among the feeds this window has, as the map reads them; a pick naming only quiet
+      // venues reads as every feed, not as an empty list the reader did not ask for.
+      const wantsLargest = panel === null || panel === "largest";
+      const named = liquidationVenues(params);
+      const picked = named
+        ? map.totals.map((total) => total.venue_id).filter((id) => named.includes(id))
+        : [];
+      const largestScope = {
+        windowHours: hours,
+        base: address?.asset ?? null,
+        assetClass: address?.assetClass ?? null,
+      };
+      const listed = {
+        ...largestScope,
+        venues: picked.length > 0 ? picked : null,
+        order: assetParams.order === "newest" ? ("time" as const) : ("size" as const),
+        minUsd: assetParams.order === "newest" ? LARGEST_FLOORS[assetParams.min] : 0,
+        limit: LARGEST_ROWS,
+      };
+      // The summary's biggest is the list's first row when the list is the default one; otherwise
+      // one more read of a single row.
+      const listIsDefault = listed.venues === null && listed.order === "size";
       // A failed read of the bars or the funding leaves the Odds tab saying it has too little
-      // history, not the page 500.
-      const [assetMap, oddsBars, oddsMarkets, whales] = await Promise.all([
+      // history, not the page 500. A failed Largest read says so in its tab.
+      const [assetMap, oddsBars, oddsMarkets, whales, largest, biggestAlone] = await Promise.all([
         wantsAsset && wanted
           ? deps.data.liquidationAsset({
               base: wanted.asset,
@@ -679,6 +708,19 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         wantsWhales && wanted
           ? deps.data
               .whalePositions({ base: wanted.asset, assetClass: wanted.assetClass })
+              .catch(() => null)
+          : undefined,
+        wantsLargest ? deps.data.largestLiquidations(listed).catch(() => null) : undefined,
+        panel === null && !listIsDefault
+          ? deps.data
+              .largestLiquidations({
+                ...largestScope,
+                venues: null,
+                order: "size",
+                minUsd: 0,
+                limit: 1,
+              })
+              .then((rows) => rows[0] ?? null)
               .catch(() => null)
           : undefined,
       ]);
@@ -718,6 +760,15 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
                   })
                 : null,
         whales: wanted === null ? null : whales,
+        largest,
+        biggest:
+          panel !== null
+            ? undefined
+            : listIsDefault
+              ? largest
+                ? (largest[0] ?? null)
+                : null
+              : (biggestAlone ?? null),
         params,
         assetParams,
         now,
