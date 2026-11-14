@@ -366,4 +366,45 @@ export const liquidations: Catalog = {
   Largest: "최대",
   "None of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX would be liquidated within 5% of the price.":
     "Hyperliquid, Lighter, dYdX에서 지켜보는 $1M 이상 고래 포지션 중 가격 5% 이내에서 청산될 포지션은 없습니다.",
+  later: "나중에",
+  "A cascade is a burst in which one asset's liquidations piled up within minutes: consecutive minutes each running at {pace} times its 7-day average pace or more, with no more than {gap} quiet minutes between them, and at least an hour's worth of that average pace, and {floor}, in all. Every exchange whose liquidation feed the collector reads is counted; the venue choices on the other tabs do not narrow it.":
+    "캐스케이드는 한 자산의 청산이 몇 분 안에 몰린 폭발입니다. 분당 청산 속도가 7일 평균의 {pace}배 이상인 분이 이어지고, 그 사이 조용한 시간은 {gap}분 이하이며, 합계가 평균 속도의 1시간 분량 이상이고 {floor} 이상인 경우를 셉니다. 수집기가 청산 피드를 읽는 모든 거래소를 합산하며, 다른 탭의 거래소 선택으로 좁혀지지 않습니다.",
+  "Prices are the asset's busiest market in 5-minute candles. Into it is the move from the last close before the cascade to the furthest the price went inside it: the low when mostly longs were closed, the high when mostly shorts were. 1h and 4h after run from the close at its end to the close an hour and four hours later, and say later until that candle has closed.":
+    "가격은 해당 자산에서 거래가 가장 많은 시장의 5분봉입니다. '진행 중'은 캐스케이드 시작 전 마지막 종가에서 진행 중 가격이 가장 멀리 간 지점까지의 변동입니다. 주로 롱이 청산되면 저가, 숏이면 고가입니다. '1시간 후'와 '4시간 후'는 종료 시 종가에서 1시간, 4시간 뒤 종가까지이며, 그 봉이 마감되기 전에는 '나중에'로 표시됩니다.",
+  "The cascades could not be read right now.": "지금은 캐스케이드를 읽을 수 없습니다.",
+  "No cascade in {asset} in this window: no burst reached {pace} times its usual pace with an hour's worth of it. Its usual pace is {usd} a minute, the 7-day average.":
+    "이 기간에 {asset} 캐스케이드가 없습니다: 평소 속도의 {pace}배에 이르러 1시간 분량에 도달한 폭발이 없었습니다. 평소 속도는 분당 {usd}(7일 평균)입니다.",
+  "none in this window": "이 기간에 없음",
+  "none an hour old yet": "아직 1시간 지난 것 없음",
+  "higher in {up} of {n}": "{n}회 중 {up}회 상승",
+  Cascades: "캐스케이드",
+  "{usd} longs": "롱 {usd}",
+  "{usd} shorts": "숏 {usd}",
+  "An hour after long cascades": "롱 캐스케이드 1시간 후",
+  "An hour after short cascades": "숏 캐스케이드 1시간 후",
+  "Usual pace": "평소 속도",
+  "a minute, the 7-day average": "분당, 7일 평균",
+  "{n} min": "{n}분",
+  "longs {share}": "롱 {share}",
+  "shorts {share}": "숏 {share}",
+  "Prices: {market} on {venue}, in 5-minute candles.": "가격: {venue}의 {market}, 5분봉.",
+  "No price history for {asset}, so the moves are blank.":
+    "{asset}의 가격 기록이 없어 변동은 비어 있습니다.",
+  Start: "시작",
+  Length: "길이",
+  "Exchanges with a liquidation in it": "진행 중 청산이 있었던 거래소",
+  "The last close before the cascade began": "캐스케이드 시작 전 마지막 종가",
+  "Price before": "시작 전 가격",
+  "From the price before to the furthest it went inside the cascade":
+    "시작 전 가격에서 진행 중 가장 멀리 간 지점까지",
+  "Into it": "진행 중",
+  "From the close at its end to the close an hour later": "종료 시 종가에서 1시간 뒤 종가까지",
+  "1h after": "1시간 후",
+  "From the close at its end to the close four hours later": "종료 시 종가에서 4시간 뒤 종가까지",
+  "4h after": "4시간 후",
+  "Newest first.": "최신 순.",
+  "Times are in {zone}.": "시간대는 {zone}.",
+  "Nothing has been force-closed in this window, so there is no asset to read.":
+    "이 기간에 강제 청산이 없어 읽을 자산이 없습니다.",
+  "{asset} cascades": "{asset} 캐스케이드",
 };

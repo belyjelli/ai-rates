@@ -184,6 +184,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     liquidationFeeds: async () => [],
     whalePositions: async () => [],
     largestLiquidations: async () => [],
+    liquidationCascades: async () => ({ per_minute: 0, minutes: [] }),
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
     bookQuality: async () => ({ rows: [], weights: {} }),
     exchangeReserves: async () => [],
@@ -1129,9 +1130,9 @@ describe("pages", () => {
     expect(list).toContain('id="tab-liq-whales" class="btn-tab active"');
     expect(list).not.toContain('id="tab-liq-map" class="btn-tab active"');
     // The whale map first and the Asset Timeline (the map by asset and hour) last (owner, 2026-11-10),
-    // the Largest list beside it (2026-11-15).
+    // Cascades and the Largest list before it (2026-11-15).
     const order = [...list.matchAll(/id="tab-liq-([a-z]+)"/g)].map((m) => m[1]);
-    expect(order).toEqual(["whales", "sides", "price", "odds", "largest", "map"]);
+    expect(order).toEqual(["whales", "sides", "price", "odds", "cascades", "largest", "map"]);
     expect(list).toContain("Asset Timeline");
     expect(list).not.toContain("By asset and hour");
 
@@ -1391,6 +1392,115 @@ describe("pages", () => {
       expect(html).toContain("whale positions by liquidation price · Hyperliquid, dYdX, Lighter");
       expect(html).toMatch(/data-live="whale-venues">By venue: <span>Hyperliquid <b>\$2\.0M<\/b>/);
       expect(html).toContain('data-u="accounts">3<');
+    });
+  });
+
+  describe("the Cascades tab", () => {
+    const at = (minutesAgo: number) =>
+      new Date(Math.floor(NOW / 60_000) * 60_000 - minutesAgo * 60_000);
+    // ETH force-closes $50k a minute on average; a long cascade 5h ago, and a short one 20 minutes ago.
+    const read = {
+      per_minute: 50_000,
+      minutes: [
+        {
+          minute: at(300),
+          long_usd: 2_000_000,
+          short_usd: 40_000,
+          events: 120,
+          venues: "binance,okx",
+        },
+        { minute: at(299), long_usd: 1_500_000, short_usd: 0, events: 90, venues: "bybit" },
+        { minute: at(20), long_usd: 0, short_usd: 3_200_000, events: 75, venues: "binance" },
+      ],
+    };
+    // 5-minute bars from 6h ago: 2,400 falling to 2,300 into the first cascade, back to 2,350 after.
+    const bars = Array.from({ length: 72 }, (_, i) => {
+      const start = Math.floor(NOW / 300_000) * 300_000 - (71 - i) * 300_000;
+      const minutesAgo = (NOW - start) / 60_000;
+      const price = minutesAgo > 300 ? 2_400 : minutesAgo > 290 ? 2_300 : 2_350;
+      return {
+        bucket_start: new Date(start),
+        buy_usd: 0,
+        sell_usd: 0,
+        price,
+        low: price,
+        high: price,
+        price_venue: "binance",
+        price_symbol: "ETHUSDT",
+      };
+    });
+
+    test("loads only when opened, then lists each cascade with the price around it", async () => {
+      const calls: string[] = [];
+      const { data } = fakeData({
+        liquidationMap: async () => liqMap(),
+        liquidationCascades: async ({ base, windowHours }) => {
+          calls.push(`cascades ${base} ${windowHours}`);
+          return read;
+        },
+        assetBars: async ({ windowHours, barMinutes }) => {
+          calls.push(`bars ${windowHours} ${barMinutes}`);
+          return bars;
+        },
+      });
+      const page = await (await get("/liquidations/ETH", data)).text();
+      expect(page).toContain('data-lazy="/liquidations/ETH?panel=cascades"');
+      expect(page).toContain(">ETH cascades<");
+      expect(calls).toEqual([]);
+
+      const html = await tab("/liquidations/ETH", "cascades", data);
+      // Bars back to an hour before the oldest cascade, 5 hours ago, in 5-minute candles.
+      expect(calls).toEqual(["cascades ETH 24", "bars 6 5"]);
+      expect(html).toContain('<p class="cvd-big">2</p>');
+      expect(html).toContain("$3.5M longs");
+      expect(html).toContain("$3.2M shorts");
+      // Newest first: the short cascade, its hour not yet run.
+      const rows = [...html.matchAll(/<tr><td class="dim">.*?<\/tr>/g)].map((m) => m[0]);
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toContain('<td class="lq-ink-s">shorts 100%</td>');
+      expect(rows[0]).toContain('<td class="num dim">later</td>');
+      // The long one: 2 minutes, $3.5M, 99% longs, three exchanges, from 2,400 down 4.2%, then +2.2%.
+      expect(rows[1]).toContain('<td class="num">2 min</td>');
+      expect(rows[1]).toContain("<b>$3.5M</b>");
+      expect(rows[1]).toContain('<td class="lq-ink-l">longs 99%</td>');
+      expect(rows[1]).toContain('title="Binance, Bybit, OKX">3<');
+      expect(rows[1]).toContain('<td class="num">2,400</td><td class="num cvd-down">−4.2%</td>');
+      expect(rows[1]).toContain('<td class="num cvd-up">+2.2%</td>');
+      expect(html).toContain("Prices: ETHUSDT on Binance, in 5-minute candles.");
+      // The hour after the long cascade, added up in its tile.
+      expect(html).toContain(
+        '<p class="cvd-big cvd-up">+2.2%</p><p class="dim"><span class="lq-ink-l">higher in 1 of 1</span>',
+      );
+      expect(html).toContain('data-lq-swap="cascades"');
+    });
+
+    test("no cascade reads no bars, and says what the usual pace is", async () => {
+      const calls: string[] = [];
+      const { data } = fakeData({
+        liquidationMap: async () => liqMap(),
+        liquidationCascades: async () => ({ per_minute: 50_000, minutes: [] }),
+        assetBars: async () => {
+          calls.push("bars");
+          return [];
+        },
+      });
+      const html = await tab("/liquidations/ETH?window=7d", "cascades", data);
+      expect(calls).toEqual([]);
+      expect(html).toContain(
+        "No cascade in ETH in this window: no burst reached 10 times its usual pace with an hour's worth of it. Its usual pace is $50.0k a minute",
+      );
+    });
+
+    test("a failed read says so in the tab", async () => {
+      const { data } = fakeData({
+        liquidationMap: async () => liqMap(),
+        liquidationCascades: async () => {
+          throw new Error("down");
+        },
+      });
+      expect(await tab("/liquidations/ETH", "cascades", data)).toContain(
+        "The cascades could not be read right now.",
+      );
     });
   });
 

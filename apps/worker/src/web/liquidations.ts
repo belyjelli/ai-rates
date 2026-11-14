@@ -35,6 +35,13 @@ import {
   type WhaleZoom,
 } from "../app/params";
 import { PENDING_ROWS, PENDING_ZOOMS, type PendingZoom } from "../app/pending";
+import {
+  CASCADE_FLOOR,
+  CASCADE_GAP_MINUTES,
+  CASCADE_PACE,
+  type CascadeView,
+  longLed,
+} from "../app/cascades";
 import { CHART_SKELETON_JS, lazyPlaceholder } from "./chart-skeleton";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
@@ -1412,6 +1419,118 @@ ${sidesChart({ label, points: map.sides, params, now, pending: { show: showPendi
 ${table}`;
 }
 
+/** "+1.2%", "−3.4%": a move as the cascade table and tiles show it, with a real minus sign. */
+function movePct(fraction: number): string {
+  const text = Math.abs(fraction * 100).toFixed(1);
+  if (Number(text) === 0) return "0.0%";
+  return `${fraction < 0 ? "−" : "+"}${text}%`;
+}
+
+/** One move in a cell: coloured by its direction, a dash for none, "later" for one still to come. */
+function moveCell(value: number | "later" | null): string {
+  if (value === "later") return `<td class="num dim">${tr("later")}</td>`;
+  if (value === null) return `<td class="num dim">–</td>`;
+  return `<td class="num ${value > 0 ? "cvd-up" : value < 0 ? "cvd-down" : ""}">${movePct(value)}</td>`;
+}
+
+/**
+ * The Cascades tab: the bursts in which one asset's forced closes piled up within minutes
+ * (app/cascades.ts), and what its price did into each one and in the hours after.
+ *
+ * THE QUESTION IT ANSWERS is the one a trader asks of a flush: was that the bottom? Each row says how
+ * far the price went while the closes landed and where it stood one and four hours after they
+ * stopped, and the tiles add those up by side over the window -- how often a long cascade was followed
+ * by a higher price an hour later. A handful of cascades is a handful of cases, not a law, and the
+ * tiles give the count beside every average so it reads that way.
+ */
+function cascadesPanel(data: {
+  asset: string;
+  label: string;
+  view: CascadeView | null;
+  picker: string;
+}): string {
+  const { label, view, picker } = data;
+  const controls = `<div class="lq-controls">${picker}${helpButton("liq-cascades")}</div>
+${helpPanel(
+  "liq-cascades",
+  `<p>${tr(
+    "A cascade is a burst in which one asset's liquidations piled up within minutes: consecutive minutes each running at {pace} times its 7-day average pace or more, with no more than {gap} quiet minutes between them, and at least an hour's worth of that average pace, and {floor}, in all. Every exchange whose liquidation feed the collector reads is counted; the venue choices on the other tabs do not narrow it.",
+    { pace: CASCADE_PACE, gap: CASCADE_GAP_MINUTES, floor: formatUsd(CASCADE_FLOOR) },
+  )}</p><p>${tr(
+    "Prices are the asset's busiest market in 5-minute candles. Into it is the move from the last close before the cascade to the furthest the price went inside it: the low when mostly longs were closed, the high when mostly shorts were. 1h and 4h after run from the close at its end to the close an hour and four hours later, and say later until that candle has closed.",
+  )}</p>`,
+)}`;
+  if (view === null) {
+    return `${controls}<p class="empty">${tr("The cascades could not be read right now.")}</p>`;
+  }
+  const pace = `${money(view.per_minute)}`;
+  if (view.rows.length === 0) {
+    return `${controls}<p class="empty">${tr(
+      "No cascade in {asset} in this window: no burst reached {pace} times its usual pace with an hour's worth of it. Its usual pace is {usd} a minute, the 7-day average.",
+      { asset: label, pace: CASCADE_PACE, usd: pace },
+    )}</p>`;
+  }
+
+  const longs = view.rows.filter((row) => longLed(row.cascade));
+  const shorts = view.rows.filter((row) => !longLed(row.cascade));
+  const total = (rows: typeof view.rows) =>
+    rows.reduce((sum, row) => sum + row.cascade.long_usd + row.cascade.short_usd, 0);
+  // The hour after, by side: only the cascades with an hour behind them and a price to read.
+  const hourAfter = (rows: typeof view.rows) =>
+    rows
+      .map((row) => row.reaction.after[0])
+      .filter((value): value is number => typeof value === "number");
+  const afterTile = (title: string, rows: typeof view.rows, ink: string) => {
+    const moves = hourAfter(rows);
+    if (moves.length === 0) {
+      return `<div class="cvd-tile"><p class="eyebrow">${title}</p><p class="cvd-big dim">–</p><p class="dim">${
+        rows.length === 0 ? tr("none in this window") : tr("none an hour old yet")
+      }</p></div>`;
+    }
+    const mean = moves.reduce((sum, move) => sum + move, 0) / moves.length;
+    const up = moves.filter((move) => move > 0).length;
+    return `<div class="cvd-tile"><p class="eyebrow">${title}</p><p class="cvd-big ${
+      mean > 0 ? "cvd-up" : mean < 0 ? "cvd-down" : ""
+    }">${movePct(mean)}</p><p class="dim"><span class="${ink}">${tr("higher in {up} of {n}", {
+      up,
+      n: moves.length,
+    })}</span></p></div>`;
+  };
+  const tiles = `<div class="cvd-tiles">
+<div class="cvd-tile"><p class="eyebrow">${tr("Cascades")}</p><p class="cvd-big">${view.rows.length}</p><p class="dim"><span class="lq-ink-l">${tr("{usd} longs", { usd: money(total(longs)) })}</span> · <span class="lq-ink-s">${tr("{usd} shorts", { usd: money(total(shorts)) })}</span></p></div>
+${afterTile(tr("An hour after long cascades"), longs, "lq-ink-l")}
+${afterTile(tr("An hour after short cascades"), shorts, "lq-ink-s")}
+<div class="cvd-tile"><p class="eyebrow">${tr("Usual pace")}</p><p class="cvd-big">${pace}</p><p class="dim">${tr("a minute, the 7-day average")}</p></div>
+</div>`;
+
+  const rows = view.rows
+    .map(({ cascade, reaction }) => {
+      const sum = cascade.long_usd + cascade.short_usd;
+      const down = longLed(cascade);
+      const share = `${Math.round(((down ? cascade.long_usd : cascade.short_usd) / sum) * 100)}%`;
+      const names = cascade.venues.map((venueId) => venueName(venueId)).join(", ");
+      return `<tr><td class="dim">${timeTag(cascade.start.getTime(), "mdhm")}</td><td class="num">${tr("{n} min", { n: cascade.minutes })}</td><td class="num" title="${esc(liquidationCount(cascade.events))}"><b>${money(sum)}</b></td><td class="${down ? "lq-ink-l" : "lq-ink-s"}">${
+        down ? tr("longs {share}", { share }) : tr("shorts {share}", { share })
+      }</td><td class="num" title="${esc(names)}">${cascade.venues.length}</td><td class="num">${
+        reaction.before === null ? "–" : formatPrice(reaction.before)
+      }</td>${moveCell(reaction.into)}${reaction.after.map(moveCell).join("")}</tr>`;
+    })
+    .join("");
+  const source =
+    view.price_venue !== null && view.price_symbol !== null
+      ? tr("Prices: {market} on {venue}, in 5-minute candles.", {
+          market: esc(view.price_symbol),
+          venue: esc(venueName(view.price_venue)),
+        })
+      : tr("No price history for {asset}, so the moves are blank.", { asset: label });
+  return `${controls}
+${tiles}
+<div class="sheet-wrap"><table class="sheet lq-cascades">
+<thead><tr><th>${tr("Start")}</th><th class="num">${tr("Length")}</th><th class="num">${tr("Liquidated")}</th><th>${tr("Side")}</th><th class="num" title="${esc(tr("Exchanges with a liquidation in it"))}">${tr("Venues")}</th><th class="num" title="${esc(tr("The last close before the cascade began"))}">${tr("Price before")}</th><th class="num" title="${esc(tr("From the price before to the furthest it went inside the cascade"))}">${tr("Into it")}</th><th class="num" title="${esc(tr("From the close at its end to the close an hour later"))}">${tr("1h after")}</th><th class="num" title="${esc(tr("From the close at its end to the close four hours later"))}">${tr("4h after")}</th></tr></thead>
+<tbody>${rows}</tbody></table></div>
+<p class="notes">${tr("Newest first.")} ${source} ${tr("Times are in {zone}.", { zone: zoneTag() })}</p>`;
+}
+
 /** A count with its noun, singular for one. */
 const liquidationCount = (n: number) =>
   n === 1
@@ -1703,7 +1822,15 @@ function largestPanel(view: LiquidationView, list: readonly LiquidationEvent[] |
  * every asset). The map and the tab the page opens on ship filled; the rest may
  * load themselves.
  */
-export const LIQUIDATION_TABS = ["whales", "sides", "price", "odds", "largest", "map"] as const;
+export const LIQUIDATION_TABS = [
+  "whales",
+  "sides",
+  "price",
+  "odds",
+  "cascades",
+  "largest",
+  "map",
+] as const;
 export type LiquidationTab = (typeof LIQUIDATION_TABS)[number];
 
 /** What a render of /liquidations read. A field left undefined was not read by THIS render. */
@@ -1733,6 +1860,8 @@ export interface LiquidationView {
    * when this render skipped it (the tab then loads itself).
    */
   largest?: readonly LiquidationEvent[] | null;
+  /** The Cascades tab's read; null when it failed, undefined when this render skipped it. */
+  cascades?: CascadeView | null;
   /**
    * The window's single biggest close in the page's scope, every venue, for the summary; null when
    * there is none or the read failed, undefined when not read (a tab rendered on its own).
@@ -1761,6 +1890,19 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
   const state = controlState(view);
   if (id === "map") return mapPanel({ map, params, strip: state, now });
   if (id === "largest") return view.largest === undefined ? null : largestPanel(view, view.largest);
+  if (id === "cascades") {
+    if (asset === null) {
+      return `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to read.")}</p>`;
+    }
+    if (view.cascades === undefined) return null;
+    const assetClass = view.assetMap?.asset_class ?? view.assetClass ?? "crypto";
+    return cascadesPanel({
+      asset,
+      label: assetName(asset, assetClass),
+      view: view.cascades,
+      picker: assetPicker(state, map.every, asset, "#cascades"),
+    });
+  }
 
   if (id === "whales") {
     if (asset === null) {
@@ -1915,8 +2057,9 @@ export function liquidationsPanel(view: LiquidationView, id: LiquidationTab): st
 function assetTabLabels(
   asset: string | null,
   addressed: boolean,
-): Record<"sides" | "price" | "odds" | "whales" | "largest", string> {
+): Record<"sides" | "price" | "odds" | "whales" | "largest" | "cascades", string> {
   return {
+    cascades: asset === null ? tr("Cascades") : tr("{asset} cascades", { asset }),
     largest:
       addressed && asset !== null
         ? tr("{asset} largest liquidations", { asset })
@@ -2039,6 +2182,7 @@ ${tabBar({
     { id: "sides", label: labels.sides, shortLabel: tr("Sides") },
     { id: "price", label: labels.price, shortLabel: tr("Prices") },
     { id: "odds", label: labels.odds, shortLabel: tr("Odds") },
+    { id: "cascades", label: labels.cascades, shortLabel: tr("Cascades") },
     { id: "largest", label: labels.largest, shortLabel: tr("Largest") },
     {
       id: "map",

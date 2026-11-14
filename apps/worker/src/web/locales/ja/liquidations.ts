@@ -370,4 +370,45 @@ export const liquidations: Catalog = {
   Largest: "最大",
   "None of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX would be liquidated within 5% of the price.":
     "Hyperliquid、Lighter、dYdX で監視している $1M 以上のクジラのポジションで、価格から 5% 以内に清算されるものはありません。",
+  later: "後ほど",
+  "A cascade is a burst in which one asset's liquidations piled up within minutes: consecutive minutes each running at {pace} times its 7-day average pace or more, with no more than {gap} quiet minutes between them, and at least an hour's worth of that average pace, and {floor}, in all. Every exchange whose liquidation feed the collector reads is counted; the venue choices on the other tabs do not narrow it.":
+    "カスケードとは、ある銘柄の清算が数分のうちに集中したバーストです。各分の清算ペースが 7 日平均の {pace} 倍以上の分が続き、その間の静かな時間は {gap} 分以内、合計で平均ペースの 1 時間分以上かつ {floor} 以上のものを数えます。コレクターが清算フィードを読み取っているすべての取引所を合算し、他のタブの取引所の選択では絞り込みません。",
+  "Prices are the asset's busiest market in 5-minute candles. Into it is the move from the last close before the cascade to the furthest the price went inside it: the low when mostly longs were closed, the high when mostly shorts were. 1h and 4h after run from the close at its end to the close an hour and four hours later, and say later until that candle has closed.":
+    "価格はその銘柄で最も取引の多い市場の 5 分足です。「期間中」はカスケード開始前の最後の終値から、期間中に価格が最も動いた点まで：主にロングが清算された場合は安値、ショートの場合は高値です。「1 時間後」「4 時間後」は終了時の終値から 1 時間後・4 時間後の終値までで、その足が確定するまで「後ほど」と表示します。",
+  "The cascades could not be read right now.": "カスケードを現在読み取れません。",
+  "No cascade in {asset} in this window: no burst reached {pace} times its usual pace with an hour's worth of it. Its usual pace is {usd} a minute, the 7-day average.":
+    "この期間に {asset} のカスケードはありません：平常ペースの {pace} 倍に達し、その 1 時間分に届いたバーストはありませんでした。平常ペースは 1 分あたり {usd}（7 日平均）です。",
+  "none in this window": "この期間にはなし",
+  "none an hour old yet": "1 時間経過したものはまだなし",
+  "higher in {up} of {n}": "{n} 回中 {up} 回上昇",
+  Cascades: "カスケード",
+  "{usd} longs": "ロング {usd}",
+  "{usd} shorts": "ショート {usd}",
+  "An hour after long cascades": "ロングのカスケードの 1 時間後",
+  "An hour after short cascades": "ショートのカスケードの 1 時間後",
+  "Usual pace": "平常ペース",
+  "a minute, the 7-day average": "1 分あたり、7 日平均",
+  "{n} min": "{n} 分",
+  "longs {share}": "ロング {share}",
+  "shorts {share}": "ショート {share}",
+  "Prices: {market} on {venue}, in 5-minute candles.": "価格：{venue} の {market}、5 分足。",
+  "No price history for {asset}, so the moves are blank.":
+    "{asset} の価格履歴がないため、値動きは空欄です。",
+  Start: "開始",
+  Length: "長さ",
+  "Exchanges with a liquidation in it": "期間中に清算があった取引所",
+  "The last close before the cascade began": "カスケード開始前の最後の終値",
+  "Price before": "開始前の価格",
+  "From the price before to the furthest it went inside the cascade":
+    "開始前の価格から期間中に最も動いた点まで",
+  "Into it": "期間中",
+  "From the close at its end to the close an hour later": "終了時の終値から 1 時間後の終値まで",
+  "1h after": "1 時間後",
+  "From the close at its end to the close four hours later": "終了時の終値から 4 時間後の終値まで",
+  "4h after": "4 時間後",
+  "Newest first.": "新しい順。",
+  "Times are in {zone}.": "時刻は {zone}。",
+  "Nothing has been force-closed in this window, so there is no asset to read.":
+    "この期間に強制決済はなく、読み取る銘柄がありません。",
+  "{asset} cascades": "{asset} カスケード",
 };

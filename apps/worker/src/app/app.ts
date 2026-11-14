@@ -48,6 +48,7 @@ import { tos } from "../web/tos";
 import { VENUE_BY_ID } from "../web/venues";
 import { whales, whaleVenueName } from "../web/whales";
 import { A2A_PATH, agentCard, handleA2a } from "./a2a";
+import { barHoursFor, CASCADE_BAR_MINUTES, cascadeView, findCascades } from "./cascades";
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import { type Referral, requestGeo } from "./geo";
 import { richChain } from "./holdings-data";
@@ -616,7 +617,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       // what the map tab reloads itself from when the reader picks venues (LQ_VENUE_SCRIPT).
       const askedPanel = url.searchParams.get("panel");
       const panel =
-        (["map", "sides", "price", "odds", "whales", "largest"] as const).find(
+        (["map", "sides", "price", "odds", "whales", "largest", "cascades"] as const).find(
           (id) => id === askedPanel,
         ) ?? null;
       const [overview, map] = await Promise.all([
@@ -680,50 +681,81 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const listIsDefault = listed.venues === null && listed.order === "size";
       // A failed read of the bars or the funding leaves the Odds tab saying it has too little
       // history, not the page 500. A failed Largest read says so in its tab.
-      const [assetMap, oddsBars, oddsMarkets, whales, largest, biggestAlone] = await Promise.all([
-        wantsAsset && wanted
-          ? deps.data.liquidationAsset({
-              base: wanted.asset,
-              assetClass: wanted.assetClass,
-              windowHours: hours,
-              bucketHours,
-              bandPct: assetParams.band,
-              bandChoices: LIQUIDATION_BANDS,
-              reach: LIQUIDATION_BAND_REACH,
-              sideMinutes,
-              pendingWide: assetParams.pending && assetParams.zoom === "wide",
-            })
-          : undefined,
-        wantsOdds && wanted
-          ? deps.data
-              .assetBars({
+      // Cascades only for their own tab: a week of the asset's closes cut into minutes, and the price
+      // bars around them only when there is a cascade to price.
+      const wantsCascades = wanted !== null && panel === "cascades";
+      const [assetMap, oddsBars, oddsMarkets, whales, largest, biggestAlone, cascades] =
+        await Promise.all([
+          wantsAsset && wanted
+            ? deps.data.liquidationAsset({
                 base: wanted.asset,
                 assetClass: wanted.assetClass,
-                windowHours: OUTLOOK_WINDOW_HOURS,
-                barMinutes: OUTLOOK_BAR_MINUTES,
+                windowHours: hours,
+                bucketHours,
+                bandPct: assetParams.band,
+                bandChoices: LIQUIDATION_BANDS,
+                reach: LIQUIDATION_BAND_REACH,
+                sideMinutes,
+                pendingWide: assetParams.pending && assetParams.zoom === "wide",
               })
-              .catch(() => [])
-          : [],
-        wantsOdds && wanted ? deps.data.asset(wanted.asset, wanted.assetClass).catch(() => []) : [],
-        wantsWhales && wanted
-          ? deps.data
-              .whalePositions({ base: wanted.asset, assetClass: wanted.assetClass })
-              .catch(() => null)
-          : undefined,
-        wantsLargest ? deps.data.largestLiquidations(listed).catch(() => null) : undefined,
-        panel === null && !listIsDefault
-          ? deps.data
-              .largestLiquidations({
-                ...largestScope,
-                venues: null,
-                order: "size",
-                minUsd: 0,
-                limit: 1,
-              })
-              .then((rows) => rows[0] ?? null)
-              .catch(() => null)
-          : undefined,
-      ]);
+            : undefined,
+          wantsOdds && wanted
+            ? deps.data
+                .assetBars({
+                  base: wanted.asset,
+                  assetClass: wanted.assetClass,
+                  windowHours: OUTLOOK_WINDOW_HOURS,
+                  barMinutes: OUTLOOK_BAR_MINUTES,
+                })
+                .catch(() => [])
+            : [],
+          wantsOdds && wanted
+            ? deps.data.asset(wanted.asset, wanted.assetClass).catch(() => [])
+            : [],
+          wantsWhales && wanted
+            ? deps.data
+                .whalePositions({ base: wanted.asset, assetClass: wanted.assetClass })
+                .catch(() => null)
+            : undefined,
+          wantsLargest ? deps.data.largestLiquidations(listed).catch(() => null) : undefined,
+          panel === null && !listIsDefault
+            ? deps.data
+                .largestLiquidations({
+                  ...largestScope,
+                  venues: null,
+                  order: "size",
+                  minUsd: 0,
+                  limit: 1,
+                })
+                .then((rows) => rows[0] ?? null)
+                .catch(() => null)
+            : undefined,
+          wantsCascades && wanted
+            ? deps.data
+                .liquidationCascades({
+                  base: wanted.asset,
+                  assetClass: wanted.assetClass,
+                  windowHours: hours,
+                })
+                .then(async (read) => {
+                  const found = findCascades(read);
+                  const barHours = barHoursFor(found, now);
+                  const bars =
+                    barHours > 0
+                      ? await deps.data
+                          .assetBars({
+                            base: wanted.asset,
+                            assetClass: wanted.assetClass,
+                            windowHours: barHours,
+                            barMinutes: CASCADE_BAR_MINUTES,
+                          })
+                          .catch(() => [])
+                      : [];
+                  return cascadeView(read, found, bars, now);
+                })
+                .catch(() => null)
+            : undefined,
+        ]);
       if (address && (!assetMap || assetMap.asset_class === null)) {
         return page(
           () =>
@@ -761,6 +793,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
                 : null,
         whales: wanted === null ? null : whales,
         largest,
+        cascades: wanted === null ? null : cascades,
         biggest:
           panel !== null
             ? undefined

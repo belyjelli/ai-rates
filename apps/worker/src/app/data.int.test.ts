@@ -1116,6 +1116,39 @@ describe.skipIf(!url)("createDataSource (integration)", () => {
       expect((await read({ limit: 1 })).length).toBe(1);
     });
 
+    test("cascades: the week's pace, and only the minutes that beat it come back", async () => {
+      const minute = Math.floor(Date.now() / 60_000) * 60_000;
+      // Three minutes of $50k each, half an hour ago: hot against any pace this suite's rows set.
+      await admin`
+        INSERT INTO liquidations ${admin(
+          [0, 1, 2].map((i) => ({
+            venue_id: venueA,
+            venue_symbol: liqSymbolA,
+            liquidated_at: new Date(minute - (30 - i) * 60_000 + 15_000),
+            side: "long",
+            size_contracts: 500 + i,
+            fill_price: 100,
+            notional_usd: 50_000,
+          })),
+        )} ON CONFLICT DO NOTHING`;
+      const read = await data.liquidationCascades({
+        base: liqAsset,
+        assetClass: "crypto",
+        windowHours: 24,
+      });
+      expect(read.per_minute).toBeGreaterThan(0);
+      const burst = read.minutes.filter((m) => m.minute.getTime() >= minute - 30 * 60_000);
+      expect(burst.map((m) => [m.minute.getTime(), m.long_usd, m.venues])).toEqual([
+        [minute - 30 * 60_000, 50_000, venueA],
+        [minute - 29 * 60_000, 50_000, venueA],
+        [minute - 28 * 60_000, 50_000, venueA],
+      ]);
+      // An asset nobody trades: no pace, no minutes, and no error.
+      expect(
+        await data.liquidationCascades({ base: "NOSUCHASSET", assetClass: null, windowHours: 24 }),
+      ).toEqual({ per_minute: 0, minutes: [] });
+    });
+
     test("each venue's total carries its newest close, not a bucket boundary", async () => {
       const map = await mine();
       const totalB = map.totals.find((t) => t.venue_id === venueB);

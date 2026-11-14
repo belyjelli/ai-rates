@@ -1,4 +1,10 @@
 import { type AssetClass, DIVERGENCE_TRIGGER, type IdentityVerdict } from "@ai-rates/core";
+import {
+  CASCADE_BASELINE_HOURS,
+  CASCADE_MINUTE_FLOOR,
+  CASCADE_PACE,
+  type CascadeRead,
+} from "./cascades";
 import { DEFAULT_VENUE_IDS } from "@ai-rates/venues";
 import type postgres from "postgres";
 import {
@@ -1484,6 +1490,15 @@ export interface DataSource {
    * of /liquidations and the window's biggest close in the page's summary.
    */
   largestLiquidations(options: LargestLiquidationsOptions): Promise<LiquidationEvent[]>;
+  /**
+   * One asset's average liquidation pace over the last week, and the minutes in the window that ran
+   * hot against it (app/cascades.ts), for the Cascades tab of /liquidations.
+   */
+  liquidationCascades(options: {
+    base: string;
+    assetClass: AssetClass | null;
+    windowHours: number;
+  }): Promise<CascadeRead>;
   /** Taker flow for every polled asset over a window, and one asset's bars for the chart. */
   cvd(options: CvdOptions): Promise<CvdData>;
   /**
@@ -3172,6 +3187,78 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         cells: [...cells],
         totals: [...totals],
         sides: [...sides],
+      };
+    },
+
+    async liquidationCascades({ base, assetClass, windowHours }) {
+      const sql = connect();
+      const windowInterval = `${windowHours} hours`;
+      const baselineInterval = `${CASCADE_BASELINE_HOURS} hours`;
+      const spanInterval = `${Math.max(windowHours, CASCADE_BASELINE_HOURS)} hours`;
+      // One walk of the asset's markets through the (venue, symbol, time) index: the week sets the
+      // pace, the window is cut into minutes, and only the minutes that beat the pace come back --
+      // a handful, not the thousand-odd minutes of a day. The LEFT JOIN keeps the pace on a row of
+      // its own when no minute beat it, which is the common answer.
+      const rows = await sql<
+        {
+          per_minute: number;
+          minute: Date | null;
+          long_usd: number | null;
+          short_usd: number | null;
+          events: number | null;
+          venues: string | null;
+        }[]
+      >`
+        WITH chosen AS (${chosenClass(sql, base, assetClass)}),
+        mk AS (
+          SELECT venue_id, venue_symbol FROM market_latest
+          WHERE base = ${base} AND asset_class = (SELECT asset_class FROM chosen)
+        ),
+        closes AS (
+          SELECT l.venue_id, l.liquidated_at, l.side, l.notional_usd
+          FROM mk
+          JOIN liquidations l ON l.venue_id = mk.venue_id AND l.venue_symbol = mk.venue_symbol
+          WHERE l.liquidated_at > now() - ${spanInterval}::interval
+            AND l.notional_usd IS NOT NULL
+        ),
+        pace AS (
+          SELECT (coalesce(sum(notional_usd) FILTER (
+                    WHERE liquidated_at > now() - ${baselineInterval}::interval
+                  ), 0) / ${CASCADE_BASELINE_HOURS * 60})::float8 AS per_minute
+          FROM closes
+        ),
+        minutes AS (
+          SELECT date_trunc('minute', liquidated_at) AS minute,
+                 sum(notional_usd) AS usd,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'long'), 0) AS long_usd,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'short'), 0) AS short_usd,
+                 count(*) AS events,
+                 string_agg(DISTINCT venue_id, ',' ORDER BY venue_id) AS venues
+          FROM closes
+          WHERE liquidated_at > now() - ${windowInterval}::interval
+          GROUP BY 1
+        )
+        SELECT p.per_minute, m.minute, m.long_usd::float8 AS long_usd,
+               m.short_usd::float8 AS short_usd, m.events::int AS events, m.venues
+        FROM pace p
+        LEFT JOIN minutes m
+          ON m.usd >= greatest(p.per_minute * ${CASCADE_PACE}, ${CASCADE_MINUTE_FLOOR})
+        ORDER BY m.minute`;
+      return {
+        per_minute: rows[0]?.per_minute ?? 0,
+        minutes: rows.flatMap((row) =>
+          row.minute === null
+            ? []
+            : [
+                {
+                  minute: row.minute,
+                  long_usd: row.long_usd ?? 0,
+                  short_usd: row.short_usd ?? 0,
+                  events: row.events ?? 0,
+                  venues: row.venues ?? "",
+                },
+              ],
+        ),
       };
     },
 

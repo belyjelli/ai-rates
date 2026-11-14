@@ -377,4 +377,48 @@ export const liquidations: Catalog = {
   Largest: "Крупнейшие",
   "None of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX would be liquidated within 5% of the price.":
     "Ни одна из отслеживаемых позиций китов от $1M на Hyperliquid, Lighter и dYdX не была бы ликвидирована в пределах 5% от цены.",
+  later: "позже",
+  "A cascade is a burst in which one asset's liquidations piled up within minutes: consecutive minutes each running at {pace} times its 7-day average pace or more, with no more than {gap} quiet minutes between them, and at least an hour's worth of that average pace, and {floor}, in all. Every exchange whose liquidation feed the collector reads is counted; the venue choices on the other tabs do not narrow it.":
+    "Каскад — это всплеск, когда ликвидации одного актива скопились за несколько минут: подряд идущие минуты, в каждой из которых темп ликвидаций в {pace} раз или больше выше среднего за 7 дней, с паузами не дольше {gap} минут, и в сумме не меньше часового объёма при среднем темпе и не меньше {floor}. Учитываются все биржи, чьи ленты ликвидаций читает коллектор; выбор бирж на других вкладках их не сужает.",
+  "Prices are the asset's busiest market in 5-minute candles. Into it is the move from the last close before the cascade to the furthest the price went inside it: the low when mostly longs were closed, the high when mostly shorts were. 1h and 4h after run from the close at its end to the close an hour and four hours later, and say later until that candle has closed.":
+    "Цены — самый активный рынок актива в 5-минутных свечах. «В ходе» — движение от последнего закрытия перед каскадом до самой дальней точки цены внутри него: минимум, когда закрывались в основном лонги, максимум, когда шорты. «Через 1 ч» и «через 4 ч» — от закрытия в конце каскада до закрытия через час и четыре часа; до закрытия этой свечи стоит «позже».",
+  "The cascades could not be read right now.": "Каскады сейчас не удалось прочитать.",
+  "No cascade in {asset} in this window: no burst reached {pace} times its usual pace with an hour's worth of it. Its usual pace is {usd} a minute, the 7-day average.":
+    "За этот период каскадов в {asset} не было: ни один всплеск не достиг темпа в {pace} раз выше обычного с часовым объёмом. Обычный темп — {usd} в минуту, среднее за 7 дней.",
+  "none in this window": "за этот период нет",
+  "none an hour old yet": "пока нет прошедших часа",
+  "higher in {up} of {n}": "выше в {up} из {n}",
+  Cascades: "Каскады",
+  "{usd} longs": "лонги {usd}",
+  "{usd} shorts": "шорты {usd}",
+  "An hour after long cascades": "Через час после каскадов лонгов",
+  "An hour after short cascades": "Через час после каскадов шортов",
+  "Usual pace": "Обычный темп",
+  "a minute, the 7-day average": "в минуту, среднее за 7 дней",
+  "{n} min": "{n} мин",
+  "longs {share}": "лонги {share}",
+  "shorts {share}": "шорты {share}",
+  "Prices: {market} on {venue}, in 5-minute candles.":
+    "Цены: {market} на {venue}, 5-минутные свечи.",
+  "No price history for {asset}, so the moves are blank.":
+    "Нет истории цен для {asset}, поэтому движения пусты.",
+  Start: "Начало",
+  Length: "Длительность",
+  "Exchanges with a liquidation in it": "Биржи, где в нём были ликвидации",
+  "The last close before the cascade began": "Последнее закрытие перед началом каскада",
+  "Price before": "Цена до",
+  "From the price before to the furthest it went inside the cascade":
+    "От цены до каскада до самой дальней точки внутри него",
+  "Into it": "В ходе",
+  "From the close at its end to the close an hour later":
+    "От закрытия в конце до закрытия через час",
+  "1h after": "Через 1 ч",
+  "From the close at its end to the close four hours later":
+    "От закрытия в конце до закрытия через четыре часа",
+  "4h after": "Через 4 ч",
+  "Newest first.": "Сначала новые.",
+  "Times are in {zone}.": "Время в {zone}.",
+  "Nothing has been force-closed in this window, so there is no asset to read.":
+    "За этот период ничего не было принудительно закрыто, поэтому нет актива для чтения.",
+  "{asset} cascades": "Каскады {asset}",
 };
