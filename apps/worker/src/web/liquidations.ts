@@ -1500,7 +1500,14 @@ function liquidationBrief(view: LiquidationView): string {
     }
     if (view.whales) {
       const near = whalesNearMark(view.whales, "1m");
-      if (near.positions > 0) {
+      if (near.positions > 0 && near.longs === 0 && near.shorts === 0) {
+        // "$0 of longs ... $0 of shorts" is a sum of nothing dressed as a finding.
+        sentences.push(
+          tr(
+            "None of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX would be liquidated within 5% of the price.",
+          ),
+        );
+      } else if (near.positions > 0) {
         sentences.push(
           tr(
             "Of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX, {longs} of longs would be liquidated within 5% below the price and {shorts} of shorts within 5% above.",

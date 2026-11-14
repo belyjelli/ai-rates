@@ -364,4 +364,6 @@ export const liquidations: Catalog = {
   "{asset} largest liquidations": "{asset} 최대 청산",
   "Largest liquidations": "최대 청산",
   Largest: "최대",
+  "None of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX would be liquidated within 5% of the price.":
+    "Hyperliquid, Lighter, dYdX에서 지켜보는 $1M 이상 고래 포지션 중 가격 5% 이내에서 청산될 포지션은 없습니다.",
 };

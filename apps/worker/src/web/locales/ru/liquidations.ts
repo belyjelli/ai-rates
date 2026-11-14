@@ -375,4 +375,6 @@ export const liquidations: Catalog = {
   "{asset} largest liquidations": "Крупнейшие ликвидации {asset}",
   "Largest liquidations": "Крупнейшие ликвидации",
   Largest: "Крупнейшие",
+  "None of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX would be liquidated within 5% of the price.":
+    "Ни одна из отслеживаемых позиций китов от $1M на Hyperliquid, Lighter и dYdX не была бы ликвидирована в пределах 5% от цены.",
 };

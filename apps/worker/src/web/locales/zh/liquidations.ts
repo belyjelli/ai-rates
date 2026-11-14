@@ -357,4 +357,6 @@ export const liquidations: Catalog = {
   "{asset} largest liquidations": "{asset} 最大爆仓",
   "Largest liquidations": "最大爆仓",
   Largest: "最大",
+  "None of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX would be liquidated within 5% of the price.":
+    "在 Hyperliquid、Lighter 和 dYdX 上关注的 $1M 及以上巨鲸仓位中，没有一个会在价格 5% 以内被强平。",
 };

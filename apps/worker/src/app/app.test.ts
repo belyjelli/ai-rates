@@ -1535,7 +1535,31 @@ describe("pages", () => {
 
     test("an asset with nothing closed in the window says so, rather than a total of zero", async () => {
       const { data } = reading([]);
+      // A whale far from its liquidation: none of the book is near, and the words say that.
+      data.whalePositions = async () => [
+        {
+          address: "0x7c4b00000000000000000000000000000000e00b",
+          coin: "BTC",
+          venue_id: "hyperliquid",
+          asset_class: "crypto",
+          size: 10,
+          entry_price: 90_000,
+          position_usd: 1_800_000,
+          liquidation_price: 60_000,
+          liquidation_reported: true,
+          leverage: 3,
+          leverage_type: "cross",
+          unrealized_pnl_usd: null,
+          account_value_usd: null,
+          mark_price: 90_000,
+          read_at: new Date(NOW - 60_000),
+        },
+      ];
       const words = brief(await (await get("/liquidations/BTC", data)).text());
+      expect(words).toContain(
+        "None of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX would be liquidated within 5% of the price.",
+      );
+      expect(words).not.toContain("$0 of longs");
       expect(words).toContain(
         "In the last 24 hours, no <b>BTC</b> position was force-closed on the exchanges whose liquidation feeds the collector reads.",
       );
