@@ -20,6 +20,7 @@ import type {
   HeatmapCell,
   LargestLiquidationsOptions,
   LiquidationAssetMap,
+  LiquidationDay,
   LiquidationEvent,
   LiquidationMap,
   MacroData,
@@ -184,6 +185,8 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     liquidationFeeds: async () => [],
     whalePositions: async () => [],
     largestLiquidations: async () => [],
+    liquidationHistory: async () => [],
+    openInterestByAsset: async () => [],
     liquidationCascades: async () => ({ per_minute: 0, minutes: [] }),
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
     bookQuality: async () => ({ rows: [], weights: {} }),
@@ -1132,7 +1135,17 @@ describe("pages", () => {
     // The whale map first and the Asset Timeline (the map by asset and hour) last (owner, 2026-11-10),
     // Cascades and the Largest list before it (2026-11-15).
     const order = [...list.matchAll(/id="tab-liq-([a-z]+)"/g)].map((m) => m[1]);
-    expect(order).toEqual(["whales", "sides", "price", "odds", "cascades", "largest", "map"]);
+    expect(order).toEqual([
+      "whales",
+      "sides",
+      "price",
+      "odds",
+      "cascades",
+      "history",
+      "largest",
+      "oi",
+      "map",
+    ]);
     expect(list).toContain("Asset Timeline");
     expect(list).not.toContain("By asset and hour");
 
@@ -1392,6 +1405,110 @@ describe("pages", () => {
       expect(html).toContain("whale positions by liquidation price · Hyperliquid, dYdX, Lighter");
       expect(html).toMatch(/data-live="whale-venues">By venue: <span>Hyperliquid <b>\$2\.0M<\/b>/);
       expect(html).toContain('data-u="accounts">3<');
+    });
+  });
+
+  describe("the member tabs", () => {
+    const day = (daysAgo: number, over: Partial<LiquidationDay> = {}): LiquidationDay => ({
+      day: new Date(Math.floor(NOW / 86_400_000) * 86_400_000 - daysAgo * 86_400_000),
+      long_usd: 8_000_000,
+      short_usd: 2_000_000,
+      events: 900,
+      venues: 12,
+      oi_usd: 1_000_000_000,
+      ...over,
+    });
+    const days = [
+      day(20, { venues: 6 }),
+      day(10, { long_usd: 60_000_000, short_usd: 5_000_000 }),
+      day(0, { oi_usd: null }),
+    ];
+    const asMember = (path: string, data: DataSource) =>
+      handleApp(new Request(`https://airates.test${path}`), { data, now: () => NOW, member: true });
+
+    test("every reader gets them locked, with the way in, and nothing is read for them", async () => {
+      const calls: string[] = [];
+      const { data } = fakeData({
+        liquidationMap: async () => liqMap(),
+        liquidationHistory: async () => {
+          calls.push("history");
+          return days;
+        },
+        openInterestByAsset: async () => {
+          calls.push("oi");
+          return [];
+        },
+      });
+      const page = await (await get("/liquidations/ETH", data)).text();
+      for (const id of ["history", "oi"]) {
+        expect(page).toContain(
+          `data-tab-panel="${id}" aria-labelledby="tab-liq-${id}" data-lazy="/liquidations/ETH?panel=${id}" data-lazy-state="loaded" data-member-tab>`,
+        );
+      }
+      expect(page).toContain('<span class="tab-lock" title="For members">');
+      expect(page).toContain(
+        'href="https://member.airrates.net/member/signup">Create a free account<',
+      );
+      expect(page).toContain("ETH over 30 and 90 days");
+      // Asked for on their own, without a member's pass, they are still locked.
+      const history = await tab("/liquidations/ETH", "history", data);
+      expect(history).toContain("data-member-lock");
+      expect(history).not.toContain("The heaviest days");
+      expect(calls).toEqual([]);
+    });
+
+    test("History: a member gets the days, against open interest, heaviest first", async () => {
+      const asked: number[] = [];
+      const { data } = fakeData({
+        liquidationMap: async () => liqMap(),
+        liquidationHistory: async ({ base, days: span }) => {
+          expect(base).toBe("ETH");
+          asked.push(span);
+          return days;
+        },
+      });
+      const html = await (await asMember("/liquidations/ETH?panel=history", data)).text();
+      expect(asked).toEqual([30]);
+      expect(html).not.toContain("data-member-lock");
+      // $85M over the span, $76M of it longs; the heaviest day 6.50% of its $1B open interest.
+      expect(html).toContain('<p class="cvd-big">$85.0M</p>');
+      expect(html).toContain('<b class="lq-ink-l">89%</b> of it longs');
+      expect(html).toContain('<p class="cvd-big">6.50%</p>');
+      expect(html).toContain("ETH longs vs shorts by day · UTC days");
+      const rows = [...html.matchAll(/<tr><td><time[^>]*>([^<]+)<\/time><\/td>/g)].map((m) => m[1]);
+      expect(rows).toHaveLength(3);
+      // A day with no open interest stored ranks last and says so with a dash.
+      expect(html).toContain('<td class="num">–</td><td class="num">–</td>');
+      expect(html).toContain("from 6 to 12 exchanges a day here, so early days undercount.");
+      expect(html).toContain(
+        'href="/liquidations/ETH?span=90#history" data-lq-swap="history">90d<',
+      );
+      await asMember("/liquidations/ETH?span=90&panel=history", data);
+      expect(asked).toEqual([30, 90]);
+    });
+
+    test("vs OI: liquidations over open interest by class, the most flushed for their size first", async () => {
+      const venues: string[][] = [];
+      const { data } = fakeData({
+        liquidationMap: async () => liqMap(),
+        openInterestByAsset: async (named) => {
+          venues.push([...named]);
+          return [
+            { asset: "ETH", asset_class: "crypto", oi_usd: 3_478_000_000, markets: 2 },
+            { asset: "SNDK", asset_class: "equity", oi_usd: 27_400_000, markets: 2 },
+            { asset: "XAU", asset_class: "commodity", oi_usd: 300_000, markets: 1 },
+          ];
+        },
+      });
+      const html = await (await asMember("/liquidations?panel=oi", data)).text();
+      // The feeds the window has, as the map read them.
+      expect(venues).toEqual([["gate", "okx"]]);
+      // SNDK lost 10% of its open interest, ETH 1%: SNDK first. XAU is under the $1M floor.
+      const ranked = [...html.matchAll(/<tr><td><a href="([^"]+)">/g)].map((m) => m[1]);
+      expect(ranked).toEqual(["/liquidations/equity/SNDK#history", "/liquidations/ETH#history"]);
+      expect(html).toContain("<b>10.00%</b>");
+      expect(html).toContain('<p class="eyebrow">Stocks</p><p class="cvd-big">10.00%</p>');
+      expect(html).toContain("both on the 2 exchanges whose liquidation feeds reported closes");
     });
   });
 

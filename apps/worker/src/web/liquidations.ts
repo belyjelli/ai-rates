@@ -1,7 +1,9 @@
 import type { AssetClass } from "@ai-rates/core";
 import type {
+  AssetOpenInterest,
   LiquidationAssetMap,
   LiquidationAssetSummary,
+  LiquidationDay,
   LiquidationEvent,
   LiquidationMap,
   Overview,
@@ -12,6 +14,8 @@ import {
   DEFAULT_LARGEST_FLOOR,
   DEFAULT_LIQUIDATION_ASSETS,
   DEFAULT_WHALE_ZOOM,
+  HISTORY_SPANS,
+  type HistorySpan,
   LARGEST_FLOORS,
   LARGEST_ROWS,
   type LargestFloor,
@@ -42,11 +46,12 @@ import {
   type CascadeView,
   longLed,
 } from "../app/cascades";
+import { MEMBER_PANELS, type MemberPanel } from "../app/live-pass";
 import { CHART_SKELETON_JS, lazyPlaceholder } from "./chart-skeleton";
-import { ageText, esc, formatPrice, formatUsd, since } from "./format";
+import { ageText, esc, formatPrice, formatUsd, LOCK_ICON, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
-import { tr, trMsg } from "./i18n";
-import { layout } from "./layout";
+import { msg, tr, trMsg } from "./i18n";
+import { layout, MEMBER_URL } from "./layout";
 import { timeTag, timeTitle, zoneTag } from "./localtime";
 import { outlookPanel } from "./outlook";
 import { assetKey, assetName, assetTitle } from "./pages";
@@ -225,6 +230,7 @@ function controlHref(
     wzoom?: WhaleZoom;
     order?: LargestOrder;
     min?: LargestFloor;
+    span?: HistorySpan;
     /** Swap the asset the address names. Null returns to the all-assets address. */
     asset?: { name: string; assetClass: AssetClass } | null;
   } = {},
@@ -264,6 +270,8 @@ function controlHref(
     const min = overrides.min ?? state.assetParams.min;
     if (min !== DEFAULT_LARGEST_FLOOR) query.set("min", min);
   }
+  const span = overrides.span ?? state.assetParams.span;
+  if (span !== 30) query.set("span", String(span));
   const encoded = readableQuery(query);
   return `${base}${encoded ? `?${encoded}` : ""}${hash}`;
 }
@@ -432,7 +440,8 @@ const LQ_SWAP_SCRIPT = `(() => {
     panel.classList.add("chart-switching");
     panel.setAttribute("aria-busy", "true");
     try {
-      const res = await fetch(panelUrl(base, tab), { credentials: "same-origin" });
+      const headers = panel.hasAttribute("data-member-tab") && window.airratesPanelHeaders ? await window.airratesPanelHeaders() : {};
+      const res = await fetch(panelUrl(base, tab), { credentials: "same-origin", headers });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const body = new DOMParser().parseFromString(await res.text(), "text/html").querySelector(".lazy-body");
       if (!body) throw new Error("no panel");
@@ -1087,10 +1096,21 @@ function sidesChart(data: {
   now: number;
   /** The pending panel and its toggle, or null when the asset has no price or no open interest. */
   pending: { show: boolean; zoom: PendingZoom; strip: string; map: LiquidationAssetMap } | null;
+  /**
+   * The span and bar width, when not the page window's: the member History tab draws days over 30 or
+   * 90 of them. `label` is how the span is named ("30d").
+   */
+  frame?: { hours: number; minutes: number; label: string };
 }): string {
   const { label, points, params, now, pending } = data;
   const model = pending?.show ? pendingModel(pending.map) : null;
-  const { hours, sideMinutes } = LIQUIDATION_WINDOWS[params.window];
+  const frame = data.frame ?? {
+    hours: LIQUIDATION_WINDOWS[params.window].hours,
+    minutes: LIQUIDATION_WINDOWS[params.window].sideMinutes,
+    label: params.window,
+  };
+  const { hours } = frame;
+  const sideMinutes = frame.minutes;
   const bucketMs = sideMinutes * 60_000;
   const current = Math.floor(now / bucketMs) * bucketMs;
   const count = Math.round((hours * 60) / sideMinutes);
@@ -1176,8 +1196,9 @@ function sidesChart(data: {
     })
     .join("");
 
-  // Ticks on round UTC hours: every 4h over a day, 8h over two, midnight over a week.
-  const tickHours = hours <= 24 ? 4 : hours <= 48 ? 8 : 24;
+  // Ticks on round UTC hours: every 4h over a day, 8h over two, midnight over a week, and every
+  // seventh midnight over a month or more.
+  const tickHours = hours <= 24 ? 4 : hours <= 48 ? 8 : hours <= 168 ? 24 : 24 * 7;
   const tickMs = tickHours * 3_600_000;
   const xLabels: string[] = [];
   for (let ms = Math.ceil(fromMs / tickMs) * tickMs; ms < toMs; ms += tickMs) {
@@ -1195,14 +1216,14 @@ function sidesChart(data: {
   const events = points.reduce((sum, point) => sum + point.events, 0);
   // Before a hover the readout is the whole window, in the words a slot is read in.
   const idle = sidesText(
-    tr("Last {window}", { window: esc(params.window) }),
+    tr("Last {window}", { window: esc(frame.label) }),
     [longSum, shortSum, events],
     SLOT_FORMAT,
     false,
   ).concat(pend ? ` · ${tr("pending is modeled")}` : "");
   const summary = {
     asset: plainLabel(label),
-    window: params.window,
+    window: frame.label,
     long: money(longSum),
     short: money(shortSum),
     events: events.toLocaleString("en-US"),
@@ -1219,21 +1240,23 @@ function sidesChart(data: {
         ),
   );
   const chartTitle =
-    sideMinutes >= 60
-      ? tr("{asset} longs vs shorts over time · {hours}-hour bars, {zone}", {
-          asset: label,
-          hours: sideMinutes / 60,
-          zone: zoneTag(),
-        })
-      : tr("{asset} longs vs shorts over time · {minutes}-minute bars, {zone}", {
-          asset: label,
-          minutes: sideMinutes,
-          zone: zoneTag(),
-        });
+    sideMinutes >= 1440
+      ? tr("{asset} longs vs shorts by day · UTC days", { asset: label })
+      : sideMinutes >= 60
+        ? tr("{asset} longs vs shorts over time · {hours}-hour bars, {zone}", {
+            asset: label,
+            hours: sideMinutes / 60,
+            zone: zoneTag(),
+          })
+        : tr("{asset} longs vs shorts over time · {minutes}-minute bars, {zone}", {
+            asset: label,
+            minutes: sideMinutes,
+            zone: zoneTag(),
+          });
 
   return `<figure class="fchart lqc" data-live="lq-side-chart">${cite}
 <div class="fchart-head"><p class="fchart-title">${chartTitle}${knee !== null ? ` · ${tr("axis squeezed above {usd}", { usd: formatUsd(knee).replace(".0", "") })}` : ""}${pend ? ` · ${tr("pending by price band")}` : ""}</p><div class="fchart-keys"><span><i class="lqc-key-long"></i>${tr("Longs closed")} <b data-u="lqc-long">${money(longSum)}</b></span><span><i class="lqc-key-short"></i>${tr("Shorts closed")} <b data-u="lqc-short">${money(shortSum)}</b></span>${pend ? pend.keys : ""}</div><p class="fchart-read slot-read" aria-live="polite">${idle} · ${tr("hover or tap a bar to read it")}</p></div>
-<div class="lqc-body"><div class="fchart-plot lqc-plot slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} longs closed above zero and shorts closed below, over the last {window}", { asset: label, window: params.window }))}">${grid}${SLOT_BAND}${bars.join("")}${SLOT_CURSOR}</svg>${yLabels}${xLabels.join("")}</div>${pend ? pend.html : ""}</div>
+<div class="lqc-body"><div class="fchart-plot lqc-plot slot-area" tabindex="0" role="group" aria-label="${esc(tr("{asset} bars; arrow keys read one at a time", { asset: label.replace(/<[^>]+>/g, "") }))}"><svg viewBox="0 0 1000 1000" preserveAspectRatio="none" role="img" aria-label="${esc(tr("{asset} longs closed above zero and shorts closed below, over the last {window}", { asset: label, window: frame.label }))}">${grid}${SLOT_BAND}${bars.join("")}${SLOT_CURSOR}</svg>${yLabels}${xLabels.join("")}</div>${pend ? pend.html : ""}</div>
 ${slotData({ kind: "lqc", from: fromMs, unit: bucketMs, slots })}
 ${pending ? `<div class="lqc-foot">${pending.strip}${pend ? `<p class="lqc-warn">${tr("Modeled from 30 days of open interest and price on each market and its leverage limits, not reported by venues.")}</p>` : ""}</div>` : ""}
 </figure>`;
@@ -1418,6 +1441,299 @@ ${helpPanel(
 ${sidesChart({ label, points: map.sides, params, now, pending: { show: showPending, zoom: pendingZoom, strip: pendingStrip, map } })}
 ${table}`;
 }
+
+/** What each member tab is, for its locked copy: a title and what a member sees in it. */
+function memberPitch(id: MemberPanel, asset: string | null): { title: string; text: string } {
+  if (id === "history") {
+    return {
+      title:
+        asset === null
+          ? tr("30- and 90-day history")
+          : tr("{asset} over 30 and 90 days", { asset }),
+      text: tr(
+        "Every day's longs and shorts liquidated over the last 30 or 90 days, each day as a share of the open interest on the same exchanges, and the heaviest days ranked.",
+      ),
+    };
+  }
+  return {
+    title: tr("Liquidations against open interest"),
+    text: tr(
+      "Which markets were really flushed rather than just big: every asset's liquidations in the window as a share of its open interest, and the same for crypto, stocks, commodities and indices.",
+    ),
+  };
+}
+
+/**
+ * A member tab as everyone but a signed-in member gets it: what is behind it, and the way in. Rendered
+ * by the server for every reader and crawler; MEMBER_TAB_SCRIPT swaps the data in for a member.
+ */
+function memberLock(id: MemberPanel, asset: string | null): string {
+  const pitch = memberPitch(id, asset);
+  return `<div class="member-lock" data-member-lock>
+<p class="eyebrow">${LOCK_ICON} ${tr("For members")}</p>
+<p class="member-lock-title">${pitch.title}</p>
+<p class="dim">${pitch.text}</p>
+<p class="member-lock-ways"><a class="btn" href="${esc(`${MEMBER_URL}member/signup`)}">${tr("Create a free account")}</a> <a href="${esc(`${MEMBER_URL}member/login`)}">${tr("Log in")}</a></p>
+<p class="notes member-lock-wait" hidden>${tr("Loading the member view…")}</p>
+</div>`;
+}
+
+/**
+ * The member History tab: one asset's liquidations by UTC day over 30 or 90 days, against the open
+ * interest on the exchanges whose feeds reported them.
+ *
+ * WHY AGAINST OPEN INTEREST. A $50M day means one thing for BTC and another for a stock perp; as a
+ * share of the positions open, the days compare across assets and across months. The open interest
+ * is the venues' whose liquidation feeds the history reads: a venue with no feed holds positions this
+ * page never sees close, and counting them would only shrink the share.
+ *
+ * EARLY DAYS UNDERCOUNT, which is said, not smoothed: the collector added liquidation feeds over
+ * time, so a day from September holds fewer exchanges than one from November. The table shows how
+ * many reported each day.
+ */
+function historyPanel(data: {
+  label: string;
+  days: readonly LiquidationDay[] | null;
+  span: HistorySpan;
+  spanStrip: string;
+  picker: string;
+  params: LiquidationParams;
+  now: number;
+}): string {
+  const { label, days, span, spanStrip, picker, params, now } = data;
+  const controls = `<div class="lq-controls">${picker}${spanStrip}</div>`;
+  if (days === null) {
+    return `${controls}<p class="empty">${tr("The history could not be read right now.")}</p>`;
+  }
+  if (days.length === 0) {
+    return `${controls}<p class="empty">${tr("Nothing was force-closed in {asset} over this span.", { asset: label })}</p>`;
+  }
+  const points = days.map((day) => ({
+    bucket_start: day.day,
+    long_usd: day.long_usd,
+    short_usd: day.short_usd,
+    events: day.events,
+  }));
+  const chart = sidesChart({
+    label,
+    points,
+    params,
+    now,
+    pending: null,
+    frame: { hours: span * 24, minutes: 1440, label: `${span}d` },
+  });
+  const total = (day: LiquidationDay) => day.long_usd + day.short_usd;
+  const share = (day: LiquidationDay) =>
+    day.oi_usd !== null && day.oi_usd > 0 ? total(day) / day.oi_usd : null;
+  const sum = days.reduce((acc, day) => acc + total(day), 0);
+  const longs = days.reduce((acc, day) => acc + day.long_usd, 0);
+  const shares = days.map(share).filter((value): value is number => value !== null);
+  const meanShare = shares.length > 0 ? shares.reduce((a, b) => a + b, 0) / shares.length : null;
+  const ranked = [...days]
+    .sort((a, b) => (share(b) ?? -1) - (share(a) ?? -1) || total(b) - total(a))
+    .slice(0, 10);
+  const pct = (value: number | null) =>
+    value === null ? "–" : `${(value * 100).toFixed(value < 0.001 ? 3 : 2)}%`;
+  const first = days[0] as LiquidationDay;
+  const feeds = days.map((day) => day.venues);
+  const tiles = `<div class="cvd-tiles">
+<div class="cvd-tile"><p class="eyebrow">${tr("Liquidated over {span} days", { span })}</p><p class="cvd-big">${money(sum)}</p><p class="dim">${sideShare(longs, sum - longs)}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("A typical day")}</p><p class="cvd-big">${pct(meanShare)}</p><p class="dim">${tr("of open interest, on average")}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("The heaviest day")}</p><p class="cvd-big">${pct(ranked[0] ? share(ranked[0]) : null)}</p><p class="dim">${ranked[0] ? `${timeTag(ranked[0].day.getTime(), "md")} · ${money(total(ranked[0]))}` : "–"}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("Days with data")}</p><p class="cvd-big">${days.length}</p><p class="dim">${tr("from {date}", { date: timeTag(first.day.getTime(), "md") })}</p></div>
+</div>`;
+  const rows = ranked
+    .map(
+      (day) =>
+        `<tr><td>${timeTag(day.day.getTime(), "md")}</td><td class="num"><b>${money(total(day))}</b></td><td>${sideShare(day.long_usd, day.short_usd)}</td><td class="num">${day.oi_usd === null ? "–" : money(day.oi_usd)}</td><td class="num">${pct(share(day))}</td><td class="num dim">${day.venues}</td></tr>`,
+    )
+    .join("");
+  return `${controls}
+${tiles}
+${chart}
+<h2 class="cvd-h2">${tr("The heaviest days, as a share of open interest")}</h2>
+<div class="sheet-wrap"><table class="sheet">
+<thead><tr><th>${tr("Day (UTC)")}</th><th class="num">${tr("Liquidated")}</th><th>${tr("Side")}</th><th class="num">${tr("Open interest")}</th><th class="num">${tr("Share")}</th><th class="num" title="${esc(tr("Exchanges that reported a liquidation that day"))}">${tr("Venues")}</th></tr></thead>
+<tbody>${rows}</tbody></table></div>
+<p class="notes">${tr(
+    "Open interest is the day's average on the exchanges whose liquidation feeds reported {asset}, so the share compares like with like.",
+    { asset: label },
+  )}${
+    Math.min(...feeds) < Math.max(...feeds)
+      ? ` ${tr("Liquidation feeds were added over time: from {least} to {most} exchanges a day here, so early days undercount.", { least: Math.min(...feeds), most: Math.max(...feeds) })}`
+      : ""
+  }</p>`;
+}
+
+/** The asset classes as the OI tab groups them, in this order; anything else is "other". */
+const OI_CLASSES: readonly [string, string][] = [
+  ["crypto", msg("Crypto")],
+  ["equity", msg("Stocks")],
+  ["commodity", msg("Commodities")],
+  ["index", msg("Indices")],
+];
+
+/**
+ * The member OI tab: every asset's liquidations in the window as a share of its open interest now, on
+ * the exchanges whose liquidation feeds reported closes in the window.
+ *
+ * A SHARE, NOT A SIZE, is the point: BTC tops every list of liquidated dollars because it tops every
+ * list of open interest. Divided by the positions open, a $3M flush in a $20M stock perp outranks a
+ * $300M one in BTC, which is the market that was actually cleared out. Markets under OI_FLOOR of open
+ * interest are left out of the ranking: on a few thousand dollars a single close is "50% of OI".
+ */
+const OI_FLOOR = 1_000_000;
+const OI_ROWS = 40;
+
+function oiPanel(data: {
+  every: readonly LiquidationAssetSummary[];
+  openInterest: readonly AssetOpenInterest[] | null;
+  feeds: number;
+  window: LiquidationWindow;
+  hrefFor: (entry: LiquidationAssetSummary) => string;
+}): string {
+  const { every, openInterest, feeds, window, hrefFor } = data;
+  if (openInterest === null) {
+    return `<p class="empty">${tr("The open interest could not be read right now.")}</p>`;
+  }
+  const oi = new Map(openInterest.map((row) => [`${row.asset}|${row.asset_class}`, row.oi_usd]));
+  const rows = every.map((entry) => {
+    const open = oi.get(`${entry.asset}|${entry.asset_class}`) ?? null;
+    return { entry, open, share: open !== null && open > 0 ? entry.notional_usd / open : null };
+  });
+  const pct = (value: number | null) =>
+    value === null ? "–" : `${(value * 100).toFixed(value < 0.001 ? 3 : 2)}%`;
+  const tiles = OI_CLASSES.map(([cls, name]) => {
+    const inClass = rows.filter((row) => row.entry.asset_class === cls && row.open !== null);
+    if (inClass.length === 0) return "";
+    const liq = inClass.reduce((acc, row) => acc + row.entry.notional_usd, 0);
+    const open = inClass.reduce((acc, row) => acc + (row.open ?? 0), 0);
+    return `<div class="cvd-tile"><p class="eyebrow">${trMsg(name)}</p><p class="cvd-big">${pct(open > 0 ? liq / open : null)}</p><p class="dim">${tr("{liq} of {oi} open", { liq: money(liq), oi: money(open) })}</p></div>`;
+  }).join("");
+  const ranked = rows
+    .filter((row) => row.open !== null && row.open >= OI_FLOOR && row.share !== null)
+    .sort((a, b) => (b.share ?? 0) - (a.share ?? 0))
+    .slice(0, OI_ROWS);
+  const className = (cls: string) => {
+    const known = OI_CLASSES.find(([id]) => id === cls);
+    return known ? trMsg(known[1]) : esc(cls);
+  };
+  const table = ranked
+    .map(
+      ({ entry, open, share }) =>
+        `<tr><td><a href="${esc(hrefFor(entry))}">${assetName(entry.asset, entry.asset_class)}</a></td><td class="dim">${className(entry.asset_class)}</td><td class="num"><b>${money(entry.notional_usd)}</b></td><td>${sideShare(entry.long_usd, entry.short_usd)}</td><td class="num">${money(open ?? 0)}</td><td class="num"><b>${pct(share)}</b></td></tr>`,
+    )
+    .join("");
+  return `<div class="cvd-tiles">${tiles}</div>
+<h2 class="cvd-h2">${tr("The markets most flushed for their size")}</h2>
+${
+  ranked.length === 0
+    ? `<p class="empty">${tr("No market with $1M of open interest had a liquidation in this window.")}</p>`
+    : `<div class="sheet-wrap"><table class="sheet">
+<thead><tr><th>${tr("Asset")}</th><th>${tr("Class")}</th><th class="num">${tr("Liquidated")}</th><th>${tr("Side")}</th><th class="num">${tr("Open interest")}</th><th class="num">${tr("Share")}</th></tr></thead>
+<tbody>${table}</tbody></table></div>`
+}
+<p class="notes">${tr(
+    "Liquidations over the last {window} against the open interest now, both on the {feeds} exchanges whose liquidation feeds reported closes in that window. Markets under $1M of open interest are left out of the ranking.",
+    { window: esc(window), feeds },
+  )}</p>`;
+}
+
+/**
+ * The member tabs, in the browser. Each ships locked (memberLock); on a page with one, this asks the
+ * member site for a member pass (scope "member") and, while it has one, loads the shown member tab
+ * with it in X-Live-Pass, which index.ts checks before serving the member copy. Signed out -- or the
+ * member site not answering -- the tabs stay locked, which is also what a page without JavaScript shows.
+ *
+ * It also answers tabs.ts and LQ_SWAP_SCRIPT, which reload a tab in place, through
+ * window.airratesPanelHeaders: their reload of a member tab carries the pass, so a member is never
+ * handed the locked copy back. live.ts's 30 s refresh, which sends no pass, leaves member tabs alone;
+ * one holding member data is marked data-member-view="on".
+ */
+/** The locked copy and the padlock on member tabs; theme variables only (themes.ts). */
+const MEMBER_TAB_CSS = `.member-lock{border:1px solid var(--rule);background:var(--panel);padding:16px 18px;margin:12px 0;max-width:72ch}
+.member-lock .eyebrow{display:flex;align-items:center;gap:6px}
+.member-lock-title{font-weight:600;margin:4px 0 6px}
+.member-lock-ways{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.tab-lock{display:inline-flex;margin-right:5px;opacity:.7}`;
+
+const MEMBER_TAB_SCRIPT = `(() => {
+  const tabs = [...document.querySelectorAll("[data-member-tab]")];
+  if (!tabs.length || !window.fetch || !window.DOMParser) return;
+  const PASS_URL = "https://member.airrates.net/api/live-pass";
+  const RENEW = 120e3;
+  let pass = null, asking = null, signedOut = false;
+  const getPass = () => {
+    if (signedOut) return Promise.resolve(null);
+    if (pass && Date.now() < pass.renewAt) return Promise.resolve(pass);
+    if (asking) return asking;
+    asking = fetch(PASS_URL, {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scope: "member", replaces: pass ? pass.token : null }),
+    })
+      .then((res) => {
+        if (res.status === 401) { signedOut = true; return (pass = null); }
+        if (!res.ok) return (pass = null);
+        return res.json().then((body) => (pass = { token: body.pass, renewAt: Date.now() + RENEW }));
+      })
+      .catch(() => (pass = null))
+      .finally(() => { asking = null; });
+    return asking;
+  };
+  window.airratesPanelHeaders = () => getPass().then((held) => (held ? { "X-Live-Pass": held.token } : {}));
+
+  const address = (panel) => {
+    const lazy = panel.getAttribute("data-lazy");
+    if (lazy) return lazy;
+    const url = new URL(location.href);
+    url.hash = "";
+    url.searchParams.set("panel", panel.dataset.tabPanel);
+    return url.pathname + url.search;
+  };
+  const busy = new Set();
+  const upgrade = async (panel, retried) => {
+    if (panel.hidden || busy.has(panel) || !panel.querySelector("[data-member-lock]")) return;
+    busy.add(panel);
+    const wait = panel.querySelector(".member-lock-wait");
+    try {
+      const held = await getPass();
+      if (!held) return;
+      if (wait) wait.hidden = false;
+      const res = await fetch(address(panel), { cache: "no-store", credentials: "same-origin", headers: { "X-Live-Pass": held.token } });
+      if (res.status === 401 && !retried) {
+        pass = null;
+        busy.delete(panel);
+        return upgrade(panel, true);
+      }
+      if (!res.ok) return;
+      const body = new DOMParser().parseFromString(await res.text(), "text/html").querySelector(".lazy-body");
+      if (!body || body.querySelector("[data-member-lock]")) return;
+      panel.replaceChildren(document.importNode(body, true));
+      panel.dataset.memberView = "on";
+      panel.dataset.lazyState = "loaded";
+      panel.dataset.loadedAt = String(Date.now());
+      if (window.airratesHelp) window.airratesHelp(panel);
+    } catch (_) {
+    } finally {
+      if (wait && wait.isConnected) wait.hidden = true;
+      busy.delete(panel);
+    }
+  };
+  // Whenever a member tab is shown, or something (tabs.ts, a control) put its locked copy back.
+  const watch = new MutationObserver((records) => {
+    for (const record of records) {
+      const panel = record.target.closest ? record.target.closest("[data-member-tab]") : null;
+      if (panel) upgrade(panel, false);
+    }
+  });
+  for (const panel of tabs) {
+    watch.observe(panel, { attributes: true, attributeFilter: ["hidden"], childList: true });
+    upgrade(panel, false);
+  }
+})();`;
 
 /** "+1.2%", "−3.4%": a move as the cascade table and tiles show it, with a real minus sign. */
 function movePct(fraction: number): string {
@@ -1828,7 +2144,9 @@ export const LIQUIDATION_TABS = [
   "price",
   "odds",
   "cascades",
+  "history",
   "largest",
+  "oi",
   "map",
 ] as const;
 export type LiquidationTab = (typeof LIQUIDATION_TABS)[number];
@@ -1862,6 +2180,12 @@ export interface LiquidationView {
   largest?: readonly LiquidationEvent[] | null;
   /** The Cascades tab's read; null when it failed, undefined when this render skipped it. */
   cascades?: CascadeView | null;
+  /** True when this render is a member's request for a member tab (index.ts checked the pass). */
+  member?: boolean;
+  /** The member History tab's days; null when the read failed, undefined when not read. */
+  history?: readonly LiquidationDay[] | null;
+  /** The member OI tab's open interest by asset; null when the read failed, undefined when not read. */
+  openInterest?: readonly AssetOpenInterest[] | null;
   /**
    * The window's single biggest close in the page's scope, every venue, for the summary; null when
    * there is none or the read failed, undefined when not read (a tab rendered on its own).
@@ -1890,6 +2214,43 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
   const state = controlState(view);
   if (id === "map") return mapPanel({ map, params, strip: state, now });
   if (id === "largest") return view.largest === undefined ? null : largestPanel(view, view.largest);
+  if ((MEMBER_PANELS as readonly string[]).includes(id)) {
+    const memberId = id as MemberPanel;
+    // Locked for everyone but a member's own request for the tab, whatever else this render read.
+    if (!view.member) return memberLock(memberId, memberId === "history" ? asset : null);
+    if (memberId === "oi") {
+      return oiPanel({
+        every: map.every,
+        openInterest: view.openInterest ?? null,
+        feeds: map.totals.length,
+        window: params.window,
+        hrefFor: (entry) =>
+          controlHref(
+            state,
+            { asset: { name: entry.asset, assetClass: entry.asset_class } },
+            "#history",
+          ),
+      });
+    }
+    if (asset === null) {
+      return `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to read.")}</p>`;
+    }
+    const assetClass = view.assetMap?.asset_class ?? view.assetClass ?? "crypto";
+    return historyPanel({
+      label: assetName(asset, assetClass),
+      days: view.history ?? null,
+      span: assetParams.span,
+      spanStrip: `<nav class="tf" aria-label="${tr("Span")}">${HISTORY_SPANS.map((span) => {
+        const href = esc(controlHref(state, { span }, "#history"));
+        return span === assetParams.span
+          ? `<a class="on" href="${href}" aria-current="page" data-lq-swap="history">${span}d</a>`
+          : `<a href="${href}" data-lq-swap="history">${span}d</a>`;
+      }).join("")}</nav>`,
+      picker: assetPicker(state, map.every, asset, "#history"),
+      params,
+      now,
+    });
+  }
   if (id === "cascades") {
     if (asset === null) {
       return `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to read.")}</p>`;
@@ -2057,8 +2418,9 @@ export function liquidationsPanel(view: LiquidationView, id: LiquidationTab): st
 function assetTabLabels(
   asset: string | null,
   addressed: boolean,
-): Record<"sides" | "price" | "odds" | "whales" | "largest" | "cascades", string> {
+): Record<"sides" | "price" | "odds" | "whales" | "largest" | "cascades" | "history", string> {
   return {
+    history: asset === null ? tr("History") : tr("{asset} history", { asset }),
     cascades: asset === null ? tr("Cascades") : tr("{asset} cascades", { asset }),
     largest:
       addressed && asset !== null
@@ -2103,6 +2465,13 @@ export function liquidations(
   const labels = assetTabLabels(asset, data.addressed);
 
   const panels = LIQUIDATION_TABS.map((id) => {
+    // A member tab ships locked and loaded, with its own address, so tabs.ts does not fetch it bare,
+    // live.ts leaves it out of the page's poll, and MEMBER_TAB_SCRIPT knows where to ask with a pass.
+    if ((MEMBER_PANELS as readonly string[]).includes(id)) {
+      return `<div class="tabpanel" role="tabpanel" id="panel-liq-${id}" data-tab-panel="${id}" aria-labelledby="tab-liq-${id}" data-lazy="${esc(panelHref(data, id))}" data-lazy-state="loaded" data-member-tab>
+${liquidationsPanel(data, id)}
+</div>`;
+    }
     const body = tabBody(data, id);
     const lazy = body === null ? ` data-lazy="${esc(panelHref(data, id))}"` : "";
     // The whale table refreshes faster for members once the tab is open (live.ts, MEMBER LIVE).
@@ -2183,7 +2552,14 @@ ${tabBar({
     { id: "price", label: labels.price, shortLabel: tr("Prices") },
     { id: "odds", label: labels.odds, shortLabel: tr("Odds") },
     { id: "cascades", label: labels.cascades, shortLabel: tr("Cascades") },
+    { id: "history", label: labels.history, shortLabel: tr("History"), member: true },
     { id: "largest", label: labels.largest, shortLabel: tr("Largest") },
+    {
+      id: "oi",
+      label: tr("Liquidations vs open interest"),
+      shortLabel: tr("vs OI"),
+      member: true,
+    },
     {
       id: "map",
       label: tr("Asset Timeline"),
@@ -2196,8 +2572,10 @@ ${tabBar({
 ${panels}
 ${mapFootnote({ map, params, now })}
 <p class="notes">${tr("Updated {ago}.", { ago: since(overview.updated_at, now) })}</p>
+<style>${MEMBER_TAB_CSS}</style>
 <script>${SLOT_SCRIPT}</script>
 <script>${LQ_SWAP_SCRIPT}</script>
+<script>${MEMBER_TAB_SCRIPT}</script>
 <script>${PICK_SCRIPT}</script>`,
   });
 }

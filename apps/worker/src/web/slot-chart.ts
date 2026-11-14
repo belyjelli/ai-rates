@@ -224,6 +224,14 @@ export function slotWhen(
   unit = 0,
 ): string {
   const p = (n: number) => String(n).padStart(2, "0");
+  const names = (words ? words.months : "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec").split(
+    "|",
+  );
+  // A day's slot is a UTC day (the member History tab): its date, in no zone's hours.
+  if (unit >= 86_400_000) {
+    const day = new Date(ms);
+    return `${names[day.getUTCMonth()] ?? ""} ${day.getUTCDate()} UTC`;
+  }
   const d = new Date(ms + offset * 60_000);
   const e = new Date(ms + unit + offset * 60_000);
   const a = Math.abs(offset);

@@ -32,6 +32,37 @@ export function isLiveRequest(request: Request): boolean {
   );
 }
 
+/**
+ * The member tabs of /liquidations (2026-11-15): a tab whose data only a signed-in member is served.
+ * The page asks for one with a member pass from the member site (scope "member", stored in live_watch
+ * under base "*", which no position has) in the same header, checked the same way. Without a good
+ * pass the tab is its locked copy, which is what every reader and every crawler gets.
+ */
+export const MEMBER_PANELS = ["history", "oi"] as const;
+export type MemberPanel = (typeof MEMBER_PANELS)[number];
+
+/** Whether the request is a member tab of /liquidations asked for with a pass. */
+export function isMemberPanelRequest(request: Request): boolean {
+  if (request.method !== "GET" || !request.headers.has(LIVE_PASS_HEADER)) return false;
+  const url = new URL(request.url);
+  return (
+    (url.pathname === "/liquidations" || url.pathname.startsWith("/liquidations/")) &&
+    (MEMBER_PANELS as readonly string[]).includes(url.searchParams.get("panel") ?? "")
+  );
+}
+
+/**
+ * A member's copy on its way to the browser: private, so no cache between here and the reader keeps
+ * it for the next one. The edge cache stores it under a key of its own (`__member`), never the one
+ * the locked copy is kept under.
+ */
+export function memberCopy(response: Response): Response {
+  if (response.status !== 200) return response;
+  const out = new Response(response.body, response);
+  out.headers.set("cache-control", "private, max-age=30");
+  return out;
+}
+
 export async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");

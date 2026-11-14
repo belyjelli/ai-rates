@@ -399,4 +399,45 @@ export const liquidations: Catalog = {
   "Nothing has been force-closed in this window, so there is no asset to read.":
     "此时间窗口内没有仓位被强平，因此没有可读取的资产。",
   "{asset} cascades": "{asset} 连环爆仓",
+  "{asset} longs vs shorts by day · UTC days": "{asset} 每日多空对比 · UTC 日",
+  "30- and 90-day history": "30 天和 90 天历史",
+  "{asset} over 30 and 90 days": "{asset} 的 30 天和 90 天",
+  "Every day's longs and shorts liquidated over the last 30 or 90 days, each day as a share of the open interest on the same exchanges, and the heaviest days ranked.":
+    "过去 30 或 90 天每天被强平的多头和空头，每天占同一批交易所未平仓量的比例，并列出最重的几天。",
+  "Liquidations against open interest": "爆仓与未平仓量对比",
+  "Which markets were really flushed rather than just big: every asset's liquidations in the window as a share of its open interest, and the same for crypto, stocks, commodities and indices.":
+    "哪些市场是真正被清洗，而不只是规模大：此时间窗口内每个资产的爆仓占其未平仓量的比例，以及加密货币、股票、大宗商品和指数各自的比例。",
+  "For members": "会员专享",
+  "Create a free account": "免费注册",
+  "Loading the member view…": "正在加载会员视图…",
+  "The history could not be read right now.": "暂时无法读取历史。",
+  "Nothing was force-closed in {asset} over this span.": "此期间 {asset} 没有仓位被强平。",
+  "Liquidated over {span} days": "{span} 天内爆仓",
+  "A typical day": "典型的一天",
+  "of open interest, on average": "占未平仓量的平均比例",
+  "The heaviest day": "最重的一天",
+  "Days with data": "有数据的天数",
+  "from {date}": "自 {date}",
+  "The heaviest days, as a share of open interest": "最重的几天（占未平仓量比例）",
+  "Day (UTC)": "日期（UTC）",
+  "Exchanges that reported a liquidation that day": "当天报告了爆仓的交易所",
+  "Open interest is the day's average on the exchanges whose liquidation feeds reported {asset}, so the share compares like with like.":
+    "未平仓量是当天报告 {asset} 爆仓的交易所上的日均值，因此比例是同口径比较。",
+  "Liquidation feeds were added over time: from {least} to {most} exchanges a day here, so early days undercount.":
+    "爆仓数据源是陆续加入的：这里每天 {least} 到 {most} 家交易所，因此较早的日子偏少。",
+  Commodities: "大宗商品",
+  Indices: "指数",
+  "The open interest could not be read right now.": "暂时无法读取未平仓量。",
+  "{liq} of {oi} open": "{oi} 未平仓中的 {liq}",
+  "The markets most flushed for their size": "相对规模被清洗最多的市场",
+  "No market with $1M of open interest had a liquidation in this window.":
+    "此时间窗口内没有未平仓量达 $1M 的市场发生爆仓。",
+  Class: "类别",
+  "Liquidations over the last {window} against the open interest now, both on the {feeds} exchanges whose liquidation feeds reported closes in that window. Markets under $1M of open interest are left out of the ranking.":
+    "过去 {window} 的爆仓与当前未平仓量对比，两者都取自此窗口内报告了爆仓的 {feeds} 家交易所。未平仓量低于 $1M 的市场不参与排名。",
+  Span: "期间",
+  History: "历史",
+  "{asset} history": "{asset} 历史",
+  "Liquidations vs open interest": "爆仓与未平仓量对比",
+  "vs OI": "对比 OI",
 };

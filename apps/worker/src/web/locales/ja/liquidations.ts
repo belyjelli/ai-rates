@@ -411,4 +411,46 @@ export const liquidations: Catalog = {
   "Nothing has been force-closed in this window, so there is no asset to read.":
     "この期間に強制決済はなく、読み取る銘柄がありません。",
   "{asset} cascades": "{asset} カスケード",
+  "{asset} longs vs shorts by day · UTC days": "{asset} 日別ロング対ショート · UTC 日",
+  "30- and 90-day history": "30 日・90 日の履歴",
+  "{asset} over 30 and 90 days": "{asset} の 30 日・90 日",
+  "Every day's longs and shorts liquidated over the last 30 or 90 days, each day as a share of the open interest on the same exchanges, and the heaviest days ranked.":
+    "過去 30 日または 90 日の毎日のロングとショートの清算額、各日の同じ取引所の建玉に対する比率、そして最も重かった日のランキング。",
+  "Liquidations against open interest": "清算と建玉の比較",
+  "Which markets were really flushed rather than just big: every asset's liquidations in the window as a share of its open interest, and the same for crypto, stocks, commodities and indices.":
+    "規模が大きいだけでなく本当に一掃された市場はどこか：期間中の各銘柄の清算額が建玉に占める比率と、暗号資産・株式・コモディティ・指数ごとの比率。",
+  "For members": "メンバー限定",
+  "Create a free account": "無料アカウントを作成",
+  "Loading the member view…": "メンバー表示を読み込み中…",
+  "The history could not be read right now.": "履歴を現在読み取れません。",
+  "Nothing was force-closed in {asset} over this span.":
+    "この期間に {asset} の強制決済はありません。",
+  "Liquidated over {span} days": "{span} 日間の清算額",
+  "A typical day": "典型的な一日",
+  "of open interest, on average": "建玉に対する平均比率",
+  "The heaviest day": "最も重かった日",
+  "Days with data": "データのある日数",
+  "from {date}": "{date} から",
+  "The heaviest days, as a share of open interest": "最も重かった日（建玉比）",
+  "Day (UTC)": "日付（UTC）",
+  "Exchanges that reported a liquidation that day": "その日に清算を報告した取引所",
+  "Open interest is the day's average on the exchanges whose liquidation feeds reported {asset}, so the share compares like with like.":
+    "建玉は {asset} の清算を報告した取引所におけるその日の平均で、比率は同じ範囲どうしの比較です。",
+  "Liquidation feeds were added over time: from {least} to {most} exchanges a day here, so early days undercount.":
+    "清算フィードは順次追加されました：ここでは 1 日あたり {least} から {most} 取引所のため、初期の日は少なめです。",
+  Commodities: "コモディティ",
+  Indices: "指数",
+  "The open interest could not be read right now.": "建玉を現在読み取れません。",
+  "{liq} of {oi} open": "建玉 {oi} のうち {liq}",
+  "The markets most flushed for their size": "規模の割に最も一掃された市場",
+  "No market with $1M of open interest had a liquidation in this window.":
+    "この期間に建玉 $1M 以上の市場で清算はありませんでした。",
+  Class: "区分",
+  "Liquidations over the last {window} against the open interest now, both on the {feeds} exchanges whose liquidation feeds reported closes in that window. Markets under $1M of open interest are left out of the ranking.":
+    "過去 {window} の清算と現在の建玉の比較で、どちらもこの期間に清算を報告した {feeds} 取引所のものです。建玉 $1M 未満の市場はランキングから除外しています。",
+  Span: "期間",
+  History: "履歴",
+  "{asset} history": "{asset} の履歴",
+  "Liquidations vs open interest": "清算と建玉の比較",
+  "vs OI": "建玉比",
 };

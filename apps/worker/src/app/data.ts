@@ -737,6 +737,32 @@ export interface LiquidationEvent {
   fill_price: number;
 }
 
+/**
+ * One UTC day of one asset's liquidations, every venue summed, beside the open interest on the
+ * venues whose liquidation feeds were read: the member History tab of /liquidations.
+ */
+export interface LiquidationDay {
+  day: Date;
+  long_usd: number;
+  short_usd: number;
+  events: number;
+  /** Venues that reported a close of the asset that day: fewer on early days, before feeds were added. */
+  venues: number;
+  /**
+   * The day's average open interest in the asset's markets on the venues whose liquidation feeds
+   * this history read, in dollars; null where none was stored.
+   */
+  oi_usd: number | null;
+}
+
+/** One asset's open interest now, on the venues named: the denominator of the member OI tab. */
+export interface AssetOpenInterest {
+  asset: string;
+  asset_class: AssetClass;
+  oi_usd: number;
+  markets: number;
+}
+
 export interface LargestLiquidationsOptions {
   windowHours: number;
   /** One asset, or null for every asset in the window. */
@@ -1490,6 +1516,14 @@ export interface DataSource {
    * of /liquidations and the window's biggest close in the page's summary.
    */
   largestLiquidations(options: LargestLiquidationsOptions): Promise<LiquidationEvent[]>;
+  /** One asset's liquidations by UTC day over `days`, with the open interest they are measured against. */
+  liquidationHistory(options: {
+    base: string;
+    assetClass: AssetClass | null;
+    days: number;
+  }): Promise<LiquidationDay[]>;
+  /** Every asset's open interest now on the venues named (the feeds that reported closes). */
+  openInterestByAsset(venues: readonly string[]): Promise<AssetOpenInterest[]>;
   /**
    * One asset's average liquidation pace over the last week, and the minutes in the window that ran
    * hot against it (app/cascades.ts), for the Cascades tab of /liquidations.
@@ -3188,6 +3222,66 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         totals: [...totals],
         sides: [...sides],
       };
+    },
+
+    async liquidationHistory({ base, assetClass, days }) {
+      const sql = connect();
+      const span = `${days} days`;
+      // The asset's markets, its closes by UTC day, and the open interest on the venues those closes
+      // came from: a venue with no liquidation feed holds positions this history never sees close, so
+      // its open interest would only shrink the share. Hourly OI (market_price_hourly) summed across
+      // markets, averaged over the day's hours.
+      const rows = await sql<LiquidationDay[]>`
+        WITH chosen AS (${chosenClass(sql, base, assetClass)}),
+        mk AS (
+          SELECT venue_id, venue_symbol FROM market_latest
+          WHERE base = ${base} AND asset_class = (SELECT asset_class FROM chosen)
+        ),
+        closes AS (
+          SELECT l.venue_id, l.liquidated_at, l.side, l.notional_usd
+          FROM mk
+          JOIN liquidations l ON l.venue_id = mk.venue_id AND l.venue_symbol = mk.venue_symbol
+          WHERE l.liquidated_at > now() - ${span}::interval AND l.notional_usd IS NOT NULL
+        ),
+        daily AS (
+          SELECT date_trunc('day', liquidated_at, 'UTC') AS day,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'long'), 0) AS long_usd,
+                 coalesce(sum(notional_usd) FILTER (WHERE side = 'short'), 0) AS short_usd,
+                 count(*) AS events,
+                 count(DISTINCT venue_id) AS venues
+          FROM closes GROUP BY 1
+        ),
+        fed AS (SELECT DISTINCT venue_id FROM closes),
+        oi AS (
+          SELECT date_trunc('day', h.hour, 'UTC') AS day,
+                 sum(h.oi_avg) / nullif(count(DISTINCT h.hour), 0) AS oi_usd
+          FROM mk
+          JOIN market_price_hourly h ON h.venue_id = mk.venue_id AND h.venue_symbol = mk.venue_symbol
+          WHERE h.hour > now() - ${span}::interval
+            AND h.oi_avg > 0
+            AND mk.venue_id IN (SELECT venue_id FROM fed)
+          GROUP BY 1
+        )
+        SELECT d.day, d.long_usd::float8 AS long_usd, d.short_usd::float8 AS short_usd,
+               d.events::int AS events, d.venues::int AS venues, o.oi_usd::float8 AS oi_usd
+        FROM daily d LEFT JOIN oi o USING (day)
+        ORDER BY d.day`;
+      return [...rows];
+    },
+
+    async openInterestByAsset(venues) {
+      if (venues.length === 0) return [];
+      const sql = connect();
+      const list = venues.join(",");
+      const rows = await sql<AssetOpenInterest[]>`
+        SELECT base AS asset, asset_class, sum(open_interest_usd)::float8 AS oi_usd,
+               count(*)::int AS markets
+        FROM market_latest
+        WHERE venue_id = ANY(string_to_array(${list}::text, ','))
+          AND observed_at > now() - ${FRESH_INTERVAL}::interval
+          AND open_interest_usd > 0
+        GROUP BY base, asset_class`;
+      return [...rows];
     },
 
     async liquidationCascades({ base, assetClass, windowHours }) {

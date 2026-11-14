@@ -407,4 +407,45 @@ export const liquidations: Catalog = {
   "Nothing has been force-closed in this window, so there is no asset to read.":
     "이 기간에 강제 청산이 없어 읽을 자산이 없습니다.",
   "{asset} cascades": "{asset} 캐스케이드",
+  "{asset} longs vs shorts by day · UTC days": "{asset} 일별 롱 대 숏 · UTC 기준 일",
+  "30- and 90-day history": "30일 및 90일 기록",
+  "{asset} over 30 and 90 days": "{asset}의 30일 및 90일",
+  "Every day's longs and shorts liquidated over the last 30 or 90 days, each day as a share of the open interest on the same exchanges, and the heaviest days ranked.":
+    "지난 30일 또는 90일 동안 매일 청산된 롱과 숏, 각 날이 같은 거래소 미결제약정에서 차지한 비율, 그리고 가장 무거웠던 날의 순위.",
+  "Liquidations against open interest": "청산 대 미결제약정",
+  "Which markets were really flushed rather than just big: every asset's liquidations in the window as a share of its open interest, and the same for crypto, stocks, commodities and indices.":
+    "규모가 클 뿐 아니라 실제로 정리된 시장은 어디인가: 기간 중 각 자산의 청산이 미결제약정에서 차지한 비율과 암호화폐, 주식, 원자재, 지수별 비율.",
+  "For members": "회원 전용",
+  "Create a free account": "무료 계정 만들기",
+  "Loading the member view…": "회원 화면을 불러오는 중…",
+  "The history could not be read right now.": "지금은 기록을 읽을 수 없습니다.",
+  "Nothing was force-closed in {asset} over this span.": "이 기간에 {asset} 강제 청산이 없습니다.",
+  "Liquidated over {span} days": "{span}일간 청산",
+  "A typical day": "보통의 하루",
+  "of open interest, on average": "미결제약정 대비 평균 비율",
+  "The heaviest day": "가장 무거웠던 날",
+  "Days with data": "데이터가 있는 날",
+  "from {date}": "{date}부터",
+  "The heaviest days, as a share of open interest": "가장 무거웠던 날 (미결제약정 대비)",
+  "Day (UTC)": "날짜 (UTC)",
+  "Exchanges that reported a liquidation that day": "그날 청산을 보고한 거래소",
+  "Open interest is the day's average on the exchanges whose liquidation feeds reported {asset}, so the share compares like with like.":
+    "미결제약정은 {asset} 청산을 보고한 거래소의 그날 평균이므로, 비율은 같은 범위끼리 비교한 것입니다.",
+  "Liquidation feeds were added over time: from {least} to {most} exchanges a day here, so early days undercount.":
+    "청산 피드는 차례로 추가되었습니다: 여기서는 하루 {least}~{most}곳이므로 초기 날짜는 적게 잡힙니다.",
+  Commodities: "원자재",
+  Indices: "지수",
+  "The open interest could not be read right now.": "지금은 미결제약정을 읽을 수 없습니다.",
+  "{liq} of {oi} open": "미결제약정 {oi} 중 {liq}",
+  "The markets most flushed for their size": "규모 대비 가장 많이 정리된 시장",
+  "No market with $1M of open interest had a liquidation in this window.":
+    "이 기간에 미결제약정 $1M 이상인 시장에서 청산이 없었습니다.",
+  Class: "분류",
+  "Liquidations over the last {window} against the open interest now, both on the {feeds} exchanges whose liquidation feeds reported closes in that window. Markets under $1M of open interest are left out of the ranking.":
+    "지난 {window}의 청산과 현재 미결제약정을 비교하며, 둘 다 이 기간에 청산을 보고한 거래소 {feeds}곳 기준입니다. 미결제약정 $1M 미만 시장은 순위에서 제외합니다.",
+  Span: "기간",
+  History: "기록",
+  "{asset} history": "{asset} 기록",
+  "Liquidations vs open interest": "청산 대 미결제약정",
+  "vs OI": "OI 대비",
 };

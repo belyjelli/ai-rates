@@ -65,6 +65,8 @@ describe("readouts", () => {
     expect(slotWhen(CANDLE, words, BEIJING, 3_600_000)).toBe("Oct 12 23:00–00:00 UTC+8");
     expect(slotWhen(CANDLE, words, 0, 15 * 60_000)).toBe("Oct 12 15:00–15:15 UTC");
     expect(slotWhen(CANDLE)).toBe("Oct 12 15:00 UTC");
+    // A day's slot is its UTC date, whatever the reader's zone: "08:00–08:00" said nothing.
+    expect(slotWhen(Date.UTC(2026, 9, 12), words, BEIJING, 86_400_000)).toBe("Oct 12 UTC");
   });
 
   test("a whale candle reads its open, high, low, close, volume and the bursts in it", () => {

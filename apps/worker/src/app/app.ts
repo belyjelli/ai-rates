@@ -123,6 +123,11 @@ export interface AppDeps {
    * of the cache key. Absent means English. The JSON API is never translated.
    */
   locale?: Locale;
+  /**
+   * True when index.ts found a good member pass on a member tab's request (app/live-pass.ts
+   * MEMBER_PANELS): that tab is rendered with its data rather than locked. Absent means locked.
+   */
+  member?: boolean;
 }
 
 const PAGE_MAX_AGE = 30;
@@ -617,9 +622,19 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       // what the map tab reloads itself from when the reader picks venues (LQ_VENUE_SCRIPT).
       const askedPanel = url.searchParams.get("panel");
       const panel =
-        (["map", "sides", "price", "odds", "whales", "largest", "cascades"] as const).find(
-          (id) => id === askedPanel,
-        ) ?? null;
+        (
+          [
+            "map",
+            "sides",
+            "price",
+            "odds",
+            "whales",
+            "largest",
+            "cascades",
+            "history",
+            "oi",
+          ] as const
+        ).find((id) => id === askedPanel) ?? null;
       const [overview, map] = await Promise.all([
         deps.data.overview(),
         deps.data.liquidationMap({ windowHours: hours, bucketHours, assets: params.assets }),
@@ -684,78 +699,104 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       // Cascades only for their own tab: a week of the asset's closes cut into minutes, and the price
       // bars around them only when there is a cascade to price.
       const wantsCascades = wanted !== null && panel === "cascades";
-      const [assetMap, oddsBars, oddsMarkets, whales, largest, biggestAlone, cascades] =
-        await Promise.all([
-          wantsAsset && wanted
-            ? deps.data.liquidationAsset({
+      // The member tabs' data only for a member's own request for that tab (index.ts checked the
+      // pass); every other render ships them locked and reads nothing for them.
+      const member = deps.member === true;
+      const wantsHistory = member && wanted !== null && panel === "history";
+      const wantsOi = member && panel === "oi";
+      const [
+        assetMap,
+        oddsBars,
+        oddsMarkets,
+        whales,
+        largest,
+        biggestAlone,
+        cascades,
+        history,
+        openInterest,
+      ] = await Promise.all([
+        wantsAsset && wanted
+          ? deps.data.liquidationAsset({
+              base: wanted.asset,
+              assetClass: wanted.assetClass,
+              windowHours: hours,
+              bucketHours,
+              bandPct: assetParams.band,
+              bandChoices: LIQUIDATION_BANDS,
+              reach: LIQUIDATION_BAND_REACH,
+              sideMinutes,
+              pendingWide: assetParams.pending && assetParams.zoom === "wide",
+            })
+          : undefined,
+        wantsOdds && wanted
+          ? deps.data
+              .assetBars({
+                base: wanted.asset,
+                assetClass: wanted.assetClass,
+                windowHours: OUTLOOK_WINDOW_HOURS,
+                barMinutes: OUTLOOK_BAR_MINUTES,
+              })
+              .catch(() => [])
+          : [],
+        wantsOdds && wanted ? deps.data.asset(wanted.asset, wanted.assetClass).catch(() => []) : [],
+        wantsWhales && wanted
+          ? deps.data
+              .whalePositions({ base: wanted.asset, assetClass: wanted.assetClass })
+              .catch(() => null)
+          : undefined,
+        wantsLargest ? deps.data.largestLiquidations(listed).catch(() => null) : undefined,
+        panel === null && !listIsDefault
+          ? deps.data
+              .largestLiquidations({
+                ...largestScope,
+                venues: null,
+                order: "size",
+                minUsd: 0,
+                limit: 1,
+              })
+              .then((rows) => rows[0] ?? null)
+              .catch(() => null)
+          : undefined,
+        wantsCascades && wanted
+          ? deps.data
+              .liquidationCascades({
                 base: wanted.asset,
                 assetClass: wanted.assetClass,
                 windowHours: hours,
-                bucketHours,
-                bandPct: assetParams.band,
-                bandChoices: LIQUIDATION_BANDS,
-                reach: LIQUIDATION_BAND_REACH,
-                sideMinutes,
-                pendingWide: assetParams.pending && assetParams.zoom === "wide",
               })
-            : undefined,
-          wantsOdds && wanted
-            ? deps.data
-                .assetBars({
-                  base: wanted.asset,
-                  assetClass: wanted.assetClass,
-                  windowHours: OUTLOOK_WINDOW_HOURS,
-                  barMinutes: OUTLOOK_BAR_MINUTES,
-                })
-                .catch(() => [])
-            : [],
-          wantsOdds && wanted
-            ? deps.data.asset(wanted.asset, wanted.assetClass).catch(() => [])
-            : [],
-          wantsWhales && wanted
-            ? deps.data
-                .whalePositions({ base: wanted.asset, assetClass: wanted.assetClass })
-                .catch(() => null)
-            : undefined,
-          wantsLargest ? deps.data.largestLiquidations(listed).catch(() => null) : undefined,
-          panel === null && !listIsDefault
-            ? deps.data
-                .largestLiquidations({
-                  ...largestScope,
-                  venues: null,
-                  order: "size",
-                  minUsd: 0,
-                  limit: 1,
-                })
-                .then((rows) => rows[0] ?? null)
-                .catch(() => null)
-            : undefined,
-          wantsCascades && wanted
-            ? deps.data
-                .liquidationCascades({
-                  base: wanted.asset,
-                  assetClass: wanted.assetClass,
-                  windowHours: hours,
-                })
-                .then(async (read) => {
-                  const found = findCascades(read);
-                  const barHours = barHoursFor(found, now);
-                  const bars =
-                    barHours > 0
-                      ? await deps.data
-                          .assetBars({
-                            base: wanted.asset,
-                            assetClass: wanted.assetClass,
-                            windowHours: barHours,
-                            barMinutes: CASCADE_BAR_MINUTES,
-                          })
-                          .catch(() => [])
-                      : [];
-                  return cascadeView(read, found, bars, now);
-                })
-                .catch(() => null)
-            : undefined,
-        ]);
+              .then(async (read) => {
+                const found = findCascades(read);
+                const barHours = barHoursFor(found, now);
+                const bars =
+                  barHours > 0
+                    ? await deps.data
+                        .assetBars({
+                          base: wanted.asset,
+                          assetClass: wanted.assetClass,
+                          windowHours: barHours,
+                          barMinutes: CASCADE_BAR_MINUTES,
+                        })
+                        .catch(() => [])
+                    : [];
+                return cascadeView(read, found, bars, now);
+              })
+              .catch(() => null)
+          : undefined,
+        wantsHistory && wanted
+          ? deps.data
+              .liquidationHistory({
+                base: wanted.asset,
+                assetClass: wanted.assetClass,
+                days: assetParams.span,
+              })
+              .catch(() => null)
+          : undefined,
+        wantsOi
+          ? deps.data
+              .openInterestByAsset(map.totals.map((total) => total.venue_id))
+              .catch(() => null)
+          : undefined,
+      ]);
       if (address && (!assetMap || assetMap.asset_class === null)) {
         return page(
           () =>
@@ -794,6 +835,9 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         whales: wanted === null ? null : whales,
         largest,
         cascades: wanted === null ? null : cascades,
+        member,
+        history: wanted === null ? null : history,
+        openInterest,
         biggest:
           panel !== null
             ? undefined

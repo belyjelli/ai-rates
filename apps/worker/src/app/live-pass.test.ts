@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { forgetLivePasses, isLiveRequest, livePassValid, sha256Hex } from "./live-pass";
+import {
+  forgetLivePasses,
+  isLiveRequest,
+  isMemberPanelRequest,
+  livePassValid,
+  memberCopy,
+  sha256Hex,
+} from "./live-pass";
 
 const PASS = "A".repeat(43);
 const NOW = Date.UTC(2026, 9, 23, 12, 0, 0);
@@ -25,6 +32,33 @@ describe("which requests the live refresh serves", () => {
     expect(isLiveRequest(req("/liquidations?panel=whales", { "x-live-pass": PASS }, "POST"))).toBe(
       false,
     );
+  });
+});
+
+describe("the member tabs", () => {
+  const req = (path: string, headers: Record<string, string> = { "x-live-pass": PASS }) =>
+    new Request(`https://airrates.net${path}`, { headers });
+
+  test("a member tab on its own, with a pass, is checked; the rest are not", () => {
+    expect(isMemberPanelRequest(req("/liquidations/ETH?panel=history"))).toBe(true);
+    expect(isMemberPanelRequest(req("/liquidations?window=7d&panel=oi"))).toBe(true);
+    expect(isMemberPanelRequest(req("/liquidations/ETH?panel=history", {}))).toBe(false);
+    expect(isMemberPanelRequest(req("/liquidations/ETH?panel=sides"))).toBe(false);
+    expect(isMemberPanelRequest(req("/liquidations/ETH"))).toBe(false);
+    expect(isMemberPanelRequest(req("/chart/ETH?panel=history"))).toBe(false);
+  });
+
+  test("a member's copy leaves private, so no cache on the way keeps it for the next reader", () => {
+    const out = memberCopy(
+      new Response("x", { headers: { "cache-control": "public, max-age=30", "x-keep": "1" } }),
+    );
+    expect(out.headers.get("cache-control")).toBe("private, max-age=30");
+    expect(out.headers.get("x-keep")).toBe("1");
+    // Anything but a page is left as it is.
+    const refused = memberCopy(
+      new Response(null, { status: 401, headers: { "cache-control": "no-store" } }),
+    );
+    expect(refused.headers.get("cache-control")).toBe("no-store");
   });
 });
 

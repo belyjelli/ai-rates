@@ -421,4 +421,46 @@ export const liquidations: Catalog = {
   "Nothing has been force-closed in this window, so there is no asset to read.":
     "За этот период ничего не было принудительно закрыто, поэтому нет актива для чтения.",
   "{asset} cascades": "Каскады {asset}",
+  "{asset} longs vs shorts by day · UTC days": "{asset}: лонги и шорты по дням · дни UTC",
+  "30- and 90-day history": "История за 30 и 90 дней",
+  "{asset} over 30 and 90 days": "{asset} за 30 и 90 дней",
+  "Every day's longs and shorts liquidated over the last 30 or 90 days, each day as a share of the open interest on the same exchanges, and the heaviest days ranked.":
+    "Ликвидации лонгов и шортов по дням за последние 30 или 90 дней, каждый день как доля открытого интереса на тех же биржах, и самые тяжёлые дни.",
+  "Liquidations against open interest": "Ликвидации против открытого интереса",
+  "Which markets were really flushed rather than just big: every asset's liquidations in the window as a share of its open interest, and the same for crypto, stocks, commodities and indices.":
+    "Какие рынки действительно вычистило, а не просто большие: ликвидации каждого актива за период как доля его открытого интереса, и то же для крипто, акций, сырья и индексов.",
+  "For members": "Для участников",
+  "Create a free account": "Создать бесплатный аккаунт",
+  "Loading the member view…": "Загружаем вид для участников…",
+  "The history could not be read right now.": "Историю сейчас не удалось прочитать.",
+  "Nothing was force-closed in {asset} over this span.":
+    "За этот период позиции {asset} принудительно не закрывались.",
+  "Liquidated over {span} days": "Ликвидировано за {span} дней",
+  "A typical day": "Обычный день",
+  "of open interest, on average": "от открытого интереса, в среднем",
+  "The heaviest day": "Самый тяжёлый день",
+  "Days with data": "Дней с данными",
+  "from {date}": "с {date}",
+  "The heaviest days, as a share of open interest": "Самые тяжёлые дни как доля открытого интереса",
+  "Day (UTC)": "День (UTC)",
+  "Exchanges that reported a liquidation that day": "Биржи, сообщившие о ликвидации в этот день",
+  "Open interest is the day's average on the exchanges whose liquidation feeds reported {asset}, so the share compares like with like.":
+    "Открытый интерес — среднее за день на биржах, чьи ленты ликвидаций сообщали о {asset}, поэтому доля сравнивает сопоставимое.",
+  "Liquidation feeds were added over time: from {least} to {most} exchanges a day here, so early days undercount.":
+    "Ленты ликвидаций добавлялись постепенно: здесь от {least} до {most} бирж в день, поэтому ранние дни занижены.",
+  Commodities: "Сырьё",
+  Indices: "Индексы",
+  "The open interest could not be read right now.": "Открытый интерес сейчас не удалось прочитать.",
+  "{liq} of {oi} open": "{liq} из {oi} открытых",
+  "The markets most flushed for their size": "Рынки, сильнее всего вычищенные относительно размера",
+  "No market with $1M of open interest had a liquidation in this window.":
+    "За этот период не было ликвидаций на рынках с открытым интересом от $1M.",
+  Class: "Класс",
+  "Liquidations over the last {window} against the open interest now, both on the {feeds} exchanges whose liquidation feeds reported closes in that window. Markets under $1M of open interest are left out of the ranking.":
+    "Ликвидации за последние {window} против текущего открытого интереса, и то и другое на {feeds} биржах, чьи ленты сообщали о ликвидациях в этот период. Рынки с открытым интересом меньше $1M в рейтинг не входят.",
+  Span: "Период",
+  History: "История",
+  "{asset} history": "История {asset}",
+  "Liquidations vs open interest": "Ликвидации против открытого интереса",
+  "vs OI": "к OI",
 };

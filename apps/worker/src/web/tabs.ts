@@ -1,4 +1,4 @@
-import { esc } from "./format";
+import { esc, LOCK_ICON } from "./format";
 import { tr } from "./i18n";
 
 /**
@@ -40,6 +40,8 @@ export interface Tab {
   shortLabel?: string;
   /** Rendered beside the label when above zero, as the original's `badgeCount` is. */
   badge?: number;
+  /** A tab whose data is for signed-in members: a padlock before its label. */
+  member?: boolean;
 }
 
 export interface TabBarOptions {
@@ -66,11 +68,14 @@ export function tabBar({ name, tabs, activeId, actions }: TabBarOptions): string
         tab.badge !== undefined && tab.badge > 0
           ? `<span class="tab-badge">${tab.badge.toLocaleString("en-US")}</span>`
           : "";
+      const lock = tab.member
+        ? `<span class="tab-lock" title="${esc(tr("For members"))}">${LOCK_ICON}</span>`
+        : "";
       return `<button type="button" role="tab" id="tab-${esc(name)}-${esc(tab.id)}" class="btn-tab${
         active ? " active" : ""
       }" data-tab="${esc(tab.id)}" aria-selected="${active}" aria-controls="panel-${esc(name)}-${esc(tab.id)}" tabindex="${
         active ? "0" : "-1"
-      }">${label}${badge}</button>`;
+      }">${lock}${label}${badge}</button>`;
     })
     .join("");
 
@@ -121,7 +126,14 @@ export const TAB_SCRIPT = `(() => {
       if (!url || state === "loading" || state === "loaded") return;
       panel.dataset.lazyState = "loading";
       if (state !== "stale") panel.setAttribute("aria-busy", "true");
-      fetch(url, { credentials: "same-origin" })
+      // A member tab asks its page for the member pass header (liquidations.ts MEMBER_TAB_SCRIPT), so a
+      // member's reload of it is not the locked copy.
+      const headers = panel.hasAttribute("data-member-tab") && window.airratesPanelHeaders
+        ? window.airratesPanelHeaders()
+        : Promise.resolve({});
+      headers
+        .catch(() => ({}))
+        .then((extra) => fetch(url, { credentials: "same-origin", headers: extra }))
         .then((res) => {
           if (!res.ok) throw new Error("HTTP " + res.status);
           return res.text();

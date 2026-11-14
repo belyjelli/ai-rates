@@ -233,7 +233,8 @@ export const LIVE_SCRIPT = String.raw`(() => {
   const refreshPanels = async () => {
     if (engaged()) return;
     for (const panel of document.querySelectorAll("[data-lazy][data-lazy-state=loaded]")) {
-      if (panel.hidden || panel.dataset.memberLive === "on") continue;
+      // A member tab (liquidations.ts MEMBER_TAB_SCRIPT) is its own: this poll sends no pass.
+      if (panel.hidden || panel.dataset.memberLive === "on" || panel.hasAttribute("data-member-tab")) continue;
       const body = panel.querySelector(".lazy-body");
       if (!body) continue;
       try {

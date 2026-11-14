@@ -682,7 +682,17 @@ export interface LiquidationAssetParams {
   order: LargestOrder;
   /** The newest-first list's smallest close. The biggest-first list needs no floor. */
   min: LargestFloor;
+  /** The member History tab's span, in days. */
+  span: HistorySpan;
 }
+
+/**
+ * The member History tab's spans. Liquidations are kept for good since 2026-10-24 and reach back to
+ * 2026-09-13 (collector migrations 012 and 050), so 90 days fill up in mid-December; until then the
+ * chart starts where the data does and says so.
+ */
+export const HISTORY_SPANS = [30, 90] as const;
+export type HistorySpan = (typeof HISTORY_SPANS)[number];
 
 /**
  * The Largest tab's two lists. Biggest first answers "what were the big ones"; newest first, above a
@@ -733,6 +743,7 @@ export function parseLiquidationAssetParams(params: URLSearchParams): Liquidatio
     min: Object.hasOwn(LARGEST_FLOORS, params.get("min") ?? "")
       ? (params.get("min") as LargestFloor)
       : DEFAULT_LARGEST_FLOOR,
+    span: params.get("span") === "90" ? 90 : 30,
   };
 }
 
@@ -748,6 +759,7 @@ export function liquidationAssetToQuery(params: LiquidationAssetParams): string 
     query.set("order", "newest");
     if (params.min !== DEFAULT_LARGEST_FLOOR) query.set("min", params.min);
   }
+  if (params.span !== 30) query.set("span", String(params.span));
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
 }

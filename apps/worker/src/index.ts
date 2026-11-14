@@ -10,6 +10,8 @@ import {
   LIVE_MAX_AGE,
   LIVE_PASS_HEADER,
   livePassValid,
+  isMemberPanelRequest,
+  memberCopy,
 } from "./app/live-pass";
 import { isSheddable, Pressure, SHED_REFUSAL } from "./app/load-shed";
 import { withSecurityHeaders } from "./app/security-headers";
@@ -94,8 +96,11 @@ async function handle(
   // A member's live refresh: a pass that is not current is told so, never served the ordinary copy,
   // so the page asks the member site for a new one. Kept in copies of its own (`__live`), never the
   // ones every reader gets.
+  // A member tab asked for with a pass (app/live-pass.ts MEMBER_PANELS): the same check, and on a
+  // good pass the tab's member copy, kept apart from the locked one everybody else is served.
   const live = isLiveRequest(request);
-  if (live) {
+  const member = isMemberPanelRequest(request);
+  if (live || member) {
     const valid = await livePassValid(
       request.headers.get(LIVE_PASS_HEADER),
       databaseLookup(env.HYPERDRIVE.connectionString, (promise) => ctx.waitUntil(promise)),
@@ -115,11 +120,12 @@ async function handle(
   }
 
   let cacheKey: Request = request;
-  if (bucket !== "any" || locale !== DEFAULT_LOCALE || live) {
+  if (bucket !== "any" || locale !== DEFAULT_LOCALE || live || member) {
     const keyed = new URL(request.url);
     if (bucket !== "any") keyed.searchParams.set("__cta", bucket);
     if (locale !== DEFAULT_LOCALE) keyed.searchParams.set("__lang", locale);
     if (live) keyed.searchParams.set("__live", "1");
+    if (member) keyed.searchParams.set("__member", "1");
     cacheKey = new Request(keyed.toString(), request);
   }
   // What the page needs from the database is rendered at most once per URL at a time, served stale
@@ -165,6 +171,7 @@ async function handle(
           rateLimit: async (key: string) => (await env.BACKTEST_LIMITER.limit({ key })).success,
           referrals,
           locale,
+          member,
         }),
       );
     } finally {
@@ -200,7 +207,7 @@ async function handle(
   const response = shed
     ? await edge.serveShed({ ...serving, render: () => render(true) })
     : await (live ? liveEdge : edge).serve(serving);
-  return varyByLanguage(await asMarkdown(request, response));
+  return varyByLanguage(await asMarkdown(request, member ? memberCopy(response) : response));
 }
 
 /** A member's live copy: fresh for LIVE_MAX_AGE rather than a page's 30 s (app/live-pass.ts). */
