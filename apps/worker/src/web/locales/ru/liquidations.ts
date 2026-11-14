@@ -463,4 +463,23 @@ export const liquidations: Catalog = {
   "{asset} history": "История {asset}",
   "Liquidations vs open interest": "Ликвидации против открытого интереса",
   "vs OI": "к OI",
+  "Every cascade, in every asset": "Каждый каскад по всем активам",
+  "Every liquidation cascade in every asset, found each minute as it happens, with the price an hour and four hours after. Members can also have them sent to Telegram the moment they start.":
+    "Каждый каскад ликвидаций по всем активам, найденный поминутно по ходу дела, с ценой через час и через четыре часа. Участники могут получать их в Telegram в момент начала.",
+  "No cascade in any asset in the last {window}.":
+    "За последние {window} каскадов не было ни в одном активе.",
+  "in {n} assets": "в {n} активах",
+  "Longs and shorts": "Лонги и шорты",
+  "{longs} long cascades, {shorts} short": "каскадов лонгов: {longs}, шортов: {shorts}",
+  "The deepest market's mark when the watch first saw it, a minute or two in":
+    "Марк-цена самого глубокого рынка, когда наблюдение впервые заметило каскад, через минуту-две после начала",
+  "Price when seen": "Цена при обнаружении",
+  "From the price when seen to the mark an hour after the cascade ended":
+    "От цены при обнаружении до марк-цены через час после конца каскада",
+  "From the price when seen to the mark four hours after the cascade ended":
+    "От цены при обнаружении до марк-цены через четыре часа после конца каскада",
+  "Every asset, found each minute as it happens, by the rule of each asset's Cascades tab. Prices are the asset's deepest market's mark when the watch saw it and an hour and four hours after it ended. Members can have them sent to Telegram from {alerts}.":
+    "Все активы, поминутно по ходу дела, по правилу вкладки «Каскады» каждого актива. Цены — марк-цена самого глубокого рынка актива при обнаружении и через час и четыре часа после конца. Участники могут настроить отправку в Telegram на {alerts}.",
+  "the alerts page": "странице оповещений",
+  "All cascades": "Все каскады",
 };

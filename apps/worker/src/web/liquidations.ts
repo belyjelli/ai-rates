@@ -7,6 +7,7 @@ import type {
   LiquidationEvent,
   LiquidationMap,
   Overview,
+  StoredCascade,
   WhalePosition,
 } from "../app/data";
 import type { Outlook } from "../app/outlook";
@@ -1444,6 +1445,14 @@ ${table}`;
 
 /** What each member tab is, for its locked copy: a title and what a member sees in it. */
 function memberPitch(id: MemberPanel, asset: string | null): { title: string; text: string } {
+  if (id === "feed") {
+    return {
+      title: tr("Every cascade, in every asset"),
+      text: tr(
+        "Every liquidation cascade in every asset, found each minute as it happens, with the price an hour and four hours after. Members can also have them sent to Telegram the moment they start.",
+      ),
+    };
+  }
   if (id === "history") {
     return {
       title:
@@ -1734,6 +1743,80 @@ const MEMBER_TAB_SCRIPT = `(() => {
     upgrade(panel, false);
   }
 })();`;
+
+/**
+ * The member "All cascades" tab: every cascade the member site's minute watch found in every asset
+ * over the window (profitlock-member src/cascades/), newest first, with what the price did after.
+ *
+ * WHY STORED, NOT FOUND HERE. The asset's own Cascades tab finds them for one asset when it is opened;
+ * doing that for every asset would read a week of every market on each view. The watch does it once a
+ * minute for everyone, which is also what lets it send alerts, and this reads what it kept.
+ *
+ * THE PRICES ARE MARKS, not the candles the asset's own tab uses: the asset's deepest market's mark
+ * when the watch first saw the cascade (a minute or two in), and an hour and four hours after its last
+ * minute, taken as they happened.
+ */
+function feedPanel(data: {
+  feed: readonly StoredCascade[] | null;
+  window: LiquidationWindow;
+  now: number;
+  hrefFor: (entry: StoredCascade) => string;
+}): string {
+  const { feed, window, now, hrefFor } = data;
+  if (feed === null) {
+    return `<p class="empty">${tr("The cascades could not be read right now.")}</p>`;
+  }
+  if (feed.length === 0) {
+    return `<p class="empty">${tr("No cascade in any asset in the last {window}.", { window: esc(window) })}</p>`;
+  }
+  const rows = feed.map((c) => {
+    const down = c.long_usd >= c.short_usd;
+    const after = (mark: number | null, minutes: number) =>
+      mark !== null && c.mark_detected !== null && c.mark_detected > 0
+        ? mark / c.mark_detected - 1
+        : c.last_minute.getTime() + minutes * 60_000 > now
+          ? ("later" as const)
+          : null;
+    return { c, down, after1h: after(c.mark_1h, 60), after4h: after(c.mark_4h, 240) };
+  });
+  const longs = rows.filter((row) => row.down);
+  const shorts = rows.filter((row) => !row.down);
+  const usd = (list: typeof rows) =>
+    list.reduce((sum, row) => sum + row.c.long_usd + row.c.short_usd, 0);
+  const hourTile = (title: string, list: typeof rows) => {
+    const moves = list.map((row) => row.after1h).filter((v): v is number => typeof v === "number");
+    if (moves.length === 0) {
+      return `<div class="cvd-tile"><p class="eyebrow">${title}</p><p class="cvd-big dim">–</p><p class="dim">${list.length === 0 ? tr("none in this window") : tr("none an hour old yet")}</p></div>`;
+    }
+    const mean = moves.reduce((a, b) => a + b, 0) / moves.length;
+    const up = moves.filter((move) => move > 0).length;
+    return `<div class="cvd-tile"><p class="eyebrow">${title}</p><p class="cvd-big ${mean > 0 ? "cvd-up" : mean < 0 ? "cvd-down" : ""}">${movePct(mean)}</p><p class="dim">${tr("higher in {up} of {n}", { up, n: moves.length })}</p></div>`;
+  };
+  const assets = new Set(feed.map((c) => `${c.asset_class}|${c.base}`)).size;
+  const tiles = `<div class="cvd-tiles">
+<div class="cvd-tile"><p class="eyebrow">${tr("Cascades")}</p><p class="cvd-big">${feed.length}</p><p class="dim">${tr("in {n} assets", { n: assets })}</p></div>
+<div class="cvd-tile"><p class="eyebrow">${tr("Longs and shorts")}</p><p class="cvd-big"><span class="lq-ink-l">${money(usd(longs))}</span> / <span class="lq-ink-s">${money(usd(shorts))}</span></p><p class="dim">${tr("{longs} long cascades, {shorts} short", { longs: longs.length, shorts: shorts.length })}</p></div>
+${hourTile(tr("An hour after long cascades"), longs)}
+${hourTile(tr("An hour after short cascades"), shorts)}
+</div>`;
+  const table = rows
+    .map(({ c, down, after1h, after4h }) => {
+      const total = c.long_usd + c.short_usd;
+      const share = `${Math.round(((down ? c.long_usd : c.short_usd) / total) * 100)}%`;
+      const venues = c.venues.split(",").filter(Boolean);
+      const minutes = Math.round((c.last_minute.getTime() - c.started_at.getTime()) / 60_000) + 1;
+      return `<tr><td class="dim">${timeTag(c.started_at.getTime(), "mdhm")}</td><td><a href="${esc(hrefFor(c))}">${assetName(c.base, c.asset_class)}</a></td><td class="num">${tr("{n} min", { n: minutes })}</td><td class="num"><b>${money(total)}</b></td><td class="${down ? "lq-ink-l" : "lq-ink-s"}">${down ? tr("longs {share}", { share }) : tr("shorts {share}", { share })}</td><td class="num" title="${esc(venues.map((id) => venueName(id)).join(", "))}">${venues.length}</td><td class="num">${c.mark_detected === null ? "–" : formatPrice(c.mark_detected)}</td>${moveCell(after1h)}${moveCell(after4h)}</tr>`;
+    })
+    .join("");
+  return `${tiles}
+<div class="sheet-wrap"><table class="sheet lq-cascades">
+<thead><tr><th>${tr("Start")}</th><th>${tr("Asset")}</th><th class="num">${tr("Length")}</th><th class="num">${tr("Liquidated")}</th><th>${tr("Side")}</th><th class="num">${tr("Venues")}</th><th class="num" title="${esc(tr("The deepest market's mark when the watch first saw it, a minute or two in"))}">${tr("Price when seen")}</th><th class="num" title="${esc(tr("From the price when seen to the mark an hour after the cascade ended"))}">${tr("1h after")}</th><th class="num" title="${esc(tr("From the price when seen to the mark four hours after the cascade ended"))}">${tr("4h after")}</th></tr></thead>
+<tbody>${table}</tbody></table></div>
+<p class="notes">${tr(
+    "Every asset, found each minute as it happens, by the rule of each asset's Cascades tab. Prices are the asset's deepest market's mark when the watch saw it and an hour and four hours after it ended. Members can have them sent to Telegram from {alerts}.",
+    { alerts: `<a href="${esc(`${MEMBER_URL}member/alerts`)}">${tr("the alerts page")}</a>` },
+  )}</p>`;
+}
 
 /** "+1.2%", "−3.4%": a move as the cascade table and tiles show it, with a real minus sign. */
 function movePct(fraction: number): string {
@@ -2144,6 +2227,7 @@ export const LIQUIDATION_TABS = [
   "price",
   "odds",
   "cascades",
+  "feed",
   "history",
   "largest",
   "oi",
@@ -2186,6 +2270,8 @@ export interface LiquidationView {
   history?: readonly LiquidationDay[] | null;
   /** The member OI tab's open interest by asset; null when the read failed, undefined when not read. */
   openInterest?: readonly AssetOpenInterest[] | null;
+  /** The member "All cascades" tab's cascades; null when the read failed, undefined when not read. */
+  feed?: readonly StoredCascade[] | null;
   /**
    * The window's single biggest close in the page's scope, every venue, for the summary; null when
    * there is none or the read failed, undefined when not read (a tab rendered on its own).
@@ -2218,6 +2304,19 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
     const memberId = id as MemberPanel;
     // Locked for everyone but a member's own request for the tab, whatever else this render read.
     if (!view.member) return memberLock(memberId, memberId === "history" ? asset : null);
+    if (memberId === "feed") {
+      return feedPanel({
+        feed: view.feed ?? null,
+        window: params.window,
+        now,
+        hrefFor: (entry) =>
+          controlHref(
+            state,
+            { asset: { name: entry.base, assetClass: entry.asset_class } },
+            "#cascades",
+          ),
+      });
+    }
     if (memberId === "oi") {
       return oiPanel({
         every: map.every,
@@ -2552,6 +2651,7 @@ ${tabBar({
     { id: "price", label: labels.price, shortLabel: tr("Prices") },
     { id: "odds", label: labels.odds, shortLabel: tr("Odds") },
     { id: "cascades", label: labels.cascades, shortLabel: tr("Cascades") },
+    { id: "feed", label: tr("All cascades"), shortLabel: tr("All cascades"), member: true },
     { id: "history", label: labels.history, shortLabel: tr("History"), member: true },
     { id: "largest", label: labels.largest, shortLabel: tr("Largest") },
     {

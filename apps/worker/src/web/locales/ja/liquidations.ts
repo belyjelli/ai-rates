@@ -453,4 +453,23 @@ export const liquidations: Catalog = {
   "{asset} history": "{asset} の履歴",
   "Liquidations vs open interest": "清算と建玉の比較",
   "vs OI": "建玉比",
+  "Every cascade, in every asset": "すべての銘柄のすべてのカスケード",
+  "Every liquidation cascade in every asset, found each minute as it happens, with the price an hour and four hours after. Members can also have them sent to Telegram the moment they start.":
+    "すべての銘柄の清算カスケードを毎分リアルタイムで検出し、1 時間後と 4 時間後の価格を添えて表示します。メンバーは開始と同時に Telegram で受け取ることもできます。",
+  "No cascade in any asset in the last {window}.":
+    "過去 {window} にカスケードのあった銘柄はありません。",
+  "in {n} assets": "{n} 銘柄",
+  "Longs and shorts": "ロングとショート",
+  "{longs} long cascades, {shorts} short": "ロングのカスケード {longs} 回、ショート {shorts} 回",
+  "The deepest market's mark when the watch first saw it, a minute or two in":
+    "監視が最初に検出した時点の最も厚い市場のマーク価格（開始から 1〜2 分後）",
+  "Price when seen": "検出時の価格",
+  "From the price when seen to the mark an hour after the cascade ended":
+    "検出時の価格から、カスケード終了 1 時間後のマーク価格まで",
+  "From the price when seen to the mark four hours after the cascade ended":
+    "検出時の価格から、カスケード終了 4 時間後のマーク価格まで",
+  "Every asset, found each minute as it happens, by the rule of each asset's Cascades tab. Prices are the asset's deepest market's mark when the watch saw it and an hour and four hours after it ended. Members can have them sent to Telegram from {alerts}.":
+    "すべての銘柄を毎分リアルタイムで、各銘柄のカスケードタブと同じ基準で検出します。価格は検出時と終了 1 時間後・4 時間後の、その銘柄で最も厚い市場のマーク価格です。メンバーは {alerts} から Telegram への通知を設定できます。",
+  "the alerts page": "アラートページ",
+  "All cascades": "すべてのカスケード",
 };

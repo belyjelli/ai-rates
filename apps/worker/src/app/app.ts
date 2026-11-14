@@ -633,6 +633,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
             "cascades",
             "history",
             "oi",
+            "feed",
           ] as const
         ).find((id) => id === askedPanel) ?? null;
       const [overview, map] = await Promise.all([
@@ -704,6 +705,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const member = deps.member === true;
       const wantsHistory = member && wanted !== null && panel === "history";
       const wantsOi = member && panel === "oi";
+      const wantsFeed = member && panel === "feed";
       const [
         assetMap,
         oddsBars,
@@ -714,6 +716,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         cascades,
         history,
         openInterest,
+        feed,
       ] = await Promise.all([
         wantsAsset && wanted
           ? deps.data.liquidationAsset({
@@ -796,6 +799,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
               .openInterestByAsset(map.totals.map((total) => total.venue_id))
               .catch(() => null)
           : undefined,
+        wantsFeed ? deps.data.recentCascades(hours).catch(() => null) : undefined,
       ]);
       if (address && (!assetMap || assetMap.asset_class === null)) {
         return page(
@@ -838,6 +842,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         member,
         history: wanted === null ? null : history,
         openInterest,
+        feed,
         biggest:
           panel !== null
             ? undefined

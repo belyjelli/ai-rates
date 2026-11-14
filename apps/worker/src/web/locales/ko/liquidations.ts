@@ -448,4 +448,23 @@ export const liquidations: Catalog = {
   "{asset} history": "{asset} 기록",
   "Liquidations vs open interest": "청산 대 미결제약정",
   "vs OI": "OI 대비",
+  "Every cascade, in every asset": "모든 자산의 모든 캐스케이드",
+  "Every liquidation cascade in every asset, found each minute as it happens, with the price an hour and four hours after. Members can also have them sent to Telegram the moment they start.":
+    "모든 자산의 청산 캐스케이드를 매분 실시간으로 찾아 1시간 후와 4시간 후 가격과 함께 보여 줍니다. 회원은 시작되는 순간 Telegram으로 받을 수도 있습니다.",
+  "No cascade in any asset in the last {window}.":
+    "지난 {window} 동안 캐스케이드가 있었던 자산이 없습니다.",
+  "in {n} assets": "자산 {n}개",
+  "Longs and shorts": "롱과 숏",
+  "{longs} long cascades, {shorts} short": "롱 캐스케이드 {longs}회, 숏 {shorts}회",
+  "The deepest market's mark when the watch first saw it, a minute or two in":
+    "감시가 처음 발견했을 때 가장 깊은 시장의 마크 가격 (시작 후 1~2분)",
+  "Price when seen": "발견 시 가격",
+  "From the price when seen to the mark an hour after the cascade ended":
+    "발견 시 가격에서 캐스케이드 종료 1시간 뒤 마크 가격까지",
+  "From the price when seen to the mark four hours after the cascade ended":
+    "발견 시 가격에서 캐스케이드 종료 4시간 뒤 마크 가격까지",
+  "Every asset, found each minute as it happens, by the rule of each asset's Cascades tab. Prices are the asset's deepest market's mark when the watch saw it and an hour and four hours after it ended. Members can have them sent to Telegram from {alerts}.":
+    "모든 자산을 매분 실시간으로, 각 자산의 캐스케이드 탭과 같은 기준으로 찾습니다. 가격은 발견 시와 종료 1시간·4시간 뒤 해당 자산의 가장 깊은 시장 마크 가격입니다. 회원은 {alerts}에서 Telegram 알림을 설정할 수 있습니다.",
+  "the alerts page": "알림 페이지",
+  "All cascades": "전체 캐스케이드",
 };

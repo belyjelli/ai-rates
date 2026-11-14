@@ -755,6 +755,26 @@ export interface LiquidationDay {
   oi_usd: number | null;
 }
 
+/**
+ * One cascade as the member site's minute watch stored it (profitlock-member migration 011): every
+ * asset's, as it happened, with the mark when it was seen and an hour and four hours after it ended.
+ */
+export interface StoredCascade {
+  base: string;
+  asset_class: AssetClass;
+  started_at: Date;
+  last_minute: Date;
+  long_usd: number;
+  short_usd: number;
+  events: number;
+  /** Comma-joined venue ids. */
+  venues: string;
+  per_minute: number;
+  mark_detected: number | null;
+  mark_1h: number | null;
+  mark_4h: number | null;
+}
+
 /** One asset's open interest now, on the venues named: the denominator of the member OI tab. */
 export interface AssetOpenInterest {
   asset: string;
@@ -1522,6 +1542,8 @@ export interface DataSource {
     assetClass: AssetClass | null;
     days: number;
   }): Promise<LiquidationDay[]>;
+  /** The cascades the member site's watch found in every asset over the last `hours`, newest first. */
+  recentCascades(hours: number): Promise<StoredCascade[]>;
   /** Every asset's open interest now on the venues named (the feeds that reported closes). */
   openInterestByAsset(venues: readonly string[]): Promise<AssetOpenInterest[]>;
   /**
@@ -3266,6 +3288,22 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                d.events::int AS events, d.venues::int AS venues, o.oi_usd::float8 AS oi_usd
         FROM daily d LEFT JOIN oi o USING (day)
         ORDER BY d.day`;
+      return [...rows];
+    },
+
+    async recentCascades(hours) {
+      const sql = connect();
+      // The member site writes these (profitlock-member src/cascades/); this role is granted SELECT on
+      // this one table of its schema and nothing else there.
+      const rows = await sql<StoredCascade[]>`
+        SELECT base, asset_class, started_at, last_minute, long_usd::float8 AS long_usd,
+               short_usd::float8 AS short_usd, events, venues, per_minute::float8 AS per_minute,
+               mark_detected::float8 AS mark_detected, mark_1h::float8 AS mark_1h,
+               mark_4h::float8 AS mark_4h
+        FROM members.liquidation_cascades
+        WHERE started_at > now() - ${`${hours} hours`}::interval
+        ORDER BY started_at DESC
+        LIMIT 200`;
       return [...rows];
     },
 

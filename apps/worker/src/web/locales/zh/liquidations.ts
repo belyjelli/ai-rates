@@ -440,4 +440,22 @@ export const liquidations: Catalog = {
   "{asset} history": "{asset} 历史",
   "Liquidations vs open interest": "爆仓与未平仓量对比",
   "vs OI": "对比 OI",
+  "Every cascade, in every asset": "所有资产的每一次连环爆仓",
+  "Every liquidation cascade in every asset, found each minute as it happens, with the price an hour and four hours after. Members can also have them sent to Telegram the moment they start.":
+    "每个资产的每一次连环爆仓，每分钟实时发现，并附上一小时和四小时后的价格。会员还可以在连环爆仓开始时收到 Telegram 推送。",
+  "No cascade in any asset in the last {window}.": "过去 {window} 内没有任何资产发生连环爆仓。",
+  "in {n} assets": "涉及 {n} 个资产",
+  "Longs and shorts": "多头与空头",
+  "{longs} long cascades, {shorts} short": "{longs} 次多头连环爆仓，{shorts} 次空头",
+  "The deepest market's mark when the watch first saw it, a minute or two in":
+    "监测首次发现时最深市场的标记价格，约在开始后一两分钟",
+  "Price when seen": "发现时价格",
+  "From the price when seen to the mark an hour after the cascade ended":
+    "从发现时价格到连环爆仓结束一小时后的标记价格",
+  "From the price when seen to the mark four hours after the cascade ended":
+    "从发现时价格到连环爆仓结束四小时后的标记价格",
+  "Every asset, found each minute as it happens, by the rule of each asset's Cascades tab. Prices are the asset's deepest market's mark when the watch saw it and an hour and four hours after it ended. Members can have them sent to Telegram from {alerts}.":
+    "所有资产，每分钟实时发现，规则与各资产的连环爆仓标签页相同。价格是监测发现时以及结束一小时和四小时后该资产最深市场的标记价格。会员可以在 {alerts} 设置 Telegram 推送。",
+  "the alerts page": "提醒页面",
+  "All cascades": "全部连环爆仓",
 };

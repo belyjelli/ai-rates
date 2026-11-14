@@ -187,6 +187,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     largestLiquidations: async () => [],
     liquidationHistory: async () => [],
     openInterestByAsset: async () => [],
+    recentCascades: async () => [],
     liquidationCascades: async () => ({ per_minute: 0, minutes: [] }),
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
     bookQuality: async () => ({ rows: [], weights: {} }),
@@ -1141,6 +1142,7 @@ describe("pages", () => {
       "price",
       "odds",
       "cascades",
+      "feed",
       "history",
       "largest",
       "oi",
@@ -1485,6 +1487,63 @@ describe("pages", () => {
       );
       await asMember("/liquidations/ETH?span=90&panel=history", data);
       expect(asked).toEqual([30, 90]);
+    });
+
+    test("All cascades: every asset's, newest first, with the mark when seen and after", async () => {
+      const hours: number[] = [];
+      const at = (minutesAgo: number) => new Date(NOW - minutesAgo * 60_000);
+      const { data } = fakeData({
+        liquidationMap: async () => liqMap(),
+        recentCascades: async (h) => {
+          hours.push(h);
+          return [
+            {
+              base: "SNDK",
+              asset_class: "equity",
+              started_at: at(30),
+              last_minute: at(29),
+              long_usd: 0,
+              short_usd: 2_000_000,
+              events: 40,
+              venues: "gate,okx",
+              per_minute: 8_000,
+              mark_detected: 860,
+              mark_1h: null,
+              mark_4h: null,
+            },
+            {
+              base: "ETH",
+              asset_class: "crypto",
+              started_at: at(300),
+              last_minute: at(296),
+              long_usd: 40_000_000,
+              short_usd: 1_000_000,
+              events: 900,
+              venues: "binance,bybit,okx",
+              per_minute: 150_000,
+              mark_detected: 2_000,
+              mark_1h: 2_030,
+              mark_4h: 1_960,
+            },
+          ];
+        },
+      });
+      const locked = await tab("/liquidations", "feed", data);
+      expect(locked).toContain("Every cascade, in every asset");
+      expect(hours).toEqual([]);
+
+      const html = await (await asMember("/liquidations?window=48h&panel=feed", data)).text();
+      expect(hours).toEqual([48]);
+      expect(html).toContain('<p class="cvd-big">2</p><p class="dim">in 2 assets</p>');
+      const rows = [...html.matchAll(/<tr><td class="dim">.*?<\/tr>/g)].map((m) => m[0]);
+      expect(rows[0]).toContain('href="/liquidations/equity/SNDK?window=48h#cascades"');
+      expect(rows[0]).toContain('<td class="lq-ink-s">shorts 100%</td>');
+      expect(rows[0]).toContain('<td class="num dim">later</td>');
+      expect(rows[1]).toContain('<td class="num">5 min</td>');
+      expect(rows[1]).toContain(
+        '<td class="num">2,000</td><td class="num cvd-up">+1.5%</td><td class="num cvd-down">−2.0%</td>',
+      );
+      expect(html).toContain("member.airrates.net/member/alerts");
     });
 
     test("vs OI: liquidations over open interest by class, the most flushed for their size first", async () => {
