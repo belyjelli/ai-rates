@@ -1329,7 +1329,18 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const cells = await deps.data
         .heatmap({ limit: MAX_HEATMAP_LIMIT, offset: 0, minVenues: HEATMAP_MIN_VENUES })
         .catch(() => []);
-      const assets = [...new Map(cells.map((c) => [assetHref(c.base, c.asset_class), c])).keys()];
+      const unique = [...new Map(cells.map((c) => [`${c.asset_class}:${c.base}`, c])).values()];
+      // Each asset's market page, and since 2026-11-14 its liquidations and its chart: the pages people
+      // search an asset by. Only addresses that name themselves canonical are listed, so BTC's chart,
+      // which is the bare /chart, is not listed twice.
+      const assets = unique.flatMap((c) => {
+        const tail =
+          c.asset_class === "crypto"
+            ? encodeURIComponent(c.base)
+            : `${c.asset_class}/${encodeURIComponent(c.base)}`;
+        const chart = c.asset_class === "crypto" && c.base === "BTC" ? [] : [`/chart/${tail}`];
+        return [assetHref(c.base, c.asset_class), `/liquidations/${tail}`, ...chart];
+      });
       const paths = [...SITEMAP_PATHS, ...assets];
       const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paths.map((p) => `  <url><loc>${SITE_ORIGIN}${esc(p)}</loc></url>`).join("\n")}\n</urlset>\n`;
       return new Response(body, {

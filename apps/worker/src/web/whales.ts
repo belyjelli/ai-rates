@@ -925,7 +925,9 @@ ${takerCell(t)}
     description: tr(
       "Large resting limit orders and large market orders on Binance and Hyperliquid futures, drawn over the price: where the walls sit, how big, whether they were filled or pulled, and who hit them.",
     ),
-    path: "/whales",
+    // The asset's own address, so a search engine keeps each market's page (until 2026-11-14 they all
+    // named /whales as canonical). BTC is the bare /whales.
+    path: whalesPath(asset, assetClass),
     overview,
     now,
     body: `${helpHeading("h1", tr("Whale orders"), "whales", help)}

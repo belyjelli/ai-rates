@@ -283,4 +283,7 @@ export const charts: Catalog = {
   "Spot ETF net inflow so far": "Чистый приток в спотовые ETF на данный момент",
   "Spot ETF net outflow so far": "Чистый отток из спотовых ETF на данный момент",
   "{n} of {total} funds reported": "отчитались {n} из {total} фондов",
+  "{asset} chart: price and CVD": "График {asset}: цена и CVD",
+  "{asset} price with cumulative volume delta under it: spot and futures taker buying against taker selling across exchanges, and where price and order flow disagree.":
+    "Цена {asset} с кумулятивной дельтой объёма (CVD) под ней: покупки и продажи тейкеров на споте и фьючерсах всех бирж и места, где цена и поток ордеров расходятся.",
 };

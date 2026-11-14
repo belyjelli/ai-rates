@@ -317,4 +317,7 @@ export const liquidations: Catalog = {
   Liquidated: "청산 금액",
   "Longs / shorts": "롱 / 숏",
   Events: "건수",
+  "{asset} liquidations": "{asset} 청산",
+  "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
+    "거래소 전체의 {asset} 청산: 시간별 롱 대 숏, 포지션이 강제 청산된 가격대, 대형 미결제 포지션의 청산 가격.",
 };

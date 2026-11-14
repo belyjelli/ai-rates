@@ -1079,16 +1079,23 @@ export function cvd(data: {
       : `${tiles}
 <div id="cvd-chart" class="cvd-anchor">${chart}${flow.bars.length ? KC_HOST : ""}</div>`;
 
+  // An asset's chart is its own page to a search engine (until 2026-11-14 every /chart/<asset> named
+  // /chart as its canonical address). BTC is the bare /chart, so it stays the hub.
   return layout({
     title: detailShown
       ? `${plain} ${tr("Detail")}`
       : assetInAddress
-        ? `${plain} ${tr("Chart")}`
+        ? tr("{asset} chart: price and CVD", { asset: plain })
         : tr("Chart"),
-    description: tr(
-      "Price with cumulative volume delta under it: spot and futures taker buying against taker selling, their combined delta per bar, and where price and order flow disagree.",
-    ),
-    path: CHART_PATH,
+    description: assetInAddress
+      ? tr(
+          "{asset} price with cumulative volume delta under it: spot and futures taker buying against taker selling across exchanges, and where price and order flow disagree.",
+          { asset: plain },
+        )
+      : tr(
+          "Price with cumulative volume delta under it: spot and futures taker buying against taker selling, their combined delta per bar, and where price and order flow disagree.",
+        ),
+    path: assetInAddress ? selfPath : CHART_PATH,
     overview,
     now,
     body: `${helpHeading(

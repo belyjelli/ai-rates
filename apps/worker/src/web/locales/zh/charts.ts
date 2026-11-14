@@ -272,4 +272,7 @@ export const charts: Catalog = {
   "Spot ETF net inflow so far": "现货 ETF 目前净流入",
   "Spot ETF net outflow so far": "现货 ETF 目前净流出",
   "{n} of {total} funds reported": "已公布 {n}/{total} 只基金",
+  "{asset} chart: price and CVD": "{asset} 图表：价格与 CVD",
+  "{asset} price with cumulative volume delta under it: spot and futures taker buying against taker selling across exchanges, and where price and order flow disagree.":
+    "{asset} 价格及其下方的累计成交量差（CVD）：各交易所现货与合约的主动买入对比主动卖出，以及价格与订单流背离之处。",
 };

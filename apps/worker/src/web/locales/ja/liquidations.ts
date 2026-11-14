@@ -321,4 +321,7 @@ export const liquidations: Catalog = {
   Liquidated: "清算額",
   "Longs / shorts": "ロング / ショート",
   Events: "件数",
+  "{asset} liquidations": "{asset} の清算",
+  "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
+    "取引所横断の {asset} 清算：1時間ごとのロング対ショート、ポジションが強制決済された価格帯、大口の未決済ポジションが清算される価格。",
 };

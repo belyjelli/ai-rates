@@ -310,4 +310,7 @@ export const liquidations: Catalog = {
   Liquidated: "爆仓额",
   "Longs / shorts": "多头 / 空头",
   Events: "笔数",
+  "{asset} liquidations": "{asset} 爆仓",
+  "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
+    "{asset} 各交易所爆仓：逐小时多空对比、仓位被强平的价位，以及大额未平仓位的爆仓价。",
 };

@@ -139,7 +139,7 @@ export const assetKey = (asset: string, assetClass: AssetClass) =>
  */
 export const assetName = (asset: string, assetClass: AssetClass) =>
   `${esc(asset)}${assetClass === "crypto" ? "" : ` <span class="cls">${assetClassLabel(assetClass)}</span>`}`;
-const assetTitle = (asset: string, assetClass: AssetClass) =>
+export const assetTitle = (asset: string, assetClass: AssetClass) =>
   assetClass === "crypto" ? asset : `${asset} (${assetClassLabel(assetClass)})`;
 export const exchangeHref = (venueId: string) => `/markets/exchange/${encodeURIComponent(venueId)}`;
 const apr = (value: number | null) => `<span class="${aprTone(value)}">${formatApr(value)}</span>`;

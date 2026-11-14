@@ -281,4 +281,7 @@ export const charts: Catalog = {
   "Spot ETF net inflow so far": "현물 ETF 순유입 (잠정)",
   "Spot ETF net outflow so far": "현물 ETF 순유출 (잠정)",
   "{n} of {total} funds reported": "{total}개 중 {n}개 펀드 발표",
+  "{asset} chart: price and CVD": "{asset} 차트: 가격과 CVD",
+  "{asset} price with cumulative volume delta under it: spot and futures taker buying against taker selling across exchanges, and where price and order flow disagree.":
+    "{asset} 가격과 그 아래의 누적 거래량 델타(CVD): 거래소 전체 현물·선물의 테이커 매수 대 테이커 매도, 그리고 가격과 주문 흐름이 엇갈리는 구간.",
 };

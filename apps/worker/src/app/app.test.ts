@@ -1134,6 +1134,12 @@ describe("pages", () => {
     const one = await (await get("/liquidations/ETH", data)).text();
     expect(one).toContain('id="tab-liq-price" class="btn-tab active"');
     expect(one).not.toContain('id="tab-liq-map" class="btn-tab active"');
+    // An asset's address is its own page to a search engine, with the asset in its title; the bare
+    // page stays the hub (2026-11-14: every asset's page used to name /liquidations canonical).
+    expect(one).toContain('<link rel="canonical" href="https://airrates.net/liquidations/ETH">');
+    expect(one).toContain("<title>ETH liquidations · airrates</title>");
+    expect(list).toContain('<link rel="canonical" href="https://airrates.net/liquidations">');
+    expect(list).toContain("<title>Liquidations · airrates</title>");
   });
 
   test("with no asset named, the priced tab is primed with the busiest one", async () => {
@@ -5483,6 +5489,13 @@ describe("api", () => {
     expect(html).toContain('<link rel="canonical" href="https://airrates.net/rates">');
     expect(html).toContain('"@type":"Dataset"');
     expect(html).toContain('<meta property="og:url" content="https://airrates.net/rates">');
+    // An asset's chart names itself, in its own case; BTC's is the bare /chart.
+    const chart = await (await get("/chart/eth", data)).text();
+    expect(chart).toContain('<link rel="canonical" href="https://airrates.net/chart/ETH">');
+    expect(chart).toContain("<title>ETH chart: price and CVD · airrates</title>");
+    expect(await (await get("/chart/BTC", data)).text()).toContain(
+      '<link rel="canonical" href="https://airrates.net/chart">',
+    );
     const api = await get("/v1/venues", data);
     expect(api.headers.get("x-attribution")).toContain("airrates.net");
     const body = (await (await get("/v1/health", data)).json()) as Record<string, unknown>;
@@ -5691,6 +5704,19 @@ describe("api", () => {
     const listed = await withAssets.text();
     expect(listed).toContain("<loc>https://airrates.net/markets/asset/BTC</loc>");
     expect(listed.match(/markets\/asset\/BTC/g)).toHaveLength(1);
+    // Its liquidations too; not its chart, which is the bare /chart.
+    expect(listed).toContain("<loc>https://airrates.net/liquidations/BTC</loc>");
+    expect(listed).not.toContain("/chart/BTC");
+    const stock = await (
+      await get(
+        "/sitemap.xml",
+        fakeData({
+          heatmap: async () => [{ ...cell("gate"), asset_class: "equity", base: "NVDA" }],
+        }).data,
+      )
+    ).text();
+    expect(stock).toContain("<loc>https://airrates.net/liquidations/equity/NVDA</loc>");
+    expect(stock).toContain("<loc>https://airrates.net/chart/equity/NVDA</loc>");
     const broken = await get(
       "/sitemap.xml",
       fakeData({
@@ -6017,6 +6043,12 @@ describe("whales", () => {
     // The market strip links every tracked market; BTC is the current one.
     expect(html).toContain('href="/whales/ETH"');
     expect(html).toContain('<a class="wh-pick-row on" href="/whales"');
+    expect(html).toContain('<link rel="canonical" href="https://airrates.net/whales">');
+    // Another market's page names itself, not /whales.
+    const eth = await (
+      await get("/whales/ETH", fakeData({ whales: async () => book }).data)
+    ).text();
+    expect(eth).toContain('<link rel="canonical" href="https://airrates.net/whales/ETH">');
   });
 
   test("large trades draw as circles, with their tiles and table", async () => {

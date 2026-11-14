@@ -1,5 +1,6 @@
 import postgres from "postgres";
 import { handleApp, unavailableResponse } from "./app/app";
+import { wwwRedirect } from "./app/canonical-host";
 import { createDataSource } from "./app/data";
 import { EDGE_CACHE_DEFAULTS, EdgeCache } from "./app/edge-cache";
 import { geoCacheBucket, requestGeo } from "./app/geo";
@@ -49,6 +50,10 @@ async function handle(
   env: Env,
   ctx: ExecutionContext,
 ): Promise<Response> {
+  // One host: www is sent to the bare address before anything is read or counted (app/canonical-host.ts).
+  const www = wwwRedirect(request);
+  if (www) return www;
+
   const probe = await handleProbe(request, env);
   if (probe) return probe;
 

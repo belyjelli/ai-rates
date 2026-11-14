@@ -36,7 +36,7 @@ import { tr, trMsg } from "./i18n";
 import { layout } from "./layout";
 import { timeTag, timeTitle, zoneTag } from "./localtime";
 import { outlookPanel } from "./outlook";
-import { assetKey, assetName } from "./pages";
+import { assetKey, assetName, assetTitle } from "./pages";
 import { PICK_SCRIPT } from "./picker";
 import { ASSET_GROUPS, assetGroup } from "./sectors";
 import { citeMark, plainLabel } from "./share";
@@ -1659,12 +1659,26 @@ ${body ?? lazyPanel(data, id)}
         })
       : feeds.map((venueId) => esc(venueName(venueId))).join("");
 
+  // An asset's own address is its own page to a search engine, with the asset in its title. Until
+  // 2026-11-14 every /liquidations/<asset> named /liquidations as its canonical address, which told
+  // Google they were all copies of the hub -- and the per-asset pages are what people search for.
+  // The bare page, which primes the busiest asset behind its tabs, stays the hub.
+  const addressedClass = data.assetMap?.asset_class ?? data.assetClass ?? "crypto";
+  const named = data.addressed && asset !== null ? assetTitle(asset, addressedClass) : null;
   return layout({
-    title: tr("Liquidations"),
-    description: tr(
-      "Where positions were force-closed: by venue, asset and hour, and by the price level they died at.",
-    ),
-    path: "/liquidations",
+    title: named ? tr("{asset} liquidations", { asset: named }) : tr("Liquidations"),
+    description: named
+      ? tr(
+          "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.",
+          { asset: named },
+        )
+      : tr(
+          "Where positions were force-closed: by venue, asset and hour, and by the price level they died at.",
+        ),
+    path:
+      named && asset !== null
+        ? `/liquidations/${assetPathFor(asset, addressedClass)}`
+        : "/liquidations",
     overview,
     now,
     body: `${helpHeading(

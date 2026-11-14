@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { CacheLike } from "./edge-cache";
-import { isSheddable, Pressure } from "./load-shed";
+import { isSearchCrawler, isSheddable, Pressure } from "./load-shed";
 
 /** One location's cache, shared by the isolates under test. */
 class FakeCache implements CacheLike {
@@ -49,6 +49,31 @@ describe("isSheddable", () => {
     ).toBe(false);
     // A path that merely starts with the letters is not the API.
     expect(isSheddable(get("/v1x"), HOME_BROADBAND)).toBe(false);
+  });
+
+  test("a search engine's crawler from its own network keeps the pages; the name alone does not", () => {
+    const GOOGLE = 15169;
+    const MICROSOFT = 8075;
+    const googlebot = {
+      "user-agent":
+        "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.8010.52 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    };
+    const bingbot = {
+      "user-agent": "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+    };
+    expect(isSearchCrawler(get("/liquidations/BTC", googlebot), GOOGLE)).toBe(true);
+    expect(isSheddable(get("/liquidations/BTC", googlebot), GOOGLE)).toBe(false);
+    expect(isSheddable(get("/chart/ETH", bingbot), MICROSOFT)).toBe(false);
+    // The same agent from a scraper's network is the scraper.
+    expect(isSheddable(get("/liquidations/BTC", googlebot), ALIBABA)).toBe(true);
+    // Google's network without Googlebot's name is a customer's script.
+    const appsScript = {
+      "user-agent":
+        "Mozilla/5.0 (compatible; Google-Apps-Script; beanserver; +https://script.google.com)",
+    };
+    expect(isSheddable(get("/liquidations/BTC", appsScript), GOOGLE)).toBe(true);
+    // The API is shed for a crawler too: it is a program's door, not a page.
+    expect(isSheddable(get("/v1/liquidations", googlebot), GOOGLE)).toBe(true);
   });
 });
 

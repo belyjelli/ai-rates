@@ -323,4 +323,7 @@ export const liquidations: Catalog = {
   Liquidated: "Ликвидировано",
   "Longs / shorts": "Лонги / шорты",
   Events: "Событий",
+  "{asset} liquidations": "Ликвидации {asset}",
+  "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
+    "Ликвидации {asset} на всех биржах: лонги против шортов по часам, уровни цены, на которых закрывались позиции, и где будут ликвидированы крупные открытые позиции.",
 };

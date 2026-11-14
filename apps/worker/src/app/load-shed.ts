@@ -15,7 +15,7 @@
  *   - the API (`/v1/*`), the MCP and A2A endpoints, and pages asked for as Markdown: callers are
  *     programs, which retry;
  *   - any request from a cloud provider's network (DATACENTER_ASNS): where scrapers run, and where a
- *     person browsing almost never is.
+ *     person browsing almost never is -- except a search engine's own crawler (`isSearchCrawler`).
  * They get the page cache's copy if it has one, however stale (up to its keep-for hour), or the
  * render with the database refused, which answers 503 with a Retry-After without touching it. Routes
  * that read nothing still answer. Nothing a shed request renders is stored.
@@ -55,6 +55,28 @@ export const DATACENTER_ASNS: ReadonlySet<number> = new Set([
   12876, // Scaleway
 ]);
 
+/**
+ * Search engines' crawlers, known by their user agent AND the network it arrives from: the agent
+ * alone is a header anyone can send, and the network alone is also every script its customers run.
+ * Both at once is Googlebot from Google, or Bingbot from Microsoft.
+ *
+ * WHY (2026-11-14). Google's network is in DATACENTER_ASNS, so while a location was under pressure
+ * Googlebot was shed with the scrapers, and got the busy 503 for every page the cache did not hold:
+ * 9,544 of about 22,000 of its fetches in one day, 1,500 an hour for six hours. A search engine that
+ * keeps meeting 503s crawls less and drops pages, and search is where the site's readers come from.
+ */
+const SEARCH_CRAWLERS: readonly { asn: number; agent: RegExp }[] = [
+  { asn: 15169, agent: /\b(?:Googlebot|Google-InspectionTool|GoogleOther|Storebot-Google)\b/ },
+  { asn: 8075, agent: /\bbingbot\b/i },
+];
+
+/** Whether the request is a search engine's crawler from that engine's own network. */
+export function isSearchCrawler(request: Request, asn: number | undefined): boolean {
+  if (asn === undefined) return false;
+  const agent = request.headers.get("user-agent") ?? "";
+  return SEARCH_CRAWLERS.some((crawler) => crawler.asn === asn && crawler.agent.test(agent));
+}
+
 /** Whether a request is one to answer from the cache while the database is under pressure. */
 export function isSheddable(request: Request, asn: number | undefined): boolean {
   const path = new URL(request.url).pathname;
@@ -62,7 +84,7 @@ export function isSheddable(request: Request, asn: number | undefined): boolean 
     return true;
   }
   if (wantsMarkdown(request.headers.get("accept"))) return true;
-  return asn !== undefined && DATACENTER_ASNS.has(asn);
+  return asn !== undefined && DATACENTER_ASNS.has(asn) && !isSearchCrawler(request, asn);
 }
 
 /** The error a shed render's database refuses with. */
