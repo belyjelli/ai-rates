@@ -18,6 +18,7 @@ import {
   withLocale,
 } from "./i18n";
 import { parseShown } from "./live";
+import { DE_PARTS, de } from "./locales/de";
 import { JA_PARTS, ja } from "./locales/ja";
 import { KO_PARTS, ko } from "./locales/ko";
 import { PT_PARTS, pt } from "./locales/pt";
@@ -78,7 +79,7 @@ const markup = (text: string) => [...text.matchAll(/<[^>]*>/g)].map((m) => m[0])
 const bareAmpersand = (text: string) => /&(?!#?\w+;)/.test(text);
 
 /** Languages whose catalog must cover every key. A language being translated stays out until done. */
-const COMPLETE: Readonly<Record<string, Catalog>> = { zh, ja, ko, ru, pt };
+const COMPLETE: Readonly<Record<string, Catalog>> = { zh, ja, ko, ru, pt, de };
 
 /** Each complete language's catalog by part of the site, for the test that parts agree. */
 const PARTS: Readonly<Record<string, Readonly<Record<string, Catalog>>>> = {
@@ -87,6 +88,7 @@ const PARTS: Readonly<Record<string, Readonly<Record<string, Catalog>>>> = {
   ko: KO_PARTS,
   ru: RU_PARTS,
   pt: PT_PARTS,
+  de: DE_PARTS,
 };
 
 describe("catalogs", () => {
@@ -214,6 +216,9 @@ describe("choosing a language", () => {
     expect(parseLocale("ru-RU")).toBe("ru");
     expect(parseLocale("pt-BR")).toBe("pt");
     expect(parseLocale("pt-PT")).toBe("pt");
+    expect(parseLocale("de-DE")).toBe("de");
+    expect(parseLocale("de-AT")).toBe("de");
+    expect(parseLocale("de-CH")).toBe("de");
     expect(parseLocale("fr")).toBeNull();
     expect(parseLocale("")).toBeNull();
   });
@@ -225,7 +230,8 @@ describe("choosing a language", () => {
     expect(acceptedLocale("en;q=0.2,zh;q=0.7")).toBe("zh");
     expect(acceptedLocale("ja,en-US;q=0.9,en;q=0.8")).toBe("ja");
     expect(acceptedLocale("en-US,ja;q=0.9")).toBe("en");
-    expect(acceptedLocale("fr,de")).toBeNull();
+    expect(acceptedLocale("fr,de")).toBe("de");
+    expect(acceptedLocale("fr,it")).toBeNull();
     expect(acceptedLocale("zh;q=0")).toBeNull();
     expect(acceptedLocale(null)).toBeNull();
   });

@@ -30,6 +30,7 @@
  * index.ts puts the result in the page cache's key, so one language's copy is never served to another.
  */
 
+import { de } from "./locales/de";
 import { ja } from "./locales/ja";
 import { ko } from "./locales/ko";
 import { pt } from "./locales/pt";
@@ -37,7 +38,7 @@ import { ru } from "./locales/ru";
 import { zh } from "./locales/zh";
 
 /** Every language the site renders. The first is the default, and the source language of every key. */
-export const LOCALES = ["en", "zh", "ja", "ko", "ru", "pt"] as const;
+export const LOCALES = ["en", "zh", "ja", "ko", "ru", "pt", "de"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 
@@ -55,12 +56,14 @@ export const LOCALE_INFO: Readonly<Record<Locale, { name: string; htmlLang: stri
   ru: { name: "Русский", htmlLang: "ru" },
   // Brazilian Portuguese (owner, 2026-11-15): a reader in Portugal, whose browser asks for pt-PT, gets it too.
   pt: { name: "Português", htmlLang: "pt-BR" },
+  // Standard German (owner, 2026-11-15): Austria and Switzerland ask for de-AT / de-CH and get it too.
+  de: { name: "Deutsch", htmlLang: "de" },
 };
 
 /** English text to its translation. English itself has an empty one: every key is its own English. */
 export type Catalog = Readonly<Record<string, string>>;
 
-const CATALOGS: Readonly<Record<Locale, Catalog>> = { en: {}, zh, ja, ko, ru, pt };
+const CATALOGS: Readonly<Record<Locale, Catalog>> = { en: {}, zh, ja, ko, ru, pt, de };
 
 let active: Locale = DEFAULT_LOCALE;
 

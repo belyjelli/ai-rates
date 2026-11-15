@@ -41,6 +41,13 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-11-15",
+    title: "The site in German",
+    changes: [
+      "Every page can be read in German: switch with language: Deutsch at the foot of the page. A browser set to German, in Germany, Austria or Switzerland, gets it on a first visit. As with the other languages, the legal and status pages and this changelog stay in English, and the API is never translated.",
+    ],
+  },
+  {
+    date: "2026-11-15",
     title: "The site in Portuguese",
     changes: [
       "Every page can be read in Brazilian Portuguese: switch with language: Português at the foot of the page. A browser set to Portuguese, in Brazil or in Portugal, gets it on a first visit. As with the other languages, the legal and status pages and this changelog stay in English, and the API is never translated.",
