@@ -345,10 +345,10 @@ export const liquidations: Catalog = {
   "{window}, {total} of positions were force-closed across {assets} on {venues}, {sides}.":
     "{window}、{venues}で {assets}のポジション {total} が強制決済されました。{sides}。",
   "The most liquidated: {list}.": "清算が最も多いのは：{list}。",
-  "The largest single liquidation was a {usd} {asset} long on {venue} at {price}, {ago}.":
-    "単独で最大の清算は {venue} の {usd} の {asset} ロングで、{price} で約定、{ago}。",
-  "The largest single liquidation was a {usd} {asset} short on {venue} at {price}, {ago}.":
-    "単独で最大の清算は {venue} の {usd} の {asset} ショートで、{price} で約定、{ago}。",
+  "The largest single liquidation was a {usd} {asset} long on {venue} at {price} ({when} UTC).":
+    "単独で最大の清算は {venue} の {usd} の {asset} ロングで、{price} で約定（UTC {when}）。",
+  "The largest single liquidation was a {usd} {asset} short on {venue} at {price} ({when} UTC).":
+    "単独で最大の清算は {venue} の {usd} の {asset} ショートで、{price} で約定（UTC {when}）。",
   Order: "並び順",
   "Largest first": "大きい順",
   "Newest first": "新しい順",

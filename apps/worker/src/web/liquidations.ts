@@ -1975,12 +1975,16 @@ const exchangeCount = (n: number) =>
  * (web/narrator.ts) rather than the page: what was force-closed, across how many assets and exchanges,
  * which side took most, the three most liquidated assets and the single biggest close. Null when
  * nothing was. Plain text because the narrator types its lines out character by character; the same
- * sentences as the asset pages' summary, so they share their translations.
+ * sentences as the asset pages' summary, so they share their translations, but for the biggest close.
+ *
+ * The line states the facts of one hour, never of "now" (owner, 2026-11-15: it must be the truth, not a
+ * frozen line). The narrator stamps it with an hour and the reader's strip keeps it for hours, so the
+ * map and the biggest close are read for the 24 hours up to that hour (app.ts), and the biggest close
+ * gives its own time in UTC where the asset pages, which refresh, say how long ago it was.
  */
 export function marketLiquidationText(
   map: LiquidationMap,
   biggest: LiquidationEvent | null,
-  now: number,
 ): string | null {
   const sum = (pick: (total: (typeof map.totals)[number]) => number) =>
     map.totals.reduce((total, venue) => total + pick(venue), 0);
@@ -2019,21 +2023,23 @@ export function marketLiquidationText(
     );
   }
   if (biggest) {
+    // When, as a time of day in UTC, not "15h ago": the line stays in a reader's feed for hours, and
+    // an age is only true at the moment it is written.
     const values = {
       usd: money(biggest.notional_usd),
       asset: biggest.asset,
       venue: venueName(biggest.venue_id),
       price: formatPrice(biggest.fill_price),
-      ago: ageText(biggest.liquidated_at, now),
+      when: biggest.liquidated_at.toISOString().slice(5, 16).replace("T", " "),
     };
     sentences.push(
       biggest.side === "long"
         ? tr(
-            "The largest single liquidation was a {usd} {asset} long on {venue} at {price}, {ago}.",
+            "The largest single liquidation was a {usd} {asset} long on {venue} at {price} ({when} UTC).",
             values,
           )
         : tr(
-            "The largest single liquidation was a {usd} {asset} short on {venue} at {price}, {ago}.",
+            "The largest single liquidation was a {usd} {asset} short on {venue} at {price} ({when} UTC).",
             values,
           ),
     );

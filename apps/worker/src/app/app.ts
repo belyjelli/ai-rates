@@ -51,7 +51,13 @@ import { VENUE_BY_ID } from "../web/venues";
 import { whales, whaleVenueName } from "../web/whales";
 import { A2A_PATH, agentCard, handleA2a } from "./a2a";
 import { barHoursFor, CASCADE_BAR_MINUTES, cascadeView, findCascades } from "./cascades";
-import { type DataSource, type MarketRow, STALE_MS } from "./data";
+import {
+  type DataSource,
+  type LiquidationEvent,
+  type LiquidationMap,
+  type MarketRow,
+  STALE_MS,
+} from "./data";
 import { type Referral, requestGeo } from "./geo";
 import { richChain } from "./holdings-data";
 import type { HyperliquidSource } from "./hyperliquid";
@@ -180,6 +186,57 @@ const askedAsset = (parts: readonly string[]) => (parts.at(-1) ?? "").toUpperCas
 /** Rows in the homepage's verified ranking, and in /v1/verified. The original plan asked for ten. */
 const VERIFIED_LIMIT = 10;
 
+/** How long after the hour the narrator's liquidation line waits before reading that hour's window. */
+export const NARRATOR_LIQ_SETTLE_MS = 2 * 60_000;
+
+/**
+ * The narrator's liquidation line for one hour: the whole market's map and its single biggest close,
+ * over the 24 hours up to `hour`. Everything in it is fixed by the hour, so it is read once per isolate
+ * and kept for that hour; a failed read is not kept, so the next poll tries again. Only finished
+ * answers are kept, never a read in flight (a promise shared across requests hangs them).
+ */
+let narratorLiqKept: {
+  hour: number;
+  map: LiquidationMap;
+  biggest: LiquidationEvent | null;
+} | null = null;
+
+async function narratorLiquidations(
+  data: DataSource,
+  hour: number,
+): Promise<{ map: LiquidationMap; biggest: LiquidationEvent | null } | null> {
+  if (narratorLiqKept?.hour === hour) return narratorLiqKept;
+  const { hours, bucketHours } = LIQUIDATION_WINDOWS["24h"];
+  const until = new Date(hour);
+  const [map, biggest] = await Promise.all([
+    data.liquidationMap({ windowHours: hours, bucketHours, assets: 3, until }).catch(() => null),
+    data
+      .largestLiquidations({
+        windowHours: hours,
+        base: null,
+        assetClass: null,
+        venues: null,
+        order: "size",
+        minUsd: 0,
+        limit: 1,
+        until,
+      })
+      .then((rows) => rows[0] ?? null)
+      .catch(() => undefined),
+  ]);
+  // A map that failed leaves no line; a biggest close that failed would drop a sentence, so neither
+  // is kept and the next poll reads the hour again.
+  if (!map) return null;
+  if (biggest === undefined) return { map, biggest: null };
+  narratorLiqKept = { hour, map, biggest };
+  return narratorLiqKept;
+}
+
+/** Tests only: forget the kept hour, as a fresh isolate would. */
+export function forgetNarratorLiquidations(): void {
+  narratorLiqKept = null;
+}
+
 /** Public site and JSON API. Probe routes are handled before this in index.ts. */
 export async function handleApp(request: Request, deps: AppDeps): Promise<Response> {
   const url = new URL(request.url);
@@ -289,32 +346,19 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       if (!book) return json({ error: "bad_request" }, 400, 0);
       // With it, the whole market's last day of liquidations, once an hour; a failed read of those
       // leaves the book's own lines.
-      const { hours, bucketHours } = LIQUIDATION_WINDOWS["24h"];
-      const [reads, liqMap, liqBiggest] = await Promise.all([
+      // The line is the 24 hours up to the hour it is stamped with, read a couple of minutes after that
+      // hour so the last closes have landed; every read in the hour is then the same, so it is read
+      // once per isolate (narratorLiquidations) rather than on every page's minute poll.
+      const stamp = narratorHour(now - NARRATOR_LIQ_SETTLE_MS);
+      const [reads, liq] = await Promise.all([
         deps.data.gammaReads({ currency: book, since: narratorSince(now) }),
-        deps.data.liquidationMap({ windowHours: hours, bucketHours, assets: 3 }).catch(() => null),
-        deps.data
-          .largestLiquidations({
-            windowHours: hours,
-            base: null,
-            assetClass: null,
-            venues: null,
-            order: "size",
-            minUsd: 0,
-            limit: 1,
-          })
-          .then((rows) => rows[0] ?? null)
-          .catch(() => null),
+        narratorLiquidations(deps.data, stamp),
       ]);
       const entries = narrate(reads).slice(-NARRATOR_KEEP);
       return narratorResponse(
         withLocale(locale, () => {
-          const text = liqMap ? marketLiquidationText(liqMap, liqBiggest, now) : null;
-          return narratorFeed(
-            book,
-            entries,
-            text === null ? [] : [{ at: narratorHour(now), text }],
-          );
+          const text = liq ? marketLiquidationText(liq.map, liq.biggest) : null;
+          return narratorFeed(book, entries, text === null ? [] : [{ at: stamp, text }]);
         }),
       );
     }

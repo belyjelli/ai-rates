@@ -347,10 +347,10 @@ export const liquidations: Catalog = {
   "{window}, {total} of positions were force-closed across {assets} on {venues}, {sides}.":
     "{window} принудительно закрыто позиций на {total} ({assets}, {venues}), {sides}.",
   "The most liquidated: {list}.": "Больше всего ликвидаций: {list}.",
-  "The largest single liquidation was a {usd} {asset} long on {venue} at {price}, {ago}.":
-    "Крупнейшая ликвидация — лонг {asset} на {usd} на {venue} по {price}, {ago}.",
-  "The largest single liquidation was a {usd} {asset} short on {venue} at {price}, {ago}.":
-    "Крупнейшая ликвидация — шорт {asset} на {usd} на {venue} по {price}, {ago}.",
+  "The largest single liquidation was a {usd} {asset} long on {venue} at {price} ({when} UTC).":
+    "Крупнейшая ликвидация — лонг {asset} на {usd} на {venue} по {price} ({when} UTC).",
+  "The largest single liquidation was a {usd} {asset} short on {venue} at {price} ({when} UTC).":
+    "Крупнейшая ликвидация — шорт {asset} на {usd} на {venue} по {price} ({when} UTC).",
   Order: "Порядок",
   "Largest first": "Сначала крупные",
   "Newest first": "Сначала новые",

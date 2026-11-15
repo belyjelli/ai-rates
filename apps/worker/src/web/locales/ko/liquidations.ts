@@ -341,10 +341,10 @@ export const liquidations: Catalog = {
   "{window}, {total} of positions were force-closed across {assets} on {venues}, {sides}.":
     "{window} {venues}에서 {assets}의 포지션 {total}이 강제 청산되었습니다. {sides}.",
   "The most liquidated: {list}.": "청산이 가장 많은 자산: {list}.",
-  "The largest single liquidation was a {usd} {asset} long on {venue} at {price}, {ago}.":
-    "단일 최대 청산은 {venue}의 {usd} {asset} 롱으로, {price}에 체결, {ago}.",
-  "The largest single liquidation was a {usd} {asset} short on {venue} at {price}, {ago}.":
-    "단일 최대 청산은 {venue}의 {usd} {asset} 숏으로, {price}에 체결, {ago}.",
+  "The largest single liquidation was a {usd} {asset} long on {venue} at {price} ({when} UTC).":
+    "단일 최대 청산은 {venue}의 {usd} {asset} 롱으로, {price}에 체결 (UTC {when}).",
+  "The largest single liquidation was a {usd} {asset} short on {venue} at {price} ({when} UTC).":
+    "단일 최대 청산은 {venue}의 {usd} {asset} 숏으로, {price}에 체결 (UTC {when}).",
   Order: "정렬",
   "Largest first": "큰 순",
   "Newest first": "최신 순",

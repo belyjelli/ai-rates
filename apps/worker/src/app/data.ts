@@ -595,6 +595,12 @@ export interface LiquidationMapOptions {
   bucketHours: number;
   /** How many assets get a row, ranked by liquidated notional across every venue. */
   assets: number;
+  /**
+   * The window's end; the present when absent. The market narrator's hourly line ends it on the hour
+   * it is stamped with, so the line says what was true at that hour for every reader and every
+   * refresh, rather than whatever the last minute's read happened to be.
+   */
+  until?: Date;
 }
 
 /** One venue's total for one column, across EVERY asset -- including the ones with no row. */
@@ -812,6 +818,8 @@ export interface LargestLiquidationsOptions {
   /** The smallest close to list, in dollars; 0 for none. */
   minUsd: number;
   limit: number;
+  /** The window's end; the present when absent (see LiquidationMapOptions.until). */
+  until?: Date;
 }
 
 /**
@@ -2394,6 +2402,22 @@ export function cvdSpans(
 }
 
 /**
+ * A liquidation window as SQL: the last `interval` up to now, or up to `until` when one is given (the
+ * narrator's hourly line). `until` goes in as an ISO string cast in SQL: a Date parameter is not to be
+ * trusted with fetch_types off.
+ */
+export function liquidationWindow(
+  sql: postgres.Sql,
+  interval: string,
+  until: Date | undefined,
+  column = sql`liquidated_at`,
+) {
+  if (!until) return sql`${column} > now() - ${interval}::interval`;
+  const end = until.toISOString();
+  return sql`${column} > ${end}::timestamptz - ${interval}::interval AND ${column} <= ${end}::timestamptz`;
+}
+
+/**
  * The quote and contract-type tail of a liquidation feed's symbol, for a market with no
  * market_latest row: ICXUSDT, ICX_USDT, ICX-USDT-SWAP and ICX-USD all name ICX. A POSIX pattern,
  * applied to the upper-cased symbol by Postgres, so the same string is what the tests exercise.
@@ -2933,9 +2957,10 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       return [...rows];
     },
 
-    async liquidationMap({ windowHours, bucketHours, assets }) {
+    async liquidationMap({ windowHours, bucketHours, assets, until }) {
       const sql = connect();
       const windowInterval = `${windowHours} hours`;
+      const inWindow = liquidationWindow(sql, windowInterval, until);
       const bucketSeconds = bucketHours * 3600;
 
       // ONE SCAN, FOUR ANSWERS. The map needs the cells, the busiest assets, the per-venue totals and
@@ -2968,7 +2993,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                  sum(notional_usd) FILTER (WHERE side = 'short') AS short_usd,
                  max(liquidated_at) AS last_at
           FROM liquidations
-          WHERE liquidated_at > now() - ${windowInterval}::interval
+          WHERE ${inWindow}
             AND notional_usd IS NOT NULL
           GROUP BY 1, 2, 3
         ),
@@ -3431,9 +3456,19 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       };
     },
 
-    async largestLiquidations({ windowHours, base, assetClass, venues, order, minUsd, limit }) {
+    async largestLiquidations({
+      windowHours,
+      base,
+      assetClass,
+      venues,
+      order,
+      minUsd,
+      limit,
+      until,
+    }) {
       const sql = connect();
       const windowInterval = `${windowHours} hours`;
+      const inWindow = liquidationWindow(sql, windowInterval, until);
       // One string or null, split in SQL: a list parameter does not survive fetch_types off.
       const venueList = venues === null ? null : venues.join(",");
       // A total order, so a tie cannot swap two rows between one refresh and the next.
@@ -3450,7 +3485,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           WITH top AS (
             SELECT venue_id, venue_symbol, liquidated_at, side, notional_usd, fill_price
             FROM liquidations
-            WHERE liquidated_at > now() - ${windowInterval}::interval
+            WHERE ${inWindow}
               AND notional_usd >= ${minUsd}
               AND (${venueList}::text IS NULL
                    OR venue_id = ANY(string_to_array(${venueList}::text, ',')))
@@ -3478,7 +3513,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
                m.base AS asset, m.asset_class
         FROM liquidations l
         JOIN market_latest m ON m.venue_id = l.venue_id AND m.venue_symbol = l.venue_symbol
-        WHERE l.liquidated_at > now() - ${windowInterval}::interval
+        WHERE ${liquidationWindow(sql, windowInterval, until, sql`l.liquidated_at`)}
           AND l.notional_usd >= ${minUsd}
           AND m.base = ${base}
           AND m.asset_class = (SELECT asset_class FROM chosen)

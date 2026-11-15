@@ -1,11 +1,16 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import { VENUES } from "@ai-rates/venues";
 import { divergence, flowRatio } from "../web/cvd";
 import type { Locale } from "../web/i18n";
 import { icon } from "../web/icons";
 import { bestPair, pivot } from "../web/pages";
 import { BOOK_SCRIPT } from "../web/whales";
-import { handleApp, unavailableResponse } from "./app";
+import {
+  forgetNarratorLiquidations,
+  handleApp,
+  NARRATOR_LIQ_SETTLE_MS,
+  unavailableResponse,
+} from "./app";
 import type {
   ArbitrageRow,
   CvdAssetRow,
@@ -50,6 +55,9 @@ const NO_GREEKS = {
 };
 
 const NOW = Date.parse("2026-09-12T12:00:00Z");
+
+// The narrator keeps one hour's liquidation line per isolate; each test starts as a fresh one.
+beforeEach(() => forgetNarratorLiquidations());
 
 const overview: Overview = {
   markets: 4286,
@@ -2042,14 +2050,18 @@ describe("pages", () => {
       expect(html).toContain('data-lazy="/liquidations?panel=largest"');
       expect(html).toContain(">Largest liquidations<");
 
-      // The narrator's feed carries it, stamped at the top of the hour (NOW is 12:00 sharp), as text
-      // the strip can type: the map's totals (gate $39.76M, okx $64.08M, $60M of it longs), the
-      // busiest three and the biggest single close.
+      // The narrator's feed carries it as text the strip can type: the map's totals (gate $39.76M, okx
+      // $64.08M, $60M of it longs), the busiest three and the biggest single close with its own time.
+      // NOW is 12:00 sharp, inside the two minutes the hour's line waits for its last closes, so the
+      // line is still 11:00's, read for the 24 hours up to 11:00 and stamped so.
+      const HOUR = 3_600_000;
       const feed = await (await get("/data/narrator?book=BTC", data)).text();
-      expect(feed).toContain(`<li class="narr-e narr-liq" data-at="${NOW}">`);
+      expect(feed).toContain(`<li class="narr-e narr-liq" data-at="${NOW - HOUR}">`);
       expect(feed).toContain(
-        "In the last 24 hours, $104M of positions were force-closed across 4 assets on 2 exchanges, 58% of it longs. The most liquidated: ETH $34.8M, SNDK $2.7M and XAU $900k. The largest single liquidation was a $2.4M ETH long on OKX at 2,380.5, 3h",
+        "In the last 24 hours, $104M of positions were force-closed across 4 assets on 2 exchanges, 58% of it longs. The most liquidated: ETH $34.8M, SNDK $2.7M and XAU $900k. The largest single liquidation was a $2.4M ETH long on OKX at 2,380.5 (09-12 09:00 UTC).",
       );
+      // Never an age: an age is only true when it is written, and the strip keeps the line for hours.
+      expect(feed).not.toContain("2,380.5, 3h");
       expect(calls).toEqual([
         {
           windowHours: 24,
@@ -2059,16 +2071,28 @@ describe("pages", () => {
           order: "size",
           minUsd: 0,
           limit: 1,
+          until: new Date(NOW - HOUR),
         },
       ]);
-      // The same in ETH's book, a minute later: the same stamp, so the strip does not type it again.
+      // The same in ETH's book, a minute later: the same hour, read once, the same stamp, so the strip
+      // does not type it again.
       const later = await (
         await handleApp(new Request("https://airates.test/data/narrator?book=ETH"), {
           data,
           now: () => NOW + 60_000,
         })
       ).text();
-      expect(later).toContain(`<li class="narr-e narr-liq" data-at="${NOW}">`);
+      expect(later).toContain(`<li class="narr-e narr-liq" data-at="${NOW - HOUR}">`);
+      expect(calls).toHaveLength(1);
+      // Once the two minutes have passed, 12:00's line: read again, for the 24 hours up to 12:00.
+      const next = await (
+        await handleApp(new Request("https://airates.test/data/narrator?book=BTC"), {
+          data,
+          now: () => NOW + NARRATOR_LIQ_SETTLE_MS,
+        })
+      ).text();
+      expect(next).toContain(`<li class="narr-e narr-liq" data-at="${NOW}">`);
+      expect(calls.at(-1)?.until).toEqual(new Date(NOW));
 
       // The list, as its tab ships it: every asset with a link to its own page, the biggest first.
       const panel = await tab("/liquidations", "largest", data);

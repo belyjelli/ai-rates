@@ -334,10 +334,10 @@ export const liquidations: Catalog = {
   "{window}, {total} of positions were force-closed across {assets} on {venues}, {sides}.":
     "{window}，{venues}共强平 {assets}的仓位 {total}，{sides}。",
   "The most liquidated: {list}.": "爆仓最多：{list}。",
-  "The largest single liquidation was a {usd} {asset} long on {venue} at {price}, {ago}.":
-    "单笔最大爆仓是 {venue} 上一笔 {usd} 的 {asset} 多头，成交于 {price}，{ago}。",
-  "The largest single liquidation was a {usd} {asset} short on {venue} at {price}, {ago}.":
-    "单笔最大爆仓是 {venue} 上一笔 {usd} 的 {asset} 空头，成交于 {price}，{ago}。",
+  "The largest single liquidation was a {usd} {asset} long on {venue} at {price} ({when} UTC).":
+    "单笔最大爆仓是 {venue} 上一笔 {usd} 的 {asset} 多头，成交于 {price}（UTC {when}）。",
+  "The largest single liquidation was a {usd} {asset} short on {venue} at {price} ({when} UTC).":
+    "单笔最大爆仓是 {venue} 上一笔 {usd} 的 {asset} 空头，成交于 {price}（UTC {when}）。",
   Order: "排序",
   "Largest first": "最大优先",
   "Newest first": "最新优先",
