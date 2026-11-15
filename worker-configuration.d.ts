@@ -11,6 +11,9 @@ interface __BaseEnv_Env {
 	// ADMIN_PASSWORD belongs in Secrets, so it is encrypted and never shown again.
 	ADMIN_USER?: string;
 	ADMIN_PASSWORD?: string;
+	// GA4 Measurement Protocol secret for API calls (app/api-analytics.ts): a Secret in the dashboard too.
+	// Unset means API calls are not reported.
+	GA_API_SECRET?: string;
 }
 declare namespace Cloudflare {
 	interface GlobalProps {

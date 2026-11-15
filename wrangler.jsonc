@@ -73,5 +73,7 @@
   // ADMIN_USER and ADMIN_PASSWORD protect /admin and are set in the dashboard (Workers > airates >
   // Settings > Variables), not here: ADMIN_PASSWORD as a Secret, so it is encrypted at rest and never
   // shown again. keep_vars stops each deploy wiping them. Without both, /admin refuses every request.
+  // GA_API_SECRET, also a Secret there, is the Google Analytics Measurement Protocol secret that
+  // reports API calls (app/api-analytics.ts); without it they are simply not reported.
   "keep_vars": true
 }

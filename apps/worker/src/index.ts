@@ -1,4 +1,5 @@
 import postgres from "postgres";
+import { apiEndpoint, clientName, reportApiCall, rpcOf } from "./app/api-analytics";
 import { handleApp, unavailableResponse } from "./app/app";
 import { wwwRedirect } from "./app/canonical-host";
 import { createDataSource } from "./app/data";
@@ -16,6 +17,7 @@ import {
 } from "./app/live-pass";
 import { isSheddable, Pressure, SHED_REFUSAL } from "./app/load-shed";
 import { withSecurityHeaders } from "./app/security-headers";
+import { withoutTracking } from "./app/tracking-params";
 import { visitPoint } from "./app/visits";
 import { ProbeDO } from "./probe/probe-do";
 import { handleProbe } from "./probe/routes";
@@ -44,7 +46,29 @@ export default {
   // only adds what is missing; the probe, admin and language-switch responses, the unavailable page,
   // and copies cached before the headers existed get theirs here.
   async fetch(request, env, ctx): Promise<Response> {
-    return withSecurityHeaders(await handle(request, env, ctx));
+    // A call to the API, counted in Google Analytics once it is answered (app/api-analytics.ts). The
+    // JSON-RPC body is read from a copy before the handler takes the original.
+    const endpoint = env.GA_API_SECRET ? apiEndpoint(new URL(request.url)) : null;
+    const rpcBody =
+      endpoint !== null && request.method === "POST" && !endpoint.startsWith("/v1/")
+        ? request
+            .clone()
+            .text()
+            .catch(() => "")
+        : null;
+    const response = await withSecurityHeaders(await handle(request, env, ctx));
+    if (endpoint !== null && env.GA_API_SECRET) {
+      const secret = env.GA_API_SECRET;
+      const client = clientName(request.headers.get("user-agent"));
+      ctx.waitUntil(
+        (async () => {
+          const rpc = rpcBody ? rpcOf((await rpcBody).slice(0, 65_536)) : {};
+          const call = { endpoint, method: request.method, client, ...rpc };
+          await reportApiCall({ secret, call, status: response.status, fetch });
+        })(),
+      );
+    }
+    return response;
   },
 } satisfies ExportedHandler<Env>;
 
@@ -120,9 +144,11 @@ async function handle(
     }
   }
 
-  let cacheKey: Request = request;
+  // A campaign tag or a click id names no page (app/tracking-params.ts): the copy without it is served.
+  const plain = withoutTracking(new URL(request.url));
+  let cacheKey: Request = plain ? new Request(plain.toString(), request) : request;
   if (bucket !== "any" || locale !== DEFAULT_LOCALE || live || member) {
-    const keyed = new URL(request.url);
+    const keyed = new URL(cacheKey.url);
     if (bucket !== "any") keyed.searchParams.set("__cta", bucket);
     if (locale !== DEFAULT_LOCALE) keyed.searchParams.set("__lang", locale);
     if (live) keyed.searchParams.set("__live", "1");

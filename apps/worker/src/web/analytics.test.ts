@@ -106,13 +106,35 @@ describe("the Google tag", () => {
   test("loads gtag.js once and configures both properties", () => {
     expect(GA_IDS).toEqual(["G-XCSJH74QFF", "G-PJNK8JFLTQ"]);
     expect(GA_TAG.match(/gtag\/js\?id=/g)).toHaveLength(1);
-    expect(GA_TAG).toContain("gtag('config', 'G-XCSJH74QFF');");
-    expect(GA_TAG).toContain("gtag('config', 'G-PJNK8JFLTQ');");
+    expect(GA_TAG).toContain("gtag('config', 'G-XCSJH74QFF', { content_group: section });");
+    expect(GA_TAG).toContain("gtag('config', 'G-PJNK8JFLTQ', { content_group: section });");
+  });
+
+  test("each page view names its section, and each reader is a member or not", () => {
+    const inline = /<script>([\s\S]*)<\/script>/.exec(GA_TAG)?.[1] ?? "";
+    const run = (path: string, cookie: string) => {
+      const calls: unknown[][] = [];
+      const window = { dataLayer: [] as unknown[] };
+      new Function("window", "dataLayer", "location", "document", `${inline}; return gtag;`)(
+        window,
+        window.dataLayer,
+        { pathname: path },
+        { cookie },
+      );
+      for (const args of window.dataLayer as IArguments[]) calls.push([...args]);
+      return calls;
+    };
+    const liq = run("/liquidations/BTC", "_ga=GA1.1.1.2; airrates_member=1");
+    expect(liq).toContainEqual(["set", "user_properties", { member: "yes" }]);
+    expect(liq).toContainEqual(["config", "G-PJNK8JFLTQ", { content_group: "liquidations" }]);
+    const home = run("/", "");
+    expect(home).toContainEqual(["set", "user_properties", { member: "no" }]);
+    expect(home).toContainEqual(["config", "G-XCSJH74QFF", { content_group: "home" }]);
   });
 
   test("every page carries the tag and the interaction script, and the policy lets both run", () => {
     const html = layout({ title: "t", description: "d", path: "/x", body: "<p>x</p>", now: 0 });
-    expect(html).toContain("gtag('config', 'G-PJNK8JFLTQ');");
+    expect(html).toContain("gtag('config', 'G-PJNK8JFLTQ', { content_group: section });");
     const scripts = inlineScripts(html);
     expect(scripts).toContain(INTERACTION_SCRIPT);
     // The policy is built from the hashes of these scripts, so a page's own copy is always allowed.
@@ -196,6 +218,20 @@ describe("what a reader does on a page", () => {
           link_url: "/liquidations/BTC",
         },
       ],
+    ]);
+  });
+
+  test("a link into the member site is member_link, named by where it leads", () => {
+    const { sent, fire } = run();
+    const join = el("a", { href: "https://member.airrates.net/member/signup" }, "Join free");
+    el("div", { "data-tab-panel": "winners" }).add(join);
+    const login = el("a", { href: "https://member.airrates.net/", "aria-label": "login" });
+    el("footer", { class: "dock" }).add(login);
+    fire("click", join);
+    fire("click", login);
+    expect(sent).toEqual([
+      ["member_link", { member_target: "signup", ui_area: "panel:winners", ui_label: "Join free" }],
+      ["member_link", { member_target: "home", ui_area: "dock", ui_label: "login" }],
     ]);
   });
 
