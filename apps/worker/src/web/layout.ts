@@ -1,5 +1,6 @@
 import type { Overview } from "../app/data";
 import { BUILD } from "../build-info";
+import { GA_TAG, INTERACTION_SCRIPT } from "./analytics";
 import { awaitScript } from "./await";
 import { SEARCH_CSS, searchButton, searchDialog, searchScript } from "./command";
 import { durationStrings, esc, sentimentLabel, sentimentTone, since } from "./format";
@@ -58,22 +59,6 @@ export const MEMBER_URL = "https://member.airrates.net/";
 
 /** The airrates Telegram group, @airratesnet: off-origin like the member area, so a new tab too. */
 export const TELEGRAM_URL = "https://t.me/airratesnet";
-
-/**
- * Google Analytics 4 for airrates.net, first thing in <head> as Google asks. The member area on its
- * own subdomain reports to a separate property (G-16FWXNVQ9C), so the two audiences stay apart.
- * The share and cite dialogs report their clicks through the same tag (share.ts).
- */
-const GA_ID = "G-XCSJH74QFF";
-export const GA_TAG = `<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=${GA_ID}"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', '${GA_ID}');
-</script>`;
 
 /** The one origin pages name as their own, so a copy found elsewhere points back here. */
 export const SITE_ORIGIN = "https://airrates.net";
@@ -1565,6 +1550,7 @@ ${narrator ? `<script>${narratorScript()}</script>\n` : ""}<script>${hotkeyScrip
 <script>${ROW_LINK_SCRIPT}</script>
 <script>${shareScript()}</script>
 <script>${WEBMCP_SCRIPT}</script>
+<script>${INTERACTION_SCRIPT}</script>
 </body>
 </html>`;
 }
