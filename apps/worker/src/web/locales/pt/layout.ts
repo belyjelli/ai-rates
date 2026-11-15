@@ -28,7 +28,7 @@ export const layout: Catalog = {
   liquidations: "liquidações",
   exchanges: "corretoras",
   "{markets} markets · {venues} venues · updated {ago}":
-    "mercados: {markets} · corretoras: {venues} · atualizado {ago}",
+    "{markets} mercados · {venues} corretoras · atualizado {ago}",
   "no venue has reported in five minutes": "nenhuma corretora enviou dados em cinco minutos",
   "Fear &amp; greed: click for the chart": "Medo e ganância: clique para ver o gráfico",
   "What settled. Not what might.": "O que foi pago. Não o que poderia ser.",

@@ -245,7 +245,7 @@ export const liquidations: Catalog = {
   // web/whale-map.ts
   "mark {price}": "marcação {price}",
   "{n} positions of {floor} or more · {longs} of longs, {shorts} of shorts · hover or tap a bar to read it":
-    "{n} posições de {floor} ou mais · {longs} em longs, {shorts} em shorts · passe o mouse ou toque numa barra para ler",
+    "{n} posições de {floor} ou mais · {longs} em longs, {shorts} em shorts · passe o mouse ou toque numa barra para ver o valor",
   "Beyond ±{pct} of the mark, off the chart: {longs} of longs and {shorts} of shorts.":
     "Além de ±{pct} da marcação, fora do gráfico: {longs} em longs e {shorts} em shorts.",
   "{asset} · whale positions by liquidation price · {venues}":

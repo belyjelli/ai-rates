@@ -544,7 +544,7 @@ export const macro: Catalog = {
   "{market} · {name}: {ret} over {span}, {day} in the latest session, {swing} on a typical day":
     "{market} · {name}: {ret} em {span}, {day} no último pregão, {swing} num dia típico",
   "{n} markets, {up} up over {span} · hover or tap a bubble to read it":
-    "mercados: {n}, em alta em {span}: {up} · passe o mouse ou toque numa bolha para ler",
+    "mercados: {n}, em alta em {span}: {up} · passe o mouse ou toque numa bolha para ver o valor",
   "Return over {span} against the latest session, one index per market":
     "Retorno em {span} contra o último pregão, um índice por mercado",
   "bubble size: the typical daily move": "tamanho da bolha: o movimento diário típico",
@@ -554,7 +554,7 @@ export const macro: Catalog = {
   "Change in the latest session": "Variação no último pregão",
   "{market} over {span}: {list}": "{market} em {span}: {list}",
   "{n} markets · hover or tap a row to read it":
-    "mercados: {n} · passe o mouse ou toque numa linha para ler",
+    "mercados: {n} · passe o mouse ou toque numa linha para ver o valor",
   "Each market's indexes by return over {span}: the bar is its first index in the table, a dot each of its others":
     "Os índices de cada mercado por retorno em {span}: a barra é o primeiro índice dele na tabela, um ponto cada um dos outros",
   "other indexes": "outros índices",

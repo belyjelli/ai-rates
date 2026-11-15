@@ -124,7 +124,7 @@ export const whales: Catalog = {
     "Cada círculo é uma grande ordem a mercado: todas as execuções de um lado no mesmo milissegundo, contadas como uma rajada, de pelo menos o mesmo {floor}. Azul é um taker comprando, vermelho um taker vendendo; quanto maior o círculo, maior a rajada. O gráfico desenha as 200 maiores do período.",
   "off the chart:": "fora do gráfico:",
   "last {price}": "último {price}",
-  "hover or tap a candle to read it": "passe o mouse ou toque num candle para ler",
+  "hover or tap a candle to read it": "passe o mouse ou toque num candle para ver o valor",
   "{asset} candles; arrow keys read one at a time": "candles de {asset}; as setas leem um por vez",
   "{asset} volume per candle": "volume de {asset} por candle",
   // web/whales.ts: the GEX switch over the chart
