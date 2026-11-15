@@ -6663,6 +6663,13 @@ describe("language", () => {
     expect(html).toContain('<meta property="og:locale" content="ru_RU">');
   });
 
+  test("Portuguese pages are Brazilian Portuguese", async () => {
+    const html = await (await getIn("/", "pt")).text();
+    expect(html).toContain('<html lang="pt-BR">');
+    expect(html).toContain('aria-current="true">Português</a>');
+    expect(html).toContain('<meta property="og:locale" content="pt_BR">');
+  });
+
   test("English is the default, and its switch points back at the page", async () => {
     const html = await (await get("/screener", fakeData().data)).text();
     expect(html).toContain('<html lang="en">');
@@ -6671,6 +6678,7 @@ describe("language", () => {
     expect(html).toContain('href="/lang/ja?back=%2Fscreener"');
     expect(html).toContain('href="/lang/ko?back=%2Fscreener"');
     expect(html).toContain('href="/lang/ru?back=%2Fscreener"');
+    expect(html).toContain('href="/lang/pt?back=%2Fscreener"');
   });
 
   test("a not-found message is translated too", async () => {

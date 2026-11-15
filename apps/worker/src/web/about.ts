@@ -41,6 +41,13 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-11-15",
+    title: "The site in Portuguese",
+    changes: [
+      "Every page can be read in Brazilian Portuguese: switch with language: Português at the foot of the page. A browser set to Portuguese, in Brazil or in Portugal, gets it on a first visit. As with the other languages, the legal and status pages and this changelog stay in English, and the API is never translated.",
+    ],
+  },
+  {
+    date: "2026-11-15",
     title: "Liquidations: the page in words, and the largest single liquidations",
     changes: [
       "Each asset's liquidations page now opens with a short summary: how much was force-closed in the window and on how many exchanges, which side took most of it, the biggest single liquidation, and how much of the watched whale positions would be liquidated within 5% of the price. The whole market's version is a line in the market narrator at the top of every page, once an hour: the last 24 hours' total, the most liquidated assets and the biggest single liquidation.",
