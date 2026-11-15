@@ -2033,23 +2033,23 @@ describe("pages", () => {
       return html.slice(from, html.indexOf("</p>", from));
     };
 
-    test("the bare page says what the whole market lost, who lost most, and the biggest single close", async () => {
+    test("the whole market's line is the narrator's: once an hour, in plain words, not on the bare page", async () => {
       const { calls, data } = reading();
       const html = await (await get("/liquidations", data)).text();
-      const words = brief(html);
-      // The map's own totals: gate $39.76M and okx $64.08M; $60M of it longs.
-      expect(words).toContain(
-        'In the last 24 hours, <b>$104M</b> of positions were force-closed across 4 assets on 2 exchanges, <b class="lq-ink-l">58%</b> of it longs.',
+      expect(html).not.toContain('class="lede lq-brief"');
+      // Nothing reads the list for a summary any more: the tab loads itself.
+      expect(calls).toEqual([]);
+      expect(html).toContain('data-lazy="/liquidations?panel=largest"');
+      expect(html).toContain(">Largest liquidations<");
+
+      // The narrator's feed carries it, stamped at the top of the hour (NOW is 12:00 sharp), as text
+      // the strip can type: the map's totals (gate $39.76M, okx $64.08M, $60M of it longs), the
+      // busiest three and the biggest single close.
+      const feed = await (await get("/data/narrator?book=BTC", data)).text();
+      expect(feed).toContain(`<li class="narr-e narr-liq" data-at="${NOW}">`);
+      expect(feed).toContain(
+        "In the last 24 hours, $104M of positions were force-closed across 4 assets on 2 exchanges, 58% of it longs. The most liquidated: ETH $34.8M, SNDK $2.7M and XAU $900k. The largest single liquidation was a $2.4M ETH long on OKX at 2,380.5, 3h",
       );
-      // The busiest three, each linking to its own page.
-      expect(words).toContain(
-        'The most liquidated: <a href="/liquidations/ETH">ETH</a> $34.8M, <a href="/liquidations/equity/SNDK">SNDK</a> $2.7M and <a href="/liquidations/commodity/XAU">XAU</a> $900k.',
-      );
-      expect(words).toContain(
-        "The largest single liquidation was a <b>$2.4M</b> ETH long on OKX at 2,380.5, <time",
-      );
-      expect(words).toContain('data-lq-brief="/liquidations"');
-      // One read serves both: the default list is the window's biggest first, every venue.
       expect(calls).toEqual([
         {
           windowHours: 24,
@@ -2058,13 +2058,20 @@ describe("pages", () => {
           venues: null,
           order: "size",
           minUsd: 0,
-          limit: 50,
+          limit: 1,
         },
       ]);
-      // The list ships drawn, every asset with a link to its own page, the biggest first.
-      expect(html).not.toContain('data-lazy="/liquidations?panel=largest"');
-      expect(html).toContain(">Largest liquidations<");
-      const panel = html.slice(html.indexOf('data-tab-panel="largest"'));
+      // The same in ETH's book, a minute later: the same stamp, so the strip does not type it again.
+      const later = await (
+        await handleApp(new Request("https://airates.test/data/narrator?book=ETH"), {
+          data,
+          now: () => NOW + 60_000,
+        })
+      ).text();
+      expect(later).toContain(`<li class="narr-e narr-liq" data-at="${NOW}">`);
+
+      // The list, as its tab ships it: every asset with a link to its own page, the biggest first.
+      const panel = await tab("/liquidations", "largest", data);
       expect(panel).toContain("<th>Asset</th>");
       expect(panel).toContain(
         '<a href="/liquidations/equity/SNDK#largest">SNDK <span class="cls">',
@@ -2183,9 +2190,12 @@ describe("pages", () => {
       expect(html).toContain('data-lq-swap="largest" data-lq-venue="okx">okx<');
       expect(html).toContain("Every liquidation of $1M or more in this window.");
 
-      // The whole page with a list that is not the default reads the summary's biggest on its own.
+      // An asset's whole page with a list that is not the default reads its summary's biggest on its
+      // own; the bare page has no summary and reads neither.
       calls.length = 0;
       await get("/liquidations?order=newest", data);
+      expect(calls).toEqual([]);
+      await get("/liquidations/ETH?order=newest", data);
       expect(calls.map((call) => [call.order, call.minUsd, call.limit])).toEqual([
         ["time", 100_000, 50],
         ["size", 0, 1],
@@ -2209,11 +2219,13 @@ describe("pages", () => {
       });
       const res = await get("/liquidations", data);
       expect(res.status).toBe(200);
-      const html = await res.text();
-      expect(html).toContain("The largest liquidations could not be read right now.");
-      // The summary keeps its totals and leaves out the biggest close it could not read.
-      expect(brief(html)).toContain("of positions were force-closed across 4 assets");
-      expect(brief(html)).not.toContain("largest single");
+      expect(await tab("/liquidations", "largest", data)).toContain(
+        "The largest liquidations could not be read right now.",
+      );
+      // The narrator's line keeps its totals and leaves out the biggest close it could not read.
+      const feed = await (await get("/data/narrator?book=BTC", data)).text();
+      expect(feed).toContain("of positions were force-closed across 4 assets");
+      expect(feed).not.toContain("largest single");
     });
   });
 

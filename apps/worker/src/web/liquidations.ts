@@ -56,7 +56,7 @@ import { PENDING_ROWS, PENDING_ZOOMS, type PendingZoom } from "../app/pending";
 import { CHART_SKELETON_JS, lazyPlaceholder } from "./chart-skeleton";
 import { ageText, esc, formatPrice, formatUsd, LOCK_ICON, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
-import { msg, tr, trMsg } from "./i18n";
+import { currentLocale, msg, tr, trMsg } from "./i18n";
 import { layout, MEMBER_URL } from "./layout";
 import { timeTag, timeTitle, zoneTag } from "./localtime";
 import { outlookPanel } from "./outlook";
@@ -1970,6 +1970,78 @@ const liquidationCount = (n: number) =>
 const exchangeCount = (n: number) =>
   n === 1 ? tr("{n} exchange", { n }) : tr("{n} exchanges", { n });
 
+/**
+ * The whole market's last 24 hours of liquidations as one plain-text line, for the market narrator
+ * (web/narrator.ts) rather than the page: what was force-closed, across how many assets and exchanges,
+ * which side took most, the three most liquidated assets and the single biggest close. Null when
+ * nothing was. Plain text because the narrator types its lines out character by character; the same
+ * sentences as the asset pages' summary, so they share their translations.
+ */
+export function marketLiquidationText(
+  map: LiquidationMap,
+  biggest: LiquidationEvent | null,
+  now: number,
+): string | null {
+  const sum = (pick: (total: (typeof map.totals)[number]) => number) =>
+    map.totals.reduce((total, venue) => total + pick(venue), 0);
+  const total = sum((venue) => venue.notional_usd);
+  if (!(total > 0)) return null;
+  const longs = sum((venue) => venue.long_usd);
+  const shorts = sum((venue) => venue.short_usd);
+  const share = (part: number) => `${Math.round((part / (longs + shorts)) * 100)}%`;
+  const sentences = [
+    tr("{window}, {total} of positions were force-closed across {assets} on {venues}, {sides}.", {
+      window: windowWords("24h"),
+      total: money(total),
+      assets:
+        map.every.length === 1
+          ? tr("{n} asset", { n: 1 })
+          : tr("{n} assets", { n: map.every.length.toLocaleString("en-US") }),
+      venues: exchangeCount(map.totals.length),
+      sides:
+        longs >= shorts
+          ? tr("{share} of it longs", { share: share(longs) })
+          : tr("{share} of it shorts", { share: share(shorts) }),
+    }),
+  ];
+  const top = map.every.slice(0, 3).map((entry) => `${entry.asset} ${money(entry.notional_usd)}`);
+  if (top.length > 0) {
+    sentences.push(
+      tr("The most liquidated: {list}.", {
+        list:
+          top.length === 1
+            ? (top[0] as string)
+            : tr("{first} and {last}", {
+                first: top.slice(0, -1).join(tr(", ")),
+                last: top[top.length - 1] as string,
+              }),
+      }),
+    );
+  }
+  if (biggest) {
+    const values = {
+      usd: money(biggest.notional_usd),
+      asset: biggest.asset,
+      venue: venueName(biggest.venue_id),
+      price: formatPrice(biggest.fill_price),
+      ago: ageText(biggest.liquidated_at, now),
+    };
+    sentences.push(
+      biggest.side === "long"
+        ? tr(
+            "The largest single liquidation was a {usd} {asset} long on {venue} at {price}, {ago}.",
+            values,
+          )
+        : tr(
+            "The largest single liquidation was a {usd} {asset} short on {venue} at {price}, {ago}.",
+            values,
+          ),
+    );
+  }
+  // Chinese and Japanese run their sentences together; the others leave a space (as entryText does).
+  return sentences.join(currentLocale() === "zh" || currentLocale() === "ja" ? "" : " ");
+}
+
 /** How the summary opens, by window. */
 function windowWords(window: LiquidationWindow): string {
   if (window === "7d") return tr("In the last 7 days");
@@ -2000,137 +2072,76 @@ function sideShare(longUsd: number, shortUsd: number): string {
  *
  * The figures are the whole market's, whatever the venue strip narrows a tab to: this sits above the
  * tabs and speaks for the window, as the window strip beside it does.
+ *
+ * ONLY ON AN ASSET'S OWN PAGE since 2026-11-15 (owner): the whole market's line moved to the masthead's
+ * market narrator (marketLiquidationText), where it reads on every page; the hub opens on its tabs.
  */
 function liquidationBrief(view: LiquidationView): string {
   const { map, asset, params, now } = view;
+  // The whole market's line is the narrator's now (marketLiquidationText); an asset's page keeps its own.
+  if (!view.addressed || asset === null) return "";
   const biggest = view.biggest ?? null;
   const opening = windowWords(params.window);
   const sentences: string[] = [];
 
-  if (view.addressed && asset !== null) {
-    const assetClass = view.assetMap?.asset_class ?? view.assetClass ?? "crypto";
-    const entry = map.every.find(
-      (candidate) => candidate.asset === asset && candidate.asset_class === assetClass,
-    );
-    const name = `<b>${esc(asset)}</b>`;
-    if (!entry || !(entry.notional_usd > 0)) {
-      sentences.push(
-        tr(
-          "{window}, no {asset} position was force-closed on the exchanges whose liquidation feeds the collector reads.",
-          { window: opening, asset: name },
-        ),
-      );
-    } else {
-      sentences.push(
-        tr(
-          "{window}, {total} of {asset} positions were force-closed in {events} on {venues}, {sides}.",
-          {
-            window: opening,
-            total: `<b>${money(entry.notional_usd)}</b>`,
-            asset: name,
-            events: liquidationCount(entry.events),
-            venues: exchangeCount(entry.venues),
-            sides: sideShare(entry.long_usd, entry.short_usd),
-          },
-        ),
-      );
-      if (biggest) {
-        const values = {
-          usd: `<b>${money(biggest.notional_usd)}</b>`,
-          venue: esc(venueName(biggest.venue_id)),
-          price: formatPrice(biggest.fill_price),
-          ago: since(biggest.liquidated_at, now),
-        };
-        sentences.push(
-          biggest.side === "long"
-            ? tr("The largest single one was a {usd} long on {venue} at {price}, {ago}.", values)
-            : tr("The largest single one was a {usd} short on {venue} at {price}, {ago}.", values),
-        );
-      }
-    }
-    if (view.whales) {
-      const near = whalesNearMark(view.whales, "1m");
-      if (near.positions > 0 && near.longs === 0 && near.shorts === 0) {
-        // "$0 of longs ... $0 of shorts" is a sum of nothing dressed as a finding.
-        sentences.push(
-          tr(
-            "None of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX would be liquidated within 5% of the price.",
-          ),
-        );
-      } else if (near.positions > 0) {
-        sentences.push(
-          tr(
-            "Of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX, {longs} of longs would be liquidated within 5% below the price and {shorts} of shorts within 5% above.",
-            {
-              longs: `<b class="lq-ink-l">${money(near.longs)}</b>`,
-              shorts: `<b class="lq-ink-s">${money(near.shorts)}</b>`,
-            },
-          ),
-        );
-      }
-    }
-  } else {
-    const sum = (pick: (total: (typeof map.totals)[number]) => number) =>
-      map.totals.reduce((total, venue) => total + pick(venue), 0);
-    const total = sum((venue) => venue.notional_usd);
-    // Nothing in the window: the line under the heading already says no venue reported a close.
-    if (!(total > 0)) return "";
+  const assetClass = view.assetMap?.asset_class ?? view.assetClass ?? "crypto";
+  const entry = map.every.find(
+    (candidate) => candidate.asset === asset && candidate.asset_class === assetClass,
+  );
+  const name = `<b>${esc(asset)}</b>`;
+  if (!entry || !(entry.notional_usd > 0)) {
     sentences.push(
-      tr("{window}, {total} of positions were force-closed across {assets} on {venues}, {sides}.", {
-        window: opening,
-        total: `<b>${money(total)}</b>`,
-        assets:
-          map.every.length === 1
-            ? tr("{n} asset", { n: 1 })
-            : tr("{n} assets", { n: map.every.length.toLocaleString("en-US") }),
-        venues: exchangeCount(map.totals.length),
-        sides: sideShare(
-          sum((venue) => venue.long_usd),
-          sum((venue) => venue.short_usd),
-        ),
-      }),
+      tr(
+        "{window}, no {asset} position was force-closed on the exchanges whose liquidation feeds the collector reads.",
+        { window: opening, asset: name },
+      ),
     );
-    // The busiest three, each a link to its own page: where a reader goes next, and the internal
-    // links that tell a search engine the asset pages exist.
-    const top = map.every.slice(0, 3).map((entry) => {
-      const href = esc(
-        controlHref(controlState(view), {
-          asset: { name: entry.asset, assetClass: entry.asset_class },
-        }),
-      );
-      return `<a href="${href}">${esc(entry.asset)}</a> ${money(entry.notional_usd)}`;
-    });
-    if (top.length > 0) {
-      sentences.push(
-        tr("The most liquidated: {list}.", {
-          list:
-            top.length === 1
-              ? (top[0] as string)
-              : tr("{first} and {last}", {
-                  first: top.slice(0, -1).join(tr(", ")),
-                  last: top[top.length - 1] as string,
-                }),
-        }),
-      );
-    }
+  } else {
+    sentences.push(
+      tr(
+        "{window}, {total} of {asset} positions were force-closed in {events} on {venues}, {sides}.",
+        {
+          window: opening,
+          total: `<b>${money(entry.notional_usd)}</b>`,
+          asset: name,
+          events: liquidationCount(entry.events),
+          venues: exchangeCount(entry.venues),
+          sides: sideShare(entry.long_usd, entry.short_usd),
+        },
+      ),
+    );
     if (biggest) {
       const values = {
         usd: `<b>${money(biggest.notional_usd)}</b>`,
-        asset: esc(biggest.asset),
         venue: esc(venueName(biggest.venue_id)),
         price: formatPrice(biggest.fill_price),
         ago: since(biggest.liquidated_at, now),
       };
       sentences.push(
         biggest.side === "long"
-          ? tr(
-              "The largest single liquidation was a {usd} {asset} long on {venue} at {price}, {ago}.",
-              values,
-            )
-          : tr(
-              "The largest single liquidation was a {usd} {asset} short on {venue} at {price}, {ago}.",
-              values,
-            ),
+          ? tr("The largest single one was a {usd} long on {venue} at {price}, {ago}.", values)
+          : tr("The largest single one was a {usd} short on {venue} at {price}, {ago}.", values),
+      );
+    }
+  }
+  if (view.whales) {
+    const near = whalesNearMark(view.whales, "1m");
+    if (near.positions > 0 && near.longs === 0 && near.shorts === 0) {
+      // "$0 of longs ... $0 of shorts" is a sum of nothing dressed as a finding.
+      sentences.push(
+        tr(
+          "None of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX would be liquidated within 5% of the price.",
+        ),
+      );
+    } else if (near.positions > 0) {
+      sentences.push(
+        tr(
+          "Of the whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX, {longs} of longs would be liquidated within 5% below the price and {shorts} of shorts within 5% above.",
+          {
+            longs: `<b class="lq-ink-l">${money(near.longs)}</b>`,
+            shorts: `<b class="lq-ink-s">${money(near.shorts)}</b>`,
+          },
+        ),
       );
     }
   }

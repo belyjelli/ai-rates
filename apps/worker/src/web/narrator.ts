@@ -28,6 +28,9 @@ import { timeTag } from "./localtime";
  *   - and a quiet line when nothing has been said for an hour.
  * A read with any of them becomes one entry: its three weightiest sentences, then the levels.
  *
+ * ONE LINE IS NOT THE BOOK'S: once an hour, the whole market's last 24 hours of liquidations
+ * (NarratorLine), in whichever book is shown.
+ *
  * THE PAGE HALF. /data/narrator?book= answers the list as markup, cached a minute at the edge; the
  * strip fetches it after the page has loaded (so no page waits on it), then every minute while the
  * tab is visible. The newest entry the reader has not seen types itself out (a port of the
@@ -567,9 +570,36 @@ function entryItem(e: NarratorEntry): string {
   return `<li class="narr-e narr-${e.tone}${e.strong ? " narr-strong" : ""}" data-at="${e.at}"><span class="narr-when">${timeTag(e.at, "hm")}<i class="narr-dot"></i>${marks}</span><span class="narr-text">${esc(entryText(e))}</span></li>`;
 }
 
-/** The answer of /data/narrator: the list as markup, oldest first. */
-export function narratorFeed(book: NarratorBook, entries: readonly NarratorEntry[]): string {
-  return `<ol class="narr-feed" data-book="${book}">${entries.map(entryItem).join("")}</ol>`;
+/**
+ * A line that is not the option book's (2026-11-15, owner): the whole market's last 24 hours of
+ * liquidations, which used to open /liquidations (web/liquidations.ts marketLiquidationText). One an
+ * hour, stamped at the top of the hour, so the strip types it once and leaves it: the script adds only
+ * lines newer than the newest it holds, and a stamp that moved every minute would retype it each poll.
+ * Its figures are as of the read, which is within the hour it is stamped with.
+ */
+export interface NarratorLine {
+  at: number;
+  text: string;
+}
+
+/** The liquidation line's stamp: the top of the hour `now` is in. */
+export const narratorHour = (now: number) => Math.floor(now / (60 * MIN)) * 60 * MIN;
+
+function lineItem(line: NarratorLine): string {
+  return `<li class="narr-e narr-liq" data-at="${line.at}"><span class="narr-when">${timeTag(line.at, "hm")}<i class="narr-dot"></i></span><span class="narr-text">${esc(line.text)}</span></li>`;
+}
+
+/** The answer of /data/narrator: the list as markup, oldest first, the book's entries and `lines` in time order. */
+export function narratorFeed(
+  book: NarratorBook,
+  entries: readonly NarratorEntry[],
+  lines: readonly NarratorLine[] = [],
+): string {
+  const items = [
+    ...entries.map((e) => ({ at: e.at, html: entryItem(e) })),
+    ...lines.map((line) => ({ at: line.at, html: lineItem(line) })),
+  ].sort((a, b) => a.at - b.at);
+  return `<ol class="narr-feed" data-book="${book}">${items.map((item) => item.html).join("")}</ol>`;
 }
 
 export function narratorResponse(html: string): Response {
@@ -633,6 +663,7 @@ export const NARRATOR_CSS = `
 .narr-dot{display:inline-block;width:7px;height:7px;background:var(--muted)}
 .narr-edge .narr-dot{background:var(--warn)}
 .narr-short .narr-dot{background:var(--orange)}
+.narr-liq .narr-dot{background:var(--short)}
 .narr-jolt{display:inline-flex;color:var(--warn)}
 .narr-alert{display:inline-flex;color:var(--orange)}
 .narr-text{display:block;line-height:16px;color:var(--ink);overflow-wrap:anywhere}

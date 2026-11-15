@@ -27,13 +27,14 @@ import { keyboard } from "../web/keyboard";
 import { SITE_ORIGIN } from "../web/layout";
 import { legal } from "../web/legal";
 import { levelsFragment } from "../web/levels";
-import { liquidations, liquidationsPanel } from "../web/liquidations";
+import { liquidations, liquidationsPanel, marketLiquidationText } from "../web/liquidations";
 import { isMacroPanel, MACRO_NEEDS, type MacroPanel, macroFragment } from "../web/macro";
 import {
   NARRATOR_KEEP,
   NARRATOR_PATH,
   narrate,
   narratorFeed,
+  narratorHour,
   narratorResponse,
   narratorSince,
   parseNarratorBook,
@@ -286,9 +287,36 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
     if (path === NARRATOR_PATH) {
       const book = parseNarratorBook(url.searchParams.get("book"));
       if (!book) return json({ error: "bad_request" }, 400, 0);
-      const reads = await deps.data.gammaReads({ currency: book, since: narratorSince(now) });
+      // With it, the whole market's last day of liquidations, once an hour; a failed read of those
+      // leaves the book's own lines.
+      const { hours, bucketHours } = LIQUIDATION_WINDOWS["24h"];
+      const [reads, liqMap, liqBiggest] = await Promise.all([
+        deps.data.gammaReads({ currency: book, since: narratorSince(now) }),
+        deps.data.liquidationMap({ windowHours: hours, bucketHours, assets: 3 }).catch(() => null),
+        deps.data
+          .largestLiquidations({
+            windowHours: hours,
+            base: null,
+            assetClass: null,
+            venues: null,
+            order: "size",
+            minUsd: 0,
+            limit: 1,
+          })
+          .then((rows) => rows[0] ?? null)
+          .catch(() => null),
+      ]);
       const entries = narrate(reads).slice(-NARRATOR_KEEP);
-      return narratorResponse(withLocale(locale, () => narratorFeed(book, entries)));
+      return narratorResponse(
+        withLocale(locale, () => {
+          const text = liqMap ? marketLiquidationText(liqMap, liqBiggest, now) : null;
+          return narratorFeed(
+            book,
+            entries,
+            text === null ? [] : [{ at: narratorHour(now), text }],
+          );
+        }),
+      );
     }
 
     // The site-wide search's asset list (web/command.ts), fetched when a reader first opens it. The
@@ -679,11 +707,12 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           panel === null ||
           assetParams.whale !== "1m" ||
           assetParams.wzoom !== DEFAULT_WHALE_ZOOM);
-      // The Largest list, for its own tab and for every whole page, whose summary quotes the window's
-      // biggest close: in the addressed asset, or in every asset on /liquidations. The venues are the
-      // ones picked among the feeds this window has, as the map reads them; a pick naming only quiet
-      // venues reads as every feed, not as an empty list the reader did not ask for.
-      const wantsLargest = panel === null || panel === "largest";
+      // The Largest list, for its own tab and for an asset's whole page, whose summary quotes the
+      // window's biggest close in that asset. The whole market's summary moved to the masthead
+      // narrator (2026-11-15), so the bare page no longer reads it. The venues are the ones picked
+      // among the feeds this window has, as the map reads them; a pick naming only quiet venues reads
+      // as every feed, not as an empty list the reader did not ask for.
+      const wantsLargest = panel === "largest" || (panel === null && address !== null);
       const named = liquidationVenues(params);
       const picked = named
         ? map.totals.map((total) => total.venue_id).filter((id) => named.includes(id))
@@ -760,7 +789,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
               .catch(() => null)
           : undefined,
         wantsLargest ? deps.data.largestLiquidations(listed).catch(() => null) : undefined,
-        panel === null && !listIsDefault
+        panel === null && address !== null && !listIsDefault
           ? deps.data
               .largestLiquidations({
                 ...largestScope,
