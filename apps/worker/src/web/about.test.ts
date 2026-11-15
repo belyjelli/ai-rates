@@ -14,7 +14,7 @@ const overview: Overview = {
 };
 
 describe("about", () => {
-  test("a stamped build names its commit, links it, and escapes the subject", () => {
+  test("a stamped build names its commit as plain text, and escapes the subject", () => {
     const html = about({
       overview,
       now: NOW,
@@ -26,9 +26,8 @@ describe("about", () => {
       },
     });
 
-    expect(html).toContain(
-      '<a href="https://github.com/belyjelli/ai-rates/commit/59c71fe0123456789abcdef0123456789abcdef0">59c71fe</a>',
-    );
+    expect(html).toContain("commit <b>59c71fe</b>");
+    expect(html).not.toContain("/commit/");
     expect(html).toContain("Pair page: &lt;b&gt;range&lt;/b&gt; &amp; a link");
     // Times are shown in UTC, whatever offset the commit carried.
     expect(html).toContain("committed <b>Sep 13, 2026 17:40 UTC</b>");

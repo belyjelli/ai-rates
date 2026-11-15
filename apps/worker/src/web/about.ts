@@ -6,7 +6,6 @@ import { currentLocale, msg, tr, trMsg } from "./i18n";
 import { installBlock } from "./install";
 import { layout } from "./layout";
 
-const REPOSITORY = "https://github.com/belyjelli/ai-rates";
 /** English, as the changelog is; marked so the version stamp can show them in the reader's language. */
 const MONTHS = [
   msg("Jan"),
@@ -572,7 +571,7 @@ function version(build: BuildInfo): string {
 <p class="notes">${tr("This build did not record its commit. Deployed builds stamp the commit they were built from here.")}</p>`;
   }
   const short = build.commit.slice(0, 7);
-  return `<div class="facts"><span>${tr("project")} <b>airrates</b></span><span>${tr("commit")} <b><a href="${REPOSITORY}/commit/${esc(build.commit)}">${esc(short)}</a></b></span><span>${tr("committed")} <b>${moment(build.committedAt)}</b></span><span>${tr("deployed")} <b>${moment(build.builtAt)}</b></span></div>
+  return `<div class="facts"><span>${tr("project")} <b>airrates</b></span><span>${tr("commit")} <b>${esc(short)}</b></span><span>${tr("committed")} <b>${moment(build.committedAt)}</b></span><span>${tr("deployed")} <b>${moment(build.builtAt)}</b></span></div>
 ${build.subject ? `<p class="notes">${esc(build.subject)}</p>` : ""}`;
 }
 
