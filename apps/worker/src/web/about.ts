@@ -47,6 +47,7 @@ export const CHANGELOG: readonly Release[] = [
       "A Largest tab lists single liquidations: the window's 50 biggest, or the newest of $10k, $100k or $1M and up. It covers every asset on /liquidations and one asset on its own page, and can be narrowed to chosen exchanges.",
       "Three tabs for signed-in members, free to join: All cascades lists every liquidation cascade in every asset as it happens, with the price an hour and four hours after; History shows an asset's longs and shorts liquidated each day over 30 or 90 days, each day as a share of its open interest, with the heaviest days ranked; vs OI ranks every market by how much of its open interest was liquidated in the window, and sums it for crypto, stocks, commodities and indices. Visitors see what each tab holds and how to join.",
       "A Cascades tab finds the bursts in which an asset's liquidations piled up within minutes, at ten times its usual pace or more. For each, it shows how much was force-closed and on which side, how far the price went while it happened, and where the price stood one and four hours later; the tiles add up how often the price was higher an hour after.",
+      "A fourth member tab, Top traders: Hyperliquid's biggest winners over a day, a week, a month or all time, with their large positions now. Open any of them for their account value, profit chart, open positions with leverage and liquidation price, results by coin, recent trades (each order's fills taken together) and order history, all of it narrowable to one coin.",
     ],
   },
   {

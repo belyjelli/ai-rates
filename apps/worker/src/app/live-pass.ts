@@ -33,12 +33,13 @@ export function isLiveRequest(request: Request): boolean {
 }
 
 /**
- * The member tabs of /liquidations (2026-11-15): a tab whose data only a signed-in member is served.
+ * The member tabs of /liquidations (2026-11-15; Top traders, "winners", the same day): a tab whose
+ * data only a signed-in member is served.
  * The page asks for one with a member pass from the member site (scope "member", stored in live_watch
  * under base "*", which no position has) in the same header, checked the same way. Without a good
  * pass the tab is its locked copy, which is what every reader and every crawler gets.
  */
-export const MEMBER_PANELS = ["feed", "history", "oi"] as const;
+export const MEMBER_PANELS = ["feed", "history", "oi", "winners"] as const;
 export type MemberPanel = (typeof MEMBER_PANELS)[number];
 
 /** Whether the request is a member tab of /liquidations asked for with a pass. */

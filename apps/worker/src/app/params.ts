@@ -684,6 +684,14 @@ export interface LiquidationAssetParams {
   min: LargestFloor;
   /** The member History tab's span, in days. */
   span: HistorySpan;
+  /** The member Top traders tab: the window its list ranks by. */
+  top: TraderWindow;
+  /** The trader that tab opens on: a lowercase Hyperliquid address, or null for the list. */
+  trader: string | null;
+  /** The opened trader's profit chart window. */
+  pnl: TraderWindow;
+  /** The opened trader's fills and orders in one coin only, or null for every coin. */
+  coin: string | null;
 }
 
 /**
@@ -707,6 +715,21 @@ export type LargestFloor = keyof typeof LARGEST_FLOORS;
 export const DEFAULT_LARGEST_FLOOR: LargestFloor = "100k";
 /** Rows in either list: enough to scroll a day's big closes, few enough to read every one. */
 export const LARGEST_ROWS = 50;
+
+/**
+ * The member Top traders tab's windows, as the address names them; each is one of Hyperliquid's
+ * leaderboard windows (app/hyperliquid.ts PNL_WINDOWS: "all" is its "allTime"). The list ranks by
+ * a month unless asked: a day's winners are mostly one lucky trade.
+ */
+export const TRADER_WINDOWS = ["day", "week", "month", "all"] as const;
+export type TraderWindow = (typeof TRADER_WINDOWS)[number];
+export const DEFAULT_TOP_WINDOW: TraderWindow = "month";
+export const DEFAULT_PNL_WINDOW: TraderWindow = "all";
+const TRADER_ADDRESS = /^0x[0-9a-f]{40}$/;
+/** Hyperliquid's coin names: "BTC", "kPEPE", "xyz:GOLD". */
+const TRADER_COIN = /^[A-Za-z0-9:_.-]{1,24}$/;
+const traderWindow = (value: string | null, fallback: TraderWindow): TraderWindow =>
+  (TRADER_WINDOWS as readonly string[]).includes(value ?? "") ? (value as TraderWindow) : fallback;
 
 /**
  * The whale map's price ranges. Fixed rather than fitted: most of a whale book sits far from its
@@ -744,6 +767,12 @@ export function parseLiquidationAssetParams(params: URLSearchParams): Liquidatio
       ? (params.get("min") as LargestFloor)
       : DEFAULT_LARGEST_FLOOR,
     span: params.get("span") === "90" ? 90 : 30,
+    top: traderWindow(params.get("top"), DEFAULT_TOP_WINDOW),
+    trader: TRADER_ADDRESS.test((params.get("trader") ?? "").toLowerCase())
+      ? (params.get("trader") as string).toLowerCase()
+      : null,
+    pnl: traderWindow(params.get("pnl"), DEFAULT_PNL_WINDOW),
+    coin: TRADER_COIN.test(params.get("coin") ?? "") ? (params.get("coin") as string) : null,
   };
 }
 
@@ -760,6 +789,12 @@ export function liquidationAssetToQuery(params: LiquidationAssetParams): string 
     if (params.min !== DEFAULT_LARGEST_FLOOR) query.set("min", params.min);
   }
   if (params.span !== 30) query.set("span", String(params.span));
+  if (params.top !== DEFAULT_TOP_WINDOW) query.set("top", params.top);
+  if (params.trader !== null) {
+    query.set("trader", params.trader);
+    if (params.pnl !== DEFAULT_PNL_WINDOW) query.set("pnl", params.pnl);
+    if (params.coin !== null) query.set("coin", params.coin);
+  }
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
 }

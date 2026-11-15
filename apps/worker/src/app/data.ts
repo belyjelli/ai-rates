@@ -775,6 +775,23 @@ export interface StoredCascade {
   mark_4h: number | null;
 }
 
+/**
+ * One big position of a Hyperliquid account, as the whale tracker last read it (whale_positions,
+ * $100k and up): the member Top traders list's "holding now" column.
+ */
+export interface TraderHolding {
+  /** Lowercase address. */
+  address: string;
+  coin: string;
+  base: string;
+  asset_class: string;
+  /** Signed: positive long, negative short. */
+  size: number;
+  position_usd: number;
+  unrealized_pnl_usd: number | null;
+  read_at: Date;
+}
+
 /** One asset's open interest now, on the venues named: the denominator of the member OI tab. */
 export interface AssetOpenInterest {
   asset: string;
@@ -1544,6 +1561,8 @@ export interface DataSource {
   }): Promise<LiquidationDay[]>;
   /** The cascades the member site's watch found in every asset over the last `hours`, newest first. */
   recentCascades(hours: number): Promise<StoredCascade[]>;
+  /** The big positions ($100k up) the whale tracker last read for these Hyperliquid addresses. */
+  traderHoldings(addresses: readonly string[]): Promise<TraderHolding[]>;
   /** Every asset's open interest now on the venues named (the feeds that reported closes). */
   openInterestByAsset(venues: readonly string[]): Promise<AssetOpenInterest[]>;
   /**
@@ -3304,6 +3323,24 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
         WHERE started_at > now() - ${`${hours} hours`}::interval
         ORDER BY started_at DESC
         LIMIT 200`;
+      return [...rows];
+    },
+
+    async traderHoldings(addresses) {
+      if (addresses.length === 0) return [];
+      const sql = connect();
+      // One string, split in SQL: no array parameters under fetch_types:false. Lighter's accounts are
+      // indexes and dYdX's start dydx1, so a 0x address only ever matches Hyperliquid's (and its
+      // HIP-3 dexes').
+      const rows = await sql<TraderHolding[]>`
+        SELECT p.account AS address, p.coin, p.base, p.asset_class, p.size::float8 AS size,
+               p.position_usd::float8 AS position_usd,
+               p.unrealized_pnl_usd::float8 AS unrealized_pnl_usd, p.read_at
+        FROM whale_positions p
+        WHERE lower(p.account) = ANY(string_to_array(${addresses.join(",")}::text, ','))
+          AND p.read_at > now() - interval '3 hours'
+        ORDER BY p.position_usd DESC
+        LIMIT 2000`;
       return [...rows];
     },
 

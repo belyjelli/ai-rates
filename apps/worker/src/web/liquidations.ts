@@ -1,4 +1,11 @@
 import type { AssetClass } from "@ai-rates/core";
+import {
+  CASCADE_FLOOR,
+  CASCADE_GAP_MINUTES,
+  CASCADE_PACE,
+  type CascadeView,
+  longLed,
+} from "../app/cascades";
 import type {
   AssetOpenInterest,
   LiquidationAssetMap,
@@ -8,12 +15,17 @@ import type {
   LiquidationMap,
   Overview,
   StoredCascade,
+  TraderHolding,
   WhalePosition,
 } from "../app/data";
+import type { LeaderBoard, TraderRead } from "../app/hyperliquid";
+import { MEMBER_PANELS, type MemberPanel } from "../app/live-pass";
 import type { Outlook } from "../app/outlook";
 import {
   DEFAULT_LARGEST_FLOOR,
   DEFAULT_LIQUIDATION_ASSETS,
+  DEFAULT_PNL_WINDOW,
+  DEFAULT_TOP_WINDOW,
   DEFAULT_WHALE_ZOOM,
   HISTORY_SPANS,
   type HistorySpan,
@@ -34,20 +46,13 @@ import {
   liquidationVenueParam,
   liquidationVenues,
   readableQuery,
+  type TraderWindow,
   WHALE_FLOORS,
   WHALE_ZOOMS,
   type WhaleFloor,
   type WhaleZoom,
 } from "../app/params";
 import { PENDING_ROWS, PENDING_ZOOMS, type PendingZoom } from "../app/pending";
-import {
-  CASCADE_FLOOR,
-  CASCADE_GAP_MINUTES,
-  CASCADE_PACE,
-  type CascadeView,
-  longLed,
-} from "../app/cascades";
-import { MEMBER_PANELS, type MemberPanel } from "../app/live-pass";
 import { CHART_SKELETON_JS, lazyPlaceholder } from "./chart-skeleton";
 import { ageText, esc, formatPrice, formatUsd, LOCK_ICON, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
@@ -69,6 +74,7 @@ import {
   slotData,
 } from "./slot-chart";
 import { tabBar } from "./tabs";
+import { PNL_WINDOW_OF, TRADER_CSS, traderPanel, winnersPanel } from "./trader";
 import { floorLabel, whalePanel, whalesNearMark } from "./whale-map";
 
 /** The address form every asset page uses: crypto unmarked, every other class in the path. */
@@ -232,6 +238,11 @@ function controlHref(
     order?: LargestOrder;
     min?: LargestFloor;
     span?: HistorySpan;
+    top?: TraderWindow;
+    /** Open a trader on the Top traders tab; null returns to its list. */
+    trader?: string | null;
+    pnl?: TraderWindow;
+    coin?: string | null;
     /** Swap the asset the address names. Null returns to the all-assets address. */
     asset?: { name: string; assetClass: AssetClass } | null;
   } = {},
@@ -273,6 +284,19 @@ function controlHref(
   }
   const span = overrides.span ?? state.assetParams.span;
   if (span !== 30) query.set("span", String(span));
+  const top = overrides.top ?? state.assetParams.top;
+  if (top !== DEFAULT_TOP_WINDOW) query.set("top", top);
+  const trader = overrides.trader === undefined ? state.assetParams.trader : overrides.trader;
+  if (trader !== null) {
+    query.set("trader", trader);
+    // The chart window and the coin belong to the trader they were picked on.
+    const sameTrader = trader === state.assetParams.trader;
+    const pnl = overrides.pnl ?? (sameTrader ? state.assetParams.pnl : DEFAULT_PNL_WINDOW);
+    if (pnl !== DEFAULT_PNL_WINDOW) query.set("pnl", pnl);
+    const coin =
+      overrides.coin === undefined ? (sameTrader ? state.assetParams.coin : null) : overrides.coin;
+    if (coin !== null) query.set("coin", coin);
+  }
   const encoded = readableQuery(query);
   return `${base}${encoded ? `?${encoded}` : ""}${hash}`;
 }
@@ -1453,6 +1477,14 @@ function memberPitch(id: MemberPanel, asset: string | null): { title: string; te
       ),
     };
   }
+  if (id === "winners") {
+    return {
+      title: tr("Top traders, and every order they place"),
+      text: tr(
+        "Hyperliquid's biggest winners over a day, a week, a month or all time, with what they hold now. Open any of them for their positions and liquidation prices, profit over time, and their recent trades and orders, coin by coin.",
+      ),
+    };
+  }
   if (id === "history") {
     return {
       title:
@@ -2230,6 +2262,7 @@ export const LIQUIDATION_TABS = [
   "feed",
   "history",
   "largest",
+  "winners",
   "oi",
   "map",
 ] as const;
@@ -2273,6 +2306,13 @@ export interface LiquidationView {
   /** The member "All cascades" tab's cascades; null when the read failed, undefined when not read. */
   feed?: readonly StoredCascade[] | null;
   /**
+   * The member Top traders list: Hyperliquid's leaderboard top (null when it could not be read) and
+   * the whale tracker's big positions for them (null when that read failed). Undefined when not read.
+   */
+  winners?: { board: LeaderBoard | null; holdings: readonly TraderHolding[] | null };
+  /** The trader that tab opened (`?trader=`), with their leaderboard place; undefined when not read. */
+  trader?: { read: TraderRead; board: LeaderBoard | null };
+  /**
    * The window's single biggest close in the page's scope, every venue, for the summary; null when
    * there is none or the read failed, undefined when not read (a tab rendered on its own).
    */
@@ -2304,6 +2344,50 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
     const memberId = id as MemberPanel;
     // Locked for everyone but a member's own request for the tab, whatever else this render read.
     if (!view.member) return memberLock(memberId, memberId === "history" ? asset : null);
+    if (memberId === "winners") {
+      const traderHref = (to: {
+        top?: TraderWindow;
+        trader?: string | null;
+        pnl?: TraderWindow;
+        coin?: string | null;
+      }) => controlHref(state, to);
+      if (view.trader) {
+        const listWindow = assetParams.top;
+        const board = view.trader.board;
+        const ranked = board ? board.top[PNL_WINDOW_OF[listWindow]] : [];
+        const place = ranked.findIndex((leader) => leader.address === view.trader?.read.address);
+        // Named from whichever window holds them, for a trader opened outside the list's window.
+        const named =
+          place >= 0
+            ? ranked[place]
+            : board
+              ? Object.values(board.top)
+                  .flat()
+                  .find((leader) => leader.address === view.trader?.read.address)
+              : undefined;
+        return traderPanel({
+          read: view.trader.read,
+          rank:
+            place >= 0 && named
+              ? { place: place + 1, window: listWindow, leader: named }
+              : named
+                ? { place: 0, window: listWindow, leader: named }
+                : null,
+          pnlWindow: assetParams.pnl,
+          coin: assetParams.coin,
+          now,
+          hrefFor: traderHref,
+        });
+      }
+      if (!view.winners) return null;
+      return winnersPanel({
+        board: view.winners.board,
+        holdings: view.winners.holdings,
+        window: assetParams.top,
+        now,
+        hrefFor: traderHref,
+      });
+    }
     if (memberId === "feed") {
       return feedPanel({
         feed: view.feed ?? null,
@@ -2654,6 +2738,7 @@ ${tabBar({
     { id: "feed", label: tr("All cascades"), shortLabel: tr("All cascades"), member: true },
     { id: "history", label: labels.history, shortLabel: tr("History"), member: true },
     { id: "largest", label: labels.largest, shortLabel: tr("Largest") },
+    { id: "winners", label: tr("Top traders"), shortLabel: tr("Winners"), member: true },
     {
       id: "oi",
       label: tr("Liquidations vs open interest"),
@@ -2672,7 +2757,8 @@ ${tabBar({
 ${panels}
 ${mapFootnote({ map, params, now })}
 <p class="notes">${tr("Updated {ago}.", { ago: since(overview.updated_at, now) })}</p>
-<style>${MEMBER_TAB_CSS}</style>
+<style>${MEMBER_TAB_CSS}
+${TRADER_CSS}</style>
 <script>${SLOT_SCRIPT}</script>
 <script>${LQ_SWAP_SCRIPT}</script>
 <script>${MEMBER_TAB_SCRIPT}</script>

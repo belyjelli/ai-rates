@@ -37,6 +37,7 @@ import type {
 } from "./data";
 import { EMPTY_TALLY } from "./data";
 import type { Referral } from "./geo";
+import type { HyperliquidSource, Leader, LeaderBoard, TraderRead } from "./hyperliquid";
 import { DEFAULT_FILTERS } from "./params";
 
 const NO_GREEKS = {
@@ -188,6 +189,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
     liquidationHistory: async () => [],
     openInterestByAsset: async () => [],
     recentCascades: async () => [],
+    traderHoldings: async () => [],
     liquidationCascades: async () => ({ per_minute: 0, minutes: [] }),
     macro: async () => ({ series: {}, readAt: {}, releases: [], odds: [], cot: [] }),
     bookQuality: async () => ({ rows: [], weights: {} }),
@@ -1145,6 +1147,7 @@ describe("pages", () => {
       "feed",
       "history",
       "largest",
+      "winners",
       "oi",
       "map",
     ]);
@@ -1568,6 +1571,308 @@ describe("pages", () => {
       expect(html).toContain("<b>10.00%</b>");
       expect(html).toContain('<p class="eyebrow">Stocks</p><p class="cvd-big">10.00%</p>');
       expect(html).toContain("both on the 2 exchanges whose liquidation feeds reported closes");
+    });
+
+    const A = "0x218a65e21eddeece7a9df38c6bbdd89f692b7da2";
+    const B = "0x5b5d51203a0f9079f8aeb098a6523a13f298c060";
+    const leader = (address: string, pnl: number, name: string | null = null): Leader => ({
+      address,
+      name,
+      accountValue: 11_556_720,
+      pnl: [pnl / 30, pnl / 4, pnl, pnl * 2],
+      roi: [0.01, 0.05, 0.2, 0.5],
+      volume: [1e8, 1e9, 4e9, 2e10],
+    });
+    const board: LeaderBoard = {
+      readAt: NOW - 12 * 60_000,
+      ranked: 47_649,
+      top: {
+        day: [leader(B, 149_000_000)],
+        week: [leader(B, 149_000_000)],
+        month: [leader(B, 149_000_000, "<b>whale</b>"), leader(A, 49_000_000)],
+        allTime: [leader(A, 49_000_000)],
+      },
+    };
+    const read: TraderRead = {
+      address: A,
+      readAt: NOW - 5_000,
+      state: {
+        accountValue: 11_556_720,
+        notional: 60_319_098,
+        marginUsed: 11_331_869,
+        withdrawable: 224_850,
+        positions: [
+          {
+            coin: "BTC",
+            size: -841.91467,
+            entry: 78_859.7,
+            value: 54_118_359,
+            mark: 64_280.1,
+            upnl: 12_274_802,
+            roe: 1.479,
+            leverage: 8,
+            leverageType: "isolated",
+            liquidation: 76_052.58,
+            margin: 10_711_795,
+            fundingSinceOpen: -1_409_234,
+          },
+        ],
+      },
+      portfolio: {
+        day: { value: [], pnl: [], volume: 0 },
+        week: { value: [], pnl: [], volume: 2_609_331 },
+        month: { value: [], pnl: [], volume: 24_454_521 },
+        allTime: {
+          value: [],
+          pnl: [
+            [NOW - 300 * 86_400_000, 0],
+            [NOW - 100 * 86_400_000, 8_000_000],
+            [NOW - 1 * 86_400_000, 22_067_883],
+          ],
+          volume: 672_956_223,
+        },
+      },
+      fills: [
+        {
+          time: NOW - 60_000,
+          coin: "BTC",
+          dir: "Open Short",
+          side: "A",
+          price: 74_660,
+          size: 0.5,
+          fee: 5,
+          closedPnl: 0,
+          oid: 7,
+          liquidation: false,
+        },
+        {
+          time: NOW - 70_000,
+          coin: "BTC",
+          dir: "Open Short",
+          side: "A",
+          price: 74_670,
+          size: 1.5,
+          fee: 15,
+          closedPnl: 0,
+          oid: 7,
+          liquidation: false,
+        },
+        {
+          time: NOW - 3_600_000,
+          coin: "ETH",
+          dir: "Close Short",
+          side: "B",
+          price: 2_400,
+          size: 100,
+          fee: 30,
+          closedPnl: 52_000,
+          oid: 6,
+          liquidation: false,
+        },
+      ],
+      orders: [
+        {
+          time: NOW - 60_000,
+          placed: NOW - 90_000,
+          coin: "BTC",
+          side: "A",
+          type: "Limit",
+          tif: "Gtc",
+          size: 11,
+          left: 0,
+          price: 74_660,
+          trigger: null,
+          reduceOnly: false,
+          tpsl: false,
+          status: "filled",
+          oid: 7,
+        },
+        {
+          time: NOW - 7_200_000,
+          placed: NOW - 7_300_000,
+          coin: "ETH",
+          side: "B",
+          type: "Take Profit Market",
+          tif: null,
+          size: 50,
+          left: 50,
+          price: null,
+          trigger: 2_100,
+          reduceOnly: true,
+          tpsl: true,
+          status: "siblingFilledCanceled",
+          oid: 5,
+        },
+      ],
+      open: [],
+      busy: false,
+    };
+    const hyperliquid = (asked: string[]): HyperliquidSource => ({
+      leaders: async () => {
+        asked.push("leaders");
+        return board;
+      },
+      trader: async (address) => {
+        asked.push(`trader ${address}`);
+        return read;
+      },
+    });
+
+    test("Top traders: locked for everyone else, and Hyperliquid is not asked", async () => {
+      const asked: string[] = [];
+      const { data } = fakeData({ liquidationMap: async () => liqMap() });
+      const res = await handleApp(new Request("https://airates.test/liquidations?panel=winners"), {
+        data,
+        now: () => NOW,
+        hyperliquid: hyperliquid(asked),
+      });
+      const html = await res.text();
+      expect(html).toContain("data-member-lock");
+      expect(html).toContain("Top traders, and every order they place");
+      expect(asked).toEqual([]);
+      const page = await (await get("/liquidations", data)).text();
+      expect(page).toContain('data-tab-panel="winners"');
+      expect(page).toContain("Winners");
+    });
+
+    test("Top traders: a member gets the month's winners, what they hold, and links to open each", async () => {
+      const asked: string[] = [];
+      const holdingsFor: string[][] = [];
+      const { data } = fakeData({
+        liquidationMap: async () => liqMap(),
+        traderHoldings: async (addresses) => {
+          holdingsFor.push([...addresses]);
+          return [
+            {
+              address: A,
+              coin: "BTC",
+              base: "BTC",
+              asset_class: "crypto",
+              size: -841.9,
+              position_usd: 54_118_359,
+              unrealized_pnl_usd: 12_274_802,
+              read_at: new Date(NOW),
+            },
+          ];
+        },
+      });
+      const res = await handleApp(new Request("https://airates.test/liquidations?panel=winners"), {
+        data,
+        now: () => NOW,
+        member: true,
+        hyperliquid: hyperliquid(asked),
+      });
+      const html = await res.text();
+      expect(asked).toEqual(["leaders"]);
+      expect(holdingsFor).toEqual([[B, A]]);
+      expect(html).not.toContain("data-member-lock");
+      // The trader's own name is their words: escaped.
+      expect(html).toContain("&lt;b&gt;whale&lt;/b&gt;");
+      expect(html).not.toContain("<b>whale</b>");
+      expect(html).toContain("<b>+$149M</b>");
+      expect(html).toContain(
+        `href="/liquidations?trader=${A}#winners" data-lq-swap="winners">0x218a…7da2</a>`,
+      );
+      expect(html).toContain('<span class="lq-ink-s">Short BTC</span> $54.1M');
+      expect(html).toContain('<span class="dim">nothing over $100k</span>');
+      expect(html).toContain(
+        '<a href="/liquidations?top=week#winners" data-lq-swap="winners">7d</a>',
+      );
+      expect(html).toContain(
+        'class="on" href="/liquidations#winners" aria-current="true" data-lq-swap="winners">30d<',
+      );
+      expect(html).toContain(
+        "every one of its 47,649 accounts ranked by profit over the last month, read <time",
+      );
+    });
+
+    test("Top traders: one opened, with positions, the profit chart, trades by order and the order history", async () => {
+      const asked: string[] = [];
+      const { data } = fakeData({ liquidationMap: async () => liqMap() });
+      const res = await handleApp(
+        new Request(
+          `https://airates.test/liquidations?trader=${A.toUpperCase().replace("0X", "0x")}&panel=winners`,
+        ),
+        { data, now: () => NOW, member: true, hyperliquid: hyperliquid(asked) },
+      );
+      const html = await res.text();
+      expect(asked).toEqual([`trader ${A}`, "leaders"]);
+      expect(html).toContain(
+        'href="/liquidations#winners" data-lq-swap="winners">All top traders<',
+      );
+      expect(html).toContain("#2 on Hyperliquid's leaderboard by profit over the last month.");
+      expect(html).toContain(`href="https://hypurrscan.io/address/${A}"`);
+      // Tiles: the account, the all-time profit (the chart's default window), the book, unrealized.
+      expect(html).toContain('<p class="cvd-big">$11.6M</p>');
+      expect(html).toContain('<p class="cvd-big cvd-up">+$22.1M</p>');
+      expect(html).toContain("5.2x the account's value");
+      expect(html).toContain("Profit and loss over all time");
+      // The position, with its isolated leverage and its liquidation price.
+      expect(html).toContain(
+        '<span class="lq-ink-s">Short BTC</span></td><td class="num">841.9</td>',
+      );
+      expect(html).toContain('8x <span class="dim">isolated</span>');
+      expect(html).toContain("76,052.6");
+      // Two fills of order 7 are one trade of 2 BTC; ETH's close carried its profit.
+      expect(html).toContain('<td class="num dim">2</td></tr>');
+      expect(html).toContain('<td class="num cvd-up">+$52.0k</td>');
+      // The take-profit order, cancelled when its sibling filled, as Hyperliquid names it in the title.
+      expect(html).toContain("Take profit market");
+      expect(html).toContain('title="siblingFilledCanceled">Canceled<');
+      // A coin narrows the history; the strip keeps the trader.
+      expect(html).toContain(
+        `href="/liquidations?trader=${A}&amp;coin=ETH#winners" data-lq-swap="winners">ETH<`,
+      );
+      const eth = await (
+        await handleApp(
+          new Request(`https://airates.test/liquidations?trader=${A}&coin=ETH&panel=winners`),
+          {
+            data,
+            now: () => NOW,
+            member: true,
+            hyperliquid: hyperliquid([]),
+          },
+        )
+      ).text();
+      expect(eth).not.toContain('<td class="num dim">2</td></tr>');
+      expect(eth).toContain("Close short");
+    });
+
+    test("Top traders: Hyperliquid not answering says so, not a 500", async () => {
+      const { data } = fakeData({ liquidationMap: async () => liqMap() });
+      const down: HyperliquidSource = {
+        leaders: async () => null,
+        trader: async (address) => ({
+          address,
+          readAt: NOW,
+          state: null,
+          portfolio: null,
+          fills: null,
+          orders: null,
+          open: null,
+          busy: true,
+        }),
+      };
+      const list = await (
+        await handleApp(new Request("https://airates.test/liquidations?panel=winners"), {
+          data,
+          now: () => NOW,
+          member: true,
+          hyperliquid: down,
+        })
+      ).text();
+      expect(list).toContain("Hyperliquid's leaderboard could not be read right now.");
+      const one = await handleApp(
+        new Request(`https://airates.test/liquidations?trader=${A}&panel=winners`),
+        {
+          data,
+          now: () => NOW,
+          member: true,
+          hyperliquid: down,
+        },
+      );
+      expect(one.status).toBe(200);
+      expect(await one.text()).toContain("Hyperliquid is answering too many requests right now.");
     });
   });
 

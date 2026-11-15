@@ -45,6 +45,7 @@ import { referralLinks } from "../web/referral-links";
 import { sentiment } from "../web/sentiment";
 import { settings } from "../web/settings";
 import { tos } from "../web/tos";
+import { PNL_WINDOW_OF, WINNERS_ROWS } from "../web/trader";
 import { VENUE_BY_ID } from "../web/venues";
 import { whales, whaleVenueName } from "../web/whales";
 import { A2A_PATH, agentCard, handleA2a } from "./a2a";
@@ -52,6 +53,7 @@ import { barHoursFor, CASCADE_BAR_MINUTES, cascadeView, findCascades } from "./c
 import { type DataSource, type MarketRow, STALE_MS } from "./data";
 import { type Referral, requestGeo } from "./geo";
 import { richChain } from "./holdings-data";
+import type { HyperliquidSource } from "./hyperliquid";
 import { handleMcp, MCP_PATH, mcpServerCard } from "./mcp";
 import {
   AUTH_MD,
@@ -128,6 +130,11 @@ export interface AppDeps {
    * MEMBER_PANELS): that tab is rendered with its data rather than locked. Absent means locked.
    */
   member?: boolean;
+  /**
+   * Hyperliquid's own public reads (app/hyperliquid.ts), for the member Top traders tab. Absent means
+   * that tab says the leaderboard could not be read.
+   */
+  hyperliquid?: HyperliquidSource;
 }
 
 const PAGE_MAX_AGE = 30;
@@ -634,6 +641,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
             "history",
             "oi",
             "feed",
+            "winners",
           ] as const
         ).find((id) => id === askedPanel) ?? null;
       const [overview, map] = await Promise.all([
@@ -706,6 +714,8 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       const wantsHistory = member && wanted !== null && panel === "history";
       const wantsOi = member && panel === "oi";
       const wantsFeed = member && panel === "feed";
+      const wantsWinners = member && panel === "winners";
+      const hyperliquid = deps.hyperliquid;
       const [
         assetMap,
         oddsBars,
@@ -717,6 +727,8 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         history,
         openInterest,
         feed,
+        winners,
+        trader,
       ] = await Promise.all([
         wantsAsset && wanted
           ? deps.data.liquidationAsset({
@@ -800,6 +812,26 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
               .catch(() => null)
           : undefined,
         wantsFeed ? deps.data.recentCascades(hours).catch(() => null) : undefined,
+        // The list: the leaderboard's top and what the whale tracker holds for them. Not when a
+        // trader is opened, which reads that trader from Hyperliquid instead.
+        wantsWinners && assetParams.trader === null
+          ? (async () => {
+              const board = hyperliquid ? await hyperliquid.leaders().catch(() => null) : null;
+              const shown = board
+                ? board.top[PNL_WINDOW_OF[assetParams.top]]
+                    .slice(0, WINNERS_ROWS)
+                    .map((leader) => leader.address)
+                : [];
+              const holdings = await deps.data.traderHoldings(shown).catch(() => null);
+              return { board, holdings };
+            })()
+          : undefined,
+        wantsWinners && assetParams.trader !== null && hyperliquid
+          ? Promise.all([
+              hyperliquid.trader(assetParams.trader),
+              hyperliquid.leaders().catch(() => null),
+            ]).then(([read, board]) => ({ read, board }))
+          : undefined,
       ]);
       if (address && (!assetMap || assetMap.asset_class === null)) {
         return page(
@@ -843,6 +875,8 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         history: wanted === null ? null : history,
         openInterest,
         feed,
+        winners,
+        trader,
         biggest:
           panel !== null
             ? undefined

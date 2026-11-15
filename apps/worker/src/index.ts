@@ -4,13 +4,14 @@ import { wwwRedirect } from "./app/canonical-host";
 import { createDataSource } from "./app/data";
 import { EDGE_CACHE_DEFAULTS, EdgeCache } from "./app/edge-cache";
 import { geoCacheBucket, requestGeo } from "./app/geo";
+import { hyperliquidSource } from "./app/hyperliquid";
 import {
   databaseLookup,
   isLiveRequest,
+  isMemberPanelRequest,
   LIVE_MAX_AGE,
   LIVE_PASS_HEADER,
   livePassValid,
-  isMemberPanelRequest,
   memberCopy,
 } from "./app/live-pass";
 import { isSheddable, Pressure, SHED_REFUSAL } from "./app/load-shed";
@@ -172,6 +173,16 @@ async function handle(
           referrals,
           locale,
           member,
+          // Only a member's Top traders tab asks it anything (app/hyperliquid.ts).
+          hyperliquid: member
+            ? hyperliquidSource({
+                fetch: (input, init) => fetch(input, init),
+                cache: caches.default,
+                waitUntil: (promise) => ctx.waitUntil(promise),
+                now: Date.now,
+                log: console.error,
+              })
+            : undefined,
         }),
       );
     } finally {
@@ -191,6 +202,9 @@ async function handle(
     unavailable: () => unavailableResponse(new URL(request.url).pathname, Date.now(), locale),
     log: console.error,
     observe: (outcome: { ms: number; ok: boolean }) => {
+      // A member tab's render can wait on Hyperliquid (the Top traders tab), which says nothing
+      // about the database path the shedding protects.
+      if (member) return;
       const pressed = pressure.observe(outcome, cache);
       if (!pressed) return;
       ctx.waitUntil(pressed.share);
