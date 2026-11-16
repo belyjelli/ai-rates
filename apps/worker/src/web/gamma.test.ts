@@ -443,7 +443,7 @@ describe("expected move", () => {
   });
 
   test("every language has the map's words", () => {
-    for (const locale of ["zh", "ja", "ko", "ru", "pt", "de"] as const) {
+    for (const locale of ["zh", "ja", "ko", "ru", "pt", "de", "th"] as const) {
       const html = withLocale(locale, () => panel(withIv()));
       expect(html).not.toContain("Expected price move");
       expect(html).not.toContain("days ahead");

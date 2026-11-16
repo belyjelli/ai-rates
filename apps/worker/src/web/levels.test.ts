@@ -370,7 +370,7 @@ describe("the Ceiling & Floor tab", () => {
 
   test("the fragment, and every language", () => {
     expect(levelsFragment("levels", view(levelsData()))).toContain(`data-rendered="${NOW}"`);
-    for (const locale of ["zh", "ja", "ko", "ru", "pt", "de"] as const) {
+    for (const locale of ["zh", "ja", "ko", "ru", "pt", "de", "th"] as const) {
       const html = withLocale(
         locale,
         () => levelsPanel(view(levelsData())) + ivWallsPanel(view(levelsData())),
@@ -637,7 +637,7 @@ describe("the day timeline", () => {
   });
 
   test("every language names it in its own words", () => {
-    for (const locale of ["zh", "ja", "ko", "ru", "pt", "de"] as const) {
+    for (const locale of ["zh", "ja", "ko", "ru", "pt", "de", "th"] as const) {
       const html = withLocale(locale, () => {
         const v = view(levelsData({ days: days() }));
         return ivWallsPanel(v) + levelsPanel(v);

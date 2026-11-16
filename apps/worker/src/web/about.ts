@@ -39,6 +39,13 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-11-17",
+    title: "The site in Thai",
+    changes: [
+      "Every page can be read in Thai: pick ไทย from the language menu at the foot of the page. A browser set to Thai gets it on a first visit. As with the other languages, the legal and status pages and this changelog stay in English, and the API is never translated.",
+    ],
+  },
+  {
     date: "2026-11-15",
     title: "The site in German",
     changes: [
