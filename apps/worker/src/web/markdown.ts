@@ -3,7 +3,13 @@
  * Only the page's <main> is kept (no masthead, scripts or help popovers), links are made absolute,
  * and tables become pipe tables, which is where this site's data is. A small converter for the HTML
  * layout() emits, not a general one.
+ *
+ * Each copy opens with a short header for the model reading it (owner, 2026-11-18): the page's
+ * address, when its data was read, the JSON endpoint or MCP tool with the same figures
+ * (web/agent-index.ts), and a line to cite. An assistant quoting a rate needs all four.
  */
+
+import { agentPageFor, filled } from "./agent-index";
 
 const ENTITIES: Record<string, string> = {
   "&amp;": "&",
@@ -84,9 +90,33 @@ export function htmlToMarkdown(html: string, url: string): string | null {
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  const heading = title ? `<!-- ${decode(title).replace(/-->/g, "")} -->\n` : "";
-  return `${heading}${text}\n\n---\nSource: ${url}\n`;
+  return `${header(html, url, title ? decode(title) : null)}${text}\n\n---\nSource: ${url}\n`;
 }
+
+/**
+ * The copy's header, as YAML front matter: title, address, data time (layout's `data-as-of` meta,
+ * when the page read the database), the API and MCP equivalents, and a citation line.
+ */
+function header(html: string, url: string, title: string | null): string {
+  const address = new URL(url);
+  const page = `${address.origin}${address.pathname}`;
+  const asOf = /<meta name="data-as-of" content="([^"]+)"/.exec(html)?.[1];
+  const entry = agentPageFor(address.pathname);
+  const when = asOf ? `${asOf.slice(0, 16).replace("T", " ")} UTC` : null;
+  const lines = [
+    title ? `title: ${yaml(title)}` : null,
+    `url: ${page}`,
+    asOf ? `data_as_of: ${asOf}` : null,
+    entry?.api ? `json: ${address.origin}${filled(entry.api, address.pathname)}` : null,
+    entry?.mcp ? `mcp: ${entry.mcp} (server ${address.origin}/mcp)` : null,
+    `cite: ${yaml(`airrates, ${page}${when ? `, data as of ${when}` : ""}`)}`,
+    "note: figures as exchanges reported them; not financial advice",
+  ].filter((line): line is string => line !== null);
+  return `---\n${lines.join("\n")}\n---\n\n`;
+}
+
+/** A YAML scalar: quoted when it holds anything YAML would read as structure. */
+const yaml = (text: string) => (/^[\w .,·()/-]+$/.test(text) ? text : JSON.stringify(text));
 
 /** True when the caller prefers Markdown to HTML: it lists text/markdown, and not after text/html. */
 export function wantsMarkdown(accept: string | null): boolean {
@@ -96,4 +126,27 @@ export function wantsMarkdown(accept: string | null): boolean {
   if (md === -1) return false;
   const html = lower.indexOf("text/html");
   return html === -1 || md < html;
+}
+
+/** Addresses that end in .md and are files of their own, not a page's Markdown copy. */
+const OWN_MARKDOWN = new Set(["/auth.md"]);
+
+/**
+ * `<page>.md` is that page as Markdown (`/index.md` for the home page), for the assistants and tools
+ * that fetch a link as given and cannot send `Accept: text/markdown`. Returns the request for the page
+ * with that header set, or null for any other address. The query string goes with it.
+ */
+export function markdownAddress(request: Request): Request | null {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  if (!path.endsWith(".md") || path.startsWith("/.well-known/") || OWN_MARKDOWN.has(path)) {
+    return null;
+  }
+  if (path === "/.md" || path.endsWith("/.md")) return null;
+  url.pathname = path === "/index.md" ? "/" : path.slice(0, -3);
+  // Built from the original so the Worker's `cf` (country, network) comes along: the visit count and
+  // the load shedding read it.
+  const page = new Request(url.toString(), request);
+  page.headers.set("accept", "text/markdown");
+  return page;
 }

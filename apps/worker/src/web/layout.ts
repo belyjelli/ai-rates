@@ -91,8 +91,17 @@ const DATASET_PATHS = [
  * What a crawler needs to credit the page: its canonical address (the path alone, so ?tf= and ?ref=
  * variants fold into one), social-card tags, and JSON-LD naming the site and its publisher. The
  * data pages also declare a Dataset with this site as creator and a citation line.
+ *
+ * And what an AI assistant needs (owner, 2026-11-18): the Markdown copy of the page (`<page>.md`,
+ * web/agent-index.ts) and, on a page that read the data, the time it was read, which the Markdown
+ * copy's header repeats so a quoted figure carries its time.
  */
-function discoverability(title: string, description: string, path: string): string {
+function discoverability(
+  title: string,
+  description: string,
+  path: string,
+  asOf: Date | null,
+): string {
   const url = `${SITE_ORIGIN}${path === "/" ? "/" : path.replace(/\/$/, "")}`;
   const graph: Record<string, unknown>[] = [
     {
@@ -131,7 +140,12 @@ function discoverability(title: string, description: string, path: string): stri
   const alternates = LOCALES.filter((other) => other !== locale)
     .map((other) => `\n<meta property="og:locale:alternate" content="${OG_LOCALE[other]}">`)
     .join("");
+  const markdown = `${url === `${SITE_ORIGIN}/` ? `${SITE_ORIGIN}/index` : url}.md`;
+  // A driver may hand the timestamp over as text; an unreadable one is left out, not printed wrong.
+  const time = asOf === null ? Number.NaN : new Date(asOf).getTime();
+  const read = Number.isFinite(time) ? `${new Date(time).toISOString().slice(0, 19)}Z` : null;
   return `<link rel="canonical" href="${esc(url)}">
+<link rel="alternate" type="text/markdown" href="${esc(markdown)}">${read ? `\n<meta name="data-as-of" content="${read}">` : ""}
 <meta property="og:site_name" content="airrates">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${esc(title)} · airrates">
@@ -1523,7 +1537,7 @@ ${GA_TAG}
 <title>${esc(title)} · airrates</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📟</text></svg>">
 <meta name="description" content="${esc(description)}">
-${discoverability(title, description, path)}
+${discoverability(title, description, path, overview?.updated_at ?? null)}
 ${INSTALL_HEAD}
 <script>${THEME_HEAD_SCRIPT}</script>
 ${narrator ? `<script>${NARRATOR_HEAD_SCRIPT}</script>\n` : ""}<style>${CSS}${THEME_CSS}${SHARE_CSS}${INSTALL_CSS}${HELP_CSS}${SEARCH_CSS}${narrator ? NARRATOR_CSS : ""}</style>

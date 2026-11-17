@@ -6339,11 +6339,35 @@ describe("api", () => {
     expect((await get("/v1/pairs/NOPE/backtest?long=gate&short=okx", data)).status).toBe(404);
   });
 
-  test("robots.txt allows crawlers and names the sitemap", async () => {
+  test("robots.txt allows crawlers and names the sitemap and the AI index", async () => {
     const res = await get("/robots.txt", fakeData().data);
     expect(await res.text()).toBe(
-      "User-agent: *\nContent-Signal: ai-train=no, search=yes, ai-input=yes\nAllow: /\n\nSitemap: https://airrates.net/sitemap.xml\n",
+      "User-agent: *\nContent-Signal: ai-train=no, search=yes, ai-input=yes\nAllow: /\n\n# For AI assistants: what each page answers and its Markdown copy, https://airrates.net/llms.txt\nSitemap: https://airrates.net/sitemap.xml\n",
     );
+  });
+
+  test("llms.txt lists the data pages with their Markdown copies, API and MCP", async () => {
+    const res = await get("/llms.txt", fakeData().data);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("text/plain");
+    const text = await res.text();
+    expect(text.startsWith("# airrates\n\n> ")).toBe(true);
+    expect(text).toContain("[Liquidations](https://airrates.net/liquidations.md)");
+    expect(text).toContain("JSON: https://airrates.net/v1/liquidations");
+    expect(text).toContain("[Funding spreads](https://airrates.net/index.md)");
+    expect(text).toContain("MCP tool: get_top_spreads");
+    expect(text).toContain("https://airrates.net/mcp");
+  });
+
+  test("pages point an assistant at their Markdown copy and say when their data was read", async () => {
+    const { data } = fakeData();
+    const html = await (await get("/rates", data)).text();
+    expect(html).toContain(
+      '<link rel="alternate" type="text/markdown" href="https://airrates.net/rates.md">',
+    );
+    expect(html).toMatch(/<meta name="data-as-of" content="\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z">/);
+    const home = await (await get("/", data)).text();
+    expect(home).toContain('href="https://airrates.net/index.md"');
   });
 
   test("pages name their canonical address and publisher, and API answers credit the source", async () => {

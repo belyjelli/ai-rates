@@ -2,6 +2,7 @@ import { ASSET_CLASSES, type AssetClass, backtestDaily, dailyWindowStart } from 
 import { VENUES } from "@ai-rates/venues";
 import { referralsFor } from "../referrals/policy";
 import { about } from "../web/about";
+import { llmsTxt } from "../web/agent-index";
 import { AGENTS_PATH, agents } from "../web/agents";
 import { SEARCH_PATH, searchJson } from "../web/command";
 import { convergencePage } from "../web/convergence-page";
@@ -1591,9 +1592,19 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       });
     }
 
+    // The index an AI assistant reads first (llmstxt.org): web/agent-index.ts.
+    if (path === "/llms.txt") {
+      return new Response(llmsTxt(), {
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          "access-control-allow-origin": "*",
+          "cache-control": "public, max-age=3600",
+        },
+      });
+    }
     if (path === "/robots.txt") {
       return new Response(
-        `User-agent: *\nContent-Signal: ai-train=no, search=yes, ai-input=yes\nAllow: /\n\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`,
+        `User-agent: *\nContent-Signal: ai-train=no, search=yes, ai-input=yes\nAllow: /\n\n# For AI assistants: what each page answers and its Markdown copy, ${SITE_ORIGIN}/llms.txt\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`,
         {
           headers: {
             "content-type": "text/plain; charset=utf-8",
@@ -1813,6 +1824,7 @@ function pickMarket(markets: readonly MarketRow[], venueId: string): MarketRow |
 /** Where an agent landing on any page finds the API: RFC 9727's catalog, and the spec and docs it lists. */
 const DISCOVERY_LINKS = [
   '</.well-known/api-catalog>; rel="api-catalog"',
+  '</llms.txt>; rel="describedby"; type="text/plain"',
   '</v1/openapi.json>; rel="service-desc"; type="application/json"',
   '</docs>; rel="service-doc"; type="text/html"',
   '</v1/openapi.json>; rel="describedby"; type="application/json"',

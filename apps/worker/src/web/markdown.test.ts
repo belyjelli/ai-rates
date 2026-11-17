@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { htmlToMarkdown, wantsMarkdown } from "./markdown";
+import { htmlToMarkdown, markdownAddress, wantsMarkdown } from "./markdown";
 
 const page = `<!doctype html><html><head><title>Rates · airrates</title><script>var x=1</script></head>
 <body><header class="mast"><a href="/">airrates</a></header>
@@ -55,5 +55,56 @@ describe("wantsMarkdown", () => {
     expect(wantsMarkdown("text/html, text/markdown")).toBe(false);
     expect(wantsMarkdown("text/html,application/xhtml+xml,*/*")).toBe(false);
     expect(wantsMarkdown(null)).toBe(false);
+  });
+});
+
+describe("the header an assistant reads first", () => {
+  const html = page.replace(
+    "</head>",
+    '<meta name="data-as-of" content="2026-11-18T04:21:09Z"></head>',
+  );
+  const md = htmlToMarkdown(html, "https://airrates.net/rates?tf=7d") ?? "";
+
+  test("names the page, the data time, the API and MCP equivalents, and a citation", () => {
+    expect(md.startsWith("---\ntitle: Rates · airrates\nurl: https://airrates.net/rates\n")).toBe(
+      true,
+    );
+    expect(md).toContain("data_as_of: 2026-11-18T04:21:09Z");
+    expect(md).toContain("json: https://airrates.net/v1/rates");
+    expect(md).toContain("mcp: get_asset_funding (server https://airrates.net/mcp)");
+    expect(md).toContain(
+      'cite: "airrates, https://airrates.net/rates, data as of 2026-11-18 04:21 UTC"',
+    );
+  });
+
+  test("fills an asset page's endpoint with its asset, and leaves out what a page lacks", () => {
+    const liq = htmlToMarkdown(page, "https://airrates.net/liquidations/equity/SNDK") ?? "";
+    expect(liq).toContain("json: https://airrates.net/v1/liquidations?assets=SNDK");
+    expect(liq).not.toContain("data_as_of");
+    expect(liq).not.toContain("mcp:");
+    const about = htmlToMarkdown(page, "https://airrates.net/about") ?? "";
+    expect(about).not.toContain("json:");
+    expect(about).toContain('cite: "airrates, https://airrates.net/about"\n');
+  });
+});
+
+describe("markdownAddress", () => {
+  const at = (url: string) => markdownAddress(new Request(url, { headers: { accept: "*/*" } }));
+
+  test("turns page.md into the page, asked for as Markdown, query and all", () => {
+    const md = at("https://airrates.net/liquidations.md?window=7d");
+    expect(md?.url).toBe("https://airrates.net/liquidations?window=7d");
+    expect(md?.headers.get("accept")).toBe("text/markdown");
+    expect(at("https://airrates.net/index.md")?.url).toBe("https://airrates.net/");
+    expect(at("https://airrates.net/chart/equity/NVDA.md")?.url).toBe(
+      "https://airrates.net/chart/equity/NVDA",
+    );
+  });
+
+  test("leaves real files and other addresses alone", () => {
+    expect(at("https://airrates.net/auth.md")).toBeNull();
+    expect(at("https://airrates.net/.well-known/agent-skills/airrates-api/SKILL.md")).toBeNull();
+    expect(at("https://airrates.net/liquidations")).toBeNull();
+    expect(at("https://airrates.net/.md")).toBeNull();
   });
 });

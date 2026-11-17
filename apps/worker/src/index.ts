@@ -26,7 +26,7 @@ import { adminCredentials } from "./referrals/auth";
 import { forgetReferrals, loadReferrals } from "./referrals/load";
 import { ReferralStoreDO, referralStore } from "./referrals/store-do";
 import { DEFAULT_LOCALE, languageSwitch, requestLocale } from "./web/i18n";
-import { htmlToMarkdown, wantsMarkdown } from "./web/markdown";
+import { htmlToMarkdown, markdownAddress, wantsMarkdown } from "./web/markdown";
 
 export { ProbeDO, ReferralStoreDO };
 
@@ -73,13 +73,20 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 async function handle(
-  request: Request<unknown, IncomingRequestCfProperties>,
+  incoming: Request<unknown, IncomingRequestCfProperties>,
   env: Env,
   ctx: ExecutionContext,
 ): Promise<Response> {
   // One host: www is sent to the bare address before anything is read or counted (app/canonical-host.ts).
-  const www = wwwRedirect(request);
+  const www = wwwRedirect(incoming);
   if (www) return www;
+
+  // `/liquidations.md` is /liquidations as Markdown (web/markdown.ts): from here on it is that page,
+  // asked for with `Accept: text/markdown`, so it shares its cache copy and is converted on the way out.
+  const request = (markdownAddress(incoming) ?? incoming) as Request<
+    unknown,
+    IncomingRequestCfProperties
+  >;
 
   const probe = await handleProbe(request, env);
   if (probe) return probe;
