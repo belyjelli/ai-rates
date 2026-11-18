@@ -588,4 +588,8 @@ export const liquidations: Catalog = {
   "Position list": "포지션 목록",
   "No long position here has a liquidation price.": "청산 가격이 있는 롱 포지션이 없습니다.",
   "No short position here has a liquidation price.": "청산 가격이 있는 숏 포지션이 없습니다.",
+  "The odds of reaching each price": "각 가격에 도달할 확률",
+  "{asset}: the odds of reaching each price": "{asset}: 각 가격에 도달할 확률",
+  "How far the price can plausibly get in 4 hours, 6 hours, a day and a week: the chance it touches each level, sized from its own measured volatility, beside the levels where positions were liquidated and what each liquidation theory reads.":
+    "4시간, 6시간, 하루, 일주일 안에 가격이 어디까지 갈 수 있는지: 자체 실측 변동성으로 각 수준에 닿을 확률을 계산하고, 청산이 일어난 수준과 각 청산 이론의 판독을 함께 보여 줍니다.",
 };

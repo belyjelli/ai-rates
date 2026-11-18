@@ -579,4 +579,8 @@ export const liquidations: Catalog = {
   "Position list": "仓位列表",
   "No long position here has a liquidation price.": "这里没有带强平价格的多头仓位。",
   "No short position here has a liquidation price.": "这里没有带强平价格的空头仓位。",
+  "The odds of reaching each price": "触及各价位的概率",
+  "{asset}: the odds of reaching each price": "{asset}：触及各价位的概率",
+  "How far the price can plausibly get in 4 hours, 6 hours, a day and a week: the chance it touches each level, sized from its own measured volatility, beside the levels where positions were liquidated and what each liquidation theory reads.":
+    "价格在 4 小时、6 小时、一天和一周内可能走多远：按其自身实测波动率计算触及各价位的概率，并列出曾发生强平的价位以及每种强平理论的读数。",
 };

@@ -1476,6 +1476,17 @@ ${table}`;
 
 /** What each member tab is, for its locked copy: a title and what a member sees in it. */
 function memberPitch(id: MemberPanel, asset: string | null): { title: string; text: string } {
+  if (id === "odds") {
+    return {
+      title:
+        asset === null
+          ? tr("The odds of reaching each price")
+          : tr("{asset}: the odds of reaching each price", { asset }),
+      text: tr(
+        "How far the price can plausibly get in 4 hours, 6 hours, a day and a week: the chance it touches each level, sized from its own measured volatility, beside the levels where positions were liquidated and what each liquidation theory reads.",
+      ),
+    };
+  }
   if (id === "feed") {
     return {
       title: tr("Every cascade, in every asset"),
@@ -1509,6 +1520,28 @@ function memberPitch(id: MemberPanel, asset: string | null): { title: string; te
       "Which markets were really flushed rather than just big: every asset's liquidations in the window as a share of its open interest, and the same for crypto, stocks, commodities and indices.",
     ),
   };
+}
+
+/**
+ * The Odds tab's body: how likely the asset is to reach each price band, from its own closes. A member
+ * tab since 2026-11-19, so tabBody reaches it only for a member's own request.
+ */
+function oddsBody(view: LiquidationView): string | null {
+  const { map, asset, params } = view;
+  const state = controlState(view);
+  if (asset === null) {
+    return `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to size.")}</p>`;
+  }
+  if (view.outlook === undefined || view.assetMap === undefined) return null;
+  if (view.assetMap === null) {
+    return `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to size.")}</p>`;
+  }
+  return outlookPanel({
+    label: assetName(asset, view.assetMap.asset_class ?? "crypto"),
+    outlook: view.outlook,
+    window: params.window,
+    picker: assetPicker(state, map.every, asset, "#odds"),
+  });
 }
 
 /**
@@ -2367,7 +2400,9 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
   if ((MEMBER_PANELS as readonly string[]).includes(id)) {
     const memberId = id as MemberPanel;
     // Locked for everyone but a member's own request for the tab, whatever else this render read.
-    if (!view.member) return memberLock(memberId, memberId === "history" ? asset : null);
+    if (!view.member)
+      return memberLock(memberId, memberId === "history" || memberId === "odds" ? asset : null);
+    if (memberId === "odds") return oddsBody(view);
     if (memberId === "winners") {
       const traderHref = (to: {
         top?: TraderWindow;
@@ -2507,22 +2542,6 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
         },
       ).join("")}</nav>`,
       now,
-    });
-  }
-
-  if (id === "odds") {
-    if (asset === null) {
-      return `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to size.")}</p>`;
-    }
-    if (view.outlook === undefined || view.assetMap === undefined) return null;
-    if (view.assetMap === null) {
-      return `<p class="empty">${tr("Nothing has been force-closed in this window, so there is no asset to size.")}</p>`;
-    }
-    return outlookPanel({
-      label: assetName(asset, view.assetMap.asset_class ?? "crypto"),
-      outlook: view.outlook,
-      window: params.window,
-      picker: assetPicker(state, map.every, asset, "#odds"),
     });
   }
 
@@ -2895,7 +2914,7 @@ ${tabBar({
     { id: "whales", label: labels.whales, shortLabel: tr("Whales") },
     { id: "sides", label: labels.sides, shortLabel: tr("Sides") },
     { id: "price", label: labels.price, shortLabel: tr("Prices") },
-    { id: "odds", label: labels.odds, shortLabel: tr("Odds") },
+    { id: "odds", label: labels.odds, shortLabel: tr("Odds"), member: true },
     { id: "cascades", label: labels.cascades, shortLabel: tr("Cascades") },
     { id: "feed", label: tr("All cascades"), shortLabel: tr("All cascades"), member: true },
     { id: "history", label: labels.history, shortLabel: tr("History"), member: true },

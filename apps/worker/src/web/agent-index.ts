@@ -69,7 +69,7 @@ export const AGENT_PAGES: readonly AgentPage[] = [
     path: "/liquidations/<asset>",
     title: "One asset's liquidations",
     answers:
-      "One asset's liquidations over time and by exchange, its whale positions and their liquidation prices, and the odds of reaching a price.",
+      "One asset's liquidations over time and by exchange, and its whale positions and their liquidation prices.",
     api: "/v1/liquidations?assets=<asset>",
     mcp: "get_liquidations",
   },
@@ -278,12 +278,8 @@ export const AGENT_TABS: readonly { page: string; id: string; title: string; ans
     title: "Liquidations by price",
     answers: "The price levels positions were liquidated at, by exchange and hour.",
   },
-  {
-    page: "/liquidations",
-    id: "odds",
-    title: "Odds of reaching a price",
-    answers: "The chance, from volatility, that price reaches each level before a date.",
-  },
+  // The Odds tab is for members since 2026-11-19, so a reader without a pass gets its locked copy:
+  // not listed here.
 ];
 
 /** The entry for a path: the exact page, else the pattern it fills in (`/chart/SOL` → `/chart/<asset>`). */

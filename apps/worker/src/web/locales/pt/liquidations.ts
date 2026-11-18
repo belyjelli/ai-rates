@@ -608,4 +608,8 @@ export const liquidations: Catalog = {
     "Nenhuma posição long aqui tem preço de liquidação.",
   "No short position here has a liquidation price.":
     "Nenhuma posição short aqui tem preço de liquidação.",
+  "The odds of reaching each price": "As chances de chegar a cada preço",
+  "{asset}: the odds of reaching each price": "{asset}: as chances de chegar a cada preço",
+  "How far the price can plausibly get in 4 hours, 6 hours, a day and a week: the chance it touches each level, sized from its own measured volatility, beside the levels where positions were liquidated and what each liquidation theory reads.":
+    "Até onde o preço pode plausivelmente ir em 4 horas, 6 horas, um dia e uma semana: a chance de tocar cada nível, calculada pela sua própria volatilidade medida, ao lado dos níveis onde posições foram liquidadas e do que cada teoria de liquidação indica.",
 };

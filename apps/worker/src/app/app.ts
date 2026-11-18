@@ -782,7 +782,9 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           assetParams.band !== null ||
           !assetParams.pending ||
           assetParams.zoom === "wide");
-      const wantsOdds = wanted !== null && panel === "odds";
+      // The Odds tab is a member tab since 2026-11-19 (owner: "the odd tab in the liquidation moves to
+      // membership only tab"): its model is built only for a member's own request for it.
+      const wantsOdds = deps.member === true && wanted !== null && panel === "odds";
       // The whale map is read for its own tab, for the bare page (which opens on it: owner,
       // 2026-11-10), or when its floor switch is in the query: a reader who just clicked $100k+ lands
       // on a drawn tab. A failed read says so in the tab, not a 500.

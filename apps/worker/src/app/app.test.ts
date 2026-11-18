@@ -1142,6 +1142,14 @@ describe("pages", () => {
   /** One tab on its own, as tabs.ts loads it into a placeholder: the page's address plus ?panel=. */
   const tab = async (path: string, id: string, data: DataSource) =>
     (await get(`${path}${path.includes("?") ? "&" : "?"}panel=${id}`, data)).text();
+  /** A member's own request for a member tab, as the app gets it once index.ts has checked the pass. */
+  const memberTab = async (path: string, id: string, data: DataSource) =>
+    (
+      await handleApp(
+        new Request(`https://airates.test${path}${path.includes("?") ? "&" : "?"}panel=${id}`),
+        { data, now: () => NOW, member: true },
+      )
+    ).text();
 
   test("liquidations is one page in two tabs, both panels served and neither hidden", async () => {
     const { data } = fakeData({
@@ -2396,7 +2404,13 @@ describe("pages", () => {
     const html = await (await get("/liquidations/ETH", data)).text();
 
     expect(html).toContain('data-tab="odds"');
-    const odds = await tab("/liquidations/ETH", "odds", data);
+    // A member tab since 2026-11-19: everyone else gets its locked copy, and no model is built.
+    expect(html).toMatch(/data-tab-panel="odds"[^>]*data-lazy-state="loaded" data-member-tab/);
+    const locked = await tab("/liquidations/ETH", "odds", data);
+    expect(locked).toContain("data-member-lock");
+    expect(locked).toContain("ETH: the odds of reaching each price");
+    expect(locked).not.toContain("Closes higher than now");
+    const odds = await memberTab("/liquidations/ETH", "odds", data);
     expect(odds).toBeDefined();
     // Four horizons as columns.
     for (const label of ["4 hours", "6 hours", "1 day", "1 week"]) expect(odds).toContain(label);
@@ -2419,7 +2433,7 @@ describe("pages", () => {
       liquidationAsset: async () => liqAsset(),
       assetBars: async () => weekOfCloses().slice(0, 6),
     });
-    expect(await tab("/liquidations/ETH", "odds", thin.data)).toContain(
+    expect(await memberTab("/liquidations/ETH", "odds", thin.data)).toContain(
       "not yet enough price history",
     );
 
@@ -2433,7 +2447,11 @@ describe("pages", () => {
         throw new Error("hyperdrive busy");
       },
     });
-    const res = await get("/liquidations/ETH?panel=odds", broken.data);
+    const res = await handleApp(new Request("https://airates.test/liquidations/ETH?panel=odds"), {
+      data: broken.data,
+      now: () => NOW,
+      member: true,
+    });
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("not yet enough price history");
   });

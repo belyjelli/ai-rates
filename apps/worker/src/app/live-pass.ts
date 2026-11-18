@@ -39,7 +39,7 @@ export function isLiveRequest(request: Request): boolean {
  * under base "*", which no position has) in the same header, checked the same way. Without a good
  * pass the tab is its locked copy, which is what every reader and every crawler gets.
  */
-export const MEMBER_PANELS = ["feed", "history", "oi", "winners"] as const;
+export const MEMBER_PANELS = ["odds", "feed", "history", "oi", "winners"] as const;
 export type MemberPanel = (typeof MEMBER_PANELS)[number];
 
 /** Whether the request is a member tab of /liquidations asked for with a pass. */

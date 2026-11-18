@@ -594,4 +594,8 @@ export const liquidations: Catalog = {
   "Position list": "ポジション一覧",
   "No long position here has a liquidation price.": "清算価格のあるロングはありません。",
   "No short position here has a liquidation price.": "清算価格のあるショートはありません。",
+  "The odds of reaching each price": "各価格に届く確率",
+  "{asset}: the odds of reaching each price": "{asset}：各価格に届く確率",
+  "How far the price can plausibly get in 4 hours, 6 hours, a day and a week: the chance it touches each level, sized from its own measured volatility, beside the levels where positions were liquidated and what each liquidation theory reads.":
+    "4時間、6時間、1日、1週間で価格がどこまで動きうるか：実測ボラティリティから各水準に触れる確率を算出し、清算が起きた水準と各清算理論の読みを並べて表示。",
 };

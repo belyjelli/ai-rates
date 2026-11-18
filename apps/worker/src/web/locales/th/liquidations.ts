@@ -587,4 +587,8 @@ export const liquidations: Catalog = {
   "Position list": "รายการโพซิชัน",
   "No long position here has a liquidation price.": "ไม่มีโพซิชัน Long ที่มีราคาล้างพอร์ต",
   "No short position here has a liquidation price.": "ไม่มีโพซิชัน Short ที่มีราคาล้างพอร์ต",
+  "The odds of reaching each price": "โอกาสที่จะไปถึงแต่ละราคา",
+  "{asset}: the odds of reaching each price": "{asset}: โอกาสที่จะไปถึงแต่ละราคา",
+  "How far the price can plausibly get in 4 hours, 6 hours, a day and a week: the chance it touches each level, sized from its own measured volatility, beside the levels where positions were liquidated and what each liquidation theory reads.":
+    "ราคาอาจไปได้ไกลแค่ไหนใน 4 ชั่วโมง 6 ชั่วโมง หนึ่งวัน และหนึ่งสัปดาห์: โอกาสที่จะแตะแต่ละระดับ คำนวณจากความผันผวนที่วัดได้ของมันเอง ข้างระดับที่โพซิชันถูกล้าง และสิ่งที่แต่ละทฤษฎีการล้างพอร์ตอ่านได้",
 };

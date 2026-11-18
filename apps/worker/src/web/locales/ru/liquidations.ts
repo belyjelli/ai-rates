@@ -605,4 +605,8 @@ export const liquidations: Catalog = {
   "Position list": "Список позиций",
   "No long position here has a liquidation price.": "Здесь нет лонгов с ценой ликвидации.",
   "No short position here has a liquidation price.": "Здесь нет шортов с ценой ликвидации.",
+  "The odds of reaching each price": "Вероятность достичь каждой цены",
+  "{asset}: the odds of reaching each price": "{asset}: вероятность достичь каждой цены",
+  "How far the price can plausibly get in 4 hours, 6 hours, a day and a week: the chance it touches each level, sized from its own measured volatility, beside the levels where positions were liquidated and what each liquidation theory reads.":
+    "Как далеко цена может зайти за 4 часа, 6 часов, сутки и неделю: вероятность коснуться каждого уровня по её собственной измеренной волатильности, рядом с уровнями, где ликвидировали позиции, и показаниями каждой теории ликвидаций.",
 };

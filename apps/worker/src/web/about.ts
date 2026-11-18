@@ -40,6 +40,21 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-11-19",
+    title: "Chart: a currency pair's own figures",
+    changes: [
+      "A currency pair that no exchange trades (USD/HKD, EUR/HKD, USD/AED and the rest) now has its own tiles in place of the market's CVD figures: its rate with bid, ask and spread, the last 24 hours' range, and its change over a day, a week, 30 and 90 days.",
+      "USD/HKD shows where it sits in Hong Kong's 7.75 to 7.85 band and USD/AED how far it is from the dirham's 3.6725 peg. A cross such as EUR/HKD shows the two dollar rates it is worked out from, and every pair lists the other pairs of its currencies with their 24-hour and 7-day moves.",
+    ],
+  },
+  {
+    date: "2026-11-19",
+    title: "Liquidations: the Odds tab is for members",
+    changes: [
+      "The Odds tab, how far an asset's price can plausibly get in 4 hours to a week, is now a member tab, beside All cascades, History, Top traders and vs OI. A free account opens it.",
+    ],
+  },
+  {
+    date: "2026-11-19",
     title: "Chart: the Thai baht and the UAE dirham against every currency",
     changes: [
       "The Thai baht joins the Hong Kong dollar: EUR/THB, GBP/THB, SGD/THB, CNY/THB, THB/JPY, THB/KRW and the rest, 24 more pairs, each worked out from its two dollar rates. Pick THB under FX in the Chart page's asset list to see them all.",
