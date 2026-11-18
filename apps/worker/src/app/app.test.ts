@@ -5625,6 +5625,38 @@ describe("cvd", () => {
     expect((await get("/holdings/stock/a%20b", data)).status).toBe(404);
   });
 
+  test("Holdings: the Markdown copy lists each investor's figures, labelled", async () => {
+    const card = {
+      portfolio: "warren-buffett",
+      name: "Warren Buffett",
+      summary: "",
+      title: "Berkshire Hathaway",
+      style: "value",
+      period: "2026-06-30",
+      filed_on: "2026-08-14",
+      value_usd: 2.99e11,
+      value_change_pct: 13.7,
+      positions: 29,
+      crypto_positions: 0,
+      tickers: "AAPL AXP KO",
+      return_3y_pct: 72,
+      return_1y_pct: 13.8,
+      sparkline: null,
+    };
+    const { data } = fakeData({ holdingsCards: async () => [card] });
+    const md =
+      htmlToMarkdown(
+        await (await get("/holdings", data)).text(),
+        "https://airrates.net/holdings",
+      ) ?? "";
+    expect(md).toContain(
+      "| Investor | Style | Portfolio value | Change on last filing | Positions | Return 1y | Return 3y | Period | Heaviest holdings |",
+    );
+    expect(md).toContain(
+      "| [Warren Buffett](https://airrates.net/holdings/warren-buffett.md) | value | $299B | +13.7% | 29 | +13.8% | +72.0% | 2026-06-30 | AAPL, AXP, KO |",
+    );
+  });
+
   test("Holdings: the Rich list tab reads the chain asked, Bitcoin for any other, and the hub keeps it", async () => {
     const asked: string[] = [];
     const { data } = fakeData({
@@ -7062,6 +7094,18 @@ describe("whales", () => {
       }),
     ],
   };
+
+  test("/whales gives an assistant its walls, its large orders and every market, labelled", async () => {
+    const { data } = fakeData({ whales: async () => book });
+    const html = await (await get("/whales", data)).text();
+    const md = htmlToMarkdown(html, "https://airrates.net/whales") ?? "";
+    expect(md).toContain("## In figures");
+    expect(md).toContain("Walls are resting limit orders of at least");
+    expect(md).toContain("## Open walls now, largest first");
+    expect(md).toContain("| Side | Price | Size now | Peak size | Resting since |");
+    expect(md).toContain("## Every market tracked on Binance");
+    expect(md).toContain("(https://airrates.net/whales/ETH.md)");
+  });
 
   test("/whales charts BTC's walls over its candles, with the tiles and both tables", async () => {
     const seen: unknown[] = [];

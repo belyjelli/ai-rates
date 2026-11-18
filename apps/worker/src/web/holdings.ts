@@ -9,6 +9,7 @@ import type {
   RichList,
   StockPage,
 } from "../app/holdings-data";
+import { agentBrief, agentTable } from "./agent-brief";
 import { lazyPlaceholder } from "./chart-skeleton";
 import { esc, formatUsd } from "./format";
 import { HOLDINGS_CHART_CSS, sparkline } from "./holdings-charts";
@@ -351,6 +352,46 @@ const panelLabel = (panel: HoldingsPanel) =>
  * /holdings: the Investors topic filled, the others loaded when shown. `chain` is the Rich list's
  * (/holdings?chain=tron#richlist), which its tab loads.
  */
+/**
+ * The investors for an AI assistant (web/agent-brief.ts): each portfolio's value, change, positions,
+ * returns, filing date and heaviest holdings, labelled, with the address of its own page. The visible
+ * page shows them as cards with sparklines.
+ */
+function holdingsAgentBrief(cards: readonly PortfolioCard[]): string {
+  return agentBrief(() => {
+    if (cards.length === 0) return "";
+    const pct = (value: number | null) => (value === null ? "" : signedPct(value));
+    return [
+      "<h2>In figures</h2>",
+      "<p>Each portfolio is the investor's latest SEC 13F filing (US-listed long positions, filed up to 45 days after the quarter ends), or their wallets on chain. Returns are the filed portfolio rebalanced each quarter, not the investor's own reported results.</p>",
+      agentTable(
+        [
+          "Investor",
+          "Style",
+          "Portfolio value",
+          "Change on last filing",
+          "Positions",
+          "Return 1y",
+          "Return 3y",
+          "Period",
+          "Heaviest holdings",
+        ],
+        cards.map((card) => [
+          `<a href="${esc(portfolioHref(card.portfolio))}.md">${esc(card.name)}</a>`,
+          esc(card.style),
+          formatUsd(card.value_usd),
+          pct(card.value_change_pct),
+          card.positions === null ? "" : String(card.positions),
+          pct(card.return_1y_pct),
+          pct(card.return_3y_pct),
+          esc(card.period ?? ""),
+          esc((card.tickers ?? "").split(" ").slice(0, 6).join(", ")),
+        ]),
+      ),
+    ].join("\n");
+  });
+}
+
 export function holdingsPage(options: {
   cards: readonly PortfolioCard[];
   overview: Overview | null;
@@ -376,6 +417,7 @@ ${filled ? investorsPanel(cards) : lazyPlaceholder(href)}
     now,
     body: `<h1>${tr("Holdings")}</h1>
 <p class="lede">${tr("What well-known investors hold: each one's latest 13F filing with the SEC, or their wallets on chain, with how the portfolio has done against the S&amp;P 500.")}</p>
+${holdingsAgentBrief(cards)}
 ${tabBar({ name: "holdings", tabs: HOLDINGS_PANELS.map((id) => ({ id, label: panelLabel(id) })), activeId: "investors" })}
 ${panels}
 <style>${HOLDINGS_CSS}

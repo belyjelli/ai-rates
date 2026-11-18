@@ -135,3 +135,14 @@ describe("a tab read on its own, and the pickers", () => {
     expect(md).toContain("after");
   });
 });
+
+describe("a definition list", () => {
+  test("puts each term in bold before its definition", () => {
+    const md =
+      htmlToMarkdown(
+        '<main><dl><div class="gl-term"><dt><a href="#delta">Delta</a> (order flow)</dt><dd>Aggressive buying minus aggressive selling.</dd></div></dl></main>',
+        "https://airrates.net/glossary",
+      ) ?? "";
+    expect(md).toContain("**Delta (order flow)**: Aggressive buying minus aggressive selling.");
+  });
+});

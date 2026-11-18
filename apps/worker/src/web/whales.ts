@@ -16,6 +16,7 @@ import {
   type WhaleVenue,
   whaleToQuery,
 } from "../app/params";
+import { agentBrief, agentTable, utcMinute } from "./agent-brief";
 import { expectedMoves } from "./expected-move";
 import { ageText, esc, formatPrice, formatUsd, since } from "./format";
 import { freshness, gammaZones, publisher, signedUsd, unitSymbol } from "./gamma";
@@ -727,6 +728,90 @@ export const BOOK_SCRIPT = `(() => {
   });
 })();`;
 
+/**
+ * The whale orders for an AI assistant (web/agent-brief.ts): the charted market's resting walls and
+ * large taker orders over the window, labelled, and every tracked market's totals. The visible page
+ * draws them on a chart and lists the markets in a picker.
+ */
+function whalesAgentBrief(book: WhaleData, venue: string, window: string): string {
+  return agentBrief(() => {
+    const market = book.market;
+    const parts = ["<h2>In figures</h2>"];
+    if (market) {
+      const open = book.walls.filter((wall) => wall.status === "open");
+      parts.push(
+        `<p>${esc(market.base)} (${esc(market.venue_symbol)} on ${esc(venue)}), price ${market.last_price === null ? "unknown" : formatPrice(market.last_price)}${market.change_24h_pct === null ? "" : `, ${market.change_24h_pct >= 0 ? "+" : ""}${market.change_24h_pct.toFixed(2)}% in 24 hours`}. Walls are resting limit orders of at least ${formatUsd(market.floor_usd)} at one price: ${formatUsd(market.bid_walls_usd)} resting on the bid and ${formatUsd(market.ask_walls_usd)} on the ask now. Large taker orders over 24 hours: ${formatUsd(market.buy_usd_24h)} bought, ${formatUsd(market.sell_usd_24h)} sold. Over the last ${esc(window)}: ${book.tally.filled} walls filled and ${book.tally.pulled} pulled; ${book.tally.buys} large buys (${formatUsd(book.tally.buy_usd)}) and ${book.tally.sells} large sells (${formatUsd(book.tally.sell_usd)}).</p>`,
+      );
+      if (open.length > 0) {
+        parts.push(`<h2>Open walls now, largest first</h2>`);
+        parts.push(
+          agentTable(
+            ["Side", "Price", "Size now", "Peak size", "Resting since"],
+            [...open]
+              .sort((a, b) => b.current_usd - a.current_usd)
+              .slice(0, 15)
+              .map((wall) => [
+                wall.side === "bid" ? "bid (buy)" : "ask (sell)",
+                formatPrice(wall.price),
+                formatUsd(wall.current_usd),
+                formatUsd(wall.peak_usd),
+                utcMinute(wall.first_seen),
+              ]),
+          ),
+        );
+      }
+      if (book.trades.length > 0) {
+        parts.push(`<h2>Largest taker orders, last ${esc(window)}</h2>`);
+        parts.push(
+          agentTable(
+            ["Side", "Price", "Size", "Fills", "Time"],
+            book.trades
+              .slice(0, 15)
+              .map((trade) => [
+                trade.side,
+                formatPrice(trade.price),
+                formatUsd(trade.notional_usd),
+                String(trade.fills),
+                utcMinute(trade.traded_at),
+              ]),
+          ),
+        );
+      }
+    }
+    if (book.markets.length > 0) {
+      parts.push(`<h2>Every market tracked on ${esc(venue)}</h2>`);
+      parts.push(
+        agentTable(
+          [
+            "Market",
+            "Price",
+            "24h change",
+            "Bid walls",
+            "Ask walls",
+            "Taker bought 24h",
+            "Taker sold 24h",
+          ],
+          book.markets.map((m) => [
+            `<a href="${esc(whalesPath(m.base, m.asset_class))}.md">${esc(m.base)}</a>`,
+            m.last_price === null ? "" : formatPrice(m.last_price),
+            m.change_24h_pct === null
+              ? ""
+              : `${m.change_24h_pct >= 0 ? "+" : ""}${m.change_24h_pct.toFixed(2)}%`,
+            formatUsd(m.bid_walls_usd),
+            formatUsd(m.ask_walls_usd),
+            formatUsd(m.buy_usd_24h),
+            formatUsd(m.sell_usd_24h),
+          ]),
+        ),
+      );
+    }
+    parts.push(
+      "<p>Walls can be pulled before price reaches them; a wall is a visible order, not a commitment. Not financial advice.</p>",
+    );
+    return parts.join("\n");
+  });
+}
+
 export function whales(data: {
   overview: Overview;
   whales: WhaleData;
@@ -931,6 +1016,7 @@ ${takerCell(t)}
     overview,
     now,
     body: `${helpHeading("h1", tr("Whale orders"), "whales", help)}
+${whalesAgentBrief(book, venue, window)}
 <div class="lq-controls wh-controls">${picker}${bookButton}${venueStrip}${windowStrip}${pulledToggle}</div>
 ${
   book.market === null

@@ -90,8 +90,14 @@ export const AGENT_PAGES: readonly AgentPage[] = [
     mcp: "get_cvd",
   },
   {
-    path: "/whales/<asset>",
+    path: "/whales",
     title: "Whale orders",
+    answers:
+      "Large resting orders (walls) and large taker orders in the order books of Binance and Hyperliquid for about 40 markets: what rests on the bid and ask now, what filled or was pulled, and BTC's walls in detail.",
+  },
+  {
+    path: "/whales/<asset>",
+    title: "One market's whale orders",
     answers:
       "Large resting orders (walls) and large market orders in the order books of Binance and Hyperliquid, drawn over price.",
   },

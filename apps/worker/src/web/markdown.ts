@@ -92,6 +92,12 @@ export function htmlToMarkdown(html: string, url: string): string | null {
         `\n\n${"#".repeat(Number(level))} ${inline(text, origin)}\n\n`,
     )
     .replace(/<li\b[^>]*>(.*?)<\/li>/gis, (_, text: string) => `\n- ${inline(text, origin)}`)
+    // A definition list (the glossary): each term in bold before its definition.
+    .replace(
+      /<dt\b[^>]*>(.*?)<\/dt>\s*<dd\b[^>]*>(.*?)<\/dd>/gis,
+      (_, term: string, text: string) =>
+        `\n\n**${inline(term, origin)}**: ${inline(text, origin)}\n\n`,
+    )
     .replace(/<\/(p|div|section|article|ul|ol|form|figure|details|summary)>/gi, "\n\n")
     .replace(/<(p|ul|ol|br)\b[^>]*>/gi, "\n");
   // Table cells and list items are already converted; the rest of the markup is inline.
