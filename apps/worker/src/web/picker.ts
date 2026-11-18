@@ -7,7 +7,8 @@
  * Markup: details.wh-pick > summary.wh-pick-btn, and in .wh-pick-panel an input.wh-pick-q, the
  * a.wh-pick-row links (each with the words it is found by in data-q) and a p.wh-pick-none. Rows may
  * sit under p.wh-pick-group headings (the Gamma tab's regions), each hidden while a filter leaves it
- * no row.
+ * no row. A picker with a data-kind (CVD's asset-class buttons) also shows only the rows whose own
+ * data-kind is that one; whoever sets it fires an input event on the box to filter again.
  *
  * Delegated from the document rather than bound to one picker: CVD swaps its <main> in place when
  * an asset is picked, and live.ts replaces the CVD rows every 30 seconds, so a picker or a row can
@@ -19,7 +20,8 @@ export const PICK_SCRIPT = `(() => {
   const shown = (pick) => rows(pick).filter((r) => !r.hidden);
   const filter = (pick) => {
     const words = pick.querySelector(".wh-pick-q").value.trim().toLowerCase().split(/\\s+/).filter(Boolean);
-    for (const r of rows(pick)) r.hidden = !words.every((w) => r.dataset.q.includes(w));
+    const kind = pick.dataset.kind || "";
+    for (const r of rows(pick)) r.hidden = !(words.every((w) => r.dataset.q.includes(w)) && (!kind || r.dataset.kind === kind));
     for (const g of pick.querySelectorAll(".wh-pick-group")) {
       let any = false;
       for (let el = g.nextElementSibling; el && !el.matches(".wh-pick-group"); el = el.nextElementSibling) if (!el.hidden) any = true;
@@ -85,6 +87,6 @@ export const PICK_SCRIPT = `(() => {
   });
   // live.ts replaces a live list's rows wholesale; what the box says still applies to the new ones.
   new MutationObserver(() => {
-    for (const pick of document.querySelectorAll(".wh-pick[open]")) if (pick.querySelector(".wh-pick-q").value.trim()) filter(pick);
+    for (const pick of document.querySelectorAll(".wh-pick[open]")) if (pick.querySelector(".wh-pick-q").value.trim() || pick.dataset.kind) filter(pick);
   }).observe(document.querySelector("main") || document.body, { childList: true, subtree: true });
 })();`;

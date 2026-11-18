@@ -882,6 +882,13 @@ export interface CvdParams {
   asc: boolean;
   /** A case-insensitive substring of the asset name, or "" for every asset. */
   q: string;
+  /**
+   * The picker's asset-class button (owner, 2026-11-18: Equity, Commodity, FX… as buttons beside
+   * the search): only that class's rows are shown, or every row when null. Like `q` it is matched in
+   * the page, so the other rows are hidden rather than dropped. `?type=`, because `class` already
+   * names the charted asset's own class in the API.
+   */
+  type: AssetClass | null;
   view: CvdView;
 }
 
@@ -902,6 +909,7 @@ export function parseCvdParams(params: URLSearchParams): CvdParams {
       .toUpperCase()
       .replace(/[^A-Z0-9._-]/g, "")
       .slice(0, 20),
+    type: ASSET_CLASSES.find((c) => c === params.get("type")) ?? null,
     view: params.get("view") === "detail" ? "detail" : "chart",
   };
 }
@@ -912,6 +920,7 @@ export function cvdToQuery(params: CvdParams): string {
   if (params.sort !== "volume") query.set("sort", params.sort);
   if (params.asc) query.set("dir", "asc");
   if (params.q) query.set("q", params.q);
+  if (params.type) query.set("type", params.type);
   if (params.view === "detail") query.set("view", "detail");
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";

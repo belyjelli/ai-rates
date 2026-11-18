@@ -40,6 +40,13 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-11-18",
+    title: "Chart: the asset list by class",
+    changes: [
+      "The Chart page's asset list has a button for each class under its search box (crypto, equity, commodity, FX, index), each with how many assets it holds, so the list can show only the stocks or only the currency pairs. The search works within the class chosen, and picking an asset keeps the list as it was.",
+    ],
+  },
+  {
+    date: "2026-11-18",
     title: "Prediction markets on the front page",
     changes: [
       "New on the front page, above the widest spreads: what the crowd is betting on, from Polymarket and Kalshi. The question we pinned (Jensen Huang rejoins NVIDIA by...?, until November 25) and the most traded question of the last 24 hours each show their answers' chances, the change over the day and a chart of the odds since the market opened. The next most traded follow in a table, at least three from each venue. Sports and the questions that repeat every day or week are left out.",

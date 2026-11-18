@@ -1,4 +1,4 @@
-import type { AssetClass } from "@ai-rates/core";
+import { ASSET_CLASSES, type AssetClass } from "@ai-rates/core";
 import {
   type CvdAssetRow,
   type CvdBar,
@@ -45,7 +45,7 @@ import {
 } from "./kchart";
 import { layout } from "./layout";
 import { timeTag, zoneTag } from "./localtime";
-import { assetHref, assetKey, assetName, exchangeHref, pairHref } from "./pages";
+import { assetClassLabel, assetHref, assetKey, assetName, exchangeHref, pairHref } from "./pages";
 import { PICK_SCRIPT } from "./picker";
 import { citeMark, plainLabel } from "./share";
 import {
@@ -581,12 +581,42 @@ export const CVD_SWITCH_SCRIPT = `(() => {
     for (const a of document.querySelectorAll('main a[href^="/chart"]:not([data-cvd-sort])')) a.setAttribute("href", withSort(a.getAttribute("href"), sort, asc));
   };
 
+  // An asset-class button filters the rows where they are, as a heading sorts them: PICK_SCRIPT
+  // hides the rows of other classes once the picker's data-kind names one (the input event is its
+  // cue to filter again), and the address and every link that keeps it take ?type=.
+  const withType = (href, type) => {
+    const url = new URL(href, location.href);
+    if (type) url.searchParams.set("type", type);
+    else url.searchParams.delete("type");
+    return url.pathname + url.search + url.hash;
+  };
+  const byType = (button) => {
+    const pick = button.closest(".wh-pick");
+    if (!pick) return;
+    const type = button.dataset.cvdType;
+    pick.dataset.kind = type;
+    for (const b of pick.querySelectorAll("a[data-cvd-type]")) {
+      if (b.dataset.cvdType === type) b.setAttribute("aria-current", "true");
+      else b.removeAttribute("aria-current");
+    }
+    pick.querySelector(".wh-pick-q").dispatchEvent(new Event("input", { bubbles: true }));
+    history.replaceState(null, "", withType(location.href, type));
+    for (const a of document.querySelectorAll('main a[href^="/chart"]:not([data-cvd-type])')) a.setAttribute("href", withType(a.getAttribute("href"), type));
+  };
+
   const modified = (event) => event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
 
   // Delegated, because the strip and the picker are replaced with the rest of <main> on every switch,
   // and live.ts swaps the picker's rows every 30 seconds.
   document.addEventListener("click", (event) => {
     if (event.defaultPrevented || event.button !== 0 || !event.target.closest) return;
+    const kind = event.target.closest("a[data-cvd-type]");
+    if (kind) {
+      if (modified(event)) return;
+      event.preventDefault();
+      byType(kind);
+      return;
+    }
     const heading = event.target.closest("a[data-cvd-sort]");
     if (heading) {
       if (modified(event)) return;
@@ -644,9 +674,12 @@ function assetPicker(data: {
     const diff = sortKey(a, params.sort) - sortKey(b, params.sort);
     return (params.asc ? diff : -diff) || a.asset.localeCompare(b.asset);
   });
-  // ?q= is the search without a script, or an old link to one. The rows it leaves out are hidden
-  // rather than dropped, so emptying the box in the browser brings them back.
-  const matches = (row: CvdAssetRow) => !params.q || row.asset.includes(params.q);
+  // ?q= is the search without a script, or an old link to one, and ?type= an asset-class button.
+  // The rows they leave out are hidden rather than dropped, so emptying the box or pressing All in
+  // the browser brings them back.
+  const matches = (row: CvdAssetRow) =>
+    (!params.q || row.asset.includes(params.q)) &&
+    (params.type === null || row.asset_class === params.type);
 
   const list = sorted
     .map((row, index) => {
@@ -657,7 +690,7 @@ function assetPicker(data: {
         `${cvdPath(row.asset, row.asset_class)}${cvdToQuery({ ...params, q: "" })}#cvd-chart`,
       );
       const keys = CVD_SORTS.map((sort) => sortKey(row, sort)).join(",");
-      return `<a class="wh-pick-row${on ? " on" : ""}" href="${href}" data-cvd-select="${esc(row.asset)}" data-k="${esc(assetKey(row.asset, row.asset_class))}" data-q="${esc(`${row.asset} ${row.asset_class}`.toLowerCase())}" data-a="${esc(row.asset)}" data-keys="${keys}"${on ? ' aria-current="true"' : ""}${matches(row) ? "" : " hidden"}>
+      return `<a class="wh-pick-row${on ? " on" : ""}" href="${href}" data-cvd-select="${esc(row.asset)}" data-k="${esc(assetKey(row.asset, row.asset_class))}" data-q="${esc(`${row.asset} ${row.asset_class}`.toLowerCase())}" data-kind="${row.asset_class}" data-a="${esc(row.asset)}" data-keys="${keys}"${on ? ' aria-current="true"' : ""}${matches(row) ? "" : " hidden"}>
 <span class="wh-pick-sym"><span class="dim wh-pick-rank">${index + 1}</span><b>${assetName(row.asset, row.asset_class)}</b></span>
 <span class="num"><span data-u="price">${formatPrice(row.price)}</span></span>
 <span class="num${tone(row.change_pct)}"><span data-u="change">${signedPct(row.change_pct)}</span></span>
@@ -681,21 +714,46 @@ function assetPicker(data: {
       : ""
   }${params.sort !== "volume" ? `<input type="hidden" name="sort" value="${esc(params.sort)}">` : ""}${
     params.asc ? '<input type="hidden" name="dir" value="asc">' : ""
-  }${params.view === "detail" ? '<input type="hidden" name="view" value="detail">' : ""}`;
+  }${params.type ? `<input type="hidden" name="type" value="${params.type}">` : ""}${
+    params.view === "detail" ? '<input type="hidden" name="view" value="detail">' : ""
+  }`;
   const current = rows.find((row) => row.asset === asset && row.asset_class === assetClass);
   const summary = current
     ? `<b>${label}</b><span class="num">${formatPrice(current.price)}</span><span class="num${tone(current.change_pct)}">${signedPct(current.change_pct)}</span>`
     : `<b>${label}</b>`;
 
-  return `<details class="wh-pick cvd-pick"${params.q ? " open data-searched" : ""}>
+  return `<details class="wh-pick cvd-pick"${params.q ? " open data-searched" : ""}${params.type ? ` data-kind="${params.type}"` : ""}>
 <summary class="wh-pick-btn" aria-label="${esc(tr("Pick an asset to chart"))}">${summary}<span class="wh-pick-more dim">${tr("{n} assets", { n: rows.length })}</span></summary>
 <div class="wh-pick-panel">
 <form class="wh-pick-find" method="get" action="${esc(base)}">${kept}<input class="wh-pick-q" type="search" name="q" value="${esc(params.q)}" placeholder="${esc(tr("Search symbol"))}" aria-label="${esc(tr("Search symbol"))}" autocomplete="off"><button type="submit">${tr("Find")}</button></form>
+${classButtons(rows, params, base)}
 <div class="wh-pick-head" data-sort="${params.sort}" data-dir="${params.asc ? "asc" : "desc"}"><span>${tr("Asset")}</span><span class="num">${tr("Price")}</span>${heading("change", tr("Reference market's first close to last close in the window"))}${heading("cvd", tr("Taker buys less taker sells, in dollars, summed over the polled venues"))}${heading("ratio", tr("CVD as a share of the window's taker volume"))}${heading("volume", tr("Taker buys plus taker sells, in dollars"))}<span class="num" title="${esc(tr("Polled venues with flow for this asset"))}">${tr("Venues")}</span><span title="${esc(tr("Price and flow disagreeing by more than the divergence thresholds in the tiles"))}">${tr("Signal")}</span></div>
 <nav class="wh-pick-list" data-live="cvd-rows" aria-label="${esc(tr("Assets"))}">${list}</nav>
 <p class="wh-pick-none dim"${sorted.some(matches) ? " hidden" : ""}>${tr("No asset matches.")}</p>
 </div>
 </details>`;
+}
+
+/**
+ * The picker's asset-class buttons (owner, 2026-11-18): All, then each class the rows hold, in
+ * ASSET_CLASSES order, each with its count, so a reader can list only the stocks, the commodities
+ * or the currency pairs. Each is a plain link to the same page with `?type=`; CVD_SWITCH_SCRIPT
+ * turns a click into a filter in place, as it does a heading's sort. Nothing when every row is one
+ * class, as a button that leaves the list as it is offers nothing.
+ */
+function classButtons(rows: readonly CvdAssetRow[], params: CvdParams, base: string): string {
+  const counts = new Map<AssetClass, number>();
+  for (const row of rows) counts.set(row.asset_class, (counts.get(row.asset_class) ?? 0) + 1);
+  if (counts.size < 2) return "";
+  const button = (type: AssetClass | null, label: string, n: number) => {
+    const on = params.type === type;
+    const href = esc(base + cvdToQuery({ ...params, type }));
+    return `<a class="wh-pick-kind" href="${href}" data-cvd-type="${type ?? ""}"${on ? ' aria-current="true"' : ""}>${label}<small class="num">${n}</small></a>`;
+  };
+  const classes = ASSET_CLASSES.filter((type) => counts.has(type)).map((type) =>
+    button(type, assetClassLabel(type), counts.get(type) ?? 0),
+  );
+  return `<nav class="wh-pick-kinds" aria-label="${esc(tr("Asset class"))}">${button(null, tr("All"), rows.length)}${classes.join("")}</nav>`;
 }
 
 /** A path segment for an asset on the other asset pages: crypto unmarked, every other class named. */
@@ -931,6 +989,15 @@ ${more}`;
 }
 
 /** The Detail view's own styles. */
+/** The picker's asset-class buttons (classButtons): a wrapping row under the search box, the
+ *  chosen one inked like the interval strip's, each with its count. */
+const KIND_CSS = `.wh-pick-kinds{display:flex;flex-wrap:wrap;flex-shrink:0;gap:4px;margin:0 8px 8px}
+.wh-pick-kind{display:inline-flex;align-items:baseline;gap:5px;padding:2px 8px;border:1px solid var(--rule);color:var(--muted);font-size:11px;letter-spacing:.04em;text-transform:uppercase;text-decoration:none;white-space:nowrap}
+.wh-pick-kind:hover,.wh-pick-kind:focus-visible{border-color:var(--muted);color:var(--ink);outline:none}
+.wh-pick-kind[aria-current]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.wh-pick-kind small{font-size:10px;opacity:.7}
+`;
+
 const DETAIL_CSS = `.cvd-view-btn{min-width:0;align-items:center;text-decoration:none;color:inherit}
 .cvd-view-btn::after{display:none}
 .cvd-view-btn .ico{color:var(--muted)}
@@ -1300,7 +1367,7 @@ export function cvd(data: {
         },
       )}</p><p>${tr("Each key above the chart says how many venues its line sums for this asset; hover it for their names. Spot covers crypto and stocks: a stock's spot books are its tokenized shares (xStocks, Ondo and the like) on the collected exchanges, counted only while they trade at the stock's own price. Commodities and indices show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.")}</p><p>${tr("Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the box beside it; on a phone, tap.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Aster, Gate and Bitget publish weeks of it and OKX five days, while every other venue, spot books other than Binance's included, is counted from its live trades since 28 October 2026, so older bars sum fewer venues.")}</p><p>${tr("Detail, beside Fund flow, puts the asset's own figures where the chart and the market's tiles are, over the same window: its futures and spot CVD, whether it diverged, the exchanges that bought and sold it most, its open interest, funding and market cap; then its signal over every interval's span, and its flow exchange by exchange. Chart brings the chart back.")}</p><p>${tr("The venues that publish statistics release each 5-minute bucket after it closes, so the newest bar holds only the live tapes for a few minutes.")}</p>`,
     )}
-<style>${FUND_CSS}${DETAIL_CSS}</style>
+<style>${FUND_CSS}${DETAIL_CSS}${KIND_CSS}</style>
 ${cvdAgentBrief(flow, asset, params)}
 <div class="lq-controls wh-controls">${picker}${flow.asset_class === null ? "" : fundPanel(asset, chartClass)}${viewButton}${intervalStrip}</div>
 ${shown}

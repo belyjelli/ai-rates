@@ -6279,6 +6279,49 @@ describe("cvd", () => {
     expect(html).toContain('data-u="breadth">50.0%<');
   });
 
+  test("the picker has a button per asset class it holds, each with its count", async () => {
+    const { data } = fakeData({ cvd: async () => flow() });
+    const html = await (await get("/chart", data)).text();
+    const kinds = html.split('<nav class="wh-pick-kinds"')[1]?.split("</nav>")[0] ?? "";
+    expect(kinds).toContain(
+      '<a class="wh-pick-kind" href="/chart" data-cvd-type="" aria-current="true">All<small class="num">4</small></a>',
+    );
+    expect(kinds).toContain(
+      '<a class="wh-pick-kind" href="/chart?type=crypto" data-cvd-type="crypto">crypto<small class="num">3</small></a>',
+    );
+    expect(kinds).toContain('href="/chart?type=equity" data-cvd-type="equity">equity<small');
+    // Only the classes the rows hold: no commodity or FX button to an empty list.
+    expect(kinds).not.toContain("commodity");
+    expect(kinds).not.toContain('"fx"');
+    // Each row says its class, which is what the buttons filter on in the browser.
+    expect(html).toMatch(/data-k="equity:SNDK"[^>]*data-kind="equity"/);
+    // One class only: the buttons would offer nothing.
+    const crypto = flow().rows.filter((row) => row.asset_class === "crypto");
+    const one = fakeData({ cvd: async () => flow({ rows: crypto }) }).data;
+    expect(await (await get("/chart", one)).text()).not.toContain('<nav class="wh-pick-kinds"');
+  });
+
+  test("?type= shows only that class's rows, and every link and the search keep it", async () => {
+    const { data } = fakeData({ cvd: async () => flow() });
+    const html = await (await get("/chart?type=equity&sort=cvd", data)).text();
+    expect(html).toContain('<details class="wh-pick cvd-pick" data-kind="equity">');
+    expect(html).toContain(
+      'href="/chart?sort=cvd&amp;type=equity" data-cvd-type="equity" aria-current="true">',
+    );
+    // All drops the class and keeps the sort.
+    expect(html).toContain('href="/chart?sort=cvd" data-cvd-type="">All');
+    // Hidden, not dropped, as ?q= does: All brings BTC back without a trip.
+    expect(html).toMatch(/data-k="BTC"[^>]*aria-current="true" hidden>/);
+    expect(html).toMatch(/data-k="equity:SNDK"[^>]*data-keys="[^"]*">/);
+    // Picking an asset keeps the list it was picked from.
+    expect(html).toContain('href="/chart/equity/SNDK?sort=cvd&amp;type=equity#cvd-chart"');
+    expect(html).toContain('<input type="hidden" name="type" value="equity">');
+    // An unknown class is no filter at all.
+    const any = await (await get("/chart?type=bonds", data)).text();
+    expect(any).not.toContain('data-kind="bonds"');
+    expect(any).toContain('data-cvd-type="" aria-current="true">All');
+  });
+
   test("an asset nothing lists is a 404, and an empty window says why", async () => {
     const { data } = fakeData({ cvd: async () => flow({ asset_class: null, rows: [], bars: [] }) });
     expect((await get("/chart/NOSUCH", data)).status).toBe(404);
