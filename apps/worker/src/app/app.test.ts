@@ -6392,7 +6392,7 @@ describe("cvd", () => {
       ["EURUSD", 1.1],
       ["USDHKD", 7.85],
       ["USDJPY", 159],
-      ["USDCNH", 6.67],
+      ["USDCNY", 6.67],
     ]);
     expect(rateLegs("USDHKD").pairs).toEqual(["USDHKD"]);
     expect(rateLegs("USDHKD").price(at)).toBeCloseTo(7.85, 10);
@@ -6400,7 +6400,7 @@ describe("cvd", () => {
     expect(rateLegs("EURHKD").pairs).toEqual(["EURUSD", "USDHKD"]);
     expect(rateLegs("EURHKD").price(at)).toBeCloseTo(1.1 * 7.85, 10);
     expect(rateLegs("HKDJPY").price(at)).toBeCloseTo(159 / 7.85, 10);
-    expect(rateLegs("CNHHKD").price(at)).toBeCloseTo(7.85 / 6.67, 10);
+    expect(rateLegs("CNYHKD").price(at)).toBeCloseTo(7.85 / 6.67, 10);
     // A leg with no quote is no price, not a wrong one.
     expect(rateLegs("GBPHKD").price(at)).toBeNull();
     // Every listed pair quotes above 1 at the rates of 2026-11-18: the larger unit comes first.
@@ -6447,16 +6447,15 @@ describe("cvd", () => {
     expect(html).toContain("of 4 assets with net taker buying");
     // The FX button counts it: it is in the list.
     expect(html).toContain('data-cvd-type="fx">fx<small class="num">1</small>');
-    // The offshore yuan's pair is found by RMB, CNY and yuan as well as CNH, with or without the
-    // script.
-    const cny: CvdAssetRow = { ...hkdRow, asset: "USDCNH", price: 6.6686 };
+    // The yuan's pair is found by RMB, CNH and yuan as well as CNY, with or without the script.
+    const cny: CvdAssetRow = { ...hkdRow, asset: "USDCNY", price: 6.6678 };
     const rmb = fakeData({ cvd: async () => flow({ rows: [...flow().rows, cny] }) }).data;
     const found = await (await get("/chart?q=RMB", rmb)).text();
     expect(found).toMatch(
-      /data-k="fx:USDCNH"[^>]*data-q="usdcnh fx rmb cny yuan"[^>]*data-keys="[^"]*">/,
+      /data-k="fx:USDCNY"[^>]*data-q="usdcny fx rmb cnh yuan"[^>]*data-keys="[^"]*">/,
     );
-    const byCode = await (await get("/chart?q=CNY", rmb)).text();
-    expect(byCode).toMatch(/data-k="fx:USDCNH"[^>]*data-keys="[^"]*">/);
+    const byCode = await (await get("/chart?q=CNH", rmb)).text();
+    expect(byCode).toMatch(/data-k="fx:USDCNY"[^>]*data-keys="[^"]*">/);
     expect(found).toMatch(/data-k="BTC"[^>]*hidden>/);
   });
 
@@ -7860,9 +7859,9 @@ describe("site-wide search", () => {
         ...RATE_PAIRS.map((pair) => [pair, 3, 0, 0, 0, 0]),
       ],
     });
-    // The yuan is the offshore one (owner, 2026-11-18): CNH, never the onshore CNY.
-    expect(RATE_PAIRS).toContain("USDCNH");
-    expect(RATE_PAIRS.some((pair) => pair.includes("CNY"))).toBe(false);
+    // The yuan is the onshore one (owner, 2026-11-19: "change CNH to CNY"), never the offshore CNH.
+    expect(RATE_PAIRS).toContain("USDCNY");
+    expect(RATE_PAIRS.some((pair) => pair.includes("CNH"))).toBe(false);
     expect(RATE_PAIRS).toContain("EURHKD");
     expect(RATE_PAIRS).toContain("HKDJPY");
     // The baht's and the dirham's (2026-11-19): every pair once, 78 in all.

@@ -915,27 +915,28 @@ const USD_LEGS: Readonly<Record<string, { pair: string; inUsd: boolean }>> = {
 };
 
 /**
- * Currency pairs that no exchange trades, charted from the collector's FX rates instead (owner,
- * 2026-11-18: "add USDHKD", "need a USD to RMB pair", "add HKD to all other foreign currency pairs",
- * and "we take offshore yuan over CNY"; 2026-11-19: the baht's and the UAE dirham's pairs, "add them
- * all"). Lighter lists USDHKD but has kept it inactive since it was listed; no venue lists the yuan,
- * the dirham or any of these crosses, and BingX's USDTHB is the baht's only market. Each is a row in the Chart page's FX list and a price chart with no CVD,
- * from fx_rates and fx_rate_history (collector internal/fx, a quote every five minutes, held to other
- * sources). Once a venue trades one, its flow row takes the place of the rate row.
+ * Currency pairs that no exchange trades, charted from the collector's FX rates instead. The owner
+ * asked on 2026-11-18 for USDHKD, "a USD to RMB pair" and "HKD to all other foreign currency pairs",
+ * and on 2026-11-19 for every pair of the baht and the UAE dirham ("add them all"). Lighter lists
+ * USDHKD but has kept it inactive since it was listed; no venue lists the yuan, the dirham or any of
+ * these crosses, and BingX's USDTHB is the baht's only market. Each is a row in the Chart page's FX
+ * list and a price chart with no CVD, from fx_rates and fx_rate_history (collector internal/fx, a
+ * quote every five minutes, held to other sources). Once a venue trades one, its flow row takes the
+ * place of the rate row.
  *
- * USDCNH and USDHKD are the collector's own pairs. The yuan is the offshore one (CNH): it trades
- * freely, where the onshore CNY is fixed in a band and Sina's quote of it is computed rather than
- * dealt. The HKD crosses are worked out from two dollar rates each (EURHKD = EURUSD × USDHKD),
- * against every other currency the job reads but the onshore yuan, and so are the baht's and the
- * dirham's. Each is named the way it quotes above 1, the larger unit first: EURHKD, CNHHKD and
- * DKKHKD, but HKDJPY and HKDSEK. The names were set from the rates of 2026-11-19 and stay put; the
- * closest to 1 then were TWDTHB (1.03), AEDPLN (1.10), ILSAED and AEDMYR (1.12).
+ * The yuan is the onshore one, CNY: the owner took the offshore CNH on 11-18 and went back to CNY on
+ * 11-19 ("change CNH to CNY"). Sina's USDCNY is computed rather than dealt; the FX job holds it to
+ * its other sources. USDCNY and USDHKD are the collector's own pairs; every cross is worked out from
+ * two dollar rates (EURHKD = EURUSD × USDHKD). Each is named the way it quotes above 1, the larger
+ * unit first: EURHKD, CNYHKD and DKKHKD, but HKDJPY and HKDSEK. The names were set from the rates of
+ * 2026-11-19 and stay put; the closest to 1 then were TWDTHB (1.03), AEDPLN (1.10), ILSAED and
+ * AEDMYR (1.12).
  *
  * The dirham's needs USDAED in the collector's FX job; until fx_rates has it, they are left out
  * (rateRows skips a pair missing a rate), so the site may ship first.
  */
 export const RATE_PAIRS: readonly string[] = [
-  "USDCNH",
+  "USDCNY",
   "USDHKD",
   ...[
     "EUR",
@@ -945,7 +946,7 @@ export const RATE_PAIRS: readonly string[] = [
     "NZD",
     "CAD",
     "SGD",
-    "CNH",
+    "CNY",
     "MYR",
     "ILS",
     "PLN",
@@ -956,13 +957,13 @@ export const RATE_PAIRS: readonly string[] = [
     (code) => `HKD${code}`,
   ),
   // The baht against the rest: USDTHB trades on BingX, HKDTHB is above and AEDTHB below.
-  ..."GBP CHF EUR SGD CAD AUD NZD ILS PLN MYR BRL CNH DKK NOK SEK ZAR MXN TWD"
+  ..."GBP CHF EUR SGD CAD AUD NZD ILS PLN MYR BRL CNY DKK NOK SEK ZAR MXN TWD"
     .split(" ")
     .map((code) => `${code}THB`),
   ..."TRY RUB INR JPY KRW IDR".split(" ").map((code) => `THB${code}`),
   // The UAE dirham, pegged to the dollar at 3.6725, against every currency.
   ..."GBP CHF EUR USD SGD CAD AUD NZD ILS".split(" ").map((code) => `${code}AED`),
-  ..."PLN MYR BRL CNH DKK HKD NOK SEK ZAR MXN TWD THB TRY RUB INR JPY KRW IDR"
+  ..."PLN MYR BRL CNY DKK HKD NOK SEK ZAR MXN TWD THB TRY RUB INR JPY KRW IDR"
     .split(" ")
     .map((code) => `AED${code}`),
 ];

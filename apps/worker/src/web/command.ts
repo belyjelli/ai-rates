@@ -230,9 +230,11 @@ export function searchScript(): string {
       // "equity:AAPL" names a class; "USD/HKD" or "BTC/USDT" is a pair written apart.
       if (i >= 0) { cls = i; q = m[2]; } else q = m[1] + m[2].replace(/[:/]/g, "");
     }
-    // The site's yuan is the offshore one, CNH: RMB and CNY (what readers call it) find it too,
-    // alone or as USDRMB, USDCNY, RMBHKD or CNYHKD.
-    q = q.replace(/^(USD)?(RMB|CNY)(HKD)?$/, "$1CNH$3");
+    // The site's yuan is CNY: RMB and CNH (what readers also call it) find it too, alone or as either
+    // half of a pair (USDRMB, CNHHKD, AEDCNH).
+    const yuan = (c) => (c === "RMB" || c === "CNH" ? "CNY" : c);
+    if (/^[A-Z]{3}$/.test(q)) q = yuan(q);
+    else if (/^[A-Z]{6}$/.test(q)) q = yuan(q.slice(0, 3)) + yuan(q.slice(3));
     let bare = q;
     for (let n = 0; n < 3; n++) {
       const s = bare.replace(/[-_\\/ ]?(USDT|USDC|USD|PERP|SWAP)$/, "");

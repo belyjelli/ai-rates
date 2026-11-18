@@ -292,8 +292,8 @@ export const charts: Catalog = {
   "{asset} chart: interbank rate": "กราฟ {asset}: อัตราระหว่างธนาคาร",
   "{asset} interbank rate, quoted every five minutes. No exchange trades it, so it has no taker flow or CVD.":
     "อัตราระหว่างธนาคารของ {asset} อัปเดตราคาทุกห้านาที ไม่มีกระดานเทรดซื้อขาย จึงไม่มีโฟลว์เทคเกอร์หรือ CVD",
-  "A currency pair that no exchange trades, USD/CNH and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
-    "คู่สกุลเงินที่ไม่มีกระดานเทรดใดซื้อขาย เช่น USD/CNH และ USD/HKD จะแสดงด้วยอัตราระหว่างธนาคารแทน อัปเดตราคาทุกห้านาที ไม่มีโฟลว์เทคเกอร์ แถวของมันจึงไม่มี CVD และกราฟแสดงเฉพาะอัตรา",
+  "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
+    "คู่สกุลเงินที่ไม่มีกระดานเทรดใดซื้อขาย เช่น USD/CNY และ USD/HKD จะแสดงด้วยอัตราระหว่างธนาคารแทน อัปเดตราคาทุกห้านาที ไม่มีโฟลว์เทคเกอร์ แถวของมันจึงไม่มี CVD และกราฟแสดงเฉพาะอัตรา",
   "its interbank rate, quoted every five minutes": "อัตราระหว่างธนาคาร อัปเดตราคาทุกห้านาที",
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "ไม่มีกระดานเทรดใดซื้อขาย {asset} จึงไม่มีโฟลว์เทคเกอร์ให้รวม นี่คืออัตราระหว่างธนาคารที่คำนวณจาก {first} และ {second} ซึ่งอัปเดตราคาทุกห้านาทีทั้งคู่ ราคาที่เก่ากว่า {age}",

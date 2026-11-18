@@ -300,8 +300,8 @@ export const charts: Catalog = {
   "{asset} chart: interbank rate": "{asset} チャート：インターバンクレート",
   "{asset} interbank rate, quoted every five minutes. No exchange trades it, so it has no taker flow or CVD.":
     "{asset} のインターバンクレート（5分ごとに気配を取得）。取引所で取引されていないため、テイカーフローも CVD もありません。",
-  "A currency pair that no exchange trades, USD/CNH and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
-    "取引所で取引されていない通貨ペア（米ドル/オフショア人民元、米ドル/香港ドルなど）は、代わりにインターバンクレートで表示します。5分ごとの気配で、テイカーフローがないため、その行に CVD はなく、チャートはレートのみです。",
+  "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
+    "取引所で取引されていない通貨ペア（米ドル/人民元、米ドル/香港ドルなど）は、代わりにインターバンクレートで表示します。5分ごとの気配で、テイカーフローがないため、その行に CVD はなく、チャートはレートのみです。",
   "its interbank rate, quoted every five minutes": "インターバンクレート（5分ごとに気配を取得）",
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "{asset} を取引する取引所はないため、合計するテイカーフローはありません。これは {first} と {second} から算出したインターバンクレートで、どちらも5分ごとに気配を取得しています。古いほうの気配：{age}。",
