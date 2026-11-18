@@ -568,4 +568,13 @@ export const macro: Catalog = {
     "Polymarket 和 Kalshi 目前没有未结的问题。",
   "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
     "价格和成交量来自 Polymarket 和 Kalshi，读取于 {time}。概率是 Yes 份额的价格，是人群正在支付的价格，不是我们的预测。",
+  // The homepage section's automatic pin (web/bets.ts, app/pin-finder.ts).
+  "Picked automatically until {date}": "自动置顶至 {date}",
+  "A story across {n} questions": "横跨 {n} 个问题的事件",
+  "On Polymarket and Kalshi": "Polymarket 和 Kalshi 都有",
+  "{volume} traded on it in 24h": "24 小时内成交 {volume}",
+  "Polymarket's featured #{n}": "Polymarket 精选第 {n}",
+  "New since {date}": "{date} 起的新事件",
+  "When nothing is pinned by hand, the biggest new story is pinned by itself for three days. Questions that share a topic Polymarket tagged in the last month are one story; it scores the money traded on it over 24 hours, more for questions opened this week, for markets, companies, the economy and tech, and for what Polymarket features. It is pinned when it scores at least half as much again as any other, and a story twice its size takes the pin sooner. The card says why it was picked.":
+    "没有手动置顶时，最大的新事件会自动置顶三天。共享 Polymarket 近一个月内新建主题标签的问题算作同一个事件；事件按过去 24 小时的成交额打分，本周新开的问题、与市场、公司、经济和科技相关的问题，以及 Polymarket 精选的问题权重更高。得分至少比其他任何事件高出一半时才会置顶，规模是它两倍的事件会提前取而代之。卡片会说明入选原因。",
 };

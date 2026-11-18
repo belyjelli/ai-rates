@@ -1,4 +1,5 @@
 import type { BetAnswer, BetEvent, BetLine, BetsRead, BetVenue } from "../app/bet-types";
+import type { PinReasons } from "../app/pin-finder";
 import { chartSkeleton } from "./chart-skeleton";
 import { esc, formatUsd } from "./format";
 import { helpButton, helpPanel } from "./help";
@@ -65,7 +66,7 @@ export function betsSection(): string {
 <div class="section-head"><h2 class="has-help">${tr("What the crowd is betting on")}${helpButton("bets")}</h2><span class="bets-venues">${venueLinks()}</span></div>
 ${helpPanel(
   "bets",
-  `<p>${tr("Prediction markets on Polymarket and Kalshi: the question we pinned, the one with the most money traded over the last 24 hours on either venue, and the next ones, at least three from each venue. Sports are left out, and so are the short questions that repeat every day or week (today's Bitcoin range, tomorrow's weather, a week of tweets).")}</p><p>${tr("A price is the crowd's chance: a Yes share at 9¢ pays $1 if it happens, so the crowd puts it at 9%. Kalshi counts its volume in contracts that pay $1; here it is contracts times their price, the dollars paid, as Polymarket counts it. The charts are each venue's own price history. Read every five minutes.")}</p>`,
+  `<p>${tr("Prediction markets on Polymarket and Kalshi: the question we pinned, the one with the most money traded over the last 24 hours on either venue, and the next ones, at least three from each venue. Sports are left out, and so are the short questions that repeat every day or week (today's Bitcoin range, tomorrow's weather, a week of tweets).")}</p><p>${tr("When nothing is pinned by hand, the biggest new story is pinned by itself for three days. Questions that share a topic Polymarket tagged in the last month are one story; it scores the money traded on it over 24 hours, more for questions opened this week, for markets, companies, the economy and tech, and for what Polymarket features. It is pinned when it scores at least half as much again as any other, and a story twice its size takes the pin sooner. The card says why it was picked.")}</p><p>${tr("A price is the crowd's chance: a Yes share at 9¢ pays $1 if it happens, so the crowd puts it at 9%. Kalshi counts its volume in contracts that pay $1; here it is contracts times their price, the dollars paid, as Polymarket counts it. The charts are each venue's own price history. Read every five minutes.")}</p>`,
 )}
 <div class="bets-box" data-bets-src="${BETS_PATH}" aria-busy="true">${chartSkeleton(
     `<span class="lazy-msg">${tr("Loading…")}</span><noscript><a href="${BETS_PATH}">${tr("Prediction markets")}</a> · ${venueLinks()}</noscript>`,
@@ -134,7 +135,23 @@ function oddsChart(event: BetEvent, lines: BetLine[]): string {
 }
 
 /** A featured event: its answers' chances as tiles (keyed to the chart's lines), its chart, its volume. */
-function card(eyebrow: string, event: BetEvent, lines: BetLine[]): string {
+/**
+ * Why the pin finder (app/pin-finder.ts) picked a story, as the card says it: how many questions it
+ * spans and on which venues, the money traded on it, Polymarket's own featuring, and how new it is.
+ */
+function pickedBecause(r: PinReasons, now: number): string {
+  const parts: string[] = [];
+  if (r.questions > 1) parts.push(tr("A story across {n} questions", { n: r.questions }));
+  if (r.venues.length > 1) parts.push(tr("On Polymarket and Kalshi"));
+  parts.push(tr("{volume} traded on it in 24h", { volume: formatUsd(r.volume24h) }));
+  if (r.featuredOrder !== null && r.featuredOrder <= 3)
+    parts.push(tr("Polymarket's featured #{n}", { n: r.featuredOrder }));
+  if (r.openedMs !== null && now - r.openedMs <= 14 * DAY_MS)
+    parts.push(tr("New since {date}", { date: day(r.openedMs) }));
+  return `<p class="bets-why">${parts.map((p) => `<span>${p}</span>`).join("")}</p>`;
+}
+
+function card(eyebrow: string, event: BetEvent, lines: BetLine[], why = ""): string {
   const shown = lines.length
     ? lines
         .map((l) => event.answers.find((a) => a.label === l.label))
@@ -162,6 +179,7 @@ function card(eyebrow: string, event: BetEvent, lines: BetLine[]): string {
   return `<article class="bets-top">
 <p class="eyebrow">${eyebrow} · ${VENUE_NAME[event.venue]}</p>
 <h3 class="bets-q">${outLink(event.url, esc(event.title))}</h3>
+${why}
 ${event.context ? `<p class="bets-ctx">${esc(event.context)}</p>` : ""}
 <div class="bets-tiles">${tiles}</div>
 ${lines.length ? oddsChart(event, lines) : ""}
@@ -192,13 +210,17 @@ function table(events: BetEvent[]): string {
 /** What BETS_PATH answers: the section's contents. */
 export function betsFragment(read: BetsRead): string {
   const cards: string[] = [];
-  if (read.pinned)
+  const pin = read.pinned;
+  if (pin)
     cards.push(
-      card(
-        tr("Pinned until {date}", { date: day(read.pinned.untilMs) }),
-        read.pinned.event,
-        read.pinned.lines,
-      ),
+      pin.auto
+        ? card(
+            tr("Picked automatically until {date}", { date: day(pin.untilMs) }),
+            pin.event,
+            pin.lines,
+            pickedBecause(pin.auto, read.readAt),
+          )
+        : card(tr("Pinned until {date}", { date: day(pin.untilMs) }), pin.event, pin.lines),
     );
   if (read.busiest)
     cards.push(
@@ -236,6 +258,8 @@ export const BETS_CSS = `.bets{margin-bottom:6px}
 .bets-top .eyebrow{margin:0 0 4px}
 .bets-q{font-size:18px;margin:0 0 4px;line-height:1.3}
 .bets-q a{color:var(--ink)}
+.bets-why{display:flex;flex-wrap:wrap;gap:4px 6px;margin:2px 0 8px}
+.bets-why span{border:1px solid var(--rule);padding:1px 6px;color:var(--muted)}
 .bets-ctx{color:var(--muted);margin:0 0 12px;max-width:100ch;line-height:1.45}
 .bets-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:8px 0 12px}
 .bets-tile{border:1px solid var(--rule);padding:8px 10px;min-width:0}

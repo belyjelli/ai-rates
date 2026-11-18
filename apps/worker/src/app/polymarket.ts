@@ -26,8 +26,10 @@ import {
  *
  *   - gamma-api /events, the top EVENTS_READ events by 24-hour volume with sports left out at the
  *     source (`exclude_tag_id=1`, the sports tag, which also carries esports). Each event comes with
- *     every market it holds and their rules, so it is heavy: about 3.2 MB of JSON for 20 events on
- *     2026-11-18, the elections with 128 candidates each being most of it. Above 50 events the API
+ *     every market it holds and their rules, so it is heavy: about 5 MB of JSON for 30 events on
+ *     2026-11-18, the elections with 128 candidates each being most of it. Thirty rather than the
+ *     table's ten because the pin finder (app/pin-finder.ts) groups them into stories, and a story is
+ *     the questions that share a new topic tag, several of which sit below the top ten. Above 50 the API
  *     answers gzip only.
  *   - clob /prices-history, one answer's Yes price since the market opened, about 3 KB.
  */
@@ -37,7 +39,7 @@ export const CLOB_HISTORY_URL = "https://clob.polymarket.com/prices-history";
 export const POLYMARKET_EVENT_URL = "https://polymarket.com/event/";
 
 /** How many events are asked for: enough that the questions left out below still leave POLY_KEPT. */
-export const EVENTS_READ = 20;
+export const EVENTS_READ = 30;
 /** How many are kept for the section, before Kalshi's join them. */
 export const POLY_KEPT = 10;
 const EVENTS_TIMEOUT_MS = 8_000;
@@ -140,9 +142,61 @@ export function pickEvents(raw: unknown, now: number, kept = POLY_KEPT): BetEven
   return picked.sort((a, b) => b.volume24h - a.volume24h);
 }
 
-/** Polymarket's busiest events of the last 24 hours, sports and the daily repeats left out. */
-export async function polymarketBusiest(get: typeof fetch, now: number): Promise<BetEvent[]> {
-  const q = new URLSearchParams({
+/** What the pin finder (app/pin-finder.ts) needs of one event beyond what the section shows. */
+export interface StorySignal {
+  id: string;
+  title: string;
+  volume24h: number;
+  /** When the event opened, epoch ms; null if unknown. */
+  openedMs: number | null;
+  /** Polymarket's own editorial order among featured events (1 is first); null when not featured. */
+  featuredOrder: number | null;
+  /** Its topic tags, with when Polymarket made each: a tag made this month names a new story. */
+  tags: { slug: string; label: string; createdMs: number | null }[];
+}
+
+/** The pin finder's view of the events kept from one gamma /events answer (as pickEvents keeps). */
+export function storySignals(raw: unknown, now: number): StorySignal[] {
+  if (!Array.isArray(raw)) return [];
+  const out: StorySignal[] = [];
+  for (const item of raw as Record<string, unknown>[]) {
+    if (!item || typeof item !== "object" || leftOut(item)) continue;
+    const event = parseEvent(item, now);
+    if (!event || event.volume24h <= 0) continue;
+    const tags = Array.isArray(item.tags) ? (item.tags as Record<string, unknown>[]) : [];
+    out.push({
+      id: event.id,
+      title: event.title,
+      volume24h: event.volume24h,
+      openedMs: msOrNull(item.creationDate) ?? event.startMs,
+      featuredOrder:
+        item.featured === true ? (numOrNull(item.featuredOrder) ?? Number.MAX_SAFE_INTEGER) : null,
+      tags: tags
+        .map((t) => ({
+          slug: text(t.slug),
+          label: text(t.label),
+          createdMs: msOrNull(t.createdAt),
+        }))
+        .filter((t) => t.slug !== ""),
+    });
+  }
+  return out;
+}
+
+/**
+ * Polymarket's busiest events of the last 24 hours, sports and the daily repeats left out: the ones
+ * the section shows, and every one's story signals for the pin finder, from the same answer.
+ */
+export async function polymarketRead(
+  get: typeof fetch,
+  now: number,
+): Promise<{ events: BetEvent[]; signals: StorySignal[] }> {
+  const raw = await getJson(get, `${GAMMA_EVENTS_URL}?${busiestQuery()}`, EVENTS_TIMEOUT_MS);
+  return { events: pickEvents(raw, now), signals: storySignals(raw, now) };
+}
+
+const busiestQuery = () =>
+  new URLSearchParams({
     active: "true",
     closed: "false",
     order: "volume24hr",
@@ -150,7 +204,10 @@ export async function polymarketBusiest(get: typeof fetch, now: number): Promise
     limit: String(EVENTS_READ),
     exclude_tag_id: String(SPORTS_TAG_ID),
   });
-  return pickEvents(await getJson(get, `${GAMMA_EVENTS_URL}?${q}`, EVENTS_TIMEOUT_MS), now);
+
+/** Polymarket's busiest events of the last 24 hours, sports and the daily repeats left out. */
+export async function polymarketBusiest(get: typeof fetch, now: number): Promise<BetEvent[]> {
+  return (await polymarketRead(get, now)).events;
 }
 
 /** One event by its slug (a pinned one), or null when it is gone or closed. */

@@ -3,6 +3,8 @@ import type { BetEvent } from "./bet-types";
 import { eventContext } from "./bet-types";
 import { activePin, arrange, betsSource, forgetBets, type Pin, tableRows } from "./bets";
 import { parseCandles, parseKalshiEvent, pickTickers } from "./kalshi";
+import type { PinCandidate } from "./pin-finder";
+import { AUTO_PIN_MS, type AutoPin, type AutoPinStore, decidePin } from "./pin-store";
 import {
   HISTORY_WINDOW_MS,
   historyQuery,
@@ -320,11 +322,20 @@ describe("the source", () => {
       const url = new URL(String(input));
       calls.push(`${url.host}${url.pathname}`);
       if (url.host === "gamma-api.polymarket.com") {
-        if (url.searchParams.get("slug")) return json([JENSEN]);
-        return json([
-          { ...JENSEN, slug: "fed", title: "Fed decision?", volume24hr: 1_600_000 },
-          JENSEN,
-        ]);
+        const list = [
+          {
+            ...JENSEN,
+            slug: "fed",
+            title: "Fed decision?",
+            volume24hr: 1_600_000,
+            // Open since July: busy, but not news.
+            startDate: "2026-07-29T23:28:08Z",
+            creationDate: "2026-07-29T23:28:08Z",
+          },
+          { ...JENSEN, featured: true, featuredOrder: 2 },
+        ];
+        const slug = url.searchParams.get("slug");
+        return json(slug ? list.filter((e) => e.slug === slug) : list);
       }
       if (url.pathname === "/prices-history")
         return json({
@@ -396,6 +407,55 @@ describe("the source", () => {
     const read = await betsSource({ fetch: kalshiDown, now: () => NOW, pins: [] }).bets();
     expect(read?.busiest?.event.venue).toBe("polymarket");
     expect(read?.events.every((e) => e.venue === "polymarket")).toBe(true);
+  });
+
+  /** The automatic pin's store, in memory, under the same rules as the Durable Object. */
+  const memoryPins = () => {
+    let held: AutoPin | null = null;
+    const asked: (PinCandidate | null)[] = [];
+    const store: AutoPinStore = {
+      decide: async (candidate, at) => {
+        asked.push(candidate);
+        held = decidePin(held, candidate, at).pin;
+        return held;
+      },
+    };
+    return { store, asked };
+  };
+
+  test("with no pin by hand, the pin finder's story is pinned, with its reasons", async () => {
+    const { get } = fakeFetch();
+    const { store, asked } = memoryPins();
+    const read = await betsSource({ fetch: get, now: () => NOW, pins: [], autoPins: store }).bets();
+    expect(asked[0]?.id).toBe("jensen-huang-rejoins-nvidia-byptptpt");
+    expect(read?.pinned?.event.id).toBe("jensen-huang-rejoins-nvidia-byptptpt");
+    expect(read?.pinned?.untilMs).toBe(NOW + AUTO_PIN_MS);
+    expect(read?.pinned?.auto).toMatchObject({ featuredOrder: 2, volume24h: 2_036_206 });
+    expect(read?.busiest?.event.id).toBe("fed");
+  });
+
+  test("a pin by hand wins, and the finder is still asked so its pin is current after", async () => {
+    const { get } = fakeFetch();
+    const { store, asked } = memoryPins();
+    const pins: Pin[] = [{ venue: "polymarket", id: "fed", untilMs: NOW + 86_400_000 }];
+    const read = await betsSource({ fetch: get, now: () => NOW, pins, autoPins: store }).bets();
+    expect(read?.pinned?.event.id).toBe("fed");
+    expect(read?.pinned?.auto).toBeNull();
+    expect(read?.busiest?.event.id).toBe("jensen-huang-rejoins-nvidia-byptptpt");
+    expect(asked).toHaveLength(1);
+  });
+
+  test("a store that fails leaves the section without an automatic pin", async () => {
+    const { get } = fakeFetch();
+    const broken: AutoPinStore = { decide: () => Promise.reject(new Error("down")) };
+    const read = await betsSource({
+      fetch: get,
+      now: () => NOW,
+      pins: [],
+      autoPins: broken,
+    }).bets();
+    expect(read?.pinned).toBeNull();
+    expect(read?.busiest?.event.id).toBe("jensen-huang-rejoins-nvidia-byptptpt");
   });
 
   test("nothing read and nothing kept is null", async () => {

@@ -7,6 +7,7 @@ interface __BaseEnv_Env {
 	BACKTEST_LIMITER: RateLimit;
 	PROBE: DurableObjectNamespace<import("./apps/worker/src/index").ProbeDO>;
 	REFERRALS: DurableObjectNamespace<import("./apps/worker/src/index").ReferralStoreDO>;
+	PINS: DurableObjectNamespace<import("./apps/worker/src/index").PinStoreDO>;
 	// Set in the dashboard, not wrangler.jsonc (keep_vars): unset means /admin refuses everyone.
 	// ADMIN_PASSWORD belongs in Secrets, so it is encrypted and never shown again.
 	ADMIN_USER?: string;
@@ -18,7 +19,7 @@ interface __BaseEnv_Env {
 declare namespace Cloudflare {
 	interface GlobalProps {
 		mainModule: typeof import("./apps/worker/src/index");
-		durableNamespaces: "ProbeDO" | "ReferralStoreDO";
+		durableNamespaces: "ProbeDO" | "ReferralStoreDO" | "PinStoreDO";
 	}
 	interface Env extends __BaseEnv_Env {}
 }

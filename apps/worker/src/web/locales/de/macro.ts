@@ -587,4 +587,13 @@ export const macro: Catalog = {
     "Gerade keine offene Frage auf Polymarket oder Kalshi.",
   "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
     "Preise und Volumen von Polymarket und Kalshi, gelesen um {time}. Eine Chance ist der Preis eines Yes-Anteils; das zahlt die Crowd, es ist keine Prognose von uns.",
+  // The homepage section's automatic pin (web/bets.ts, app/pin-finder.ts).
+  "Picked automatically until {date}": "Automatisch gewählt bis {date}",
+  "A story across {n} questions": "Eine Story über {n} Fragen",
+  "On Polymarket and Kalshi": "Auf Polymarket und Kalshi",
+  "{volume} traded on it in 24h": "{volume} darauf gehandelt in 24h",
+  "Polymarket's featured #{n}": "Polymarket-Featured #{n}",
+  "New since {date}": "Neu seit {date}",
+  "When nothing is pinned by hand, the biggest new story is pinned by itself for three days. Questions that share a topic Polymarket tagged in the last month are one story; it scores the money traded on it over 24 hours, more for questions opened this week, for markets, companies, the economy and tech, and for what Polymarket features. It is pinned when it scores at least half as much again as any other, and a story twice its size takes the pin sooner. The card says why it was picked.":
+    "Wenn nichts von Hand angepinnt ist, wird die größte neue Story für drei Tage von selbst angepinnt. Fragen, die ein Thema teilen, das Polymarket im letzten Monat getaggt hat, sind eine Story; sie wird nach dem Geld bewertet, das in 24 Stunden darauf gehandelt wurde, stärker gewichtet für Fragen, die diese Woche eröffnet wurden, für Märkte, Unternehmen, Wirtschaft und Tech und für das, was Polymarket hervorhebt. Angepinnt wird sie, wenn sie mindestens anderthalbmal so hoch bewertet ist wie jede andere, und eine doppelt so große Story übernimmt den Platz früher. Die Karte sagt, warum sie gewählt wurde.",
 };

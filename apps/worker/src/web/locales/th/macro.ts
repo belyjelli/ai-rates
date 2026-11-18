@@ -574,4 +574,13 @@ export const macro: Catalog = {
     "ตอนนี้ไม่มีคำถามที่เปิดอยู่บน Polymarket หรือ Kalshi",
   "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
     "ราคาและวอลุ่มจาก Polymarket และ Kalshi อ่านเมื่อ {time} โอกาสคือราคาของส่วนแบ่ง Yes เป็นสิ่งที่ฝูงชนกำลังจ่าย ไม่ใช่การคาดการณ์ของเรา",
+  // The homepage section's automatic pin (web/bets.ts, app/pin-finder.ts).
+  "Picked automatically until {date}": "เลือกอัตโนมัติถึง {date}",
+  "A story across {n} questions": "เรื่องเดียวกันใน {n} คำถาม",
+  "On Polymarket and Kalshi": "บน Polymarket และ Kalshi",
+  "{volume} traded on it in 24h": "ซื้อขาย {volume} ใน 24 ชม.",
+  "Polymarket's featured #{n}": "Polymarket แนะนำอันดับ {n}",
+  "New since {date}": "ใหม่ตั้งแต่ {date}",
+  "When nothing is pinned by hand, the biggest new story is pinned by itself for three days. Questions that share a topic Polymarket tagged in the last month are one story; it scores the money traded on it over 24 hours, more for questions opened this week, for markets, companies, the economy and tech, and for what Polymarket features. It is pinned when it scores at least half as much again as any other, and a story twice its size takes the pin sooner. The card says why it was picked.":
+    "เมื่อไม่มีการปักหมุดด้วยมือ เรื่องใหม่ที่ใหญ่ที่สุดจะถูกปักหมุดเองเป็นเวลาสามวัน คำถามที่มีหัวข้อร่วมกันซึ่ง Polymarket ติดแท็กไว้ในเดือนที่ผ่านมานับเป็นเรื่องเดียวกัน คะแนนมาจากเงินที่ซื้อขายใน 24 ชั่วโมง โดยให้น้ำหนักมากขึ้นกับคำถามที่เปิดในสัปดาห์นี้ คำถามด้านตลาด บริษัท เศรษฐกิจ และเทคโนโลยี และคำถามที่ Polymarket แนะนำ เรื่องนั้นจะถูกปักหมุดเมื่อคะแนนสูงกว่าเรื่องอื่นอย่างน้อยครึ่งเท่า และเรื่องที่ใหญ่กว่าสองเท่าจะเข้ามาแทนที่ได้เร็วขึ้น การ์ดจะบอกเหตุผลที่เลือก",
 };

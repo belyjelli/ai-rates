@@ -577,4 +577,13 @@ export const macro: Catalog = {
     "現在 Polymarket と Kalshi に受付中の質問はありません。",
   "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
     "価格と出来高は Polymarket と Kalshi から {time} に取得。確率は Yes シェアの価格で、参加者が支払っている額であり、当サイトの予測ではありません。",
+  // The homepage section's automatic pin (web/bets.ts, app/pin-finder.ts).
+  "Picked automatically until {date}": "{date} まで自動で固定表示",
+  "A story across {n} questions": "{n} 件の質問にまたがる話題",
+  "On Polymarket and Kalshi": "Polymarket と Kalshi の両方",
+  "{volume} traded on it in 24h": "24時間で {volume} が取引",
+  "Polymarket's featured #{n}": "Polymarket 注目 #{n}",
+  "New since {date}": "{date} からの新しい話題",
+  "When nothing is pinned by hand, the biggest new story is pinned by itself for three days. Questions that share a topic Polymarket tagged in the last month are one story; it scores the money traded on it over 24 hours, more for questions opened this week, for markets, companies, the economy and tech, and for what Polymarket features. It is pinned when it scores at least half as much again as any other, and a story twice its size takes the pin sooner. The card says why it was picked.":
+    "手動で固定していないときは、最大の新しい話題を自動で3日間固定表示します。Polymarket が直近1か月に作ったトピックタグを共有する質問を一つの話題とし、過去24時間の取引額で採点します。今週始まった質問、市場・企業・経済・テクノロジーの質問、Polymarket が注目に挙げた質問ほど重みが大きくなります。ほかのどの話題よりも少なくとも1.5倍のスコアで固定され、その2倍の規模の話題が現れれば早めに入れ替わります。カードに選ばれた理由を示します。",
 };

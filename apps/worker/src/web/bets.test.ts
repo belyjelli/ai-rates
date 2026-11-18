@@ -55,6 +55,7 @@ const READ: BetsRead = {
       line("December 31, 2027", 0.15, 0.34),
     ],
     untilMs: Date.parse("2026-11-25T06:00:00Z"),
+    auto: null,
   },
   busiest: {
     event: event({
@@ -112,6 +113,31 @@ describe("homepage prediction markets", () => {
     expect(html).toContain("Rene Haas");
     expect(html).toContain("+1 more");
     expect(html).not.toContain("<NVIDIA>");
+  });
+
+  test("an automatic pin says so, and why it was picked", () => {
+    const auto = {
+      questions: 7,
+      venues: ["polymarket", "kalshi"] as ("polymarket" | "kalshi")[],
+      volume24h: 4_800_000,
+      featuredOrder: 2,
+      openedMs: Date.parse("2026-11-12T21:18:08Z"),
+    };
+    const html = withLocale("en", () =>
+      betsFragment({
+        ...READ,
+        pinned: { ...(READ.pinned as NonNullable<BetsRead["pinned"]>), auto },
+      }),
+    );
+    expect(html).toContain("Picked automatically until Nov 25 · Polymarket");
+    expect(html).not.toContain("Pinned until");
+    expect(html).toContain('<p class="bets-why"><span>A story across 7 questions</span>');
+    expect(html).toContain("<span>On Polymarket and Kalshi</span>");
+    expect(html).toContain("<span>$4.8M traded on it in 24h</span>");
+    expect(html).toContain("<span>Polymarket's featured #2</span>");
+    expect(html).toContain("<span>New since Nov 12</span>");
+    // A pin by hand gives no reasons.
+    expect(withLocale("en", () => betsFragment(READ))).not.toContain("bets-why");
   });
 
   test("without a pin the busiest stands alone; with nothing, it says so", () => {

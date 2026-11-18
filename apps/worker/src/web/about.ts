@@ -43,6 +43,7 @@ export const CHANGELOG: readonly Release[] = [
     title: "Prediction markets on the front page",
     changes: [
       "New on the front page, above the widest spreads: what the crowd is betting on, from Polymarket and Kalshi. The question we pinned (Jensen Huang rejoins NVIDIA by...?, until November 25) and the most traded question of the last 24 hours each show their answers' chances, the change over the day and a chart of the odds since the market opened. The next most traded follow in a table, at least three from each venue. Sports and the questions that repeat every day or week are left out.",
+      "When nothing is pinned by hand, the section pins the biggest new story by itself for three days: questions sharing a topic Polymarket tagged this month count as one story, Kalshi's join it when they name the same company or person, and the card says why it was picked (how many questions, the money traded on it, how new it is).",
     ],
   },
   {

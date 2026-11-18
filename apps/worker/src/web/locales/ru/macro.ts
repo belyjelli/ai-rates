@@ -585,4 +585,13 @@ export const macro: Catalog = {
     "Сейчас на Polymarket и Kalshi нет открытых вопросов.",
   "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
     "Цены и объёмы с Polymarket и Kalshi, прочитаны в {time}. Шанс — это цена доли Yes: столько платит толпа, это не наш прогноз.",
+  // The homepage section's automatic pin (web/bets.ts, app/pin-finder.ts).
+  "Picked automatically until {date}": "Выбрано автоматически до {date}",
+  "A story across {n} questions": "Сюжет, вопросов: {n}",
+  "On Polymarket and Kalshi": "На Polymarket и Kalshi",
+  "{volume} traded on it in 24h": "Оборот за 24 ч: {volume}",
+  "Polymarket's featured #{n}": "В подборке Polymarket: №{n}",
+  "New since {date}": "Новое с {date}",
+  "When nothing is pinned by hand, the biggest new story is pinned by itself for three days. Questions that share a topic Polymarket tagged in the last month are one story; it scores the money traded on it over 24 hours, more for questions opened this week, for markets, companies, the economy and tech, and for what Polymarket features. It is pinned when it scores at least half as much again as any other, and a story twice its size takes the pin sooner. The card says why it was picked.":
+    "Если ничего не закреплено вручную, крупнейший новый сюжет закрепляется сам на три дня. Вопросы с общей темой, которую Polymarket отметила тегом за последний месяц, — это один сюжет; его оценка — оборот за 24 часа, с большим весом для вопросов, открытых на этой неделе, для рынков, компаний, экономики и технологий и для того, что продвигает Polymarket. Сюжет закрепляется, если его оценка хотя бы в полтора раза выше любой другой, а сюжет вдвое крупнее сменяет его раньше. На карточке сказано, почему он выбран.",
 };

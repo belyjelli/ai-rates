@@ -63,12 +63,15 @@
     "bindings": [
       { "name": "PROBE", "class_name": "ProbeDO" },
       // The referral links entered at /admin/referrals (apps/worker/src/referrals/store-do.ts).
-      { "name": "REFERRALS", "class_name": "ReferralStoreDO" }
+      { "name": "REFERRALS", "class_name": "ReferralStoreDO" },
+      // The homepage's automatic pin, one decision for every location (app/pin-store.ts).
+      { "name": "PINS", "class_name": "PinStoreDO" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["ProbeDO"] },
-    { "tag": "v2", "new_sqlite_classes": ["ReferralStoreDO"] }
+    { "tag": "v2", "new_sqlite_classes": ["ReferralStoreDO"] },
+    { "tag": "v3", "new_sqlite_classes": ["PinStoreDO"] }
   ],
   // ADMIN_USER and ADMIN_PASSWORD protect /admin and are set in the dashboard (Workers > airates >
   // Settings > Variables), not here: ADMIN_PASSWORD as a Secret, so it is encrypted at rest and never

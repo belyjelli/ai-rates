@@ -1,11 +1,16 @@
 import type { BetEvent, BetLine, BetsRead, BetVenue } from "./bet-types";
 import { kalshiBusiest, kalshiEvent, kalshiLines } from "./kalshi";
-import { polymarketBusiest, polymarketEvent, polymarketLines } from "./polymarket";
+import { findStories, pinCandidate } from "./pin-finder";
+import type { AutoPin, AutoPinStore } from "./pin-store";
+import { polymarketEvent, polymarketLines, polymarketRead } from "./polymarket";
 
 /**
  * The homepage's prediction-market section (web/bets.ts), from Polymarket (app/polymarket.ts) and
- * Kalshi (app/kalshi.ts) together: the event the owner pinned, the most traded event of the last
- * 24 hours on either venue, and the next ones in a table. Dollars traded rank the two venues as one.
+ * Kalshi (app/kalshi.ts) together: the pinned event, the most traded event of the last 24 hours on
+ * either venue, and the next ones in a table. Dollars traded rank the two venues as one.
+ *
+ * THE PIN is the owner's while one of PINS lasts; otherwise the pin finder's (app/pin-finder.ts): the
+ * biggest new story, held for every location by app/pin-store.ts. With neither, nothing is pinned.
  *
  * One read is about 3 MB from Polymarket and 1 MB from Kalshi, and a few dozen kilobytes of price
  * history for the two charts. The result is a few kilobytes, kept BETS_FRESH_MS in this isolate and
@@ -30,7 +35,8 @@ export const PINS: readonly Pin[] = [
   {
     venue: "polymarket",
     id: "jensen-huang-rejoins-nvidia-byptptpt",
-    untilMs: Date.parse("2026-11-25T06:00:00Z"),
+    // Owner, 2026-11-18: through November 25, then the pin finder takes over.
+    untilMs: Date.parse("2026-11-25T23:59:59Z"),
   },
 ];
 
@@ -47,9 +53,9 @@ export const MIN_PER_VENUE = 3;
 export const BETS_FRESH_MS = 5 * 60_000;
 /** An older one is still served, and read again behind it, up to this age. */
 export const BETS_KEEP_MS = 2 * 3_600_000;
-const BETS_CACHE_KEY = "https://airrates.internal/predictions/bets?v=2";
+const BETS_CACHE_KEY = "https://airrates.internal/predictions/bets?v=3";
 
-/** The pin in force at `now`, the first if several are. */
+/** The owner's pin in force at `now`, the first if several are. */
 export const activePin = (now: number, pins: readonly Pin[] = PINS): Pin | null =>
   pins.find((p) => p.untilMs > now) ?? null;
 
@@ -113,6 +119,8 @@ export interface BetsOptions {
   log?: (line: string) => void;
   /** The pins; PINS unless a test says otherwise. */
   pins?: readonly Pin[];
+  /** The automatic pin's store (app/pin-store.ts); absent in tests and local dev: no automatic pin. */
+  autoPins?: AutoPinStore;
 }
 
 /**
@@ -131,7 +139,7 @@ export function forgetBets(): void {
 }
 
 export function betsSource(options: BetsOptions): BetsSource {
-  const { fetch: get, cache = null, waitUntil, now, log, pins = PINS } = options;
+  const { fetch: get, cache = null, waitUntil, now, log, pins = PINS, autoPins } = options;
 
   const lines = (event: BetEvent, at: number): Promise<BetLine[]> =>
     (event.venue === "kalshi"
@@ -142,31 +150,46 @@ export function betsSource(options: BetsOptions): BetsSource {
       return [];
     });
 
+  const eventById = (pin: Pin, at: number): Promise<BetEvent | null> =>
+    pin.venue === "kalshi" ? kalshiEvent(get, pin.id, at) : polymarketEvent(get, pin.id, at);
+
   const read = async (): Promise<BetsRead> => {
     const at = now();
-    const pin = activePin(at, pins);
-    const [poly, kalshi, pinnedRead] = await Promise.allSettled([
-      polymarketBusiest(get, at),
+    const manual = activePin(at, pins);
+    const [poly, kalshi, manualRead] = await Promise.allSettled([
+      polymarketRead(get, at),
       kalshiBusiest(get, at),
-      pin
-        ? pin.venue === "kalshi"
-          ? kalshiEvent(get, pin.id, at)
-          : polymarketEvent(get, pin.id, at)
-        : Promise.resolve(null),
+      manual ? eventById(manual, at) : Promise.resolve(null),
     ]);
     if (poly.status === "rejected") log?.(`polymarket not read: ${String(poly.reason)}`);
     if (kalshi.status === "rejected") log?.(`kalshi not read: ${String(kalshi.reason)}`);
-    if (pinnedRead.status === "rejected")
-      log?.(`pinned event not read: ${String(pinnedRead.reason)}`);
-    const ranked = rankEvents([
-      poly.status === "fulfilled" ? poly.value : [],
-      kalshi.status === "fulfilled" ? kalshi.value : [],
-    ]);
-    const { pinned, busiest, table } = arrange(
-      ranked,
-      pin,
-      pinnedRead.status === "fulfilled" ? pinnedRead.value : null,
-    );
+    if (manualRead.status === "rejected")
+      log?.(`pinned event not read: ${String(manualRead.reason)}`);
+    const kalshiEvents = kalshi.status === "fulfilled" ? kalshi.value : [];
+    const ranked = rankEvents([poly.status === "fulfilled" ? poly.value.events : [], kalshiEvents]);
+    // The pin finder weighs every read, a hand pin or not, so the store's pin is current when the
+    // hand pin ends; without Polymarket's answer it has nothing to weigh and the standing pin stays.
+    let auto: AutoPin | null = null;
+    if (autoPins) {
+      const candidate =
+        poly.status === "fulfilled"
+          ? pinCandidate(findStories(poly.value.signals, kalshiEvents, at), at)
+          : null;
+      auto = await autoPins.decide(candidate, at).catch((err) => {
+        log?.(`automatic pin not read: ${String(err)}`);
+        return null;
+      });
+    }
+    const pin: Pin | null =
+      manual ?? (auto ? { venue: auto.venue, id: auto.id, untilMs: auto.until } : null);
+    let pinnedRead = manualRead.status === "fulfilled" ? manualRead.value : null;
+    if (!manual && pin) {
+      pinnedRead = await eventById(pin, at).catch((err) => {
+        log?.(`automatic pin's event not read: ${String(err)}`);
+        return null;
+      });
+    }
+    const { pinned, busiest, table } = arrange(ranked, pin, pinnedRead);
     if (!pinned && !busiest) throw new Error("no open event on either venue");
     const [pinnedLines, busiestLines] = await Promise.all([
       pinned ? lines(pinned, at) : Promise.resolve([]),
@@ -174,7 +197,15 @@ export function betsSource(options: BetsOptions): BetsSource {
     ]);
     const result: BetsRead = {
       readAt: at,
-      pinned: pinned && pin ? { event: pinned, lines: pinnedLines, untilMs: pin.untilMs } : null,
+      pinned:
+        pinned && pin
+          ? {
+              event: pinned,
+              lines: pinnedLines,
+              untilMs: pin.untilMs,
+              auto: manual || !auto ? null : auto.reasons,
+            }
+          : null,
       busiest: busiest ? { event: busiest, lines: busiestLines } : null,
       events: table,
     };

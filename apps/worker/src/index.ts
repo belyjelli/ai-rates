@@ -17,6 +17,7 @@ import {
   memberCopy,
 } from "./app/live-pass";
 import { isSheddable, Pressure, SHED_REFUSAL } from "./app/load-shed";
+import { PinStoreDO, pinStore } from "./app/pin-store-do";
 import { withSecurityHeaders } from "./app/security-headers";
 import { withoutTracking } from "./app/tracking-params";
 import { visitPoint } from "./app/visits";
@@ -29,7 +30,7 @@ import { ReferralStoreDO, referralStore } from "./referrals/store-do";
 import { DEFAULT_LOCALE, languageSwitch, requestLocale } from "./web/i18n";
 import { htmlToMarkdown, markdownAddress, wantsMarkdown } from "./web/markdown";
 
-export { ProbeDO, ReferralStoreDO };
+export { PinStoreDO, ProbeDO, ReferralStoreDO };
 
 // Module scope, so the renders in flight and the cooldowns are shared by every request this isolate
 // serves. That sharing is the point: it is what stops N readers of one cold page becoming N renders.
@@ -209,6 +210,7 @@ async function handle(
           member,
           // Only the homepage's prediction-market section asks it anything (app/bets.ts).
           bets: betsSource({
+            autoPins: pinStore(env),
             fetch: (input, init) => fetch(input, init),
             cache: caches.default,
             waitUntil: (promise) => ctx.waitUntil(promise),

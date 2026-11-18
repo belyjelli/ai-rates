@@ -586,4 +586,13 @@ export const macro: Catalog = {
     "Nenhuma pergunta aberta na Polymarket ou na Kalshi agora.",
   "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
     "Preços e volumes da Polymarket e da Kalshi, lidos às {time}. A chance é o preço de uma cota Yes; é o que a multidão está pagando, não uma previsão nossa.",
+  // The homepage section's automatic pin (web/bets.ts, app/pin-finder.ts).
+  "Picked automatically until {date}": "Escolhido automaticamente até {date}",
+  "A story across {n} questions": "Uma história em {n} perguntas",
+  "On Polymarket and Kalshi": "Na Polymarket e na Kalshi",
+  "{volume} traded on it in 24h": "{volume} negociados nela em 24h",
+  "Polymarket's featured #{n}": "Destaque nº {n} da Polymarket",
+  "New since {date}": "Nova desde {date}",
+  "When nothing is pinned by hand, the biggest new story is pinned by itself for three days. Questions that share a topic Polymarket tagged in the last month are one story; it scores the money traded on it over 24 hours, more for questions opened this week, for markets, companies, the economy and tech, and for what Polymarket features. It is pinned when it scores at least half as much again as any other, and a story twice its size takes the pin sooner. The card says why it was picked.":
+    "Quando nada é fixado à mão, a maior história nova é fixada sozinha por três dias. Perguntas que compartilham um tema marcado pela Polymarket no último mês são uma história; ela pontua pelo dinheiro negociado em 24 horas, com mais peso para perguntas abertas nesta semana, para mercados, empresas, economia e tecnologia, e para o que a Polymarket destaca. Ela é fixada quando pontua pelo menos metade a mais que qualquer outra, e uma história com o dobro do tamanho toma o lugar antes. O cartão diz por que ela foi escolhida.",
 };

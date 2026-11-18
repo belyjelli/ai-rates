@@ -575,4 +575,13 @@ export const macro: Catalog = {
     "지금 Polymarket과 Kalshi에 열린 질문이 없습니다.",
   "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
     "가격과 거래량은 Polymarket과 Kalshi에서 {time}에 읽었습니다. 확률은 Yes 지분의 가격으로, 참여자들이 지불하는 값이며 당사의 예측이 아닙니다.",
+  // The homepage section's automatic pin (web/bets.ts, app/pin-finder.ts).
+  "Picked automatically until {date}": "{date}까지 자동 고정",
+  "A story across {n} questions": "질문 {n}개에 걸친 이슈",
+  "On Polymarket and Kalshi": "Polymarket과 Kalshi 모두",
+  "{volume} traded on it in 24h": "24시간 거래 {volume}",
+  "Polymarket's featured #{n}": "Polymarket 추천 #{n}",
+  "New since {date}": "{date}부터 새로운 이슈",
+  "When nothing is pinned by hand, the biggest new story is pinned by itself for three days. Questions that share a topic Polymarket tagged in the last month are one story; it scores the money traded on it over 24 hours, more for questions opened this week, for markets, companies, the economy and tech, and for what Polymarket features. It is pinned when it scores at least half as much again as any other, and a story twice its size takes the pin sooner. The card says why it was picked.":
+    "수동으로 고정한 것이 없으면 가장 큰 새 이슈를 3일 동안 자동으로 고정합니다. Polymarket이 지난 한 달 안에 만든 주제 태그를 공유하는 질문들을 하나의 이슈로 보고, 지난 24시간 거래 금액으로 점수를 매깁니다. 이번 주에 열린 질문, 시장·기업·경제·기술 관련 질문, Polymarket이 추천한 질문일수록 가중치가 큽니다. 다른 어떤 이슈보다 점수가 최소 1.5배일 때 고정되며, 그 두 배 규모의 이슈가 나오면 더 일찍 자리를 넘깁니다. 카드에 선정 이유가 표시됩니다.",
 };

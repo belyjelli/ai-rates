@@ -3,6 +3,8 @@
  * Polymarket (app/polymarket.ts) or Kalshi (app/kalshi.ts). app/bets.ts puts the two together.
  */
 
+import type { PinReasons } from "./pin-finder";
+
 export type BetVenue = "polymarket" | "kalshi";
 
 /** One answer to an event's question: a market's Yes, or one outcome of a single market. */
@@ -61,8 +63,11 @@ export interface FeaturedBet {
 
 export interface BetsRead {
   readAt: number;
-  /** The event the owner pinned, while the pin lasts (PINS in app/bets.ts). */
-  pinned: (FeaturedBet & { untilMs: number }) | null;
+  /**
+   * The pinned event, while its pin lasts: the owner's (PINS in app/bets.ts), or the pin finder's
+   * (app/pin-finder.ts), whose reasons `auto` carries; null `auto` is a pin by hand.
+   */
+  pinned: (FeaturedBet & { untilMs: number; auto: PinReasons | null }) | null;
   /** The most traded event of the last 24 hours on either venue, the pinned one aside. */
   busiest: FeaturedBet | null;
   /** The next most traded, both venues together. */
