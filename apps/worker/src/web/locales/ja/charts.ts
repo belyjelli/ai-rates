@@ -306,4 +306,28 @@ export const charts: Catalog = {
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "{asset} を取引する取引所はないため、合計するテイカーフローはありません。これは {first} と {second} から算出したインターバンクレートで、どちらも5分ごとに気配を取得しています。古いほうの気配：{age}。",
   Currency: "通貨",
+  "quoted {age}": "気配 {age}",
+  Rate: "レート",
+  "bid {bid} · ask {ask}": "買値 {bid} · 売値 {ask}",
+  "spread {bps} bps": "スプレッド {bps} bp",
+  "now {pct} of the way from the low to the high": "安値から高値までの {pct} の位置",
+  "24h range": "24時間レンジ",
+  "from the last quote that long ago": "その時点の最後の気配からの変化",
+  "Peg band": "ペッグ帯",
+  "The HKMA buys Hong Kong dollars at {high} and sells them at {low}: now {pct} of the way to the weak side.":
+    "HKMA は {high} で香港ドルを買い、{low} で売る：現在は弱い側まで {pct} の位置。",
+  "{price} in the band from {low} to {high}": "{low} から {high} の帯の中の {price}",
+  Peg: "ペッグ",
+  "The UAE central bank holds the dirham at {peg} to the dollar: now {bps} bps from it.":
+    "UAE 中央銀行はディルハムを1ドル {peg} に固定：現在そこから {bps} bp。",
+  "No exchange trades it, so it is the product of two dollar rates, each quoted every five minutes.":
+    "取引所で取引されていないため、2つのドルレートの積で、どちらも5分ごとに気配を取得。",
+  "Worked out from": "算出元",
+  "The interbank rate, quoted every five minutes and held to the other sources.":
+    "インターバンクレート。5分ごとに気配を取得し、他のソースと照合。",
+  Pair: "ペア",
+  "Related pairs": "関連ペア",
+  "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
+    "サイト上の {codes} のその他すべてのペア。同じドルレートから算出し、24時間の変動が大きい順。",
+  traded: "取引あり",
 };

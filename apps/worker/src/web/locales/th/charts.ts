@@ -298,4 +298,28 @@ export const charts: Catalog = {
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "ไม่มีกระดานเทรดใดซื้อขาย {asset} จึงไม่มีโฟลว์เทคเกอร์ให้รวม นี่คืออัตราระหว่างธนาคารที่คำนวณจาก {first} และ {second} ซึ่งอัปเดตราคาทุกห้านาทีทั้งคู่ ราคาที่เก่ากว่า {age}",
   Currency: "สกุลเงิน",
+  "quoted {age}": "ราคา {age}",
+  Rate: "อัตรา",
+  "bid {bid} · ask {ask}": "เสนอซื้อ {bid} · เสนอขาย {ask}",
+  "spread {bps} bps": "สเปรด {bps} bps",
+  "now {pct} of the way from the low to the high": "ตอนนี้อยู่ที่ {pct} ของทางจากต่ำสุดถึงสูงสุด",
+  "24h range": "ช่วง 24 ชม.",
+  "from the last quote that long ago": "จากราคาล่าสุด ณ เวลานั้น",
+  "Peg band": "กรอบผูกค่า",
+  "The HKMA buys Hong Kong dollars at {high} and sells them at {low}: now {pct} of the way to the weak side.":
+    "HKMA ซื้อดอลลาร์ฮ่องกงที่ {high} และขายที่ {low}: ตอนนี้อยู่ที่ {pct} ของทางไปฝั่งอ่อน",
+  "{price} in the band from {low} to {high}": "{price} ในกรอบ {low} ถึง {high}",
+  Peg: "ผูกค่า",
+  "The UAE central bank holds the dirham at {peg} to the dollar: now {bps} bps from it.":
+    "ธนาคารกลาง UAE ตรึงดีแรห์มไว้ที่ {peg} ต่อดอลลาร์: ตอนนี้ห่าง {bps} bps",
+  "No exchange trades it, so it is the product of two dollar rates, each quoted every five minutes.":
+    "ไม่มีกระดานเทรดซื้อขาย จึงเป็นผลคูณของอัตราดอลลาร์สองตัว อัปเดตราคาทุกห้านาทีทั้งคู่",
+  "Worked out from": "คำนวณจาก",
+  "The interbank rate, quoted every five minutes and held to the other sources.":
+    "อัตราระหว่างธนาคาร อัปเดตราคาทุกห้านาทีและตรวจกับแหล่งอื่น",
+  Pair: "คู่สกุลเงิน",
+  "Related pairs": "คู่ที่เกี่ยวข้อง",
+  "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
+    "คู่อื่นทั้งหมดของ {codes} บนเว็บ คำนวณจากอัตราดอลลาร์ชุดเดียวกัน เรียงตามการเคลื่อนไหว 24 ชม. มากที่สุดก่อน",
+  traded: "มีการซื้อขาย",
 };

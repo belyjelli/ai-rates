@@ -308,4 +308,28 @@ export const charts: Catalog = {
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "{asset} не торгуется ни на одной бирже, поэтому суммировать нечего: это его межбанковский курс, рассчитанный из {first} и {second}, каждый с котировкой каждые пять минут. Более старая котировка — {age}.",
   Currency: "Валюта",
+  "quoted {age}": "котировка {age}",
+  Rate: "Курс",
+  "bid {bid} · ask {ask}": "бид {bid} · аск {ask}",
+  "spread {bps} bps": "спред {bps} б.п.",
+  "now {pct} of the way from the low to the high": "сейчас на {pct} пути от минимума к максимуму",
+  "24h range": "Диапазон за 24 ч",
+  "from the last quote that long ago": "от последней котировки на тот момент",
+  "Peg band": "Коридор привязки",
+  "The HKMA buys Hong Kong dollars at {high} and sells them at {low}: now {pct} of the way to the weak side.":
+    "HKMA покупает гонконгские доллары по {high} и продаёт по {low}: сейчас {pct} пути к слабой границе.",
+  "{price} in the band from {low} to {high}": "{price} в коридоре от {low} до {high}",
+  Peg: "Привязка",
+  "The UAE central bank holds the dirham at {peg} to the dollar: now {bps} bps from it.":
+    "Центробанк ОАЭ держит дирхам на уровне {peg} за доллар: сейчас отклонение {bps} б.п.",
+  "No exchange trades it, so it is the product of two dollar rates, each quoted every five minutes.":
+    "На биржах не торгуется, поэтому это произведение двух долларовых курсов, каждый с котировкой каждые пять минут.",
+  "Worked out from": "Рассчитан из",
+  "The interbank rate, quoted every five minutes and held to the other sources.":
+    "Межбанковский курс, котировка каждые пять минут, сверяется с другими источниками.",
+  Pair: "Пара",
+  "Related pairs": "Связанные пары",
+  "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
+    "Все остальные пары {codes} на сайте, из тех же долларовых курсов, по убыванию изменения за 24 часа.",
+  traded: "торгуется",
 };

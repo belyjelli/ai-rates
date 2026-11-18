@@ -303,4 +303,28 @@ export const charts: Catalog = {
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "{asset}를 거래하는 거래소가 없어 합산할 테이커 흐름이 없습니다. 이것은 {first}와 {second}에서 계산한 은행 간 환율이며, 둘 다 5분마다 호가를 받습니다. 더 오래된 호가: {age}.",
   Currency: "통화",
+  "quoted {age}": "호가 {age}",
+  Rate: "환율",
+  "bid {bid} · ask {ask}": "매수 {bid} · 매도 {ask}",
+  "spread {bps} bps": "스프레드 {bps}bp",
+  "now {pct} of the way from the low to the high": "현재 저가에서 고가까지의 {pct} 위치",
+  "24h range": "24시간 범위",
+  "from the last quote that long ago": "그 시점의 마지막 호가 대비",
+  "Peg band": "페그 밴드",
+  "The HKMA buys Hong Kong dollars at {high} and sells them at {low}: now {pct} of the way to the weak side.":
+    "HKMA는 {high}에서 홍콩달러를 사고 {low}에서 팝니다: 현재 약세 쪽까지 {pct} 위치.",
+  "{price} in the band from {low} to {high}": "{low}에서 {high} 밴드 안의 {price}",
+  Peg: "페그",
+  "The UAE central bank holds the dirham at {peg} to the dollar: now {bps} bps from it.":
+    "UAE 중앙은행은 디르함을 1달러당 {peg}로 고정합니다: 현재 {bps}bp 차이.",
+  "No exchange trades it, so it is the product of two dollar rates, each quoted every five minutes.":
+    "거래소에서 거래되지 않아 두 달러 환율의 곱이며, 둘 다 5분마다 호가를 받습니다.",
+  "Worked out from": "계산 근거",
+  "The interbank rate, quoted every five minutes and held to the other sources.":
+    "은행 간 환율, 5분마다 호가를 받고 다른 출처와 대조합니다.",
+  Pair: "통화쌍",
+  "Related pairs": "관련 통화쌍",
+  "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
+    "사이트의 {codes} 다른 모든 통화쌍, 같은 달러 환율로 계산하며 24시간 변동이 큰 순서.",
+  traded: "거래됨",
 };

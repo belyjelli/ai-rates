@@ -968,6 +968,12 @@ export const RATE_PAIRS: readonly string[] = [
     .map((code) => `AED${code}`),
 ];
 
+/** Whether every currency of a six-letter pair is one the FX job reads, so it can be priced from rates. */
+export const ratePriceable = (pair: string): boolean =>
+  /^[A-Z]{6}$/.test(pair) &&
+  [pair.slice(0, 3), pair.slice(3)].every((code) => code === "USD" || code in USD_LEGS) &&
+  pair.slice(0, 3) !== pair.slice(3);
+
 /**
  * A rate-only pair's dollar rates, and its price from their latest values: dollars per unit of the
  * pair's first currency over dollars per unit of its second. USDHKD is one leg; EURHKD two.
@@ -1073,6 +1079,38 @@ export interface CvdData {
    * with no flow, and this is its newest quote.
    */
   rate?: CvdRate | null;
+  /** A rate-only pair's own figures for its page (rateDetail); absent otherwise. */
+  rate_detail?: RateDetail | null;
+}
+
+/** How far back a rate-only pair's page measures its change, in hours: a day, a week, 30 and 90 days. */
+export const RATE_SPANS = [24, 168, 720, 2160] as const;
+
+/**
+ * A rate-only pair's figures for its Chart page (owner, 2026-11-19: "its not very detail right now",
+ * then the pair's tiles, its peg, its cross breakdown and its related pairs). All from the FX job's
+ * dollar rates, as the pair's own price is.
+ */
+export interface RateDetail {
+  /** Bid and ask, from each dollar rate's own (Sina quotes them; Yahoo and DefiLlama do not). */
+  bid: number | null;
+  ask: number | null;
+  /** The last 24 hours' highest and lowest price. */
+  high: number | null;
+  low: number | null;
+  /** Change to now from each of RATE_SPANS ago, percent; null where the history does not reach. */
+  changes: { hours: number; pct: number | null }[];
+  /** The dollar rates it is worked out from, each with its 24-hour change: one for USDHKD, two for a cross. */
+  legs: { pair: string; price: number; change_pct: number | null; at: Date; source: string }[];
+  /** Every other FX pair sharing one of its currencies other than the dollar, priced from the same rates. */
+  related: {
+    pair: string;
+    price: number;
+    change_pct: number | null;
+    week_pct: number | null;
+    /** Traded on an exchange (it has taker flow); otherwise a rate-only pair. */
+    traded: boolean;
+  }[];
 }
 
 /**
@@ -2004,6 +2042,155 @@ async function rateBars(
     }
   }
   return [...bars.values()].sort((a, b) => a.bucket_start.getTime() - b.bucket_start.getTime());
+}
+
+/**
+ * Each dollar rate's newest quote (bid and ask where its source gives them) and its last quote at or
+ * before each of `hours` ago, under the same live-quote rule as the chart's. Empty where the site's
+ * role cannot read the FX tables.
+ */
+async function legQuotes(sql: postgres.Sql, legs: readonly string[], hours: readonly number[]) {
+  const list = legs.join(",");
+  const spans = hours.join(",");
+  const [latest, past] = await Promise.all([
+    sql<
+      {
+        pair: string;
+        price: number;
+        bid: number | null;
+        ask: number | null;
+        source: string;
+        at: Date;
+      }[]
+    >`
+      SELECT pair, price::float8 AS price, bid::float8 AS bid, ask::float8 AS ask, source, at
+      FROM fx_rates
+      WHERE pair IN (SELECT unnest(string_to_array(${list}, ','))) AND price > 0`,
+    sql<{ pair: string; hours: number; price: number | null }[]>`
+      WITH live AS (
+        SELECT p.pair,
+               (SELECT min(l.at) FROM fx_rate_history l
+                WHERE l.pair = p.pair AND l.source <> 'defillama') AS since
+        FROM unnest(string_to_array(${list}, ',')) AS p(pair)
+      ),
+      o AS (SELECT unnest(string_to_array(${spans}, ','))::int AS hours)
+      SELECT live.pair, o.hours,
+             (SELECT h.price::float8 FROM fx_rate_history h
+              WHERE h.pair = live.pair AND h.at <= now() - make_interval(hours => o.hours)
+                AND ${liveQuote(sql, "h")}
+              ORDER BY h.at DESC LIMIT 1) AS price
+      FROM live CROSS JOIN o`,
+  ]).catch((error) => {
+    if (missingOrRefused(error)) return [[], []] as const;
+    throw error;
+  });
+  const ago = new Map<number, Map<string, number>>();
+  for (const row of past) {
+    if (row.price === null) continue;
+    const at = ago.get(row.hours) ?? new Map<string, number>();
+    at.set(row.pair, row.price);
+    ago.set(row.hours, at);
+  }
+  return { latest: new Map(latest.map((row) => [row.pair, row])), ago };
+}
+
+/**
+ * A rate-only pair's page figures (RateDetail): its bid and ask, its last day's range, its change over
+ * each of RATE_SPANS, the dollar rates it comes from, and the FX pairs it shares a currency with.
+ * `rows` is the page's asset list, which says which FX pairs exist and which of them trade.
+ */
+async function rateDetail(
+  sql: postgres.Sql,
+  pair: string,
+  rows: readonly CvdAssetRow[],
+): Promise<RateDetail | null> {
+  const own = [pair.slice(0, 3), pair.slice(3)].filter((code) => code !== "USD");
+  const related = [
+    ...new Map(
+      rows
+        .filter(
+          (row) =>
+            row.asset_class === "fx" &&
+            row.asset !== pair &&
+            ratePriceable(row.asset) &&
+            own.some((code) => row.asset.slice(0, 3) === code || row.asset.slice(3) === code),
+        )
+        .map((row) => [row.asset, row] as const),
+    ).values(),
+  ];
+  const legsOf = (name: string) => rateLegs(name).pairs;
+  const wanted = [...new Set([pair, ...related.map((row) => row.asset)].flatMap(legsOf))];
+  const [quotes, day] = await Promise.all([
+    legQuotes(sql, wanted, RATE_SPANS),
+    rateBars(sql, pair, 5, { windowHours: 24 }),
+  ]);
+  if (quotes.latest.size === 0) return null;
+  const now = new Map([...quotes.latest].map(([name, row]) => [name, row.price]));
+  const priceNow = rateLegs(pair).price(now);
+  if (priceNow === null) return null;
+  const change = (name: string, hours: number): number | null => {
+    const then = quotes.ago.get(hours);
+    const from = then ? rateLegs(name).price(then) : null;
+    const to = rateLegs(name).price(now);
+    return from !== null && to !== null && from > 0 ? (to / from - 1) * 100 : null;
+  };
+  // Bid and ask through the same arithmetic: a pair's bid sells its first currency, so it takes
+  // the first's bid in dollars and the second's ask in dollars.
+  const side = (code: string, want: "bid" | "ask"): number | null => {
+    if (code === "USD") return 1;
+    const leg = USD_LEGS[code];
+    const quote = leg ? quotes.latest.get(leg.pair) : undefined;
+    if (!leg || !quote) return null;
+    if (leg.inUsd) return quote[want];
+    const other = quote[want === "bid" ? "ask" : "bid"];
+    return other && other > 0 ? 1 / other : null;
+  };
+  const first = pair.slice(0, 3);
+  const second = pair.slice(3);
+  const ratio = (a: number | null, b: number | null) =>
+    a !== null && b !== null && b > 0 ? a / b : null;
+  const highs = day.flatMap((bar) => (bar.high != null ? [bar.high] : []));
+  const lows = day.flatMap((bar) => (bar.low != null ? [bar.low] : []));
+  return {
+    bid: ratio(side(first, "bid"), side(second, "ask")),
+    ask: ratio(side(first, "ask"), side(second, "bid")),
+    high: highs.length ? Math.max(...highs) : null,
+    low: lows.length ? Math.min(...lows) : null,
+    changes: RATE_SPANS.map((hours) => ({ hours, pct: change(pair, hours) })),
+    legs: legsOf(pair).flatMap((leg) => {
+      const quote = quotes.latest.get(leg);
+      return quote
+        ? [
+            {
+              pair: leg,
+              price: quote.price,
+              change_pct: change(leg, 24),
+              at: quote.at,
+              source: quote.source,
+            },
+          ]
+        : [];
+    }),
+    related: related
+      .flatMap((row) => {
+        const price = rateLegs(row.asset).price(now);
+        return price === null
+          ? []
+          : [
+              {
+                pair: row.asset,
+                price,
+                change_pct: change(row.asset, 24),
+                week_pct: change(row.asset, 168),
+                traded: !row.rate,
+              },
+            ];
+      })
+      .sort(
+        (a, b) =>
+          Math.abs(b.change_pct ?? 0) - Math.abs(a.change_pct ?? 0) || a.pair.localeCompare(b.pair),
+      ),
+  };
 }
 
 function chosenClass(sql: postgres.Sql, base: string, assetClass: AssetClass | null) {
@@ -3941,8 +4128,9 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       const rateOnly = rates.filter((row) => !traded.has(row.asset));
       const own = resolved ? undefined : rateOnly.find((row) => row.asset === base);
       if (own?.rate && quoted && ratePair(base, assetClass)) {
+        const all = [...rows, ...rateOnly];
         return {
-          rows: [...rows, ...rateOnly],
+          rows: all,
           asset_class: "fx",
           bars: quoted,
           spot: false,
@@ -3950,6 +4138,8 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
           spot_venues: [],
           newest: newest[0]?.newest ?? null,
           rate: own.rate,
+          // The page's own figures; the chart stands without them if they cannot be read.
+          rate_detail: await rateDetail(sql, base, all).catch(() => null),
         };
       }
       // The spot rows were read for the address's class, or crypto's when it names none.

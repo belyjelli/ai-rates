@@ -11,7 +11,9 @@ import {
   FUTURES_TAKER_VENUES,
   type MarketRow,
   type Overview,
+  RATE_SPANS,
   RATE_VENUE,
+  type RateDetail,
   SPOT_TAKER_VENUES,
 } from "../app/data";
 import {
@@ -1165,12 +1167,160 @@ ${more}`;
 }
 
 /** The Detail view's own styles. */
+/**
+ * The currencies held to a level, for the gauge on their pair's page: Hong Kong's band, defended by
+ * the HKMA at 7.75 and 7.85 to the dollar, and the dirham's fixed rate of 3.6725.
+ */
+const PEGS: Readonly<Record<string, { low: number; high: number } | { at: number }>> = {
+  USDHKD: { low: 7.75, high: 7.85 },
+  USDAED: { at: 3.6725 },
+};
+
+/** "EURUSD × USDHKD", "USDJPY ÷ USDHKD": how a cross comes out of its dollar rates. */
+function crossFormula(pair: string, legs: readonly string[]): string {
+  const up: string[] = [];
+  const down: string[] = [];
+  for (const [code, first] of [
+    [pair.slice(0, 3), true],
+    [pair.slice(3), false],
+  ] as const) {
+    const leg = legs.find((name) => name.startsWith(code) || name.endsWith(code));
+    if (!leg || code === "USD") continue;
+    // A rate quoting the currency in dollars (EURUSD) multiplies for the first currency and divides
+    // for the second; one quoting dollars in it (USDHKD) the other way round.
+    const inUsd = leg.startsWith(code);
+    (inUsd === first ? up : down).push(leg);
+  }
+  const top = up.length ? up.join(" × ") : "1";
+  return down.length ? `${top} ÷ ${down.length > 1 ? `(${down.join(" × ")})` : down[0]}` : top;
+}
+
+const spanLabel = (hours: number) => (hours >= 24 ? `${hours / 24}d` : `${hours}h`);
+
+/**
+ * A rate-only pair's tiles, in place of the market's CVD tiles (which say nothing about a pair with
+ * no flow): its rate with bid, ask and spread; its last day's range; its change over each of
+ * RATE_SPANS; and its peg, the cross it is worked out as, or its source.
+ */
+function rateTiles(data: {
+  asset: string;
+  rate: CvdRate;
+  detail: RateDetail | null;
+  price: number | null;
+  now: number;
+}): string {
+  const { asset, rate, detail, price, now } = data;
+  const quoted = tr("quoted {age}", { age: esc(ageText(rate.at, now)) });
+  const spread =
+    detail?.bid != null && detail.ask != null && detail.ask >= detail.bid && price
+      ? ((detail.ask - detail.bid) / price) * 10_000
+      : null;
+  const rateTile = `<div class="cvd-tile"><p class="eyebrow">${tr("Rate")}</p><p class="cvd-big"><span data-u="rate">${price === null ? "–" : formatPrice(price)}</span></p><p class="dim">${
+    detail?.bid != null && detail.ask != null
+      ? `${tr("bid {bid} · ask {ask}", { bid: formatPrice(detail.bid), ask: formatPrice(detail.ask) })}${spread === null ? "" : ` · ${tr("spread {bps} bps", { bps: spread.toFixed(1) })}`}<br>`
+      : ""
+  }${quoted}</p></div>`;
+  const range =
+    detail?.low != null && detail.high != null
+      ? `${formatPrice(detail.low)} – ${formatPrice(detail.high)}`
+      : "–";
+  const where =
+    detail?.low != null && detail.high != null && price !== null && detail.high > detail.low
+      ? tr("now {pct} of the way from the low to the high", {
+          pct: `${Math.round(((price - detail.low) / (detail.high - detail.low)) * 100)}%`,
+        })
+      : "";
+  const rangeTile = `<div class="cvd-tile"><p class="eyebrow">${tr("24h range")}</p><p class="cvd-big cvd-big-sm"><span data-u="range">${range}</span></p><p class="dim">${where}</p></div>`;
+  const changes = (detail?.changes ?? RATE_SPANS.map((hours) => ({ hours, pct: null })))
+    .map(
+      ({ hours, pct }) =>
+        `<span><small class="dim">${spanLabel(hours)}</small> <b class="${tone(pct)}">${signedPct(pct)}</b></span>`,
+    )
+    .join("");
+  const changeTile = `<div class="cvd-tile"><p class="eyebrow">${trMsg(SORT_LABELS.change)}</p><p class="rate-changes">${changes}</p><p class="dim">${tr("from the last quote that long ago")}</p></div>`;
+
+  const peg = PEGS[asset];
+  let fourth: string;
+  if (peg && "low" in peg) {
+    const at =
+      price === null ? null : Math.min(1, Math.max(0, (price - peg.low) / (peg.high - peg.low)));
+    fourth = `<div class="cvd-tile"><p class="eyebrow">${tr("Peg band")}</p><p class="cvd-big cvd-big-sm">${formatPrice(peg.low)} – ${formatPrice(peg.high)}</p><div class="rate-band" role="img" aria-label="${esc(tr("{price} in the band from {low} to {high}", { price: price === null ? "–" : formatPrice(price), low: formatPrice(peg.low), high: formatPrice(peg.high) }))}"><i style="left:${at === null ? 50 : (at * 100).toFixed(1)}%"></i></div><p class="dim">${tr("The HKMA buys Hong Kong dollars at {high} and sells them at {low}: now {pct} of the way to the weak side.", { high: formatPrice(peg.high), low: formatPrice(peg.low), pct: at === null ? "–" : `${Math.round(at * 100)}%` })}</p></div>`;
+  } else if (peg && "at" in peg) {
+    const bps = price === null ? null : (price / peg.at - 1) * 10_000;
+    fourth = `<div class="cvd-tile"><p class="eyebrow">${tr("Peg")}</p><p class="cvd-big cvd-big-sm">${formatPrice(peg.at)}</p><p class="dim">${tr("The UAE central bank holds the dirham at {peg} to the dollar: now {bps} bps from it.", { peg: formatPrice(peg.at), bps: bps === null ? "–" : `${bps >= 0 ? "+" : ""}${bps.toFixed(1)}` })}</p></div>`;
+  } else if (rate.legs) {
+    fourth = `<div class="cvd-tile"><p class="eyebrow">${tr("Worked out from")}</p><p class="cvd-big cvd-big-sm">${esc(crossFormula(asset, rate.legs))}</p><p class="dim">${tr("No exchange trades it, so it is the product of two dollar rates, each quoted every five minutes.")}</p></div>`;
+  } else {
+    fourth = `<div class="cvd-tile"><p class="eyebrow">${tr("Source")}</p><p class="cvd-big cvd-big-sm">${esc(rate.source === "defillama" ? "DefiLlama" : rate.source === "yahoo" ? "Yahoo" : "Sina")}</p><p class="dim">${tr("The interbank rate, quoted every five minutes and held to the other sources.")}</p></div>`;
+  }
+  return `<div class="cvd-tiles" data-live="cvd-tiles">
+${rateTile}
+${rangeTile}
+${changeTile}
+${fourth}
+</div>`;
+}
+
+/**
+ * Under a rate-only pair's chart: the dollar rates a cross comes from, each linked where it has a page,
+ * and every other FX pair sharing one of its currencies, biggest 24-hour move first.
+ */
+function rateTables(data: {
+  asset: string;
+  detail: RateDetail | null;
+  rows: readonly CvdAssetRow[];
+  params: CvdParams;
+  now: number;
+}): string {
+  const { asset, detail, rows, params, now } = data;
+  if (!detail) return "";
+  const listed = new Set(rows.filter((row) => row.asset_class === "fx").map((row) => row.asset));
+  const link = (pair: string) =>
+    listed.has(pair)
+      ? `<a href="${esc(`${cvdPath(pair, "fx")}${cvdToQuery({ ...params, q: "" })}#cvd-chart`)}">${esc(pair)}</a>`
+      : esc(pair);
+  const legs =
+    detail.legs.length > 1
+      ? `<h2 class="cvd-h2">${tr("Worked out from")}</h2>
+<p class="notes">${esc(asset)} = ${esc(
+          crossFormula(
+            asset,
+            detail.legs.map((leg) => leg.pair),
+          ),
+        )}</p>
+<div class="sheet-wrap"><table class="sheet rate-legs"><thead><tr><th>${tr("Pair")}</th><th class="num">${tr("Rate")}</th><th class="num">24h</th><th class="num">${tr("Quoted")}</th><th>${tr("Source")}</th></tr></thead><tbody>${detail.legs
+          .map(
+            (leg) =>
+              `<tr><td>${link(leg.pair)}</td><td class="num">${formatPrice(leg.price)}</td><td class="num${tone(leg.change_pct)}">${signedPct(leg.change_pct)}</td><td class="num dim">${esc(ageText(leg.at, now))}</td><td class="dim">${esc(leg.source === "defillama" ? "DefiLlama" : leg.source === "yahoo" ? "Yahoo" : "Sina")}</td></tr>`,
+          )
+          .join("")}</tbody></table></div>`
+      : "";
+  const codes = [asset.slice(0, 3), asset.slice(3)].filter((code) => code !== "USD");
+  const related = detail.related.length
+    ? `<h2 class="cvd-h2">${tr("Related pairs")}</h2>
+<p class="notes">${tr("Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.", { codes: esc(codes.join(", ")) })}</p>
+<div class="sheet-wrap"><table class="sheet rate-related"><thead><tr><th>${tr("Pair")}</th><th class="num">${tr("Rate")}</th><th class="num">24h</th><th class="num">7d</th><th>${tr("Market")}</th></tr></thead><tbody>${detail.related
+        .map(
+          (row) =>
+            `<tr><td>${link(row.pair)}</td><td class="num">${formatPrice(row.price)}</td><td class="num${tone(row.change_pct)}">${signedPct(row.change_pct)}</td><td class="num${tone(row.week_pct)}">${signedPct(row.week_pct)}</td><td>${row.traded ? `<span class="dim">${tr("traded")}</span>` : `<span class="cvd-badge cvd-badge-rate">${tr("rate only")}</span>`}</td></tr>`,
+        )
+        .join("")}</tbody></table></div>`
+    : "";
+  return `<div class="rate-tables" data-live="rate-tables">${legs}${related}</div>`;
+}
+
 /** A rate-only pair's figure (rateChart): the time labels kept inside it, and the drawn plot hidden
  *  once the trading chart is up, as an asset's slot area is. */
 const RATE_CSS = `.cvd-rate-area{padding-bottom:20px}
 .kc-on .cvd-rate-area{display:none!important}
 .cvd-rate-why{margin:2px 0 0;font-size:11px}
 .cvd-badge-rate{color:var(--muted);border-color:var(--rule)}
+.cvd-big-sm{font-size:20px}
+.rate-changes{display:grid;grid-template-columns:repeat(2,auto);gap:4px 14px;justify-content:start;margin:6px 0}
+.rate-changes span{white-space:nowrap}
+.rate-band{position:relative;height:6px;margin:8px 0;background:linear-gradient(90deg,var(--long),var(--rule) 50%,var(--short))}
+.rate-band i{position:absolute;top:-4px;width:2px;height:14px;background:var(--ink);transform:translateX(-1px)}
+.rate-tables .sheet{margin-bottom:8px}
 `;
 
 /** The picker's asset-class buttons (classButtons): a wrapping row under the search box, the
@@ -1318,6 +1468,40 @@ function cvdAgentBrief(flow: CvdData, asset: string, params: CvdParams): string 
       parts.push(
         `<p>${esc(asset)} (fx) over the last ${span}: ${price}, last quoted ${utcMinute(flow.rate.at)}. No exchange the site collects trades ${esc(asset)}, so it has no taker flow and no CVD.</p>`,
       );
+      const detail = flow.rate_detail;
+      if (detail) {
+        const changes = detail.changes
+          .map(({ hours, pct }) => `${spanLabel(hours)} ${signedPct(pct)}`)
+          .join(", ");
+        const peg = PEGS[asset];
+        parts.push(
+          `<p>${detail.bid != null && detail.ask != null ? `Bid ${formatPrice(detail.bid)}, ask ${formatPrice(detail.ask)}. ` : ""}${detail.low != null && detail.high != null ? `24-hour range ${formatPrice(detail.low)} to ${formatPrice(detail.high)}. ` : ""}Change: ${changes}.${peg && "low" in peg ? ` Hong Kong's peg band is ${peg.low} to ${peg.high} (the HKMA buys HKD at ${peg.high} and sells at ${peg.low}).` : peg && "at" in peg ? ` The dirham is pegged at ${peg.at} to the dollar.` : ""}${
+            detail.legs.length > 1
+              ? ` Worked out as ${esc(
+                  crossFormula(
+                    asset,
+                    detail.legs.map((leg) => leg.pair),
+                  ),
+                )}.`
+              : ""
+          }</p>`,
+        );
+        if (detail.related.length) {
+          parts.push(`<h2>Related pairs</h2>`);
+          parts.push(
+            agentTable(
+              ["Pair", "Rate", "24h", "7d", "Market"],
+              detail.related.map((row) => [
+                `<a href="${esc(cvdPath(row.pair, "fx"))}.md">${esc(row.pair)}</a>`,
+                formatPrice(row.price),
+                signedPct(row.change_pct),
+                signedPct(row.week_pct),
+                row.traded ? "traded" : "rate only",
+              ]),
+            ),
+          );
+        }
+      }
     } else if (one) {
       const flowLine = (side: {
         net_usd: number;
@@ -1540,7 +1724,11 @@ export function cvd(data: {
           params,
           base: assetInAddress ? selfPath : CHART_PATH,
         })}</div>`
-      : `${tiles}
+      : rateOnly && flow.rate
+        ? `${rateTiles({ asset, rate: flow.rate, detail: flow.rate_detail ?? null, price: rows.find((row) => row.asset === asset && row.asset_class === "fx")?.price ?? null, now })}
+<div id="cvd-chart" class="cvd-anchor">${chart}${flow.bars.length ? KC_HOST : ""}</div>
+${rateTables({ asset, detail: flow.rate_detail ?? null, rows, params, now })}`
+        : `${tiles}
 <div id="cvd-chart" class="cvd-anchor">${chart}${flow.bars.length ? KC_HOST : ""}</div>`;
 
   // An asset's chart is its own page to a search engine (until 2026-11-14 every /chart/<asset> named

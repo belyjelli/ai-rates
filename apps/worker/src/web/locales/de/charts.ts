@@ -305,4 +305,28 @@ export const charts: Catalog = {
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "Keine Börse handelt {asset}, daher gibt es keinen Taker-Flow zu summieren: Das ist der Interbankenkurs, errechnet aus {first} und {second}, beide alle fünf Minuten notiert. Ältere Notierung {age}.",
   Currency: "Währung",
+  "quoted {age}": "notiert {age}",
+  Rate: "Kurs",
+  "bid {bid} · ask {ask}": "Geld {bid} · Brief {ask}",
+  "spread {bps} bps": "Spread {bps} Bp",
+  "now {pct} of the way from the low to the high": "jetzt bei {pct} des Wegs vom Tief zum Hoch",
+  "24h range": "24h-Spanne",
+  "from the last quote that long ago": "seit der letzten Notierung zu diesem Zeitpunkt",
+  "Peg band": "Bindungsband",
+  "The HKMA buys Hong Kong dollars at {high} and sells them at {low}: now {pct} of the way to the weak side.":
+    "Die HKMA kauft Hongkong-Dollar bei {high} und verkauft sie bei {low}: jetzt bei {pct} des Wegs zur schwachen Seite.",
+  "{price} in the band from {low} to {high}": "{price} im Band von {low} bis {high}",
+  Peg: "Bindung",
+  "The UAE central bank holds the dirham at {peg} to the dollar: now {bps} bps from it.":
+    "Die Zentralbank der VAE hält den Dirham bei {peg} je Dollar: jetzt {bps} Bp davon entfernt.",
+  "No exchange trades it, so it is the product of two dollar rates, each quoted every five minutes.":
+    "Keine Börse handelt ihn, daher ist er das Produkt zweier Dollarkurse, beide alle fünf Minuten notiert.",
+  "Worked out from": "Errechnet aus",
+  "The interbank rate, quoted every five minutes and held to the other sources.":
+    "Der Interbankenkurs, alle fünf Minuten notiert und mit den anderen Quellen abgeglichen.",
+  Pair: "Paar",
+  "Related pairs": "Verwandte Paare",
+  "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
+    "Alle anderen Paare von {codes} auf der Seite, aus denselben Dollarkursen, nach der größten 24-Stunden-Bewegung sortiert.",
+  traded: "gehandelt",
 };

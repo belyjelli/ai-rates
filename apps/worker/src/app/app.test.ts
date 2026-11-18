@@ -6569,6 +6569,92 @@ describe("cvd", () => {
     expect(html).toContain('"ref":"rates:EURHKD"');
   });
 
+  test("a rate-only pair's page shows its own tiles, peg, formula and related pairs", async () => {
+    const detail = {
+      bid: 8.6037,
+      ask: 8.6055,
+      high: 8.6115,
+      low: 8.5977,
+      changes: [
+        { hours: 24, pct: -0.04 },
+        { hours: 168, pct: 0.42 },
+        { hours: 720, pct: 1.82 },
+        { hours: 2160, pct: null },
+      ],
+      legs: [
+        {
+          pair: "EURUSD",
+          price: 1.0967,
+          change_pct: -0.02,
+          at: new Date(NOW - 120_000),
+          source: "sina",
+        },
+        {
+          pair: "USDHKD",
+          price: 7.8462,
+          change_pct: -0.02,
+          at: new Date(NOW - 120_000),
+          source: "sina",
+        },
+      ],
+      related: [
+        { pair: "EURTHB", price: 37.2368, change_pct: -0.05, week_pct: 0.4, traded: false },
+        { pair: "EURUSD", price: 1.0967, change_pct: -0.02, week_pct: 0.2, traded: true },
+      ],
+    };
+    const page = (asset: string, legs?: [string, string]) => {
+      const cross = hkdChart();
+      return fakeData({
+        cvd: async () => ({
+          ...cross,
+          // EURTHB is on the page, so its related row links; EURUSD is not, so it is plain text.
+          rows: [
+            ...cross.rows,
+            { ...hkdRow, asset, price: 8.6046 },
+            { ...hkdRow, asset: "EURTHB" },
+          ],
+          bars: cross.bars.map((bar) => ({ ...bar, price_symbol: asset })),
+          rate: { ...hkdRate, ...(legs ? { legs } : {}) },
+          rate_detail: detail,
+        }),
+      }).data;
+    };
+
+    const html = await (await get("/chart/fx/EURHKD", page("EURHKD", ["EURUSD", "USDHKD"]))).text();
+    // The pair's own tiles, not the market's CVD breadth.
+    expect(html).not.toContain("CVD breadth");
+    expect(html).toContain(
+      '<p class="eyebrow">Rate</p><p class="cvd-big"><span data-u="rate">8.6046</span>',
+    );
+    expect(html).toContain("bid 8.6037 · ask 8.6055 · spread 2.1 bps");
+    expect(html).toContain('<span data-u="range">8.5977 – 8.6115</span>');
+    expect(html).toContain('<small class="dim">7d</small> <b class=" cvd-up">+0.42%</b>');
+    expect(html).toContain('<small class="dim">90d</small> <b class="">–</b>');
+    // A cross says what it is the product of, above and under the chart.
+    expect(html).toContain('<p class="cvd-big cvd-big-sm">EURUSD × USDHKD</p>');
+    expect(html).toContain('<p class="notes">EURHKD = EURUSD × USDHKD</p>');
+    // Related pairs link to their pages, and say which trade.
+    expect(html).toContain('<h2 class="cvd-h2">Related pairs</h2>');
+    expect(html).toContain('href="/chart/fx/EURTHB#cvd-chart">EURTHB</a>');
+    expect(html).toContain('<span class="dim">traded</span>');
+    expect(html).toContain("<td>EURUSD</td>");
+
+    // The quote-side arithmetic for the other shapes of cross.
+    const jpy = await (await get("/chart/fx/HKDJPY", page("HKDJPY", ["USDHKD", "USDJPY"]))).text();
+    expect(jpy).toContain(">USDJPY ÷ USDHKD<");
+    const cny = await (await get("/chart/fx/CNYHKD", page("CNYHKD", ["USDCNY", "USDHKD"]))).text();
+    expect(cny).toContain(">USDHKD ÷ USDCNY<");
+
+    // Hong Kong's band and the dirham's peg get a gauge in place of the formula.
+    const hkd = await (await get("/chart/fx/USDHKD", page("USDHKD"))).text();
+    expect(hkd).toContain(
+      '<p class="eyebrow">Peg band</p><p class="cvd-big cvd-big-sm">7.75 – 7.85</p>',
+    );
+    expect(hkd).toContain("The HKMA buys Hong Kong dollars at 7.85 and sells them at 7.75");
+    const aed = await (await get("/chart/fx/USDAED", page("USDAED"))).text();
+    expect(aed).toContain('<p class="eyebrow">Peg</p><p class="cvd-big cvd-big-sm">3.6725</p>');
+  });
+
   test("/v1/cvd marks a rate-only pair and leaves it out of the market's figures", async () => {
     const { data } = fakeData({ cvd: async () => flow({ rows: [...flow().rows, hkdRow] }) });
     const body = (await (await get("/v1/cvd?limit=10", data)).json()) as {

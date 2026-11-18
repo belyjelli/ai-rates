@@ -306,4 +306,28 @@ export const charts: Catalog = {
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "Nenhuma exchange negocia {asset}, então não há fluxo tomador para somar: esta é a sua taxa interbancária, calculada a partir de {first} e {second}, cada uma cotada a cada cinco minutos. Cotação mais antiga {age}.",
   Currency: "Moeda",
+  "quoted {age}": "cotado {age}",
+  Rate: "Taxa",
+  "bid {bid} · ask {ask}": "compra {bid} · venda {ask}",
+  "spread {bps} bps": "spread {bps} bps",
+  "now {pct} of the way from the low to the high": "agora a {pct} do caminho da mínima à máxima",
+  "24h range": "Faixa de 24h",
+  "from the last quote that long ago": "desde a última cotação daquele momento",
+  "Peg band": "Banda de paridade",
+  "The HKMA buys Hong Kong dollars at {high} and sells them at {low}: now {pct} of the way to the weak side.":
+    "A HKMA compra dólares de Hong Kong a {high} e vende a {low}: agora a {pct} do caminho até o lado fraco.",
+  "{price} in the band from {low} to {high}": "{price} na banda de {low} a {high}",
+  Peg: "Paridade",
+  "The UAE central bank holds the dirham at {peg} to the dollar: now {bps} bps from it.":
+    "O banco central dos Emirados mantém o dirham a {peg} por dólar: agora a {bps} bps dele.",
+  "No exchange trades it, so it is the product of two dollar rates, each quoted every five minutes.":
+    "Nenhuma exchange o negocia, então é o produto de duas taxas em dólar, cada uma cotada a cada cinco minutos.",
+  "Worked out from": "Calculado a partir de",
+  "The interbank rate, quoted every five minutes and held to the other sources.":
+    "A taxa interbancária, cotada a cada cinco minutos e conferida com as outras fontes.",
+  Pair: "Par",
+  "Related pairs": "Pares relacionados",
+  "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
+    "Todos os outros pares de {codes} no site, calculados com as mesmas taxas em dólar, do maior movimento em 24 horas ao menor.",
+  traded: "negociado",
 };

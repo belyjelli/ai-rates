@@ -296,4 +296,28 @@ export const charts: Catalog = {
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "没有交易所交易 {asset}，因此没有可累计的主动成交流：这是它的银行间汇率，由 {first} 与 {second} 推算，两者均每五分钟报价一次。较旧的报价：{age}。",
   Currency: "货币",
+  "quoted {age}": "报价于 {age}",
+  Rate: "汇率",
+  "bid {bid} · ask {ask}": "买价 {bid} · 卖价 {ask}",
+  "spread {bps} bps": "点差 {bps} 个基点",
+  "now {pct} of the way from the low to the high": "现处于从低点到高点的 {pct}",
+  "24h range": "24 小时区间",
+  "from the last quote that long ago": "相对于当时的最后一次报价",
+  "Peg band": "联系汇率区间",
+  "The HKMA buys Hong Kong dollars at {high} and sells them at {low}: now {pct} of the way to the weak side.":
+    "香港金管局在 {high} 买入港元、在 {low} 卖出港元：目前处于弱方兑换保证的 {pct}。",
+  "{price} in the band from {low} to {high}": "{price} 位于 {low} 至 {high} 的区间内",
+  Peg: "挂钩汇率",
+  "The UAE central bank holds the dirham at {peg} to the dollar: now {bps} bps from it.":
+    "阿联酋央行将迪拉姆固定在 1 美元兑 {peg}：目前偏离 {bps} 个基点。",
+  "No exchange trades it, so it is the product of two dollar rates, each quoted every five minutes.":
+    "没有交易所交易它，因此它由两个美元汇率相乘得出，两者均每五分钟报价一次。",
+  "Worked out from": "推算自",
+  "The interbank rate, quoted every five minutes and held to the other sources.":
+    "银行间汇率，每五分钟报价一次，并与其他来源核对。",
+  Pair: "货币对",
+  "Related pairs": "相关货币对",
+  "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
+    "本站 {codes} 的所有其他货币对，由同样的美元汇率计算，按 24 小时变动幅度从大到小排列。",
+  traded: "有交易",
 };
