@@ -6460,7 +6460,9 @@ describe("api", () => {
     expect(md).toContain(
       "| Asset | Class | Long on | Long APR | Short on | Short APR | Spread now | Spread settled 7d |",
     );
-    expect(md).toContain("| Gate BTC_USDT | −0.55% | Lighter BTC | +10.9% | +11.5% | +8.20% | 8h / 1h |");
+    expect(md).toContain(
+      "| Gate BTC_USDT | −0.55% | Lighter BTC | +10.9% | +11.5% | +8.20% | 8h / 1h |",
+    );
     expect(md).toContain("[/v1/screener](https://airrates.net/v1/screener)");
     // The filter panel is a form, and a form is a control: none of it reaches the Markdown copy.
     expect(md).not.toContain("No presets yet.");
@@ -6694,6 +6696,21 @@ describe("api", () => {
     expect((await rpc("tools/list")).result?.tools.map((t) => t.name)).toContain("get_top_spreads");
     const status = await rpc("tools/call", { name: "get_data_status", arguments: {} });
     expect(status.result?.content[0]?.text).toContain("markets");
+    const tools = (await rpc("tools/list")).result?.tools.map((t) => t.name) ?? [];
+    for (const tool of ["get_cvd", "get_liquidations", "get_price_gaps", "get_verified_carry"]) {
+      expect(tools).toContain(tool);
+    }
+    const liq = await rpc("tools/call", { name: "get_liquidations", arguments: { window: "7d" } });
+    expect(JSON.parse(liq.result?.content[0]?.text ?? "{}")).toMatchObject({
+      window: "7d",
+      page: "https://airrates.net/liquidations",
+    });
+    const none = await rpc("tools/call", { name: "get_liquidations", arguments: { asset: "BTC" } });
+    expect(none.result?.content[0]?.text).toBe("No BTC liquidation was reported in the last 24h.");
+    const gaps = await rpc("tools/call", { name: "get_price_gaps", arguments: { limit: 3 } });
+    expect(gaps.result?.content[0]?.text).not.toContain("depth");
+    const carry = await rpc("tools/call", { name: "get_verified_carry", arguments: {} });
+    expect(carry.result?.content[0]?.text).toContain('"pairs"');
     expect((await rpc("tools/call", { name: "nope" })).error?.code).toBe(-32602);
     expect((await rpc("resources/list")).error?.code).toBe(-32601);
     const note = await post({ jsonrpc: "2.0", method: "notifications/initialized" });

@@ -2,7 +2,16 @@ import { ASSET_CLASSES } from "@ai-rates/core";
 import { cvdSummary } from "../web/cvd";
 import { SITE_ORIGIN } from "../web/layout";
 import { type DataSource, STALE_MS } from "./data";
-import { CVD_DEFAULT_INTERVAL, CVD_INTERVAL_KEYS, CVD_INTERVALS, DEFAULT_FILTERS } from "./params";
+import {
+  CVD_DEFAULT_INTERVAL,
+  CVD_INTERVAL_KEYS,
+  CVD_INTERVALS,
+  DEFAULT_FILTERS,
+  DEFAULT_LIQUIDATION_ASSETS,
+  LIQUIDATION_WINDOW_KEYS,
+  LIQUIDATION_WINDOWS,
+  parseArbitrageParams,
+} from "./params";
 
 /** Where MCP requests are posted (Streamable HTTP, JSON responses only, no sessions). */
 export const MCP_PATH = "/mcp";
@@ -60,6 +69,49 @@ export const TOOLS = [
     },
   },
   {
+    name: "get_liquidations",
+    description:
+      "Perpetual futures liquidations over the last 24 hours, 48 hours or 7 days: the total, longs against shorts, each exchange's total, and the most liquidated assets, or one asset's figures. Covers the exchanges whose liquidation feeds airrates reads, not the whole market.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        window: { type: "string", enum: ["24h", "48h", "7d"], description: "Default 24h." },
+        asset: {
+          type: "string",
+          description: "One asset's ticker, for example BTC; all by default.",
+        },
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 50,
+          description: "Assets to list (default 20).",
+        },
+      },
+    },
+  },
+  {
+    name: "get_price_gaps",
+    description:
+      "Where one exchange's best bid sits above another exchange's best ask for the same asset, in basis points. Top-of-book quotes, not fillable trades: no depth, fees or transfers counted.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: {
+          type: "integer",
+          minimum: 1,
+          maximum: 50,
+          description: "Assets to return (default 10).",
+        },
+      },
+    },
+  },
+  {
+    name: "get_verified_carry",
+    description:
+      "Funding carry pairs replayed on settled funding (long one exchange, short another): what each paid over the last days per leg size, annualised, and the share of days positive. A replay of the past, not a forecast.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
     name: "get_data_status",
     description:
       "How many markets, venues and assets airrates tracks, and whether the data is fresh.",
@@ -73,7 +125,7 @@ export function mcpServerCard(): Record<string, unknown> {
     $schema: "https://static.modelcontextprotocol.io/schemas/mcp-server-card/v1.json",
     serverInfo: SERVER,
     description:
-      "Read-only perpetual-futures funding rates and cross-exchange spreads from airrates.net.",
+      "Read-only perpetual futures data from airrates.net: funding rates and cross-exchange spreads, replayed carry, liquidations, cumulative volume delta and price gaps.",
     documentationUrl: `${SITE_ORIGIN}/agents`,
     protocolVersion: PROTOCOLS[0],
     transport: { type: "streamable-http", endpoint: `${SITE_ORIGIN}${MCP_PATH}` },
@@ -156,6 +208,93 @@ async function callTool(
       rows: summary.rows.slice(0, 20),
     });
   }
+  if (name === "get_liquidations") {
+    const window = LIQUIDATION_WINDOW_KEYS.find((key) => key === args.window) ?? "24h";
+    const asked = Number(args.limit);
+    const limit = Number.isFinite(asked) ? Math.min(Math.max(Math.trunc(asked), 1), 50) : 20;
+    const asset = typeof args.asset === "string" ? args.asset.trim().toUpperCase() : null;
+    if (asset !== null && !/^[A-Z0-9._-]{1,24}$/.test(asset)) {
+      return text("asset must be a ticker such as BTC", true);
+    }
+    const { hours, bucketHours } = LIQUIDATION_WINDOWS[window];
+    const map = await data.liquidationMap({
+      windowHours: hours,
+      bucketHours,
+      assets: DEFAULT_LIQUIDATION_ASSETS,
+    });
+    const sum = (pick: (venue: (typeof map.totals)[number]) => number) =>
+      map.totals.reduce((total, venue) => total + pick(venue), 0);
+    const assets =
+      asset === null ? map.every.slice(0, limit) : map.every.filter((e) => e.asset === asset);
+    if (asset !== null && assets.length === 0) {
+      return text(`No ${asset} liquidation was reported in the last ${window}.`, true);
+    }
+    return text({
+      attribution: ATTRIBUTION,
+      page: `${SITE_ORIGIN}/liquidations${asset ? `/${asset}` : ""}`,
+      window,
+      total: {
+        liquidated_usd: sum((v) => v.notional_usd),
+        longs_usd: sum((v) => v.long_usd),
+        shorts_usd: sum((v) => v.short_usd),
+        liquidations: sum((v) => v.events),
+        assets: map.every.length,
+        exchanges: map.totals.length,
+      },
+      by_exchange: map.totals.map((v) => ({
+        exchange: v.venue_id,
+        liquidated_usd: v.notional_usd,
+        longs_usd: v.long_usd,
+        shorts_usd: v.short_usd,
+        liquidations: v.events,
+        last_at: v.last_at,
+      })),
+      assets: assets.map((e) => ({
+        asset: e.asset,
+        asset_class: e.asset_class,
+        liquidated_usd: e.notional_usd,
+        longs_usd: e.long_usd,
+        shorts_usd: e.short_usd,
+        liquidations: e.events,
+        exchanges: e.venues,
+      })),
+    });
+  }
+  if (name === "get_price_gaps") {
+    const asked = Number(args.limit);
+    const limit = Number.isFinite(asked) ? Math.min(Math.max(Math.trunc(asked), 1), 50) : 10;
+    const params = parseArbitrageParams(new URLSearchParams({ limit: String(limit) }));
+    // The size a gap is good for is the paid version's, as on /v1/arbitrage: no depths here either.
+    const rows = (await data.arbitrage(params)).map((row) => ({
+      asset: row.asset,
+      asset_class: row.asset_class,
+      gap_bps: row.gap_bps,
+      buy: { exchange: row.buy_venue_id, symbol: row.buy_symbol, ask: row.buy_price },
+      sell: { exchange: row.sell_venue_id, symbol: row.sell_symbol, bid: row.sell_price },
+      exchanges_quoting: row.venue_count,
+    }));
+    return text({ attribution: ATTRIBUTION, page: `${SITE_ORIGIN}/arbitrage`, rows });
+  }
+  if (name === "get_verified_carry") {
+    const pairs = await data.verifiedPairs(10);
+    return text({
+      attribution: ATTRIBUTION,
+      page: `${SITE_ORIGIN}/`,
+      run_day: pairs[0]?.run_day ?? null,
+      pairs: pairs.map((v) => ({
+        asset: v.asset,
+        asset_class: v.asset_class,
+        long: { exchange: v.long_venue_id, symbol: v.long_symbol },
+        short: { exchange: v.short_venue_id, symbol: v.short_symbol },
+        days: v.days,
+        size_per_leg_usd: v.size_usd,
+        funding_settled_usd: v.net_funding_usd,
+        apr_percent: v.net_funding_apr_percent,
+        days_positive_share: v.win_rate_days,
+        thinner_leg_open_interest_usd: v.thinner_leg_oi_usd,
+      })),
+    });
+  }
   if (name === "get_data_status") {
     const o = await data.overview();
     const at = o.updated_at?.getTime() ?? null;
@@ -209,7 +348,7 @@ export async function handleMcp(
           protocolVersion: PROTOCOLS.includes(asked) ? asked : PROTOCOLS[0],
           capabilities: { tools: { listChanged: false } },
           serverInfo: SERVER,
-          instructions: `Read-only perpetual futures data: funding rates and spreads, and cumulative volume delta. Not financial advice. ${ATTRIBUTION}`,
+          instructions: `Read-only perpetual futures data: funding rates and spreads, replayed carry, liquidations, cumulative volume delta and price gaps. Not financial advice. ${ATTRIBUTION}`,
         },
       });
     }

@@ -81,9 +81,10 @@ describe("the header an assistant reads first", () => {
     const liq = htmlToMarkdown(page, "https://airrates.net/liquidations/equity/SNDK") ?? "";
     expect(liq).toContain("json: https://airrates.net/v1/liquidations?assets=SNDK");
     expect(liq).not.toContain("data_as_of");
-    expect(liq).not.toContain("mcp:");
+    expect(liq).toContain("mcp: get_liquidations (server https://airrates.net/mcp)");
     const about = htmlToMarkdown(page, "https://airrates.net/about") ?? "";
     expect(about).not.toContain("json:");
+    expect(about).not.toContain("mcp:");
     expect(about).toContain('cite: "airrates, https://airrates.net/about"\n');
   });
 });

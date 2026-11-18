@@ -55,6 +55,7 @@ export const AGENT_PAGES: readonly AgentPage[] = [
     title: "Price arbitrage",
     answers: "Where one exchange's bid sits above another exchange's ask for the same asset.",
     api: "/v1/arbitrage",
+    mcp: "get_price_gaps",
   },
   {
     path: "/liquidations",
@@ -62,6 +63,7 @@ export const AGENT_PAGES: readonly AgentPage[] = [
     answers:
       "How much was liquidated in the last 24 hours, 48 hours or 7 days, by asset and by exchange, longs against shorts; the largest single liquidations; liquidation cascades; where tracked whale positions would be liquidated.",
     api: "/v1/liquidations",
+    mcp: "get_liquidations",
   },
   {
     path: "/liquidations/<asset>",
@@ -69,6 +71,7 @@ export const AGENT_PAGES: readonly AgentPage[] = [
     answers:
       "One asset's liquidations over time and by exchange, its whale positions and their liquidation prices, and the odds of reaching a price.",
     api: "/v1/liquidations?assets=<asset>",
+    mcp: "get_liquidations",
   },
   {
     path: "/chart",
