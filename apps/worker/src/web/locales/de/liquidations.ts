@@ -617,4 +617,16 @@ export const liquidations: Catalog = {
   "{asset}: the odds of reaching each price": "{asset}: die Chancen, jeden Preis zu erreichen",
   "How far the price can plausibly get in 4 hours, 6 hours, a day and a week: the chance it touches each level, sized from its own measured volatility, beside the levels where positions were liquidated and what each liquidation theory reads.":
     "Wie weit der Preis in 4 Stunden, 6 Stunden, einem Tag und einer Woche plausibel kommen kann: die Chance, jedes Niveau zu berühren, aus seiner eigenen gemessenen Volatilität, neben den Niveaus, an denen Positionen liquidiert wurden, und dem, was jede Liquidationstheorie anzeigt.",
+  "Clicked bar": "Angeklickter Balken",
+  "Positions that liquidate in a bar": "Positionen, die in einem Balken liquidiert werden",
+  "Every position in the bar you clicked, longs and shorts, largest first.":
+    "Alle Positionen im angeklickten Balken, Longs und Shorts, größte zuerst.",
+  "No tracked position liquidates in this bar.":
+    "Keine verfolgte Position wird in diesem Balken liquidiert.",
+  "Click a bar on the map above to list every position that liquidates in it.":
+    "Klicken Sie oben auf einen Balken der Karte, um alle Positionen aufzulisten, die darin liquidiert werden.",
+  "Positions that liquidate between {low} and {high}":
+    "Positionen mit Liquidation zwischen {low} und {high}",
+  "click one to list its positions below":
+    "Balken anklicken, um seine Positionen unten aufzulisten",
 };

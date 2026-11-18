@@ -592,4 +592,13 @@ export const liquidations: Catalog = {
   "{asset}: the odds of reaching each price": "{asset}: 각 가격에 도달할 확률",
   "How far the price can plausibly get in 4 hours, 6 hours, a day and a week: the chance it touches each level, sized from its own measured volatility, beside the levels where positions were liquidated and what each liquidation theory reads.":
     "4시간, 6시간, 하루, 일주일 안에 가격이 어디까지 갈 수 있는지: 자체 실측 변동성으로 각 수준에 닿을 확률을 계산하고, 청산이 일어난 수준과 각 청산 이론의 판독을 함께 보여 줍니다.",
+  "Clicked bar": "클릭한 막대",
+  "Positions that liquidate in a bar": "막대 안에서 청산되는 포지션",
+  "Every position in the bar you clicked, longs and shorts, largest first.":
+    "클릭한 막대의 모든 포지션, 롱과 숏 모두, 큰 순서.",
+  "No tracked position liquidates in this bar.": "이 막대에서 청산되는 추적 포지션이 없습니다.",
+  "Click a bar on the map above to list every position that liquidates in it.":
+    "위 지도의 막대를 클릭하면 그 가격대에서 청산되는 모든 포지션을 보여 줍니다.",
+  "Positions that liquidate between {low} and {high}": "{low}에서 {high} 사이에서 청산되는 포지션",
+  "click one to list its positions below": "막대를 클릭하면 아래에 포지션 목록",
 };

@@ -1341,7 +1341,7 @@ describe("pages", () => {
       const rows = [...html.matchAll(/<tr data-k="hyperliquid\|([^|]+)\|ETH">/g)].map((m) => m[1]);
       expect(rows).toEqual(["0x7c4b00000000000000000000000000000000e00b"]);
       expect(html).toContain(
-        '<h2 class="cvd-h2 wm-h2">Longs closest to their liquidation price</h2>',
+        '<h2 class="cvd-h2 wm-h2" id="wm-table">Longs closest to their liquidation price</h2>',
       );
       expect(html).toContain('href="https://hl.eco/0x7c4b00000000000000000000000000000000e00b"');
       expect(html).toContain(">0x7c4b…e00b<");
@@ -1360,6 +1360,28 @@ describe("pages", () => {
       expect(html).toContain(
         'href="/liquidations?wlist=big-short#whales" data-lq-swap="whales">Largest shorts <span class="dim">1</span></a>',
       );
+      // The clicked-bar tab comes first, waiting for a click on the chart, which says it can be clicked.
+      expect(html).toContain(
+        'href="/liquidations?wlist=band#whales" data-lq-swap="whales" data-wm-band-tab>Clicked bar</a>',
+      );
+      expect(html).toContain("click one to list its positions below");
+      expect(page).toContain("data-wm-band-tab");
+      // A clicked bar lists every position that liquidates in it, either side, largest first.
+      const bar = await tab("/liquidations?wlist=band&wband=3790_3810", "whales", data);
+      expect(
+        [...bar.matchAll(/<tr data-k="hyperliquid\|([^|]+)\|ETH">/g)].map((m) => m[1]),
+      ).toEqual(["0x7c4b00000000000000000000000000000000e00b"]);
+      expect(bar).toContain("Positions that liquidate between 3,790 and 3,810");
+      expect(bar).toContain(
+        'aria-current="page" data-lq-swap="whales" data-wm-band-tab>3,790–3,810 <span class="dim">1</span></a>',
+      );
+      // The other tabs leave the band behind; a band holding nobody says so.
+      expect(bar).toContain('href="/liquidations?wlist=near-short#whales"');
+      const empty = await tab("/liquidations?wlist=band&wband=4100_4120", "whales", data);
+      expect(empty).toContain("No tracked position liquidates in this bar.");
+      // An address with no bar, or one asking for half the axis, waits for a click.
+      const wide = await tab("/liquidations?wlist=band&wband=1000_9000", "whales", data);
+      expect(wide).toContain("Click a bar on the map above");
       // The shorts' tab: the $3M short, 10% below its liquidation.
       const shorts = await tab("/liquidations?wlist=near-short", "whales", data);
       expect(

@@ -79,7 +79,7 @@ import {
 } from "./slot-chart";
 import { tabBar } from "./tabs";
 import { PNL_WINDOW_OF, TRADER_CSS, traderPanel, winnersPanel } from "./trader";
-import { floorLabel, whalePanel, whalesNearMark } from "./whale-map";
+import { floorLabel, WM_BAND_CSS, WM_BAND_SCRIPT, whalePanel, whalesNearMark } from "./whale-map";
 
 /** The address form every asset page uses: crypto unmarked, every other class in the path. */
 const assetPathFor = (asset: string, assetClass: AssetClass | null) =>
@@ -240,6 +240,7 @@ function controlHref(
     whale?: WhaleFloor;
     wzoom?: WhaleZoom;
     wlist?: WhaleList;
+    wband?: [number, number] | null;
     order?: LargestOrder;
     min?: LargestFloor;
     span?: HistorySpan;
@@ -284,6 +285,8 @@ function controlHref(
   if (wzoom !== DEFAULT_WHALE_ZOOM) query.set("wzoom", String(wzoom));
   const wlist = overrides.wlist ?? state.assetParams.wlist;
   if (wlist !== DEFAULT_WHALE_LIST) query.set("wlist", wlist);
+  const wband = overrides.wband === undefined ? state.assetParams.wband : overrides.wband;
+  if (wlist === "band" && wband) query.set("wband", wband.join("_"));
   if ((overrides.order ?? state.assetParams.order) === "newest") {
     query.set("order", "newest");
     const min = overrides.min ?? state.assetParams.min;
@@ -2520,6 +2523,7 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
       floor: assetParams.whale,
       zoom: assetParams.wzoom,
       list: assetParams.wlist,
+      band: assetParams.wband,
       listHref: (list) => esc(controlHref(state, { wlist: list }, "#whales")),
       picker: assetPicker(state, map.every, asset, "#whales"),
       floorStrip: `<nav class="tf" aria-label="${tr("Position size")}">${(
@@ -2939,10 +2943,12 @@ ${panels}
 ${mapFootnote({ map, params, now })}
 <p class="notes">${tr("Updated {ago}.", { ago: since(overview.updated_at, now) })}</p>
 <style>${MEMBER_TAB_CSS}
-${TRADER_CSS}</style>
+${TRADER_CSS}
+${WM_BAND_CSS}</style>
 <script>${SLOT_SCRIPT}</script>
 <script>${LQ_SWAP_SCRIPT}</script>
 <script>${MEMBER_TAB_SCRIPT}</script>
-<script>${PICK_SCRIPT}</script>`,
+<script>${PICK_SCRIPT}</script>
+<script>${WM_BAND_SCRIPT}</script>`,
   });
 }

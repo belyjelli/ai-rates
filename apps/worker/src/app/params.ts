@@ -680,6 +680,11 @@ export interface LiquidationAssetParams {
   wzoom: WhaleZoom;
   /** Which of the whale map's position lists the table shows (WHALE_LISTS). */
   wlist: WhaleList;
+  /**
+   * The price band a click on the whale map chose, [low, high): its "band" list shows every position
+   * that liquidates in it. Null when no bar has been clicked.
+   */
+  wband: [number, number] | null;
   /** The Largest tab's order: the window's biggest closes, or its newest above `min`. */
   order: LargestOrder;
   /** The newest-first list's smallest close. The biggest-first list needs no floor. */
@@ -747,9 +752,21 @@ export const DEFAULT_WHALE_ZOOM: WhaleZoom = 25;
  * shorts nearest their liquidation price, and the largest longs and shorts that have one. Each side
  * apart, because the two are opposite trades: longs liquidate on a fall, shorts on a rise.
  */
-export const WHALE_LISTS = ["near-long", "near-short", "big-long", "big-short"] as const;
+export const WHALE_LISTS = ["band", "near-long", "near-short", "big-long", "big-short"] as const;
 export type WhaleList = (typeof WHALE_LISTS)[number];
 export const DEFAULT_WHALE_LIST: WhaleList = "near-long";
+
+/**
+ * `wband=63100_63900`: a clicked bar's price range, low then high. Bounded so a pasted address cannot
+ * ask for half the axis: both positive, low under high, the range at most a fifth of the low.
+ */
+function whaleBand(value: string | null): [number, number] | null {
+  const match = /^(\d+(?:\.\d+)?)_(\d+(?:\.\d+)?)$/.exec(value ?? "");
+  if (!match) return null;
+  const low = Number(match[1]);
+  const high = Number(match[2]);
+  return low > 0 && high > low && high - low <= low / 5 ? [low, high] : null;
+}
 
 /** The whale map's position floors, in dollars by their query value. The collector stores $100k up. */
 export const WHALE_FLOORS = { "1m": 1_000_000, "100k": 100_000 } as const;
@@ -776,6 +793,7 @@ export function parseLiquidationAssetParams(params: URLSearchParams): Liquidatio
     wlist: (WHALE_LISTS as readonly string[]).includes(params.get("wlist") ?? "")
       ? (params.get("wlist") as WhaleList)
       : DEFAULT_WHALE_LIST,
+    wband: whaleBand(params.get("wband")),
     order: params.get("order") === "newest" ? "newest" : "size",
     min: Object.hasOwn(LARGEST_FLOORS, params.get("min") ?? "")
       ? (params.get("min") as LargestFloor)
@@ -799,6 +817,7 @@ export function liquidationAssetToQuery(params: LiquidationAssetParams): string 
   if (params.whale !== "1m") query.set("whale", params.whale);
   if (params.wzoom !== DEFAULT_WHALE_ZOOM) query.set("wzoom", String(params.wzoom));
   if (params.wlist !== DEFAULT_WHALE_LIST) query.set("wlist", params.wlist);
+  if (params.wlist === "band" && params.wband) query.set("wband", params.wband.join("_"));
   if (params.order === "newest") {
     query.set("order", "newest");
     if (params.min !== DEFAULT_LARGEST_FLOOR) query.set("min", params.min);

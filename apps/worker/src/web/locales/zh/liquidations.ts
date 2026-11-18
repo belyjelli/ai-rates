@@ -583,4 +583,13 @@ export const liquidations: Catalog = {
   "{asset}: the odds of reaching each price": "{asset}：触及各价位的概率",
   "How far the price can plausibly get in 4 hours, 6 hours, a day and a week: the chance it touches each level, sized from its own measured volatility, beside the levels where positions were liquidated and what each liquidation theory reads.":
     "价格在 4 小时、6 小时、一天和一周内可能走多远：按其自身实测波动率计算触及各价位的概率，并列出曾发生强平的价位以及每种强平理论的读数。",
+  "Clicked bar": "所点柱",
+  "Positions that liquidate in a bar": "在某根柱内强平的仓位",
+  "Every position in the bar you clicked, longs and shorts, largest first.":
+    "你所点柱内的每个仓位，多空都含，按规模从大到小。",
+  "No tracked position liquidates in this bar.": "没有被追踪的仓位在这根柱内强平。",
+  "Click a bar on the map above to list every position that liquidates in it.":
+    "点击上方图中的柱，列出在其价格区间强平的每个仓位。",
+  "Positions that liquidate between {low} and {high}": "强平价在 {low} 至 {high} 之间的仓位",
+  "click one to list its positions below": "点击一根柱，在下方列出其仓位",
 };

@@ -598,4 +598,15 @@ export const liquidations: Catalog = {
   "{asset}: the odds of reaching each price": "{asset}：各価格に届く確率",
   "How far the price can plausibly get in 4 hours, 6 hours, a day and a week: the chance it touches each level, sized from its own measured volatility, beside the levels where positions were liquidated and what each liquidation theory reads.":
     "4時間、6時間、1日、1週間で価格がどこまで動きうるか：実測ボラティリティから各水準に触れる確率を算出し、清算が起きた水準と各清算理論の読みを並べて表示。",
+  "Clicked bar": "クリックしたバー",
+  "Positions that liquidate in a bar": "バー内で清算されるポジション",
+  "Every position in the bar you clicked, longs and shorts, largest first.":
+    "クリックしたバーのすべてのポジション（ロング・ショート両方）、大きい順。",
+  "No tracked position liquidates in this bar.":
+    "このバーで清算される追跡中のポジションはありません。",
+  "Click a bar on the map above to list every position that liquidates in it.":
+    "上のマップのバーをクリックすると、その価格帯で清算されるすべてのポジションを一覧します。",
+  "Positions that liquidate between {low} and {high}":
+    "{low} から {high} の間で清算されるポジション",
+  "click one to list its positions below": "バーをクリックすると下にポジションを一覧",
 };

@@ -47,8 +47,17 @@ import { explorerAddress, shortAddress } from "./whales";
  */
 const LISTS: Record<
   WhaleList,
-  { long: boolean; near: boolean; tab: string; title: string; how: string }
+  { long: boolean | null; near: boolean; tab: string; title: string; how: string }
 > = {
+  // The bar a reader clicked on the map (owner, 2026-11-19): every position that liquidates in its
+  // price band, longs and shorts, largest first. The title names the band, so it is built apart.
+  band: {
+    long: null,
+    near: false,
+    tab: msg("Clicked bar"),
+    title: msg("Positions that liquidate in a bar"),
+    how: msg("Every position in the bar you clicked, longs and shorts, largest first."),
+  },
   "near-long": {
     long: true,
     near: true,
@@ -78,6 +87,51 @@ const LISTS: Record<
     how: msg("Biggest first, each with the price that would liquidate it."),
   },
 };
+
+/**
+ * A click on a bar of the whale map lists that bar's positions in the band tab under it (owner,
+ * 2026-11-19). The bar is found as the chart's readout finds it (slot-chart.ts indexAt); its price
+ * range is the band's, from the figure's own payload. An empty bar does nothing. The band tab's link
+ * is pointed at the range and clicked, so LQ_SWAP_SCRIPT swaps the tab in place and moves the
+ * address as for any other tab; once the new table is in, it is scrolled into view.
+ */
+export const WM_BAND_SCRIPT = `(() => {
+  const range = (low, step, i) => {
+    const digits = (n) => Number(n.toPrecision(7));
+    return [digits(low + i * step), digits(low + (i + 1) * step)];
+  };
+  document.addEventListener("click", (event) => {
+    if (event.defaultPrevented || event.button !== 0 || !event.target.closest) return;
+    const area = event.target.closest(".wm-chart .slot-area");
+    if (!area) return;
+    const figure = area.closest("figure");
+    const data = figure && figure.querySelector(".slot-data");
+    const plot = area.querySelector(".fchart-plot");
+    const panel = area.closest("[data-tab-panel]");
+    const tab = panel && panel.querySelector("a[data-wm-band-tab]");
+    if (!data || !plot || !tab) return;
+    const d = JSON.parse(data.textContent);
+    const rect = plot.getBoundingClientRect();
+    const i = Math.floor(((event.clientX - rect.left) / rect.width) * d.slots.length);
+    if (i < 0 || i >= d.slots.length || !d.slots[i]) return;
+    const url = new URL(tab.href, location.href);
+    url.searchParams.set("wlist", "band");
+    url.searchParams.set("wband", range(d.low, d.step, i).join("_"));
+    tab.href = url.pathname + url.search + url.hash;
+    const watch = new MutationObserver(() => {
+      const head = panel.querySelector("#wm-table");
+      if (!head || !panel.querySelector('a[data-wm-band-tab][aria-current]')) return;
+      watch.disconnect();
+      head.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    });
+    watch.observe(panel, { childList: true, subtree: true });
+    setTimeout(() => watch.disconnect(), 10000);
+    tab.click();
+  });
+})();`;
+
+/** The bars of the whale map say they can be clicked. */
+export const WM_BAND_CSS = `.wm-chart .slot-area{cursor:pointer}`;
 
 /** Price bands across the axis, and the table's length. */
 const BANDS = 80;
@@ -308,7 +362,7 @@ function whaleChart(data: {
 
   const totalLong = placed.filter((x) => x.long).reduce((sum, x) => sum + x.p.position_usd, 0);
   const totalShort = placed.filter((x) => !x.long).reduce((sum, x) => sum + x.p.position_usd, 0);
-  const idle = tr(
+  const idle = `${tr(
     "{n} positions of {floor} or more · {longs} of longs, {shorts} of shorts · hover or tap a bar to read it",
     {
       n: placed.length,
@@ -316,7 +370,7 @@ function whaleChart(data: {
       longs: `<b class="lq-ink-l">${formatUsd(totalLong)}</b>`,
       shorts: `<b class="lq-ink-s">${formatUsd(totalShort)}</b>`,
     },
-  );
+  )} · ${tr("click one to list its positions below")}`;
   const payload: WhaleSlots = {
     kind: "wmap",
     low,
@@ -362,12 +416,14 @@ export function whalePanel(data: {
   zoom: WhaleZoom;
   /** The table's tab, and each tab's address (escaped). */
   list: WhaleList;
+  /** The clicked bar's price range, for the band tab; null before any bar is clicked. */
+  band: [number, number] | null;
   listHref: (list: WhaleList) => string;
   picker: string;
   floorStrip: string;
   now: number;
 }): string {
-  const { label, positions, floor, zoom, list, listHref, picker, floorStrip, now } = data;
+  const { label, positions, floor, zoom, list, band, listHref, picker, floorStrip, now } = data;
   const controls = `<div class="lq-controls">${picker}${floorStrip}${helpButton("liq-whales")}</div>
 ${helpPanel(
   "liq-whales",
@@ -441,6 +497,17 @@ ${helpPanel(
   // Each tab's positions: one side, only those with a liquidation price, nearest or biggest first.
   const listed = (key: WhaleList): Placed[] => {
     const { long, near } = LISTS[key];
+    if (key === "band") {
+      // Placed as the chart places them: each at its own distance from its market, from the main mark.
+      if (!band || mark === null) return [];
+      return placed
+        .filter((x) => {
+          if (x.distance === null) return false;
+          const at = mark * (1 + x.distance);
+          return at >= band[0] && at < band[1];
+        })
+        .sort((a, b) => b.p.position_usd - a.p.position_usd);
+    }
     const side = placed.filter((x) => x.long === long && x.p.liquidation_price !== null);
     return near
       ? side
@@ -498,23 +565,40 @@ ${helpPanel(
         }</p>`
       : "";
   // The tabs: each list's name and how many positions it holds, swapping the whale tab in place.
+  // The band tab names its range once a bar is clicked; WM_BAND_SCRIPT points it at a bar and
+  // follows it, so a click on the chart is an ordinary tab switch.
+  const bandName = band ? `${formatPrice(band[0])}–${formatPrice(band[1])}` : trMsg(LISTS.band.tab);
   const tabs = `<nav class="tf wm-lists" aria-label="${esc(tr("Position list"))}">${WHALE_LISTS.map(
     (key) => {
-      const text = `${trMsg(LISTS[key].tab)} <span class="dim">${listed(key).length}</span>`;
+      const name = key === "band" ? bandName : trMsg(LISTS[key].tab);
+      const count =
+        key === "band" && !band ? "" : ` <span class="dim">${listed(key).length}</span>`;
+      const extra = key === "band" ? " data-wm-band-tab" : "";
       return key === list
-        ? `<a class="on" href="${listHref(key)}" aria-current="page" data-lq-swap="whales">${text}</a>`
-        : `<a href="${listHref(key)}" data-lq-swap="whales">${text}</a>`;
+        ? `<a class="on" href="${listHref(key)}" aria-current="page" data-lq-swap="whales"${extra}>${name}${count}</a>`
+        : `<a href="${listHref(key)}" data-lq-swap="whales"${extra}>${name}${count}</a>`;
     },
   ).join("")}</nav>`;
   const none = `<p class="empty">${
-    LISTS[list].long
-      ? tr("No long position here has a liquidation price.")
-      : tr("No short position here has a liquidation price.")
+    list === "band"
+      ? band
+        ? tr("No tracked position liquidates in this bar.")
+        : tr("Click a bar on the map above to list every position that liquidates in it.")
+      : LISTS[list].long
+        ? tr("No long position here has a liquidation price.")
+        : tr("No short position here has a liquidation price.")
   }</p>`;
+  const title =
+    list === "band" && band
+      ? tr("Positions that liquidate between {low} and {high}", {
+          low: formatPrice(band[0]),
+          high: formatPrice(band[1]),
+        })
+      : trMsg(LISTS[list].title);
   const footnote = computed
     ? `<p class="notes">* ${tr("dYdX publishes no liquidation price: computed from the account's balance and positions with dYdX's maintenance margins")}.</p>`
     : "";
-  const table = `<h2 class="cvd-h2 wm-h2">${trMsg(LISTS[list].title)}</h2>
+  const table = `<h2 class="cvd-h2 wm-h2" id="wm-table">${title}</h2>
 ${tabs}
 <p class="notes wm-how">${trMsg(LISTS[list].how)}</p>
 ${liveNote(data.asset, shown[0]?.asset_class ?? "crypto", floor)}

@@ -40,6 +40,13 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-11-19",
+    title: "Liquidations: click a bar of the whale map",
+    changes: [
+      "Clicking a bar of the whale map lists every position that liquidates in its price range, longs and shorts, largest first, in a new first tab under the chart. The tab is named for the range, and its address can be shared.",
+    ],
+  },
+  {
+    date: "2026-11-19",
     title: "Chart: a currency pair's own figures",
     changes: [
       "A currency pair that no exchange trades (USD/HKD, EUR/HKD, USD/AED and the rest) now has its own tiles in place of the market's CVD figures: its rate with bid, ask and spread, the last 24 hours' range, and its change over a day, a week, 30 and 90 days.",
