@@ -629,4 +629,25 @@ export const liquidations: Catalog = {
     "Positionen mit Liquidation zwischen {low} und {high}",
   "click one to list its positions below":
     "Balken anklicken, um seine Positionen unten aufzulisten",
+  // The Longs vs shorts tab's positioning strip.
+  "{low}% to {high}%": "{low} % bis {high} %",
+  "{venue}: share of all accounts net long": "{venue}: Anteil aller Konten, die netto long sind",
+  "{venue}: share of the top traders' position size held long":
+    "{venue}: Anteil der Positionsgröße der Top-Trader, der long ist",
+  "{venue}: share of the top traders' accounts net long":
+    "{venue}: Anteil der Konten der Top-Trader, die netto long sind",
+  "{venue}: share of the last hour's taker volume that bought, on average":
+    "{venue}: durchschnittlicher Anteil des Taker-Volumens der letzten Stunde, der gekauft hat",
+  "{asset} positioning": "{asset}: Positionierung",
+  "{asset} positioning: the share long on each exchange":
+    "{asset}: Positionierung – der Long-Anteil je Börse",
+  "newest {time}": "Stand {time}",
+  "All accounts": "Alle Konten",
+  "Top traders' positions": "Positionen der Top-Trader",
+  "Top traders' accounts": "Konten der Top-Trader",
+  "Taker buys": "Taker-Käufe",
+  "all accounts": "alle Konten",
+  "top positions": "Top-Positionen",
+  "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
+    "Die eigenen veröffentlichten Statistiken jeder Börse, alle 15 Minuten gelesen. „Alle Konten“ zählt jedes Konto einmal und zeigt so die Masse. Top-Trader sind die jeweils eigene Gruppe der Börse (Binance: die oberen 20 % nach Margin), nach Positionsgröße und nach Konten. „Taker-Käufe“ ist der durchschnittliche Anteil des Taker-Volumens der letzten Stunde, der gekauft hat. Ein Strich steht für eine Zahl, die die Börse nicht veröffentlicht.",
 };

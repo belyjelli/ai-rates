@@ -601,4 +601,24 @@ export const liquidations: Catalog = {
     "위 지도의 막대를 클릭하면 그 가격대에서 청산되는 모든 포지션을 보여 줍니다.",
   "Positions that liquidate between {low} and {high}": "{low}에서 {high} 사이에서 청산되는 포지션",
   "click one to list its positions below": "막대를 클릭하면 아래에 포지션 목록",
+  // The Longs vs shorts tab's positioning strip.
+  "{low}% to {high}%": "{low}%~{high}%",
+  "{venue}: share of all accounts net long": "{venue}: 전체 계정 중 순롱 비율",
+  "{venue}: share of the top traders' position size held long":
+    "{venue}: 상위 트레이더 포지션 규모 중 롱 비율",
+  "{venue}: share of the top traders' accounts net long":
+    "{venue}: 상위 트레이더 계정 중 순롱 비율",
+  "{venue}: share of the last hour's taker volume that bought, on average":
+    "{venue}: 최근 1시간 테이커 거래량 중 매수 평균 비율",
+  "{asset} positioning": "{asset} 포지셔닝",
+  "{asset} positioning: the share long on each exchange": "{asset} 포지셔닝: 거래소별 롱 비율",
+  "newest {time}": "최신 {time}",
+  "All accounts": "전체 계정",
+  "Top traders' positions": "상위 트레이더 포지션",
+  "Top traders' accounts": "상위 트레이더 계정",
+  "Taker buys": "테이커 매수",
+  "all accounts": "전체 계정",
+  "top positions": "상위 포지션",
+  "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
+    "각 거래소가 직접 공개하는 통계를 15분마다 읽습니다. 전체 계정은 계정마다 한 번씩 세므로 대중의 쏠림을 보여 줍니다. 상위 트레이더는 거래소마다 정한 집단(바이낸스: 증거금 상위 20%)이며, 포지션 규모와 계정 수로 각각 나타냅니다. 테이커 매수는 최근 1시간 테이커 거래량 중 매수의 평균 비율입니다. '–'는 해당 거래소가 공개하지 않는 항목입니다.",
 };

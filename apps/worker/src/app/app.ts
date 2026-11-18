@@ -847,6 +847,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         feed,
         winners,
         trader,
+        positioning,
       ] = await Promise.all([
         wantsAsset && wanted
           ? deps.data.liquidationAsset({
@@ -950,6 +951,18 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
               hyperliquid.leaders().catch(() => null),
             ]).then(([read, board]) => ({ read, board }))
           : undefined,
+        // The Longs vs shorts tab's positioning strip, whenever that tab is drawn. A failed read
+        // leaves the tab without the strip, not the page 500.
+        wantsAsset && wanted?.assetClass && (panel === "sides" || panel === null)
+          ? deps.data
+              .positioning({
+                base: wanted.asset,
+                assetClass: wanted.assetClass,
+                windowHours: hours,
+                bucketMinutes: sideMinutes,
+              })
+              .catch(() => null)
+          : undefined,
       ]);
       if (address && (!assetMap || assetMap.asset_class === null)) {
         return page(
@@ -995,6 +1008,7 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         feed,
         winners,
         trader,
+        positioning: wanted === null ? null : positioning,
         biggest:
           panel !== null
             ? undefined

@@ -600,4 +600,25 @@ export const liquidations: Catalog = {
     "คลิกแท่งบนแผนที่ด้านบนเพื่อแสดงทุกโพซิชันที่ถูกล้างในช่วงราคานั้น",
   "Positions that liquidate between {low} and {high}": "โพซิชันที่ถูกล้างระหว่าง {low} ถึง {high}",
   "click one to list its positions below": "คลิกแท่งเพื่อแสดงโพซิชันด้านล่าง",
+  // The Longs vs shorts tab's positioning strip.
+  "{low}% to {high}%": "{low}% ถึง {high}%",
+  "{venue}: share of all accounts net long": "{venue}: สัดส่วนบัญชีทั้งหมดที่ถือ Long สุทธิ",
+  "{venue}: share of the top traders' position size held long":
+    "{venue}: สัดส่วนขนาดโพซิชันของเทรดเดอร์รายใหญ่ที่เป็น Long",
+  "{venue}: share of the top traders' accounts net long":
+    "{venue}: สัดส่วนบัญชีเทรดเดอร์รายใหญ่ที่ถือ Long สุทธิ",
+  "{venue}: share of the last hour's taker volume that bought, on average":
+    "{venue}: สัดส่วนเฉลี่ยของวอลุ่ม Taker ในชั่วโมงล่าสุดที่เป็นการซื้อ",
+  "{asset} positioning": "การวางสถานะ {asset}",
+  "{asset} positioning: the share long on each exchange":
+    "การวางสถานะ {asset}: สัดส่วน Long ในแต่ละกระดานเทรด",
+  "newest {time}": "ล่าสุด {time}",
+  "All accounts": "บัญชีทั้งหมด",
+  "Top traders' positions": "โพซิชันเทรดเดอร์รายใหญ่",
+  "Top traders' accounts": "บัญชีเทรดเดอร์รายใหญ่",
+  "Taker buys": "แรงซื้อ Taker",
+  "all accounts": "บัญชีทั้งหมด",
+  "top positions": "โพซิชันรายใหญ่",
+  "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
+    "สถิติที่แต่ละกระดานเทรดเผยแพร่เอง อ่านทุก 15 นาที บัญชีทั้งหมดนับแต่ละบัญชีครั้งเดียว จึงสะท้อนมุมมองของคนส่วนใหญ่ เทรดเดอร์รายใหญ่คือกลุ่มที่แต่ละกระดานกำหนดเอง (Binance: บัญชี 20% แรกตามมาร์จิ้น) ทั้งตามขนาดโพซิชันและตามจำนวนบัญชี แรงซื้อ Taker คือสัดส่วนเฉลี่ยของวอลุ่ม Taker ในชั่วโมงล่าสุดที่เป็นการซื้อ ขีด (–) คือตัวเลขที่กระดานเทรดนั้นไม่เผยแพร่",
 };

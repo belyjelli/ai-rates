@@ -609,4 +609,25 @@ export const liquidations: Catalog = {
   "Positions that liquidate between {low} and {high}":
     "{low} から {high} の間で清算されるポジション",
   "click one to list its positions below": "バーをクリックすると下にポジションを一覧",
+  // The Longs vs shorts tab's positioning strip.
+  "{low}% to {high}%": "{low}%〜{high}%",
+  "{venue}: share of all accounts net long": "{venue}：全アカウントのうちネットロングの割合",
+  "{venue}: share of the top traders' position size held long":
+    "{venue}：上位トレーダーのポジション量のうちロングの割合",
+  "{venue}: share of the top traders' accounts net long":
+    "{venue}：上位トレーダーのアカウントのうちネットロングの割合",
+  "{venue}: share of the last hour's taker volume that bought, on average":
+    "{venue}：直近1時間のテイカー出来高のうち買いの平均割合",
+  "{asset} positioning": "{asset} のポジション動向",
+  "{asset} positioning: the share long on each exchange":
+    "{asset} のポジション動向：取引所ごとのロング比率",
+  "newest {time}": "最新 {time}",
+  "All accounts": "全アカウント",
+  "Top traders' positions": "上位トレーダーのポジション",
+  "Top traders' accounts": "上位トレーダーのアカウント",
+  "Taker buys": "テイカー買い",
+  "all accounts": "全アカウント",
+  "top positions": "上位ポジション",
+  "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
+    "各取引所が公表している統計を 15 分ごとに取得しています。全アカウントは各アカウントを 1 回ずつ数えるため、大衆の傾きを示します。上位トレーダーは各取引所が独自に定める層（Binance：証拠金上位 20%）で、ポジション量とアカウント数の両方で示します。テイカー買いは直近 1 時間のテイカー出来高のうち買いの平均割合です。「–」はその取引所が公表していない項目です。",
 };

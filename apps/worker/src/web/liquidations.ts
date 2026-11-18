@@ -15,6 +15,8 @@ import type {
   LiquidationMap,
   LiquidationTotals,
   Overview,
+  PositioningPoint,
+  PositioningVenue,
   StoredCascade,
   TraderHolding,
   WhalePosition,
@@ -1326,9 +1328,11 @@ function sidesPanel(data: {
   pendingStrip: string;
   showPending: boolean;
   pendingZoom: PendingZoom;
+  positioning?: PositioningVenue[] | null;
   now: number;
 }): string {
-  const { asset, map, params, picker, pendingStrip, showPending, pendingZoom, now } = data;
+  const { asset, map, params, picker, pendingStrip, showPending, pendingZoom, positioning, now } =
+    data;
   const { bucketHours } = LIQUIDATION_WINDOWS[params.window];
   const cols = columns(params, now);
   const reach = LIQUIDATION_BAND_REACH;
@@ -1474,7 +1478,95 @@ ${helpPanel(
   )}</p><p>${tr("Longs closed above the line, shorts closed below, on the same linear scale. Hover a bar to read it beside the cursor; on a phone, tap and it reads in the line above the chart. The last bar is still filling.")}</p>${columnsHelp(bucketHours, true)}`,
 )}
 ${sidesChart({ label, points: map.sides, params, now, pending: { show: showPending, zoom: pendingZoom, strip: pendingStrip, map } })}
+${positioningStrip(label, positioning ?? [], params)}
 ${table}`;
+}
+
+/** The order the exchanges are listed in: the collector's (internal/positioning Venues). */
+const POSITIONING_VENUES = ["binance", "okx", "bybit", "bitget", "gate", "htx"];
+
+/** A share-long figure: the percent, over a bar split long | short at it. A dash where none. */
+function leanCell(value: number | null, title: string): string {
+  if (value === null) return `<td class="num lqpos-none">–</td>`;
+  const pct = value * 100;
+  return `<td class="num" title="${esc(title)}"><span class="lqpos-v ${pct >= 50 ? "lq-ink-l" : "lq-ink-s"}">${pct.toFixed(0)}%</span><span class="lqpos-bar" style="--p:${pct.toFixed(1)}%"></span></td>`;
+}
+
+/** The least height of a row's lean chart, in share: 10 points, so a flat day does not read as a swing. */
+const LEAN_SPAN = 0.1;
+
+/**
+ * The window's two lines, all accounts and top traders' positions. Each row is scaled to its own
+ * range (at least LEAN_SPAN tall), since the lean moves by a few points in a day and on 0-100% both
+ * lines lie flat; the figures beside it carry the level, and 50% is dashed when it is in view.
+ */
+function leanSpark(points: PositioningPoint[]): string {
+  const picks = [
+    (p: PositioningPoint) => p.account_long,
+    (p: PositioningPoint) => p.top_position_long,
+  ];
+  const values = points
+    .flatMap((p) => picks.map((pick) => pick(p)))
+    .filter((v): v is number => v !== null);
+  let lo = Math.min(...values);
+  let hi = Math.max(...values);
+  if (hi - lo < LEAN_SPAN) {
+    const mid = (hi + lo) / 2;
+    lo = mid - LEAN_SPAN / 2;
+    hi = mid + LEAN_SPAN / 2;
+  }
+  const y = (v: number) => (28 - ((v - lo) / (hi - lo)) * 26).toFixed(1);
+  const from = points[0]?.at.getTime() ?? 0;
+  const span = Math.max(1, (points.at(-1)?.at.getTime() ?? from) - from);
+  const line = (pick: (p: PositioningPoint) => number | null, cls: string): string => {
+    const known = points.filter((p) => pick(p) !== null);
+    if (known.length < 2) return "";
+    const xy = known
+      .map((p) => `${(((p.at.getTime() - from) / span) * 100).toFixed(1)},${y(pick(p) ?? 0)}`)
+      .join(" ");
+    return `<polyline class="${cls}" points="${xy}"/>`;
+  };
+  const crowd = line(picks[0], "lqpos-crowd");
+  const whale = line(picks[1], "lqpos-whale");
+  if (!crowd && !whale) return `<td class="lqpos-spark lqpos-none">–</td>`;
+  const half =
+    lo < 0.5 && hi > 0.5
+      ? `<line class="lqpos-mid" x1="0" y1="${y(0.5)}" x2="100" y2="${y(0.5)}"/>`
+      : "";
+  return `<td class="lqpos-spark" title="${esc(tr("{low}% to {high}%", { low: (lo * 100).toFixed(0), high: (hi * 100).toFixed(0) }))}"><svg viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true">${half}${crowd}${whale}</svg></td>`;
+}
+
+/**
+ * How each exchange's traders lean on the asset, from the long/short statistics the exchanges publish
+ * (collector migration 060): the crowd (all accounts), the top traders by position size and by
+ * accounts, and the taker flow, each as a share long, with the window's crowd and top-position lines.
+ * Nothing at all when no exchange has figures for the asset (or the table is not readable yet).
+ */
+export function positioningStrip(
+  label: string,
+  venues: PositioningVenue[],
+  params: LiquidationParams,
+): string {
+  const rows = [...venues]
+    .sort((a, b) => POSITIONING_VENUES.indexOf(a.venue_id) - POSITIONING_VENUES.indexOf(b.venue_id))
+    .filter((v) => Object.values(v.latest).some((x) => typeof x === "number"));
+  if (rows.length === 0) return "";
+  const newest = Math.max(...rows.map((v) => v.latest.at.getTime()));
+  const body = rows
+    .map((v) => {
+      const name = esc(venueName(v.venue_id));
+      const l = v.latest;
+      return `<tr><th scope="row">${name}</th>${leanCell(l.account_long, tr("{venue}: share of all accounts net long", { venue: venueName(v.venue_id) }))}${leanCell(l.top_position_long, tr("{venue}: share of the top traders' position size held long", { venue: venueName(v.venue_id) }))}${leanCell(l.top_account_long, tr("{venue}: share of the top traders' accounts net long", { venue: venueName(v.venue_id) }))}${leanCell(l.taker_buy, tr("{venue}: share of the last hour's taker volume that bought, on average", { venue: venueName(v.venue_id) }))}${leanSpark(v.points)}</tr>`;
+    })
+    .join("");
+  return `<section class="lqpos" aria-label="${esc(tr("{asset} positioning", { asset: label.replace(/<[^>]+>/g, "") }))}">
+<p class="fchart-title">${tr("{asset} positioning: the share long on each exchange", { asset: label })} · ${tr("newest {time}", { time: timeTag(newest, "hm") })}</p>
+<div class="lqpos-wrap"><table>
+<thead><tr><th scope="col">${tr("Exchange")}</th><th class="num" scope="col">${tr("All accounts")}</th><th class="num" scope="col">${tr("Top traders' positions")}</th><th class="num" scope="col">${tr("Top traders' accounts")}</th><th class="num" scope="col">${tr("Taker buys")}</th><th scope="col" class="lqpos-key">${tr("Last {window}", { window: esc(params.window) })}<i class="k-crowd"></i>${tr("all accounts")}<i class="k-whale"></i>${tr("top positions")}</th></tr></thead>
+<tbody>${body}</tbody>
+</table></div>
+<p class="lqpos-note">${tr("Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.")}</p>
+</section>`;
 }
 
 /** What each member tab is, for its locked copy: a title and what a member sees in it. */
@@ -2343,6 +2435,8 @@ export interface LiquidationView {
    * themselves (see `lazyPanel`).
    */
   assetMap?: LiquidationAssetMap | null;
+  /** The Longs vs shorts tab's positioning strip; undefined when not read, null when it failed. */
+  positioning?: PositioningVenue[] | null;
   /** The Odds tab's model; null when there is too little history, undefined when not read. */
   outlook?: Outlook | null;
   /**
@@ -2587,6 +2681,7 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
     asset,
     map: view.assetMap,
     params,
+    positioning: view.positioning,
     picker: assetPicker(state, map.every, asset, "#sides"),
     pendingStrip: `<nav class="tf" aria-label="${tr("Pending")}">${[true, false]
       .map((on) => {

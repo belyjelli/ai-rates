@@ -592,4 +592,22 @@ export const liquidations: Catalog = {
     "点击上方图中的柱，列出在其价格区间强平的每个仓位。",
   "Positions that liquidate between {low} and {high}": "强平价在 {low} 至 {high} 之间的仓位",
   "click one to list its positions below": "点击一根柱，在下方列出其仓位",
+  // The Longs vs shorts tab's positioning strip.
+  "{low}% to {high}%": "{low}% 至 {high}%",
+  "{venue}: share of all accounts net long": "{venue}：净多头账户占全部账户的比例",
+  "{venue}: share of the top traders' position size held long": "{venue}：大户持仓量中多头所占比例",
+  "{venue}: share of the top traders' accounts net long": "{venue}：大户账户中净多头的比例",
+  "{venue}: share of the last hour's taker volume that bought, on average":
+    "{venue}：最近一小时主动成交量中买入所占的平均比例",
+  "{asset} positioning": "{asset} 多空持仓",
+  "{asset} positioning: the share long on each exchange": "{asset} 多空持仓：各交易所多头占比",
+  "newest {time}": "最新 {time}",
+  "All accounts": "全部账户",
+  "Top traders' positions": "大户持仓",
+  "Top traders' accounts": "大户账户",
+  "Taker buys": "主动买入",
+  "all accounts": "全部账户",
+  "top positions": "大户持仓",
+  "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
+    "各交易所自行公布的统计数据，每 15 分钟读取一次。全部账户每个账户只算一次，反映的是大众。大户是各交易所自定的群体（币安：按保证金排名前 20% 的账户），分别按持仓量和账户计算。主动买入是最近一小时主动成交量中买入所占的平均比例。“–”表示该交易所不公布此项数据。",
 };

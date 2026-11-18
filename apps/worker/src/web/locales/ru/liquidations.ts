@@ -619,4 +619,25 @@ export const liquidations: Catalog = {
     "Нажмите столбец на карте выше, чтобы увидеть все позиции, которые ликвидируются в его диапазоне.",
   "Positions that liquidate between {low} and {high}": "Позиции с ликвидацией от {low} до {high}",
   "click one to list its positions below": "нажмите столбец, чтобы увидеть его позиции ниже",
+  // The Longs vs shorts tab's positioning strip.
+  "{low}% to {high}%": "от {low}% до {high}%",
+  "{venue}: share of all accounts net long": "{venue}: доля всех счетов в чистом лонге",
+  "{venue}: share of the top traders' position size held long":
+    "{venue}: доля объёма позиций топ-трейдеров в лонге",
+  "{venue}: share of the top traders' accounts net long":
+    "{venue}: доля счетов топ-трейдеров в чистом лонге",
+  "{venue}: share of the last hour's taker volume that bought, on average":
+    "{venue}: средняя доля тейкерского объёма за последний час, пришедшаяся на покупки",
+  "{asset} positioning": "Позиционирование {asset}",
+  "{asset} positioning: the share long on each exchange":
+    "Позиционирование {asset}: доля лонгов на каждой бирже",
+  "newest {time}": "данные на {time}",
+  "All accounts": "Все счета",
+  "Top traders' positions": "Позиции топ-трейдеров",
+  "Top traders' accounts": "Счета топ-трейдеров",
+  "Taker buys": "Покупки тейкеров",
+  "all accounts": "все счета",
+  "top positions": "топ-позиции",
+  "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
+    "Собственная опубликованная статистика каждой биржи, читается каждые 15 минут. «Все счета» считает каждый счёт один раз и поэтому показывает толпу. Топ-трейдеры — группа, которую определяет сама биржа (Binance: верхние 20% по марже), по объёму позиций и по счетам. «Покупки тейкеров» — средняя доля тейкерского объёма за последний час, пришедшаяся на покупки. Прочерк — показатель, который биржа не публикует.",
 };

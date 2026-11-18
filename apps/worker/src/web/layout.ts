@@ -447,6 +447,29 @@ box-shadow:inset 0 0 0 1px var(--ink)}
 .heat-wrap.lq-read .lq-mv{display:block}
 .heat-wrap.lq-read .lq-sep{display:none}
 }
+/* Longs vs shorts: how each exchange's traders lean on the asset, under the chart. Each figure is a
+   share long over a bar split long | short at it; the last column draws the window's crowd (all
+   accounts) and top-position lines each row on its own range with 50% dashed. The table scrolls on a phone. */
+.lqpos{margin:16px 0 12px}
+.lqpos .fchart-title{margin:0 0 6px}
+.lqpos-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.lqpos table{border-collapse:collapse;font-size:12px}
+.lqpos th,.lqpos td{padding:5px 22px 5px 0;border-top:1px solid var(--rule);text-align:left;vertical-align:middle;white-space:nowrap}
+.lqpos thead th{color:var(--muted);font-weight:400;border-top:0}
+.lqpos tbody th{font-weight:400}
+.lqpos .num{text-align:right}
+.lqpos-v{display:block}
+.lqpos-bar{display:block;width:64px;height:3px;margin:3px 0 0 auto;background:linear-gradient(90deg,var(--long) var(--p),var(--short) var(--p));opacity:.75}
+.lqpos-none{color:var(--dim)}
+.lqpos-spark svg{display:block;width:240px;height:30px}
+.lqpos-mid{stroke:var(--rule);stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+.lqpos-crowd,.lqpos-whale{fill:none;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.lqpos-crowd{stroke:var(--muted);stroke-width:1.2}
+.lqpos-whale{stroke:var(--accent);stroke-width:1.5}
+.lqpos-key i{display:inline-block;width:12px;height:2px;vertical-align:middle;margin:0 4px 0 10px}
+.lqpos-key .k-crowd{background:var(--muted)}
+.lqpos-key .k-whale{background:var(--accent)}
+.lqpos-note{color:var(--muted);font-size:11px;line-height:1.5;margin:6px 0 0;max-width:120ch}
 /* Longs vs shorts over time: the funding chart's frame, with bars mirrored around one zero line. */
 .lqc .lqc-plot{height:260px}
 .lqc-grid{stroke:var(--rule);stroke-width:1;vector-effect:non-scaling-stroke}

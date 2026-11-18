@@ -258,6 +258,7 @@ function fakeData(overrides: Partial<DataSource> = {}) {
       tally: EMPTY_TALLY,
     }),
     sentimentHistory: async () => [],
+    positioning: async () => [],
     liquidationAsset: async () => ({
       asset_class: "crypto" as const,
       mark: 2434.7,
@@ -2584,6 +2585,65 @@ describe("pages", () => {
     expect(offSides).not.toContain("lqp-row");
     expect(offSides).not.toContain("Modeled from open interest");
     expect(offSides).toContain('href="/liquidations#sides"');
+  });
+
+  test("the sides tab shows how each exchange's traders lean, in the collector's venue order", async () => {
+    const asked: { base: string; windowHours: number; bucketMinutes: number }[] = [];
+    const at = (minutesAgo: number) => new Date(NOW - minutesAgo * 60_000);
+    const point = (minutesAgo: number, account: number | null, topPosition: number | null) => ({
+      at: at(minutesAgo),
+      account_long: account,
+      top_account_long: null,
+      top_position_long: topPosition,
+      taker_buy: null,
+    });
+    const { data } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+      positioning: async (options) => {
+        asked.push(options);
+        return [
+          // Listed out of order, as the database returns them: the page lists Binance first.
+          {
+            venue_id: "htx",
+            latest: { ...point(5, null, 0.432), top_account_long: 0.569 },
+            points: [point(65, null, 0.45), point(5, null, 0.432)],
+          },
+          {
+            venue_id: "binance",
+            latest: { ...point(5, 0.7726, 0.6497), top_account_long: 0.7986, taker_buy: 0.536 },
+            points: [point(65, 0.76, 0.66), point(35, 0.77, 0.655), point(5, 0.7726, 0.6497)],
+          },
+        ];
+      },
+    });
+    const sides = await tab("/liquidations", "sides", data);
+    expect(asked).toEqual([
+      { base: "ETH", assetClass: "crypto", windowHours: 24, bucketMinutes: 15 },
+    ]);
+    expect(sides).toContain("ETH positioning: the share long on each exchange");
+    expect(sides.indexOf('<th scope="row">Binance</th>')).toBeLessThan(
+      sides.indexOf('<th scope="row">HTX</th>'),
+    );
+    // Binance: 77% of accounts long, its top traders' positions 65% long, over a bar split at the figure.
+    expect(sides).toContain(
+      '<span class="lqpos-v lq-ink-l">77%</span><span class="lqpos-bar" style="--p:77.3%">',
+    );
+    expect(sides).toContain('<span class="lqpos-v lq-ink-l">65%</span>');
+    // HTX's top traders lean short, and it publishes no all-accounts figure.
+    expect(sides).toContain('<span class="lqpos-v lq-ink-s">43%</span>');
+    expect(sides).toContain('<td class="num lqpos-none">–</td>');
+    // Both of Binance's lines are drawn; HTX's crowd line has nothing to draw.
+    expect(sides.match(/class="lqpos-crowd"/g)?.length).toBe(1);
+    expect(sides.match(/class="lqpos-whale"/g)?.length).toBe(2);
+    expect(sides).toContain("A dash is a figure the exchange does not publish.");
+
+    // No figures (or no table yet): no strip at all.
+    const { data: none } = fakeData({
+      liquidationMap: async () => liqMap(),
+      liquidationAsset: async () => liqAsset(),
+    });
+    expect(await tab("/liquidations", "sides", none)).not.toContain("lqpos");
   });
 
   test("the pending strip zooms out to half the price and double it, reading the wide rows", async () => {

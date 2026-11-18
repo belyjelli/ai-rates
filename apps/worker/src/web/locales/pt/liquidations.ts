@@ -621,4 +621,26 @@ export const liquidations: Catalog = {
     "Clique numa barra do mapa acima para listar todas as posições que liquidam nela.",
   "Positions that liquidate between {low} and {high}": "Posições que liquidam entre {low} e {high}",
   "click one to list its positions below": "clique numa barra para listar as posições abaixo",
+  // The Longs vs shorts tab's positioning strip.
+  "{low}% to {high}%": "{low}% a {high}%",
+  "{venue}: share of all accounts net long":
+    "{venue}: parcela de todas as contas com saldo líquido long",
+  "{venue}: share of the top traders' position size held long":
+    "{venue}: parcela do tamanho das posições dos top traders que está long",
+  "{venue}: share of the top traders' accounts net long":
+    "{venue}: parcela das contas dos top traders com saldo líquido long",
+  "{venue}: share of the last hour's taker volume that bought, on average":
+    "{venue}: parcela média do volume taker da última hora que comprou",
+  "{asset} positioning": "Posicionamento de {asset}",
+  "{asset} positioning: the share long on each exchange":
+    "Posicionamento de {asset}: a parcela long em cada corretora",
+  "newest {time}": "mais recente {time}",
+  "All accounts": "Todas as contas",
+  "Top traders' positions": "Posições dos top traders",
+  "Top traders' accounts": "Contas dos top traders",
+  "Taker buys": "Compras taker",
+  "all accounts": "todas as contas",
+  "top positions": "top posições",
+  "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
+    "Estatísticas publicadas por cada corretora, lidas a cada 15 minutos. Todas as contas conta cada conta uma vez, então mostra a multidão. Top traders é o grupo definido por cada corretora (Binance: os 20% maiores por margem), por tamanho de posição e por contas. Compras taker é a parcela média do volume taker da última hora que comprou. Um traço é um número que a corretora não publica.",
 };

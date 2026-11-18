@@ -701,6 +701,31 @@ export interface LiquidationSidePoint {
   events: number;
 }
 
+/**
+ * One exchange's lean on an asset at a moment (long_short_ratios, collector migration 060): each figure
+ * a share long from 0 to 1, or null where the exchange does not publish it.
+ */
+export interface PositioningPoint {
+  at: Date;
+  /** Of all accounts holding the contract, the share net long, each account counted once. */
+  account_long: number | null;
+  /** The same among the exchange's own top traders (Binance: the top 20% of accounts by margin). */
+  top_account_long: number | null;
+  /** Of the top traders' position size, the share held long. */
+  top_position_long: number | null;
+  /** Of the period's taker volume, the share that bought (in `latest`, averaged over the last hour). */
+  taker_buy: number | null;
+}
+
+/** One exchange's lean on an asset: its newest figure of each kind, and the window in steps. */
+export interface PositioningVenue {
+  venue_id: string;
+  /** Each kind's newest figure within the last two hours; `at` is the newest of them. */
+  latest: PositioningPoint;
+  /** The window averaged into steps, oldest first. */
+  points: PositioningPoint[];
+}
+
 export interface LiquidationAssetMap {
   /** The asset's own class, resolved the way every other asset page resolves it. */
   asset_class: AssetClass | null;
@@ -1762,6 +1787,16 @@ export interface DataSource {
    */
   liquidationAsset(options: LiquidationAssetOptions): Promise<LiquidationAssetMap>;
   /**
+   * How each exchange's traders lean on one asset over the window (long_short_ratios, collector
+   * migration 060), averaged into `bucketMinutes` steps. Empty before the table exists or is granted.
+   */
+  positioning(options: {
+    base: string;
+    assetClass: string;
+    windowHours: number;
+    bucketMinutes: number;
+  }): Promise<PositioningVenue[]>;
+  /**
    * Single forced closes, the biggest or the newest, in one asset or in all of them: the Largest tab
    * of /liquidations and the window's biggest close in the page's summary.
    */
@@ -2677,6 +2712,71 @@ async function etfFlowsQuery(sql: postgres.Sql, asset: string): Promise<EtfFlows
   } catch (error) {
     const code = (error as { code?: unknown } | null)?.code;
     if (code === "42P01" || code === "42501") return { days: [], funds: [] };
+    throw error;
+  }
+}
+
+/**
+ * The Longs vs shorts tab's positioning strip: each exchange's figures for one asset over the window,
+ * averaged into steps of the chart's own bar width, and each ratio's newest figure (a venue's series
+ * can trail the others by a period, so the newest row may lack one) with the last hour's taker split. Tolerant of a database
+ * without the migration or the grant: no strip, no failure.
+ */
+async function positioningQuery(
+  sql: postgres.Sql,
+  options: { base: string; assetClass: string; windowHours: number; bucketMinutes: number },
+): Promise<PositioningVenue[]> {
+  const { base, assetClass, windowHours, bucketMinutes } = options;
+  type Row = {
+    venue_id: string;
+    at: Date;
+    account_long: number | null;
+    top_account_long: number | null;
+    top_position_long: number | null;
+    taker_buy: number | null;
+  };
+  try {
+    const [steps, latest] = await Promise.all([
+      sql<Row[]>`
+        SELECT venue_id,
+               date_bin(make_interval(mins => ${bucketMinutes}::int), at, timestamptz '2000-01-01') AS at,
+               avg(account_long)::float8 AS account_long,
+               avg(top_account_long)::float8 AS top_account_long,
+               avg(top_position_long)::float8 AS top_position_long,
+               avg(taker_buy)::float8 AS taker_buy
+        FROM long_short_ratios
+        WHERE asset_class = ${assetClass} AND base = ${base}
+          AND at > now() - make_interval(hours => ${windowHours}::int)
+        GROUP BY 1, 2
+        ORDER BY 1, 2`,
+      sql<Row[]>`
+        SELECT venue_id, max(at) AS at,
+               (array_agg(account_long ORDER BY at DESC) FILTER (WHERE account_long IS NOT NULL))[1]::float8
+                 AS account_long,
+               (array_agg(top_account_long ORDER BY at DESC) FILTER (WHERE top_account_long IS NOT NULL))[1]::float8
+                 AS top_account_long,
+               (array_agg(top_position_long ORDER BY at DESC) FILTER (WHERE top_position_long IS NOT NULL))[1]::float8
+                 AS top_position_long,
+               -- One 5-minute period's taker split swings from 10% to 100%; the hour's average reads.
+               (avg(taker_buy) FILTER (WHERE at > now() - interval '1 hour'))::float8 AS taker_buy
+        FROM long_short_ratios
+        WHERE asset_class = ${assetClass} AND base = ${base} AND at > now() - interval '2 hours'
+        GROUP BY venue_id`,
+    ]);
+    const point = (row: Row): PositioningPoint => ({
+      at: row.at,
+      account_long: row.account_long,
+      top_account_long: row.top_account_long,
+      top_position_long: row.top_position_long,
+      taker_buy: row.taker_buy,
+    });
+    return latest.map((row) => ({
+      venue_id: row.venue_id,
+      latest: point(row),
+      points: steps.filter((step) => step.venue_id === row.venue_id).map(point),
+    }));
+  } catch (error) {
+    if (missingOrRefused(error)) return [];
     throw error;
   }
 }
@@ -4447,6 +4547,10 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
     async etfFlows(asset) {
       return etfFlowsQuery(connect(), asset);
+    },
+
+    async positioning(options) {
+      return positioningQuery(connect(), options);
     },
 
     async fundFlow(options) {
