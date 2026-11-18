@@ -67,6 +67,11 @@ export function htmlToMarkdown(html: string, url: string): string | null {
   const main = /<main\b[^>]*>(.*)<\/main>/is.exec(html)?.[1];
   if (main === undefined) return null;
   const body = main
+    // A page's brief for assistants (web/agent-brief.ts) is the one template whose content is read.
+    .replace(/<template data-agent>(.*?)<\/template>/gis, "$1")
+    // The asset pickers (liquidations, whales, chart, option books): hundreds of rows that are a
+    // control, not content; the brief lists the same assets with their labels.
+    .replace(/<details class="wh-pick\b[^"]*"[^>]*>.*?<\/details>/gis, "")
     .replace(/<(script|style|svg|button|template)\b.*?<\/\1>/gis, "")
     .replace(/<div class="help-pop".*?<\/div><\/div>/gis, "")
     .replace(/<span hidden\b.*?<\/span>/gis, "")

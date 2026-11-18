@@ -13,6 +13,7 @@ import type {
   LiquidationDay,
   LiquidationEvent,
   LiquidationMap,
+  LiquidationTotals,
   Overview,
   StoredCascade,
   TraderHolding,
@@ -53,6 +54,7 @@ import {
   type WhaleZoom,
 } from "../app/params";
 import { PENDING_ROWS, PENDING_ZOOMS, type PendingZoom } from "../app/pending";
+import { agentBrief, agentTable, share, utcMinute } from "./agent-brief";
 import { CHART_SKELETON_JS, lazyPlaceholder } from "./chart-skeleton";
 import { ageText, esc, formatPrice, formatUsd, LOCK_ICON, since } from "./format";
 import { helpButton, helpHeading, helpPanel } from "./help";
@@ -2653,6 +2655,136 @@ function assetTabLabels(
  * other tabs behind (owner, 2026-11-10; it opened on the map by asset and hour before, which is now
  * the last tab, Asset Timeline), and `/liquidations/ETH` opens on ETH's prices directly.
  */
+/** The window as a model should quote it. */
+const AGENT_WINDOW: Record<LiquidationWindow, string> = {
+  "24h": "24 hours",
+  "48h": "48 hours",
+  "7d": "7 days",
+};
+
+/**
+ * The page's figures for an AI assistant (web/agent-brief.ts): what was liquidated in the window, on
+ * which exchanges, longs against shorts, the most liquidated assets and each exchange's total, all
+ * labelled. The hub lists every asset; an asset's page adds that asset's own figures by exchange. The
+ * visible page carries these in the picker and the heat grid, which read as bare numbers to a model.
+ */
+export function liquidationsAgentBrief(data: LiquidationView & { overview: Overview }): string {
+  return agentBrief(() => {
+    const { map, params, asset, addressed } = data;
+    const window = AGENT_WINDOW[params.window];
+    const sum = (pick: (venue: LiquidationTotals) => number) =>
+      map.totals.reduce((total, venue) => total + pick(venue), 0);
+    const total = sum((venue) => venue.notional_usd);
+    const longs = sum((venue) => venue.long_usd);
+    const shorts = sum((venue) => venue.short_usd);
+    const feeds = map.totals.map((venue) => esc(venueName(venue.venue_id))).join(", ");
+    const parts: string[] = [];
+    const link = (entry: LiquidationAssetSummary) =>
+      `<a href="/liquidations/${assetPathFor(entry.asset, entry.asset_class)}.md">${esc(entry.asset)}</a>`;
+    const one = addressed && asset !== null ? map.every.find((e) => e.asset === asset) : undefined;
+    const count = (n: number, noun: string) =>
+      `${n.toLocaleString("en-US")} ${noun}${n === 1 ? "" : "s"}`;
+
+    parts.push(`<h2>In figures</h2>`);
+    if (!(total > 0)) {
+      parts.push(`<p>No liquidation was reported in the last ${window}.</p>`);
+    } else {
+      parts.push(
+        `<p>In the last ${window}, ${money(total)} of perpetual futures positions were liquidated across ${count(map.every.length, "asset")} on ${count(map.totals.length, "exchange")}, in ${count(
+          sum((v) => v.events),
+          "liquidation",
+        )}: longs ${money(longs)} (${share(longs, longs + shorts)}), shorts ${money(shorts)} (${share(shorts, longs + shorts)}). These are the exchanges whose liquidation feeds airrates reads (${feeds}), not the whole market.</p>`,
+      );
+    }
+    if (one) {
+      parts.push(
+        `<p>${esc(one.asset)} (${one.asset_class}) in the last ${window}: ${money(one.notional_usd)} liquidated on ${count(one.venues, "exchange")} in ${count(one.events, "liquidation")}, longs ${money(one.long_usd)} (${share(one.long_usd, one.long_usd + one.short_usd)}), shorts ${money(one.short_usd)} (${share(one.short_usd, one.long_usd + one.short_usd)}).</p>`,
+      );
+    }
+    if (data.whales && data.whales.length > 0) {
+      const near = whalesNearMark(data.whales, "1m");
+      if (near.positions > 0) {
+        parts.push(
+          `<p>Whale positions of $1M or more watched on Hyperliquid, Lighter and dYdX${one ? ` in ${esc(one.asset)}` : ""}: ${count(near.positions, "position")}; ${money(near.longs)} of longs would be liquidated within 5% below the price and ${money(near.shorts)} of shorts within 5% above.</p>`,
+        );
+      }
+    }
+    const assetTotals = one ? data.assetMap?.totals : undefined;
+    if (one && assetTotals && assetTotals.length > 0) {
+      parts.push(`<h2>${esc(one.asset)} by exchange, last ${window}</h2>`);
+      parts.push(
+        agentTable(
+          ["Exchange", "Liquidated", "Longs", "Shorts", "Liquidations", "Last liquidation"],
+          [...assetTotals]
+            .sort((a, b) => b.notional_usd - a.notional_usd)
+            .map((venue) => [
+              esc(venueName(venue.venue_id)),
+              money(venue.notional_usd),
+              money(venue.long_usd),
+              money(venue.short_usd),
+              venue.events.toLocaleString("en-US"),
+              utcMinute(venue.last_at),
+            ]),
+        ),
+      );
+    }
+    if (map.every.length > 0) {
+      const top = map.every.slice(0, 25);
+      parts.push(`<h2>Most liquidated assets, last ${window}</h2>`);
+      parts.push(
+        agentTable(
+          ["Asset", "Class", "Liquidated", "Longs", "Shorts", "Liquidations", "Exchanges"],
+          top.map((entry) => [
+            link(entry),
+            entry.asset_class,
+            money(entry.notional_usd),
+            money(entry.long_usd),
+            money(entry.short_usd),
+            entry.events.toLocaleString("en-US"),
+            String(entry.venues),
+          ]),
+        ),
+      );
+    }
+    if (map.totals.length > 0) {
+      parts.push(`<h2>Every asset by exchange, last ${window}</h2>`);
+      parts.push(
+        agentTable(
+          [
+            "Exchange",
+            "Liquidated",
+            "Longs",
+            "Shorts",
+            "Liquidations",
+            "Markets",
+            "Last liquidation",
+          ],
+          [...map.totals]
+            .sort((a, b) => b.notional_usd - a.notional_usd)
+            .map((venue) => [
+              esc(venueName(venue.venue_id)),
+              money(venue.notional_usd),
+              money(venue.long_usd),
+              money(venue.short_usd),
+              venue.events.toLocaleString("en-US"),
+              String(venue.markets),
+              utcMinute(venue.last_at),
+            ]),
+        ),
+      );
+    }
+    const all = `window=${params.window}`;
+    const own = one ? `assets=${encodeURIComponent(one.asset)}&${all}` : null;
+    const ownLine = own
+      ? `${esc(one?.asset ?? "")} as JSON: <a href="/v1/liquidations?${own}">/v1/liquidations?${own}</a>. `
+      : "";
+    parts.push(
+      `<p>${ownLine}Every asset as JSON: <a href="/v1/liquidations?${all}">/v1/liquidations?${all}</a>. The tabs below are the page as people see it.</p>`,
+    );
+    return parts.join("\n");
+  });
+}
+
 export function liquidations(
   data: LiquidationView & {
     overview: Overview;
@@ -2742,6 +2874,7 @@ ${body ?? lazyPanel(data, id)}
               )
       }</p>`,
     )}
+${liquidationsAgentBrief(data)}
 ${liquidationBrief(data)}
 <div class="lq-controls">${windowStrip(state)}${legend()}</div>
 ${tabBar({

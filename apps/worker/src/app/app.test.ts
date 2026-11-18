@@ -3,6 +3,7 @@ import { VENUES } from "@ai-rates/venues";
 import { divergence, flowRatio } from "../web/cvd";
 import type { Locale } from "../web/i18n";
 import { icon } from "../web/icons";
+import { htmlToMarkdown } from "../web/markdown";
 import { bestPair, pivot } from "../web/pages";
 import { BOOK_SCRIPT } from "../web/whales";
 import {
@@ -972,9 +973,41 @@ describe("pages", () => {
     expect(html).toContain("lq-s6");
   });
 
-  test("a quiet bucket renders as silence, never as a zero", async () => {
+  test("the Markdown copy gives an assistant the figures with their labels, and no picker", async () => {
     const { data } = fakeData({ liquidationMap: async () => liqMap() });
     const html = await (await get("/liquidations", data)).text();
+    const md = htmlToMarkdown(html, "https://airrates.net/liquidations") ?? "";
+    expect(md).toContain("## In figures");
+    expect(md).toContain("on 2 exchanges, in 24,058 liquidations: longs $60.0M (58%)");
+    expect(md).toContain("feeds airrates reads (Gate, OKX), not the whole market");
+    expect(md).toContain(
+      "| Asset | Class | Liquidated | Longs | Shorts | Liquidations | Exchanges |",
+    );
+    expect(md).toContain("| [SNDK](https://airrates.net/liquidations/equity/SNDK.md) | equity |");
+    expect(md).toContain(
+      "| Exchange | Liquidated | Longs | Shorts | Liquidations | Markets | Last liquidation |",
+    );
+    expect(md).toContain("(https://airrates.net/v1/liquidations?window=24h)");
+    expect(md).not.toContain("No asset matches.");
+    // The page a person sees is the same: the brief is a template, which a browser does not render.
+    expect(html.split("<template data-agent>").length).toBe(2);
+
+    const eth = await (await get("/liquidations/ETH", data)).text();
+    const ethMd = htmlToMarkdown(eth, "https://airrates.net/liquidations/ETH") ?? "";
+    expect(ethMd).toContain(
+      "ETH (crypto) in the last 24 hours: $34.8M liquidated on 2 exchanges in 9,000 liquidations",
+    );
+    expect(ethMd).toContain("ETH as JSON: [/v1/liquidations?assets=ETH&window=24h]");
+    expect(ethMd).toContain("Every asset as JSON: [/v1/liquidations?window=24h]");
+  });
+
+  test("a quiet bucket renders as silence, never as a zero", async () => {
+    const { data } = fakeData({ liquidationMap: async () => liqMap() });
+    // The visible page: the brief for assistants (a template) says "$0" for a side with none.
+    const html = (await (await get("/liquidations", data)).text()).replace(
+      /<template data-agent>.*?<\/template>/s,
+      "",
+    );
 
     // Nothing happening and $0 happening are different claims; the grid must not conflate them.
     expect(html).toContain('class="num none"');
