@@ -39,6 +39,15 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-11-18",
+    title: "Data that AI assistants can read",
+    changes: [
+      "Every page has a Markdown copy for AI assistants and agents: add .md to its address, or ask with Accept: text/markdown. Each copy starts with when its data was read, the API call with the same figures and a line to cite, and gives the figures in labelled tables rather than as the page's charts and pickers. Tabs read on their own as well (/rates.md?panel=gamma).",
+      "/llms.txt lists what each page and tab answers, with its Markdown copy, API endpoint and MCP tool.",
+      "New: cumulative volume delta as data, at /v1/cvd and as the MCP tool get_cvd. The MCP server also gains get_liquidations, get_price_gaps and get_verified_carry.",
+    ],
+  },
+  {
     date: "2026-11-17",
     title: "The site in Thai",
     changes: [
