@@ -295,7 +295,6 @@ export const liquidations: Catalog = {
   // Cross margin, not the chart cursor's crosshair (charts.ts's "cross").
   "{leverage}× cross": "{leverage}× Cross",
   "The {n} nearest to liquidation of {total}.": "Die {n} nächsten zur Liquidation von {total}.",
-  "Positions by distance to liquidation": "Positionen nach Abstand zur Liquidation",
   Trader: "Trader",
   Value: "Wert",
   Entry: "Einstieg",
@@ -594,4 +593,24 @@ export const liquidations: Catalog = {
     "Die größten Gewinner von Hyperliquid über einen Tag, eine Woche, einen Monat oder die gesamte Zeit, mit dem, was sie jetzt halten. Öffne einen davon für Positionen und Liquidationspreise, Gewinn im Zeitverlauf und die letzten Trades und Orders, Coin für Coin.",
   "Top traders": "Top-Trader",
   Winners: "Gewinner",
+  "Longs near liquidation": "Longs nahe Liquidation",
+  "Longs closest to their liquidation price": "Longs am nächsten an ihrem Liquidationspreis",
+  "Closest first: how far the price has to fall to liquidate each one.":
+    "Nächste zuerst: wie weit der Preis fallen muss, um jede zu liquidieren.",
+  "Shorts near liquidation": "Shorts nahe Liquidation",
+  "Shorts closest to their liquidation price": "Shorts am nächsten an ihrem Liquidationspreis",
+  "Closest first: how far the price has to rise to liquidate each one.":
+    "Nächste zuerst: wie weit der Preis steigen muss, um jede zu liquidieren.",
+  "Largest longs": "Größte Longs",
+  "Largest longs that can be liquidated": "Größte Longs, die liquidiert werden können",
+  "Biggest first, each with the price that would liquidate it.":
+    "Größte zuerst, jeweils mit dem Preis, der sie liquidieren würde.",
+  "Largest shorts": "Größte Shorts",
+  "Largest shorts that can be liquidated": "Größte Shorts, die liquidiert werden können",
+  "The {n} largest of {total}.": "Die {n} größten von {total}.",
+  "Position list": "Positionsliste",
+  "No long position here has a liquidation price.":
+    "Keine Long-Position hier hat einen Liquidationspreis.",
+  "No short position here has a liquidation price.":
+    "Keine Short-Position hier hat einen Liquidationspreis.",
 };

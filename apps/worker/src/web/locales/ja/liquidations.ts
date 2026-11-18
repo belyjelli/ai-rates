@@ -294,7 +294,6 @@ export const liquidations: Catalog = {
   // Cross margin, not the chart cursor's crosshair (charts.ts's "cross").
   "{leverage}× cross": "{leverage}× クロス",
   "The {n} nearest to liquidation of {total}.": "{total} 件のうち、清算に最も近い {n} 件。",
-  "Positions by distance to liquidation": "清算までの距離順のポジション",
   Trader: "トレーダー",
   Value: "評価額",
   Entry: "建値",
@@ -577,4 +576,22 @@ export const liquidations: Catalog = {
     "1日、1週間、1か月、全期間で Hyperliquid の利益が最も大きいトレーダーと、現在の保有。誰でも開けば、ポジションと清算価格、損益の推移、直近の取引と注文を銘柄ごとに見られます。",
   "Top traders": "トップトレーダー",
   Winners: "勝者",
+  "Longs near liquidation": "清算間近のロング",
+  "Longs closest to their liquidation price": "清算価格に最も近いロング",
+  "Closest first: how far the price has to fall to liquidate each one.":
+    "近い順：各ポジションの清算までに価格がどれだけ下がる必要があるか。",
+  "Shorts near liquidation": "清算間近のショート",
+  "Shorts closest to their liquidation price": "清算価格に最も近いショート",
+  "Closest first: how far the price has to rise to liquidate each one.":
+    "近い順：各ポジションの清算までに価格がどれだけ上がる必要があるか。",
+  "Largest longs": "最大のロング",
+  "Largest longs that can be liquidated": "清算されうる最大のロング",
+  "Biggest first, each with the price that would liquidate it.":
+    "大きい順。各ポジションを清算する価格つき。",
+  "Largest shorts": "最大のショート",
+  "Largest shorts that can be liquidated": "清算されうる最大のショート",
+  "The {n} largest of {total}.": "{total} 件のうち最大の {n} 件。",
+  "Position list": "ポジション一覧",
+  "No long position here has a liquidation price.": "清算価格のあるロングはありません。",
+  "No short position here has a liquidation price.": "清算価格のあるショートはありません。",
 };

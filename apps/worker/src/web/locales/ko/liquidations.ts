@@ -290,7 +290,6 @@ export const liquidations: Catalog = {
   // Cross margin, not the chart cursor's crosshair (charts.ts's "cross").
   "{leverage}× cross": "{leverage}× 교차",
   "The {n} nearest to liquidation of {total}.": "전체 {total}개 중 청산에 가장 가까운 {n}개.",
-  "Positions by distance to liquidation": "청산까지 거리순 포지션",
   Trader: "트레이더",
   Value: "가치",
   Entry: "진입가",
@@ -571,4 +570,22 @@ export const liquidations: Catalog = {
     "하루, 한 주, 한 달, 전체 기간 동안 Hyperliquid에서 가장 많이 번 트레이더와 현재 보유 포지션. 누구든 열면 포지션과 청산 가격, 손익 추이, 코인별 최근 거래와 주문을 볼 수 있습니다.",
   "Top traders": "톱 트레이더",
   Winners: "승자",
+  "Longs near liquidation": "청산 임박 롱",
+  "Longs closest to their liquidation price": "청산 가격에 가장 가까운 롱",
+  "Closest first: how far the price has to fall to liquidate each one.":
+    "가까운 순: 각 포지션이 청산되려면 가격이 얼마나 내려야 하는지.",
+  "Shorts near liquidation": "청산 임박 숏",
+  "Shorts closest to their liquidation price": "청산 가격에 가장 가까운 숏",
+  "Closest first: how far the price has to rise to liquidate each one.":
+    "가까운 순: 각 포지션이 청산되려면 가격이 얼마나 올라야 하는지.",
+  "Largest longs": "최대 롱",
+  "Largest longs that can be liquidated": "청산될 수 있는 최대 롱",
+  "Biggest first, each with the price that would liquidate it.":
+    "큰 순서, 각 포지션을 청산할 가격과 함께.",
+  "Largest shorts": "최대 숏",
+  "Largest shorts that can be liquidated": "청산될 수 있는 최대 숏",
+  "The {n} largest of {total}.": "전체 {total}개 중 가장 큰 {n}개.",
+  "Position list": "포지션 목록",
+  "No long position here has a liquidation price.": "청산 가격이 있는 롱 포지션이 없습니다.",
+  "No short position here has a liquidation price.": "청산 가격이 있는 숏 포지션이 없습니다.",
 };

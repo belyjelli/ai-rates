@@ -1309,7 +1309,7 @@ describe("pages", () => {
       }),
     ];
 
-    test("the whale tab opens the page and lists the busiest asset's positions, nearest liquidation first", async () => {
+    test("the whale tab opens the page and lists the busiest asset's longs nearest liquidation first", async () => {
       const calls: string[] = [];
       const { data } = fakeData({
         liquidationMap: async () => liqMap(),
@@ -1328,18 +1328,40 @@ describe("pages", () => {
 
       const html = await tab("/liquidations", "whales", data);
       expect(calls).toEqual(["ETH", "ETH"]);
-      // $1M and up by default: the $400k long is left out.
+      // $1M and up by default: the $400k long is left out. The table opens on the longs nearest
+      // liquidation: the short is on its own tab, and the long with no liquidation price on none.
       const rows = [...html.matchAll(/<tr data-k="hyperliquid\|([^|]+)\|ETH">/g)].map((m) => m[1]);
-      expect(rows).toEqual([
-        "0x7c4b00000000000000000000000000000000e00b",
-        "0x5b5d00000000000000000000000000000000c060",
-        "0x0000000000000000000000000000000000000002",
-      ]);
+      expect(rows).toEqual(["0x7c4b00000000000000000000000000000000e00b"]);
+      expect(html).toContain(
+        '<h2 class="cvd-h2 wm-h2">Longs closest to their liquidation price</h2>',
+      );
       expect(html).toContain('href="https://hl.eco/0x7c4b00000000000000000000000000000000e00b"');
       expect(html).toContain(">0x7c4b…e00b<");
       expect(html).toContain("−5.0%");
-      expect(html).toContain("+10.0%");
-      expect(html).toContain("5× isolated");
+      // The four tabs, each with its count, swapping the whale tab in place.
+      expect(html).toContain('<nav class="tf wm-lists" aria-label="Position list">');
+      expect(html).toContain(
+        'href="/liquidations#whales" aria-current="page" data-lq-swap="whales">Longs near liquidation <span class="dim">1</span></a>',
+      );
+      expect(html).toContain(
+        'href="/liquidations?wlist=near-short#whales" data-lq-swap="whales">Shorts near liquidation <span class="dim">1</span></a>',
+      );
+      expect(html).toContain(
+        'href="/liquidations?wlist=big-long#whales" data-lq-swap="whales">Largest longs <span class="dim">1</span></a>',
+      );
+      expect(html).toContain(
+        'href="/liquidations?wlist=big-short#whales" data-lq-swap="whales">Largest shorts <span class="dim">1</span></a>',
+      );
+      // The shorts' tab: the $3M short, 10% below its liquidation.
+      const shorts = await tab("/liquidations?wlist=near-short", "whales", data);
+      expect(
+        [...shorts.matchAll(/<tr data-k="hyperliquid\|([^|]+)\|ETH">/g)].map((m) => m[1]),
+      ).toEqual(["0x5b5d00000000000000000000000000000000c060"]);
+      expect(shorts).toContain("Shorts closest to their liquidation price");
+      expect(shorts).toContain("+10.0%");
+      expect(shorts).toContain("5× isolated");
+      // Every other control keeps the tab.
+      expect(shorts).toContain('href="/liquidations?whale=100k&amp;wlist=near-short#whales"');
       // The long and short tiles, and the money within 5% of the mark on each side.
       expect(html).toContain('data-u="longs">$3.5M<');
       expect(html).toContain('data-u="shorts">$3.0M<');
@@ -1383,6 +1405,17 @@ describe("pages", () => {
       expect(html.match(/<tr data-k="hyperliquid\|([^|]+)\|ETH">/)?.[1]).toBe(
         "0x0000000000000000000000000000000000000001",
       );
+      // The largest longs put the $2M one first, and the $1.5M long with no liquidation price in
+      // no list at all.
+      const big = await tab("/liquidations?whale=100k&wlist=big-long", "whales", data);
+      expect(
+        [...big.matchAll(/<tr data-k="hyperliquid\|([^|]+)\|ETH">/g)].map((m) => m[1]),
+      ).toEqual([
+        "0x7c4b00000000000000000000000000000000e00b",
+        "0x0000000000000000000000000000000000000001",
+      ]);
+      expect(big).toContain("Largest longs that can be liquidated");
+      expect(big).toContain("Biggest first, each with the price that would liquidate it.");
       // The other tabs' links keep the switch.
       expect(html).toContain('data-lazy="/liquidations?whale=100k&amp;panel=sides"');
     });
@@ -1434,7 +1467,8 @@ describe("pages", () => {
           }),
         ],
       });
-      const html = await tab("/liquidations", "whales", data);
+      // Both are shorts: on the shorts' tab.
+      const html = await tab("/liquidations?wlist=near-short", "whales", data);
       expect(html).toContain('<tr data-k="lighter|714710|ETH">');
       expect(html).toContain('href="https://app.lighter.xyz/explorer/accounts/714710"');
       expect(html).toContain(">#714710<");

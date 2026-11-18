@@ -289,7 +289,6 @@ export const liquidations: Catalog = {
   // Cross margin, not the chart cursor's crosshair (charts.ts's "cross").
   "{leverage}× cross": "{leverage}× Cross",
   "The {n} nearest to liquidation of {total}.": "{n} โพซิชันที่ใกล้ถูกล้างที่สุดจาก {total}",
-  "Positions by distance to liquidation": "โพซิชันเรียงตามระยะห่างจากจุดล้าง",
   Trader: "เทรดเดอร์",
   Value: "มูลค่า",
   Entry: "ราคาเข้า",
@@ -570,4 +569,22 @@ export const liquidations: Catalog = {
     "ผู้ชนะรายใหญ่ที่สุดของ Hyperliquid ในหนึ่งวัน หนึ่งสัปดาห์ หนึ่งเดือน หรือตลอดกาล พร้อมสิ่งที่ถืออยู่ตอนนี้ เปิดดูใครก็ได้เพื่อดูโพซิชันและราคาล้างพอร์ต กำไรตามเวลา และการเทรดกับออเดอร์ล่าสุด แยกรายเหรียญ",
   "Top traders": "เทรดเดอร์ท็อป",
   Winners: "ผู้ชนะ",
+  "Longs near liquidation": "Long ใกล้ถูกล้าง",
+  "Longs closest to their liquidation price": "Long ที่ใกล้ราคาล้างพอร์ตที่สุด",
+  "Closest first: how far the price has to fall to liquidate each one.":
+    "ใกล้ที่สุดก่อน: ราคาต้องลงเท่าไรจึงจะล้างแต่ละโพซิชัน",
+  "Shorts near liquidation": "Short ใกล้ถูกล้าง",
+  "Shorts closest to their liquidation price": "Short ที่ใกล้ราคาล้างพอร์ตที่สุด",
+  "Closest first: how far the price has to rise to liquidate each one.":
+    "ใกล้ที่สุดก่อน: ราคาต้องขึ้นเท่าไรจึงจะล้างแต่ละโพซิชัน",
+  "Largest longs": "Long ใหญ่ที่สุด",
+  "Largest longs that can be liquidated": "Long ใหญ่ที่สุดที่ถูกล้างได้",
+  "Biggest first, each with the price that would liquidate it.":
+    "ใหญ่ที่สุดก่อน พร้อมราคาที่จะล้างแต่ละโพซิชัน",
+  "Largest shorts": "Short ใหญ่ที่สุด",
+  "Largest shorts that can be liquidated": "Short ใหญ่ที่สุดที่ถูกล้างได้",
+  "The {n} largest of {total}.": "{n} โพซิชันที่ใหญ่ที่สุดจาก {total}",
+  "Position list": "รายการโพซิชัน",
+  "No long position here has a liquidation price.": "ไม่มีโพซิชัน Long ที่มีราคาล้างพอร์ต",
+  "No short position here has a liquidation price.": "ไม่มีโพซิชัน Short ที่มีราคาล้างพอร์ต",
 };

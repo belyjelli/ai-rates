@@ -1,8 +1,14 @@
 import type { WhalePosition } from "../app/data";
-import { WHALE_FLOORS, type WhaleFloor, type WhaleZoom } from "../app/params";
+import {
+  WHALE_FLOORS,
+  WHALE_LISTS,
+  type WhaleFloor,
+  type WhaleList,
+  type WhaleZoom,
+} from "../app/params";
 import { ageText, esc, formatPrice, formatUsd } from "./format";
 import { helpButton, helpPanel } from "./help";
-import { tr } from "./i18n";
+import { msg, tr, trMsg } from "./i18n";
 import { MEMBER_URL } from "./layout";
 import {
   SLOT_BAND,
@@ -32,6 +38,46 @@ import { explorerAddress, shortAddress } from "./whales";
  * each with its own mark, so a position's distance to liquidation is measured from its own market's
  * mark and drawn at that distance from the main market's mark.
  */
+
+/**
+ * The table's tabs (owner, 2026-11-18: the longs and the shorts closest to liquidation, and the
+ * biggest of each): the tab's short name, the table's heading, and the line saying how it is ordered.
+ * Every list holds only positions with a liquidation price: one whose margin covers any move cannot
+ * be liquidated, so it is in none of them.
+ */
+const LISTS: Record<
+  WhaleList,
+  { long: boolean; near: boolean; tab: string; title: string; how: string }
+> = {
+  "near-long": {
+    long: true,
+    near: true,
+    tab: msg("Longs near liquidation"),
+    title: msg("Longs closest to their liquidation price"),
+    how: msg("Closest first: how far the price has to fall to liquidate each one."),
+  },
+  "near-short": {
+    long: false,
+    near: true,
+    tab: msg("Shorts near liquidation"),
+    title: msg("Shorts closest to their liquidation price"),
+    how: msg("Closest first: how far the price has to rise to liquidate each one."),
+  },
+  "big-long": {
+    long: true,
+    near: false,
+    tab: msg("Largest longs"),
+    title: msg("Largest longs that can be liquidated"),
+    how: msg("Biggest first, each with the price that would liquidate it."),
+  },
+  "big-short": {
+    long: false,
+    near: false,
+    tab: msg("Largest shorts"),
+    title: msg("Largest shorts that can be liquidated"),
+    how: msg("Biggest first, each with the price that would liquidate it."),
+  },
+};
 
 /** Price bands across the axis, and the table's length. */
 const BANDS = 80;
@@ -314,11 +360,14 @@ export function whalePanel(data: {
   positions: readonly WhalePosition[] | null;
   floor: WhaleFloor;
   zoom: WhaleZoom;
+  /** The table's tab, and each tab's address (escaped). */
+  list: WhaleList;
+  listHref: (list: WhaleList) => string;
   picker: string;
   floorStrip: string;
   now: number;
 }): string {
-  const { label, positions, floor, zoom, picker, floorStrip, now } = data;
+  const { label, positions, floor, zoom, list, listHref, picker, floorStrip, now } = data;
   const controls = `<div class="lq-controls">${picker}${floorStrip}${helpButton("liq-whales")}</div>
 ${helpPanel(
   "liq-whales",
@@ -389,17 +438,21 @@ ${helpPanel(
       ? `<p class="empty">${tr("No live mark for {asset}, so the positions cannot be placed on a price axis.", { asset: label })}</p>`
       : whaleChart({ label, placed, mark, floor, zoom });
 
-  // Nearest to liquidation first; those with none (margin covers any move) after, largest first.
-  const ordered = [...placed].sort((a, b) => {
-    if (a.distance === null || b.distance === null) {
-      return a.distance === null && b.distance === null
-        ? b.p.position_usd - a.p.position_usd
-        : a.distance === null
-          ? 1
-          : -1;
-    }
-    return Math.abs(a.distance) - Math.abs(b.distance);
-  });
+  // Each tab's positions: one side, only those with a liquidation price, nearest or biggest first.
+  const listed = (key: WhaleList): Placed[] => {
+    const { long, near } = LISTS[key];
+    const side = placed.filter((x) => x.long === long && x.p.liquidation_price !== null);
+    return near
+      ? side
+          .filter((x) => x.distance !== null)
+          .sort(
+            (a, b) =>
+              Math.abs(a.distance as number) - Math.abs(b.distance as number) ||
+              b.p.position_usd - a.p.position_usd,
+          )
+      : side.sort((a, b) => b.p.position_usd - a.p.position_usd);
+  };
+  const ordered = listed(list);
   const shownRows = ordered.slice(0, TABLE_ROWS);
   const computed = shownRows.some(
     ({ p }) => !p.liquidation_reported && p.liquidation_price !== null,
@@ -435,17 +488,44 @@ ${helpPanel(
     .join("");
   const more =
     ordered.length > TABLE_ROWS
-      ? `<p class="notes">${tr("The {n} nearest to liquidation of {total}.", { n: TABLE_ROWS, total: ordered.length })}</p>`
+      ? `<p class="notes">${
+          LISTS[list].near
+            ? tr("The {n} nearest to liquidation of {total}.", {
+                n: TABLE_ROWS,
+                total: ordered.length,
+              })
+            : tr("The {n} largest of {total}.", { n: TABLE_ROWS, total: ordered.length })
+        }</p>`
       : "";
+  // The tabs: each list's name and how many positions it holds, swapping the whale tab in place.
+  const tabs = `<nav class="tf wm-lists" aria-label="${esc(tr("Position list"))}">${WHALE_LISTS.map(
+    (key) => {
+      const text = `${trMsg(LISTS[key].tab)} <span class="dim">${listed(key).length}</span>`;
+      return key === list
+        ? `<a class="on" href="${listHref(key)}" aria-current="page" data-lq-swap="whales">${text}</a>`
+        : `<a href="${listHref(key)}" data-lq-swap="whales">${text}</a>`;
+    },
+  ).join("")}</nav>`;
+  const none = `<p class="empty">${
+    LISTS[list].long
+      ? tr("No long position here has a liquidation price.")
+      : tr("No short position here has a liquidation price.")
+  }</p>`;
   const footnote = computed
     ? `<p class="notes">* ${tr("dYdX publishes no liquidation price: computed from the account's balance and positions with dYdX's maintenance margins")}.</p>`
     : "";
-  const table = `<h2 class="cvd-h2 wm-h2">${tr("Positions by distance to liquidation")}</h2>
+  const table = `<h2 class="cvd-h2 wm-h2">${trMsg(LISTS[list].title)}</h2>
+${tabs}
+<p class="notes wm-how">${trMsg(LISTS[list].how)}</p>
 ${liveNote(data.asset, shown[0]?.asset_class ?? "crypto", floor)}
-<div class="sheet-wrap"><table class="sheet wm-table">
+${
+  ordered.length === 0
+    ? none
+    : `<div class="sheet-wrap"><table class="sheet wm-table">
 <thead><tr><th>${tr("Trader")}</th><th>${tr("Venue")}</th><th>${tr("Side")}</th><th class="num">${tr("Value")}</th><th class="num">${tr("Entry")}</th><th class="num">${tr("Liquidates at")}</th><th class="num" title="${esc(tr("From the market's mark to the liquidation price"))}">${tr("Distance")}</th><th class="num">${tr("Leverage")}</th><th class="num">${tr("Unrealized")}</th><th class="num" title="${esc(tr("The whole account's value on its venue"))}">${tr("Account")}</th><th class="num">${tr("Read")}</th></tr></thead>
 <tbody data-live="whale-rows">${rows}</tbody>
-</table></div>
+</table></div>`
+}
 ${more}${footnote}`;
 
   return `${controls}

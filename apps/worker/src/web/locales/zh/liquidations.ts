@@ -283,7 +283,6 @@ export const liquidations: Catalog = {
   // Cross margin, not the chart cursor's crosshair (charts.ts's "cross").
   "{leverage}× cross": "{leverage}× 全仓",
   "The {n} nearest to liquidation of {total}.": "共 {total} 个中最接近强平的 {n} 个。",
-  "Positions by distance to liquidation": "按距强平远近排列的仓位",
   Trader: "交易者",
   Value: "价值",
   Entry: "开仓价",
@@ -562,4 +561,22 @@ export const liquidations: Catalog = {
     "Hyperliquid 在一天、一周、一个月或全部时间内盈利最多的交易者，以及他们当前的持仓。打开任何一位，可查看其持仓与强平价格、盈亏走势，以及按币种列出的近期交易和订单。",
   "Top traders": "顶级交易者",
   Winners: "赢家",
+  "Longs near liquidation": "接近强平的多头",
+  "Longs closest to their liquidation price": "最接近强平价格的多头",
+  "Closest first: how far the price has to fall to liquidate each one.":
+    "最近的在前：价格需下跌多少才会强平每个仓位。",
+  "Shorts near liquidation": "接近强平的空头",
+  "Shorts closest to their liquidation price": "最接近强平价格的空头",
+  "Closest first: how far the price has to rise to liquidate each one.":
+    "最近的在前：价格需上涨多少才会强平每个仓位。",
+  "Largest longs": "最大多头",
+  "Largest longs that can be liquidated": "可被强平的最大多头",
+  "Biggest first, each with the price that would liquidate it.":
+    "最大的在前，并附上会强平每个仓位的价格。",
+  "Largest shorts": "最大空头",
+  "Largest shorts that can be liquidated": "可被强平的最大空头",
+  "The {n} largest of {total}.": "共 {total} 个中最大的 {n} 个。",
+  "Position list": "仓位列表",
+  "No long position here has a liquidation price.": "这里没有带强平价格的多头仓位。",
+  "No short position here has a liquidation price.": "这里没有带强平价格的空头仓位。",
 };

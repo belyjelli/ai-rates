@@ -296,7 +296,6 @@ export const liquidations: Catalog = {
   // Cross margin, not the chart cursor's crosshair (charts.ts's "cross").
   "{leverage}× cross": "{leverage}× кросс",
   "The {n} nearest to liquidation of {total}.": "Ближайшие к ликвидации: {n} из {total}.",
-  "Positions by distance to liquidation": "Позиции по расстоянию до ликвидации",
   Trader: "Трейдер",
   Value: "Стоимость",
   Entry: "Вход",
@@ -588,4 +587,22 @@ export const liquidations: Catalog = {
     "Самые прибыльные трейдеры Hyperliquid за сутки, неделю, месяц или всё время и то, что они держат сейчас. Откройте любого — позиции и цены ликвидации, прибыль во времени, последние сделки и ордера по каждой монете.",
   "Top traders": "Топ-трейдеры",
   Winners: "Победители",
+  "Longs near liquidation": "Лонги у ликвидации",
+  "Longs closest to their liquidation price": "Лонги ближе всего к цене ликвидации",
+  "Closest first: how far the price has to fall to liquidate each one.":
+    "Ближайшие первыми: насколько должна упасть цена, чтобы ликвидировать каждую.",
+  "Shorts near liquidation": "Шорты у ликвидации",
+  "Shorts closest to their liquidation price": "Шорты ближе всего к цене ликвидации",
+  "Closest first: how far the price has to rise to liquidate each one.":
+    "Ближайшие первыми: насколько должна вырасти цена, чтобы ликвидировать каждую.",
+  "Largest longs": "Крупнейшие лонги",
+  "Largest longs that can be liquidated": "Крупнейшие лонги, которые можно ликвидировать",
+  "Biggest first, each with the price that would liquidate it.":
+    "Крупнейшие первыми, с ценой, которая ликвидирует каждую.",
+  "Largest shorts": "Крупнейшие шорты",
+  "Largest shorts that can be liquidated": "Крупнейшие шорты, которые можно ликвидировать",
+  "The {n} largest of {total}.": "Крупнейшие: {n} из {total}.",
+  "Position list": "Список позиций",
+  "No long position here has a liquidation price.": "Здесь нет лонгов с ценой ликвидации.",
+  "No short position here has a liquidation price.": "Здесь нет шортов с ценой ликвидации.",
 };

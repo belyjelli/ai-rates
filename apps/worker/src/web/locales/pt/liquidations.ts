@@ -293,7 +293,6 @@ export const liquidations: Catalog = {
   // Cross margin, not the chart cursor's crosshair (charts.ts's "cross").
   "{leverage}× cross": "{leverage}× cruzada",
   "The {n} nearest to liquidation of {total}.": "As {n} mais próximas da liquidação, de {total}.",
-  "Positions by distance to liquidation": "Posições por distância até a liquidação",
   Trader: "Trader",
   Value: "Valor",
   Entry: "Entrada",
@@ -589,4 +588,24 @@ export const liquidations: Catalog = {
     "Os maiores vencedores da Hyperliquid em um dia, uma semana, um mês ou em todo o período, com o que têm agora. Abra qualquer um para ver posições e preços de liquidação, lucro ao longo do tempo e negócios e ordens recentes, moeda por moeda.",
   "Top traders": "Top traders",
   Winners: "Vencedores",
+  "Longs near liquidation": "Longs perto da liquidação",
+  "Longs closest to their liquidation price": "Longs mais perto do preço de liquidação",
+  "Closest first: how far the price has to fall to liquidate each one.":
+    "Mais perto primeiro: quanto o preço precisa cair para liquidar cada uma.",
+  "Shorts near liquidation": "Shorts perto da liquidação",
+  "Shorts closest to their liquidation price": "Shorts mais perto do preço de liquidação",
+  "Closest first: how far the price has to rise to liquidate each one.":
+    "Mais perto primeiro: quanto o preço precisa subir para liquidar cada uma.",
+  "Largest longs": "Maiores longs",
+  "Largest longs that can be liquidated": "Maiores longs que podem ser liquidados",
+  "Biggest first, each with the price that would liquidate it.":
+    "Maiores primeiro, cada um com o preço que o liquidaria.",
+  "Largest shorts": "Maiores shorts",
+  "Largest shorts that can be liquidated": "Maiores shorts que podem ser liquidados",
+  "The {n} largest of {total}.": "As {n} maiores, de {total}.",
+  "Position list": "Lista de posições",
+  "No long position here has a liquidation price.":
+    "Nenhuma posição long aqui tem preço de liquidação.",
+  "No short position here has a liquidation price.":
+    "Nenhuma posição short aqui tem preço de liquidação.",
 };

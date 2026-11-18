@@ -678,6 +678,8 @@ export interface LiquidationAssetParams {
   whale: WhaleFloor;
   /** How far either side of the mark the whale map's price axis reaches, in percent. */
   wzoom: WhaleZoom;
+  /** Which of the whale map's position lists the table shows (WHALE_LISTS). */
+  wlist: WhaleList;
   /** The Largest tab's order: the window's biggest closes, or its newest above `min`. */
   order: LargestOrder;
   /** The newest-first list's smallest close. The biggest-first list needs no floor. */
@@ -740,6 +742,15 @@ export const WHALE_ZOOMS = [10, 25, 50] as const;
 export type WhaleZoom = (typeof WHALE_ZOOMS)[number];
 export const DEFAULT_WHALE_ZOOM: WhaleZoom = 25;
 
+/**
+ * The whale map's position lists, one tab each under the chart (owner, 2026-11-18): the longs and the
+ * shorts nearest their liquidation price, and the largest longs and shorts that have one. Each side
+ * apart, because the two are opposite trades: longs liquidate on a fall, shorts on a rise.
+ */
+export const WHALE_LISTS = ["near-long", "near-short", "big-long", "big-short"] as const;
+export type WhaleList = (typeof WHALE_LISTS)[number];
+export const DEFAULT_WHALE_LIST: WhaleList = "near-long";
+
 /** The whale map's position floors, in dollars by their query value. The collector stores $100k up. */
 export const WHALE_FLOORS = { "1m": 1_000_000, "100k": 100_000 } as const;
 export type WhaleFloor = keyof typeof WHALE_FLOORS;
@@ -762,6 +773,9 @@ export function parseLiquidationAssetParams(params: URLSearchParams): Liquidatio
     wzoom: (WHALE_ZOOMS as readonly number[]).includes(Number(params.get("wzoom")))
       ? (Number(params.get("wzoom")) as WhaleZoom)
       : DEFAULT_WHALE_ZOOM,
+    wlist: (WHALE_LISTS as readonly string[]).includes(params.get("wlist") ?? "")
+      ? (params.get("wlist") as WhaleList)
+      : DEFAULT_WHALE_LIST,
     order: params.get("order") === "newest" ? "newest" : "size",
     min: Object.hasOwn(LARGEST_FLOORS, params.get("min") ?? "")
       ? (params.get("min") as LargestFloor)
@@ -784,6 +798,7 @@ export function liquidationAssetToQuery(params: LiquidationAssetParams): string 
   if (params.zoom === "wide") query.set("zoom", "out");
   if (params.whale !== "1m") query.set("whale", params.whale);
   if (params.wzoom !== DEFAULT_WHALE_ZOOM) query.set("wzoom", String(params.wzoom));
+  if (params.wlist !== DEFAULT_WHALE_LIST) query.set("wlist", params.wlist);
   if (params.order === "newest") {
     query.set("order", "newest");
     if (params.min !== DEFAULT_LARGEST_FLOOR) query.set("min", params.min);

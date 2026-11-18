@@ -27,6 +27,7 @@ import {
   DEFAULT_LIQUIDATION_ASSETS,
   DEFAULT_PNL_WINDOW,
   DEFAULT_TOP_WINDOW,
+  DEFAULT_WHALE_LIST,
   DEFAULT_WHALE_ZOOM,
   HISTORY_SPANS,
   type HistorySpan,
@@ -51,6 +52,7 @@ import {
   WHALE_FLOORS,
   WHALE_ZOOMS,
   type WhaleFloor,
+  type WhaleList,
   type WhaleZoom,
 } from "../app/params";
 import { PENDING_ROWS, PENDING_ZOOMS, type PendingZoom } from "../app/pending";
@@ -237,6 +239,7 @@ function controlHref(
     zoom?: PendingZoom;
     whale?: WhaleFloor;
     wzoom?: WhaleZoom;
+    wlist?: WhaleList;
     order?: LargestOrder;
     min?: LargestFloor;
     span?: HistorySpan;
@@ -279,6 +282,8 @@ function controlHref(
   if (whale !== "1m") query.set("whale", whale);
   const wzoom = overrides.wzoom ?? state.assetParams.wzoom;
   if (wzoom !== DEFAULT_WHALE_ZOOM) query.set("wzoom", String(wzoom));
+  const wlist = overrides.wlist ?? state.assetParams.wlist;
+  if (wlist !== DEFAULT_WHALE_LIST) query.set("wlist", wlist);
   if ((overrides.order ?? state.assetParams.order) === "newest") {
     query.set("order", "newest");
     const min = overrides.min ?? state.assetParams.min;
@@ -2479,6 +2484,8 @@ function tabBody(view: LiquidationView, id: LiquidationTab): string | null {
       positions: view.whales,
       floor: assetParams.whale,
       zoom: assetParams.wzoom,
+      list: assetParams.wlist,
+      listHref: (list) => esc(controlHref(state, { wlist: list }, "#whales")),
       picker: assetPicker(state, map.every, asset, "#whales"),
       floorStrip: `<nav class="tf" aria-label="${tr("Position size")}">${(
         Object.keys(WHALE_FLOORS) as WhaleFloor[]

@@ -40,6 +40,21 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-11-18",
+    title: "Liquidations: whale positions by side and size",
+    changes: [
+      "Under the whale map on Liquidations, the positions table has four tabs: longs near liquidation, shorts near liquidation, the largest longs and the largest shorts. Each tab says how many positions it holds and lists only positions with a liquidation price, so a trader sees each side's nearest liquidations and its biggest at a glance.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    title: "Chart: USD/HKD and USD/CNY",
+    changes: [
+      "USD/HKD and USD/CNY are in the Chart page's FX list. No exchange trades either, so they have no CVD: each row and chart is the pair's interbank rate, quoted every five minutes, and says so.",
+      "The FX list also gains the currency pairs that trade only outside the four largest exchanges: AUD/USD, NZD/USD, USD/KRW, USD/CAD, CHF/USD and BingX's crosses, 44 in all.",
+    ],
+  },
+  {
+    date: "2026-11-18",
     title: "Chart: the asset list by class",
     changes: [
       "The Chart page's asset list has a button for each class under its search box (crypto, equity, commodity, FX, index), each with how many assets it holds, so the list can show only the stocks or only the currency pairs. The search works within the class chosen, and picking an asset keeps the list as it was.",
