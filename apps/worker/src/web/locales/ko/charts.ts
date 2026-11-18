@@ -297,8 +297,8 @@ export const charts: Catalog = {
   "{asset} chart: interbank rate": "{asset} 차트: 은행 간 환율",
   "{asset} interbank rate, quoted every five minutes. No exchange trades it, so it has no taker flow or CVD.":
     "{asset} 은행 간 환율, 5분마다 호가. 거래소에서 거래되지 않아 테이커 흐름과 CVD가 없습니다.",
-  "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
-    "거래소에서 거래되지 않는 통화쌍(달러/위안, 달러/홍콩달러 등)은 대신 은행 간 환율로 표시합니다. 5분마다 호가를 받으며 테이커 흐름이 없으므로 해당 행에는 CVD가 없고 차트는 환율만 보여 줍니다.",
+  "A currency pair that no exchange trades, USD/CNH and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
+    "거래소에서 거래되지 않는 통화쌍(달러/역외 위안, 달러/홍콩달러 등)은 대신 은행 간 환율로 표시합니다. 5분마다 호가를 받으며 테이커 흐름이 없으므로 해당 행에는 CVD가 없고 차트는 환율만 보여 줍니다.",
   "its interbank rate, quoted every five minutes": "은행 간 환율, 5분마다 호가",
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "{asset}를 거래하는 거래소가 없어 합산할 테이커 흐름이 없습니다. 이것은 {first}와 {second}에서 계산한 은행 간 환율이며, 둘 다 5분마다 호가를 받습니다. 더 오래된 호가: {age}.",

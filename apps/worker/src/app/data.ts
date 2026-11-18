@@ -915,19 +915,20 @@ const USD_LEGS: Readonly<Record<string, { pair: string; inUsd: boolean }>> = {
 
 /**
  * Currency pairs that no exchange trades, charted from the collector's FX rates instead (owner,
- * 2026-11-18: "add USDHKD", "need a USD to RMB pair", "use CNY", then "add HKD to all other foreign
- * currency pairs"). Lighter lists USDHKD but has kept it inactive since it was listed; no venue lists
+ * 2026-11-18: "add USDHKD", "need a USD to RMB pair", "add HKD to all other foreign currency pairs",
+ * and "we take offshore yuan over CNY"). Lighter lists USDHKD but has kept it inactive since it was listed; no venue lists
  * the yuan or any HKD cross. Each is a row in the Chart page's FX list and a price chart with no CVD,
  * from fx_rates and fx_rate_history (collector internal/fx, a quote every five minutes, held to other
  * sources). Once a venue trades one, its flow row takes the place of the rate row.
  *
- * USDCNY and USDHKD are the collector's own pairs. The HKD crosses are worked out from two dollar
- * rates each (EURHKD = EURUSD × USDHKD), against every other currency the job reads but the offshore
- * yuan (the owner chose CNY). Each is named the way it quotes above 1, the larger unit first: EURHKD,
- * CNYHKD and DKKHKD, but HKDJPY and HKDSEK.
+ * USDCNH and USDHKD are the collector's own pairs. The yuan is the offshore one (CNH): it trades
+ * freely, where the onshore CNY is fixed in a band and Sina's quote of it is computed rather than
+ * dealt. The HKD crosses are worked out from two dollar rates each (EURHKD = EURUSD × USDHKD),
+ * against every other currency the job reads but the onshore yuan. Each is named the way it quotes
+ * above 1, the larger unit first: EURHKD, CNHHKD and DKKHKD, but HKDJPY and HKDSEK.
  */
 export const RATE_PAIRS: readonly string[] = [
-  "USDCNY",
+  "USDCNH",
   "USDHKD",
   ...[
     "EUR",
@@ -937,7 +938,7 @@ export const RATE_PAIRS: readonly string[] = [
     "NZD",
     "CAD",
     "SGD",
-    "CNY",
+    "CNH",
     "MYR",
     "ILS",
     "PLN",

@@ -230,8 +230,9 @@ export function searchScript(): string {
       // "equity:AAPL" names a class; "USD/HKD" or "BTC/USDT" is a pair written apart.
       if (i >= 0) { cls = i; q = m[2]; } else q = m[1] + m[2].replace(/[:/]/g, "");
     }
-    // RMB is what many readers call the yuan, whose ISO code (and so its pair) is CNY.
-    q = q.replace(/^(USD)?RMB$/, "$1CNY");
+    // The site's yuan is the offshore one, CNH: RMB and CNY (what readers call it) find it too,
+    // alone or as USDRMB, USDCNY, RMBHKD or CNYHKD.
+    q = q.replace(/^(USD)?(RMB|CNY)(HKD)?$/, "$1CNH$3");
     let bare = q;
     for (let n = 0; n < 3; n++) {
       const s = bare.replace(/[-_\\/ ]?(USDT|USDC|USD|PERP|SWAP)$/, "");

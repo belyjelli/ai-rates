@@ -47,10 +47,10 @@ export const CHANGELOG: readonly Release[] = [
   },
   {
     date: "2026-11-18",
-    title: "Chart: USD/HKD and USD/CNY",
+    title: "Chart: USD/HKD and the offshore yuan",
     changes: [
-      "USD/HKD and USD/CNY are in the Chart page's FX list. No exchange trades either, so they have no CVD: each row and chart is the pair's interbank rate, quoted every five minutes, and says so.",
-      "The Hong Kong dollar against 25 other currencies joins them (EUR/HKD, GBP/HKD, CNY/HKD, HKD/JPY, HKD/KRW and the rest), each worked out from its two dollar rates. Every one can be found from the search by HKD, CNY, RMB or a pair such as USD/HKD.",
+      "USD/HKD and USD/CNH, the offshore yuan, are in the Chart page's FX list. No exchange trades either, so they have no CVD: each row and chart is the pair's interbank rate, quoted every five minutes, and says so.",
+      "The Hong Kong dollar against 25 other currencies joins them (EUR/HKD, GBP/HKD, CNH/HKD, HKD/JPY, HKD/KRW and the rest), each worked out from its two dollar rates. Every one can be found from the search by HKD, RMB, CNY or CNH, or a pair such as USD/HKD.",
       "The FX list also gains the currency pairs that trade only outside the four largest exchanges: AUD/USD, NZD/USD, USD/KRW, USD/CAD, CHF/USD and BingX's crosses, 44 in all.",
     ],
   },

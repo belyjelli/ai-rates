@@ -205,7 +205,7 @@ function timeTicks(fromMs: number, toMs: number, hours: number): string[] {
 }
 
 /**
- * A rate-only pair's chart (RATE_PAIRS: USDCNY, USDHKD): its interbank rate over the window, and
+ * A rate-only pair's chart (RATE_PAIRS: USDCNH, USDHKD, the HKD crosses): its interbank rate over the window, and
  * nothing under it, since no exchange trades it and there is no flow to sum. The same figure and
  * trading chart as an asset's, with the CVD panes left out and a line saying why.
  */
@@ -788,9 +788,10 @@ function assetPicker(data: {
   // ?q= is the search without a script, or an old link to one, and ?type= an asset-class button.
   // The rows they leave out are hidden rather than dropped, so emptying the box or pressing All in
   // the browser brings them back.
-  // What a row is found by: its ticker and class, and RMB for the yuan's pairs (its code is CNY).
+  // What a row is found by: its ticker and class, and RMB, CNY and yuan for the offshore yuan's
+  // pairs (CNH), which are the site's yuan.
   const words = (row: CvdAssetRow) =>
-    `${row.asset} ${row.asset_class}${row.asset_class === "fx" && row.asset.includes("CNY") ? " rmb" : ""}`.toLowerCase();
+    `${row.asset} ${row.asset_class}${row.asset_class === "fx" && row.asset.includes("CNH") ? " rmb cny yuan" : ""}`.toLowerCase();
   const matches = (row: CvdAssetRow) =>
     (!params.q || words(row).includes(params.q.toLowerCase())) &&
     (params.type === null || row.asset_class === params.type);
@@ -1523,7 +1524,7 @@ export function cvd(data: {
           futures: esc(venuesByKind([...FUTURES_TAKER_VENUES, ...HIP3_VENUE_IDS])),
           spot: esc(venuesByKind(SPOT_TAKER_VENUES)),
         },
-      )}</p><p>${tr("A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.")}</p><p>${tr("Each key above the chart says how many venues its line sums for this asset; hover it for their names. Spot covers crypto and stocks: a stock's spot books are its tokenized shares (xStocks, Ondo and the like) on the collected exchanges, counted only while they trade at the stock's own price. Commodities and indices show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.")}</p><p>${tr("Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the box beside it; on a phone, tap.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Aster, Gate and Bitget publish weeks of it and OKX five days, while every other venue, spot books other than Binance's included, is counted from its live trades since 28 October 2026, so older bars sum fewer venues.")}</p><p>${tr("Detail, beside Fund flow, puts the asset's own figures where the chart and the market's tiles are, over the same window: its futures and spot CVD, whether it diverged, the exchanges that bought and sold it most, its open interest, funding and market cap; then its signal over every interval's span, and its flow exchange by exchange. Chart brings the chart back.")}</p><p>${tr("The venues that publish statistics release each 5-minute bucket after it closes, so the newest bar holds only the live tapes for a few minutes.")}</p>`,
+      )}</p><p>${tr("A currency pair that no exchange trades, USD/CNH and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.")}</p><p>${tr("Each key above the chart says how many venues its line sums for this asset; hover it for their names. Spot covers crypto and stocks: a stock's spot books are its tokenized shares (xStocks, Ondo and the like) on the collected exchanges, counted only while they trade at the stock's own price. Commodities and indices show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.")}</p><p>${tr("Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the box beside it; on a phone, tap.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Aster, Gate and Bitget publish weeks of it and OKX five days, while every other venue, spot books other than Binance's included, is counted from its live trades since 28 October 2026, so older bars sum fewer venues.")}</p><p>${tr("Detail, beside Fund flow, puts the asset's own figures where the chart and the market's tiles are, over the same window: its futures and spot CVD, whether it diverged, the exchanges that bought and sold it most, its open interest, funding and market cap; then its signal over every interval's span, and its flow exchange by exchange. Chart brings the chart back.")}</p><p>${tr("The venues that publish statistics release each 5-minute bucket after it closes, so the newest bar holds only the live tapes for a few minutes.")}</p>`,
     )}
 <style>${FUND_CSS}${DETAIL_CSS}${KIND_CSS}${RATE_CSS}</style>
 ${cvdAgentBrief(flow, asset, params)}
