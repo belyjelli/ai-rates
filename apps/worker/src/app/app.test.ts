@@ -6948,7 +6948,35 @@ describe("api", () => {
       const answer = await get(path, data);
       expect(answer.status).toBe(405);
       expect(answer.headers.get("allow")).toBe("POST");
+      // A client's GET (an event stream) still gets the 405 the spec asks for.
+      const client = await handleApp(
+        new Request(`https://airates.test${path}`, { headers: { accept: "text/event-stream" } }),
+        { data, now: () => NOW },
+      );
+      expect(client.status).toBe(405);
     }
+    // A browser opening either URL is sent to the page that explains it, not a blank 405.
+    for (const [path, to] of [
+      ["/mcp", "/agents#start"],
+      ["/a2a", "/agents#a2a"],
+    ] as const) {
+      const browser = await handleApp(
+        new Request(`https://airates.test${path}`, {
+          headers: { accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" },
+        }),
+        { data, now: () => NOW },
+      );
+      expect(browser.status).toBe(302);
+      expect(browser.headers.get("location")).toBe(to);
+    }
+    // The index sits in a sidebar on a wide screen, lists each client under "Set up your client",
+    // and is hidden on a phone.
+    expect(page).toMatch(
+      /<nav class="ag-toc" aria-label="On this page">.*href="#clients".*href="#claude-code".*href="#trouble"/s,
+    );
+    expect(page).toContain(
+      "@media (max-width:860px){.ag-grid{display:block}.ag-toc{display:none}}",
+    );
   });
 
   test("the A2A card is served and the endpoint answers SendMessage and message/send", async () => {

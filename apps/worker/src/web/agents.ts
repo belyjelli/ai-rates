@@ -175,8 +175,16 @@ const skillRows = SKILLS.map(
     `<tr><td><code>${esc(s.id)}</code></td><td>${esc(s.description)}</td><td>${s.examples.map((e) => `“${esc(e)}”`).join("<br>")}</td></tr>`,
 ).join("");
 
-const CSS = `.ag{max-width:96ch}
-.ag nav.ag-toc{display:flex;flex-wrap:wrap;gap:4px 14px;margin:0 0 18px;font-size:12px}
+const CSS = `.ag-grid{display:grid;grid-template-columns:200px minmax(0,96ch);gap:32px;align-items:start}
+.ag{max-width:96ch}
+.ag-toc{position:sticky;top:calc(var(--mast) + 16px);max-height:calc(100vh - var(--mast) - var(--dock) - 32px);overflow-y:auto;font-size:12px;padding:4px 0 8px}
+.ag-toc .ag-toc-h{margin:0 0 8px;font-size:11px;font-weight:normal;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.ag-toc ul{list-style:none;margin:0;padding:0}
+.ag-toc li{margin:0}
+.ag-toc a{display:block;padding:3px 0 3px 10px;border-bottom:0;border-left:1px solid var(--rule);color:var(--muted)}
+.ag-toc ul ul a{padding-left:22px;font-size:11px}
+.ag-toc a:hover{color:var(--accent);border-left-color:var(--accent)}
+.ag-toc a.on{color:var(--ink);border-left-color:var(--ink)}
 .ag h2{margin:28px 0 8px;scroll-margin-top:calc(var(--mast) + 12px)}
 .ag h3{margin:18px 0 6px;font-size:13px;scroll-margin-top:calc(var(--mast) + 12px)}
 .ag p,.ag li{line-height:1.55}
@@ -191,10 +199,11 @@ const CSS = `.ag{max-width:96ch}
 .ag th,.ag td{border-top:1px solid var(--rule);padding:6px 8px 6px 0;text-align:left;vertical-align:top}
 .ag th{color:var(--muted);font-weight:normal}
 .ag .ag-wrap{overflow-x:auto}
+@media (max-width:860px){.ag-grid{display:block}.ag-toc{display:none}}
 @media (max-width:560px){.ag dl{grid-template-columns:1fr}.ag dd{margin-bottom:6px}}`;
 
 /** Copies a block's text; says so on the button for a moment. */
-const SCRIPT = `document.addEventListener("click",(e)=>{const b=e.target.closest(".ag-copy");if(!b)return;const t=b.parentElement.querySelector("code").textContent;navigator.clipboard&&navigator.clipboard.writeText(t).then(()=>{b.textContent="copied";setTimeout(()=>{b.textContent="copy"},1500)},()=>{})});`;
+const SCRIPT = `document.addEventListener("click",(e)=>{const b=e.target.closest(".ag-copy");if(!b)return;const t=b.parentElement.querySelector("code").textContent;navigator.clipboard&&navigator.clipboard.writeText(t).then(()=>{b.textContent="copied";setTimeout(()=>{b.textContent="copy"},1500)},()=>{})});(()=>{const links=[...document.querySelectorAll(".ag-toc a")];if(!links.length)return;const by=new Map(links.map((a)=>[a.getAttribute("href").slice(1),a]));const heads=[...by.keys()].map((id)=>document.getElementById(id)).filter(Boolean);if(!heads.length)return;let pinned=by.has(location.hash.slice(1))?location.hash.slice(1):"",queued=false;const mark=(scrolled)=>{queued=false;let cur=heads[0];const p=pinned&&document.getElementById(pinned);if(p){const r=p.getBoundingClientRect();if(!scrolled||(r.top>=0&&r.top<innerHeight))cur=p;else pinned=""}if(!pinned){const top=(parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--mast"))||45)+24;if(innerHeight+scrollY>=document.documentElement.scrollHeight-4)cur=heads[heads.length-1];else for(const h of heads){if(h.getBoundingClientRect().top<=top)cur=h;else break}}for(const a of links)a.classList.toggle("on",by.get(cur.id)===a)};const later=()=>{if(!queued){queued=true;requestAnimationFrame(()=>mark(true))}};for(const a of links)a.addEventListener("click",()=>{pinned=a.getAttribute("href").slice(1);later()});for(const t of ["wheel","touchstart","keydown"])addEventListener(t,()=>{pinned=""},{passive:true});addEventListener("scroll",later,{passive:true});mark(false)})();`;
 
 /**
  * How to connect an AI agent to airrates: the MCP server, client by client, then the A2A agent and
@@ -207,6 +216,8 @@ export function agents(data: { overview: Overview; now: number }): string {
 <p>${c.steps}</p>
 ${block(c.code)}`,
   ).join("\n");
+  // The index: each section, and under "Set up your client" each client, so a reader jumps to theirs.
+  const clientLinks = CLIENTS.map((c) => `<li><a href="#${c.id}">${esc(c.name)}</a></li>`).join("");
   const toc = [
     ["start", "Quick start"],
     ["clients", "Set up your client"],
@@ -218,7 +229,10 @@ ${block(c.code)}`,
     ["limits", "Limits and terms"],
     ["trouble", "Troubleshooting"],
   ]
-    .map(([id, label]) => `<a href="#${id}">${label}</a>`)
+    .map(
+      ([id, label]) =>
+        `<li><a href="#${id}">${label}</a>${id === "clients" ? `<ul>${clientLinks}</ul>` : ""}</li>`,
+    )
     .join("");
 
   return layout({
@@ -229,11 +243,11 @@ ${block(c.code)}`,
     overview: data.overview,
     now: data.now,
     body: `<style>${CSS}</style>
-${englishOnly(`<div class="ag">
+${englishOnly(`<div class="ag-grid">
+<nav class="ag-toc" aria-label="On this page"><p class="ag-toc-h">On this page</p><ul>${toc}</ul></nav>
+<div class="ag">
 <h1>MCP and agents</h1>
 <p class="lede">airrates runs a public <a href="https://modelcontextprotocol.io" rel="noopener">Model Context Protocol</a> server, so an AI assistant can read live funding rates and cross-exchange spreads while it answers you. It needs no account, no key and no sign-in, and it only reads. This page shows how to add it to your client, what it can do, and the agent card and index other agents find it by.</p>
-<nav class="ag-toc" aria-label="On this page">${toc}</nav>
-
 <h2 id="start">Quick start</h2>
 <dl>
 <dt>Server URL</dt><dd><code>${MCP_URL}</code></dd>
@@ -263,7 +277,7 @@ ${block(curl({ jsonrpc: "2.0", id: 2, method: "tools/list" }))}
 ${block(curl({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "get_asset_funding", arguments: { asset: "BTC" } } }))}
 <p>A tool's answer is one text item holding JSON:</p>
 ${block(json({ jsonrpc: "2.0", id: 3, result: { content: [{ type: "text", text: '{"attribution":"…","asset":"BTC","markets":[{"venue":"…","apr":…,"apr_7d":…,"open_interest_usd":…}, …]}' }] } }))}
-<p>The server keeps no session, so each request stands alone, and a <code>GET</code> on the URL answers 405: there is no stream to open.</p>
+<p>The server keeps no session, so each request stands alone, and a <code>GET</code> on the URL answers 405: there is no stream to open. A browser asking for a page is sent here instead.</p>
 
 <h2 id="a2a">Agent card (A2A)</h2>
 <p>For agents that talk to other agents with the <a href="https://a2a-protocol.org" rel="noopener">Agent2Agent protocol</a>, airrates is also an agent you can message in plain text. Its card is at <a href="/.well-known/agent-card.json"><code>/.well-known/agent-card.json</code></a>.</p>
@@ -302,8 +316,9 @@ ${block(json({ jsonrpc: "2.0", id: 1, result: { message: { messageId: "…", rol
 <li><b>The client only runs local servers</b> (a <code>command</code> rather than a <code>url</code>). Use <code>npx -y mcp-remote ${MCP_URL}</code> as the command, as in <a href="#claude-desktop-config">the Claude Desktop config</a>.</li>
 <li><b>“Failed to connect” in a client that offers SSE or HTTP.</b> Pick HTTP (Streamable HTTP). The older SSE transport is not offered.</li>
 <li><b>Tools show up but the assistant does not use them.</b> Make sure the connector is switched on for the chat, and name airrates in the question.</li>
-<li><b>Opening the URL in a browser shows an error.</b> That is expected: the URL is for MCP clients, which POST to it.</li>
+<li><b>Opening the URL in a browser brings you here.</b> The URL is for MCP clients, which POST to it; a browser asking for a page is sent to this one.</li>
 </ul>
+</div>
 </div>`)}
 <script>${SCRIPT}</script>`,
   });

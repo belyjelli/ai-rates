@@ -287,11 +287,23 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
 
   // Neither endpoint has anything for a GET: MCP opens no server-to-client stream here, and the spec
   // asks for a 405 in that case, which a client takes as "carry on with POSTs". A 404 page made some
-  // clients report the server as broken.
+  // clients report the server as broken. A person who opens the URL in a browser saw a blank page,
+  // so a GET that asks for HTML (a client asks for JSON or an event stream) goes to the page that
+  // explains the endpoint.
   if (path === MCP_PATH || path === A2A_PATH) {
+    if ((request.headers.get("accept") ?? "").includes("text/html")) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: `${AGENTS_PATH}#${path === MCP_PATH ? "start" : "a2a"}`,
+          "cache-control": "no-store",
+          vary: "accept",
+        },
+      });
+    }
     return new Response(null, {
       status: 405,
-      headers: { allow: "POST", "cache-control": "no-store" },
+      headers: { allow: "POST", "cache-control": "no-store", vary: "accept" },
     });
   }
 
