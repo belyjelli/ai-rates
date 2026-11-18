@@ -123,6 +123,11 @@ export interface KChartPayload {
   ref: string | null;
   /** Whether the asset has a spot book, and so a spot CVD pane. */
   spot: boolean;
+  /**
+   * A rate-only pair (data.ts RATE_PAIRS): price candles alone, as no exchange trades it and there is
+   * no flow for a CVD pane or a delta.
+   */
+  rate?: boolean;
   bars: KBar[];
   /** The asset's spot ETF flows, pinned on the price; absent for an asset with none read. */
   etf?: KEtf;
@@ -279,9 +284,9 @@ export const KCHART_SCRIPT = `(() => {
       net.push({ time, value: delta, color: delta >= 0 ? st.colors.long : st.colors.short });
     });
     st.candles.setData(candles);
-    st.line.setData(line);
+    if (st.line) st.line.setData(line);
     if (st.spot) st.spot.setData(spot);
-    st.net.setData(net);
+    if (st.net) st.net.setData(net);
     const last = bars.length ? bars[bars.length - 1][4] : null;
     if (last) {
       const step = Math.pow(10, Math.floor(Math.log10(Math.abs(last))) - 5);
@@ -406,6 +411,7 @@ export const KCHART_SCRIPT = `(() => {
         cell(w.tipLow, price(b[3] === null ? c : b[3])) +
         cell(w.tipClose, '<b class="' + tone(c - o) + '">' + price(c) + "</b> " + pct((c / o - 1) * 100, 2)) + "</dl>";
     }
+    if (d.rate) return html;
     const row = (label, buy, sell) => "<tr><th>" + label + "</th>" + (buy === null || sell === null
       ? '<td>–</td><td>–</td><td>–</td>'
       : "<td>" + usd(buy) + "</td><td>" + usd(sell) + "</td><td>" + money(buy - sell) + "</td>") + "</tr>";
@@ -542,9 +548,12 @@ export const KCHART_SCRIPT = `(() => {
     // label, which is what tells the panes apart.
     const dollars = { type: "custom", formatter: signed, minMove: 1 };
     st.candles = chart.addSeries(LC.CandlestickSeries, { upColor: "rgba(0,0,0,0)", downColor: colors.ink, borderUpColor: colors.ink, borderDownColor: colors.ink, wickUpColor: colors.ink, wickDownColor: colors.ink, priceLineColor: colors.muted });
-    st.line = chart.addSeries(LC.LineSeries, { color: colors.accent, lineWidth: 2, title: d.words.paneFutures, priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: dollars }, 1);
-    if (d.spot) st.spot = chart.addSeries(LC.LineSeries, { color: colors.em, lineWidth: 2, title: d.words.paneSpot, priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: dollars }, 2);
-    st.net = chart.addSeries(LC.HistogramSeries, { title: d.words.paneDelta, priceLineVisible: false, priceFormat: dollars }, d.spot ? 3 : 2);
+    // A rate-only pair has no flow: its candles are the whole chart.
+    if (!d.rate) {
+      st.line = chart.addSeries(LC.LineSeries, { color: colors.accent, lineWidth: 2, title: d.words.paneFutures, priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: dollars }, 1);
+      if (d.spot) st.spot = chart.addSeries(LC.LineSeries, { color: colors.em, lineWidth: 2, title: d.words.paneSpot, priceLineVisible: false, crosshairMarkerVisible: false, priceFormat: dollars }, 2);
+      st.net = chart.addSeries(LC.HistogramSeries, { title: d.words.paneDelta, priceLineVisible: false, priceFormat: dollars }, d.spot ? 3 : 2);
+    }
     const panes = chart.panes();
     panes.forEach((pane, i) => pane.setStretchFactor(i === 0 ? 3 : 1));
     st.note = document.createElement("span");

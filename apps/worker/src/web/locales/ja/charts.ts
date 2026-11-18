@@ -285,4 +285,21 @@ export const charts: Catalog = {
   "{asset} chart: price and CVD": "{asset} チャート：価格と CVD",
   "{asset} price with cumulative volume delta under it: spot and futures taker buying against taker selling across exchanges, and where price and order flow disagree.":
     "{asset} の価格と、その下の累積出来高デルタ（CVD）：取引所横断の現物・先物のテイカー買いとテイカー売り、そして価格とオーダーフローが食い違う箇所。",
+  "{asset} · interbank rate · {n}-hour bars, {zone}":
+    "{asset} · インターバンクレート · {n}時間足、{zone}",
+  "{asset} · interbank rate · {n}-minute bars, {zone}":
+    "{asset} · インターバンクレート · {n}分足、{zone}",
+  "Last {window}: {from} to {to}": "直近 {window}：{from} → {to}",
+  "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, quoted every five minutes. Last quote {age}.":
+    "{asset} を取引する取引所はないため、合計するテイカーフローはありません。これはインターバンクレートで、5分ごとに気配を取得しています。最新の気配：{age}。",
+  "interbank rate": "インターバンクレート",
+  "{asset} interbank rate over the last {window}": "直近 {window} の {asset} インターバンクレート",
+  "No exchange trades it: its interbank rate, with no taker flow":
+    "取引所での取引なし：インターバンクレートのみで、テイカーフローはありません",
+  "rate only": "レートのみ",
+  "{asset} chart: interbank rate": "{asset} チャート：インターバンクレート",
+  "{asset} interbank rate, quoted every five minutes. No exchange trades it, so it has no taker flow or CVD.":
+    "{asset} のインターバンクレート（5分ごとに気配を取得）。取引所で取引されていないため、テイカーフローも CVD もありません。",
+  "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
+    "取引所で取引されていない通貨ペア（米ドル/人民元、米ドル/香港ドルなど）は、代わりにインターバンクレートで表示します。5分ごとの気配で、テイカーフローがないため、その行に CVD はなく、チャートはレートのみです。",
 };

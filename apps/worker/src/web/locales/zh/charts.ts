@@ -275,4 +275,21 @@ export const charts: Catalog = {
   "{asset} chart: price and CVD": "{asset} 图表：价格与 CVD",
   "{asset} price with cumulative volume delta under it: spot and futures taker buying against taker selling across exchanges, and where price and order flow disagree.":
     "{asset} 价格及其下方的累计成交量差（CVD）：各交易所现货与合约的主动买入对比主动卖出，以及价格与订单流背离之处。",
+  "{asset} · interbank rate · {n}-hour bars, {zone}":
+    "{asset} · 银行间汇率 · 每根柱 {n} 小时，{zone}",
+  "{asset} · interbank rate · {n}-minute bars, {zone}":
+    "{asset} · 银行间汇率 · 每根柱 {n} 分钟，{zone}",
+  "Last {window}: {from} to {to}": "最近 {window}：{from} 至 {to}",
+  "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, quoted every five minutes. Last quote {age}.":
+    "没有交易所交易 {asset}，因此没有可累计的主动成交流：这是它的银行间汇率，每五分钟报价一次。最新报价：{age}。",
+  "interbank rate": "银行间汇率",
+  "{asset} interbank rate over the last {window}": "{asset} 最近 {window} 的银行间汇率",
+  "No exchange trades it: its interbank rate, with no taker flow":
+    "没有交易所交易：仅有银行间汇率，无主动成交流",
+  "rate only": "仅汇率",
+  "{asset} chart: interbank rate": "{asset} 图表：银行间汇率",
+  "{asset} interbank rate, quoted every five minutes. No exchange trades it, so it has no taker flow or CVD.":
+    "{asset} 银行间汇率，每五分钟报价一次。没有交易所交易它，因此没有主动成交流或 CVD。",
+  "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
+    "没有交易所交易的货币对（包括美元/人民币和美元/港元）改以银行间汇率列出：每五分钟报价一次，没有主动成交流，因此其行没有 CVD，图表只显示汇率。",
 };

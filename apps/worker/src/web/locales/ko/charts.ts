@@ -284,4 +284,19 @@ export const charts: Catalog = {
   "{asset} chart: price and CVD": "{asset} 차트: 가격과 CVD",
   "{asset} price with cumulative volume delta under it: spot and futures taker buying against taker selling across exchanges, and where price and order flow disagree.":
     "{asset} 가격과 그 아래의 누적 거래량 델타(CVD): 거래소 전체 현물·선물의 테이커 매수 대 테이커 매도, 그리고 가격과 주문 흐름이 엇갈리는 구간.",
+  "{asset} · interbank rate · {n}-hour bars, {zone}": "{asset} · 은행 간 환율 · {n}시간 봉, {zone}",
+  "{asset} · interbank rate · {n}-minute bars, {zone}": "{asset} · 은행 간 환율 · {n}분 봉, {zone}",
+  "Last {window}: {from} to {to}": "최근 {window}: {from} → {to}",
+  "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, quoted every five minutes. Last quote {age}.":
+    "{asset}를 거래하는 거래소가 없어 합산할 테이커 흐름이 없습니다. 이것은 5분마다 호가를 받는 은행 간 환율입니다. 최신 호가: {age}.",
+  "interbank rate": "은행 간 환율",
+  "{asset} interbank rate over the last {window}": "최근 {window} {asset} 은행 간 환율",
+  "No exchange trades it: its interbank rate, with no taker flow":
+    "거래소 거래 없음: 은행 간 환율만 있고 테이커 흐름은 없습니다",
+  "rate only": "환율만",
+  "{asset} chart: interbank rate": "{asset} 차트: 은행 간 환율",
+  "{asset} interbank rate, quoted every five minutes. No exchange trades it, so it has no taker flow or CVD.":
+    "{asset} 은행 간 환율, 5분마다 호가. 거래소에서 거래되지 않아 테이커 흐름과 CVD가 없습니다.",
+  "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
+    "거래소에서 거래되지 않는 통화쌍(달러/위안, 달러/홍콩달러 등)은 대신 은행 간 환율로 표시합니다. 5분마다 호가를 받으며 테이커 흐름이 없으므로 해당 행에는 CVD가 없고 차트는 환율만 보여 줍니다.",
 };

@@ -6322,6 +6322,106 @@ describe("cvd", () => {
     expect(any).toContain('data-cvd-type="" aria-current="true">All');
   });
 
+  // A currency pair no exchange trades (data.ts RATE_PAIRS), as cvd() returns it: no flow, a quote.
+  const hkdRate = { source: "sina", at: new Date(NOW - 120_000) };
+  const hkdRow: CvdAssetRow = {
+    asset: "USDHKD",
+    asset_class: "fx",
+    buy_usd: 0,
+    sell_usd: 0,
+    venues: 0,
+    price: 7.7823,
+    change_pct: 0.03,
+    rate: hkdRate,
+  };
+  const hkdChart = () =>
+    flow({
+      rows: [...flow().rows, hkdRow],
+      asset_class: "fx",
+      bars: [3, 2, 1].map((n, i) => ({
+        bucket_start: new Date(Math.floor(NOW / 900_000) * 900_000 - n * 900_000),
+        buy_usd: 0,
+        sell_usd: 0,
+        price: 7.78 + i * 0.001,
+        open: 7.78,
+        high: 7.783,
+        low: 7.779,
+        price_venue: "rates",
+        price_symbol: "USDHKD",
+      })),
+      futures_venues: [],
+      rate: hkdRate,
+    });
+
+  test("a rate-only pair is a row with its rate and no flow, left out of the market's tiles", async () => {
+    const { data } = fakeData({ cvd: async () => flow({ rows: [...flow().rows, hkdRow] }) });
+    const html = await (await get("/chart", data)).text();
+    const row = html.split('data-k="fx:USDHKD"')[1]?.split("</a>")[0] ?? "";
+    expect(row).toContain('data-kind="fx"');
+    expect(row).toContain("7.7823");
+    expect(row).toContain('<span class="cvd-badge cvd-badge-rate"');
+    expect(row).toContain(">rate only</span>");
+    expect(row).not.toContain('data-u="cvd"');
+    // Breadth counts the four traded assets, not the pair with no flow.
+    expect(html).toContain("of 4 assets with net taker buying");
+    // The FX button counts it: it is in the list.
+    expect(html).toContain('data-cvd-type="fx">fx<small class="num">1</small>');
+  });
+
+  test("a rate-only pair's chart is its rate alone: no CVD panes, no Detail, no fund flow", async () => {
+    const seen: CvdOptions[] = [];
+    const { data } = fakeData({
+      cvd: async (options) => {
+        seen.push(options);
+        return hkdChart();
+      },
+    });
+    const res = await get("/chart/fx/USDHKD", data);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(seen[0]).toMatchObject({ base: "USDHKD", assetClass: "fx" });
+    expect(html).toContain("<title>USDHKD fx chart: interbank rate · airrates</title>");
+    expect(html).toContain('<figure class="fchart cvd-chart cvd-rate" data-live="cvd-chart">');
+    expect(html).toContain("No exchange trades USDHKD, so it has no taker flow to sum");
+    expect(html).toContain('class="cvd-price"');
+    expect(html).not.toContain('class="cvd-line"');
+    expect(html).not.toContain('data-cvd-view="detail"');
+    // The trading chart draws candles only, and asks the rates for older bars.
+    const payload = JSON.parse(
+      html.split('<script type="application/json" class="kc-data">')[1]?.split("</script>")[0] ??
+        "{}",
+    ) as { rate?: boolean; ref?: string; src?: string; bars?: unknown[] };
+    expect(payload.rate).toBe(true);
+    expect(payload.ref).toBe("rates:USDHKD");
+    expect(payload.src).toContain("asset=USDHKD&class=fx");
+    expect(payload.bars).toHaveLength(3);
+    // Its Markdown copy says what it is rather than reading $0 of flow.
+    const md = await (
+      await handleApp(
+        new Request("https://airates.test/chart/fx/USDHKD", {
+          headers: { accept: "text/markdown" },
+        }),
+        { data, now: () => NOW },
+      )
+    ).text();
+    expect(md).toContain("No exchange the site collects trades USDHKD");
+    expect(md).not.toContain("futures CVD +$0");
+  });
+
+  test("/v1/cvd marks a rate-only pair and leaves it out of the market's figures", async () => {
+    const { data } = fakeData({ cvd: async () => flow({ rows: [...flow().rows, hkdRow] }) });
+    const body = (await (await get("/v1/cvd?limit=10", data)).json()) as {
+      rows: { asset: string; rate_only?: boolean; venues: number }[];
+      market: { assets: number };
+    };
+    expect(body.rows.find((row) => row.asset === "USDHKD")).toMatchObject({
+      rate_only: true,
+      venues: 0,
+    });
+    expect(body.rows.find((row) => row.asset === "BTC")?.rate_only).toBeUndefined();
+    expect(body.market.assets).toBe(4);
+  });
+
   test("an asset nothing lists is a 404, and an empty window says why", async () => {
     const { data } = fakeData({ cvd: async () => flow({ asset_class: null, rows: [], bars: [] }) });
     expect((await get("/chart/NOSUCH", data)).status).toBe(404);

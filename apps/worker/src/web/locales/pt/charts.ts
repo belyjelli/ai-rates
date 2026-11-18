@@ -283,4 +283,22 @@ export const charts: Catalog = {
   "{asset} chart: price and CVD": "Gráfico de {asset}: preço e CVD",
   "{asset} price with cumulative volume delta under it: spot and futures taker buying against taker selling across exchanges, and where price and order flow disagree.":
     "Preço de {asset} com o delta de volume cumulativo abaixo: compras taker spot e de futuros contra vendas taker nas corretoras, e onde preço e fluxo de ordens divergem.",
+  "{asset} · interbank rate · {n}-hour bars, {zone}":
+    "{asset} · taxa interbancária · barras de {n} h, {zone}",
+  "{asset} · interbank rate · {n}-minute bars, {zone}":
+    "{asset} · taxa interbancária · barras de {n} min, {zone}",
+  "Last {window}: {from} to {to}": "Últimos {window}: de {from} a {to}",
+  "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, quoted every five minutes. Last quote {age}.":
+    "Nenhuma exchange negocia {asset}, então não há fluxo tomador para somar: esta é a sua taxa interbancária, cotada a cada cinco minutos. Última cotação {age}.",
+  "interbank rate": "taxa interbancária",
+  "{asset} interbank rate over the last {window}":
+    "Taxa interbancária de {asset} nos últimos {window}",
+  "No exchange trades it: its interbank rate, with no taker flow":
+    "Nenhuma exchange negocia: só a taxa interbancária, sem fluxo tomador",
+  "rate only": "só a taxa",
+  "{asset} chart: interbank rate": "Gráfico de {asset}: taxa interbancária",
+  "{asset} interbank rate, quoted every five minutes. No exchange trades it, so it has no taker flow or CVD.":
+    "Taxa interbancária de {asset}, cotada a cada cinco minutos. Nenhuma exchange a negocia, então não há fluxo tomador nem CVD.",
+  "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
+    "Um par de moedas que nenhuma exchange negocia, como USD/CNY e USD/HKD, aparece com a sua taxa interbancária: cotada a cada cinco minutos, sem fluxo tomador, então a sua linha não tem CVD e o gráfico mostra só a taxa.",
 };

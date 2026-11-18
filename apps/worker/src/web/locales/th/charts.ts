@@ -277,4 +277,21 @@ export const charts: Catalog = {
   "{asset} chart: price and CVD": "กราฟ {asset}: ราคาและ CVD",
   "{asset} price with cumulative volume delta under it: spot and futures taker buying against taker selling across exchanges, and where price and order flow disagree.":
     "ราคา {asset} พร้อม Cumulative Volume Delta ด้านล่าง: แรงซื้อเทียบแรงขายของ Taker ทั้ง Spot และ Futures จากหลายกระดานเทรด และจุดที่ราคากับ Order Flow ไปคนละทาง",
+  "{asset} · interbank rate · {n}-hour bars, {zone}":
+    "{asset} · อัตราระหว่างธนาคาร · แท่งละ {n} ชม. {zone}",
+  "{asset} · interbank rate · {n}-minute bars, {zone}":
+    "{asset} · อัตราระหว่างธนาคาร · แท่งละ {n} นาที {zone}",
+  "Last {window}: {from} to {to}": "{window} ล่าสุด: {from} ถึง {to}",
+  "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, quoted every five minutes. Last quote {age}.":
+    "ไม่มีกระดานเทรดใดซื้อขาย {asset} จึงไม่มีโฟลว์เทคเกอร์ให้รวม นี่คืออัตราระหว่างธนาคาร อัปเดตราคาทุกห้านาที ราคาล่าสุด {age}",
+  "interbank rate": "อัตราระหว่างธนาคาร",
+  "{asset} interbank rate over the last {window}": "อัตราระหว่างธนาคารของ {asset} ใน {window} ล่าสุด",
+  "No exchange trades it: its interbank rate, with no taker flow":
+    "ไม่มีกระดานเทรดซื้อขาย: มีเพียงอัตราระหว่างธนาคาร ไม่มีโฟลว์เทคเกอร์",
+  "rate only": "อัตราเท่านั้น",
+  "{asset} chart: interbank rate": "กราฟ {asset}: อัตราระหว่างธนาคาร",
+  "{asset} interbank rate, quoted every five minutes. No exchange trades it, so it has no taker flow or CVD.":
+    "อัตราระหว่างธนาคารของ {asset} อัปเดตราคาทุกห้านาที ไม่มีกระดานเทรดซื้อขาย จึงไม่มีโฟลว์เทคเกอร์หรือ CVD",
+  "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
+    "คู่สกุลเงินที่ไม่มีกระดานเทรดใดซื้อขาย เช่น USD/CNY และ USD/HKD จะแสดงด้วยอัตราระหว่างธนาคารแทน อัปเดตราคาทุกห้านาที ไม่มีโฟลว์เทคเกอร์ แถวของมันจึงไม่มี CVD และกราฟแสดงเฉพาะอัตรา",
 };

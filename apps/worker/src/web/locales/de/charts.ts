@@ -283,4 +283,22 @@ export const charts: Catalog = {
   "{asset} chart: price and CVD": "{asset}-Chart: Preis und CVD",
   "{asset} price with cumulative volume delta under it: spot and futures taker buying against taker selling across exchanges, and where price and order flow disagree.":
     "{asset}-Preis mit dem kumulierten Volumendelta darunter: Taker-Käufe gegen Taker-Verkäufe in Spot und Futures über die Börsen hinweg und wo Preis und Orderflow auseinanderlaufen.",
+  "{asset} · interbank rate · {n}-hour bars, {zone}":
+    "{asset} · Interbankenkurs · {n}-Stunden-Balken, {zone}",
+  "{asset} · interbank rate · {n}-minute bars, {zone}":
+    "{asset} · Interbankenkurs · {n}-Minuten-Balken, {zone}",
+  "Last {window}: {from} to {to}": "Letzte {window}: {from} bis {to}",
+  "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, quoted every five minutes. Last quote {age}.":
+    "Keine Börse handelt {asset}, daher gibt es keinen Taker-Flow zu summieren: Das ist der Interbankenkurs, alle fünf Minuten notiert. Letzte Notierung {age}.",
+  "interbank rate": "Interbankenkurs",
+  "{asset} interbank rate over the last {window}":
+    "Interbankenkurs von {asset} der letzten {window}",
+  "No exchange trades it: its interbank rate, with no taker flow":
+    "Von keiner Börse gehandelt: nur der Interbankenkurs, ohne Taker-Flow",
+  "rate only": "nur Kurs",
+  "{asset} chart: interbank rate": "{asset}-Chart: Interbankenkurs",
+  "{asset} interbank rate, quoted every five minutes. No exchange trades it, so it has no taker flow or CVD.":
+    "Interbankenkurs von {asset}, alle fünf Minuten notiert. Keine Börse handelt ihn, daher gibt es weder Taker-Flow noch CVD.",
+  "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
+    "Ein Währungspaar, das keine Börse handelt, darunter USD/CNY und USD/HKD, wird stattdessen mit seinem Interbankenkurs geführt: alle fünf Minuten notiert, ohne Taker-Flow, daher hat seine Zeile kein CVD und sein Chart zeigt nur den Kurs.",
 };

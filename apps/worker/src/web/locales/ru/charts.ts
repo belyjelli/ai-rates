@@ -286,4 +286,21 @@ export const charts: Catalog = {
   "{asset} chart: price and CVD": "График {asset}: цена и CVD",
   "{asset} price with cumulative volume delta under it: spot and futures taker buying against taker selling across exchanges, and where price and order flow disagree.":
     "Цена {asset} с кумулятивной дельтой объёма (CVD) под ней: покупки и продажи тейкеров на споте и фьючерсах всех бирж и места, где цена и поток ордеров расходятся.",
+  "{asset} · interbank rate · {n}-hour bars, {zone}":
+    "{asset} · межбанковский курс · бары по {n} ч, {zone}",
+  "{asset} · interbank rate · {n}-minute bars, {zone}":
+    "{asset} · межбанковский курс · бары по {n} мин, {zone}",
+  "Last {window}: {from} to {to}": "За {window}: с {from} до {to}",
+  "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, quoted every five minutes. Last quote {age}.":
+    "{asset} не торгуется ни на одной бирже, поэтому суммировать нечего: это его межбанковский курс с котировкой каждые пять минут. Последняя котировка — {age}.",
+  "interbank rate": "межбанковский курс",
+  "{asset} interbank rate over the last {window}": "Межбанковский курс {asset} за {window}",
+  "No exchange trades it: its interbank rate, with no taker flow":
+    "Не торгуется на биржах: только межбанковский курс, без потока тейкеров",
+  "rate only": "только курс",
+  "{asset} chart: interbank rate": "График {asset}: межбанковский курс",
+  "{asset} interbank rate, quoted every five minutes. No exchange trades it, so it has no taker flow or CVD.":
+    "Межбанковский курс {asset} с котировкой каждые пять минут. На биржах не торгуется, поэтому нет ни потока тейкеров, ни CVD.",
+  "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
+    "Валютная пара, которой не торгует ни одна биржа (в том числе USD/CNY и USD/HKD), показана по межбанковскому курсу: котировка каждые пять минут, потока тейкеров нет, поэтому в её строке нет CVD, а график — только курс.",
 };

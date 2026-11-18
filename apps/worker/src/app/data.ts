@@ -1,12 +1,12 @@
 import { type AssetClass, DIVERGENCE_TRIGGER, type IdentityVerdict } from "@ai-rates/core";
+import { DEFAULT_VENUE_IDS } from "@ai-rates/venues";
+import type postgres from "postgres";
 import {
   CASCADE_BASELINE_HOURS,
   CASCADE_MINUTE_FLOOR,
   CASCADE_PACE,
   type CascadeRead,
 } from "./cascades";
-import { DEFAULT_VENUE_IDS } from "@ai-rates/venues";
-import type postgres from "postgres";
 import {
   type HeldStock,
   heldStocks,
@@ -856,7 +856,36 @@ export interface CvdAssetRow {
   price: number | null;
   /** First close to last close in the window, as a percentage. Null without two closes. */
   change_pct: number | null;
+  /**
+   * Set on a currency pair no exchange trades (RATE_PAIRS): the row is its interbank rate, with no
+   * taker flow (buys, sells and venues are 0), and the change runs from the last quote before the
+   * window to the newest.
+   */
+  rate?: CvdRate;
 }
+
+/** Where a rate-only pair's newest quote came from, and when it was quoted. */
+export interface CvdRate {
+  /** The collector's FX source: "sina", "yahoo", or "defillama" when the live ones failed. */
+  source: string;
+  at: Date;
+}
+
+/**
+ * Currency pairs that no exchange trades, charted from the collector's FX rates instead (owner,
+ * 2026-11-18: "add USDHKD", "need a USD to RMB pair", "use CNY"). Lighter lists USDHKD but has kept it
+ * inactive since it was listed; no venue lists the yuan. Each is a row in the Chart page's FX list
+ * and a price chart with no CVD, from fx_rates and fx_rate_history (collector internal/fx, a quote
+ * every five minutes, held to other sources). Once a venue trades one, its flow row takes the place
+ * of the rate row.
+ */
+export const RATE_PAIRS: readonly string[] = ["USDCNY", "USDHKD"];
+
+/**
+ * What a rate-only pair's bars name in place of a venue, so the chart's history requests carry
+ * `ref=rates:<pair>` and come back to the rates rather than to a market.
+ */
+export const RATE_VENUE = "rates";
 
 /** One bar of the CVD chart: flow summed over venues, and the reference market's last close. */
 export interface CvdBar {
@@ -924,6 +953,11 @@ export interface CvdData {
   spot_venues: string[];
   /** The newest bucket stored for any asset: how far behind the venues' own statistics run. */
   newest: Date | null;
+  /**
+   * Set when the charted asset is a rate-only pair (RATE_PAIRS): the bars are its interbank rate,
+   * with no flow, and this is its newest quote.
+   */
+  rate?: CvdRate | null;
 }
 
 /**
@@ -1701,6 +1735,113 @@ const EMPTY_OVERVIEW: Overview = {
  * today. The site links every non-crypto asset with its class in the path, so the class-less form
  * only has to be stable for crypto, and for bookmarks to a ticker that was only ever one thing.
  */
+/** Whether a page asking for this asset may be shown a rate-only pair's rate. */
+const ratePair = (base: string, assetClass: AssetClass | null) =>
+  (assetClass === null || assetClass === "fx") && RATE_PAIRS.includes(base);
+
+// DefiLlama's daily rates (each at its day's 00:00 UTC) are a rate-only pair's history before its
+// live quotes began; once a pair has a live quote they are left out, as a day's rate set beside that
+// day's five-minute quotes would draw a wick that never traded. The job's DefiLlama fallback, when
+// every live source failed, is a day's rate too. `since` is the pair's first live quote, found by
+// walking fx_rate_history's (pair, at) key, so each read stays on its own pair's rows.
+const liveQuote = (sql: postgres.Sql, alias: string) =>
+  sql`(${sql(alias)}.source <> 'defillama' OR live.since IS NULL OR ${sql(alias)}.at < live.since)`;
+
+/**
+ * The rate-only pairs' rows: the newest quote, and its change from the last quote at or before the
+ * window's start (or the window's first, for a pair quoted only since). Empty where the site's role
+ * cannot read the FX tables yet.
+ */
+async function rateRows(sql: postgres.Sql, windowHours: number): Promise<CvdAssetRow[]> {
+  const windowInterval = `${windowHours} hours`;
+  // Text, not an array parameter: the client runs with fetch_types off.
+  const pairs = RATE_PAIRS.join(",");
+  const found = await sql<
+    { asset: string; price: number; source: string; at: Date; from_price: number | null }[]
+  >`
+    WITH live AS (
+      SELECT p.pair,
+             (SELECT min(l.at) FROM fx_rate_history l
+              WHERE l.pair = p.pair AND l.source <> 'defillama') AS since
+      FROM unnest(string_to_array(${pairs}, ',')) AS p(pair)
+    )
+    SELECT r.pair AS asset, r.price::float8 AS price, r.source, r.at,
+           coalesce(
+             (SELECT h.price FROM fx_rate_history h
+              WHERE h.pair = r.pair AND h.at <= now() - ${windowInterval}::interval
+                AND ${liveQuote(sql, "h")}
+              ORDER BY h.at DESC LIMIT 1),
+             (SELECT h.price FROM fx_rate_history h
+              WHERE h.pair = r.pair AND h.at > now() - ${windowInterval}::interval
+                AND ${liveQuote(sql, "h")}
+              ORDER BY h.at LIMIT 1)
+           )::float8 AS from_price
+    FROM fx_rates r
+    JOIN live ON live.pair = r.pair
+    WHERE r.price > 0`.catch((error) => {
+    if (missingOrRefused(error)) return [];
+    throw error;
+  });
+  return found.map((row) => ({
+    asset: row.asset,
+    asset_class: "fx" as const,
+    buy_usd: 0,
+    sell_usd: 0,
+    venues: 0,
+    price: row.price,
+    change_pct:
+      row.from_price !== null && row.from_price > 0 ? (row.price / row.from_price - 1) * 100 : null,
+    rate: { source: row.source, at: row.at },
+  }));
+}
+
+/**
+ * A rate-only pair's bars on the chart's grid: each bar's first, highest, lowest and last quote,
+ * with no flow. Named RATE_VENUE, so the chart's history requests come back here.
+ */
+async function rateBars(
+  sql: postgres.Sql,
+  base: string,
+  barMinutes: number,
+  range: { fromMs: number; toMs: number } | { windowHours: number },
+): Promise<CvdBar[]> {
+  const barSeconds = barMinutes * 60;
+  const within =
+    "fromMs" in range
+      ? sql`h.at >= to_timestamp(${range.fromMs / 1000}) AND h.at < to_timestamp(${range.toMs / 1000})`
+      : sql`h.at > now() - ${`${range.windowHours} hours`}::interval`;
+  const found = await sql<
+    { bucket_start: Date; open: number; high: number; low: number; price: number }[]
+  >`
+    WITH live AS (
+      SELECT min(l.at) AS since FROM fx_rate_history l
+      WHERE l.pair = ${base} AND l.source <> 'defillama'
+    )
+    SELECT to_timestamp(floor(extract(epoch FROM h.at) / ${barSeconds}) * ${barSeconds}) AS bucket_start,
+           ((array_agg(h.price ORDER BY h.at))[1])::float8 AS open,
+           max(h.price)::float8 AS high,
+           min(h.price)::float8 AS low,
+           ((array_agg(h.price ORDER BY h.at DESC))[1])::float8 AS price
+    FROM fx_rate_history h, live
+    WHERE h.pair = ${base} AND ${within} AND ${liveQuote(sql, "h")}
+    GROUP BY 1
+    ORDER BY 1`.catch((error) => {
+    if (missingOrRefused(error)) return [];
+    throw error;
+  });
+  return found.map((bar) => ({
+    bucket_start: bar.bucket_start,
+    buy_usd: 0,
+    sell_usd: 0,
+    price: bar.price,
+    open: bar.open,
+    high: bar.high,
+    low: bar.low,
+    price_venue: RATE_VENUE,
+    price_symbol: base,
+  }));
+}
+
 function chosenClass(sql: postgres.Sql, base: string, assetClass: AssetClass | null) {
   return sql`
     SELECT asset_class FROM market_latest
@@ -1962,7 +2103,10 @@ export interface HolderSum {
 }
 
 /** A market's holder sums in the latest hour read, and a day before; keyed by market id. */
-export type Holdings = Record<string, { now: [HolderSum | null, HolderSum | null]; d1: [HolderSum | null, HolderSum | null] }>;
+export type Holdings = Record<
+  string,
+  { now: [HolderSum | null, HolderSum | null]; d1: [HolderSum | null, HolderSum | null] }
+>;
 
 /**
  * One stock index's latest level (collector migrations 037, 057) and its daily closes over the last
@@ -2034,7 +2178,9 @@ const missingOrRefused = (error: unknown) => {
  * The latest hour's holder sums per market and outcome, and the same a day before (collector migration
  * 056), with the smart set's size; empty, not a failure, before the tables exist or are granted.
  */
-async function holdingsQuery(sql: postgres.Sql): Promise<{ holdings: Holdings; smartWallets: number }> {
+async function holdingsQuery(
+  sql: postgres.Sql,
+): Promise<{ holdings: Holdings; smartWallets: number }> {
   try {
     const [rows, wallets] = await Promise.all([
       sql<({ market_id: string; outcome: number; ago: boolean } & HolderSum)[]>`
@@ -2051,7 +2197,12 @@ async function holdingsQuery(sql: postgres.Sql): Promise<{ holdings: Holdings; s
     const holdings: Holdings = {};
     for (const r of rows) {
       const h = (holdings[r.market_id] ??= { now: [null, null], d1: [null, null] });
-      const sum = { holders: r.holders, shares: r.shares, smart_holders: r.smart_holders, smart_shares: r.smart_shares };
+      const sum = {
+        holders: r.holders,
+        shares: r.shares,
+        smart_holders: r.smart_holders,
+        smart_shares: r.smart_shares,
+      };
       (r.ago ? h.d1 : h.now)[r.outcome === 0 ? 0 : 1] = sum;
     }
     return { holdings, smartWallets: wallets[0]?.n ?? 0 };
@@ -3608,14 +3759,35 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       // is empty, and it comes back with no bars -- the same answer the early return gave. The spot
       // book is read for an address that names no class too, and dropped below unless the asset
       // resolves to crypto.
-      const [rows, [resolved], newest, bars, spot] = await Promise.all([
+      const [rows, [resolved], newest, bars, spot, rates, quoted] = await Promise.all([
         rowsQuery,
         sql<{ asset_class: AssetClass }[]>`${chosenClass(sql, base, assetClass)}`,
         sql<{ newest: Date | null }[]>`SELECT max(bucket_start) AS newest FROM taker_flow
           WHERE bucket_start > now() - interval '1 day'`,
         barsQuery,
         spotBars(sql, { windowHours, barMinutes, base, assetClass }),
+        rateRows(sql, windowHours),
+        // Only for an address that can be a rate-only pair; whether it is shows once the class is in.
+        ratePair(base, assetClass) ? rateBars(sql, base, barMinutes, { windowHours }) : null,
       ]);
+      // A rate-only pair a venue has started to trade is its flow row, not its rate.
+      const traded = new Set(
+        rows.filter((row) => row.asset_class === "fx").map((row) => row.asset),
+      );
+      const rateOnly = rates.filter((row) => !traded.has(row.asset));
+      const own = resolved ? undefined : rateOnly.find((row) => row.asset === base);
+      if (own?.rate && quoted && ratePair(base, assetClass)) {
+        return {
+          rows: [...rows, ...rateOnly],
+          asset_class: "fx",
+          bars: quoted,
+          spot: false,
+          futures_venues: [],
+          spot_venues: [],
+          newest: newest[0]?.newest ?? null,
+          rate: own.rate,
+        };
+      }
       // The spot rows were read for the address's class, or crypto's when it names none.
       const spotFits = resolved?.asset_class === (assetClass ?? "crypto");
       const futuresVenues = venueList(bars[0]?.venues);
@@ -3623,7 +3795,7 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
       const withSpotBook = perps.length > 0 && spotFits && spot.rows.length > 0;
 
       return {
-        rows: [...rows],
+        rows: [...rows, ...rateOnly],
         asset_class: resolved?.asset_class ?? null,
         bars: withSpotBook ? withSpot(perps, spot.rows) : perps,
         spot: withSpotBook,
@@ -3640,6 +3812,10 @@ export function createDataSource(connect: () => postgres.Sql): DataSource {
 
     async cvdHistory({ base, assetClass, barMinutes, fromMs, toMs, ref, spot }) {
       const sql = connect();
+      // A rate-only pair's chart asks with its rates as the reference (rateBars names them so).
+      if (ref?.venue === RATE_VENUE && ref.symbol === base && ratePair(base, assetClass)) {
+        return rateBars(sql, base, barMinutes, { fromMs, toMs });
+      }
       const options = { base, assetClass, barMinutes, windowHours: 0 };
       const [bars, spotBook] = await Promise.all([
         assetBarsQuery(sql, options, { fromMs, toMs, ref }),
