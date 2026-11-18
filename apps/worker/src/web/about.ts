@@ -59,6 +59,7 @@ export const CHANGELOG: readonly Release[] = [
     title: "Chart: the asset list by class",
     changes: [
       "The Chart page's asset list has a button for each class under its search box (crypto, equity, commodity, FX, index), each with how many assets it holds, so the list can show only the stocks or only the currency pairs. The search works within the class chosen, and picking an asset keeps the list as it was.",
+      "Under FX, a second row has a button for every currency in the pairs (USD, HKD, GBP, JPY, EUR and the rest, the most used first): HKD lists every Hong Kong dollar pair and nothing else.",
     ],
   },
   {

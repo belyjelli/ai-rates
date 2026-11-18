@@ -302,4 +302,5 @@ export const charts: Catalog = {
   "its interbank rate, quoted every five minutes": "은행 간 환율, 5분마다 호가",
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "{asset}를 거래하는 거래소가 없어 합산할 테이커 흐름이 없습니다. 이것은 {first}와 {second}에서 계산한 은행 간 환율이며, 둘 다 5분마다 호가를 받습니다. 더 오래된 호가: {age}.",
+  Currency: "통화",
 };

@@ -904,6 +904,12 @@ export interface CvdParams {
    * names the charted asset's own class in the API.
    */
   type: AssetClass | null;
+  /**
+   * Under the FX button, one currency (owner, 2026-11-19: "add all currencies ... to just show their
+   * related currency as the extra level filter"): only the pairs with it on either side, as "HKD"
+   * keeps USDHKD, EURHKD and HKDJPY. Only with `type` fx; null for every pair.
+   */
+  ccy: string | null;
   view: CvdView;
 }
 
@@ -925,6 +931,10 @@ export function parseCvdParams(params: URLSearchParams): CvdParams {
       .replace(/[^A-Z0-9._-]/g, "")
       .slice(0, 20),
     type: ASSET_CLASSES.find((c) => c === params.get("type")) ?? null,
+    ccy:
+      params.get("type") === "fx" && /^[A-Za-z]{3}$/.test(params.get("ccy") ?? "")
+        ? (params.get("ccy") as string).toUpperCase()
+        : null,
     view: params.get("view") === "detail" ? "detail" : "chart",
   };
 }
@@ -936,6 +946,7 @@ export function cvdToQuery(params: CvdParams): string {
   if (params.asc) query.set("dir", "asc");
   if (params.q) query.set("q", params.q);
   if (params.type) query.set("type", params.type);
+  if (params.type === "fx" && params.ccy) query.set("ccy", params.ccy);
   if (params.view === "detail") query.set("view", "detail");
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";

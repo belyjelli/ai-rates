@@ -695,24 +695,39 @@ export const CVD_SWITCH_SCRIPT = `(() => {
   // An asset-class button filters the rows where they are, as a heading sorts them: PICK_SCRIPT
   // hides the rows of other classes once the picker's data-kind names one (the input event is its
   // cue to filter again), and the address and every link that keeps it take ?type=.
-  const withType = (href, type) => {
+  // A currency button under FX narrows the FX rows the same way, by the rows' data-ccy.
+  const withFilter = (href, type, ccy) => {
     const url = new URL(href, location.href);
     if (type) url.searchParams.set("type", type);
     else url.searchParams.delete("type");
+    if (type === "fx" && ccy) url.searchParams.set("ccy", ccy);
+    else url.searchParams.delete("ccy");
     return url.pathname + url.search + url.hash;
+  };
+  const light = (pick, attr, value) => {
+    for (const b of pick.querySelectorAll("a[" + attr + "]")) {
+      if (b.getAttribute(attr) === value) b.setAttribute("aria-current", "true");
+      else b.removeAttribute("aria-current");
+    }
+  };
+  const filterBy = (pick, type, ccy) => {
+    pick.dataset.kind = type;
+    pick.dataset.ccy = ccy;
+    light(pick, "data-cvd-type", type);
+    light(pick, "data-cvd-ccy", ccy);
+    const row = pick.querySelector(".wh-pick-ccys");
+    if (row) row.hidden = type !== "fx";
+    pick.querySelector(".wh-pick-q").dispatchEvent(new Event("input", { bubbles: true }));
+    history.replaceState(null, "", withFilter(location.href, type, ccy));
+    for (const a of document.querySelectorAll('main a[href^="/chart"]:not([data-cvd-type]):not([data-cvd-ccy])')) a.setAttribute("href", withFilter(a.getAttribute("href"), type, ccy));
   };
   const byType = (button) => {
     const pick = button.closest(".wh-pick");
-    if (!pick) return;
-    const type = button.dataset.cvdType;
-    pick.dataset.kind = type;
-    for (const b of pick.querySelectorAll("a[data-cvd-type]")) {
-      if (b.dataset.cvdType === type) b.setAttribute("aria-current", "true");
-      else b.removeAttribute("aria-current");
-    }
-    pick.querySelector(".wh-pick-q").dispatchEvent(new Event("input", { bubbles: true }));
-    history.replaceState(null, "", withType(location.href, type));
-    for (const a of document.querySelectorAll('main a[href^="/chart"]:not([data-cvd-type])')) a.setAttribute("href", withType(a.getAttribute("href"), type));
+    if (pick) filterBy(pick, button.dataset.cvdType, "");
+  };
+  const byCcy = (button) => {
+    const pick = button.closest(".wh-pick");
+    if (pick) filterBy(pick, "fx", button.dataset.cvdCcy);
   };
 
   const modified = (event) => event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
@@ -726,6 +741,13 @@ export const CVD_SWITCH_SCRIPT = `(() => {
       if (modified(event)) return;
       event.preventDefault();
       byType(kind);
+      return;
+    }
+    const ccy = event.target.closest("a[data-cvd-ccy]");
+    if (ccy) {
+      if (modified(event)) return;
+      event.preventDefault();
+      byCcy(ccy);
       return;
     }
     const heading = event.target.closest("a[data-cvd-sort]");
@@ -794,7 +816,8 @@ function assetPicker(data: {
     `${row.asset} ${row.asset_class}${row.asset_class === "fx" && row.asset.includes("CNH") ? " rmb cny yuan" : ""}`.toLowerCase();
   const matches = (row: CvdAssetRow) =>
     (!params.q || words(row).includes(params.q.toLowerCase())) &&
-    (params.type === null || row.asset_class === params.type);
+    (params.type === null || row.asset_class === params.type) &&
+    (params.ccy === null || fxCurrencies(row).includes(params.ccy));
 
   const list = sorted
     .map((row, index) => {
@@ -805,7 +828,7 @@ function assetPicker(data: {
         `${cvdPath(row.asset, row.asset_class)}${cvdToQuery({ ...params, q: "" })}#cvd-chart`,
       );
       const keys = CVD_SORTS.map((sort) => sortKey(row, sort)).join(",");
-      return `<a class="wh-pick-row${on ? " on" : ""}" href="${href}" data-cvd-select="${esc(row.asset)}" data-k="${esc(assetKey(row.asset, row.asset_class))}" data-q="${esc(words(row))}" data-kind="${row.asset_class}" data-a="${esc(row.asset)}" data-keys="${keys}"${on ? ' aria-current="true"' : ""}${matches(row) ? "" : " hidden"}>
+      return `<a class="wh-pick-row${on ? " on" : ""}" href="${href}" data-cvd-select="${esc(row.asset)}" data-k="${esc(assetKey(row.asset, row.asset_class))}" data-q="${esc(words(row))}" data-kind="${row.asset_class}"${row.asset_class === "fx" ? ` data-ccy="${esc(fxCurrencies(row).join(" "))}"` : ""} data-a="${esc(row.asset)}" data-keys="${keys}"${on ? ' aria-current="true"' : ""}${matches(row) ? "" : " hidden"}>
 <span class="wh-pick-sym"><span class="dim wh-pick-rank">${index + 1}</span><b>${assetName(row.asset, row.asset_class)}</b></span>
 <span class="num"><span data-u="price">${formatPrice(row.price)}</span></span>
 <span class="num${tone(row.change_pct)}"><span data-u="change">${signedPct(row.change_pct)}</span></span>
@@ -836,18 +859,19 @@ ${
   }${params.sort !== "volume" ? `<input type="hidden" name="sort" value="${esc(params.sort)}">` : ""}${
     params.asc ? '<input type="hidden" name="dir" value="asc">' : ""
   }${params.type ? `<input type="hidden" name="type" value="${params.type}">` : ""}${
-    params.view === "detail" ? '<input type="hidden" name="view" value="detail">' : ""
-  }`;
+    params.ccy ? `<input type="hidden" name="ccy" value="${esc(params.ccy)}">` : ""
+  }${params.view === "detail" ? '<input type="hidden" name="view" value="detail">' : ""}`;
   const current = rows.find((row) => row.asset === asset && row.asset_class === assetClass);
   const summary = current
     ? `<b>${label}</b><span class="num">${formatPrice(current.price)}</span><span class="num${tone(current.change_pct)}">${signedPct(current.change_pct)}</span>`
     : `<b>${label}</b>`;
 
-  return `<details class="wh-pick cvd-pick"${params.q ? " open data-searched" : ""}${params.type ? ` data-kind="${params.type}"` : ""}>
+  return `<details class="wh-pick cvd-pick"${params.q ? " open data-searched" : ""}${params.type ? ` data-kind="${params.type}"` : ""}${params.ccy ? ` data-ccy="${esc(params.ccy)}"` : ""}>
 <summary class="wh-pick-btn" aria-label="${esc(tr("Pick an asset to chart"))}">${summary}<span class="wh-pick-more dim">${tr("{n} assets", { n: rows.length })}</span></summary>
 <div class="wh-pick-panel">
 <form class="wh-pick-find" method="get" action="${esc(base)}">${kept}<input class="wh-pick-q" type="search" name="q" value="${esc(params.q)}" placeholder="${esc(tr("Search symbol"))}" aria-label="${esc(tr("Search symbol"))}" autocomplete="off"><button type="submit">${tr("Find")}</button></form>
 ${classButtons(rows, params, base)}
+${currencyButtons(rows, params, base)}
 <div class="wh-pick-head" data-sort="${params.sort}" data-dir="${params.asc ? "asc" : "desc"}"><span>${tr("Asset")}</span><span class="num">${tr("Price")}</span>${heading("change", tr("Reference market's first close to last close in the window"))}${heading("cvd", tr("Taker buys less taker sells, in dollars, summed over the polled venues"))}${heading("ratio", tr("CVD as a share of the window's taker volume"))}${heading("volume", tr("Taker buys plus taker sells, in dollars"))}<span class="num" title="${esc(tr("Polled venues with flow for this asset"))}">${tr("Venues")}</span><span title="${esc(tr("Price and flow disagreeing by more than the divergence thresholds in the tiles"))}">${tr("Signal")}</span></div>
 <nav class="wh-pick-list" data-live="cvd-rows" aria-label="${esc(tr("Assets"))}">${list}</nav>
 <p class="wh-pick-none dim"${sorted.some(matches) ? " hidden" : ""}>${tr("No asset matches.")}</p>
@@ -868,13 +892,44 @@ function classButtons(rows: readonly CvdAssetRow[], params: CvdParams, base: str
   if (counts.size < 2) return "";
   const button = (type: AssetClass | null, label: string, n: number) => {
     const on = params.type === type;
-    const href = esc(base + cvdToQuery({ ...params, type }));
+    const href = esc(base + cvdToQuery({ ...params, type, ccy: null }));
     return `<a class="wh-pick-kind" href="${href}" data-cvd-type="${type ?? ""}"${on ? ' aria-current="true"' : ""}>${label}<small class="num">${n}</small></a>`;
   };
   const classes = ASSET_CLASSES.filter((type) => counts.has(type)).map((type) =>
     button(type, assetClassLabel(type), counts.get(type) ?? 0),
   );
   return `<nav class="wh-pick-kinds" aria-label="${esc(tr("Asset class"))}">${button(null, tr("All"), rows.length)}${classes.join("")}</nav>`;
+}
+
+/** An FX pair's two currencies (USDHKD: USD and HKD); none for any other row or name. */
+const fxCurrencies = (row: CvdAssetRow): string[] =>
+  row.asset_class === "fx" && /^[A-Z]{6}$/.test(row.asset)
+    ? [row.asset.slice(0, 3), row.asset.slice(3)]
+    : [];
+
+/**
+ * The FX button's second row (owner, 2026-11-19): every currency the FX pairs hold, each with how
+ * many pairs it is in, most first, so HKD lists every Hong Kong dollar pair and nothing else. Shown
+ * only while the FX button is on; CVD_SWITCH_SCRIPT shows it, hides it and filters in place.
+ */
+function currencyButtons(rows: readonly CvdAssetRow[], params: CvdParams, base: string): string {
+  const counts = new Map<string, number>();
+  let pairs = 0;
+  for (const row of rows) {
+    const both = fxCurrencies(row);
+    if (both.length) pairs++;
+    for (const code of both) counts.set(code, (counts.get(code) ?? 0) + 1);
+  }
+  if (counts.size < 2) return "";
+  const button = (ccy: string | null, label: string, n: number) => {
+    const on = params.type === "fx" && params.ccy === ccy;
+    const href = esc(base + cvdToQuery({ ...params, type: "fx", ccy }));
+    return `<a class="wh-pick-kind" href="${href}" data-cvd-ccy="${ccy ?? ""}"${on ? ' aria-current="true"' : ""}>${label}<small class="num">${n}</small></a>`;
+  };
+  const codes = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([code, n]) => button(code, esc(code), n));
+  return `<nav class="wh-pick-kinds wh-pick-ccys" aria-label="${esc(tr("Currency"))}"${params.type === "fx" ? "" : " hidden"}>${button(null, tr("All"), pairs)}${codes.join("")}</nav>`;
 }
 
 /** A path segment for an asset on the other asset pages: crypto unmarked, every other class named. */
@@ -1125,6 +1180,8 @@ const KIND_CSS = `.wh-pick-kinds{display:flex;flex-wrap:wrap;flex-shrink:0;gap:4
 .wh-pick-kind:hover,.wh-pick-kind:focus-visible{border-color:var(--muted);color:var(--ink);outline:none}
 .wh-pick-kind[aria-current]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
 .wh-pick-kind small{font-size:10px;opacity:.7}
+.wh-pick-ccys{margin-top:-4px;padding-left:8px;border-left:2px solid var(--rule)}
+.wh-pick-ccys[hidden]{display:none}
 `;
 
 const DETAIL_CSS = `.cvd-view-btn{min-width:0;align-items:center;text-decoration:none;color:inherit}

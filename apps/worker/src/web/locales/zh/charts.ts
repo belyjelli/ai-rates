@@ -295,4 +295,5 @@ export const charts: Catalog = {
   "its interbank rate, quoted every five minutes": "其银行间汇率，每五分钟报价一次",
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "没有交易所交易 {asset}，因此没有可累计的主动成交流：这是它的银行间汇率，由 {first} 与 {second} 推算，两者均每五分钟报价一次。较旧的报价：{age}。",
+  Currency: "货币",
 };

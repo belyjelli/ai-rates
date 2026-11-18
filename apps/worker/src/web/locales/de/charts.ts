@@ -304,4 +304,5 @@ export const charts: Catalog = {
   "its interbank rate, quoted every five minutes": "der Interbankenkurs, alle fünf Minuten notiert",
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "Keine Börse handelt {asset}, daher gibt es keinen Taker-Flow zu summieren: Das ist der Interbankenkurs, errechnet aus {first} und {second}, beide alle fünf Minuten notiert. Ältere Notierung {age}.",
+  Currency: "Währung",
 };

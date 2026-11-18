@@ -305,4 +305,5 @@ export const charts: Catalog = {
   "its interbank rate, quoted every five minutes": "インターバンクレート（5分ごとに気配を取得）",
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "{asset} を取引する取引所はないため、合計するテイカーフローはありません。これは {first} と {second} から算出したインターバンクレートで、どちらも5分ごとに気配を取得しています。古いほうの気配：{age}。",
+  Currency: "通貨",
 };

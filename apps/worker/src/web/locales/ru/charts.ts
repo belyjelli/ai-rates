@@ -307,4 +307,5 @@ export const charts: Catalog = {
     "межбанковский курс с котировкой каждые пять минут",
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "{asset} не торгуется ни на одной бирже, поэтому суммировать нечего: это его межбанковский курс, рассчитанный из {first} и {second}, каждый с котировкой каждые пять минут. Более старая котировка — {age}.",
+  Currency: "Валюта",
 };

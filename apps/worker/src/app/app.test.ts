@@ -6499,6 +6499,60 @@ describe("cvd", () => {
     expect(md).not.toContain("futures CVD +$0");
   });
 
+  test("under FX, a button per currency shows only the pairs that hold it", async () => {
+    const fx = (asset: string, rate = false): CvdAssetRow =>
+      rate
+        ? { ...hkdRow, asset }
+        : { ...hkdRow, asset, buy_usd: 2e6, sell_usd: 1e6, venues: 3, rate: undefined };
+    const rows = [
+      ...flow().rows,
+      fx("EURUSD"),
+      fx("USDJPY"),
+      fx("USDHKD", true),
+      fx("EURHKD", true),
+      fx("HKDJPY", true),
+    ];
+    const { data } = fakeData({ cvd: async () => flow({ rows }) });
+    const ccys = (html: string) =>
+      html.split('<nav class="wh-pick-kinds wh-pick-ccys"')[1]?.split("</nav>")[0] ?? "";
+
+    // Drawn hidden until FX is picked, so the FX button can show it in place.
+    const all = await (await get("/chart", data)).text();
+    expect(ccys(all)).toStartWith(' aria-label="Currency" hidden>');
+    expect(all).toMatch(/data-k="fx:EURHKD"[^>]*data-ccy="EUR HKD"/);
+
+    const html = await (await get("/chart?type=fx", data)).text();
+    const row = ccys(html);
+    expect(row).toStartWith(' aria-label="Currency">');
+    // Every pair under All; then each currency by how many pairs hold it, most first.
+    expect(row).toContain(
+      'href="/chart?type=fx" data-cvd-ccy="" aria-current="true">All<small class="num">5</small>',
+    );
+    const order = [
+      ...row.matchAll(/data-cvd-ccy="([A-Z]+)"[^>]*>[A-Z]+<small class="num">(\d+)/g),
+    ].map((m) => `${m[1]}${m[2]}`);
+    expect(order).toEqual(["HKD3", "USD3", "EUR2", "JPY2"]);
+
+    const hkd = await (await get("/chart?type=fx&ccy=hkd", data)).text();
+    expect(hkd).toContain('<details class="wh-pick cvd-pick" data-kind="fx" data-ccy="HKD">');
+    expect(hkd).toContain(
+      'href="/chart?type=fx&amp;ccy=HKD" data-cvd-ccy="HKD" aria-current="true">',
+    );
+    // HKD's three pairs shown; every other row hidden, not dropped.
+    for (const pair of ["USDHKD", "EURHKD", "HKDJPY"])
+      expect(hkd).toMatch(new RegExp(`data-k="fx:${pair}"[^>]*data-keys="[^"]*">`));
+    for (const pair of ["EURUSD", "USDJPY"])
+      expect(hkd).toMatch(new RegExp(`data-k="fx:${pair}"[^>]*hidden>`));
+    // Picking a pair keeps the list it came from; the class buttons leave the currency behind.
+    expect(hkd).toContain('href="/chart/fx/EURHKD?type=fx&amp;ccy=HKD#cvd-chart"');
+    expect(hkd).toContain('href="/chart?type=equity" data-cvd-type="equity"');
+    expect(hkd).toContain('<input type="hidden" name="ccy" value="HKD">');
+    // A currency without the FX class is no filter.
+    const stray = await (await get("/chart?ccy=HKD", data)).text();
+    expect(stray).not.toContain('data-ccy="HKD">');
+    expect(stray).toMatch(/data-k="fx:EURUSD"[^>]*data-keys="[^"]*">/);
+  });
+
   test("a cross's chart names the two dollar rates it is worked out from", async () => {
     const cross = hkdChart();
     const { data } = fakeData({

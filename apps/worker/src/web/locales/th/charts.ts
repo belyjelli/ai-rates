@@ -297,4 +297,5 @@ export const charts: Catalog = {
   "its interbank rate, quoted every five minutes": "อัตราระหว่างธนาคาร อัปเดตราคาทุกห้านาที",
   "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
     "ไม่มีกระดานเทรดใดซื้อขาย {asset} จึงไม่มีโฟลว์เทคเกอร์ให้รวม นี่คืออัตราระหว่างธนาคารที่คำนวณจาก {first} และ {second} ซึ่งอัปเดตราคาทุกห้านาทีทั้งคู่ ราคาที่เก่ากว่า {age}",
+  Currency: "สกุลเงิน",
 };
