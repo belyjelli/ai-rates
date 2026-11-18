@@ -64,14 +64,21 @@ function table(html: string, origin: string): string {
 export function htmlToMarkdown(html: string, url: string): string | null {
   const origin = new URL(url).origin;
   const title = /<title>(.*?)<\/title>/is.exec(html)?.[1];
-  const main = /<main\b[^>]*>(.*)<\/main>/is.exec(html)?.[1];
+  // A tab loaded on its own (`/rates?panel=gamma`, `/liquidations?panel=largest`) is a fragment with
+  // no document around it: all of it is the content. A whole page without <main> has nothing to read.
+  const fragment = !/<html\b/i.test(html);
+  const main = fragment ? html : /<main\b[^>]*>(.*)<\/main>/is.exec(html)?.[1];
   if (main === undefined) return null;
   const body = main
     // A page's brief for assistants (web/agent-brief.ts) is the one template whose content is read.
     .replace(/<template data-agent>(.*?)<\/template>/gis, "$1")
     // The asset pickers (liquidations, whales, chart, option books): hundreds of rows that are a
-    // control, not content; the brief lists the same assets with their labels.
-    .replace(/<details class="wh-pick\b[^"]*"[^>]*>.*?<\/details>/gis, "")
+    // control, not content; the brief lists the same assets with their labels. Its button stays: it
+    // names the asset or option book the page is showing.
+    .replace(
+      /<details class="wh-pick\b[^"]*"[^>]*>\s*<summary\b[^>]*>(.*?)<\/summary>.*?<\/details>/gis,
+      (_, shown: string) => `<p>${shown}</p>`,
+    )
     // Forms are controls (the screener's and arbitrage page's filters, the price-pair picker), and
     // HTML forms never nest, so one non-greedy match is the whole form.
     .replace(/<form\b.*?<\/form>/gis, "")
@@ -107,9 +114,11 @@ export function htmlToMarkdown(html: string, url: string): string | null {
  */
 function header(html: string, url: string, title: string | null): string {
   const address = new URL(url);
-  const page = `${address.origin}${address.pathname}`;
+  // The address as read, query and all: ?window=7d and ?gex=ETH are other figures than the bare page.
+  const page = `${address.origin}${address.pathname}${address.search}`;
   const asOf = /<meta name="data-as-of" content="([^"]+)"/.exec(html)?.[1];
-  const entry = agentPageFor(address.pathname);
+  // A tab read on its own (?panel=) has its own figures; the page's API and tool are not its own.
+  const entry = address.searchParams.has("panel") ? undefined : agentPageFor(address.pathname);
   const when = asOf ? `${asOf.slice(0, 16).replace("T", " ")} UTC` : null;
   const lines = [
     title ? `title: ${yaml(title)}` : null,

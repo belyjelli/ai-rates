@@ -66,14 +66,14 @@ describe("the header an assistant reads first", () => {
   const md = htmlToMarkdown(html, "https://airrates.net/rates?tf=7d") ?? "";
 
   test("names the page, the data time, the API and MCP equivalents, and a citation", () => {
-    expect(md.startsWith("---\ntitle: Rates · airrates\nurl: https://airrates.net/rates\n")).toBe(
-      true,
-    );
+    expect(
+      md.startsWith("---\ntitle: Rates · airrates\nurl: https://airrates.net/rates?tf=7d\n"),
+    ).toBe(true);
     expect(md).toContain("data_as_of: 2026-11-18T04:21:09Z");
     expect(md).toContain("json: https://airrates.net/v1/rates");
     expect(md).toContain("mcp: get_asset_funding (server https://airrates.net/mcp)");
     expect(md).toContain(
-      'cite: "airrates, https://airrates.net/rates, data as of 2026-11-18 04:21 UTC"',
+      'cite: "airrates, https://airrates.net/rates?tf=7d, data as of 2026-11-18 04:21 UTC"',
     );
   });
 
@@ -107,5 +107,31 @@ describe("markdownAddress", () => {
     expect(at("https://airrates.net/.well-known/agent-skills/airrates-api/SKILL.md")).toBeNull();
     expect(at("https://airrates.net/liquidations")).toBeNull();
     expect(at("https://airrates.net/.md")).toBeNull();
+  });
+});
+
+describe("a tab read on its own, and the pickers", () => {
+  test("a fragment is all content, and its header names the tab's address, not the page's API", () => {
+    const md =
+      htmlToMarkdown(
+        '<div class="gx"><p class="eyebrow">Gamma flip</p><p>70,082</p></div>',
+        "https://airrates.net/rates?panel=gamma&gex=ETH",
+      ) ?? "";
+    expect(md).toContain("url: https://airrates.net/rates?panel=gamma&gex=ETH");
+    expect(md).toContain("Gamma flip");
+    expect(md).toContain("70,082");
+    expect(md).not.toContain("json:");
+    expect(md).not.toContain("mcp:");
+  });
+
+  test("a picker keeps the choice it shows and drops its list", () => {
+    const md =
+      htmlToMarkdown(
+        '<main><details class="wh-pick gx-pick"><summary class="wh-pick-btn"><b>ETH</b> option book</summary><div class="wh-pick-panel"><a href="/x">BTC</a><a href="/y">SPX</a></div></details><p>after</p></main>',
+        "https://airrates.net/rates",
+      ) ?? "";
+    expect(md).toContain("**ETH** option book");
+    expect(md).not.toContain("SPX");
+    expect(md).toContain("after");
   });
 });

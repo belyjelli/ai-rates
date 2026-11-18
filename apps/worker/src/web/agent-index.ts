@@ -153,6 +153,133 @@ export const AGENT_PAGES: readonly AgentPage[] = [
   },
 ];
 
+/** Tabs that load on their own: `<page>.md?panel=<id>` is that tab alone, as Markdown. */
+export const AGENT_TABS: readonly { page: string; id: string; title: string; answers: string }[] = [
+  {
+    page: "/rates",
+    id: "gamma",
+    title: "Gamma exposure",
+    answers:
+      "An option book's net gamma exposure per 1% move, gamma flip, call and put walls, open interest and reaction zones. BTC by default; add &gex=ETH, &gex=SPX and so on for another book.",
+  },
+  {
+    page: "/rates",
+    id: "delta",
+    title: "Delta",
+    answers: "The option book's delta exposure by strike and expiry.",
+  },
+  {
+    page: "/rates",
+    id: "vega",
+    title: "Vega",
+    answers: "The option book's vega exposure by strike and expiry.",
+  },
+  {
+    page: "/rates",
+    id: "theta",
+    title: "Theta",
+    answers: "The option book's theta by strike and expiry.",
+  },
+  {
+    page: "/rates",
+    id: "ivwalls",
+    title: "IV walls",
+    answers:
+      "Expected move from implied volatility for the nearest expiry, and the strikes it reaches.",
+  },
+  {
+    page: "/rates",
+    id: "levels",
+    title: "Ceiling and floor",
+    answers:
+      "The day's ceiling and floor from the option book, and how often price has respected them.",
+  },
+  {
+    page: "/rates",
+    id: "inflation",
+    title: "Inflation (CPI)",
+    answers: "US CPI and its components, latest releases and trend.",
+  },
+  {
+    page: "/rates",
+    id: "fed",
+    title: "Fed",
+    answers: "The Federal Reserve's rate path: market odds for each meeting.",
+  },
+  {
+    page: "/rates",
+    id: "jobs",
+    title: "Jobs",
+    answers: "US payrolls, unemployment and other labour data.",
+  },
+  { page: "/rates", id: "growth", title: "Growth", answers: "US GDP and growth indicators." },
+  {
+    page: "/rates",
+    id: "signals",
+    title: "Monetary signals",
+    answers: "Yield curve, liquidity and other macro signals with what each reading means.",
+  },
+  {
+    page: "/rates",
+    id: "flows",
+    title: "Positioning and flows",
+    answers: "Who holds futures (CFTC Commitments of Traders) and stablecoin flows.",
+  },
+  {
+    page: "/rates",
+    id: "crowd",
+    title: "Prediction markets",
+    answers:
+      "Polymarket and Kalshi odds on macro events, and what the most profitable wallets hold.",
+  },
+  {
+    page: "/rates",
+    id: "btcodds",
+    title: "BTC: crowd against options",
+    answers:
+      "Prediction-market odds for BTC price levels set against the odds the option book implies.",
+  },
+  {
+    page: "/rates",
+    id: "indexes",
+    title: "World indexes",
+    answers: "About 55 stock indexes worldwide: level, daily change and returns.",
+  },
+  {
+    page: "/liquidations",
+    id: "largest",
+    title: "Largest liquidations",
+    answers:
+      "The largest single liquidations in the window, with exchange, side, size and fill price.",
+  },
+  {
+    page: "/liquidations",
+    id: "cascades",
+    title: "Liquidation cascades",
+    answers:
+      "Minutes when liquidations ran at many times their usual pace, and the price an hour and four hours after.",
+  },
+  {
+    page: "/liquidations",
+    id: "sides",
+    title: "Longs and shorts",
+    answers:
+      "Longs against shorts liquidated over time for the busiest asset (or /liquidations/<asset>.md?panel=sides).",
+  },
+  {
+    page: "/liquidations",
+    id: "price",
+    title: "Liquidations by price",
+    answers: "The price levels positions were liquidated at, by exchange and hour.",
+  },
+  {
+    page: "/liquidations",
+    id: "odds",
+    title: "Odds of reaching a price",
+    answers: "The chance, from volatility, that price reaches each level before a date.",
+  },
+];
+
 /** The entry for a path: the exact page, else the pattern it fills in (`/chart/SOL` → `/chart/<asset>`). */
 export function agentPageFor(path: string): AgentPage | undefined {
   const exact = AGENT_PAGES.find((page) => page.path === path);
@@ -204,6 +331,12 @@ Every page below has a Markdown copy: add \`.md\` to its address (\`/index.md\` 
 ## Data pages
 
 ${data.map(page).join("\n")}
+
+## Tabs
+
+Each tab below loads on its own: its Markdown copy is the page's address with \`.md?panel=<tab>\`.
+
+${AGENT_TABS.map((t) => `- [${t.title}](${SITE_ORIGIN}${t.page}.md?panel=${t.id}): ${t.answers}`).join("\n")}
 
 ## API and MCP
 

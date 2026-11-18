@@ -45,6 +45,14 @@ describe("llms.txt", () => {
     }
   });
 
+  test("lists the tabs that load on their own, at their Markdown addresses", () => {
+    expect(text).toContain("## Tabs");
+    expect(text).toContain("[Gamma exposure](https://airrates.net/rates.md?panel=gamma)");
+    expect(text).toContain(
+      "[Largest liquidations](https://airrates.net/liquidations.md?panel=largest)",
+    );
+  });
+
   test("every MCP tool it names exists", async () => {
     const { TOOLS } = await import("../app/mcp");
     const names = new Set(TOOLS.map((tool) => tool.name));
