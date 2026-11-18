@@ -41,7 +41,7 @@ import type {
   VenueStatus,
   WhalePosition,
 } from "./data";
-import { EMPTY_TALLY } from "./data";
+import { EMPTY_TALLY, RATE_PAIRS, rateLegs } from "./data";
 import type { Referral } from "./geo";
 import type { HyperliquidSource, Leader, LeaderBoard, TraderRead } from "./hyperliquid";
 import { DEFAULT_FILTERS } from "./params";
@@ -6387,6 +6387,52 @@ describe("cvd", () => {
       rate: hkdRate,
     });
 
+  test("a rate-only pair is priced from its dollar rates: one for USDHKD, two for a cross", () => {
+    const at = new Map([
+      ["EURUSD", 1.1],
+      ["USDHKD", 7.85],
+      ["USDJPY", 159],
+      ["USDCNY", 6.67],
+    ]);
+    expect(rateLegs("USDHKD").pairs).toEqual(["USDHKD"]);
+    expect(rateLegs("USDHKD").price(at)).toBeCloseTo(7.85, 10);
+    // EURHKD: dollars per euro over dollars per Hong Kong dollar.
+    expect(rateLegs("EURHKD").pairs).toEqual(["EURUSD", "USDHKD"]);
+    expect(rateLegs("EURHKD").price(at)).toBeCloseTo(1.1 * 7.85, 10);
+    expect(rateLegs("HKDJPY").price(at)).toBeCloseTo(159 / 7.85, 10);
+    expect(rateLegs("CNYHKD").price(at)).toBeCloseTo(7.85 / 6.67, 10);
+    // A leg with no quote is no price, not a wrong one.
+    expect(rateLegs("GBPHKD").price(at)).toBeNull();
+    // Every listed pair quotes above 1 at the rates of 2026-11-18: the larger unit comes first.
+    const today = new Map([
+      ...at,
+      ["GBPUSD", 1.32],
+      ["AUDUSD", 0.67],
+      ["NZDUSD", 0.55],
+      ["USDCHF", 0.84],
+      ["USDCAD", 1.43],
+      ["USDSGD", 1.29],
+      ["USDMYR", 4.112],
+      ["USDILS", 3.27],
+      ["USDPLN", 4.02],
+      ["USDBRL", 5.8],
+      ["USDDKK", 6.82],
+      ["USDSEK", 10.17],
+      ["USDNOK", 9.68],
+      ["USDZAR", 17.2],
+      ["USDMXN", 18.56],
+      ["USDTRY", 50.45],
+      ["USDRUB", 82.4],
+      ["USDKRW", 1332],
+      ["USDTWD", 32.98],
+      ["USDINR", 93.43],
+      ["USDTHB", 33.96],
+      ["USDIDR", 18_158],
+    ]);
+    for (const pair of RATE_PAIRS)
+      expect([pair, rateLegs(pair).price(today)! > 1]).toEqual([pair, true]);
+  });
+
   test("a rate-only pair is a row with its rate and no flow, left out of the market's tiles", async () => {
     const { data } = fakeData({ cvd: async () => flow({ rows: [...flow().rows, hkdRow] }) });
     const html = await (await get("/chart", data)).text();
@@ -6446,6 +6492,22 @@ describe("cvd", () => {
     ).text();
     expect(md).toContain("No exchange the site collects trades USDHKD");
     expect(md).not.toContain("futures CVD +$0");
+  });
+
+  test("a cross's chart names the two dollar rates it is worked out from", async () => {
+    const cross = hkdChart();
+    const { data } = fakeData({
+      cvd: async () => ({
+        ...cross,
+        bars: cross.bars.map((bar) => ({ ...bar, price_symbol: "EURHKD" })),
+        rate: { ...hkdRate, legs: ["EURUSD", "USDHKD"] as [string, string] },
+      }),
+    });
+    const html = await (await get("/chart/fx/EURHKD", data)).text();
+    expect(html).toContain(
+      "this is its interbank rate, worked out from EURUSD and USDHKD, each quoted every five minutes. Older quote",
+    );
+    expect(html).toContain('"ref":"rates:EURHKD"');
   });
 
   test("/v1/cvd marks a rate-only pair and leaves it out of the market's figures", async () => {
@@ -7735,10 +7797,12 @@ describe("site-wide search", () => {
       a: [
         ["BTC", 0, 24, 32_000_000_000, 1, "binance"],
         ["AAPL", 1, 6, 0, 0, 0],
-        ["USDCNY", 3, 0, 0, 0, 0],
-        ["USDHKD", 3, 0, 0, 0, 0],
+        ...RATE_PAIRS.map((pair) => [pair, 3, 0, 0, 0, 0]),
       ],
     });
+    expect(RATE_PAIRS).toContain("USDCNY");
+    expect(RATE_PAIRS).toContain("EURHKD");
+    expect(RATE_PAIRS).toContain("HKDJPY");
     // A pair a venue has started to trade is its market row, not a second rate row.
     const traded = fakeData({
       searchIndex: async () => [

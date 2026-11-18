@@ -293,4 +293,6 @@ export const charts: Catalog = {
   "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
     "没有交易所交易的货币对（包括美元/人民币和美元/港元）改以银行间汇率列出：每五分钟报价一次，没有主动成交流，因此其行没有 CVD，图表只显示汇率。",
   "its interbank rate, quoted every five minutes": "其银行间汇率，每五分钟报价一次",
+  "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
+    "没有交易所交易 {asset}，因此没有可累计的主动成交流：这是它的银行间汇率，由 {first} 与 {second} 推算，两者均每五分钟报价一次。较旧的报价：{age}。",
 };

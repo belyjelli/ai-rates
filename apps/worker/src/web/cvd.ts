@@ -273,10 +273,20 @@ function rateChart(data: {
           to: `${formatPrice(last)} <span class="${tone(last - first).trim()}">${signedPct(first > 0 ? (last / first - 1) * 100 : null)}</span>`,
         })
       : "";
-  const why = tr(
-    "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, quoted every five minutes. Last quote {age}.",
-    { asset: esc(asset), age: esc(ageText(rate.at, now)) },
-  );
+  const why = rate.legs
+    ? tr(
+        "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.",
+        {
+          asset: esc(asset),
+          first: esc(rate.legs[0]),
+          second: esc(rate.legs[1]),
+          age: esc(ageText(rate.at, now)),
+        },
+      )
+    : tr(
+        "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, quoted every five minutes. Last quote {age}.",
+        { asset: esc(asset), age: esc(ageText(rate.at, now)) },
+      );
   const trading = kchartData({
     bar: bucketMs,
     count,

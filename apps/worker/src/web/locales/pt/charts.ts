@@ -303,4 +303,6 @@ export const charts: Catalog = {
     "Um par de moedas que nenhuma exchange negocia, como USD/CNY e USD/HKD, aparece com a sua taxa interbancária: cotada a cada cinco minutos, sem fluxo tomador, então a sua linha não tem CVD e o gráfico mostra só a taxa.",
   "its interbank rate, quoted every five minutes":
     "a sua taxa interbancária, cotada a cada cinco minutos",
+  "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
+    "Nenhuma exchange negocia {asset}, então não há fluxo tomador para somar: esta é a sua taxa interbancária, calculada a partir de {first} e {second}, cada uma cotada a cada cinco minutos. Cotação mais antiga {age}.",
 };

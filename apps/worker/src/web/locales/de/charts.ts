@@ -302,4 +302,6 @@ export const charts: Catalog = {
   "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
     "Ein Währungspaar, das keine Börse handelt, darunter USD/CNY und USD/HKD, wird stattdessen mit seinem Interbankenkurs geführt: alle fünf Minuten notiert, ohne Taker-Flow, daher hat seine Zeile kein CVD und sein Chart zeigt nur den Kurs.",
   "its interbank rate, quoted every five minutes": "der Interbankenkurs, alle fünf Minuten notiert",
+  "No exchange trades {asset}, so it has no taker flow to sum: this is its interbank rate, worked out from {first} and {second}, each quoted every five minutes. Older quote {age}.":
+    "Keine Börse handelt {asset}, daher gibt es keinen Taker-Flow zu summieren: Das ist der Interbankenkurs, errechnet aus {first} und {second}, beide alle fünf Minuten notiert. Ältere Notierung {age}.",
 };

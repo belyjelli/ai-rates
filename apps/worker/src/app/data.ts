@@ -868,18 +868,114 @@ export interface CvdAssetRow {
 export interface CvdRate {
   /** The collector's FX source: "sina", "yahoo", or "defillama" when the live ones failed. */
   source: string;
+  /** The quote's time; for a cross, the older of its two dollar rates'. */
   at: Date;
+  /** A cross's two dollar rates, as the collector names them (EURUSD, USDHKD); absent otherwise. */
+  legs?: [string, string];
 }
 
 /**
- * Currency pairs that no exchange trades, charted from the collector's FX rates instead (owner,
- * 2026-11-18: "add USDHKD", "need a USD to RMB pair", "use CNY"). Lighter lists USDHKD but has kept it
- * inactive since it was listed; no venue lists the yuan. Each is a row in the Chart page's FX list
- * and a price chart with no CVD, from fx_rates and fx_rate_history (collector internal/fx, a quote
- * every five minutes, held to other sources). Once a venue trades one, its flow row takes the place
- * of the rate row.
+ * Each currency the collector's FX job reads (collector internal/fx Pairs), as its pair against the
+ * dollar: `inUsd` when that pair quotes the currency in dollars (EURUSD 1.10), not dollars in it
+ * (USDJPY 159). A rate-only pair is worked out from these.
  */
-export const RATE_PAIRS: readonly string[] = ["USDCNY", "USDHKD"];
+const USD_LEGS: Readonly<Record<string, { pair: string; inUsd: boolean }>> = {
+  EUR: { pair: "EURUSD", inUsd: true },
+  GBP: { pair: "GBPUSD", inUsd: true },
+  AUD: { pair: "AUDUSD", inUsd: true },
+  NZD: { pair: "NZDUSD", inUsd: true },
+  ...Object.fromEntries(
+    [
+      "JPY",
+      "CAD",
+      "CHF",
+      "CNH",
+      "CNY",
+      "HKD",
+      "KRW",
+      "TWD",
+      "SGD",
+      "MYR",
+      "INR",
+      "THB",
+      "IDR",
+      "TRY",
+      "BRL",
+      "MXN",
+      "ZAR",
+      "SEK",
+      "NOK",
+      "DKK",
+      "PLN",
+      "ILS",
+      "RUB",
+    ].map((code) => [code, { pair: `USD${code}`, inUsd: false }]),
+  ),
+};
+
+/**
+ * Currency pairs that no exchange trades, charted from the collector's FX rates instead (owner,
+ * 2026-11-18: "add USDHKD", "need a USD to RMB pair", "use CNY", then "add HKD to all other foreign
+ * currency pairs"). Lighter lists USDHKD but has kept it inactive since it was listed; no venue lists
+ * the yuan or any HKD cross. Each is a row in the Chart page's FX list and a price chart with no CVD,
+ * from fx_rates and fx_rate_history (collector internal/fx, a quote every five minutes, held to other
+ * sources). Once a venue trades one, its flow row takes the place of the rate row.
+ *
+ * USDCNY and USDHKD are the collector's own pairs. The HKD crosses are worked out from two dollar
+ * rates each (EURHKD = EURUSD × USDHKD), against every other currency the job reads but the offshore
+ * yuan (the owner chose CNY). Each is named the way it quotes above 1, the larger unit first: EURHKD,
+ * CNYHKD and DKKHKD, but HKDJPY and HKDSEK.
+ */
+export const RATE_PAIRS: readonly string[] = [
+  "USDCNY",
+  "USDHKD",
+  ...[
+    "EUR",
+    "GBP",
+    "CHF",
+    "AUD",
+    "NZD",
+    "CAD",
+    "SGD",
+    "CNY",
+    "MYR",
+    "ILS",
+    "PLN",
+    "BRL",
+    "DKK",
+  ].map((code) => `${code}HKD`),
+  ...["SEK", "NOK", "ZAR", "MXN", "TRY", "RUB", "JPY", "KRW", "TWD", "INR", "THB", "IDR"].map(
+    (code) => `HKD${code}`,
+  ),
+];
+
+/**
+ * A rate-only pair's dollar rates, and its price from their latest values: dollars per unit of the
+ * pair's first currency over dollars per unit of its second. USDHKD is one leg; EURHKD two.
+ */
+export function rateLegs(pair: string): {
+  pairs: string[];
+  price: (at: ReadonlyMap<string, number>) => number | null;
+} {
+  const first = pair.slice(0, 3);
+  const second = pair.slice(3);
+  const legs = [first, second].filter((code) => code !== "USD").map((code) => USD_LEGS[code]);
+  const usdPer = (code: string, at: ReadonlyMap<string, number>): number | null => {
+    if (code === "USD") return 1;
+    const leg = USD_LEGS[code];
+    const price = leg ? at.get(leg.pair) : undefined;
+    if (!leg || price === undefined || !(price > 0)) return null;
+    return leg.inUsd ? price : 1 / price;
+  };
+  return {
+    pairs: legs.flatMap((leg) => (leg ? [leg.pair] : [])),
+    price: (at) => {
+      const a = usdPer(first, at);
+      const b = usdPer(second, at);
+      return a === null || b === null ? null : a / b;
+    },
+  };
+}
 
 /**
  * What a rate-only pair's bars name in place of a venue, so the chart's history requests carry
@@ -1748,16 +1844,18 @@ const liveQuote = (sql: postgres.Sql, alias: string) =>
   sql`(${sql(alias)}.source <> 'defillama' OR live.since IS NULL OR ${sql(alias)}.at < live.since)`;
 
 /**
- * The rate-only pairs' rows: the newest quote, and its change from the last quote at or before the
- * window's start (or the window's first, for a pair quoted only since). Empty where the site's role
+ * The rate-only pairs' rows: the newest price, and its change from the price at the window's start
+ * (each dollar rate's last quote at or before it, or its window's first, for a rate quoted only
+ * since). A cross is worked out from its two dollar rates as each stood. Empty where the site's role
  * cannot read the FX tables yet.
  */
 async function rateRows(sql: postgres.Sql, windowHours: number): Promise<CvdAssetRow[]> {
   const windowInterval = `${windowHours} hours`;
+  const wanted = [...new Set(RATE_PAIRS.flatMap((pair) => rateLegs(pair).pairs))];
   // Text, not an array parameter: the client runs with fetch_types off.
-  const pairs = RATE_PAIRS.join(",");
+  const pairs = wanted.join(",");
   const found = await sql<
-    { asset: string; price: number; source: string; at: Date; from_price: number | null }[]
+    { pair: string; price: number; source: string; at: Date; from_price: number | null }[]
   >`
     WITH live AS (
       SELECT p.pair,
@@ -1765,7 +1863,7 @@ async function rateRows(sql: postgres.Sql, windowHours: number): Promise<CvdAsse
               WHERE l.pair = p.pair AND l.source <> 'defillama') AS since
       FROM unnest(string_to_array(${pairs}, ',')) AS p(pair)
     )
-    SELECT r.pair AS asset, r.price::float8 AS price, r.source, r.at,
+    SELECT r.pair, r.price::float8 AS price, r.source, r.at,
            coalesce(
              (SELECT h.price FROM fx_rate_history h
               WHERE h.pair = r.pair AND h.at <= now() - ${windowInterval}::interval
@@ -1782,22 +1880,46 @@ async function rateRows(sql: postgres.Sql, windowHours: number): Promise<CvdAsse
     if (missingOrRefused(error)) return [];
     throw error;
   });
-  return found.map((row) => ({
-    asset: row.asset,
-    asset_class: "fx" as const,
-    buy_usd: 0,
-    sell_usd: 0,
-    venues: 0,
-    price: row.price,
-    change_pct:
-      row.from_price !== null && row.from_price > 0 ? (row.price / row.from_price - 1) * 100 : null,
-    rate: { source: row.source, at: row.at },
-  }));
+  const byPair = new Map(found.map((row) => [row.pair, row]));
+  const now = new Map(found.map((row) => [row.pair, row.price]));
+  const then = new Map(
+    found.flatMap((row) => (row.from_price !== null ? [[row.pair, row.from_price] as const] : [])),
+  );
+  return RATE_PAIRS.flatMap((asset): CvdAssetRow[] => {
+    const legs = rateLegs(asset);
+    const price = legs.price(now);
+    const quotes = legs.pairs.map((pair) => byPair.get(pair));
+    if (price === null || quotes.some((quote) => quote === undefined)) return [];
+    // The older of a cross's two quotes is how old its price is.
+    const oldest = (quotes as (typeof found)[number][]).reduce((a, b) => (b.at < a.at ? b : a));
+    const from = legs.price(then);
+    return [
+      {
+        asset,
+        asset_class: "fx",
+        buy_usd: 0,
+        sell_usd: 0,
+        venues: 0,
+        price,
+        change_pct: from !== null && from > 0 ? (price / from - 1) * 100 : null,
+        rate: {
+          source: oldest.source,
+          at: oldest.at,
+          ...(legs.pairs.length === 2 ? { legs: legs.pairs as [string, string] } : {}),
+        },
+      },
+    ];
+  });
 }
 
 /**
- * A rate-only pair's bars on the chart's grid: each bar's first, highest, lowest and last quote,
- * with no flow. Named RATE_VENUE, so the chart's history requests come back here.
+ * A rate-only pair's bars on the chart's grid: each bar's first, highest, lowest and last price, with
+ * no flow. Named RATE_VENUE, so the chart's history requests come back here.
+ *
+ * A cross's price is worked out at every quote of either dollar rate, from that one and the other's
+ * last before it; each rate's last quote before the range is read too, so the range's first quote
+ * already has its partner. The range is a few thousand quotes at most (a month of five-minute runs
+ * for two rates), so the merge is done here rather than as a join in SQL.
  */
 async function rateBars(
   sql: postgres.Sql,
@@ -1805,41 +1927,64 @@ async function rateBars(
   barMinutes: number,
   range: { fromMs: number; toMs: number } | { windowHours: number },
 ): Promise<CvdBar[]> {
-  const barSeconds = barMinutes * 60;
-  const within =
+  const legs = rateLegs(base);
+  if (legs.pairs.length === 0) return [];
+  const barMs = barMinutes * 60_000;
+  const start =
     "fromMs" in range
-      ? sql`h.at >= to_timestamp(${range.fromMs / 1000}) AND h.at < to_timestamp(${range.toMs / 1000})`
-      : sql`h.at > now() - ${`${range.windowHours} hours`}::interval`;
-  const found = await sql<
-    { bucket_start: Date; open: number; high: number; low: number; price: number }[]
-  >`
+      ? sql`to_timestamp(${range.fromMs / 1000})`
+      : sql`(now() - ${`${range.windowHours} hours`}::interval)`;
+  const end =
+    "fromMs" in range ? sql`to_timestamp(${range.toMs / 1000})` : sql`'infinity'::timestamptz`;
+  const quotes = await sql<{ pair: string; at: Date; price: number; before: boolean }[]>`
     WITH live AS (
-      SELECT min(l.at) AS since FROM fx_rate_history l
-      WHERE l.pair = ${base} AND l.source <> 'defillama'
+      SELECT p.pair,
+             (SELECT min(l.at) FROM fx_rate_history l
+              WHERE l.pair = p.pair AND l.source <> 'defillama') AS since
+      FROM unnest(string_to_array(${legs.pairs.join(",")}, ',')) AS p(pair)
     )
-    SELECT to_timestamp(floor(extract(epoch FROM h.at) / ${barSeconds}) * ${barSeconds}) AS bucket_start,
-           ((array_agg(h.price ORDER BY h.at))[1])::float8 AS open,
-           max(h.price)::float8 AS high,
-           min(h.price)::float8 AS low,
-           ((array_agg(h.price ORDER BY h.at DESC))[1])::float8 AS price
-    FROM fx_rate_history h, live
-    WHERE h.pair = ${base} AND ${within} AND ${liveQuote(sql, "h")}
-    GROUP BY 1
-    ORDER BY 1`.catch((error) => {
+    SELECT h.pair, h.at, h.price::float8 AS price, false AS before
+    FROM live JOIN fx_rate_history h ON h.pair = live.pair
+    WHERE h.at >= ${start} AND h.at < ${end} AND ${liveQuote(sql, "h")}
+    UNION ALL
+    SELECT live.pair, b.at, b.price, true AS before
+    FROM live, LATERAL (
+      SELECT h.at, h.price::float8 AS price FROM fx_rate_history h
+      WHERE h.pair = live.pair AND h.at < ${start} AND ${liveQuote(sql, "h")}
+      ORDER BY h.at DESC LIMIT 1
+    ) b
+    ORDER BY at`.catch((error) => {
     if (missingOrRefused(error)) return [];
     throw error;
   });
-  return found.map((bar) => ({
-    bucket_start: bar.bucket_start,
-    buy_usd: 0,
-    sell_usd: 0,
-    price: bar.price,
-    open: bar.open,
-    high: bar.high,
-    low: bar.low,
-    price_venue: RATE_VENUE,
-    price_symbol: base,
-  }));
+  const last = new Map<string, number>();
+  const bars = new Map<number, CvdBar>();
+  for (const quote of quotes) {
+    last.set(quote.pair, quote.price);
+    if (quote.before) continue;
+    const price = legs.price(last);
+    if (price === null) continue;
+    const bucket = Math.floor(quote.at.getTime() / barMs) * barMs;
+    const bar = bars.get(bucket);
+    if (bar) {
+      bar.high = Math.max(bar.high ?? price, price);
+      bar.low = Math.min(bar.low ?? price, price);
+      bar.price = price;
+    } else {
+      bars.set(bucket, {
+        bucket_start: new Date(bucket),
+        buy_usd: 0,
+        sell_usd: 0,
+        price,
+        open: price,
+        high: price,
+        low: price,
+        price_venue: RATE_VENUE,
+        price_symbol: base,
+      });
+    }
+  }
+  return [...bars.values()].sort((a, b) => a.bucket_start.getTime() - b.bucket_start.getTime());
 }
 
 function chosenClass(sql: postgres.Sql, base: string, assetClass: AssetClass | null) {
