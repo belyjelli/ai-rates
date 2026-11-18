@@ -1,6 +1,8 @@
+import { ASSET_CLASSES } from "@ai-rates/core";
+import { cvdSummary } from "../web/cvd";
 import { SITE_ORIGIN } from "../web/layout";
 import { type DataSource, STALE_MS } from "./data";
-import { DEFAULT_FILTERS } from "./params";
+import { CVD_DEFAULT_INTERVAL, CVD_INTERVAL_KEYS, CVD_INTERVALS, DEFAULT_FILTERS } from "./params";
 
 /** Where MCP requests are posted (Streamable HTTP, JSON responses only, no sessions). */
 export const MCP_PATH = "/mcp";
@@ -33,6 +35,28 @@ export const TOOLS = [
       type: "object",
       properties: { asset: { type: "string", description: "Base asset, for example BTC." } },
       required: ["asset"],
+    },
+  },
+  {
+    name: "get_cvd",
+    description:
+      "Cumulative volume delta (taker buys minus taker sells, in USD) for one asset's perpetual futures and spot markets summed across exchanges, with its price change, divergence and last bars, plus the busiest assets' flow. Describes what happened, not a forecast.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        asset: { type: "string", description: "Ticker, for example BTC (default) or NVDA." },
+        asset_class: {
+          type: "string",
+          enum: ["crypto", "equity", "commodity", "index", "fx"],
+          description: "The asset's class when it is not crypto.",
+        },
+        interval: {
+          type: "string",
+          enum: ["5m", "15m", "1h", "4h", "24h"],
+          description:
+            "Bar size, which sets the span: 5m=8h, 15m=24h (default), 1h=4d, 4h=16d, 24h=30d.",
+        },
+      },
     },
   },
   {
@@ -114,6 +138,24 @@ async function callTool(
         })),
     });
   }
+  if (name === "get_cvd") {
+    const asset = typeof args.asset === "string" ? args.asset.trim().toUpperCase() : "BTC";
+    if (!/^[A-Z0-9._-]{1,24}$/.test(asset)) return text("asset must be a ticker such as BTC", true);
+    const assetClass = ASSET_CLASSES.find((c) => c === args.asset_class) ?? null;
+    const interval = CVD_INTERVAL_KEYS.find((key) => key === args.interval) ?? CVD_DEFAULT_INTERVAL;
+    const { hours, barMinutes } = CVD_INTERVALS[interval];
+    const flow = await data.cvd({ windowHours: hours, barMinutes, base: asset, assetClass });
+    const summary = cvdSummary(flow, asset, interval);
+    if (summary.asset === null) {
+      return text(`No taker flow for ${asset} in the last ${summary.span}.`, true);
+    }
+    return text({
+      attribution: ATTRIBUTION,
+      page: `${SITE_ORIGIN}/chart/${assetClass && assetClass !== "crypto" ? `${assetClass}/` : ""}${asset}`,
+      ...summary,
+      rows: summary.rows.slice(0, 20),
+    });
+  }
   if (name === "get_data_status") {
     const o = await data.overview();
     const at = o.updated_at?.getTime() ?? null;
@@ -167,7 +209,7 @@ export async function handleMcp(
           protocolVersion: PROTOCOLS.includes(asked) ? asked : PROTOCOLS[0],
           capabilities: { tools: { listChanged: false } },
           serverInfo: SERVER,
-          instructions: `Read-only funding-rate data. Not financial advice. ${ATTRIBUTION}`,
+          instructions: `Read-only perpetual futures data: funding rates and spreads, and cumulative volume delta. Not financial advice. ${ATTRIBUTION}`,
         },
       });
     }

@@ -71,10 +71,20 @@ export const AGENT_PAGES: readonly AgentPage[] = [
     api: "/v1/liquidations?assets=<asset>",
   },
   {
-    path: "/chart/<asset>",
+    path: "/chart",
     title: "Price and CVD",
     answers:
-      "An asset's price with cumulative volume delta (taker buying minus selling) summed over its futures and spot markets on many exchanges, divergences between price and flow, and spot and futures fund flows.",
+      "Cumulative volume delta (taker buying minus selling) of every polled asset's perpetuals, which assets are net bought or sold, price-flow divergences, and BTC's price with its futures and spot CVD.",
+    api: "/v1/cvd",
+    mcp: "get_cvd",
+  },
+  {
+    path: "/chart/<asset>",
+    title: "One asset's price and CVD",
+    answers:
+      "An asset's price with cumulative volume delta summed over its futures and spot markets on many exchanges, its divergences between price and flow, and its spot and futures fund flows.",
+    api: "/v1/cvd?asset=<asset>",
+    mcp: "get_cvd",
   },
   {
     path: "/whales/<asset>",

@@ -18,12 +18,14 @@ import {
   CVD_INTERVALS,
   CVD_SORTS,
   CVD_STRIP,
+  type CvdInterval,
   type CvdParams,
   type CvdSort,
   type CvdView,
   cvdToQuery,
   isCvdLockedInterval,
 } from "../app/params";
+import { agentBrief, agentTable, utcMinute } from "./agent-brief";
 import { CHART_SKELETON_JS } from "./chart-skeleton";
 import { ageText, aprTone, esc, formatApr, formatPrice, formatUsd, LOCK_ICON } from "./format";
 import { FUND_CSS, FUND_SCRIPT, fundPanel } from "./fund-flow";
@@ -946,6 +948,192 @@ const DETAIL_CSS = `.cvd-view-btn{min-width:0;align-items:center;text-decoration
 .cvd-dt-table tbody th a{font-weight:700}
 .cvd-dt-more{margin-top:0}`;
 
+/** One asset's taker flow as the API, the MCP tool and the page's brief give it. */
+export interface CvdRowSummary {
+  asset: string;
+  asset_class: AssetClass;
+  /** The reference market's last close in the window. */
+  price: number | null;
+  change_pct: number | null;
+  buy_usd: number;
+  sell_usd: number;
+  /** Taker buys less taker sells over the window: the asset's futures CVD. */
+  net_usd: number;
+  /** net_usd as a share of the window's taker volume, in percent. */
+  net_pct_of_volume: number | null;
+  venues: number;
+  divergence: Divergence;
+}
+
+/**
+ * The Chart page's figures as data (owner, 2026-11-18: let AI use the site's data points): every
+ * polled asset's futures taker flow over the interval's span, busiest first, the market's breadth and
+ * divergences, and the charted asset's futures and spot CVD with the exchanges summed. What /v1/cvd
+ * returns, what the MCP tool get_cvd returns, and what the page's brief for assistants says.
+ */
+export function cvdSummary(flow: CvdData, asset: string, interval: CvdInterval) {
+  const rows: CvdRowSummary[] = [...flow.rows]
+    .sort((a, b) => volume(b) - volume(a))
+    .map((row) => ({
+      asset: row.asset,
+      asset_class: row.asset_class,
+      price: row.price,
+      change_pct: row.change_pct,
+      buy_usd: row.buy_usd,
+      sell_usd: row.sell_usd,
+      net_usd: net(row),
+      net_pct_of_volume: flowRatio(row),
+      venues: row.venues,
+      divergence: divergence(row),
+    }));
+  const buying = rows.filter((row) => row.net_usd > 0).length;
+  const priced = flow.bars.filter((bar) => bar.price !== null);
+  const futuresBuy = flow.bars.reduce((sum, bar) => sum + bar.buy_usd, 0);
+  const futuresSell = flow.bars.reduce((sum, bar) => sum + bar.sell_usd, 0);
+  const spotBuy = flow.bars.reduce((sum, bar) => sum + (bar.spot_buy_usd ?? 0), 0);
+  const spotSell = flow.bars.reduce((sum, bar) => sum + (bar.spot_sell_usd ?? 0), 0);
+  const own = rows.find((row) => row.asset === asset && row.asset_class === flow.asset_class);
+  return {
+    interval,
+    span: CVD_INTERVALS[interval].span,
+    bar_minutes: CVD_INTERVALS[interval].barMinutes,
+    newest_bucket: flow.newest,
+    market: {
+      assets: rows.length,
+      net_buying_pct: rows.length > 0 ? Math.round((buying / rows.length) * 1000) / 10 : null,
+      bullish_divergences: rows.filter((row) => row.divergence === "bullish").length,
+      bearish_divergences: rows.filter((row) => row.divergence === "bearish").length,
+    },
+    asset:
+      flow.asset_class === null || flow.bars.length === 0
+        ? null
+        : {
+            asset,
+            asset_class: flow.asset_class,
+            price_market: priced[0]?.price_venue
+              ? `${priced[0].price_venue} ${priced[0].price_symbol ?? ""}`.trim()
+              : null,
+            price_first: priced[0]?.price ?? null,
+            price_last: priced.at(-1)?.price ?? null,
+            change_pct: own?.change_pct ?? null,
+            divergence: own?.divergence ?? null,
+            futures: {
+              buy_usd: futuresBuy,
+              sell_usd: futuresSell,
+              net_usd: futuresBuy - futuresSell,
+              venues: flow.futures_venues,
+            },
+            spot: flow.spot
+              ? {
+                  buy_usd: spotBuy,
+                  sell_usd: spotSell,
+                  net_usd: spotBuy - spotSell,
+                  venues: flow.spot_venues,
+                }
+              : null,
+            bars: flow.bars.slice(-12).map((bar) => ({
+              start: bar.bucket_start,
+              close: bar.price,
+              futures_net_usd: net(bar),
+              spot_net_usd: flow.spot ? spotNet(bar) : null,
+            })),
+          },
+    rows,
+  };
+}
+
+/** The page's figures for an AI assistant (web/agent-brief.ts), from the same summary as /v1/cvd. */
+function cvdAgentBrief(flow: CvdData, asset: string, params: CvdParams): string {
+  return agentBrief(() => {
+    const summary = cvdSummary(flow, asset, params.interval);
+    const { market, span } = summary;
+    const parts: string[] = ["<h2>In figures</h2>"];
+    const one = summary.asset;
+    if (one) {
+      const flowLine = (side: {
+        net_usd: number;
+        buy_usd: number;
+        sell_usd: number;
+        venues: readonly string[];
+      }) =>
+        `${signedUsd(side.net_usd)} (taker buys ${formatUsd(side.buy_usd)}, taker sells ${formatUsd(side.sell_usd)}, ${side.venues.length} exchanges)`;
+      const price =
+        one.price_first !== null && one.price_last !== null
+          ? `price ${formatPrice(one.price_first)} to ${formatPrice(one.price_last)}${one.change_pct === null ? "" : ` (${signedPct(one.change_pct)})`}${one.price_market ? ` on ${esc(one.price_market)}` : ""}`
+          : "no price";
+      const diverged =
+        one.divergence === "bullish"
+          ? " A bullish divergence: price fell while takers net bought."
+          : one.divergence === "bearish"
+            ? " A bearish divergence: price rose while takers net sold."
+            : "";
+      parts.push(
+        `<p>${esc(asset)} (${one.asset_class}) over the last ${span}, in ${params.interval} bars: ${price}; futures CVD ${flowLine(one.futures)}${one.spot ? `; spot CVD ${flowLine(one.spot)}` : "; no spot flow collected"}.${diverged}</p>`,
+      );
+    }
+    if (market.assets > 0) {
+      parts.push(
+        `<p>Across the ${market.assets} assets polled over the last ${span}: ${market.net_buying_pct}% had net taker buying in futures; ${market.bullish_divergences} bullish and ${market.bearish_divergences} bearish divergences (price moved at least ${DIVERGENCE_PRICE_PCT}% against takers netting at least ${DIVERGENCE_FLOW_PCT}% of volume).</p>`,
+      );
+    }
+    if (one && one.bars.length > 0) {
+      parts.push(`<h2>${esc(asset)}, last ${one.bars.length} bars of ${params.interval}</h2>`);
+      parts.push(
+        agentTable(
+          one.spot
+            ? ["Bar start", "Close", "Futures net", "Spot net"]
+            : ["Bar start", "Close", "Futures net"],
+          one.bars.map((bar) => {
+            const cells = [
+              utcMinute(bar.start),
+              bar.close === null ? "" : formatPrice(bar.close),
+              signedUsd(bar.futures_net_usd),
+            ];
+            if (one.spot) cells.push(signedUsd(bar.spot_net_usd ?? 0));
+            return cells;
+          }),
+        ),
+      );
+    }
+    if (summary.rows.length > 0) {
+      parts.push(`<h2>Futures taker flow by asset, last ${span}, busiest first</h2>`);
+      parts.push(
+        agentTable(
+          [
+            "Asset",
+            "Class",
+            "Price",
+            "Change",
+            "CVD",
+            "CVD / volume",
+            "Taker volume",
+            "Exchanges",
+            "Divergence",
+          ],
+          summary.rows
+            .slice(0, 30)
+            .map((row) => [
+              `<a href="${esc(cvdPath(row.asset, row.asset_class))}.md">${esc(row.asset)}</a>`,
+              row.asset_class,
+              row.price === null ? "" : formatPrice(row.price),
+              signedPct(row.change_pct),
+              signedUsd(row.net_usd),
+              signedPct(row.net_pct_of_volume),
+              formatUsd(row.buy_usd + row.sell_usd),
+              String(row.venues),
+              row.divergence ?? "",
+            ]),
+        ),
+      );
+    }
+    const query = `asset=${encodeURIComponent(asset)}${flow.asset_class && flow.asset_class !== "crypto" ? `&class=${flow.asset_class}` : ""}&interval=${params.interval}`;
+    parts.push(
+      `<p>All ${summary.rows.length} assets and this asset's bars as JSON: <a href="/v1/cvd?${query}">/v1/cvd?${query}</a> (MCP tool get_cvd). CVD is taker buys less taker sells in dollars, summed over the exchanges named; it describes what happened, not what happens next.</p>`,
+    );
+    return parts.join("\n");
+  });
+}
+
 export function cvd(data: {
   overview: Overview;
   cvd: CvdData;
@@ -1113,6 +1301,7 @@ export function cvd(data: {
       )}</p><p>${tr("Each key above the chart says how many venues its line sums for this asset; hover it for their names. Spot covers crypto and stocks: a stock's spot books are its tokenized shares (xStocks, Ondo and the like) on the collected exchanges, counted only while they trade at the stock's own price. Commodities and indices show futures only. Spot and futures each have a pane, because their sizes differ by an order of magnitude on most assets. The histogram under them is the delta: each bar's spot and futures net summed.")}</p><p>${tr("Price is the busiest polled market's own candle. Each pane has its own scale, so where lines cross means nothing. Drag to look back, wheel or pinch to zoom, and hover a candle to read it in the box beside it; on a phone, tap.")}</p><p>${tr("The asset button beside the intervals opens the screener: every polled asset's taker flow over the window. Pick one to chart it, find a ticker in its box, or sort by a heading. Change is the busiest polled market's first to last close in the window. History is uneven by venue: Binance, Aster, Gate and Bitget publish weeks of it and OKX five days, while every other venue, spot books other than Binance's included, is counted from its live trades since 28 October 2026, so older bars sum fewer venues.")}</p><p>${tr("Detail, beside Fund flow, puts the asset's own figures where the chart and the market's tiles are, over the same window: its futures and spot CVD, whether it diverged, the exchanges that bought and sold it most, its open interest, funding and market cap; then its signal over every interval's span, and its flow exchange by exchange. Chart brings the chart back.")}</p><p>${tr("The venues that publish statistics release each 5-minute bucket after it closes, so the newest bar holds only the live tapes for a few minutes.")}</p>`,
     )}
 <style>${FUND_CSS}${DETAIL_CSS}</style>
+${cvdAgentBrief(flow, asset, params)}
 <div class="lq-controls wh-controls">${picker}${flow.asset_class === null ? "" : fundPanel(asset, chartClass)}${viewButton}${intervalStrip}</div>
 ${shown}
 <script>${SLOT_SCRIPT}</script>

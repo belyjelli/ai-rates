@@ -102,6 +102,24 @@ export const ENDPOINTS: Endpoint[] = [
     ],
   },
   {
+    path: "/v1/cvd",
+    summary:
+      "Cumulative volume delta (taker buys less taker sells) of every polled asset's perpetuals over an interval's span, busiest first, and one asset's futures and spot CVD with its last bars.",
+    params: [
+      { name: "asset", description: "The charted asset, a ticker such as BTC (default)." },
+      {
+        name: "class",
+        description: "The asset's class when it is not crypto: equity, commodity, index or fx.",
+      },
+      {
+        name: "interval",
+        description:
+          "Bar size, which sets the span: 5m (8h), 15m (24h, default), 1h (4d), 4h (16d) or 24h (30d).",
+      },
+      { name: "limit", type: "integer", description: "Asset rows to return (default 100)." },
+    ],
+  },
+  {
     path: "/v1/arbitrage",
     summary: "Price gaps where one exchange's bid sits above another's ask.",
     params: [

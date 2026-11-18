@@ -7,7 +7,7 @@ import { AGENTS_PATH, agents } from "../web/agents";
 import { SEARCH_PATH, searchJson } from "../web/command";
 import { convergencePage } from "../web/convergence-page";
 import { crowdFragment, isCrowdPanel } from "../web/crowd";
-import { cvd } from "../web/cvd";
+import { cvd, cvdSummary } from "../web/cvd";
 import { docs } from "../web/docs";
 import { BOOK_BASKET } from "../web/exchange-grade";
 import { exchangeCosts, exchangesPage, parseExchangeSort } from "../web/exchanges";
@@ -86,6 +86,7 @@ import {
   CONVERGENCE_WINDOWS,
   CVD_INTERVAL_KEYS,
   CVD_INTERVALS,
+  type CvdInterval,
   DEFAULT_FILTERS,
   DEFAULT_WHALE_ZOOM,
   filtersToQuery,
@@ -1421,6 +1422,26 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
       });
     }
 
+    // The Chart page's taker flow as data (web/cvd.ts cvdSummary): every polled asset over the
+    // interval's span, and one asset's futures and spot CVD with its last bars.
+    if (path === "/v1/cvd") {
+      const read = cvdQuery(url.searchParams);
+      if (!read)
+        return json({ error: "bad_request", hint: "asset is a ticker such as BTC" }, 400, 0);
+      const { hours, barMinutes } = CVD_INTERVALS[read.interval];
+      const flow = await deps.data.cvd({
+        windowHours: hours,
+        barMinutes,
+        base: read.asset,
+        assetClass: read.assetClass,
+      });
+      const summary = cvdSummary(flow, read.asset, read.interval);
+      return json({
+        ...summary,
+        count: summary.rows.length,
+        rows: summary.rows.slice(0, read.limit),
+      });
+    }
     if (path === "/v1/arbitrage") {
       const params = parseArbitrageParams(url.searchParams);
       // The size a gap is good for belongs to the paid version, so the public rows carry neither
@@ -1849,6 +1870,26 @@ function htmlResponse(html: string, status = 200): Response {
 /** Said in every successful API answer, as a field and a header, so a copy of the data names its source. */
 const ATTRIBUTION =
   "Data from airrates.net. Please credit and link https://airrates.net when you reuse it.";
+
+/** /v1/cvd's query: the asset (BTC by default), its class when not crypto, the interval, a row cap. */
+function cvdQuery(params: URLSearchParams): {
+  asset: string;
+  assetClass: AssetClass | null;
+  interval: CvdInterval;
+  limit: number;
+} | null {
+  const asset = (params.get("asset") ?? "BTC").trim().toUpperCase();
+  if (!/^[A-Z0-9._-]{1,24}$/.test(asset)) return null;
+  const named = (params.get("class") ?? "").trim().toLowerCase();
+  const assetClass = ASSET_CLASSES.find((c) => c === named) ?? null;
+  const limit = Number(params.get("limit") ?? 100);
+  return {
+    asset,
+    assetClass,
+    interval: parseCvdParams(params).interval,
+    limit: Number.isFinite(limit) ? Math.min(Math.max(Math.trunc(limit), 1), 1000) : 100,
+  };
+}
 
 function json(body: unknown, status = 200, maxAge = API_MAX_AGE): Response {
   const credited =

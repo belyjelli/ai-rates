@@ -2711,20 +2711,25 @@ export function liquidationsAgentBrief(data: LiquidationView & { overview: Overv
     }
     const assetTotals = one ? data.assetMap?.totals : undefined;
     if (one && assetTotals && assetTotals.length > 0) {
+      // The asset read carries no time per exchange today; the column shows only when it does.
+      const timed = assetTotals.some((venue) => venue.last_at !== null);
       parts.push(`<h2>${esc(one.asset)} by exchange, last ${window}</h2>`);
       parts.push(
         agentTable(
-          ["Exchange", "Liquidated", "Longs", "Shorts", "Liquidations", "Last liquidation"],
+          ["Exchange", "Liquidated", "Longs", "Shorts", "Liquidations"].concat(
+            timed ? ["Last liquidation"] : [],
+          ),
           [...assetTotals]
             .sort((a, b) => b.notional_usd - a.notional_usd)
-            .map((venue) => [
-              esc(venueName(venue.venue_id)),
-              money(venue.notional_usd),
-              money(venue.long_usd),
-              money(venue.short_usd),
-              venue.events.toLocaleString("en-US"),
-              utcMinute(venue.last_at),
-            ]),
+            .map((venue) =>
+              [
+                esc(venueName(venue.venue_id)),
+                money(venue.notional_usd),
+                money(venue.long_usd),
+                money(venue.short_usd),
+                venue.events.toLocaleString("en-US"),
+              ].concat(timed ? [utcMinute(venue.last_at)] : []),
+            ),
         ),
       );
     }

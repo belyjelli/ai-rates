@@ -5146,6 +5146,86 @@ describe("cvd", () => {
     ...overrides,
   });
 
+  test("the chart's figures for assistants: /v1/cvd, the get_cvd MCP tool and the Markdown brief", async () => {
+    const seen: CvdOptions[] = [];
+    const { data } = fakeData({
+      cvd: async (options) => {
+        seen.push(options);
+        return flow();
+      },
+    });
+    const res = await get("/v1/cvd?asset=btc&interval=1h&limit=2", data);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      interval: string;
+      span: string;
+      count: number;
+      rows: { asset: string; net_usd: number; divergence: string | null }[];
+      market: { net_buying_pct: number; bullish_divergences: number; bearish_divergences: number };
+      asset: {
+        futures: { net_usd: number; venues: string[] };
+        price_first: number;
+        price_last: number;
+        divergence: string | null;
+      };
+      attribution: string;
+    };
+    expect(seen[0]).toMatchObject({ base: "BTC", windowHours: 96, barMinutes: 60 });
+    expect(body.interval).toBe("1h");
+    expect(body.span).toBe("4d");
+    // Busiest first: ZEC and BTC traded $100M each, ahead of SOL and SNDK.
+    expect(body.count).toBe(4);
+    expect(body.rows.map((row) => row.asset)).toEqual(["ZEC", "BTC"]);
+    expect(body.rows[1]).toMatchObject({ net_usd: 30e6, divergence: "bullish" });
+    expect(body.market).toEqual({
+      assets: 4,
+      net_buying_pct: 50,
+      bullish_divergences: 1,
+      bearish_divergences: 1,
+    } as never);
+    expect(body.asset.futures).toMatchObject({ net_usd: 0, venues: ["binance", "okx"] });
+    expect(body.asset.price_first).toBe(76_100);
+    expect(body.asset.price_last).toBe(75_900);
+    expect(body.asset.divergence).toBe("bullish");
+    expect(body.attribution).toContain("airrates");
+    expect((await get("/v1/cvd?asset=BT%20C", data)).status).toBe(400);
+
+    const mcp = await handleApp(
+      new Request("https://airates.test/mcp", {
+        method: "POST",
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: { name: "get_cvd", arguments: { asset: "BTC", interval: "4h" } },
+        }),
+      }),
+      { data, now: () => NOW },
+    );
+    const called = (await mcp.json()) as { result: { content: { text: string }[] } };
+    const tool = JSON.parse(called.result.content[0]?.text ?? "{}") as {
+      interval: string;
+      page: string;
+    };
+    expect(tool.interval).toBe("4h");
+    expect(tool.page).toBe("https://airrates.net/chart/BTC");
+
+    const html = await (await get("/chart", data)).text();
+    const md = htmlToMarkdown(html, "https://airrates.net/chart") ?? "";
+    expect(md).toContain("json: https://airrates.net/v1/cvd\n");
+    expect(md).toContain("mcp: get_cvd");
+    expect(md).toContain(
+      "BTC (crypto) over the last 24h, in 15m bars: price 76,100 to 75,900 (−1.00%)",
+    );
+    expect(md).toContain("futures CVD $0 (taker buys $6.0M, taker sells $6.0M, 2 exchanges)");
+    expect(md).toContain("A bullish divergence: price fell while takers net bought.");
+    expect(md).toContain(
+      "| Asset | Class | Price | Change | CVD | CVD / volume | Taker volume | Exchanges | Divergence |",
+    );
+    expect(md).toContain("| [ZEC](https://airrates.net/chart/ZEC.md) | crypto |");
+    expect(md).toContain("(https://airrates.net/v1/cvd?asset=BTC&interval=15m)");
+  });
+
   test("divergence needs both a real price move and a real flow imbalance", () => {
     const [zec, btc, sol, sndk] = flow().rows as CvdAssetRow[];
     expect(divergence(zec as CvdAssetRow)).toBe("bearish");
