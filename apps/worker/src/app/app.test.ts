@@ -6410,7 +6410,8 @@ describe("cvd", () => {
       ["EURUSD", 1.1],
       ["USDHKD", 7.85],
       ["USDJPY", 159],
-      ["USDCNY", 6.67],
+      ["USDCNY", 6.66775],
+      ["USDCNH", 6.66865],
     ]);
     expect(rateLegs("USDHKD").pairs).toEqual(["USDHKD"]);
     expect(rateLegs("USDHKD").price(at)).toBeCloseTo(7.85, 10);
@@ -6418,7 +6419,9 @@ describe("cvd", () => {
     expect(rateLegs("EURHKD").pairs).toEqual(["EURUSD", "USDHKD"]);
     expect(rateLegs("EURHKD").price(at)).toBeCloseTo(1.1 * 7.85, 10);
     expect(rateLegs("HKDJPY").price(at)).toBeCloseTo(159 / 7.85, 10);
-    expect(rateLegs("CNYHKD").price(at)).toBeCloseTo(7.85 / 6.67, 10);
+    expect(rateLegs("CNYHKD").price(at)).toBeCloseTo(7.85 / 6.66775, 10);
+    // The two yuan against each other: offshore dollars per onshore.
+    expect(rateLegs("CNYCNH").price(at)).toBeCloseTo(6.66865 / 6.66775, 10);
     // A leg with no quote is no price, not a wrong one.
     expect(rateLegs("GBPHKD").price(at)).toBeNull();
     // Every listed pair quotes above 1 at the rates of 2026-11-18: the larger unit comes first.
@@ -6447,6 +6450,7 @@ describe("cvd", () => {
       ["USDTHB", 33.96],
       ["USDIDR", 18_158],
       ["USDAED", 3.6727],
+      ["USDCNH", 6.66865],
     ]);
     for (const pair of RATE_PAIRS)
       expect([pair, rateLegs(pair).price(today)! > 1]).toEqual([pair, true]);
@@ -7993,7 +7997,8 @@ describe("site-wide search", () => {
     });
     // The yuan is the onshore one (owner, 2026-11-19: "change CNH to CNY"), never the offshore CNH.
     expect(RATE_PAIRS).toContain("USDCNY");
-    expect(RATE_PAIRS.some((pair) => pair.includes("CNH"))).toBe(false);
+    // The offshore yuan only against the onshore one, as the gap between the two.
+    expect(RATE_PAIRS.filter((pair) => pair.includes("CNH"))).toEqual(["CNYCNH"]);
     expect(RATE_PAIRS).toContain("EURHKD");
     expect(RATE_PAIRS).toContain("HKDJPY");
     // The baht's and the dirham's (2026-11-19): every pair once, 78 in all.
@@ -8002,7 +8007,11 @@ describe("site-wide search", () => {
     expect(RATE_PAIRS).toContain("USDAED");
     expect(RATE_PAIRS).toContain("AEDHKD");
     expect(new Set(RATE_PAIRS).size).toBe(RATE_PAIRS.length);
-    expect(RATE_PAIRS).toHaveLength(78);
+    expect(RATE_PAIRS).toContain("EURCNY");
+    expect(RATE_PAIRS).toContain("CNYJPY");
+    expect(RATE_PAIRS).toContain("EURINR");
+    expect(RATE_PAIRS).toContain("INRJPY");
+    expect(RATE_PAIRS).toHaveLength(125);
     // A pair a venue has started to trade is its market row, not a second rate row.
     const traded = fakeData({
       searchIndex: async () => [

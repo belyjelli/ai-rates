@@ -961,6 +961,17 @@ export const RATE_PAIRS: readonly string[] = [
     .split(" ")
     .map((code) => `${code}THB`),
   ..."TRY RUB INR JPY KRW IDR".split(" ").map((code) => `THB${code}`),
+  // The yuan against every currency (2026-11-19, "yes add them"): USDCNY, CNYHKD, CNYTHB and AEDCNY
+  // are above and below. CNYCNH is the onshore yuan against the offshore one, which sits at 1 and
+  // swings either side of it: the gap traders watch between China's two yuan.
+  ..."GBP CHF EUR SGD CAD AUD NZD ILS PLN MYR BRL".split(" ").map((code) => `${code}CNY`),
+  ..."CNH DKK NOK SEK ZAR MXN TWD TRY RUB INR JPY KRW IDR".split(" ").map((code) => `CNY${code}`),
+  // The rupee against every currency (2026-11-19, "we will need INR for more exchange pairs"):
+  // HKDINR, THBINR, CNYINR and AEDINR are elsewhere in the list. BingX lists USDINR but has it paused.
+  ..."GBP CHF EUR USD SGD CAD AUD NZD ILS PLN MYR BRL DKK NOK SEK ZAR MXN TWD TRY RUB"
+    .split(" ")
+    .map((code) => `${code}INR`),
+  ..."JPY KRW IDR".split(" ").map((code) => `INR${code}`),
   // The UAE dirham, pegged to the dollar at 3.6725, against every currency.
   ..."GBP CHF EUR USD SGD CAD AUD NZD ILS".split(" ").map((code) => `${code}AED`),
   ..."PLN MYR BRL CNY DKK HKD NOK SEK ZAR MXN TWD THB TRY RUB INR JPY KRW IDR"

@@ -233,7 +233,10 @@ export function searchScript(): string {
     // The site's yuan is CNY: RMB and CNH (what readers also call it) find it too, alone or as either
     // half of a pair (USDRMB, CNHHKD, AEDCNH).
     const yuan = (c) => (c === "RMB" || c === "CNH" ? "CNY" : c);
-    if (/^[A-Z]{3}$/.test(q)) q = yuan(q);
+    const both = /^(CNY|CNH|RMB){2}$/.test(q);
+    // Two yuan is the onshore-offshore pair, CNYCNH, whichever way round it is typed.
+    if (both && q.slice(0, 3) !== q.slice(3)) q = "CNYCNH";
+    else if (/^[A-Z]{3}$/.test(q)) q = yuan(q);
     else if (/^[A-Z]{6}$/.test(q)) q = yuan(q.slice(0, 3)) + yuan(q.slice(3));
     let bare = q;
     for (let n = 0; n < 3; n++) {

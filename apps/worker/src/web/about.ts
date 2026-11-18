@@ -55,10 +55,12 @@ export const CHANGELOG: readonly Release[] = [
   },
   {
     date: "2026-11-19",
-    title: "Chart: the Thai baht and the UAE dirham against every currency",
+    title: "Chart: the baht, the dirham, the yuan and the rupee against every currency",
     changes: [
       "The Thai baht joins the Hong Kong dollar: EUR/THB, GBP/THB, SGD/THB, CNY/THB, THB/JPY, THB/KRW and the rest, 24 more pairs, each worked out from its two dollar rates. Pick THB under FX in the Chart page's asset list to see them all.",
       "The UAE dirham too: USD/AED, EUR/AED, GBP/AED, AED/HKD, AED/CNY, AED/THB, AED/JPY and the rest, 27 pairs. The dirham is pegged to the dollar at 3.6725, so USD/AED barely moves and its other pairs follow each currency against the dollar.",
+      "And the yuan: EUR/CNY, GBP/CNY, SGD/CNY, CNY/JPY, CNY/KRW and the rest, 24 more pairs, among them CNY/CNH, the onshore yuan against the offshore one, which sits at 1 and shows the gap between them.",
+      "And the Indian rupee: USD/INR, EUR/INR, GBP/INR, SGD/INR, INR/JPY and the rest, 23 more pairs.",
     ],
   },
   {
