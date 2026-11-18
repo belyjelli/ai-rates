@@ -51,6 +51,7 @@ import {
   MAX_TAKER_FEE_BPS,
 } from "../app/params";
 import { retailSchedule } from "../app/retail-fees";
+import { agentBrief, agentTable } from "./agent-brief";
 import { BT_SCRIPT } from "./backtest-swap";
 import { badge, badgeKey, legBadges } from "./badges";
 import { CROWD_CSS, CROWD_PANELS, crowdPlaceholder, crowdTabs } from "./crowd";
@@ -227,6 +228,104 @@ function verifiedTable(verified: VerifiedPair[]): string {
 </table></div>`;
 }
 
+/**
+ * The spreads for an AI assistant (web/agent-brief.ts): what a spread, "now" and "settled" mean, the
+ * replayed carry when there is one, and the pairs labelled leg by leg. The visible table packs each
+ * leg's exchange, rate, ticker, interval and open interest into one cell, which a model misreads.
+ */
+function spreadsAgentBrief(
+  pairs: readonly ScreenerPair[],
+  verified: readonly VerifiedPair[] = [],
+): string {
+  return agentBrief(() => {
+    const parts = [
+      "<h2>In figures</h2>",
+      "<p>Funding rates are annualised (APR, percent a year). For each asset, the long leg is the market with the lowest funding rate and the short leg the one with the highest, on different exchanges; the spread is the short leg's rate less the long leg's. Now is the current rate; settled 7d is what each leg actually paid over the last 7 days, annualised. Both are before trading fees, slippage and price risk between the legs.</p>",
+    ];
+    if (verified.length > 0) {
+      const day = verified[0]?.run_day.toISOString().slice(0, 10);
+      parts.push(`<h2>Replayed carry, run of ${esc(day ?? "")}</h2>`);
+      parts.push(
+        `<p>Pairs replayed on settled funding, not forecast: holding long on one exchange and short on the other for the days shown, with this much on each leg.</p>`,
+      );
+      parts.push(
+        agentTable(
+          [
+            "Asset",
+            "Long on",
+            "Short on",
+            "Days",
+            "Size per leg",
+            "Funding settled",
+            "APR",
+            "Days positive",
+            "Thinner leg open interest",
+          ],
+          verified
+            .slice(0, 10)
+            .map((v) => [
+              `<a href="${assetHref(v.asset, v.asset_class)}">${esc(v.asset)}</a>`,
+              `${esc(venueName(v.long_venue_id))} ${esc(v.long_symbol)}`,
+              `${esc(venueName(v.short_venue_id))} ${esc(v.short_symbol)}`,
+              String(v.days),
+              wholeMoney(v.size_usd),
+              money(v.net_funding_usd),
+              formatApr(v.net_funding_apr_percent),
+              `${Math.round(v.win_rate_days * 100)}%`,
+              formatUsd(v.thinner_leg_oi_usd),
+            ]),
+        ),
+      );
+    }
+    if (pairs.length > 0) {
+      const hours = (h: number | null) => (h === null ? "" : `${h}h`);
+      parts.push("<h2>Widest funding spreads now</h2>");
+      parts.push(
+        agentTable(
+          [
+            "Asset",
+            "Class",
+            "Long on",
+            "Long APR",
+            "Short on",
+            "Short APR",
+            "Spread now",
+            "Spread settled 7d",
+            "Intervals",
+            "Thinner leg open interest",
+            "Exchanges listing",
+            "Stability",
+          ],
+          pairs
+            .slice(0, 25)
+            .map((p) => [
+              `<a href="${assetHref(p.asset, p.asset_class)}">${esc(p.asset)}</a>`,
+              p.asset_class,
+              `${esc(venueName(p.long_venue_id))} ${esc(p.long_symbol)}`,
+              formatApr(p.long_apr),
+              `${esc(venueName(p.short_venue_id))} ${esc(p.short_symbol)}`,
+              formatApr(p.short_apr),
+              formatApr(p.spread_apr),
+              formatApr(p.spread_apr_7d),
+              `${hours(p.long_interval_hours)} / ${hours(p.short_interval_hours)}`,
+              formatUsd(
+                p.long_open_interest_usd === null || p.short_open_interest_usd === null
+                  ? null
+                  : Math.min(p.long_open_interest_usd, p.short_open_interest_usd),
+              ),
+              String(p.venue_count),
+              p.pair_stability === null ? "" : p.pair_stability.toFixed(2),
+            ]),
+        ),
+      );
+    }
+    parts.push(
+      `<p>As JSON: <a href="/v1/screener">/v1/screener</a> (live spreads, with filters) and <a href="/v1/verified">/v1/verified</a> (replayed carry); MCP tool get_top_spreads. Stability runs from 0.5 to about 0.88: how steadily the weaker leg kept its funding direction over 30 days. Not financial advice.</p>`,
+    );
+    return parts.join("\n");
+  });
+}
+
 export function home(data: {
   overview: Overview;
   pairs: ScreenerPair[];
@@ -253,7 +352,8 @@ export function home(data: {
     path: "/",
     overview: data.overview,
     now: data.now,
-    body: `${hero}
+    body: `${spreadsAgentBrief(data.pairs, data.verified)}
+${hero}
 <section>
 <div class="section-head"><h2>${tr("Widest spreads")}</h2><a href="/screener">${tr("Open the screener")}</a></div>
 ${pairsTable(data.pairs, tr("No pairs yet: an asset needs live markets on at least two venues."))}
@@ -397,6 +497,7 @@ export function screener(data: {
     overview: data.overview,
     now: data.now,
     body: `${helpHeading("h1", tr("Funding spread screener"), "screener", `<p>${tr("For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.")}</p>`)}
+${spreadsAgentBrief(data.pairs)}
 ${screenerControls(data.filters)}
 <script>${PICKER_SCRIPT}</script>
 <script>${SCREENER_SCRIPT}</script>
@@ -1153,6 +1254,10 @@ ${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_inverted, { 
         "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.",
       )}</p>`,
     )}
+${agentBrief(
+  () =>
+    `<h2>In figures</h2><p>For each asset, the exchange with the lowest ask and the one with the highest bid, at the top of each order book; the gap is in basis points of the price (1 bp = 0.01%). These are quotable gaps, not fillable trades: they leave out the book below the best level, taker fees and the transfers a real position needs, and the widest gaps sit on the thinnest books. As JSON: <a href="/v1/arbitrage">/v1/arbitrage</a>.</p>`,
+)}
 ${arbitrageControls(params)}
 <script>${PICKER_SCRIPT}</script>
 <script>${SCREENER_SCRIPT}</script>

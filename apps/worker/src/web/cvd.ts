@@ -1059,7 +1059,7 @@ function cvdAgentBrief(flow: CvdData, asset: string, params: CvdParams): string 
         `${signedUsd(side.net_usd)} (taker buys ${formatUsd(side.buy_usd)}, taker sells ${formatUsd(side.sell_usd)}, ${side.venues.length} exchanges)`;
       const price =
         one.price_first !== null && one.price_last !== null
-          ? `price ${formatPrice(one.price_first)} to ${formatPrice(one.price_last)}${one.change_pct === null ? "" : ` (${signedPct(one.change_pct)})`}${one.price_market ? ` on ${esc(one.price_market)}` : ""}`
+          ? `price ${formatPrice(one.price_first)} to ${formatPrice(one.price_last)}${one.change_pct === null ? "" : ` (${signedPct(one.change_pct)})`}${one.price_market ? ` on ${esc(one.price_market.replace(/^\S+/, (id) => venueName(id)))}` : ""}`
           : "no price";
       const diverged =
         one.divergence === "bullish"

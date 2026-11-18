@@ -72,6 +72,9 @@ export function htmlToMarkdown(html: string, url: string): string | null {
     // The asset pickers (liquidations, whales, chart, option books): hundreds of rows that are a
     // control, not content; the brief lists the same assets with their labels.
     .replace(/<details class="wh-pick\b[^"]*"[^>]*>.*?<\/details>/gis, "")
+    // Forms are controls (the screener's and arbitrage page's filters, the price-pair picker), and
+    // HTML forms never nest, so one non-greedy match is the whole form.
+    .replace(/<form\b.*?<\/form>/gis, "")
     .replace(/<(script|style|svg|button|template)\b.*?<\/\1>/gis, "")
     .replace(/<div class="help-pop".*?<\/div><\/div>/gis, "")
     .replace(/<span hidden\b.*?<\/span>/gis, "")

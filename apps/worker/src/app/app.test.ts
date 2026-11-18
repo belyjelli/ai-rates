@@ -6452,6 +6452,30 @@ describe("api", () => {
     expect((await get("/v1/pairs/NOPE/backtest?long=gate&short=okx", data)).status).toBe(404);
   });
 
+  test("the spreads and price gaps read to an assistant as labelled legs, without the filter forms", async () => {
+    const { data } = fakeData();
+    const screener = await (await get("/screener", data)).text();
+    const md = htmlToMarkdown(screener, "https://airrates.net/screener") ?? "";
+    expect(md).toContain("the spread is the short leg's rate less the long leg's");
+    expect(md).toContain(
+      "| Asset | Class | Long on | Long APR | Short on | Short APR | Spread now | Spread settled 7d |",
+    );
+    expect(md).toContain("| Gate BTC_USDT | −0.55% | Lighter BTC | +10.9% | +11.5% | +8.20% | 8h / 1h |");
+    expect(md).toContain("[/v1/screener](https://airrates.net/v1/screener)");
+    // The filter panel is a form, and a form is a control: none of it reaches the Markdown copy.
+    expect(md).not.toContain("No presets yet.");
+    expect(md).not.toContain("Default exchanges");
+    const home = htmlToMarkdown(await (await get("/", data)).text(), "https://airrates.net/") ?? "";
+    expect(home).toContain("## Widest funding spreads now");
+    const arb =
+      htmlToMarkdown(
+        await (await get("/arbitrage", data)).text(),
+        "https://airrates.net/arbitrage",
+      ) ?? "";
+    expect(arb).toContain("These are quotable gaps, not fillable trades");
+    expect(arb).toContain("[/v1/arbitrage](https://airrates.net/v1/arbitrage)");
+  });
+
   test("robots.txt allows crawlers and names the sitemap and the AI index", async () => {
     const res = await get("/robots.txt", fakeData().data);
     expect(await res.text()).toBe(
