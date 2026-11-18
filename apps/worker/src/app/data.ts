@@ -910,6 +910,7 @@ const USD_LEGS: Readonly<Record<string, { pair: string; inUsd: boolean }>> = {
       "ILS",
       "RUB",
       "AED",
+      "VND",
     ].map((code) => [code, { pair: `USD${code}`, inUsd: false }]),
   ),
 };
@@ -972,6 +973,12 @@ export const RATE_PAIRS: readonly string[] = [
     .split(" ")
     .map((code) => `${code}INR`),
   ..."JPY KRW IDR".split(" ").map((code) => `INR${code}`),
+  // The Vietnamese dong against every currency (2026-11-19, "add full pair list for VND"). It is the
+  // smallest unit the job reads (about 25,700 to the dollar), so it is always the second: even IDRVND
+  // quotes 1.4. Needs USDVND in the collector's FX job; hidden until fx_rates has it, as AED was.
+  ..."USD EUR GBP CHF AUD NZD CAD SGD CNY HKD MYR ILS PLN BRL DKK NOK SEK ZAR MXN TWD THB TRY RUB INR JPY KRW IDR AED"
+    .split(" ")
+    .map((code) => `${code}VND`),
   // The UAE dirham, pegged to the dollar at 3.6725, against every currency.
   ..."GBP CHF EUR USD SGD CAD AUD NZD ILS".split(" ").map((code) => `${code}AED`),
   ..."PLN MYR BRL CNY DKK HKD NOK SEK ZAR MXN TWD THB TRY RUB INR JPY KRW IDR"

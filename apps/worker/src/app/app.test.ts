@@ -6450,6 +6450,7 @@ describe("cvd", () => {
       ["USDTHB", 33.96],
       ["USDIDR", 18_158],
       ["USDAED", 3.6727],
+      ["USDVND", 25_693],
       ["USDCNH", 6.66865],
     ]);
     for (const pair of RATE_PAIRS)
@@ -8011,7 +8012,9 @@ describe("site-wide search", () => {
     expect(RATE_PAIRS).toContain("CNYJPY");
     expect(RATE_PAIRS).toContain("EURINR");
     expect(RATE_PAIRS).toContain("INRJPY");
-    expect(RATE_PAIRS).toHaveLength(125);
+    expect(RATE_PAIRS).toContain("USDVND");
+    expect(RATE_PAIRS).toContain("IDRVND");
+    expect(RATE_PAIRS).toHaveLength(153);
     // A pair a venue has started to trade is its market row, not a second rate row.
     const traded = fakeData({
       searchIndex: async () => [

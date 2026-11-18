@@ -245,9 +245,7 @@ function rateChart(data: {
     .join("");
   const leftLabels = prices.length
     ? levels
-        .map(
-          (f) => `<span class="cvd-yl" style="top:${f * 100}%">${formatPrice(priceAt(f))}</span>`,
-        )
+        .map((f) => `<span class="cvd-yl" style="top:${f * 100}%">${fxPrice(priceAt(f))}</span>`)
         .join("")
     : "";
   const path = points
@@ -271,8 +269,8 @@ function rateChart(data: {
     first !== null && last !== null
       ? tr("Last {window}: {from} to {to}", {
           window: esc(window),
-          from: formatPrice(first),
-          to: `${formatPrice(last)} <span class="${tone(last - first).trim()}">${signedPct(first > 0 ? (last / first - 1) * 100 : null)}</span>`,
+          from: fxPrice(first),
+          to: `${fxPrice(last)} <span class="${tone(last - first).trim()}">${signedPct(first > 0 ? (last / first - 1) * 100 : null)}</span>`,
         })
       : "";
   const why = rate.legs
@@ -832,7 +830,7 @@ function assetPicker(data: {
       const keys = CVD_SORTS.map((sort) => sortKey(row, sort)).join(",");
       return `<a class="wh-pick-row${on ? " on" : ""}" href="${href}" data-cvd-select="${esc(row.asset)}" data-k="${esc(assetKey(row.asset, row.asset_class))}" data-q="${esc(words(row))}" data-kind="${row.asset_class}"${row.asset_class === "fx" ? ` data-ccy="${esc(fxCurrencies(row).join(" "))}"` : ""} data-a="${esc(row.asset)}" data-keys="${keys}"${on ? ' aria-current="true"' : ""}${matches(row) ? "" : " hidden"}>
 <span class="wh-pick-sym"><span class="dim wh-pick-rank">${index + 1}</span><b>${assetName(row.asset, row.asset_class)}</b></span>
-<span class="num"><span data-u="price">${formatPrice(row.price)}</span></span>
+<span class="num"><span data-u="price">${row.rate ? fxPrice(row.price) : formatPrice(row.price)}</span></span>
 <span class="num${tone(row.change_pct)}"><span data-u="change">${signedPct(row.change_pct)}</span></span>
 ${
   row.rate
@@ -1176,6 +1174,15 @@ const PEGS: Readonly<Record<string, { low: number; high: number } | { at: number
   USDAED: { at: 3.6725 },
 };
 
+/**
+ * A currency rate as its page shows it: five decimals near 1, where the site's usual four significant
+ * digits would read CNYCNH's 0.99998 as "1.000" and hide the gap the pair is there to show.
+ */
+const fxPrice = (value: number | null): string =>
+  value !== null && Number.isFinite(value) && Math.abs(value - 1) < 0.1
+    ? value.toFixed(5)
+    : formatPrice(value);
+
 /** "EURUSD × USDHKD", "USDJPY ÷ USDHKD": how a cross comes out of its dollar rates. */
 function crossFormula(pair: string, legs: readonly string[]): string {
   const up: string[] = [];
@@ -1215,14 +1222,14 @@ function rateTiles(data: {
     detail?.bid != null && detail.ask != null && detail.ask >= detail.bid && price
       ? ((detail.ask - detail.bid) / price) * 10_000
       : null;
-  const rateTile = `<div class="cvd-tile"><p class="eyebrow">${tr("Rate")}</p><p class="cvd-big"><span data-u="rate">${price === null ? "–" : formatPrice(price)}</span></p><p class="dim">${
+  const rateTile = `<div class="cvd-tile"><p class="eyebrow">${tr("Rate")}</p><p class="cvd-big"><span data-u="rate">${price === null ? "–" : fxPrice(price)}</span></p><p class="dim">${
     detail?.bid != null && detail.ask != null
-      ? `${tr("bid {bid} · ask {ask}", { bid: formatPrice(detail.bid), ask: formatPrice(detail.ask) })}${spread === null ? "" : ` · ${tr("spread {bps} bps", { bps: spread.toFixed(1) })}`}<br>`
+      ? `${tr("bid {bid} · ask {ask}", { bid: fxPrice(detail.bid), ask: fxPrice(detail.ask) })}${spread === null ? "" : ` · ${tr("spread {bps} bps", { bps: spread.toFixed(1) })}`}<br>`
       : ""
   }${quoted}</p></div>`;
   const range =
     detail?.low != null && detail.high != null
-      ? `${formatPrice(detail.low)} – ${formatPrice(detail.high)}`
+      ? `${fxPrice(detail.low)} – ${fxPrice(detail.high)}`
       : "–";
   const where =
     detail?.low != null && detail.high != null && price !== null && detail.high > detail.low
@@ -1244,10 +1251,10 @@ function rateTiles(data: {
   if (peg && "low" in peg) {
     const at =
       price === null ? null : Math.min(1, Math.max(0, (price - peg.low) / (peg.high - peg.low)));
-    fourth = `<div class="cvd-tile"><p class="eyebrow">${tr("Peg band")}</p><p class="cvd-big cvd-big-sm">${formatPrice(peg.low)} – ${formatPrice(peg.high)}</p><div class="rate-band" role="img" aria-label="${esc(tr("{price} in the band from {low} to {high}", { price: price === null ? "–" : formatPrice(price), low: formatPrice(peg.low), high: formatPrice(peg.high) }))}"><i style="left:${at === null ? 50 : (at * 100).toFixed(1)}%"></i></div><p class="dim">${tr("The HKMA buys Hong Kong dollars at {high} and sells them at {low}: now {pct} of the way to the weak side.", { high: formatPrice(peg.high), low: formatPrice(peg.low), pct: at === null ? "–" : `${Math.round(at * 100)}%` })}</p></div>`;
+    fourth = `<div class="cvd-tile"><p class="eyebrow">${tr("Peg band")}</p><p class="cvd-big cvd-big-sm">${fxPrice(peg.low)} – ${fxPrice(peg.high)}</p><div class="rate-band" role="img" aria-label="${esc(tr("{price} in the band from {low} to {high}", { price: price === null ? "–" : fxPrice(price), low: fxPrice(peg.low), high: fxPrice(peg.high) }))}"><i style="left:${at === null ? 50 : (at * 100).toFixed(1)}%"></i></div><p class="dim">${tr("The HKMA buys Hong Kong dollars at {high} and sells them at {low}: now {pct} of the way to the weak side.", { high: fxPrice(peg.high), low: fxPrice(peg.low), pct: at === null ? "–" : `${Math.round(at * 100)}%` })}</p></div>`;
   } else if (peg && "at" in peg) {
     const bps = price === null ? null : (price / peg.at - 1) * 10_000;
-    fourth = `<div class="cvd-tile"><p class="eyebrow">${tr("Peg")}</p><p class="cvd-big cvd-big-sm">${formatPrice(peg.at)}</p><p class="dim">${tr("The UAE central bank holds the dirham at {peg} to the dollar: now {bps} bps from it.", { peg: formatPrice(peg.at), bps: bps === null ? "–" : `${bps >= 0 ? "+" : ""}${bps.toFixed(1)}` })}</p></div>`;
+    fourth = `<div class="cvd-tile"><p class="eyebrow">${tr("Peg")}</p><p class="cvd-big cvd-big-sm">${fxPrice(peg.at)}</p><p class="dim">${tr("The UAE central bank holds the dirham at {peg} to the dollar: now {bps} bps from it.", { peg: fxPrice(peg.at), bps: bps === null ? "–" : `${bps >= 0 ? "+" : ""}${bps.toFixed(1)}` })}</p></div>`;
   } else if (rate.legs) {
     fourth = `<div class="cvd-tile"><p class="eyebrow">${tr("Worked out from")}</p><p class="cvd-big cvd-big-sm">${esc(crossFormula(asset, rate.legs))}</p><p class="dim">${tr("No exchange trades it, so it is the product of two dollar rates, each quoted every five minutes.")}</p></div>`;
   } else {
@@ -1291,7 +1298,7 @@ function rateTables(data: {
 <div class="sheet-wrap"><table class="sheet rate-legs"><thead><tr><th>${tr("Pair")}</th><th class="num">${tr("Rate")}</th><th class="num">24h</th><th class="num">${tr("Quoted")}</th><th>${tr("Source")}</th></tr></thead><tbody>${detail.legs
           .map(
             (leg) =>
-              `<tr><td>${link(leg.pair)}</td><td class="num">${formatPrice(leg.price)}</td><td class="num${tone(leg.change_pct)}">${signedPct(leg.change_pct)}</td><td class="num dim">${esc(ageText(leg.at, now))}</td><td class="dim">${esc(leg.source === "defillama" ? "DefiLlama" : leg.source === "yahoo" ? "Yahoo" : "Sina")}</td></tr>`,
+              `<tr><td>${link(leg.pair)}</td><td class="num">${fxPrice(leg.price)}</td><td class="num${tone(leg.change_pct)}">${signedPct(leg.change_pct)}</td><td class="num dim">${esc(ageText(leg.at, now))}</td><td class="dim">${esc(leg.source === "defillama" ? "DefiLlama" : leg.source === "yahoo" ? "Yahoo" : "Sina")}</td></tr>`,
           )
           .join("")}</tbody></table></div>`
       : "";
@@ -1302,7 +1309,7 @@ function rateTables(data: {
 <div class="sheet-wrap"><table class="sheet rate-related"><thead><tr><th>${tr("Pair")}</th><th class="num">${tr("Rate")}</th><th class="num">24h</th><th class="num">7d</th><th>${tr("Market")}</th></tr></thead><tbody>${detail.related
         .map(
           (row) =>
-            `<tr><td>${link(row.pair)}</td><td class="num">${formatPrice(row.price)}</td><td class="num${tone(row.change_pct)}">${signedPct(row.change_pct)}</td><td class="num${tone(row.week_pct)}">${signedPct(row.week_pct)}</td><td>${row.traded ? `<span class="dim">${tr("traded")}</span>` : `<span class="cvd-badge cvd-badge-rate">${tr("rate only")}</span>`}</td></tr>`,
+            `<tr><td>${link(row.pair)}</td><td class="num">${fxPrice(row.price)}</td><td class="num${tone(row.change_pct)}">${signedPct(row.change_pct)}</td><td class="num${tone(row.week_pct)}">${signedPct(row.week_pct)}</td><td>${row.traded ? `<span class="dim">${tr("traded")}</span>` : `<span class="cvd-badge cvd-badge-rate">${tr("rate only")}</span>`}</td></tr>`,
         )
         .join("")}</tbody></table></div>`
     : "";
