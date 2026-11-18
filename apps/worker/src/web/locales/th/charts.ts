@@ -294,4 +294,5 @@ export const charts: Catalog = {
     "อัตราระหว่างธนาคารของ {asset} อัปเดตราคาทุกห้านาที ไม่มีกระดานเทรดซื้อขาย จึงไม่มีโฟลว์เทคเกอร์หรือ CVD",
   "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
     "คู่สกุลเงินที่ไม่มีกระดานเทรดใดซื้อขาย เช่น USD/CNY และ USD/HKD จะแสดงด้วยอัตราระหว่างธนาคารแทน อัปเดตราคาทุกห้านาที ไม่มีโฟลว์เทคเกอร์ แถวของมันจึงไม่มี CVD และกราฟแสดงเฉพาะอัตรา",
+  "its interbank rate, quoted every five minutes": "อัตราระหว่างธนาคาร อัปเดตราคาทุกห้านาที",
 };

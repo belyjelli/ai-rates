@@ -303,4 +303,6 @@ export const charts: Catalog = {
     "Межбанковский курс {asset} с котировкой каждые пять минут. На биржах не торгуется, поэтому нет ни потока тейкеров, ни CVD.",
   "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
     "Валютная пара, которой не торгует ни одна биржа (в том числе USD/CNY и USD/HKD), показана по межбанковскому курсу: котировка каждые пять минут, потока тейкеров нет, поэтому в её строке нет CVD, а график — только курс.",
+  "its interbank rate, quoted every five minutes":
+    "межбанковский курс с котировкой каждые пять минут",
 };

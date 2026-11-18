@@ -6400,6 +6400,12 @@ describe("cvd", () => {
     expect(html).toContain("of 4 assets with net taker buying");
     // The FX button counts it: it is in the list.
     expect(html).toContain('data-cvd-type="fx">fx<small class="num">1</small>');
+    // The yuan's pair is found by RMB as well as CNY, with or without the script.
+    const cny: CvdAssetRow = { ...hkdRow, asset: "USDCNY", price: 6.6679 };
+    const rmb = fakeData({ cvd: async () => flow({ rows: [...flow().rows, cny] }) }).data;
+    const found = await (await get("/chart?q=RMB", rmb)).text();
+    expect(found).toMatch(/data-k="fx:USDCNY"[^>]*data-q="usdcny fx rmb"[^>]*data-keys="[^"]*">/);
+    expect(found).toMatch(/data-k="BTC"[^>]*hidden>/);
   });
 
   test("a rate-only pair's chart is its rate alone: no CVD panes, no Detail, no fund flow", async () => {
@@ -7722,14 +7728,34 @@ describe("site-wide search", () => {
     expect(response.headers.get("cache-control")).toBe("public, max-age=300");
     expect(response.headers.get("x-robots-tag")).toBe("noindex, nofollow");
     // [ticker, class index, venues, open interest (0 unknown), quoted, whale venue or 0]; and the
-    // index levels, [ticker, name], each with its own page.
+    // index levels, [ticker, name], each with its own page. The currency pairs no exchange trades
+    // come last with no venues: the overlay opens them on the Chart, as their interbank rate.
     expect(await response.json()).toEqual({
       i: [["NK225", "Nikkei 225"]],
       a: [
         ["BTC", 0, 24, 32_000_000_000, 1, "binance"],
         ["AAPL", 1, 6, 0, 0, 0],
+        ["USDCNY", 3, 0, 0, 0, 0],
+        ["USDHKD", 3, 0, 0, 0, 0],
       ],
     });
+    // A pair a venue has started to trade is its market row, not a second rate row.
+    const traded = fakeData({
+      searchIndex: async () => [
+        {
+          base: "USDHKD",
+          asset_class: "fx",
+          venues: 1,
+          open_interest_usd: 5e5,
+          quoted: false,
+          whale_venue: null,
+        },
+      ],
+    }).data;
+    const listed = (await (await get("/data/search", traded)).json()) as { a: unknown[][] };
+    expect(listed.a.filter((row) => row[0] === "USDHKD")).toEqual([
+      ["USDHKD", 3, 1, 500_000, 0, 0],
+    ]);
   });
 
   test("every page carries the overlay, its button hidden until the script reveals it", async () => {

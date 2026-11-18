@@ -123,6 +123,8 @@ const searchStrings = () => ({
   arbitrageNote: tr("price gaps between exchanges"),
   cvd: tr("Chart"),
   cvdNote: tr("price, spot and futures CVD"),
+  rate: tr("interbank rate"),
+  rateNote: tr("its interbank rate, quoted every five minutes"),
   whales: tr("Whale orders"),
   whalesNote: tr("large resting orders and trades"),
   liquidations: tr("Liquidations"),
@@ -189,7 +191,10 @@ export function searchScript(): string {
 
   const usd = (n) => n >= 1e9 ? "$" + (n / 1e9).toFixed(1) + "B" : n >= 1e6 ? "$" + (n / 1e6).toFixed(1) + "M" : n >= 1e3 ? "$" + Math.round(n / 1e3) + "K" : "$" + n;
   const where = (a) => CL[a[1]][0] === "crypto" ? encodeURIComponent(a[0]) : CL[a[1]][0] + "/" + encodeURIComponent(a[0]);
+  // A row with no venues is a currency pair no exchange trades: on the Chart as its interbank rate.
+  const rateOnly = (a) => a[2] === 0 && CL[a[1]][0] === "fx";
   const meta = (a) => {
+    if (rateOnly(a)) return CL[a[1]][1] + " · " + S.rate;
     const out = [CL[a[1]][1], a[2] === 1 ? S.venue : S.venues.replace("{n}", a[2])];
     if (a[3] > 0) out.push(S.oi.replace("{usd}", usd(a[3])));
     return out.join(" · ");
@@ -200,7 +205,9 @@ export function searchScript(): string {
     return b && ((a[0] === "BTC" || a[0] === "ETH") === (CL[a[1]][0] === "crypto")) ? b : null;
   };
   const sections = (a) => {
-    const w = where(a), out = [
+    const w = where(a);
+    if (rateOnly(a)) return [[S.cvd, S.rateNote, "/chart/" + w]];
+    const out = [
       [S.rates, S.ratesNote, "/markets/asset/" + w],
       [S.spreads, S.spreadsNote, "/pair/" + w],
       [S.screener, S.screenerNote, "/screener?q=" + encodeURIComponent(a[0])],
@@ -220,8 +227,11 @@ export function searchScript(): string {
     const m = q.match(/^([A-Z]+)[:\\/](.+)$/);
     if (m) {
       const i = CL.findIndex((c) => c[0] === m[1].toLowerCase());
-      if (i >= 0) { cls = i; q = m[2]; }
+      // "equity:AAPL" names a class; "USD/HKD" or "BTC/USDT" is a pair written apart.
+      if (i >= 0) { cls = i; q = m[2]; } else q = m[1] + m[2].replace(/[:/]/g, "");
     }
+    // RMB is what many readers call the yuan, whose ISO code (and so its pair) is CNY.
+    q = q.replace(/^(USD)?RMB$/, "$1CNY");
     let bare = q;
     for (let n = 0; n < 3; n++) {
       const s = bare.replace(/[-_\\/ ]?(USDT|USDC|USD|PERP|SWAP)$/, "");
@@ -240,6 +250,9 @@ export function searchScript(): string {
   const findAssets = (p) => !assets ? [] : best(assets, (a) => {
     if (p.cls >= 0 && a[1] !== p.cls) return -1;
     if (a[0] === p.bare && p.bare !== p.q) return 0.5;
+    // "HKD" finds USDHKD before TENCENTHKD: a pair quoted in the currency typed, ahead of the stocks
+    // and coins whose names only contain it.
+    if (CL[a[1]][0] === "fx" && p.q.length === 3 && a[0].length === 6 && a[0].endsWith(p.q)) return 1.5;
     return rank(a[0], p.q);
   }, 9);
 

@@ -778,8 +778,11 @@ function assetPicker(data: {
   // ?q= is the search without a script, or an old link to one, and ?type= an asset-class button.
   // The rows they leave out are hidden rather than dropped, so emptying the box or pressing All in
   // the browser brings them back.
+  // What a row is found by: its ticker and class, and RMB for the yuan's pairs (its code is CNY).
+  const words = (row: CvdAssetRow) =>
+    `${row.asset} ${row.asset_class}${row.asset_class === "fx" && row.asset.includes("CNY") ? " rmb" : ""}`.toLowerCase();
   const matches = (row: CvdAssetRow) =>
-    (!params.q || row.asset.includes(params.q)) &&
+    (!params.q || words(row).includes(params.q.toLowerCase())) &&
     (params.type === null || row.asset_class === params.type);
 
   const list = sorted
@@ -791,7 +794,7 @@ function assetPicker(data: {
         `${cvdPath(row.asset, row.asset_class)}${cvdToQuery({ ...params, q: "" })}#cvd-chart`,
       );
       const keys = CVD_SORTS.map((sort) => sortKey(row, sort)).join(",");
-      return `<a class="wh-pick-row${on ? " on" : ""}" href="${href}" data-cvd-select="${esc(row.asset)}" data-k="${esc(assetKey(row.asset, row.asset_class))}" data-q="${esc(`${row.asset} ${row.asset_class}`.toLowerCase())}" data-kind="${row.asset_class}" data-a="${esc(row.asset)}" data-keys="${keys}"${on ? ' aria-current="true"' : ""}${matches(row) ? "" : " hidden"}>
+      return `<a class="wh-pick-row${on ? " on" : ""}" href="${href}" data-cvd-select="${esc(row.asset)}" data-k="${esc(assetKey(row.asset, row.asset_class))}" data-q="${esc(words(row))}" data-kind="${row.asset_class}" data-a="${esc(row.asset)}" data-keys="${keys}"${on ? ' aria-current="true"' : ""}${matches(row) ? "" : " hidden"}>
 <span class="wh-pick-sym"><span class="dim wh-pick-rank">${index + 1}</span><b>${assetName(row.asset, row.asset_class)}</b></span>
 <span class="num"><span data-u="price">${formatPrice(row.price)}</span></span>
 <span class="num${tone(row.change_pct)}"><span data-u="change">${signedPct(row.change_pct)}</span></span>

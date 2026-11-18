@@ -302,4 +302,5 @@ export const charts: Catalog = {
     "{asset} のインターバンクレート（5分ごとに気配を取得）。取引所で取引されていないため、テイカーフローも CVD もありません。",
   "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
     "取引所で取引されていない通貨ペア（米ドル/人民元、米ドル/香港ドルなど）は、代わりにインターバンクレートで表示します。5分ごとの気配で、テイカーフローがないため、その行に CVD はなく、チャートはレートのみです。",
+  "its interbank rate, quoted every five minutes": "インターバンクレート（5分ごとに気配を取得）",
 };

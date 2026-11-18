@@ -299,4 +299,5 @@ export const charts: Catalog = {
     "{asset} 은행 간 환율, 5분마다 호가. 거래소에서 거래되지 않아 테이커 흐름과 CVD가 없습니다.",
   "A currency pair that no exchange trades, USD/CNY and USD/HKD among them, is listed with its interbank rate instead: quoted every five minutes, with no taker flow, so its row has no CVD and its chart is the rate alone.":
     "거래소에서 거래되지 않는 통화쌍(달러/위안, 달러/홍콩달러 등)은 대신 은행 간 환율로 표시합니다. 5분마다 호가를 받으며 테이커 흐름이 없으므로 해당 행에는 CVD가 없고 차트는 환율만 보여 줍니다.",
+  "its interbank rate, quoted every five minutes": "은행 간 환율, 5분마다 호가",
 };

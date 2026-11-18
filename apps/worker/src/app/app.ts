@@ -59,6 +59,7 @@ import {
   type LiquidationEvent,
   type LiquidationMap,
   type MarketRow,
+  RATE_PAIRS,
   STALE_MS,
 } from "./data";
 import { type Referral, requestGeo } from "./geo";
@@ -389,7 +390,20 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         // The index levels are an extra: a failed read leaves the tickers searchable.
         deps.data.indexLevels().catch(() => []),
       ]);
-      return new Response(searchJson(rows, levels), {
+      // The currency pairs no exchange trades are on the Chart page as their interbank rate
+      // (data.ts RATE_PAIRS), so they are found here too: a row with no venues, which the overlay
+      // opens on the Chart alone. One a venue has started to trade is its market row instead.
+      const rated = RATE_PAIRS.filter(
+        (pair) => !rows.some((row) => row.asset_class === "fx" && row.base === pair),
+      ).map((base) => ({
+        base,
+        asset_class: "fx" as const,
+        venues: 0,
+        open_interest_usd: null,
+        quoted: false,
+        whale_venue: null,
+      }));
+      return new Response(searchJson([...rows, ...rated], levels), {
         headers: {
           "content-type": "application/json; charset=utf-8",
           "cache-control": "public, max-age=300",
