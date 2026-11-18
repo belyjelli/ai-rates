@@ -4,6 +4,7 @@ import { referralsFor } from "../referrals/policy";
 import { about } from "../web/about";
 import { llmsTxt } from "../web/agent-index";
 import { AGENTS_PATH, agents } from "../web/agents";
+import { BETS_PATH, betsFragment, betsResponse } from "../web/bets";
 import { SEARCH_PATH, searchJson } from "../web/command";
 import { convergencePage } from "../web/convergence-page";
 import { crowdFragment, isCrowdPanel } from "../web/crowd";
@@ -51,6 +52,7 @@ import { PNL_WINDOW_OF, WINNERS_ROWS } from "../web/trader";
 import { VENUE_BY_ID } from "../web/venues";
 import { whales, whaleVenueName } from "../web/whales";
 import { A2A_PATH, agentCard, handleA2a } from "./a2a";
+import type { BetsSource } from "./bets";
 import { barHoursFor, CASCADE_BAR_MINUTES, cascadeView, findCascades } from "./cascades";
 import {
   type DataSource,
@@ -144,6 +146,11 @@ export interface AppDeps {
    * that tab says the leaderboard could not be read.
    */
   hyperliquid?: HyperliquidSource;
+  /**
+   * Polymarket's and Kalshi's public reads (app/bets.ts), for the homepage's prediction-market
+   * section. Absent means that section says the markets could not be read.
+   */
+  bets?: BetsSource;
 }
 
 const PAGE_MAX_AGE = 30;
@@ -363,6 +370,14 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
           return narratorFeed(book, entries, text === null ? [] : [{ at: stamp, text }]);
         }),
       );
+    }
+
+    // The homepage's "What the crowd is betting on" (web/bets.ts), loaded after the page: the pinned
+    // event and Polymarket's and Kalshi's busiest, read at most every five minutes per location and
+    // kept five at the edge. A failed read is a 503 the edge cache answers with its last good copy.
+    if (path === BETS_PATH) {
+      const read = deps.bets ? await deps.bets.bets().catch(() => null) : null;
+      return betsResponse(read ? withLocale(locale, () => betsFragment(read)) : null);
     }
 
     // The site-wide search's asset list (web/command.ts), fetched when a reader first opens it. The

@@ -560,4 +560,29 @@ export const macro: Catalog = {
   "other indexes": "другие индексы",
   "Volatility indexes (VIX, India VIX) are left out of the charts: their moves are not returns.":
     "Индексы волатильности (VIX, India VIX) не показаны на графиках: их движения — не доходность.",
+  // The homepage's prediction-market section (web/bets.ts).
+  "What the crowd is betting on": "На что ставит толпа",
+  "Prediction markets on Polymarket and Kalshi: the question we pinned, the one with the most money traded over the last 24 hours on either venue, and the next ones, at least three from each venue. Sports are left out, and so are the short questions that repeat every day or week (today's Bitcoin range, tomorrow's weather, a week of tweets).":
+    "Рынки прогнозов на Polymarket и Kalshi: закреплённый нами вопрос, вопрос с наибольшим оборотом за последние 24 часа на любой из площадок и следующие за ним, не меньше трёх с каждой площадки. Спорт не включён, как и короткие вопросы, которые повторяются каждый день или неделю (диапазон биткоина на сегодня, погода на завтра, твиты за неделю).",
+  "A price is the crowd's chance: a Yes share at 9¢ pays $1 if it happens, so the crowd puts it at 9%. Kalshi counts its volume in contracts that pay $1; here it is contracts times their price, the dollars paid, as Polymarket counts it. The charts are each venue's own price history. Read every five minutes.":
+    "Цена — это шанс по мнению толпы: доля Yes за 9¢ выплачивает $1, если событие произойдёт, значит толпа оценивает его в 9%. Kalshi считает объём в контрактах с выплатой $1; здесь это контракты, умноженные на цену, то есть уплаченные доллары, как считает Polymarket. Графики — собственная история цен каждой площадки. Обновляется каждые пять минут.",
+  "The prediction markets could not be read just now.":
+    "Рынки прогнозов сейчас не удалось прочитать.",
+  "Chance of Yes since {date}": "Шанс Yes с {date}",
+  "{question}: the chance of each answer over time": "{question}: шанс каждого ответа во времени",
+  "pts in 24h": "п. п. за 24 ч",
+  "Traded since {date}": "Оборот с {date}",
+  Traded: "Оборот",
+  "{venue} has {n} more": "Ещё ответов на {venue}: {n}",
+  "The likeliest answer; for a question asked by date, the nearest date; for levels that can all come true, the one closest to even odds":
+    "Самый вероятный ответ; для вопроса по датам — ближайшая дата; для уровней, которые могут сбыться одновременно, — ближайший к равным шансам",
+  "Leading answer": "Лидирующий ответ",
+  "Change in the chance over the last 24 hours, in percentage points":
+    "Изменение шанса за последние 24 часа, в процентных пунктах",
+  "Pinned until {date}": "Закреплено до {date}",
+  "Most traded in the last 24 hours": "Самый торгуемый за последние 24 часа",
+  "No open question on Polymarket or Kalshi right now.":
+    "Сейчас на Polymarket и Kalshi нет открытых вопросов.",
+  "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
+    "Цены и объёмы с Polymarket и Kalshi, прочитаны в {time}. Шанс — это цена доли Yes: столько платит толпа, это не наш прогноз.",
 };

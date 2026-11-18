@@ -553,4 +553,28 @@ export const macro: Catalog = {
   "other indexes": "その他の指数",
   "Volatility indexes (VIX, India VIX) are left out of the charts: their moves are not returns.":
     "ボラティリティ指数（VIX、インドVIX）はグラフから除外しています。その値動きはリターンではないためです。",
+  // The homepage's prediction-market section (web/bets.ts).
+  "What the crowd is betting on": "みんなが賭けているもの",
+  "Prediction markets on Polymarket and Kalshi: the question we pinned, the one with the most money traded over the last 24 hours on either venue, and the next ones, at least three from each venue. Sports are left out, and so are the short questions that repeat every day or week (today's Bitcoin range, tomorrow's weather, a week of tweets).":
+    "Polymarket と Kalshi の予測市場：固定表示している質問、過去24時間に両取引所で最も多く取引された質問、それに続く質問（各取引所から最低3件）。スポーツは除外し、毎日・毎週繰り返す短期の質問（今日のビットコインの値幅、明日の天気、1週間のツイート数）も除外しています。",
+  "A price is the crowd's chance: a Yes share at 9¢ pays $1 if it happens, so the crowd puts it at 9%. Kalshi counts its volume in contracts that pay $1; here it is contracts times their price, the dollars paid, as Polymarket counts it. The charts are each venue's own price history. Read every five minutes.":
+    "価格は参加者が見積もる確率です。9¢ の Yes シェアは起きれば $1 が支払われるので、参加者は 9% と見ています。Kalshi は出来高を $1 払いの契約数で数えますが、ここでは Polymarket と同じく契約数×価格（支払われたドル）で表示します。チャートは各取引所自身の価格履歴です。5分ごとに取得します。",
+  "The prediction markets could not be read just now.": "予測市場を今は取得できませんでした。",
+  "Chance of Yes since {date}": "{date} 以降の Yes の確率",
+  "{question}: the chance of each answer over time": "{question}：各回答の確率の推移",
+  "pts in 24h": "pt（24時間）",
+  "Traded since {date}": "{date} 以降の取引額",
+  Traded: "取引額",
+  "{venue} has {n} more": "{venue} にほか {n} 件の回答",
+  "The likeliest answer; for a question asked by date, the nearest date; for levels that can all come true, the one closest to even odds":
+    "最も可能性の高い回答。日付で問う質問は最も近い日付、すべて同時に成立しうる水準は五分五分に最も近いもの",
+  "Leading answer": "有力な回答",
+  "Change in the chance over the last 24 hours, in percentage points":
+    "過去24時間の確率の変化（パーセントポイント）",
+  "Pinned until {date}": "{date} まで固定表示",
+  "Most traded in the last 24 hours": "過去24時間で最も取引された質問",
+  "No open question on Polymarket or Kalshi right now.":
+    "現在 Polymarket と Kalshi に受付中の質問はありません。",
+  "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
+    "価格と出来高は Polymarket と Kalshi から {time} に取得。確率は Yes シェアの価格で、参加者が支払っている額であり、当サイトの予測ではありません。",
 };

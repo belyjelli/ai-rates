@@ -1,6 +1,7 @@
 import postgres from "postgres";
 import { apiEndpoint, clientName, reportApiCall, rpcOf } from "./app/api-analytics";
 import { handleApp, unavailableResponse } from "./app/app";
+import { betsSource } from "./app/bets";
 import { wwwRedirect } from "./app/canonical-host";
 import { createDataSource } from "./app/data";
 import { EDGE_CACHE_DEFAULTS, EdgeCache } from "./app/edge-cache";
@@ -206,6 +207,14 @@ async function handle(
           referrals,
           locale,
           member,
+          // Only the homepage's prediction-market section asks it anything (app/bets.ts).
+          bets: betsSource({
+            fetch: (input, init) => fetch(input, init),
+            cache: caches.default,
+            waitUntil: (promise) => ctx.waitUntil(promise),
+            now: Date.now,
+            log: console.error,
+          }),
           // Only a member's Top traders tab asks it anything (app/hyperliquid.ts).
           hyperliquid: member
             ? hyperliquidSource({

@@ -560,4 +560,30 @@ export const macro: Catalog = {
   "other indexes": "outros índices",
   "Volatility indexes (VIX, India VIX) are left out of the charts: their moves are not returns.":
     "Os índices de volatilidade (VIX, India VIX) ficam fora dos gráficos: seus movimentos não são retornos.",
+  // The homepage's prediction-market section (web/bets.ts).
+  "What the crowd is betting on": "No que a multidão está apostando",
+  "Prediction markets on Polymarket and Kalshi: the question we pinned, the one with the most money traded over the last 24 hours on either venue, and the next ones, at least three from each venue. Sports are left out, and so are the short questions that repeat every day or week (today's Bitcoin range, tomorrow's weather, a week of tweets).":
+    "Mercados de previsão na Polymarket e na Kalshi: a pergunta que fixamos, a que teve mais dinheiro negociado nas últimas 24 horas em qualquer das duas e as seguintes, pelo menos três de cada uma. Esportes ficam de fora, assim como as perguntas curtas que se repetem todo dia ou toda semana (a faixa do Bitcoin hoje, o clima de amanhã, uma semana de tweets).",
+  "A price is the crowd's chance: a Yes share at 9¢ pays $1 if it happens, so the crowd puts it at 9%. Kalshi counts its volume in contracts that pay $1; here it is contracts times their price, the dollars paid, as Polymarket counts it. The charts are each venue's own price history. Read every five minutes.":
+    "O preço é a chance segundo a multidão: uma cota Yes a 9¢ paga $1 se acontecer, então a multidão dá 9% de chance. A Kalshi conta o volume em contratos que pagam $1; aqui são contratos vezes o preço, os dólares pagos, como a Polymarket conta. Os gráficos são o histórico de preços de cada plataforma. Lido a cada cinco minutos.",
+  "The prediction markets could not be read just now.":
+    "Não foi possível ler os mercados de previsão agora.",
+  "Chance of Yes since {date}": "Chance de Yes desde {date}",
+  "{question}: the chance of each answer over time":
+    "{question}: a chance de cada resposta ao longo do tempo",
+  "pts in 24h": "p.p. em 24h",
+  "Traded since {date}": "Negociado desde {date}",
+  Traded: "Negociado",
+  "{venue} has {n} more": "{venue}: mais {n}",
+  "The likeliest answer; for a question asked by date, the nearest date; for levels that can all come true, the one closest to even odds":
+    "A resposta mais provável; numa pergunta por data, a data mais próxima; em níveis que podem se realizar juntos, o mais perto de 50%",
+  "Leading answer": "Resposta líder",
+  "Change in the chance over the last 24 hours, in percentage points":
+    "Variação da chance nas últimas 24 horas, em pontos percentuais",
+  "Pinned until {date}": "Fixado até {date}",
+  "Most traded in the last 24 hours": "Mais negociado nas últimas 24 horas",
+  "No open question on Polymarket or Kalshi right now.":
+    "Nenhuma pergunta aberta na Polymarket ou na Kalshi agora.",
+  "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
+    "Preços e volumes da Polymarket e da Kalshi, lidos às {time}. A chance é o preço de uma cota Yes; é o que a multidão está pagando, não uma previsão nossa.",
 };

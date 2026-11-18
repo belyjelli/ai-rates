@@ -544,4 +544,28 @@ export const macro: Catalog = {
   "other indexes": "其他指数",
   "Volatility indexes (VIX, India VIX) are left out of the charts: their moves are not returns.":
     "波动率指数（VIX、印度 VIX）不列入图表：其涨跌并非回报。",
+  // The homepage's prediction-market section (web/bets.ts).
+  "What the crowd is betting on": "大家在押注什么",
+  "Prediction markets on Polymarket and Kalshi: the question we pinned, the one with the most money traded over the last 24 hours on either venue, and the next ones, at least three from each venue. Sports are left out, and so are the short questions that repeat every day or week (today's Bitcoin range, tomorrow's weather, a week of tweets).":
+    "Polymarket 和 Kalshi 上的预测市场：我们置顶的问题、过去 24 小时两个平台中成交额最大的问题，以及其后的问题，每个平台至少三个。体育类不在其中，每天或每周重复的短期问题（今天的比特币区间、明天的天气、一周的推文数）也不在其中。",
+  "A price is the crowd's chance: a Yes share at 9¢ pays $1 if it happens, so the crowd puts it at 9%. Kalshi counts its volume in contracts that pay $1; here it is contracts times their price, the dollars paid, as Polymarket counts it. The charts are each venue's own price history. Read every five minutes.":
+    "价格就是人群给出的概率：9¢ 的 Yes 份额在事件发生时支付 $1，所以人群认为它有 9% 的可能。Kalshi 以支付 $1 的合约数计成交量；这里换算为合约数乘以价格，即支付的美元，与 Polymarket 的算法一致。图表是各平台自己的价格历史。每五分钟读取一次。",
+  "The prediction markets could not be read just now.": "预测市场暂时无法读取。",
+  "Chance of Yes since {date}": "{date} 以来 Yes 的概率",
+  "{question}: the chance of each answer over time": "{question}：各答案的概率走势",
+  "pts in 24h": "个百分点（24 小时）",
+  "Traded since {date}": "{date} 以来成交",
+  Traded: "成交额",
+  "{venue} has {n} more": "{venue} 上另有 {n} 个答案",
+  "The likeliest answer; for a question asked by date, the nearest date; for levels that can all come true, the one closest to even odds":
+    "最可能的答案；按日期提问的问题取最近的日期；可同时成真的档位取最接近五五开的一档",
+  "Leading answer": "领先答案",
+  "Change in the chance over the last 24 hours, in percentage points":
+    "过去 24 小时概率的变化，单位为百分点",
+  "Pinned until {date}": "置顶至 {date}",
+  "Most traded in the last 24 hours": "过去 24 小时成交最多",
+  "No open question on Polymarket or Kalshi right now.":
+    "Polymarket 和 Kalshi 目前没有未结的问题。",
+  "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
+    "价格和成交量来自 Polymarket 和 Kalshi，读取于 {time}。概率是 Yes 份额的价格，是人群正在支付的价格，不是我们的预测。",
 };

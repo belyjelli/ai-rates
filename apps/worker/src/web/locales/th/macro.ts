@@ -550,4 +550,28 @@ export const macro: Catalog = {
   "other indexes": "ดัชนีอื่น ๆ",
   "Volatility indexes (VIX, India VIX) are left out of the charts: their moves are not returns.":
     "ไม่รวมดัชนีความผันผวน (VIX, India VIX) ในกราฟ: การขยับของดัชนีเหล่านี้ไม่ใช่ผลตอบแทน",
+  // The homepage's prediction-market section (web/bets.ts).
+  "What the crowd is betting on": "ฝูงชนกำลังเดิมพันอะไร",
+  "Prediction markets on Polymarket and Kalshi: the question we pinned, the one with the most money traded over the last 24 hours on either venue, and the next ones, at least three from each venue. Sports are left out, and so are the short questions that repeat every day or week (today's Bitcoin range, tomorrow's weather, a week of tweets).":
+    "ตลาดทำนายผลบน Polymarket และ Kalshi: คำถามที่เราปักหมุด คำถามที่มีเงินซื้อขายมากที่สุดใน 24 ชั่วโมงที่ผ่านมาบนทั้งสองแพลตฟอร์ม และคำถามถัดไป อย่างน้อยแพลตฟอร์มละสามคำถาม ไม่รวมกีฬา และไม่รวมคำถามสั้นที่วนซ้ำทุกวันหรือทุกสัปดาห์ (ช่วงราคา Bitcoin วันนี้ อากาศพรุ่งนี้ จำนวนทวีตในหนึ่งสัปดาห์)",
+  "A price is the crowd's chance: a Yes share at 9¢ pays $1 if it happens, so the crowd puts it at 9%. Kalshi counts its volume in contracts that pay $1; here it is contracts times their price, the dollars paid, as Polymarket counts it. The charts are each venue's own price history. Read every five minutes.":
+    "ราคาคือโอกาสในสายตาฝูงชน: ส่วนแบ่ง Yes ที่ราคา 9¢ จ่าย $1 หากเกิดขึ้นจริง ฝูงชนจึงให้โอกาส 9% Kalshi นับวอลุ่มเป็นจำนวนสัญญาที่จ่าย $1 ในที่นี้คิดเป็นจำนวนสัญญาคูณราคา คือเงินดอลลาร์ที่จ่ายจริง แบบเดียวกับที่ Polymarket นับ กราฟคือประวัติราคาของแต่ละแพลตฟอร์มเอง อ่านทุกห้านาที",
+  "The prediction markets could not be read just now.": "ตอนนี้ยังอ่านตลาดทำนายผลไม่ได้",
+  "Chance of Yes since {date}": "โอกาสของ Yes ตั้งแต่ {date}",
+  "{question}: the chance of each answer over time": "{question}: โอกาสของแต่ละคำตอบตามเวลา",
+  "pts in 24h": "จุดใน 24 ชม.",
+  "Traded since {date}": "ซื้อขายตั้งแต่ {date}",
+  Traded: "ซื้อขายแล้ว",
+  "{venue} has {n} more": "อีก {n} คำตอบบน {venue}",
+  "The likeliest answer; for a question asked by date, the nearest date; for levels that can all come true, the one closest to even odds":
+    "คำตอบที่น่าจะเป็นที่สุด สำหรับคำถามแบบถามวันที่ คือวันที่ใกล้ที่สุด สำหรับระดับที่อาจเป็นจริงพร้อมกันได้ คือระดับที่ใกล้ห้าสิบห้าสิบที่สุด",
+  "Leading answer": "คำตอบนำ",
+  "Change in the chance over the last 24 hours, in percentage points":
+    "การเปลี่ยนแปลงของโอกาสใน 24 ชั่วโมงที่ผ่านมา หน่วยจุดเปอร์เซ็นต์",
+  "Pinned until {date}": "ปักหมุดถึง {date}",
+  "Most traded in the last 24 hours": "ซื้อขายมากที่สุดใน 24 ชั่วโมงที่ผ่านมา",
+  "No open question on Polymarket or Kalshi right now.":
+    "ตอนนี้ไม่มีคำถามที่เปิดอยู่บน Polymarket หรือ Kalshi",
+  "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
+    "ราคาและวอลุ่มจาก Polymarket และ Kalshi อ่านเมื่อ {time} โอกาสคือราคาของส่วนแบ่ง Yes เป็นสิ่งที่ฝูงชนกำลังจ่าย ไม่ใช่การคาดการณ์ของเรา",
 };

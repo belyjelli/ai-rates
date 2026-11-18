@@ -40,6 +40,13 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-11-18",
+    title: "Prediction markets on the front page",
+    changes: [
+      "New on the front page, above the widest spreads: what the crowd is betting on, from Polymarket and Kalshi. The question we pinned (Jensen Huang rejoins NVIDIA by...?, until November 25) and the most traded question of the last 24 hours each show their answers' chances, the change over the day and a chart of the odds since the market opened. The next most traded follow in a table, at least three from each venue. Sports and the questions that repeat every day or week are left out.",
+    ],
+  },
+  {
+    date: "2026-11-18",
     title: "Data that AI assistants can read",
     changes: [
       "Every page has a Markdown copy for AI assistants and agents: add .md to its address, or ask with Accept: text/markdown. Each copy starts with when its data was read, the API call with the same figures and a line to cite, and gives the figures in labelled tables rather than as the page's charts and pickers. Tabs read on their own as well (/rates.md?panel=gamma).",

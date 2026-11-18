@@ -561,4 +561,30 @@ export const macro: Catalog = {
   "other indexes": "weitere Indizes",
   "Volatility indexes (VIX, India VIX) are left out of the charts: their moves are not returns.":
     "Volatilitätsindizes (VIX, India VIX) bleiben aus den Charts heraus: Ihre Bewegungen sind keine Renditen.",
+  // The homepage's prediction-market section (web/bets.ts).
+  "What the crowd is betting on": "Worauf die Crowd setzt",
+  "Prediction markets on Polymarket and Kalshi: the question we pinned, the one with the most money traded over the last 24 hours on either venue, and the next ones, at least three from each venue. Sports are left out, and so are the short questions that repeat every day or week (today's Bitcoin range, tomorrow's weather, a week of tweets).":
+    "Prognosemärkte auf Polymarket und Kalshi: die Frage, die wir angepinnt haben, die mit dem meisten Geld gehandelte der letzten 24 Stunden auf einer der beiden Plattformen und die nächsten, mindestens drei von jeder. Sport bleibt außen vor, ebenso die kurzen Fragen, die sich jeden Tag oder jede Woche wiederholen (die heutige Bitcoin-Spanne, das Wetter von morgen, eine Woche Tweets).",
+  "A price is the crowd's chance: a Yes share at 9¢ pays $1 if it happens, so the crowd puts it at 9%. Kalshi counts its volume in contracts that pay $1; here it is contracts times their price, the dollars paid, as Polymarket counts it. The charts are each venue's own price history. Read every five minutes.":
+    "Ein Preis ist die Chance aus Sicht der Crowd: Ein Yes-Anteil zu 9¢ zahlt $1, wenn es eintritt, also sieht die Crowd 9%. Kalshi zählt sein Volumen in Kontrakten, die $1 zahlen; hier sind es Kontrakte mal Preis, also die gezahlten Dollar, so wie Polymarket zählt. Die Charts sind die eigene Preishistorie jeder Plattform. Alle fünf Minuten gelesen.",
+  "The prediction markets could not be read just now.":
+    "Die Prognosemärkte konnten gerade nicht gelesen werden.",
+  "Chance of Yes since {date}": "Chance auf Yes seit {date}",
+  "{question}: the chance of each answer over time":
+    "{question}: die Chance jeder Antwort im Zeitverlauf",
+  "pts in 24h": "Pkt. in 24h",
+  "Traded since {date}": "Gehandelt seit {date}",
+  Traded: "Gehandelt",
+  "{venue} has {n} more": "{venue}: {n} weitere",
+  "The likeliest answer; for a question asked by date, the nearest date; for levels that can all come true, the one closest to even odds":
+    "Die wahrscheinlichste Antwort; bei einer Frage nach Datum das nächste Datum; bei Stufen, die alle zugleich eintreten können, die am nächsten an 50:50",
+  "Leading answer": "Führende Antwort",
+  "Change in the chance over the last 24 hours, in percentage points":
+    "Veränderung der Chance in den letzten 24 Stunden, in Prozentpunkten",
+  "Pinned until {date}": "Angepinnt bis {date}",
+  "Most traded in the last 24 hours": "Am meisten gehandelt in den letzten 24 Stunden",
+  "No open question on Polymarket or Kalshi right now.":
+    "Gerade keine offene Frage auf Polymarket oder Kalshi.",
+  "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
+    "Preise und Volumen von Polymarket und Kalshi, gelesen um {time}. Eine Chance ist der Preis eines Yes-Anteils; das zahlt die Crowd, es ist keine Prognose von uns.",
 };

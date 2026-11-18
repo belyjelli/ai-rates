@@ -551,4 +551,28 @@ export const macro: Catalog = {
   "other indexes": "그 밖의 지수",
   "Volatility indexes (VIX, India VIX) are left out of the charts: their moves are not returns.":
     "변동성 지수(VIX, 인도 VIX)는 차트에서 제외했습니다. 그 등락은 수익률이 아니기 때문입니다.",
+  // The homepage's prediction-market section (web/bets.ts).
+  "What the crowd is betting on": "참여자들은 무엇에 베팅하나",
+  "Prediction markets on Polymarket and Kalshi: the question we pinned, the one with the most money traded over the last 24 hours on either venue, and the next ones, at least three from each venue. Sports are left out, and so are the short questions that repeat every day or week (today's Bitcoin range, tomorrow's weather, a week of tweets).":
+    "Polymarket과 Kalshi의 예측시장: 고정한 질문, 지난 24시간 두 거래소에서 거래 금액이 가장 많은 질문, 그리고 그다음 질문들(거래소별 최소 3개). 스포츠는 제외하며, 매일·매주 반복되는 단기 질문(오늘의 비트코인 범위, 내일 날씨, 일주일 트윗 수)도 제외합니다.",
+  "A price is the crowd's chance: a Yes share at 9¢ pays $1 if it happens, so the crowd puts it at 9%. Kalshi counts its volume in contracts that pay $1; here it is contracts times their price, the dollars paid, as Polymarket counts it. The charts are each venue's own price history. Read every five minutes.":
+    "가격이 곧 참여자들이 보는 확률입니다. 9¢짜리 Yes 지분은 일어나면 $1를 지급하므로 참여자들은 9%로 봅니다. Kalshi는 거래량을 $1를 지급하는 계약 수로 세지만, 여기서는 Polymarket처럼 계약 수에 가격을 곱한 금액(지불된 달러)으로 표시합니다. 차트는 각 거래소 자체의 가격 기록입니다. 5분마다 읽습니다.",
+  "The prediction markets could not be read just now.": "지금은 예측시장을 읽을 수 없습니다.",
+  "Chance of Yes since {date}": "{date} 이후 Yes 확률",
+  "{question}: the chance of each answer over time": "{question}: 답변별 확률 추이",
+  "pts in 24h": "%p (24시간)",
+  "Traded since {date}": "{date} 이후 거래 금액",
+  Traded: "거래 금액",
+  "{venue} has {n} more": "{venue}에 답변 {n}개 더",
+  "The likeliest answer; for a question asked by date, the nearest date; for levels that can all come true, the one closest to even odds":
+    "가장 가능성 높은 답변. 날짜로 묻는 질문은 가장 가까운 날짜, 모두 동시에 이뤄질 수 있는 구간은 반반에 가장 가까운 구간",
+  "Leading answer": "선두 답변",
+  "Change in the chance over the last 24 hours, in percentage points":
+    "지난 24시간 확률 변화, 퍼센트포인트",
+  "Pinned until {date}": "{date}까지 고정",
+  "Most traded in the last 24 hours": "지난 24시간 최다 거래",
+  "No open question on Polymarket or Kalshi right now.":
+    "지금 Polymarket과 Kalshi에 열린 질문이 없습니다.",
+  "Prices and volumes from Polymarket and Kalshi, read {time}. A chance is the price of a Yes share; it is what the crowd is paying, not a forecast of ours.":
+    "가격과 거래량은 Polymarket과 Kalshi에서 {time}에 읽었습니다. 확률은 Yes 지분의 가격으로, 참여자들이 지불하는 값이며 당사의 예측이 아닙니다.",
 };

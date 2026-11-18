@@ -54,6 +54,7 @@ import { retailSchedule } from "../app/retail-fees";
 import { agentBrief, agentTable } from "./agent-brief";
 import { BT_SCRIPT } from "./backtest-swap";
 import { badge, badgeKey, legBadges } from "./badges";
+import { BETS_CSS, BETS_SCRIPT, betsSection } from "./bets";
 import { CROWD_CSS, CROWD_PANELS, crowdPlaceholder, crowdTabs } from "./crowd";
 import {
   ageText,
@@ -354,6 +355,7 @@ export function home(data: {
     now: data.now,
     body: `${spreadsAgentBrief(data.pairs, data.verified)}
 ${hero}
+${betsSection()}
 <section>
 <div class="section-head"><h2>${tr("Widest spreads")}</h2><a href="/screener">${tr("Open the screener")}</a></div>
 ${pairsTable(data.pairs, tr("No pairs yet: an asset needs live markets on at least two venues."))}
@@ -362,7 +364,9 @@ ${pairsTable(data.pairs, tr("No pairs yet: an asset needs live markets on at lea
 <div class="section-head"><h2 class="has-help">${tr("What actually paid, last 7 days")}${helpButton("paid")}</h2>${runDay ? `<span class="dim">${tr("replayed {date}", { date: esc(runDay.toISOString().slice(0, 10)) })}</span>` : ""}</div>
 ${helpPanel("paid", `<p>${tr("Not a forecast: both legs replayed at their own settlement times from stored funding, on $10,000 per leg. Ranked by what settled, with nothing filtered out — so check the thinner leg's depth and the worse leg's rate before reading a big number as a trade.")}</p>`)}
 ${verifiedTable(data.verified)}
-</section>`,
+</section>
+<style>${BETS_CSS}</style>
+<script>${BETS_SCRIPT}</script>`,
   });
 }
 
