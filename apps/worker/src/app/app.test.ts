@@ -6428,6 +6428,7 @@ describe("cvd", () => {
       ["USDINR", 93.43],
       ["USDTHB", 33.96],
       ["USDIDR", 18_158],
+      ["USDAED", 3.6727],
     ]);
     for (const pair of RATE_PAIRS)
       expect([pair, rateLegs(pair).price(today)! > 1]).toEqual([pair, true]);
@@ -7864,6 +7865,13 @@ describe("site-wide search", () => {
     expect(RATE_PAIRS.some((pair) => pair.includes("CNY"))).toBe(false);
     expect(RATE_PAIRS).toContain("EURHKD");
     expect(RATE_PAIRS).toContain("HKDJPY");
+    // The baht's and the dirham's (2026-11-19): every pair once, 78 in all.
+    expect(RATE_PAIRS).toContain("EURTHB");
+    expect(RATE_PAIRS).toContain("THBJPY");
+    expect(RATE_PAIRS).toContain("USDAED");
+    expect(RATE_PAIRS).toContain("AEDHKD");
+    expect(new Set(RATE_PAIRS).size).toBe(RATE_PAIRS.length);
+    expect(RATE_PAIRS).toHaveLength(78);
     // A pair a venue has started to trade is its market row, not a second rate row.
     const traded = fakeData({
       searchIndex: async () => [

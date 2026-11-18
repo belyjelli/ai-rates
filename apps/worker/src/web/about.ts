@@ -39,6 +39,13 @@ export interface Release {
  */
 export const CHANGELOG: readonly Release[] = [
   {
+    date: "2026-11-19",
+    title: "Chart: the Thai baht against every currency",
+    changes: [
+      "The Thai baht joins the Hong Kong dollar: EUR/THB, GBP/THB, SGD/THB, CNH/THB, THB/JPY, THB/KRW and the rest, 24 more pairs, each worked out from its two dollar rates. Pick THB under FX in the Chart page's asset list to see them all.",
+    ],
+  },
+  {
     date: "2026-11-18",
     title: "Liquidations: whale positions by side and size",
     changes: [
