@@ -154,4 +154,6 @@ export const exchanges: Catalog = {
   Quarantined: "Em quarentena",
   "Quarantined: {venues}. Their numbers failed the venue review's checks (funding copied from another exchange, or volume and open interest far beyond what their reserves could back), so they are still collected and shown here but left out of the default Screener and Arbitrage rankings; tick them in the exchange picker to rank them.":
     "Em quarentena: {venues}. Os números delas falharam nas verificações da revisão de corretoras (financiamento copiado de outra corretora, ou volume e open interest muito acima do que as reservas conseguiriam cobrir), então continuam sendo coletadas e mostradas aqui, mas ficam fora dos rankings padrão do Screener e de Arbitragem; marque-as no seletor de corretoras para classificá-las.",
+  "Crypto exchange rankings: fees, liquidity and reserves":
+    "Ranking de corretoras cripto: taxas, liquidez e reservas",
 };

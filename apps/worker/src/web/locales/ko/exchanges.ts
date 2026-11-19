@@ -155,4 +155,6 @@ export const exchanges: Catalog = {
   Quarantined: "격리됨",
   "Quarantined: {venues}. Their numbers failed the venue review's checks (funding copied from another exchange, or volume and open interest far beyond what their reserves could back), so they are still collected and shown here but left out of the default Screener and Arbitrage rankings; tick them in the exchange picker to rank them.":
     "격리됨: {venues}. 거래소 점검을 통과하지 못해(펀딩비가 다른 거래소를 그대로 베끼거나, 거래량과 미결제약정이 준비금으로 뒷받침할 수 있는 규모를 크게 넘음) 데이터는 계속 수집해 여기에 보여 주지만 스크리너와 차익거래의 기본 순위에서는 제외합니다. 순위에 넣으려면 거래소 선택에서 체크하세요.",
+  "Crypto exchange rankings: fees, liquidity and reserves":
+    "암호화폐 거래소 순위: 수수료, 유동성, 준비금",
 };

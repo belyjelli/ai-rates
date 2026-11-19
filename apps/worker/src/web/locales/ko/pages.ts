@@ -51,9 +51,6 @@ export const pages: Catalog = {
   "Widest funding spread right now": "현재 가장 큰 펀딩비 스프레드",
   "No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.":
     "최근 5분 동안 데이터를 보낸 거래소가 없어 페어를 만들 수 없습니다. 1분 뒤 다시 확인하세요.",
-  "Funding spreads across perp exchanges": "무기한 선물 거래소 간 펀딩비 스프레드",
-  "Live funding rate spreads between perpetual futures exchanges, refreshed every minute.":
-    "무기한 선물 거래소 간 실시간 펀딩비 스프레드, 1분마다 갱신.",
   "Widest spreads": "가장 큰 스프레드",
   "Open the screener": "스크리너 열기",
   "No pairs yet: an asset needs live markets on at least two venues.":
@@ -83,8 +80,6 @@ export const pages: Catalog = {
 
   // screener
   "Funding spread screener": "펀딩비 스프레드 스크리너",
-  "Filter live cross-exchange funding spreads by open interest, volume and exchange type.":
-    "실시간 거래소 간 펀딩비 스프레드를 미결제약정, 거래량, 거래소 유형으로 필터링합니다.",
   "For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.":
     "자산마다 서로 다른 거래소에서 롱 보유 비용이 가장 낮은 종목과 숏 보유 수익이 가장 높은 종목을 찾습니다. 각 레그는 필터를 통과해야 합니다.",
   "No pairs match these filters. Lower the minimum open interest or include more exchange types.":
@@ -166,8 +161,6 @@ export const pages: Catalog = {
   "No asset has live markets on two or more venues right now.":
     "지금 두 곳 이상의 거래소에 활성 종목이 있는 자산이 없습니다.",
   Rates: "요율",
-  "Funding APR for every asset across every perpetual exchange, in one grid.":
-    "모든 무기한 선물 거래소의 모든 자산 펀딩비 연환산을 한 표에.",
   "Every exchange's funding for the deepest assets at once. Positive means longs pay, so a short collects; an empty cell means that exchange has no market for the asset, not that funding is flat.":
     "가장 깊은 자산들의 거래소별 펀딩비를 한눈에 봅니다. 양수는 롱이 지불하고 숏이 받는다는 뜻입니다. 빈 칸은 펀딩비가 0이라는 뜻이 아니라 그 거래소에 해당 자산 종목이 없다는 뜻입니다.",
 
@@ -196,9 +189,6 @@ export const pages: Catalog = {
   "Exchanges quoting this asset that survived the mark-agreement check":
     "이 자산을 호가하며 마크 가격 일치 검사를 통과한 거래소",
   Quoted: "호가 시각",
-  "Price gaps across exchanges": "거래소 간 가격 차이",
-  "Where one exchange's bid sits above another's ask.":
-    "한 거래소의 매수 호가가 다른 거래소의 매도 호가보다 높은 곳.",
   "Price gaps": "가격 차이",
   "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.":
     "자산마다 각 호가창의 최우선 호가에서 가장 싸게 살 수 있는 거래소와 가장 비싸게 팔 수 있는 거래소를 찾습니다. 이것은 체결 가능한 거래가 아니라 <b>호가상의 차이</b>입니다. 1호가 아래의 호가창, 테이커 수수료, 실제 포지션에 필요한 두 번의 이체는 반영하지 않습니다. 가장 큰 차이는 가장 얇은 호가창에 있습니다. 측정 당시 721개 자산 중 395개에 차이가 있었고 중앙값은 1.6 bps였으며, 상위 종목의 잔량은 고작 $3인 경우도 있었습니다.",
@@ -585,4 +575,17 @@ export const pages: Catalog = {
   "Quarantined exchanges are left out unless you tick them: their numbers are still collected, but not trusted to rank.":
     "격리된 거래소는 체크하지 않으면 제외됩니다. 데이터는 계속 수집하지만 순위에 쓸 만큼 신뢰하지 않습니다.",
   "Default exchanges": "기본 거래소",
+  "Crypto funding rate arbitrage across perp exchanges":
+    "무기한 선물 거래소 간 암호화폐 펀딩비 차익거래",
+  "Live crypto funding rate spreads between perpetual futures exchanges, refreshed every minute: which exchange to long, which to short, and what the best pair paid over the last 7 days.":
+    "무기한 선물 거래소 간 암호화폐 펀딩비 스프레드를 매분 갱신: 어느 거래소에서 롱, 어디서 숏할지, 그리고 최적의 페어가 지난 7일간 얻은 수익.",
+  "Find funding rate arbitrage: filter live cross-exchange funding spreads for every perpetual pair by open interest, volume, steadiness and exchange.":
+    "펀딩비 차익거래 찾기: 모든 무기한 선물 페어의 거래소 간 실시간 펀딩비 스프레드를 미결제약정, 거래량, 안정성, 거래소별로 필터링.",
+  "Live perpetual futures funding rates for every asset on every exchange in one grid, as APR now or averaged over 7, 30 or 60 days, with options gamma, macro and prediction market tabs.":
+    "모든 자산의 모든 거래소 무기한 선물 펀딩비를 한 표에: 현재 APR 또는 7·30·60일 평균, 옵션 감마·매크로·예측 시장 탭 포함.",
+  "Crypto arbitrage: price gaps across exchanges": "암호화폐 차익거래: 거래소 간 가격 차이",
+  "Live crypto arbitrage across perpetual futures exchanges: where one exchange's bid sits above another's ask, by how much, and the basis between them.":
+    "무기한 선물 거래소 간 실시간 암호화폐 차익거래: 한 거래소의 매수 호가가 다른 거래소의 매도 호가보다 높은 곳, 그 차이, 그리고 둘 사이의 베이시스.",
+  "Funding rate arbitrage screener": "펀딩비 차익거래 스크리너",
+  "Crypto funding rates on every exchange": "모든 거래소의 암호화폐 펀딩비",
 };

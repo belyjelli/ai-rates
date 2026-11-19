@@ -172,7 +172,6 @@ export const charts: Catalog = {
   "{pct} net buy": "{pct} 買い越し",
   "Score is the mean of four components, each a percentile rank against this book's own trailing 30-day history — not a fixed scale, so the same raw number reads differently in a quiet stretch than a volatile one. <b>Funding</b> and <b>open interest</b> run high-is-greedy (crowded, levered longs paying to hold). <b>Liquidation skew</b> is inverted before averaging: a book where longs are being forced out is fear, however unusual that reading looks against its own history. <b>Taker flow</b> is net aggressive buying over aggressive selling, last 24h. Computed every 30 minutes by the collector (belyjelli/profitlock-worker, <code>collector rank-eval</code>'s sibling <code>market sentiment</code> job); coverage for liquidations and taker flow is not venue-complete, so this is a proxy, not a market-wide guarantee.":
     "スコアは4つの指標の平均で、各指標はこの市場自身の過去30日の履歴に対するパーセンタイル順位です — 固定の尺度ではないため、同じ生の値でも落ち着いた時期と荒れた時期とでは読み方が変わります。<b>資金調達率</b>と<b>建玉</b>は高いほど強欲です（混み合ったレバレッジのロングが保有コストを払っている状態）。<b>清算の偏り</b>は平均する前に反転させます：ロングが強制的に清算されている市場は、その値が自身の履歴に比べてどれほど異例に見えても恐怖です。<b>テイカーフロー</b>は直近24時間の積極的な買いから積極的な売りを引いた差です。コレクター（belyjelli/profitlock-worker、<code>collector rank-eval</code> と同列の <code>market sentiment</code> ジョブ）が30分ごとに計算します。清算とテイカーフローはすべての取引所を網羅していないため、これは代理指標であり、市場全体を保証するものではありません。",
-  "Fear & Greed": "恐怖と強欲",
   "A funding-market fear and greed score: OI-weighted funding, open interest, liquidation skew and taker flow, each ranked against its own 30-day history.":
     "資金調達市場の恐怖と強欲スコア：建玉加重の資金調達率、建玉、清算の偏り、テイカーフローを、それぞれ自身の過去30日の履歴と比べて順位付けしたもの。",
   "{month} {day} {time}–{end} {zone}": "{month}{day}日 {time}–{end} {zone}",
@@ -330,4 +329,6 @@ export const charts: Catalog = {
   "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
     "サイト上の {codes} のその他すべてのペア。同じドルレートから算出し、24時間の変動が大きい順。",
   traded: "取引あり",
+  "Crypto fear and greed index from funding and liquidations":
+    "資金調達率と清算から算出する暗号資産の恐怖と強欲指数",
 };

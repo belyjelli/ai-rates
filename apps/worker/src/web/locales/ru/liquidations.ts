@@ -322,7 +322,6 @@ export const liquidations: Catalog = {
   Liquidated: "Ликвидировано",
   "Longs / shorts": "Лонги / шорты",
   Events: "Событий",
-  "{asset} liquidations": "Ликвидации {asset}",
   "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
     "Ликвидации {asset} на всех биржах: лонги против шортов по часам, уровни цены, на которых закрывались позиции, и где будут ликвидированы крупные открытые позиции.",
   "All assets": "Все активы",
@@ -640,4 +639,8 @@ export const liquidations: Catalog = {
   "top positions": "топ-позиции",
   "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
     "Собственная опубликованная статистика каждой биржи, читается каждые 15 минут. «Все счета» считает каждый счёт один раз и поэтому показывает толпу. Топ-трейдеры — группа, которую определяет сама биржа (Binance: верхние 20% по марже), по объёму позиций и по счетам. «Покупки тейкеров» — средняя доля тейкерского объёма за последний час, пришедшаяся на покупки. Прочерк — показатель, который биржа не публикует.",
+  "{asset} liquidation map and live liquidations":
+    "Карта ликвидаций {asset} и ликвидации в реальном времени",
+  "Crypto liquidations: live liquidation map and whale positions":
+    "Ликвидации криптовалют: карта ликвидаций в реальном времени и позиции китов",
 };

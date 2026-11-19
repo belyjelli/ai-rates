@@ -140,4 +140,6 @@ export const whales: Catalog = {
   "IV move": "IV Move",
   "The expected move a day ahead: one and two standard deviations either side of the price":
     "การขยับที่คาดไว้ล่วงหน้าหนึ่งวัน: หนึ่งและสองส่วนเบี่ยงเบนมาตรฐานทั้งสองฝั่งของราคา",
+  "Whale orders: BTC order book walls and large trades":
+    "ออเดอร์วาฬ: กำแพงใน Order Book ของ BTC และเทรดขนาดใหญ่",
 };

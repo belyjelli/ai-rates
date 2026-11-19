@@ -2965,7 +2965,9 @@ ${body ?? lazyPanel(data, id)}
   const addressedClass = data.assetMap?.asset_class ?? data.assetClass ?? "crypto";
   const named = data.addressed && asset !== null ? assetTitle(asset, addressedClass) : null;
   return layout({
-    title: named ? tr("{asset} liquidations", { asset: named }) : tr("Liquidations"),
+    title: named
+      ? tr("{asset} liquidation map and live liquidations", { asset: named })
+      : tr("Crypto liquidations: live liquidation map and whale positions"),
     description: named
       ? tr(
           "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.",

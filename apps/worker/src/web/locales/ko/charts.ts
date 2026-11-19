@@ -171,7 +171,6 @@ export const charts: Catalog = {
   "{pct} net buy": "{pct} 순매수",
   "Score is the mean of four components, each a percentile rank against this book's own trailing 30-day history — not a fixed scale, so the same raw number reads differently in a quiet stretch than a volatile one. <b>Funding</b> and <b>open interest</b> run high-is-greedy (crowded, levered longs paying to hold). <b>Liquidation skew</b> is inverted before averaging: a book where longs are being forced out is fear, however unusual that reading looks against its own history. <b>Taker flow</b> is net aggressive buying over aggressive selling, last 24h. Computed every 30 minutes by the collector (belyjelli/profitlock-worker, <code>collector rank-eval</code>'s sibling <code>market sentiment</code> job); coverage for liquidations and taker flow is not venue-complete, so this is a proxy, not a market-wide guarantee.":
     "점수는 네 가지 구성 요소의 평균이며, 각 요소는 이 시장 자체의 최근 30일 기록 대비 백분위 순위입니다 — 고정된 척도가 아니므로 같은 원시 값도 조용한 구간과 변동성이 큰 구간에서 다르게 읽힙니다. <b>펀딩비</b>와 <b>미결제약정</b>은 높을수록 탐욕입니다(과밀한 레버리지 롱이 보유 비용을 내는 상태). <b>청산 편향</b>은 평균하기 전에 반전합니다: 롱이 강제로 정리되는 시장은 그 값이 자체 기록 대비 아무리 이례적이어도 공포입니다. <b>테이커 흐름</b>은 최근 24시간 공격적 매수에서 공격적 매도를 뺀 순액입니다. 수집기가 30분마다 계산합니다(belyjelli/profitlock-worker, <code>collector rank-eval</code>과 같은 계열의 <code>market sentiment</code> 작업). 청산과 테이커 흐름은 모든 거래소를 포괄하지 않으므로, 이는 시장 전체를 보장하는 값이 아니라 대리 지표입니다.",
-  "Fear & Greed": "공포와 탐욕",
   "A funding-market fear and greed score: OI-weighted funding, open interest, liquidation skew and taker flow, each ranked against its own 30-day history.":
     "펀딩 시장의 공포와 탐욕 점수: 미결제약정 가중 펀딩비, 미결제약정, 청산 편향, 테이커 흐름을 각각 자체 30일 기록과 비교해 순위를 매깁니다.",
   "{month} {day} {time}–{end} {zone}": "{month} {day}일 {time}–{end} {zone}",
@@ -327,4 +326,6 @@ export const charts: Catalog = {
   "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
     "사이트의 {codes} 다른 모든 통화쌍, 같은 달러 환율로 계산하며 24시간 변동이 큰 순서.",
   traded: "거래됨",
+  "Crypto fear and greed index from funding and liquidations":
+    "펀딩비와 청산으로 본 암호화폐 공포와 탐욕 지수",
 };

@@ -40,6 +40,14 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-11-19",
+    title: "Every language has its own address",
+    changes: [
+      "Each translated page now has an address per language: /ru/liquidations/BTC is the BTC liquidation page in Russian, /ko/rates the rates grid in Korean, /zh the front page in Chinese. Links shared in a language open in that language, and search engines can list each version for readers searching in it. The language menu takes you to them.",
+      "The main pages have clearer titles in every language: crypto funding rates on every exchange, funding rate arbitrage, the liquidation map and whale positions, the exchange rankings, and the fear and greed index.",
+    ],
+  },
+  {
+    date: "2026-11-19",
     title: "Chart: the Vietnamese dong against every currency",
     changes: [
       "The Vietnamese dong joins the Chart page's FX list: USD/VND, EUR/VND, GBP/VND, CNY/VND, HKD/VND, THB/VND, JPY/VND and the rest, 28 pairs, each worked out from its two dollar rates and quoted every five minutes. Pick VND under FX in the asset list to see them all.",

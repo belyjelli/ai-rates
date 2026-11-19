@@ -247,4 +247,6 @@ export const site: Catalog = {
     "本站术语，每个一句话：订单流、成交量分布、期权与 Gamma、资金费率与永续合约、爆仓与巨鲸。",
   "The words the site uses, each in one line: order flow, the volume profile, options and gamma, funding, liquidations. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
     "本站用到的术语，每个一句话：订单流、成交量分布、期权与 Gamma、资金费率、爆仓。每个术语都有可分享的链接：/glossary#cvd 会打开本页并定位到 CVD。",
+  "Crypto derivatives glossary: funding, liquidations, options":
+    "加密衍生品术语表：资金费率、爆仓、期权",
 };

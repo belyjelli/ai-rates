@@ -51,9 +51,6 @@ export const pages: Catalog = {
   "Widest funding spread right now": "現在最大の資金調達率スプレッド",
   "No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.":
     "直近5分間どの取引所からもデータがないため、ペアを組めません。1分後にもう一度ご確認ください。",
-  "Funding spreads across perp exchanges": "無期限先物取引所間の資金調達率スプレッド",
-  "Live funding rate spreads between perpetual futures exchanges, refreshed every minute.":
-    "無期限先物取引所間のリアルタイム資金調達率スプレッド。毎分更新。",
   "Widest spreads": "最大スプレッド",
   "Open the screener": "スクリーナーを開く",
   "No pairs yet: an asset needs live markets on at least two venues.":
@@ -83,8 +80,6 @@ export const pages: Catalog = {
 
   // screener
   "Funding spread screener": "資金調達率スプレッド・スクリーナー",
-  "Filter live cross-exchange funding spreads by open interest, volume and exchange type.":
-    "取引所間のリアルタイム資金調達率スプレッドを、建玉・出来高・取引所の種類で絞り込めます。",
   "For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.":
     "資産ごとに、異なる取引所の中からロングを持つのに最も安い銘柄と、ショートを持つのに最も有利な銘柄を組み合わせます。各レッグがフィルター条件を満たす必要があります。",
   "No pairs match these filters. Lower the minimum open interest or include more exchange types.":
@@ -166,8 +161,6 @@ export const pages: Catalog = {
   "No asset has live markets on two or more venues right now.":
     "現在、2つ以上の取引所で稼働中の銘柄がある資産はありません。",
   Rates: "レート",
-  "Funding APR for every asset across every perpetual exchange, in one grid.":
-    "全資産・全無期限先物取引所の資金調達率（年率）を1つの表に。",
   "Every exchange's funding for the deepest assets at once. Positive means longs pay, so a short collects; an empty cell means that exchange has no market for the asset, not that funding is flat.":
     "流動性の高い資産について、全取引所の資金調達率を一覧できます。プラスはロングが支払い、ショートが受け取ることを意味します。空欄はその取引所にその資産の銘柄がないことを示し、資金調達率がゼロという意味ではありません。",
 
@@ -196,9 +189,6 @@ export const pages: Catalog = {
   "Exchanges quoting this asset that survived the mark-agreement check":
     "この資産を提示し、マーク価格の整合チェックを通過した取引所数",
   Quoted: "気配時刻",
-  "Price gaps across exchanges": "取引所間の価格差",
-  "Where one exchange's bid sits above another's ask.":
-    "ある取引所の買い気配が、別の取引所の売り気配を上回っている箇所。",
   "Price gaps": "価格差",
   "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.":
     "資産ごとに、各板の最良気配で最も安く買える取引所と最も高く売れる取引所を示します。これは<b>提示されている差</b>であって、約定できる取引ではありません。最良気配より下の板、テイカー手数料、実際のポジションに必要な2回の送金は一切反映していません。最も広い差は最も薄い板に現れます。計測時には 721 資産のうち 395 資産に差があり、その中央値は 1.6 bps でしたが、上位の資産の板数量はわずか $3 でした。",
@@ -584,4 +574,17 @@ export const pages: Catalog = {
   "Quarantined exchanges are left out unless you tick them: their numbers are still collected, but not trusted to rank.":
     "隔離中の取引所は、チェックしない限り除外されます。データは収集していますが、ランキングに使えるほど信頼できません。",
   "Default exchanges": "既定の取引所",
+  "Crypto funding rate arbitrage across perp exchanges":
+    "無期限先物取引所間の暗号資産資金調達率アービトラージ",
+  "Live crypto funding rate spreads between perpetual futures exchanges, refreshed every minute: which exchange to long, which to short, and what the best pair paid over the last 7 days.":
+    "無期限先物取引所間の暗号資産資金調達率スプレッドを毎分更新：どの取引所でロングし、どこでショートするか、そして最良のペアが過去7日間に得た収益。",
+  "Find funding rate arbitrage: filter live cross-exchange funding spreads for every perpetual pair by open interest, volume, steadiness and exchange.":
+    "資金調達率アービトラージを探す：すべての無期限先物ペアについて、取引所間のリアルタイム資金調達率スプレッドを建玉、出来高、安定性、取引所で絞り込み。",
+  "Live perpetual futures funding rates for every asset on every exchange in one grid, as APR now or averaged over 7, 30 or 60 days, with options gamma, macro and prediction market tabs.":
+    "すべての銘柄・すべての取引所の無期限先物資金調達率を1つの表に。現在のAPR、または7・30・60日平均で表示し、オプションのガンマ、マクロ、予測市場のタブも。",
+  "Crypto arbitrage: price gaps across exchanges": "暗号資産アービトラージ：取引所間の価格差",
+  "Live crypto arbitrage across perpetual futures exchanges: where one exchange's bid sits above another's ask, by how much, and the basis between them.":
+    "無期限先物取引所間のリアルタイム暗号資産アービトラージ：ある取引所の買い気配が別の取引所の売り気配を上回る場所、その幅、両者のベーシス。",
+  "Funding rate arbitrage screener": "資金調達率アービトラージ・スクリーナー",
+  "Crypto funding rates on every exchange": "全取引所の暗号資産資金調達率",
 };

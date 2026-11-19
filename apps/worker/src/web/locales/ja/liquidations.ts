@@ -320,7 +320,6 @@ export const liquidations: Catalog = {
   Liquidated: "清算額",
   "Longs / shorts": "ロング / ショート",
   Events: "件数",
-  "{asset} liquidations": "{asset} の清算",
   "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
     "取引所横断の {asset} 清算：1時間ごとのロング対ショート、ポジションが強制決済された価格帯、大口の未決済ポジションが清算される価格。",
   "All assets": "すべての銘柄",
@@ -630,4 +629,7 @@ export const liquidations: Catalog = {
   "top positions": "上位ポジション",
   "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
     "各取引所が公表している統計を 15 分ごとに取得しています。全アカウントは各アカウントを 1 回ずつ数えるため、大衆の傾きを示します。上位トレーダーは各取引所が独自に定める層（Binance：証拠金上位 20%）で、ポジション量とアカウント数の両方で示します。テイカー買いは直近 1 時間のテイカー出来高のうち買いの平均割合です。「–」はその取引所が公表していない項目です。",
+  "{asset} liquidation map and live liquidations": "{asset} の清算マップとリアルタイム清算",
+  "Crypto liquidations: live liquidation map and whale positions":
+    "暗号資産の清算：リアルタイム清算マップとクジラのポジション",
 };

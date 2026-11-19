@@ -164,7 +164,6 @@ export const charts: Catalog = {
   "{pct} net buy": "{pct} 净买入",
   "Score is the mean of four components, each a percentile rank against this book's own trailing 30-day history — not a fixed scale, so the same raw number reads differently in a quiet stretch than a volatile one. <b>Funding</b> and <b>open interest</b> run high-is-greedy (crowded, levered longs paying to hold). <b>Liquidation skew</b> is inverted before averaging: a book where longs are being forced out is fear, however unusual that reading looks against its own history. <b>Taker flow</b> is net aggressive buying over aggressive selling, last 24h. Computed every 30 minutes by the collector (belyjelli/profitlock-worker, <code>collector rank-eval</code>'s sibling <code>market sentiment</code> job); coverage for liquidations and taker flow is not venue-complete, so this is a proxy, not a market-wide guarantee.":
     "得分为四个指标的平均值，每个指标都是相对本市场自身过去 30 天历史的百分位排名 — 不是固定刻度，因此同样的原始数值在平静期和波动期的读数不同。<b>资金费率</b>和<b>持仓量</b>越高越贪婪（拥挤的杠杆多头在付费持仓）。<b>爆仓偏向</b>在平均之前先取反：多头被强制平仓的市场代表恐惧，无论这个读数相对其自身历史看起来多么反常。<b>主动成交流</b>为最近 24 小时主动买入超出主动卖出的净额。由采集器每 30 分钟计算一次（belyjelli/profitlock-worker，<code>collector rank-eval</code> 的同级任务 <code>market sentiment</code>）；爆仓和主动成交流的数据并未覆盖所有交易所，因此这只是一个代理指标，而非全市场的保证。",
-  "Fear & Greed": "恐惧与贪婪",
   "A funding-market fear and greed score: OI-weighted funding, open interest, liquidation skew and taker flow, each ranked against its own 30-day history.":
     "资金费率市场的恐惧与贪婪指数：按持仓量加权的资金费率、持仓量、爆仓偏向和主动成交流，各自与其过去 30 天的历史进行排名。",
   "{month} {day} {time}–{end} {zone}": "{month}{day}日 {time}–{end} {zone}",
@@ -320,4 +319,6 @@ export const charts: Catalog = {
   "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
     "本站 {codes} 的所有其他货币对，由同样的美元汇率计算，按 24 小时变动幅度从大到小排列。",
   traded: "有交易",
+  "Crypto fear and greed index from funding and liquidations":
+    "加密货币恐惧与贪婪指数：基于资金费率与爆仓",
 };

@@ -259,4 +259,6 @@ export const site: Catalog = {
     "이 사이트의 용어를 한 줄씩: 오더 플로우, 볼륨 프로파일, 옵션과 감마, 펀딩비와 무기한 선물, 청산과 고래.",
   "The words the site uses, each in one line: order flow, the volume profile, options and gamma, funding, liquidations. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
     "이 사이트에서 쓰는 용어를 한 줄씩: 오더 플로우, 볼륨 프로파일, 옵션과 감마, 펀딩비, 청산. 용어마다 공유용 링크가 있어 /glossary#cvd를 열면 이 페이지의 CVD로 갑니다.",
+  "Crypto derivatives glossary: funding, liquidations, options":
+    "암호화폐 파생상품 용어집: 펀딩비, 청산, 옵션",
 };

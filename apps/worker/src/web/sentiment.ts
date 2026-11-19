@@ -108,7 +108,7 @@ ${sentimentChart(history, now)}
 ${table}`;
 
   return layout({
-    title: tr("Fear & Greed"),
+    title: tr("Crypto fear and greed index from funding and liquidations"),
     description: tr(
       "A funding-market fear and greed score: OI-weighted funding, open interest, liquidation skew and taker flow, each ranked against its own 30-day history.",
     ),

@@ -316,7 +316,6 @@ export const liquidations: Catalog = {
   Liquidated: "청산 금액",
   "Longs / shorts": "롱 / 숏",
   Events: "건수",
-  "{asset} liquidations": "{asset} 청산",
   "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
     "거래소 전체의 {asset} 청산: 시간별 롱 대 숏, 포지션이 강제 청산된 가격대, 대형 미결제 포지션의 청산 가격.",
   "All assets": "전체 자산",
@@ -621,4 +620,7 @@ export const liquidations: Catalog = {
   "top positions": "상위 포지션",
   "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
     "각 거래소가 직접 공개하는 통계를 15분마다 읽습니다. 전체 계정은 계정마다 한 번씩 세므로 대중의 쏠림을 보여 줍니다. 상위 트레이더는 거래소마다 정한 집단(바이낸스: 증거금 상위 20%)이며, 포지션 규모와 계정 수로 각각 나타냅니다. 테이커 매수는 최근 1시간 테이커 거래량 중 매수의 평균 비율입니다. '–'는 해당 거래소가 공개하지 않는 항목입니다.",
+  "{asset} liquidation map and live liquidations": "{asset} 청산 맵과 실시간 청산",
+  "Crypto liquidations: live liquidation map and whale positions":
+    "암호화폐 청산: 실시간 청산 맵과 고래 포지션",
 };

@@ -320,7 +320,6 @@ export const liquidations: Catalog = {
   Liquidated: "Liquidado",
   "Longs / shorts": "Longs / shorts",
   Events: "Eventos",
-  "{asset} liquidations": "Liquidações de {asset}",
   "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
     "Liquidações de {asset} nas corretoras: longs contra shorts por hora, os níveis de preço em que as posições foram liquidadas e onde grandes posições abertas seriam liquidadas.",
   "All assets": "Todos os ativos",
@@ -643,4 +642,8 @@ export const liquidations: Catalog = {
   "top positions": "top posições",
   "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
     "Estatísticas publicadas por cada corretora, lidas a cada 15 minutos. Todas as contas conta cada conta uma vez, então mostra a multidão. Top traders é o grupo definido por cada corretora (Binance: os 20% maiores por margem), por tamanho de posição e por contas. Compras taker é a parcela média do volume taker da última hora que comprou. Um traço é um número que a corretora não publica.",
+  "{asset} liquidation map and live liquidations":
+    "Mapa de liquidações de {asset} e liquidações ao vivo",
+  "Crypto liquidations: live liquidation map and whale positions":
+    "Liquidações cripto: mapa de liquidações ao vivo e posições de baleias",
 };

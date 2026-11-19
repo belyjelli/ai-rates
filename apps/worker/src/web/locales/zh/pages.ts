@@ -47,9 +47,6 @@ export const pages: Catalog = {
   "Widest funding spread right now": "当前最大资金费率价差",
   "No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.":
     "最近五分钟没有交易所上报数据，因此无法配对。请一分钟后再查看。",
-  "Funding spreads across perp exchanges": "各永续合约交易所的资金费率价差",
-  "Live funding rate spreads between perpetual futures exchanges, refreshed every minute.":
-    "永续合约交易所之间的实时资金费率价差，每分钟刷新。",
   "Widest spreads": "最大价差",
   "Open the screener": "打开筛选器",
   "No pairs yet: an asset needs live markets on at least two venues.":
@@ -79,8 +76,6 @@ export const pages: Catalog = {
 
   // screener
   "Funding spread screener": "资金费率价差筛选器",
-  "Filter live cross-exchange funding spreads by open interest, volume and exchange type.":
-    "按持仓量、成交量和交易所类型筛选实时跨交易所资金费率价差。",
   "For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.":
     "对每个资产，在不同交易所中找出做多成本最低和做空收益最高的市场。每条腿都必须通过筛选条件。",
   "No pairs match these filters. Lower the minimum open interest or include more exchange types.":
@@ -158,8 +153,6 @@ export const pages: Catalog = {
   "No asset has live markets on two or more venues right now.":
     "目前没有资产在两家或以上交易所有在线市场。",
   Rates: "费率",
-  "Funding APR for every asset across every perpetual exchange, in one grid.":
-    "所有资产在所有永续合约交易所的资金费率年化，汇于一张表。",
   "Every exchange's funding for the deepest assets at once. Positive means longs pay, so a short collects; an empty cell means that exchange has no market for the asset, not that funding is flat.":
     "一次查看各交易所最有深度资产的资金费率。正值表示多头支付、空头收取；空单元格表示该交易所没有该资产的市场，而不是资金费率持平。",
 
@@ -188,8 +181,6 @@ export const pages: Catalog = {
   "Exchanges quoting this asset that survived the mark-agreement check":
     "报价该资产且通过标记价格一致性检查的交易所数",
   Quoted: "报价时间",
-  "Price gaps across exchanges": "跨交易所价格差",
-  "Where one exchange's bid sits above another's ask.": "一家交易所的买价高于另一家卖价的情形。",
   "Price gaps": "价格差",
   "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.":
     "对每个资产，在各盘口最优档找出买入最便宜和卖出最贵的交易所。这些是<b>可报出的价差</b>，而不是可成交的交易：这里既没有反映一档以下的盘口和吃单手续费，也没有反映真实仓位所需的两次资金划转。最大的价差出现在最薄的盘口上——测量时，721 个资产中有 395 个出现价差，中位数为 1.6 个基点，而排名靠前的仅能容纳低至 $3 的挂单量。",
@@ -572,4 +563,16 @@ export const pages: Catalog = {
   "Quarantined exchanges are left out unless you tick them: their numbers are still collected, but not trusted to rank.":
     "已隔离的交易所默认不计入，勾选后才会纳入：其数据仍在采集，但不足以信任用于排名。",
   "Default exchanges": "默认交易所",
+  "Crypto funding rate arbitrage across perp exchanges": "跨永续合约交易所的加密货币资金费率套利",
+  "Live crypto funding rate spreads between perpetual futures exchanges, refreshed every minute: which exchange to long, which to short, and what the best pair paid over the last 7 days.":
+    "各永续合约交易所之间的加密货币资金费率价差，每分钟更新：在哪家交易所做多、哪家做空，以及最佳组合过去 7 天的收益。",
+  "Find funding rate arbitrage: filter live cross-exchange funding spreads for every perpetual pair by open interest, volume, steadiness and exchange.":
+    "寻找资金费率套利：按持仓量、成交量、稳定性和交易所筛选每个永续合约组合的跨交易所实时资金费率价差。",
+  "Live perpetual futures funding rates for every asset on every exchange in one grid, as APR now or averaged over 7, 30 or 60 days, with options gamma, macro and prediction market tabs.":
+    "每个资产在每家交易所的永续合约实时资金费率，汇于一张表：当前年化（APR）或 7、30、60 天均值，另有期权 Gamma、宏观和预测市场标签页。",
+  "Crypto arbitrage: price gaps across exchanges": "加密货币套利：交易所之间的价格差",
+  "Live crypto arbitrage across perpetual futures exchanges: where one exchange's bid sits above another's ask, by how much, and the basis between them.":
+    "各永续合约交易所之间的实时加密货币套利：哪家交易所的买价高于另一家的卖价、高出多少，以及两者之间的基差。",
+  "Funding rate arbitrage screener": "资金费率套利筛选器",
+  "Crypto funding rates on every exchange": "各交易所的加密货币资金费率",
 };

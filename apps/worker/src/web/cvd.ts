@@ -1745,9 +1745,9 @@ ${rateTables({ asset, detail: flow.rate_detail ?? null, rows, params, now })}`
       ? `${plain} ${tr("Detail")}`
       : rateOnly
         ? tr("{asset} chart: interbank rate", { asset: plain })
-        : assetInAddress
-          ? tr("{asset} chart: price and CVD", { asset: plain })
-          : tr("Chart"),
+        : // The bare /chart is BTC's, so it is named for BTC too (until 2026-11-19 it was "Chart",
+          // which matched no search).
+          tr("{asset} chart: price and CVD", { asset: plain }),
     description: rateOnly
       ? tr(
           "{asset} interbank rate, quoted every five minutes. No exchange trades it, so it has no taker flow or CVD.",

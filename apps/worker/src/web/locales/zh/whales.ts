@@ -139,4 +139,5 @@ export const whales: Catalog = {
   "IV move": "IV 波幅",
   "The expected move a day ahead: one and two standard deviations either side of the price":
     "未来 1 天的预期波幅：价格两侧一个和两个标准差",
+  "Whale orders: BTC order book walls and large trades": "巨鲸挂单：BTC 订单簿挂单墙与大额成交",
 };

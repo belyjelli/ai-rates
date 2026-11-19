@@ -169,7 +169,6 @@ export const charts: Catalog = {
   "{pct} net buy": "{pct} Netto-Kauf",
   "Score is the mean of four components, each a percentile rank against this book's own trailing 30-day history — not a fixed scale, so the same raw number reads differently in a quiet stretch than a volatile one. <b>Funding</b> and <b>open interest</b> run high-is-greedy (crowded, levered longs paying to hold). <b>Liquidation skew</b> is inverted before averaging: a book where longs are being forced out is fear, however unusual that reading looks against its own history. <b>Taker flow</b> is net aggressive buying over aggressive selling, last 24h. Computed every 30 minutes by the collector (belyjelli/profitlock-worker, <code>collector rank-eval</code>'s sibling <code>market sentiment</code> job); coverage for liquidations and taker flow is not venue-complete, so this is a proxy, not a market-wide guarantee.":
     "Der Wert ist der Mittelwert aus vier Komponenten, jede ein Perzentilrang gegen die eigene 30-Tage-Historie dieses Buchs — keine feste Skala, daher liest sich dieselbe Rohzahl in einer ruhigen Phase anders als in einer volatilen. Bei <b>Funding</b> und <b>Open Interest</b> heißt hoch gierig (volle, gehebelte Longs, die fürs Halten zahlen). Die <b>Liquidations-Schiefe</b> wird vor dem Mitteln umgekehrt: Ein Buch, in dem Longs herausgedrängt werden, ist Angst, wie ungewöhnlich dieser Wert gegen die eigene Historie auch aussieht. Der <b>Taker-Flow</b> sind aggressive Netto-Käufe gegenüber aggressiven Verkäufen, letzte 24h. Alle 30 Minuten vom Collector berechnet (belyjelli/profitlock-worker, der Job <code>market sentiment</code> neben <code>collector rank-eval</code>); Liquidationen und Taker-Flow decken nicht alle Börsen ab, daher ist das eine Näherung, keine Garantie für den ganzen Markt.",
-  "Fear & Greed": "Angst und Gier",
   "A funding-market fear and greed score: OI-weighted funding, open interest, liquidation skew and taker flow, each ranked against its own 30-day history.":
     "Ein Angst-und-Gier-Wert für den Funding-Markt: OI-gewichtetes Funding, Open Interest, Liquidations-Schiefe und Taker-Flow, jeweils gegen die eigene 30-Tage-Historie eingestuft.",
   "{month} {day} {time}–{end} {zone}": "{day}. {month} {time}–{end} {zone}",
@@ -329,4 +328,6 @@ export const charts: Catalog = {
   "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
     "Alle anderen Paare von {codes} auf der Seite, aus denselben Dollarkursen, nach der größten 24-Stunden-Bewegung sortiert.",
   traded: "gehandelt",
+  "Crypto fear and greed index from funding and liquidations":
+    "Krypto-Angst-und-Gier-Index aus Funding und Liquidationen",
 };

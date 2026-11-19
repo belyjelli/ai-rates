@@ -147,4 +147,6 @@ export const exchanges: Catalog = {
   Quarantined: "В карантине",
   "Quarantined: {venues}. Their numbers failed the venue review's checks (funding copied from another exchange, or volume and open interest far beyond what their reserves could back), so they are still collected and shown here but left out of the default Screener and Arbitrage rankings; tick them in the exchange picker to rank them.":
     "В карантине: {venues}. Их данные не прошли проверку бирж (ставка финансирования скопирована с другой биржи или объём и открытый интерес намного больше, чем могут обеспечить их резервы), поэтому они по-прежнему собираются и показаны здесь, но не входят в рейтинги скринера и арбитража по умолчанию; чтобы включить их в рейтинг, отметьте их в выборе бирж.",
+  "Crypto exchange rankings: fees, liquidity and reserves":
+    "Рейтинг криптобирж: комиссии, ликвидность и резервы",
 };

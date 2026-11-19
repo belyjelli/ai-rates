@@ -342,7 +342,7 @@ ${th("markets", sort, tr("Markets"), tr("Live perpetual markets"))}
   );
 
   return layout({
-    title: tr("Exchanges"),
+    title: tr("Crypto exchange rankings: fees, liquidity and reserves"),
     description: tr(
       "Every perpetual futures exchange tracked by airrates, graded on reserves, trading cost, activity and liquidity: taker fee and slippage at $10k and $100k, depth, open interest and volume.",
     ),

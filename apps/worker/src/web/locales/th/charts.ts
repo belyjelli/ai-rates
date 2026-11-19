@@ -166,7 +166,6 @@ export const charts: Catalog = {
   "{pct} net buy": "ซื้อสุทธิ {pct}",
   "Score is the mean of four components, each a percentile rank against this book's own trailing 30-day history — not a fixed scale, so the same raw number reads differently in a quiet stretch than a volatile one. <b>Funding</b> and <b>open interest</b> run high-is-greedy (crowded, levered longs paying to hold). <b>Liquidation skew</b> is inverted before averaging: a book where longs are being forced out is fear, however unusual that reading looks against its own history. <b>Taker flow</b> is net aggressive buying over aggressive selling, last 24h. Computed every 30 minutes by the collector (belyjelli/profitlock-worker, <code>collector rank-eval</code>'s sibling <code>market sentiment</code> job); coverage for liquidations and taker flow is not venue-complete, so this is a proxy, not a market-wide guarantee.":
     "คะแนนคือค่าเฉลี่ยขององค์ประกอบสี่ตัว แต่ละตัวเป็นอันดับเปอร์เซ็นไทล์เทียบกับประวัติย้อนหลัง 30 วันของตลาดนี้เอง — ไม่ใช่สเกลตายตัว ตัวเลขดิบเดียวกันจึงอ่านได้ต่างกันในช่วงตลาดเงียบกับช่วงผันผวน <b>Funding</b> และ <b>Open Interest</b> ยิ่งสูงยิ่งโลภ (Long ใช้เลเวอเรจแออัดและยอมจ่ายเพื่อถือ) <b>ความเอียงของการล้างพอร์ต</b> ถูกกลับทิศก่อนนำมาเฉลี่ย: ตลาดที่ Long กำลังถูกบังคับออกคือความกลัว ไม่ว่าค่านั้นจะดูผิดปกติแค่ไหนเมื่อเทียบกับประวัติของตัวเอง <b>โฟลว์ Taker</b> คือแรงซื้อเชิงรุกสุทธิเหนือแรงขายเชิงรุกใน 24 ชม. ล่าสุด คำนวณทุก 30 นาทีโดยตัวเก็บข้อมูล (belyjelli/profitlock-worker งาน <code>market sentiment</code> ที่อยู่คู่กับ <code>collector rank-eval</code>) ข้อมูลการล้างพอร์ตและโฟลว์ Taker ยังไม่ครบทุกกระดานเทรด นี่จึงเป็นตัวแทนโดยประมาณ ไม่ใช่การรับประกันทั้งตลาด",
-  "Fear & Greed": "ความกลัวและความโลภ",
   "A funding-market fear and greed score: OI-weighted funding, open interest, liquidation skew and taker flow, each ranked against its own 30-day history.":
     "คะแนนความกลัวและความโลภของตลาด Funding: Funding ถ่วงน้ำหนักด้วย OI, Open Interest, ความเอียงของการล้างพอร์ต และโฟลว์ Taker แต่ละตัวจัดอันดับเทียบกับประวัติ 30 วันของตัวเอง",
   "{month} {day} {time}–{end} {zone}": "{day} {month} {time}–{end} {zone}",
@@ -322,4 +321,6 @@ export const charts: Catalog = {
   "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
     "คู่อื่นทั้งหมดของ {codes} บนเว็บ คำนวณจากอัตราดอลลาร์ชุดเดียวกัน เรียงตามการเคลื่อนไหว 24 ชม. มากที่สุดก่อน",
   traded: "มีการซื้อขาย",
+  "Crypto fear and greed index from funding and liquidations":
+    "ดัชนีความกลัวและความโลภคริปโตจาก Funding และการล้างพอร์ต",
 };

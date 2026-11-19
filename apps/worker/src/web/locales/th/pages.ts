@@ -47,9 +47,6 @@ export const pages: Catalog = {
   "Widest funding spread right now": "สเปรด Funding ที่กว้างที่สุดตอนนี้",
   "No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.":
     "ไม่มีกระดานเทรดใดส่งข้อมูลใน 5 นาทีที่ผ่านมา จึงยังจับคู่ไม่ได้ ลองดูอีกครั้งในอีกสักนาที",
-  "Funding spreads across perp exchanges": "สเปรด Funding ข้ามกระดานเทรด Perp",
-  "Live funding rate spreads between perpetual futures exchanges, refreshed every minute.":
-    "สเปรด Funding Rate สดระหว่างกระดานเทรดสัญญา Perpetual อัปเดตทุกนาที",
   "Widest spreads": "สเปรดกว้างที่สุด",
   "Open the screener": "เปิดสกรีนเนอร์",
   "No pairs yet: an asset needs live markets on at least two venues.":
@@ -79,8 +76,6 @@ export const pages: Catalog = {
 
   // screener
   "Funding spread screener": "สกรีนเนอร์สเปรด Funding",
-  "Filter live cross-exchange funding spreads by open interest, volume and exchange type.":
-    "กรองสเปรด Funding สดข้ามกระดานเทรดตาม Open Interest วอลุ่ม และประเภทกระดานเทรด",
   "For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.":
     "สำหรับแต่ละสินทรัพย์ คือตลาดที่ถือ Long ได้ถูกที่สุดและตลาดที่ถือ Short ได้มากที่สุด บนกระดานเทรดที่ต่างกัน ทุกขาต้องผ่านตัวกรอง",
   "No pairs match these filters. Lower the minimum open interest or include more exchange types.":
@@ -158,8 +153,6 @@ export const pages: Catalog = {
   "No asset has live markets on two or more venues right now.":
     "ตอนนี้ไม่มีสินทรัพย์ใดมีตลาดเปิดอยู่ตั้งแต่ 2 กระดานเทรดขึ้นไป",
   Rates: "อัตรา",
-  "Funding APR for every asset across every perpetual exchange, in one grid.":
-    "Funding APR ของทุกสินทรัพย์บนทุกกระดานเทรด Perpetual ในตารางเดียว",
   "Every exchange's funding for the deepest assets at once. Positive means longs pay, so a short collects; an empty cell means that exchange has no market for the asset, not that funding is flat.":
     "Funding ของทุกกระดานเทรดสำหรับสินทรัพย์ที่ลึกที่สุดในคราวเดียว ค่าบวกหมายถึงฝั่ง Long จ่าย ฝั่ง Short จึงได้รับ ช่องว่างหมายถึงกระดานเทรดนั้นไม่มีตลาดของสินทรัพย์นี้ ไม่ใช่ว่า Funding ทรงตัว",
 
@@ -188,9 +181,6 @@ export const pages: Catalog = {
   "Exchanges quoting this asset that survived the mark-agreement check":
     "กระดานเทรดที่เสนอราคาสินทรัพย์นี้และผ่านการตรวจว่าราคา Mark ตรงกัน",
   Quoted: "เวลาเสนอราคา",
-  "Price gaps across exchanges": "ส่วนต่างราคาข้ามกระดานเทรด",
-  "Where one exchange's bid sits above another's ask.":
-    "จุดที่ Bid ของกระดานเทรดหนึ่งสูงกว่า Ask ของอีกกระดานเทรด",
   "Price gaps": "ส่วนต่างราคา",
   "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.":
     "สำหรับแต่ละสินทรัพย์ คือกระดานเทรดที่ซื้อได้ถูกที่สุดและขายได้แพงที่สุด ที่ราคาดีที่สุดของแต่ละ Order Book นี่คือ<b>ส่วนต่างที่เสนอราคาได้</b> ไม่ใช่เทรดที่ Fill ได้จริง: ไม่ได้สะท้อน Order Book ใต้ระดับแรก ค่าธรรมเนียม Taker หรือการโอนเงินสองครั้งที่โพซิชันจริงต้องใช้ ส่วนต่างที่กว้างที่สุดอยู่บน Order Book ที่บางที่สุด ตอนที่วัด สินทรัพย์ 395 จาก 721 ตัวมีส่วนต่างโดยมีค่ามัธยฐาน 1.6 bps ขณะที่อันดับต้น ๆ รองรับไซส์ที่ค้างอยู่ได้เพียง $3",
@@ -575,4 +565,17 @@ export const pages: Catalog = {
   "Quarantined exchanges are left out unless you tick them: their numbers are still collected, but not trusted to rank.":
     "กระดานเทรดที่ถูกกักจะไม่นับรวม เว้นแต่คุณติ๊กเลือก: ยังเก็บตัวเลขอยู่ แต่ไม่น่าเชื่อถือพอจะใช้จัดอันดับ",
   "Default exchanges": "กระดานเทรดเริ่มต้น",
+  "Crypto funding rate arbitrage across perp exchanges":
+    "อาร์บิทราจ Funding Rate คริปโตข้ามกระดานเทรด Perpetual",
+  "Live crypto funding rate spreads between perpetual futures exchanges, refreshed every minute: which exchange to long, which to short, and what the best pair paid over the last 7 days.":
+    "สเปรด Funding Rate คริปโตระหว่างกระดานเทรดสัญญา Perpetual แบบเรียลไทม์ อัปเดตทุกนาที: ควร Long ที่กระดานไหน Short ที่กระดานไหน และคู่ที่ดีที่สุดทำได้เท่าไรใน 7 วันที่ผ่านมา",
+  "Find funding rate arbitrage: filter live cross-exchange funding spreads for every perpetual pair by open interest, volume, steadiness and exchange.":
+    "ค้นหาอาร์บิทราจ Funding Rate: กรองสเปรด Funding ข้ามกระดานเทรดแบบเรียลไทม์ของทุกคู่สัญญา Perpetual ตาม Open Interest วอลุ่ม ความสม่ำเสมอ และกระดานเทรด",
+  "Live perpetual futures funding rates for every asset on every exchange in one grid, as APR now or averaged over 7, 30 or 60 days, with options gamma, macro and prediction market tabs.":
+    "Funding Rate ของสัญญา Perpetual แบบเรียลไทม์ของทุกสินทรัพย์ในทุกกระดานเทรดในตารางเดียว เป็น APR ปัจจุบันหรือเฉลี่ย 7, 30 หรือ 60 วัน พร้อมแท็บ Gamma ออปชัน มหภาค และตลาดคาดการณ์",
+  "Crypto arbitrage: price gaps across exchanges": "อาร์บิทราจคริปโต: ส่วนต่างราคาระหว่างกระดานเทรด",
+  "Live crypto arbitrage across perpetual futures exchanges: where one exchange's bid sits above another's ask, by how much, and the basis between them.":
+    "อาร์บิทราจคริปโตแบบเรียลไทม์ระหว่างกระดานเทรดสัญญา Perpetual: จุดที่ราคา Bid ของกระดานหนึ่งสูงกว่าราคา Ask ของอีกกระดาน สูงกว่าเท่าไร และ Basis ระหว่างกัน",
+  "Funding rate arbitrage screener": "สกรีนเนอร์อาร์บิทราจ Funding Rate",
+  "Crypto funding rates on every exchange": "Funding Rate คริปโตในทุกกระดานเทรด",
 };

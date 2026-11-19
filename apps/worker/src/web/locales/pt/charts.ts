@@ -169,7 +169,6 @@ export const charts: Catalog = {
   "{pct} net buy": "{pct} compra líquida",
   "Score is the mean of four components, each a percentile rank against this book's own trailing 30-day history — not a fixed scale, so the same raw number reads differently in a quiet stretch than a volatile one. <b>Funding</b> and <b>open interest</b> run high-is-greedy (crowded, levered longs paying to hold). <b>Liquidation skew</b> is inverted before averaging: a book where longs are being forced out is fear, however unusual that reading looks against its own history. <b>Taker flow</b> is net aggressive buying over aggressive selling, last 24h. Computed every 30 minutes by the collector (belyjelli/profitlock-worker, <code>collector rank-eval</code>'s sibling <code>market sentiment</code> job); coverage for liquidations and taker flow is not venue-complete, so this is a proxy, not a market-wide guarantee.":
     "O índice é a média de quatro componentes, cada um um ranking percentil contra o próprio histórico de 30 dias deste livro — não uma escala fixa, então o mesmo número bruto se lê de um jeito num período calmo e de outro num volátil. <b>Financiamento</b> e <b>open interest</b> indicam mais ganância quanto mais altos (longs alavancados e lotados pagando para manter a posição). O <b>viés de liquidações</b> é invertido antes da média: um livro em que longs estão sendo forçados a sair é medo, por mais incomum que essa leitura pareça frente ao próprio histórico. O <b>fluxo taker</b> é a compra agressiva líquida sobre a venda agressiva, nas últimas 24h. Calculado a cada 30 minutos pelo coletor (belyjelli/profitlock-worker, o job <code>market sentiment</code>, irmão do <code>collector rank-eval</code>); a cobertura de liquidações e de fluxo taker não inclui todas as corretoras, então isto é uma aproximação, não uma garantia para o mercado todo.",
-  "Fear & Greed": "Medo e Ganância",
   "A funding-market fear and greed score: OI-weighted funding, open interest, liquidation skew and taker flow, each ranked against its own 30-day history.":
     "Um índice de medo e ganância do mercado de financiamento: financiamento ponderado por OI, open interest, viés de liquidações e fluxo taker, cada um ranqueado contra o próprio histórico de 30 dias.",
   "{month} {day} {time}–{end} {zone}": "{day} {month} {time}–{end} {zone}",
@@ -330,4 +329,6 @@ export const charts: Catalog = {
   "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
     "Todos os outros pares de {codes} no site, calculados com as mesmas taxas em dólar, do maior movimento em 24 horas ao menor.",
   traded: "negociado",
+  "Crypto fear and greed index from funding and liquidations":
+    "Índice de medo e ganância cripto a partir de financiamento e liquidações",
 };

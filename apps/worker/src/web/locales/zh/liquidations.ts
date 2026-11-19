@@ -309,7 +309,6 @@ export const liquidations: Catalog = {
   Liquidated: "爆仓额",
   "Longs / shorts": "多头 / 空头",
   Events: "笔数",
-  "{asset} liquidations": "{asset} 爆仓",
   "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
     "{asset} 各交易所爆仓：逐小时多空对比、仓位被强平的价位，以及大额未平仓位的爆仓价。",
   "All assets": "全部资产",
@@ -610,4 +609,7 @@ export const liquidations: Catalog = {
   "top positions": "大户持仓",
   "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
     "各交易所自行公布的统计数据，每 15 分钟读取一次。全部账户每个账户只算一次，反映的是大众。大户是各交易所自定的群体（币安：按保证金排名前 20% 的账户），分别按持仓量和账户计算。主动买入是最近一小时主动成交量中买入所占的平均比例。“–”表示该交易所不公布此项数据。",
+  "{asset} liquidation map and live liquidations": "{asset} 爆仓地图与实时爆仓",
+  "Crypto liquidations: live liquidation map and whale positions":
+    "加密货币爆仓：实时爆仓地图与巨鲸持仓",
 };

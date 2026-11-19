@@ -1005,7 +1005,7 @@ ${takerCell(t)}
   return layout({
     title:
       asset === "BTC" && assetClass === "crypto"
-        ? tr("Whale orders")
+        ? tr("Whale orders: BTC order book walls and large trades")
         : `${asset} ${tr("whale orders")}`,
     description: tr(
       "Large resting limit orders and large market orders on Binance and Hyperliquid futures, drawn over the price: where the walls sit, how big, whether they were filled or pulled, and who hit them.",

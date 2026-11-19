@@ -47,9 +47,6 @@ export const pages: Catalog = {
   "Widest funding spread right now": "Größter Funding-Spread gerade",
   "No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.":
     "Keine Börse hat in den letzten fünf Minuten Daten gemeldet, also gibt es nichts zu paaren. Schau in einer Minute wieder.",
-  "Funding spreads across perp exchanges": "Funding-Spreads zwischen Perp-Börsen",
-  "Live funding rate spreads between perpetual futures exchanges, refreshed every minute.":
-    "Live-Spreads der Funding-Rate zwischen Börsen für Perpetual Futures, jede Minute aktualisiert.",
   "Widest spreads": "Größte Spreads",
   "Open the screener": "Screener öffnen",
   "No pairs yet: an asset needs live markets on at least two venues.":
@@ -79,8 +76,6 @@ export const pages: Catalog = {
 
   // screener
   "Funding spread screener": "Funding-Spread-Screener",
-  "Filter live cross-exchange funding spreads by open interest, volume and exchange type.":
-    "Filtere Live-Funding-Spreads zwischen Börsen nach Open Interest, Volumen und Börsentyp.",
   "For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.":
     "Für jedes Asset der günstigste Markt für Long und der teuerste für Short, auf verschiedenen Börsen. Jedes Leg muss die Filter bestehen.",
   "No pairs match these filters. Lower the minimum open interest or include more exchange types.":
@@ -162,8 +157,6 @@ export const pages: Catalog = {
   "No asset has live markets on two or more venues right now.":
     "Gerade hat kein Asset aktive Märkte auf zwei oder mehr Börsen.",
   Rates: "Raten",
-  "Funding APR for every asset across every perpetual exchange, in one grid.":
-    "Funding-APR für jedes Asset auf jeder Perpetual-Börse, in einem Raster.",
   "Every exchange's funding for the deepest assets at once. Positive means longs pay, so a short collects; an empty cell means that exchange has no market for the asset, not that funding is flat.":
     "Das Funding jeder Börse für die tiefsten Assets auf einen Blick. Positiv heißt, Longs zahlen, ein Short kassiert also; eine leere Zelle heißt, dass die Börse keinen Markt für das Asset hat, nicht dass das Funding seitwärts ist.",
 
@@ -192,9 +185,6 @@ export const pages: Catalog = {
   "Exchanges quoting this asset that survived the mark-agreement check":
     "Börsen, die dieses Asset quotieren und die Mark-Prüfung bestanden haben",
   Quoted: "Quotiert",
-  "Price gaps across exchanges": "Preislücken zwischen Börsen",
-  "Where one exchange's bid sits above another's ask.":
-    "Wo das Bid einer Börse über dem Ask einer anderen liegt.",
   "Price gaps": "Preislücken",
   "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.":
     "Für jedes Asset die günstigste Börse zum Kaufen und die teuerste zum Verkaufen, jeweils oben im Orderbuch. Das sind <b>quotierte Lücken</b>, keine ausführbaren Trades: Nichts hier berücksichtigt das Orderbuch unter Level 1, die Taker-Gebühren oder die zwei Transfers, die eine echte Position braucht. Die größten Lücken liegen in den dünnsten Orderbüchern — bei der Messung zeigten 395 von 721 Assets überhaupt eine Lücke, im Median 1.6 bps, während die Spitzenreiter nur für $3 ruhende Größe reichten.",
@@ -590,4 +580,17 @@ export const pages: Catalog = {
   "Quarantined exchanges are left out unless you tick them: their numbers are still collected, but not trusted to rank.":
     "Börsen unter Quarantäne bleiben außen vor, es sei denn, du hakst sie an: Ihre Zahlen werden weiter erfasst, gelten aber nicht als verlässlich fürs Ranking.",
   "Default exchanges": "Standardbörsen",
+  "Crypto funding rate arbitrage across perp exchanges":
+    "Krypto-Funding-Rate-Arbitrage zwischen Perpetual-Börsen",
+  "Live crypto funding rate spreads between perpetual futures exchanges, refreshed every minute: which exchange to long, which to short, and what the best pair paid over the last 7 days.":
+    "Live-Spreads der Krypto-Funding-Rates zwischen Perpetual-Futures-Börsen, jede Minute aktualisiert: wo long, wo short, und was das beste Paar in den letzten 7 Tagen gezahlt hat.",
+  "Find funding rate arbitrage: filter live cross-exchange funding spreads for every perpetual pair by open interest, volume, steadiness and exchange.":
+    "Funding-Rate-Arbitrage finden: Live-Funding-Spreads zwischen Börsen für jedes Perpetual-Paar nach Open Interest, Volumen, Stetigkeit und Börse filtern.",
+  "Live perpetual futures funding rates for every asset on every exchange in one grid, as APR now or averaged over 7, 30 or 60 days, with options gamma, macro and prediction market tabs.":
+    "Live-Funding-Rates von Perpetual Futures für jedes Asset an jeder Börse in einer Tabelle, als APR jetzt oder im Schnitt über 7, 30 oder 60 Tage, mit Tabs zu Options-Gamma, Makro und Prognosemärkten.",
+  "Crypto arbitrage: price gaps across exchanges": "Krypto-Arbitrage: Preislücken zwischen Börsen",
+  "Live crypto arbitrage across perpetual futures exchanges: where one exchange's bid sits above another's ask, by how much, and the basis between them.":
+    "Live-Krypto-Arbitrage zwischen Perpetual-Futures-Börsen: wo das Bid einer Börse über dem Ask einer anderen liegt, um wie viel, und die Basis dazwischen.",
+  "Funding rate arbitrage screener": "Funding-Rate-Arbitrage-Screener",
+  "Crypto funding rates on every exchange": "Krypto-Funding-Rates an allen Börsen",
 };

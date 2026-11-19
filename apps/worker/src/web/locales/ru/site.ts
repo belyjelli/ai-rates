@@ -266,4 +266,6 @@ export const site: Catalog = {
     "Термины сайта, по одной строке: поток ордеров, профиль объёма, опционы и гамма, фандинг и перпетуалы, ликвидации и киты.",
   "The words the site uses, each in one line: order flow, the volume profile, options and gamma, funding, liquidations. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
     "Слова, которыми пользуется сайт, по одной строке: поток ордеров, профиль объёма, опционы и гамма, фандинг, ликвидации. У каждого термина своя ссылка: /glossary#cvd открывает эту страницу на CVD.",
+  "Crypto derivatives glossary: funding, liquidations, options":
+    "Глоссарий криптодеривативов: фандинг, ликвидации, опционы",
 };

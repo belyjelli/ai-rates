@@ -153,4 +153,6 @@ export const exchanges: Catalog = {
   Quarantined: "กักกัน",
   "Quarantined: {venues}. Their numbers failed the venue review's checks (funding copied from another exchange, or volume and open interest far beyond what their reserves could back), so they are still collected and shown here but left out of the default Screener and Arbitrage rankings; tick them in the exchange picker to rank them.":
     "กักกัน: {venues} ตัวเลขของกระดานเหล่านี้ไม่ผ่านการตรวจสอบกระดานเทรด (Funding ลอกมาจากกระดานอื่น หรือวอลุ่มและ Open Interest สูงเกินกว่าที่เงินสำรองจะรองรับได้มาก) จึงยังเก็บข้อมูลและแสดงที่นี่ แต่ไม่รวมในอันดับค่าเริ่มต้นของสกรีนเนอร์และอาร์บิทราจ ติ๊กเลือกในตัวเลือกกระดานเทรดเพื่อจัดอันดับด้วย",
+  "Crypto exchange rankings: fees, liquidity and reserves":
+    "อันดับกระดานเทรดคริปโต: ค่าธรรมเนียม สภาพคล่อง และทุนสำรอง",
 };

@@ -261,4 +261,6 @@ export const site: Catalog = {
     "このサイトの用語を 1 行ずつ：オーダーフロー、ボリュームプロファイル、オプションとガンマ、資金調達率と無期限先物、清算とクジラ。",
   "The words the site uses, each in one line: order flow, the volume profile, options and gamma, funding, liquidations. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
     "このサイトで使う用語を 1 行ずつ：オーダーフロー、ボリュームプロファイル、オプションとガンマ、資金調達率、清算。用語ごとに共有用のリンクがあり、/glossary#cvd でこのページの CVD が開きます。",
+  "Crypto derivatives glossary: funding, liquidations, options":
+    "暗号資産デリバティブ用語集：資金調達率、清算、オプション",
 };

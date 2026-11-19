@@ -20,7 +20,7 @@ import { glossary } from "../web/glossary";
 import { greekFragment, isGreek } from "../web/greeks";
 import { holdingsFragment, holdingsPage, isHoldingsPanel, stockPageView } from "../web/holdings";
 import { investorPage } from "../web/holdings-investor";
-import { DEFAULT_LOCALE, type Locale, tr, withLocale } from "../web/i18n";
+import { DEFAULT_LOCALE, LOCALES, type Locale, tr, withLocale } from "../web/i18n";
 import { indexPage } from "../web/index-page";
 import { INDEX_PANEL, INDEX_PERPS, indexesFragment } from "../web/indexes";
 import { installAsset } from "../web/install";
@@ -30,6 +30,7 @@ import { SITE_ORIGIN } from "../web/layout";
 import { legal } from "../web/legal";
 import { levelsFragment } from "../web/levels";
 import { liquidations, liquidationsPanel, marketLiquidationText } from "../web/liquidations";
+import { isLocalizable, localizedPath } from "../web/locale-path";
 import { isMacroPanel, MACRO_NEEDS, type MacroPanel, macroFragment } from "../web/macro";
 import {
   NARRATOR_KEEP,
@@ -1661,7 +1662,32 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
         const chart = c.asset_class === "crypto" && c.base === "BTC" ? [] : [`/chart/${tail}`];
         return [assetHref(c.base, c.asset_class), `/liquidations/${tail}`, ...chart];
       });
-      const paths = [...SITEMAP_PATHS, ...assets];
+      // Since 2026-11-19 also every exchange, world index and investor page, and the backtest and
+      // price-gap pages of the 50 crypto assets with the most open interest. Each list that fails to
+      // read costs only its own pages.
+      const [exchanges, indexes, investors] = await Promise.all([
+        deps.data.exchanges().catch(() => []),
+        deps.data.indexLevels().catch(() => []),
+        deps.data.holdingsCards().catch(() => []),
+      ]);
+      const topCrypto = unique
+        .filter((c) => c.asset_class === "crypto")
+        .slice(0, 50)
+        .map((c) => encodeURIComponent(c.base));
+      const more = [
+        ...exchanges.map((e) => `/markets/exchange/${encodeURIComponent(e.id)}`),
+        ...indexes.map((i) => `/indexes/${encodeURIComponent(i.ticker)}`),
+        ...investors.map((h) => `/holdings/${encodeURIComponent(h.portfolio)}`),
+        ...topCrypto.flatMap((base) => [`/pair/${base}`, `/price-pair/${base}`]),
+      ];
+      const english = [...new Set([...SITEMAP_PATHS, ...assets, ...more])];
+      // Every translated page once per language (web/locale-path.ts); each page's own hreflang set
+      // ties the versions together.
+      const paths = LOCALES.flatMap((locale) =>
+        locale === DEFAULT_LOCALE
+          ? english
+          : english.filter(isLocalizable).map((p) => localizedPath(locale, p)),
+      );
       const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${paths.map((p) => `  <url><loc>${SITE_ORIGIN}${esc(p)}</loc></url>`).join("\n")}\n</urlset>\n`;
       return new Response(body, {
         headers: {

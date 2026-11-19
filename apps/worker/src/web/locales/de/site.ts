@@ -265,4 +265,6 @@ export const site: Catalog = {
     "Die Begriffe der Seite in je einer Zeile: Orderflow, Volumenprofil, Optionen und Gamma, Funding und Perps, Liquidationen und Wale.",
   "The words the site uses, each in one line: order flow, the volume profile, options and gamma, funding, liquidations. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
     "Die Wörter, die die Seite verwendet, je in einer Zeile: Orderflow, Volumenprofil, Optionen und Gamma, Funding, Liquidationen. Jeder Begriff hat einen eigenen Link zum Teilen: /glossary#cvd öffnet diese Seite bei CVD.",
+  "Crypto derivatives glossary: funding, liquidations, options":
+    "Glossar für Krypto-Derivate: Funding, Liquidationen, Optionen",
 };

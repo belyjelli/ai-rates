@@ -248,4 +248,6 @@ export const site: Catalog = {
     "คำศัพท์ของเว็บไซต์ คำละหนึ่งบรรทัด: Order Flow, Volume Profile, ออปชันและ Gamma, Funding และ Perp, การล้างพอร์ตและวาฬ",
   "The words the site uses, each in one line: order flow, the volume profile, options and gamma, funding, liquidations. Every term has its own link to share: /glossary#cvd opens this page at CVD.":
     "คำที่เว็บไซต์ใช้ คำละหนึ่งบรรทัด: Order Flow, Volume Profile, ออปชันและ Gamma, Funding, การล้างพอร์ต ทุกคำมีลิงก์ของตัวเองไว้แชร์: /glossary#cvd เปิดหน้านี้ที่ CVD",
+  "Crypto derivatives glossary: funding, liquidations, options":
+    "อภิธานศัพท์อนุพันธ์คริปโต: Funding การล้างพอร์ต ออปชัน",
 };

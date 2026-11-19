@@ -150,4 +150,6 @@ export const exchanges: Catalog = {
   Quarantined: "隔離中",
   "Quarantined: {venues}. Their numbers failed the venue review's checks (funding copied from another exchange, or volume and open interest far beyond what their reserves could back), so they are still collected and shown here but left out of the default Screener and Arbitrage rankings; tick them in the exchange picker to rank them.":
     "隔離中：{venues}。取引所レビューの検査に通らなかったため（資金調達率が他の取引所の写しである、または出来高や建玉が準備金で裏付けられる規模を大きく超える）、データは引き続き収集しここに表示していますが、スクリーナーとアービトラージの既定のランキングからは外しています。ランキングに含めるには取引所の選択でチェックしてください。",
+  "Crypto exchange rankings: fees, liquidity and reserves":
+    "暗号資産取引所ランキング：手数料、流動性、準備金",
 };

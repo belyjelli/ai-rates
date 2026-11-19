@@ -47,9 +47,6 @@ export const pages: Catalog = {
   "Widest funding spread right now": "Maior spread de financiamento agora",
   "No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.":
     "Nenhuma corretora enviou dados nos últimos cinco minutos, então não há o que parear. Confira de novo em um minuto.",
-  "Funding spreads across perp exchanges": "Spreads de financiamento entre corretoras de perpétuos",
-  "Live funding rate spreads between perpetual futures exchanges, refreshed every minute.":
-    "Spreads de taxa de financiamento ao vivo entre corretoras de futuros perpétuos, atualizados a cada minuto.",
   "Widest spreads": "Maiores spreads",
   "Open the screener": "Abrir o screener",
   "No pairs yet: an asset needs live markets on at least two venues.":
@@ -79,8 +76,6 @@ export const pages: Catalog = {
 
   // screener
   "Funding spread screener": "Screener de spread de financiamento",
-  "Filter live cross-exchange funding spreads by open interest, volume and exchange type.":
-    "Filtre spreads de financiamento ao vivo entre corretoras por open interest, volume e tipo de corretora.",
   "For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.":
     "Para cada ativo, o mercado mais barato para ficar long e o mais rico para ficar short, em corretoras diferentes. Cada perna precisa passar nos filtros.",
   "No pairs match these filters. Lower the minimum open interest or include more exchange types.":
@@ -162,8 +157,6 @@ export const pages: Catalog = {
   "No asset has live markets on two or more venues right now.":
     "Nenhum ativo tem mercados ativos em duas ou mais corretoras agora.",
   Rates: "Taxas",
-  "Funding APR for every asset across every perpetual exchange, in one grid.":
-    "APR de financiamento de todos os ativos em todas as corretoras de perpétuos, em uma só grade.",
   "Every exchange's funding for the deepest assets at once. Positive means longs pay, so a short collects; an empty cell means that exchange has no market for the asset, not that funding is flat.":
     "O financiamento de cada corretora para os ativos mais profundos de uma vez. Positivo significa que os longs pagam, então um short recebe; uma célula vazia significa que a corretora não tem mercado para o ativo, não que o financiamento esteja lateral.",
 
@@ -192,9 +185,6 @@ export const pages: Catalog = {
   "Exchanges quoting this asset that survived the mark-agreement check":
     "Corretoras que cotam este ativo e passaram na checagem de concordância do preço de marcação",
   Quoted: "Cotado",
-  "Price gaps across exchanges": "Diferenças de preço entre corretoras",
-  "Where one exchange's bid sits above another's ask.":
-    "Onde o bid de uma corretora fica acima do ask de outra.",
   "Price gaps": "Diferenças de preço",
   "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.":
     "Para cada ativo, a corretora mais barata para comprar e a mais cara para vender, no topo de cada livro. São <b>diferenças cotáveis</b>, não operações executáveis: nada aqui reflete o livro abaixo do nível 1, as tarifas de taker ou as duas transferências que uma posição real exige. As maiores diferenças ficam nos livros mais rasos — quando isso foi medido, 395 de 721 ativos mostravam alguma diferença, com mediana de 1,6 bps, enquanto os líderes comportavam apenas $3 de tamanho no livro.",
@@ -593,4 +583,18 @@ export const pages: Catalog = {
   "Quarantined exchanges are left out unless you tick them: their numbers are still collected, but not trusted to rank.":
     "Corretoras em quarentena ficam de fora a menos que você as marque: os números ainda são coletados, mas não são confiáveis para ranking.",
   "Default exchanges": "Corretoras padrão",
+  "Crypto funding rate arbitrage across perp exchanges":
+    "Arbitragem de taxa de financiamento cripto entre corretoras de perpétuos",
+  "Live crypto funding rate spreads between perpetual futures exchanges, refreshed every minute: which exchange to long, which to short, and what the best pair paid over the last 7 days.":
+    "Spreads de taxa de financiamento cripto entre corretoras de futuros perpétuos, atualizados a cada minuto: em qual corretora abrir long, em qual abrir short e quanto o melhor par rendeu nos últimos 7 dias.",
+  "Find funding rate arbitrage: filter live cross-exchange funding spreads for every perpetual pair by open interest, volume, steadiness and exchange.":
+    "Encontre arbitragem de taxa de financiamento: filtre os spreads de financiamento entre corretoras, ao vivo, para cada par perpétuo por open interest, volume, estabilidade e corretora.",
+  "Live perpetual futures funding rates for every asset on every exchange in one grid, as APR now or averaged over 7, 30 or 60 days, with options gamma, macro and prediction market tabs.":
+    "Taxas de financiamento de futuros perpétuos ao vivo para cada ativo em cada corretora, numa só tabela: APR agora ou média de 7, 30 ou 60 dias, com abas de gamma de opções, macro e mercados de previsão.",
+  "Crypto arbitrage: price gaps across exchanges":
+    "Arbitragem cripto: diferenças de preço entre corretoras",
+  "Live crypto arbitrage across perpetual futures exchanges: where one exchange's bid sits above another's ask, by how much, and the basis between them.":
+    "Arbitragem cripto ao vivo entre corretoras de futuros perpétuos: onde o bid de uma corretora fica acima do ask de outra, por quanto e qual a base entre elas.",
+  "Funding rate arbitrage screener": "Screener de arbitragem de taxa de financiamento",
+  "Crypto funding rates on every exchange": "Taxas de financiamento cripto em todas as corretoras",
 };

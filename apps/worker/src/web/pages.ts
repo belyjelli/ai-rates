@@ -346,9 +346,9 @@ export function home(data: {
   const runDay = data.verified[0]?.run_day;
 
   return layout({
-    title: tr("Funding spreads across perp exchanges"),
+    title: tr("Crypto funding rate arbitrage across perp exchanges"),
     description: tr(
-      "Live funding rate spreads between perpetual futures exchanges, refreshed every minute.",
+      "Live crypto funding rate spreads between perpetual futures exchanges, refreshed every minute: which exchange to long, which to short, and what the best pair paid over the last 7 days.",
     ),
     path: "/",
     overview: data.overview,
@@ -493,9 +493,9 @@ export function screener(data: {
   now: number;
 }): string {
   return layout({
-    title: tr("Funding spread screener"),
+    title: tr("Funding rate arbitrage screener"),
     description: tr(
-      "Filter live cross-exchange funding spreads by open interest, volume and exchange type.",
+      "Find funding rate arbitrage: filter live cross-exchange funding spreads for every perpetual pair by open interest, volume, steadiness and exchange.",
     ),
     path: "/screener",
     overview: data.overview,
@@ -1076,8 +1076,10 @@ export function heatmap(data: {
   const gammaLazy = gammaFilled ? "" : ` data-lazy="${esc(gammaPanelHref(params, gammaParams))}"`;
 
   return layout({
-    title: tr("Rates"),
-    description: tr("Funding APR for every asset across every perpetual exchange, in one grid."),
+    title: tr("Crypto funding rates on every exchange"),
+    description: tr(
+      "Live perpetual futures funding rates for every asset on every exchange in one grid, as APR now or averaged over 7, 30 or 60 days, with options gamma, macro and prediction market tabs.",
+    ),
     path: "/rates",
     overview,
     now,
@@ -1245,8 +1247,10 @@ ${side("sell", r.sell_venue_id, r.sell_symbol, r.sell_price, r.sell_inverted, { 
 <script>${ARB_SCRIPT}</script>`;
 
   return layout({
-    title: tr("Price gaps across exchanges"),
-    description: tr("Where one exchange's bid sits above another's ask."),
+    title: tr("Crypto arbitrage: price gaps across exchanges"),
+    description: tr(
+      "Live crypto arbitrage across perpetual futures exchanges: where one exchange's bid sits above another's ask, by how much, and the basis between them.",
+    ),
     path: "/arbitrage",
     overview,
     now,

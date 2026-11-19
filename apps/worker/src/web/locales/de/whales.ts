@@ -144,4 +144,6 @@ export const whales: Catalog = {
   "IV move": "IV-Bewegung",
   "The expected move a day ahead: one and two standard deviations either side of the price":
     "Die erwartete Bewegung für den nächsten Tag: eine und zwei Standardabweichungen beiderseits des Preises",
+  "Whale orders: BTC order book walls and large trades":
+    "Wal-Orders: BTC-Orderbuch-Wände und große Trades",
 };

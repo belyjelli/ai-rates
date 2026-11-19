@@ -172,7 +172,6 @@ export const charts: Catalog = {
   "{pct} net buy": "{pct} нетто-покупки",
   "Score is the mean of four components, each a percentile rank against this book's own trailing 30-day history — not a fixed scale, so the same raw number reads differently in a quiet stretch than a volatile one. <b>Funding</b> and <b>open interest</b> run high-is-greedy (crowded, levered longs paying to hold). <b>Liquidation skew</b> is inverted before averaging: a book where longs are being forced out is fear, however unusual that reading looks against its own history. <b>Taker flow</b> is net aggressive buying over aggressive selling, last 24h. Computed every 30 minutes by the collector (belyjelli/profitlock-worker, <code>collector rank-eval</code>'s sibling <code>market sentiment</code> job); coverage for liquidations and taker flow is not venue-complete, so this is a proxy, not a market-wide guarantee.":
     "Индекс — среднее четырёх компонентов, каждый из которых — перцентильный ранг относительно собственной истории этого рынка за последние 30 дней. Это не фиксированная шкала, поэтому одно и то же исходное число в спокойный период читается иначе, чем в волатильный. Для <b>фандинга</b> и <b>открытого интереса</b> чем выше, тем больше жадности (скученные лонги с плечом платят за удержание позиции). <b>Перекос ликвидаций</b> перед усреднением инвертируется: рынок, где лонги принудительно выбивает, — это страх, как бы необычно ни выглядело это значение на фоне собственной истории. <b>Поток тейкеров</b> — перевес агрессивных покупок над агрессивными продажами за последние 24 ч. Считается сборщиком каждые 30 минут (belyjelli/profitlock-worker, задача <code>market sentiment</code>, соседняя с <code>collector rank-eval</code>); ликвидации и поток тейкеров собираются не со всех бирж, поэтому это приближённый показатель, а не гарантия по всему рынку.",
-  "Fear & Greed": "Страх и жадность",
   "A funding-market fear and greed score: OI-weighted funding, open interest, liquidation skew and taker flow, each ranked against its own 30-day history.":
     "Индекс страха и жадности рынка фандинга: фандинг, взвешенный по OI, открытый интерес, перекос ликвидаций и поток тейкеров, каждый ранжирован относительно своей истории за 30 дней.",
   "{month} {day} {time}–{end} {zone}": "{day} {month} {time}–{end} {zone}",
@@ -332,4 +331,6 @@ export const charts: Catalog = {
   "Every other pair of {codes} on the site, priced from the same dollar rates, the biggest 24-hour move first.":
     "Все остальные пары {codes} на сайте, из тех же долларовых курсов, по убыванию изменения за 24 часа.",
   traded: "торгуется",
+  "Crypto fear and greed index from funding and liquidations":
+    "Индекс страха и жадности криптовалют по фандингу и ликвидациям",
 };

@@ -315,7 +315,6 @@ export const liquidations: Catalog = {
   Liquidated: "ถูกล้าง",
   "Longs / shorts": "Long / Short",
   Events: "ครั้ง",
-  "{asset} liquidations": "การล้างพอร์ต {asset}",
   "{asset} liquidations across exchanges: longs against shorts by the hour, the price levels positions were closed at, and where large open positions would be liquidated.":
     "การล้างพอร์ต {asset} ทุกกระดานเทรด: Long เทียบ Short รายชั่วโมง ระดับราคาที่โพซิชันถูกปิด และจุดที่โพซิชันใหญ่ที่เปิดอยู่จะถูกล้าง",
   "All assets": "ทุกสินทรัพย์",
@@ -621,4 +620,7 @@ export const liquidations: Catalog = {
   "top positions": "โพซิชันรายใหญ่",
   "Each exchange's own published statistics, read every 15 minutes. All accounts counts every account once, so it reads the crowd. Top traders are each exchange's own group (Binance: the top 20% by margin), by position size and by accounts. Taker buys is the share of taker volume that bought, averaged over the last hour. A dash is a figure the exchange does not publish.":
     "สถิติที่แต่ละกระดานเทรดเผยแพร่เอง อ่านทุก 15 นาที บัญชีทั้งหมดนับแต่ละบัญชีครั้งเดียว จึงสะท้อนมุมมองของคนส่วนใหญ่ เทรดเดอร์รายใหญ่คือกลุ่มที่แต่ละกระดานกำหนดเอง (Binance: บัญชี 20% แรกตามมาร์จิ้น) ทั้งตามขนาดโพซิชันและตามจำนวนบัญชี แรงซื้อ Taker คือสัดส่วนเฉลี่ยของวอลุ่ม Taker ในชั่วโมงล่าสุดที่เป็นการซื้อ ขีด (–) คือตัวเลขที่กระดานเทรดนั้นไม่เผยแพร่",
+  "{asset} liquidation map and live liquidations": "แผนที่การล้างพอร์ต {asset} และการล้างพอร์ตแบบเรียลไทม์",
+  "Crypto liquidations: live liquidation map and whale positions":
+    "การล้างพอร์ตคริปโต: แผนที่การล้างพอร์ตแบบเรียลไทม์และสถานะของวาฬ",
 };

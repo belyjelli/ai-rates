@@ -28,6 +28,7 @@ import { adminCredentials } from "./referrals/auth";
 import { forgetReferrals, loadReferrals } from "./referrals/load";
 import { ReferralStoreDO, referralStore } from "./referrals/store-do";
 import { DEFAULT_LOCALE, languageSwitch, requestLocale } from "./web/i18n";
+import { localizeHtml, localizeSwitch, routeLocale } from "./web/locale-path";
 import { htmlToMarkdown, markdownAddress, wantsMarkdown } from "./web/markdown";
 
 export { PinStoreDO, ProbeDO, ReferralStoreDO };
@@ -83,9 +84,19 @@ async function handle(
   const www = wwwRedirect(incoming);
   if (www) return www;
 
+  // `/ru/liquidations` is /liquidations in Russian (web/locale-path.ts): the prefix is taken off here,
+  // so everything below reads the bare page, and put back on its links on the way out. /en/... and
+  // untranslated pages under a prefix are sent to the bare address.
+  const localeRoute = routeLocale(incoming);
+  if (localeRoute?.kind === "redirect") return localeRoute.response;
+  const unprefixed = (
+    localeRoute?.kind === "localized" ? localeRoute.request : incoming
+  ) as Request<unknown, IncomingRequestCfProperties>;
+  const pathLocale = localeRoute?.kind === "localized" ? localeRoute.locale : null;
+
   // `/liquidations.md` is /liquidations as Markdown (web/markdown.ts): from here on it is that page,
   // asked for with `Accept: text/markdown`, so it shares its cache copy and is converted on the way out.
-  const request = (markdownAddress(incoming) ?? incoming) as Request<
+  const request = (markdownAddress(unprefixed) ?? unprefixed) as Request<
     unknown,
     IncomingRequestCfProperties
   >;
@@ -107,10 +118,11 @@ async function handle(
 
   // The footer's language switch sets a cookie and goes back: never cached, and not a page view.
   const switched = languageSwitch(request);
-  if (switched) return switched;
+  if (switched) return localizeSwitch(switched, request);
 
   // Ahead of the cache: a page served from it never reaches the app, and would go uncounted.
-  const visit = visitPoint(request, request.cf?.country);
+  // Counted at the address the reader opened, prefix included, so a search landing in Russian shows.
+  const visit = visitPoint(pathLocale ? incoming : request, request.cf?.country);
   if (visit) env.ANAL.writeDataPoint(visit);
 
   // Entered at /admin/referrals and kept in ReferralStoreDO. Affiliate IDs are configuration, never
@@ -125,7 +137,8 @@ async function handle(
   // chose English. English keeps the bare URL, so its existing copies stay valid across this change.
   const cache = caches.default;
   const bucket = geoCacheBucket(requestGeo(request), Object.keys(referrals).length > 0);
-  const locale = requestLocale(request);
+  // A language in the address wins over the cookie and the browser's languages.
+  const locale = pathLocale ?? requestLocale(request);
 
   // A member's live refresh: a pass that is not current is told so, never served the ordinary copy,
   // so the page asks the member site for a new one. Kept in copies of its own (`__live`), never the
@@ -265,7 +278,9 @@ async function handle(
   const response = shed
     ? await edge.serveShed({ ...serving, render: () => render(true) })
     : await (live ? liveEdge : edge).serve(serving);
-  return varyByLanguage(await asMarkdown(request, member ? memberCopy(response) : response));
+  // Links and canonical pointed at the prefixed addresses, and the hreflang set added (web/locale-path.ts).
+  const localized = localizeHtml(member ? memberCopy(response) : response, pathLocale);
+  return varyByLanguage(await asMarkdown(request, localized));
 }
 
 /** A member's live copy: fresh for LIVE_MAX_AGE rather than a page's 30 s (app/live-pass.ts). */

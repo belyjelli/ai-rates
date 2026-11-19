@@ -140,4 +140,5 @@ export const whales: Catalog = {
   "IV move": "IV 변동폭",
   "The expected move a day ahead: one and two standard deviations either side of the price":
     "1일 후 예상 변동폭: 가격 위아래 1표준편차와 2표준편차",
+  "Whale orders: BTC order book walls and large trades": "고래 주문: BTC 호가창 벽과 대량 체결",
 };

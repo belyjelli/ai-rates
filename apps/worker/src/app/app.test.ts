@@ -1210,9 +1210,11 @@ describe("pages", () => {
     // An asset's address is its own page to a search engine, with the asset in its title; the bare
     // page stays the hub (2026-11-14: every asset's page used to name /liquidations canonical).
     expect(one).toContain('<link rel="canonical" href="https://airrates.net/liquidations/ETH">');
-    expect(one).toContain("<title>ETH liquidations · airrates</title>");
+    expect(one).toContain("<title>ETH liquidation map and live liquidations · airrates</title>");
     expect(list).toContain('<link rel="canonical" href="https://airrates.net/liquidations">');
-    expect(list).toContain("<title>Liquidations · airrates</title>");
+    expect(list).toContain(
+      "<title>Crypto liquidations: live liquidation map and whale positions · airrates</title>",
+    );
   });
 
   test("with no asset named, the priced tab is primed with the busiest one", async () => {
@@ -7311,7 +7313,21 @@ describe("api", () => {
     );
     const listed = await withAssets.text();
     expect(listed).toContain("<loc>https://airrates.net/markets/asset/BTC</loc>");
-    expect(listed.match(/markets\/asset\/BTC/g)).toHaveLength(1);
+    expect(listed.match(/<loc>https:\/\/airrates\.net\/markets\/asset\/BTC<\/loc>/g)).toHaveLength(
+      1,
+    );
+    // Every translated page once per language, under its prefix (web/locale-path.ts); the untranslated
+    // pages only in English.
+    expect(listed).toContain("<loc>https://airrates.net/ru/liquidations/BTC</loc>");
+    expect(listed).toContain("<loc>https://airrates.net/zh</loc>");
+    expect(listed).toContain("<loc>https://airrates.net/th/rates</loc>");
+    expect(listed).not.toContain("/ru/about");
+    expect(listed).not.toContain("/en/");
+    // Each exchange's page, and the backtest and price gaps of the assets with the most open interest.
+    expect(listed).toContain("<loc>https://airrates.net/markets/exchange/okx</loc>");
+    expect(listed).toContain("<loc>https://airrates.net/ko/markets/exchange/okx</loc>");
+    expect(listed).toContain("<loc>https://airrates.net/pair/BTC</loc>");
+    expect(listed).toContain("<loc>https://airrates.net/price-pair/BTC</loc>");
     // Its liquidations too; not its chart, which is the bare /chart.
     expect(listed).toContain("<loc>https://airrates.net/liquidations/BTC</loc>");
     expect(listed).not.toContain("/chart/BTC");

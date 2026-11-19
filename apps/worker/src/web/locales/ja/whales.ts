@@ -142,4 +142,5 @@ export const whales: Catalog = {
   "IV move": "IV 変動幅",
   "The expected move a day ahead: one and two standard deviations either side of the price":
     "1日先の予想変動幅：価格の上下1標準偏差と2標準偏差",
+  "Whale orders: BTC order book walls and large trades": "クジラ注文：BTC の板の壁と大口約定",
 };

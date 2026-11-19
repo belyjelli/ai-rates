@@ -52,9 +52,6 @@ export const pages: Catalog = {
   "Widest funding spread right now": "Самый широкий спред фандинга сейчас",
   "No venue has reported in the last five minutes, so there's nothing to pair. Check again in a minute.":
     "За последние пять минут ни одна биржа не прислала данные, поэтому составить пары не из чего. Проверьте через минуту.",
-  "Funding spreads across perp exchanges": "Спреды фандинга между биржами бессрочных фьючерсов",
-  "Live funding rate spreads between perpetual futures exchanges, refreshed every minute.":
-    "Спреды ставок финансирования между биржами бессрочных фьючерсов в реальном времени, обновление каждую минуту.",
   "Widest spreads": "Самые широкие спреды",
   "Open the screener": "Открыть скринер",
   "No pairs yet: an asset needs live markets on at least two venues.":
@@ -84,8 +81,6 @@ export const pages: Catalog = {
 
   // screener
   "Funding spread screener": "Скринер спредов фандинга",
-  "Filter live cross-exchange funding spreads by open interest, volume and exchange type.":
-    "Фильтруйте межбиржевые спреды фандинга в реальном времени по открытому интересу, объёму и типу биржи.",
   "For each asset, the cheapest market to hold long and the richest to hold short, on different exchanges. Each leg must pass the filters.":
     "Для каждого актива — самый дешёвый рынок для лонга и самый доходный для шорта на разных биржах. Каждая нога должна пройти фильтры.",
   "No pairs match these filters. Lower the minimum open interest or include more exchange types.":
@@ -164,8 +159,6 @@ export const pages: Catalog = {
   "No asset has live markets on two or more venues right now.":
     "Сейчас ни у одного актива нет активных рынков на двух и более биржах.",
   Rates: "Ставки",
-  "Funding APR for every asset across every perpetual exchange, in one grid.":
-    "APR фандинга по каждому активу на каждой бирже бессрочных фьючерсов в одной таблице.",
   "Every exchange's funding for the deepest assets at once. Positive means longs pay, so a short collects; an empty cell means that exchange has no market for the asset, not that funding is flat.":
     "Фандинг всех бирж по самым ликвидным активам сразу. Положительное значение — платят лонги, шорт получает; пустая ячейка значит, что у биржи нет рынка по активу, а не что фандинг нулевой.",
 
@@ -194,8 +187,6 @@ export const pages: Catalog = {
   "Exchanges quoting this asset that survived the mark-agreement check":
     "Биржи с котировками актива, прошедшие проверку согласованности маркировки",
   Quoted: "Котировка",
-  "Price gaps across exchanges": "Ценовые разрывы между биржами",
-  "Where one exchange's bid sits above another's ask.": "Где бид одной биржи выше аска другой.",
   "Price gaps": "Ценовые разрывы",
   "For each asset, the cheapest exchange to buy and the dearest to sell, at the top of each book. These are <b>quotable gaps</b>, not fillable trades: nothing here reflects the book below level 1, the taker fees, or the two transfers a real position needs. The widest gaps sit on the thinnest books — when this was measured, 395 of 721 assets showed any gap at a median of 1.6 bps, while the leaders were good for as little as $3 of resting size.":
     "Для каждого актива — самая дешёвая биржа для покупки и самая дорогая для продажи на вершине каждого стакана. Это <b>котируемые разрывы</b>, а не исполнимые сделки: здесь не учтены стакан ниже первого уровня, тейкер-комиссии и два перевода, которые нужны реальной позиции. Самые широкие разрывы — на самых тонких стаканах: на момент замера разрыв был у 395 из 721 актива с медианой 1.6 bps, а у лидеров выставленный объём составлял всего $3.",
@@ -588,4 +579,17 @@ export const pages: Catalog = {
   "Quarantined exchanges are left out unless you tick them: their numbers are still collected, but not trusted to rank.":
     "Биржи в карантине не учитываются, пока вы их не отметите: их данные собираются, но им не доверяют настолько, чтобы ранжировать.",
   "Default exchanges": "Биржи по умолчанию",
+  "Crypto funding rate arbitrage across perp exchanges":
+    "Арбитраж фандинга криптовалют между биржами бессрочных фьючерсов",
+  "Live crypto funding rate spreads between perpetual futures exchanges, refreshed every minute: which exchange to long, which to short, and what the best pair paid over the last 7 days.":
+    "Спреды ставок финансирования криптовалют между биржами бессрочных фьючерсов в реальном времени, обновление каждую минуту: где открывать лонг, где шорт и сколько лучшая пара принесла за последние 7 дней.",
+  "Find funding rate arbitrage: filter live cross-exchange funding spreads for every perpetual pair by open interest, volume, steadiness and exchange.":
+    "Найдите арбитраж фандинга: фильтруйте межбиржевые спреды фандинга в реальном времени по каждой паре бессрочных фьючерсов по открытому интересу, объёму, стабильности и бирже.",
+  "Live perpetual futures funding rates for every asset on every exchange in one grid, as APR now or averaged over 7, 30 or 60 days, with options gamma, macro and prediction market tabs.":
+    "Ставки финансирования бессрочных фьючерсов в реальном времени по каждому активу на каждой бирже в одной таблице: APR сейчас или в среднем за 7, 30 или 60 дней, плюс вкладки с гаммой опционов, макро и рынками предсказаний.",
+  "Crypto arbitrage: price gaps across exchanges": "Криптоарбитраж: ценовые разрывы между биржами",
+  "Live crypto arbitrage across perpetual futures exchanges: where one exchange's bid sits above another's ask, by how much, and the basis between them.":
+    "Криптоарбитраж в реальном времени между биржами бессрочных фьючерсов: где бид одной биржи выше аска другой, на сколько и какой между ними базис.",
+  "Funding rate arbitrage screener": "Скринер арбитража фандинга",
+  "Crypto funding rates on every exchange": "Ставки финансирования криптовалют на всех биржах",
 };

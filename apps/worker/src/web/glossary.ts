@@ -345,7 +345,7 @@ export function glossary(data: { overview: Overview; now: number }): string {
     )
     .join("");
   return layout({
-    title: tr("Terminology"),
+    title: tr("Crypto derivatives glossary: funding, liquidations, options"),
     description: tr(
       "The site's terms in one line each: order flow, the volume profile, options and gamma, funding and perps, liquidations and whales.",
     ),
