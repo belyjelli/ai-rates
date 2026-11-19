@@ -1789,10 +1789,12 @@ export interface DataSource {
   /**
    * How each exchange's traders lean on one asset over the window (long_short_ratios, collector
    * migration 060), averaged into `bucketMinutes` steps. Empty before the table exists or is granted.
+   * `assetClass` null (an address without one, /liquidations/BTC) reads the class the collector holds
+   * figures for, crypto first.
    */
   positioning(options: {
     base: string;
-    assetClass: string;
+    assetClass: AssetClass | null;
     windowHours: number;
     bucketMinutes: number;
   }): Promise<PositioningVenue[]>;
@@ -2724,9 +2726,23 @@ async function etfFlowsQuery(sql: postgres.Sql, asset: string): Promise<EtfFlows
  */
 async function positioningQuery(
   sql: postgres.Sql,
-  options: { base: string; assetClass: string; windowHours: number; bucketMinutes: number },
+  options: {
+    base: string;
+    assetClass: AssetClass | null;
+    windowHours: number;
+    bucketMinutes: number;
+  },
 ): Promise<PositioningVenue[]> {
   const { base, assetClass, windowHours, bucketMinutes } = options;
+  // The class asked for, or for an address without one the class with recent figures, crypto first
+  // (as chosenClass picks). The page's own /liquidations/BTC names none.
+  const ofClass = sql`(
+    SELECT asset_class FROM long_short_ratios
+    WHERE base = ${base} AND at > now() - interval '2 hours'
+      AND (${assetClass}::text IS NULL OR asset_class = ${assetClass}::text)
+    GROUP BY asset_class
+    ORDER BY (asset_class = 'crypto') DESC, count(*) DESC, asset_class
+    LIMIT 1)`;
   type Row = {
     venue_id: string;
     at: Date;
@@ -2745,7 +2761,7 @@ async function positioningQuery(
                avg(top_position_long)::float8 AS top_position_long,
                avg(taker_buy)::float8 AS taker_buy
         FROM long_short_ratios
-        WHERE asset_class = ${assetClass} AND base = ${base}
+        WHERE asset_class = ${ofClass} AND base = ${base}
           AND at > now() - make_interval(hours => ${windowHours}::int)
         GROUP BY 1, 2
         ORDER BY 1, 2`,
@@ -2760,7 +2776,7 @@ async function positioningQuery(
                -- One 5-minute period's taker split swings from 10% to 100%; the hour's average reads.
                (avg(taker_buy) FILTER (WHERE at > now() - interval '1 hour'))::float8 AS taker_buy
         FROM long_short_ratios
-        WHERE asset_class = ${assetClass} AND base = ${base} AND at > now() - interval '2 hours'
+        WHERE asset_class = ${ofClass} AND base = ${base} AND at > now() - interval '2 hours'
         GROUP BY venue_id`,
     ]);
     const point = (row: Row): PositioningPoint => ({

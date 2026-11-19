@@ -2588,7 +2588,12 @@ describe("pages", () => {
   });
 
   test("the sides tab shows how each exchange's traders lean, in the collector's venue order", async () => {
-    const asked: { base: string; windowHours: number; bucketMinutes: number }[] = [];
+    const asked: {
+      base: string;
+      assetClass: string | null;
+      windowHours: number;
+      bucketMinutes: number;
+    }[] = [];
     const at = (minutesAgo: number) => new Date(NOW - minutesAgo * 60_000);
     const point = (minutesAgo: number, account: number | null, topPosition: number | null) => ({
       at: at(minutesAgo),
@@ -2637,6 +2642,13 @@ describe("pages", () => {
     expect(sides.match(/class="lqpos-crowd"/g)?.length).toBe(1);
     expect(sides.match(/class="lqpos-whale"/g)?.length).toBe(2);
     expect(sides).toContain("A dash is a figure the exchange does not publish.");
+
+    // An asset's own address names no class (the page's links are /liquidations/BTC): the strip
+    // is still read, for whichever class the figures are held under.
+    asked.length = 0;
+    const own = await tab("/liquidations/BTC", "sides", data);
+    expect(asked).toEqual([{ base: "BTC", assetClass: null, windowHours: 24, bucketMinutes: 15 }]);
+    expect(own).toContain("BTC positioning: the share long on each exchange");
 
     // No figures (or no table yet): no strip at all.
     const { data: none } = fakeData({

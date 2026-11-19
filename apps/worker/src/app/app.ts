@@ -952,8 +952,9 @@ export async function handleApp(request: Request, deps: AppDeps): Promise<Respon
             ]).then(([read, board]) => ({ read, board }))
           : undefined,
         // The Longs vs shorts tab's positioning strip, whenever that tab is drawn. A failed read
-        // leaves the tab without the strip, not the page 500.
-        wantsAsset && wanted?.assetClass && (panel === "sides" || panel === null)
+        // leaves the tab without the strip, not the page 500. An address without a class
+        // (/liquidations/BTC, the page's own links) reads the class the figures are held under.
+        wanted !== null && wantsAsset && (panel === "sides" || panel === null)
           ? deps.data
               .positioning({
                 base: wanted.asset,
