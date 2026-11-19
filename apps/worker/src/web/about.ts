@@ -40,6 +40,14 @@ export interface Release {
 export const CHANGELOG: readonly Release[] = [
   {
     date: "2026-11-19",
+    title: "Chart: the Vietnamese dong against every currency",
+    changes: [
+      "The Vietnamese dong joins the Chart page's FX list: USD/VND, EUR/VND, GBP/VND, CNY/VND, HKD/VND, THB/VND, JPY/VND and the rest, 28 pairs, each worked out from its two dollar rates and quoted every five minutes. Pick VND under FX in the asset list to see them all.",
+      "Rates that sit close to 1, such as CNY/CNH, now show five decimals, so their moves are visible.",
+    ],
+  },
+  {
+    date: "2026-11-19",
     title: "Liquidations: click a bar of the whale map",
     changes: [
       "Clicking a bar of the whale map lists every position that liquidates in its price range, longs and shorts, largest first, in a new first tab under the chart. The tab is named for the range, and its address can be shared.",
