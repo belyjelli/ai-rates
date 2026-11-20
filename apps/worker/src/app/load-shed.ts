@@ -64,10 +64,22 @@ export const DATACENTER_ASNS: ReadonlySet<number> = new Set([
  * Googlebot was shed with the scrapers, and got the busy 503 for every page the cache did not hold:
  * 9,544 of about 22,000 of its fetches in one day, 1,500 an hour for six hours. A search engine that
  * keeps meeting 503s crawls less and drops pages, and search is where the site's readers come from.
+ *
+ * WHY the assistants (2026-11-20). ChatGPT is now among the places new readers come from, and an
+ * assistant cites a page only if its search crawler could index it or its fetcher could open it
+ * while someone asked. Both arrive from cloud networks, so under pressure they met the busy 503 with
+ * the scrapers. Each network below is the one every prefix of the owner's published list sits in,
+ * checked 2026-11-20: openai.com/searchbot.json and chatgpt-user.json all in AS8075 (Microsoft
+ * Azure), perplexity.ai/perplexitybot.json and perplexity-user.json all in AS14618 (Amazon). Their
+ * training crawlers (GPTBot and the like) are not here: robots.txt turns those away. Anthropic's
+ * Claude-User and Claude-SearchBot are not here either: Anthropic publishes no ranges for them
+ * ("service provider public IPs"), so there is no network to pair the name with.
  */
 const SEARCH_CRAWLERS: readonly { asn: number; agent: RegExp }[] = [
   { asn: 15169, agent: /\b(?:Googlebot|Google-InspectionTool|GoogleOther|Storebot-Google)\b/ },
   { asn: 8075, agent: /\bbingbot\b/i },
+  { asn: 8075, agent: /\b(?:OAI-SearchBot|ChatGPT-User)\b/ },
+  { asn: 14618, agent: /\b(?:PerplexityBot|Perplexity-User)\b/ },
 ];
 
 /** Whether the request is a search engine's crawler from that engine's own network. */

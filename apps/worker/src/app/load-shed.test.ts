@@ -75,6 +75,32 @@ describe("isSheddable", () => {
     // The API is shed for a crawler too: it is a program's door, not a page.
     expect(isSheddable(get("/v1/liquidations", googlebot), GOOGLE)).toBe(true);
   });
+
+  test("an assistant's search crawler and fetcher keep the pages from their own networks only", () => {
+    const MICROSOFT = 8075;
+    const AMAZON = 14618;
+    const agent = (name: string) => ({
+      "user-agent": `Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ${name}; +https://example.com/bot`,
+    });
+    const oaiSearch = agent("OAI-SearchBot/1.0");
+    const chatgptUser = agent("ChatGPT-User/1.0");
+    const perplexityBot = agent("PerplexityBot/1.0");
+    const perplexityUser = agent("Perplexity-User/1.0");
+    expect(isSheddable(get("/rates", oaiSearch), MICROSOFT)).toBe(false);
+    expect(isSheddable(get("/chart/BTC", chatgptUser), MICROSOFT)).toBe(false);
+    expect(isSheddable(get("/rates", perplexityBot), AMAZON)).toBe(false);
+    expect(isSheddable(get("/liquidations/BTC", perplexityUser), AMAZON)).toBe(false);
+    // Each name from another cloud is a script wearing it.
+    expect(isSheddable(get("/rates", chatgptUser), ALIBABA)).toBe(true);
+    expect(isSheddable(get("/rates", perplexityBot), MICROSOFT)).toBe(true);
+    expect(isSheddable(get("/rates", oaiSearch), AMAZON)).toBe(true);
+    // A training crawler from the same network is not exempt.
+    expect(isSheddable(get("/rates", agent("GPTBot/1.2")), MICROSOFT)).toBe(true);
+    // Unverifiable: Anthropic publishes no ranges, so Claude-User from a cloud is shed with the rest.
+    expect(isSheddable(get("/rates", agent("Claude-User/1.0")), AMAZON)).toBe(true);
+    // Still no API under pressure.
+    expect(isSheddable(get("/v1/rates", chatgptUser), MICROSOFT)).toBe(true);
+  });
 });
 
 describe("Pressure", () => {
