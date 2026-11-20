@@ -106,6 +106,7 @@ describe("reaction strip", () => {
     spot: 82_646,
     regime: exposure(),
     stats: STATS,
+    record: null,
     live: "gamma-zones",
   });
 
