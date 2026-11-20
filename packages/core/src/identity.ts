@@ -120,7 +120,11 @@ export function nearPowerOfTen(ratio: number, tolerance = SCALE_TOLERANCE): numb
   const lg = Math.log10(ratio);
   const exponent = Math.round(lg);
   if (exponent === 0) return null;
-  return Math.abs(lg - exponent) <= Math.log10(1 + tolerance) ? exponent : null;
+  // The edge is inclusive on every engine. A ratio exactly `tolerance` off -- the BB markets' 0.00105
+  // against 1/1000 -- lands on one side of log10(1 + tolerance) or the other by the last bit of
+  // Math.log10, and engines round it differently: Bun 1.4 accepted it, Bun 1.3 (CI) and V8 (Workers)
+  // did not (2026-11-20). The 1e-12 is far below any real distance from the edge.
+  return Math.abs(lg - exponent) <= Math.log10(1 + tolerance) + 1e-12 ? exponent : null;
 }
 
 /**
