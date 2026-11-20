@@ -101,6 +101,45 @@ describe("isSheddable", () => {
     // Still no API under pressure.
     expect(isSheddable(get("/v1/rates", chatgptUser), MICROSOFT)).toBe(true);
   });
+
+  test("a desktop Chrome months out of date is shed from a home connection too: the 2026-11-20 scraper", () => {
+    const day = Date.UTC(2026, 10, 20, 16);
+    const mac = (v: number) => ({
+      "user-agent": `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v}.0.0.0 Safari/537.36`,
+    });
+    const windows = (v: number) => ({
+      "user-agent": `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${v}.0.0.0 Safari/537.36`,
+    });
+    // The scraper's agents, from 123 up to 146.
+    for (const v of [123, 131, 136, 142, 145, 146]) {
+      expect([
+        v,
+        isSheddable(get("/liquidations/equity/SOXL", mac(v)), HOME_BROADBAND, day),
+      ]).toEqual([v, true]);
+    }
+    // Readers that day ran 150 to 158, on any desktop.
+    for (const v of [150, 153, 154, 158]) {
+      expect([v, isSheddable(get("/liquidations/BTC", mac(v)), HOME_BROADBAND, day)]).toEqual([
+        v,
+        false,
+      ]);
+      expect(isSheddable(get("/rates", windows(v)), HOME_BROADBAND, day)).toBe(false);
+    }
+    // A phone's Chrome can lag on purpose (Samsung Internet, in-app browsers): never by version.
+    const samsung = {
+      "user-agent":
+        "Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/27.0 Chrome/125.0.0.0 Mobile Safari/537.36",
+    };
+    expect(isSheddable(get("/liquidations/BTC", samsung), HOME_BROADBAND, day)).toBe(false);
+    // Not Chrome at all.
+    const safari = {
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Safari/605.1.15",
+    };
+    expect(isSheddable(get("/liquidations/BTC", safari), HOME_BROADBAND, day)).toBe(false);
+    // The line moves with time: a year on, 150 is as stale as 142 was.
+    expect(isSheddable(get("/rates", mac(150)), HOME_BROADBAND, Date.UTC(2027, 10, 20))).toBe(true);
+  });
 });
 
 describe("Pressure", () => {

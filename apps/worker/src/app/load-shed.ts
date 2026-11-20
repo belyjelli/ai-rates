@@ -15,7 +15,9 @@
  *   - the API (`/v1/*`), the MCP and A2A endpoints, and pages asked for as Markdown: callers are
  *     programs, which retry;
  *   - any request from a cloud provider's network (DATACENTER_ASNS): where scrapers run, and where a
- *     person browsing almost never is -- except a search engine's own crawler (`isSearchCrawler`).
+ *     person browsing almost never is -- except a search engine's own crawler (`isSearchCrawler`);
+ *   - a desktop Chrome months out of date (`staleDesktopChrome`): a scraper on rented home
+ *     connections, which the network rule cannot see.
  * They get the page cache's copy if it has one, however stale (up to its keep-for hour), or the
  * render with the database refused, which answers 503 with a Retry-After without touching it. Routes
  * that read nothing still answer. Nothing a shed request renders is stored.
@@ -89,14 +91,49 @@ export function isSearchCrawler(request: Request, asn: number | undefined): bool
   return SEARCH_CRAWLERS.some((crawler) => crawler.asn === asn && crawler.agent.test(agent));
 }
 
+/**
+ * Chrome's version on a given day, estimated from one known release and Chrome's pace: a new major
+ * every four weeks, about thirty days apart once the skipped holiday weeks are counted. It runs a
+ * version or two behind the real one, which only makes `staleDesktopChrome` more lenient.
+ */
+const CHROME_KNOWN = { major: 140, at: Date.UTC(2025, 8, 2) }; // Chrome 140 stable, 2025-09-02
+const CHROME_PACE_MS = 30 * 24 * 3600 * 1000;
+/** How many majors behind a desktop Chrome must be to count as a script: about eight months. */
+const STALE_MAJORS = 8;
+
+/**
+ * Whether the agent claims a desktop Chrome months older than any that still updates itself.
+ *
+ * WHY (2026-11-20). From 16:00 to 18:15 UTC a scraper walked /liquidations/<asset> at six times the
+ * site's usual traffic -- up to 64,000 requests in fifteen minutes -- and took every page down: each
+ * asset page is one the cache does not hold, so each request went to the database. It came from home
+ * connections in many countries (rented residential proxies, so DATACENTER_ASNS never saw it) and
+ * named itself "Macintosh; Intel Mac OS X 10_15_7 ... Chrome/123" up to Chrome/146: eight months to
+ * over two years old on that day. Desktop Chrome updates itself, so a reader that far behind is
+ * rare; a scraper's list of agents is not. Phones are left out: Samsung Internet and in-app
+ * browsers carry an older Chrome on purpose.
+ */
+export function staleDesktopChrome(agent: string, now: number): boolean {
+  if (!/\b(?:Macintosh|Windows NT|X11)\b/.test(agent) || /\bMobile\b/.test(agent)) return false;
+  const version = /\bChrome\/(\d+)\./.exec(agent);
+  if (!version) return false;
+  const current = CHROME_KNOWN.major + Math.floor((now - CHROME_KNOWN.at) / CHROME_PACE_MS);
+  return Number(version[1]) <= current - STALE_MAJORS;
+}
+
 /** Whether a request is one to answer from the cache while the database is under pressure. */
-export function isSheddable(request: Request, asn: number | undefined): boolean {
+export function isSheddable(
+  request: Request,
+  asn: number | undefined,
+  now: number = Date.now(),
+): boolean {
   const path = new URL(request.url).pathname;
   if (path === "/v1" || path.startsWith("/v1/") || path === MCP_PATH || path === A2A_PATH) {
     return true;
   }
   if (wantsMarkdown(request.headers.get("accept"))) return true;
-  return asn !== undefined && DATACENTER_ASNS.has(asn) && !isSearchCrawler(request, asn);
+  if (asn !== undefined && DATACENTER_ASNS.has(asn) && !isSearchCrawler(request, asn)) return true;
+  return staleDesktopChrome(request.headers.get("user-agent") ?? "", now);
 }
 
 /** The error a shed render's database refuses with. */
