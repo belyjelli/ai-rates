@@ -2602,7 +2602,11 @@ async function holdingsQuery(
     ]);
     const holdings: Holdings = {};
     for (const r of rows) {
-      const h = (holdings[r.market_id] ??= { now: [null, null], d1: [null, null] });
+      let h = holdings[r.market_id];
+      if (!h) {
+        h = { now: [null, null], d1: [null, null] };
+        holdings[r.market_id] = h;
+      }
       const sum = {
         holders: r.holders,
         shares: r.shares,
